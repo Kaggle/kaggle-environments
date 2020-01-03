@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2019 Kaggle Inc
+# Copyright 2020 Kaggle Inc
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +15,24 @@
 # limitations under the License.
 # coding=utf-8
 from setuptools import setup, find_packages
+from kaggle_environments import version
+
+with open("README.md", "r") as f:
+    long_description = f.read()
 
 setup(
     name='kaggle-environments',
-    version='0.0.1',
+    version=version,
     description='Kaggle Environments',
-    # TODO: Set this
-    long_description=(''),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Kaggle',
     author_email='support@kaggle.com',
     url='https://github.com/Kaggle/kaggle-environments',
     keywords=['Kaggle'],
-    entry_points={'console_scripts': ['kaggle-environments = kaggle_environments.main:main']},
-    install_requires=[],
+    entry_points={'console_scripts': [
+        'kaggle-environments = kaggle_environments.main:main']},
+    install_requires=["jsonschema >= 3.0.1"],
     packages=find_packages(),
+    python_requires='>=3.7',
     license='Apache 2.0')
-

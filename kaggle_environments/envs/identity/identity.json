@@ -1,0 +1,40 @@
+{
+  "name": "identity",
+  "title": "Identity",
+  "description": "Used for debugging. Agent action is set as their reward.",
+  "version": "1.0.0",
+  "agents": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "configuration": {
+    "max": {
+      "description": "The highest number allowed for an action.",
+      "type": "integer",
+      "default": 1000,
+      "minimum": 1
+    },
+    "min": {
+      "description": "The lowest number allowed for an action.",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0
+    },
+    "noise": {
+      "description": "Noise added to the reward.",
+      "type": "number",
+      "default": 0
+    }
+  },
+  "reward": {
+    "description": "The value of the agent action is set as: action + gauss * noise.",
+    "type": "integer"
+  },
+  "observation": {},
+  "action": {
+    "description": "The number to return as a reward.",
+    "type": "integer",
+    "minimum": 0,
+    "default": 0
+  },
+  "reset": {
+    "status": "ACTIVE"
+  }
+}
