@@ -263,6 +263,64 @@ class Environment:
             raise InvalidArgument(
                 "Available render modes: human, ansi, html, ipython")
 
+    def train(self, agents=[]):
+        """
+        Setup a lightweight training environment for a single agent.
+        Note: This is designed to be a lightweight starting point which can
+              be integrated with other frameworks (i.e. gym, stable-baselines).
+
+        Example:
+            env = make("tictactoe")
+            # Training agent in first position (player 1) against the default random agent.
+            reset, step = env.train([None, "random"])
+
+            obs = reset()
+            done = False
+            while not done:
+                action = 0 # Action for the agent being trained.
+                obs, reward, done, info = step(action)
+            env.render()
+
+        Args:
+            agents (list): List of agents to obtain actions from while training.
+                           The agent to train (in position), should be set to "None".
+
+        Returns:
+            `tuple`[0]: Reset def that reset the environment, then advances until the agents turn.
+            `tuple`[1]: Steps using the agent action, then advance until agents turn again.
+        """
+        position = None
+        for index, agent in enumerate(agents):
+            if agent == None:
+                if position != None:
+                    raise InvalidArgument(
+                        "Only one agent can be marked 'None'")
+                position = index
+
+        if position == None:
+            raise InvalidArgument("One agent must be marked 'None' to train.")
+
+        def advance():
+            while not self.done and self.state[position].status == "INACTIVE":
+                self.step(self.__get_actions(agents=self.agents))
+
+        def reset():
+            self.reset(len(agents))
+            advance()
+            return self.state[position].observation
+
+        def step(action):
+            self.step(self.__get_actions(agents=agents, none_action=action))
+            advance()
+            agent = self.state[position]
+            return [
+                agent.observation, agent.reward, agent.status != "ACTIVE", agent.info
+            ]
+
+        reset()
+
+        return (reset, step)
+
     @property
     def name(self):
         """str: The name from the specification."""

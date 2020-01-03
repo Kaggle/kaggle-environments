@@ -1,0 +1,5 @@
+include LICENSE
+recursive-include kaggle_environments/ *.py
+recursive-include kaggle_environments/ *.html
+recursive-include kaggle_environments/ *.js
+recursive-include kaggle_environments/ *.json

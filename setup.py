@@ -34,5 +34,6 @@ setup(
         'kaggle-environments = kaggle_environments.main:main']},
     install_requires=["jsonschema >= 3.0.1"],
     packages=find_packages(),
-    python_requires='>=3.7',
+    include_package_data=True,
+    python_requires='>=3.6',
     license='Apache 2.0')
