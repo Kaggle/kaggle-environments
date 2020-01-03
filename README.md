@@ -1,10 +1,10 @@
 # [<img src="https://kaggle.com/static/images/site-logo.png" height="50" style="margin-bottom:-15px" />](https://kaggle.com) Environments
 
-> **ALPHA RELEASE** - Breaking changes may be introduced!
-
 ```bash
 pip install kaggle-environments
 ```
+
+**BETA RELEASE** - Breaking changes may be introduced!
 
 ## TLDR;
 

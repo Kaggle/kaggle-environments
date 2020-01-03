@@ -168,9 +168,11 @@ def http_request(request):
     args = {**params, **body}
     return (action_handler(args), 200, headers)
 
-
-if __name__ == "__main__":
+def main():
     args = parser.parse_args()
     if args.action == "http-server":
         action_http(args)
     print(action_handler(vars(args)))
+
+if __name__ == "__main__":
+    main()

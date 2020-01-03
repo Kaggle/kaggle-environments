@@ -1,0 +1,4 @@
+gym
+jsonschema
+numpy
+scipy

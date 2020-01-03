@@ -272,13 +272,13 @@ class Environment:
         Example:
             env = make("tictactoe")
             # Training agent in first position (player 1) against the default random agent.
-            reset, step = env.train([None, "random"])
+            trainer = env.train([None, "random"])
 
-            obs = reset()
+            obs = trainer.reset()
             done = False
             while not done:
                 action = 0 # Action for the agent being trained.
-                obs, reward, done, info = step(action)
+                obs, reward, done, info = trainer.step(action)
             env.render()
 
         Args:
@@ -286,8 +286,8 @@ class Environment:
                            The agent to train (in position), should be set to "None".
 
         Returns:
-            `tuple`[0]: Reset def that reset the environment, then advances until the agents turn.
-            `tuple`[1]: Steps using the agent action, then advance until agents turn again.
+            `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
+            `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
         position = None
         for index, agent in enumerate(agents):
@@ -319,7 +319,7 @@ class Environment:
 
         reset()
 
-        return (reset, step)
+        return structify({"step": step, "reset": reset})
 
     @property
     def name(self):
