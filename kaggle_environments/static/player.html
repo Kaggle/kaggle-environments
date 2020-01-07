@@ -53,7 +53,6 @@
       };
     </script>
     <script src="https://unpkg.com/styled-components@3.5.0-0/dist/styled-components.min.js"></script>
-    <link rel="canonical" href="someurl" />
   </head>
   <body>
     <script>
@@ -127,13 +126,15 @@
 
       const Viewer = styled(props => {
         const {
+          agents,
           animate,
           debug,
+          environment,
           playing,
           renderer,
           step,
           speed,
-          environment,
+          update,
         } = useContext(Context);
         const ref = preact.createRef();
         const stepRef = useRef(-1);
@@ -155,6 +156,7 @@
             try {
               if (debug) console.time("render");
               await renderer({
+                agents,
                 parent: ref.current,
                 environment,
                 step,
@@ -164,6 +166,7 @@
                 styled,
                 preact,
                 hooks: preactHooks,
+                update,
               });
             } catch (e) {
               console.log(
@@ -203,6 +206,50 @@
         overflow: auto;
         position: relative;
         width: 100%;
+      `;
+
+      const Legend = styled(props => {
+        const { agents, legend } = useContext(Context);
+
+        return h`<div className=${props.className}>
+          <ul>
+            ${agents
+              .sort((a, b) => b.index - a.index)
+              .map(a => {
+                const name =
+                  a.name.length > 15 ? a.name.substr(0, 14) + "…" : a.name;
+                return h`<li key=${a.id} title="id: ${
+                  a.id
+                }" style="color:${a.color || "#FFF"}">${a.image &&
+                  h`<img src=${a.image} />`}${name}</li>`;
+              })}
+          </ul>
+        </div>`;
+      })`
+        background-color: #000b2a;
+        font-family: sans-serif;
+        font-size: 14px;
+        width: 100%;
+
+        ul {
+          align-items: center;
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+        }
+
+        li {
+          align-items: center;
+          display: inline-flex;
+          padding: 8px;
+          transition: color 1s;
+        }
+
+        img {
+          height: 24px;
+          margin-right: 4px;
+          width: 24px;
+        }
       `;
 
       const StepInput = styled.input.attrs({
@@ -358,12 +405,13 @@
 
       const Player = styled(props => {
         const context = useContext(Context);
-        const { controls, header, loading, settings } = context;
+        const { agents, controls, header, legend, loading, settings } = context;
         return h`
           <div className=${props.className}>
             ${loading && h`<${Loading} />`}
             ${!loading && header && h`<${Header} />`}
             ${!loading && h`<${Viewer} />`}
+            ${!loading && agents.length > 0 && legend && h`<${Legend} />`}
             ${!loading && controls && h`<${Controls} />`}
             ${!loading && settings && h`<${Settings} />`}
           </div>`;
@@ -386,10 +434,12 @@
 
         const contextRef = useRef({
           animate: false,
+          agents: [],
           autoplay: false,
           controls: false,
           debug: false,
           header: window.innerHeight >= 600,
+          legend: true,
           loading: false,
           environment: { steps: [] },
           playing: false,
@@ -478,6 +528,9 @@
         if (contextRef.current.debug) {
           console.log("context", contextRef.current);
         }
+
+        // Ability to update context.
+        contextRef.current.update = updateContext;
 
         return h`
           <${Context.Provider} value=${contextRef.current}>

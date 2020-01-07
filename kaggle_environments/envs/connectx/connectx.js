@@ -16,9 +16,11 @@ function renderer({
   parent,
   step,
   frame,
+  agents,
   environment,
   width = 400,
   height = 400,
+  update,
 }) {
   // Canvas Setup.
   let canvas = parent.querySelector("canvas");
@@ -62,7 +64,7 @@ function renderer({
   );
 
   // Canvas setup and reset.
-  const c = canvas.getContext("2d");
+  let c = canvas.getContext("2d");
   canvas.width = width;
   canvas.height = height;
   c.fillStyle = "#000B2A";
@@ -276,5 +278,29 @@ function renderer({
         break;
       }
     }
+  }
+
+  // Upgrade the legend.
+  if (agents.length && (!agents[0].color || !agents[0].image)) {
+    const getPieceImage = mark => {
+      const pieceCanvas = document.createElement("canvas");
+      parent.appendChild(pieceCanvas);
+      pieceCanvas.style.marginLeft = "10000px";
+      pieceCanvas.width = 100;
+      pieceCanvas.height = 100;
+      c = pieceCanvas.getContext("2d");
+      c.translate(10, 10);
+      c.scale(0.8, 0.8);
+      drawPiece(mark);
+      const dataUrl = pieceCanvas.toDataURL();
+      parent.removeChild(pieceCanvas);
+      return dataUrl;
+    };
+
+    agents.forEach(agent => {
+      agent.color = getColor(agent.index + 1);
+      agent.image = getPieceImage(agent.index + 1);
+    });
+    update({ agents });
   }
 }
