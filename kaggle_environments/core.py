@@ -302,7 +302,7 @@ class Environment:
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                self.step(self.__get_actions(agents=self.agents))
+                self.step(self.__get_actions(agents=agents))
 
         def reset():
             self.reset(len(agents))
