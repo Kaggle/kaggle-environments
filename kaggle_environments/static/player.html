@@ -30,11 +30,6 @@
         font-family: sans-serif;
       }
       canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
         /* image-rendering: -moz-crisp-edges;
         image-rendering: -webkit-crisp-edges;
         image-rendering: pixelated;
@@ -519,6 +514,30 @@
                     updateContext(event.data);
                   }
                 } catch {}
+              },
+              false
+            );
+            // Listen for keyboard commands.
+            window.addEventListener(
+              "keyup",
+              event => {
+                const { playing, step, environment } = contextRef.current;
+                const key = event.keyCode;
+                if (key !== 32 && key !== 37 && key !== 39) return;
+
+                if (key === 32) {
+                  playing ? pause() : play();
+                } else if (event.keyCode === 39) {
+                  contextRef.current.playing = false;
+                  if (step < environment.steps.length - 1) setStep(step + 1);
+                  rerender();
+                } else if (event.keyCode === 37) {
+                  contextRef.current.playing = false;
+                  if (step > 0) setStep(step - 1);
+                  rerender();
+                }
+                event.preventDefault();
+                return false;
               },
               false
             );
