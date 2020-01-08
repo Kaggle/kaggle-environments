@@ -214,7 +214,7 @@
         return h`<div className=${props.className}>
           <ul>
             ${agents
-              .sort((a, b) => b.index - a.index)
+              .sort((a, b) => a.index - b.index)
               .map(a => {
                 const name =
                   a.name.length > 15 ? a.name.substr(0, 14) + "…" : a.name;

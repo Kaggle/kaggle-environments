@@ -13,12 +13,14 @@
 // limitations under the License.
 
 function renderer({
+  agents,
   parent,
   step,
   frame,
   environment,
   width = 400,
   height = 400,
+  update,
 }) {
   // Canvas Setup.
   let canvas = parent.querySelector("canvas");
@@ -38,7 +40,7 @@ function renderer({
   const cellSize = (canvasSize - offset * 2) / 3;
 
   // Canvas setup and reset.
-  const c = canvas.getContext("2d");
+  let c = canvas.getContext("2d");
   canvas.width = canvasSize;
   canvas.height = canvasSize;
   c.clearRect(0, 0, canvas.width, canvas.height);
@@ -237,5 +239,27 @@ function renderer({
       }
       break;
     }
+  }
+
+  // Upgrade the legend.
+  if (agents.length && (!agents[0].color || !agents[0].image)) {
+    const getPieceImage = drawFn => {
+      const pieceCanvas = document.createElement("canvas");
+      parent.appendChild(pieceCanvas);
+      pieceCanvas.style.marginLeft = "10000px";
+      pieceCanvas.width = cellSize + offset * 2;
+      pieceCanvas.height = cellSize + offset * 2;
+      c = pieceCanvas.getContext("2d");
+      drawFn(0, 1);
+      const dataUrl = pieceCanvas.toDataURL();
+      parent.removeChild(pieceCanvas);
+      return dataUrl;
+    };
+
+    agents.forEach(agent => {
+      agent.color = agent.index === 0 ? "#0FF" : "#FFF";
+      agent.image = getPieceImage(agent.index === 0 ? drawX : drawO);
+    });
+    update({ agents });
   }
 }
