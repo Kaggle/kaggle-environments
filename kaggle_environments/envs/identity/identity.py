@@ -47,10 +47,13 @@ def interpreter(state, env):
 
     # Validate and assign actions as rewards !(min <= action <= max).
     for agent in state:
-        if agent.action < env.configuration.min or agent.action > env.configuration.max:
-            agent.status = f"Invalid action: {agent.action}"
+        value = 0
+        if isinstance(agent.action, (int, float)):
+            value = agent.action
+        if value < env.configuration.min or value > env.configuration.max:
+            agent.status = f"Invalid action: {value}"
         else:
-            agent.reward = agent.action + \
+            agent.reward = value + \
                 gauss(0, 1) * env.configuration.noise // 1
             agent.status = "DONE"
 

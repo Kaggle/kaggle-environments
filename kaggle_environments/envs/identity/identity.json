@@ -29,10 +29,8 @@
   },
   "observation": {},
   "action": {
-    "description": "The number to return as a reward.",
-    "type": "integer",
-    "minimum": 0,
-    "default": 0
+    "description": "Reward = action if number, otherwise 0.",
+    "type": ["number", "string", "null"]
   },
   "reset": {
     "status": "ACTIVE"
