@@ -17,7 +17,7 @@ from os import listdir
 from .core import *
 from . import utils
 
-version = "0.1.5"
+version = "0.1.6"
 
 __all__ = ["environments", "evaluate", "make", "register", "utils", "version"]
 

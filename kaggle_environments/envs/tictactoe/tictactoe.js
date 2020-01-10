@@ -12,32 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-function renderer({
-  agents,
-  parent,
-  step,
-  frame,
-  environment,
-  width = 400,
-  height = 400,
-  update,
-}) {
-  // Canvas Setup.
-  let canvas = parent.querySelector("canvas");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    parent.appendChild(canvas);
-
-    canvas.addEventListener("click", () => {
-      console.log("canvas click");
-    });
-  }
+async function renderer(context) {
+  const {
+    act,
+    agents,
+    environment,
+    frame,
+    height = 400,
+    interactive,
+    isInteractive,
+    parent,
+    step,
+    update,
+    width = 400,
+  } = context;
 
   // Common Dimensions.
   const canvasSize = Math.min(height, width);
   const unit = 8;
   const offset = canvasSize > 400 ? canvasSize * 0.1 : unit / 2;
   const cellSize = (canvasSize - offset * 2) / 3;
+
+  // Canvas Setup.
+  let canvas = parent.querySelector("canvas");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    parent.appendChild(canvas);
+
+    if (interactive) {
+      canvas.addEventListener("click", evt => {
+        if (!isInteractive()) return;
+        const rect = evt.target.getBoundingClientRect();
+        const x = evt.clientX - rect.left - offset;
+        const y = evt.clientY - rect.top - offset;
+        act(Math.floor(x / cellSize) + Math.floor(y / cellSize) * 3);
+      });
+    }
+  }
+  canvas.style.cursor = isInteractive() ? "pointer" : "default";
 
   // Canvas setup and reset.
   let c = canvas.getContext("2d");

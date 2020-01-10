@@ -14,11 +14,15 @@
 
 import copy
 import json
+import uuid
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify, timeout
 
 # Registered Environments.
 environments = {}
+
+# Registered Interactive Sessions.
+interactives = {}
 
 
 def register(name, environment):
@@ -90,6 +94,7 @@ class Environment:
         html_renderer=None,
         debug=False,
     ):
+        self.id = str(uuid.uuid1())
         self.debug = debug
 
         err, specification = self.__process_specification(specification)
@@ -263,6 +268,21 @@ class Environment:
             raise InvalidArgument(
                 "Available render modes: human, ansi, html, ipython")
 
+    def play(self, agents=[], **kwargs):
+        """
+        Renders a visual representation of the environment and allows interactive action selection.
+
+        Args:
+            **kwargs (dict): Args directly passed into render().  Mode is fixed to ipython.
+
+        Returns:
+            None: prints directly to an IPython notebook
+        """
+        env = self.clone()
+        trainer = env.train(agents)
+        interactives[env.id] = (env, trainer)
+        env.render(mode="ipython", interactive=True, **kwargs)
+
     def train(self, agents=[]):
         """
         Setup a lightweight training environment for a single agent.
@@ -344,6 +364,7 @@ class Environment:
         spec = self.specification
         return copy.deepcopy(
             {
+                "id": self.id,
                 "name": spec.name,
                 "title": spec.title,
                 "description": spec.description,
@@ -363,6 +384,22 @@ class Environment:
                 "statuses": [state.status for state in self.steps[-1]],
                 "schema_version": 1,
             }
+        )
+
+    def clone(self):
+        """
+        Returns:
+            Environment: A copy of the current environment.
+        """
+        return Environment(
+            specification=self.specification,
+            configuration=self.configuration,
+            steps=self.steps,
+            agents=self.agents,
+            interpreter=self.interpreter,
+            renderer=self.renderer,
+            html_renderer=self.html_renderer,
+            debug=self.debug,
         )
 
     @property

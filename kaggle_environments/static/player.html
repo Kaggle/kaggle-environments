@@ -119,27 +119,16 @@
         width: 100%;
       `;
 
-      const Viewer = styled(props => {
-        const {
-          agents,
-          animate,
-          debug,
-          environment,
-          playing,
-          renderer,
-          step,
-          speed,
-          update,
-        } = useContext(Context);
+      const Renderer = styled(props => {
+        const context = useContext(Context);
+        const { animate, debug, playing, renderer, speed } = context;
         const ref = preact.createRef();
-        const stepRef = useRef(-1);
-        stepRef.current = step;
 
         useEffect(async () => {
           if (!ref.current) return;
 
-          const renderFrame = async (start, startStep, lastFrame) => {
-            if (startStep !== stepRef.current) return;
+          const renderFrame = async (start, step, lastFrame) => {
+            if (step !== context.step) return;
             if (lastFrame === 1) {
               if (!animate) return;
               start = Date.now();
@@ -151,54 +140,69 @@
             try {
               if (debug) console.time("render");
               await renderer({
-                agents,
-                parent: ref.current,
-                environment,
-                step,
+                ...context,
                 frame,
-                width: ref.current.clientWidth,
                 height: ref.current.clientHeight,
-                styled,
-                preact,
                 hooks: preactHooks,
-                update,
+                parent: ref.current,
+                preact,
+                styled,
+                width: ref.current.clientWidth,
               });
-            } catch (e) {
-              console.log(
-                "Frame:",
-                frame,
-                "Step:",
-                step,
-                "Environment:",
-                environment,
-                "Error:",
-                e
-              );
+            } catch (error) {
+              console.log({ ...context, frame, error });
             } finally {
               if (debug) console.timeEnd("render");
             }
-            window.requestAnimationFrame(() =>
-              renderFrame(start, startStep, frame)
-            );
+            window.requestAnimationFrame(() => renderFrame(start, step, frame));
           };
 
-          await renderFrame(Date.now(), stepRef.current);
-        }, [ref.current, step]);
+          await renderFrame(Date.now(), context.step);
+        }, [ref.current, context.step, context.renderer]);
 
         return h`<div className=${props.className} ref=${ref} />`;
       })`
         align-items: center;
+        box-sizing: border-box;
+        display: flex;
+        height: 100%;
+        left: 0;
+        justify-content: center;
+        position: absolute;
+        top: 0;
+        width: 100%;
+      `;
+
+      const Processing = styled(props => {
+        const { processing } = useContext(Context);
+        return h`<div className=${props.className}>Processing...</div>`;
+      })`
+        bottom: 0;
+        color: #fff;
+        font-size: 12px;
+        left: 0;
+        line-height: 24px;
+        position: absolute;
+        text-align: center;
+        width: 100%;
+      `;
+
+      const Viewer = styled(props => {
+        const { processing } = useContext(Context);
+        return h`<div className=${props.className}>
+          <${Renderer} />
+          ${processing && h`<${Processing} />`}
+        </div>`;
+      })`
         background-color: #000b2a;
         background-image: radial-gradient(
           circle closest-side,
           #000b49,
           #000b2a
         );
-        box-sizing: border-box;
         display: flex;
         flex: 1;
-        justify-content: center;
-        overflow: auto;
+        overflow: hidden;
         position: relative;
         width: 100%;
       `;
@@ -433,11 +437,13 @@
           autoplay: false,
           controls: false,
           debug: false,
+          environment: { steps: [] },
           header: window.innerHeight >= 600,
+          interactive: false,
           legend: true,
           loading: false,
-          environment: { steps: [] },
           playing: false,
+          processing: false,
           renderer: () => "DNE",
           settings: false,
           speed: 500,
@@ -550,6 +556,63 @@
 
         // Ability to update context.
         contextRef.current.update = updateContext;
+
+        // Ability to communicate with ipython.
+        const execute = (contextRef.current.execute = source =>
+          new Promise((resolve, reject) => {
+            try {
+              window.parent.IPython.notebook.kernel.execute(source, {
+                iopub: {
+                  output: resp => {
+                    const type = resp.msg_type;
+                    if (type === "stream") return resolve(resp.content.text);
+                    if (type === "error") return reject(new Error(resp.evalue));
+                    return reject(new Error("Unknown message type: " + type));
+                  },
+                },
+              });
+            } catch (e) {
+              reject(new Error("IPython Unavailable: " + e));
+            }
+          }));
+
+        // Ability to return an action from an interactive session.
+        contextRef.current.act = action => {
+          const id = contextRef.current.environment.id;
+          updateContext({ processing: true });
+          execute(`
+            import json
+            from kaggle_environments import interactives
+            if "${id}" in interactives:
+                action = json.loads('${JSON.stringify(action)}')
+                env, trainer = interactives["${id}"]
+                trainer.step(action)
+                print(json.dumps(env.steps))`)
+            .then(resp => {
+              try {
+                updateContext({
+                  processing: false,
+                  environment: { steps: JSON.parse(resp) },
+                });
+                play();
+              } catch (e) {
+                console.error(resp, e);
+              }
+            })
+            .catch(e => console.error(e));
+        };
+
+        // Check if currently interactive.
+        contextRef.current.isInteractive = () => {
+          const context = contextRef.current;
+          const steps = context.environment.steps;
+          return (
+            context.interactive &&
+            !context.processing &&
+            context.step === steps.length - 1 &&
+            steps[context.step].some(s => s.status === "ACTIVE")
+          );
+        };
 
         return h`
           <${Context.Provider} value=${contextRef.current}>

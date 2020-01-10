@@ -13,26 +13,18 @@
 // limitations under the License.
 
 function renderer({
-  parent,
-  step,
-  frame,
+  act,
   agents,
   environment,
-  width = 400,
+  frame,
   height = 400,
+  interactive,
+  isInteractive,
+  parent,
+  step,
   update,
+  width = 400,
 }) {
-  // Canvas Setup.
-  let canvas = parent.querySelector("canvas");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    parent.appendChild(canvas);
-
-    canvas.addEventListener("click", () => {
-      console.log("canvas click");
-    });
-  }
-
   // Configuration.
   const { rows, columns, inarow } = environment.configuration;
 
@@ -48,6 +40,23 @@ function renderer({
   const pieceScale = cellSize / 100;
   const xOffset = Math.max(0, (width - cellSize * columns) / 2);
   const yOffset = Math.max(0, (height - cellSize * rows) / 2);
+
+  // Canvas Setup.
+  let canvas = parent.querySelector("canvas");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    parent.appendChild(canvas);
+
+    if (interactive) {
+      canvas.addEventListener("click", evt => {
+        if (!isInteractive()) return;
+        const rect = evt.target.getBoundingClientRect();
+        const col = Math.floor((evt.clientX - rect.left - xOffset) / cellSize);
+        if (col >= 0 && col < columns) act(col);
+      });
+    }
+  }
+  canvas.style.cursor = isInteractive() ? "pointer" : "default";
 
   // Character Paths (based on 100x100 tiles).
   const kPath = new Path2D(
