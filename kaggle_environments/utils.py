@@ -66,12 +66,14 @@ def has(o, classinfo=None, default=None, path=[], is_callable=None):
             cur[path[-1]] = default
         return False
 
+
 def call(o, default=None, path=[], args=[], kwargs={}):
     o = get(o, default=False, path=path, is_callable=True)
     if o != False:
         return o(*args, **kwargs)
     else:
         return default
+
 
 class Struct(dict):
     def __init__(self, **entries):
@@ -127,17 +129,18 @@ def read_file(path, fallback=None):
 
 
 def get_exec(raw, fallback=None):
+    orig_out = sys.stdout
     buffer = StringIO()
     sys.stdout = buffer
     try:
         code_object = compile(raw, "<string>", "exec")
         env = {}
         exec(code_object, env)
-        sys.stdout = sys.__stdout__
+        sys.stdout = orig_out
         print(buffer.getvalue())
         return env
     except Exception as e:
-        sys.stdout = sys.__stdout__
+        sys.stdout = orig_out
         print(buffer.getvalue())
         if fallback != None:
             return fallback
@@ -230,4 +233,3 @@ window.kaggle.renderer = {renderer.strip()};\n\n
     return read_file(Path.joinpath(root_path, "static", "player.html")).replace(
         key, value
     )
-
