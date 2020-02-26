@@ -214,14 +214,11 @@
           <ul>
             ${agents
               .sort((a, b) => a.index - b.index)
-              .map(a => {
-                const name =
-                  a.name.length > 15 ? a.name.substr(0, 14) + "…" : a.name;
-                return h`<li key=${a.id} title="id: ${
+              .map(a => h`<li key=${a.id} title="id: ${
                   a.id
                 }" style="color:${a.color || "#FFF"}">${a.image &&
-                  h`<img src=${a.image} />`}${name}</li>`;
-              })}
+                  h`<img src=${a.image} />`}<span>${a.name}</span></li>`
+              )}
           </ul>
         </div>`;
       })`
@@ -242,6 +239,13 @@
           display: inline-flex;
           padding: 8px;
           transition: color 1s;
+        }
+
+        span {
+          max-width: 100px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         img {
