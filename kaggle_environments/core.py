@@ -164,7 +164,6 @@ class Environment:
                 if err:
                     self.__debug_print(f"Invalid Action: {str(err)}")
                     action_state[index]["status"] = "INVALID"
-                    action_state[index]["action"] = action
                 else:
                     action_state[index]["action"] = data
 
