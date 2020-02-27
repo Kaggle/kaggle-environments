@@ -170,7 +170,7 @@ def interpreter(state, env):
     if is_win(board, column, active.observation.mark, env.configuration):
         active.reward = 1
         active.status = "DONE"
-        inactive.reward = 0
+        inactive.reward = -1
         inactive.status = "DONE"
         return state
 

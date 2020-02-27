@@ -51,7 +51,7 @@ def test_to_json():
     before_each()
     json = env.toJSON()
     assert json["name"] == "tictactoe"
-    assert json["rewards"] == [0.5, 0.5]
+    assert json["rewards"] == [0, 0]
     assert json["statuses"] == ["ACTIVE", "INACTIVE"]
     assert json["specification"]["reward"]["type"] == ["number", "null"]
 
@@ -64,14 +64,14 @@ def test_can_reset():
             "status": "ACTIVE",
             "info": {},
             "observation": {"mark": 1, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 0,
             "status": "INACTIVE",
             "info": {},
             "observation": {"mark": 2, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -85,14 +85,14 @@ def test_can_place_valid_mark():
             "status": "INACTIVE",
             "info": {},
             "observation": {"mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 0,  # None caused the default action to be applied.
             "status": "ACTIVE",
             "info": {},
             "observation": {"mark": 2, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -108,7 +108,7 @@ def test_can_place_invalid_mark():
             "status": "DONE",
             "info": {},
             "observation": {"mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 4,
@@ -137,7 +137,7 @@ def test_can_place_winning_mark():
             "status": "DONE",
             "info": {},
             "observation": {"mark": 2, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2]},
-            "reward": 0,
+            "reward": -1,
         },
     ]
 
@@ -155,19 +155,19 @@ def test_can_step_through_agents():
         action1 = env.agents.random(env.state[0].observation)
         action2 = env.agents.reaction(env.state[1].observation)
         env.step([action1, action2])
-    assert env.state[0].reward + env.state[1].reward == 1
+    assert env.state[0].reward + env.state[1].reward == 0
 
 
 def test_can_run_agents():
     before_each()
     state = env.run(["random", "reaction"])[-1]
-    assert state[0].reward + state[1].reward == 1
+    assert state[0].reward + state[1].reward == 0
 
 
 def test_can_evaluate():
     rewards = evaluate("tictactoe", ["random", "reaction"], num_episodes=2)
     assert (rewards[0][0] + rewards[0][1] ==
-            1) and rewards[1][0] + rewards[1][1] == 1
+            0) and rewards[1][0] + rewards[1][1] == 0
 
 
 def test_can_run_custom_agents():
@@ -182,7 +182,7 @@ def test_can_run_custom_agents():
         },
         {
             "action": 0,
-            "reward": 0,
+            "reward": -1,
             "info": {},
             "observation": {"board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 2},
             "status": "DONE",
@@ -195,7 +195,7 @@ def test_agents_can_timeout():
     assert state == [
         {
             "action": 0,
-            "reward": 0.5,
+            "reward": 0,
             "info": {},
             "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "DONE",
@@ -215,7 +215,7 @@ def test_agents_can_error():
     assert state == [
         {
             "action": 0,
-            "reward": 0.5,
+            "reward": 0,
             "info": {},
             "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "DONE",
@@ -235,13 +235,13 @@ def test_agents_can_have_invalid_actions():
     assert state == [
         {
             "action": 0,
-            "reward": 0.5,
+            "reward": 0,
             "info": {},
             "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "DONE",
         },
         {
-            "action": -1,
+            "action": None,
             "reward": None,
             "info": {},
             "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 2},

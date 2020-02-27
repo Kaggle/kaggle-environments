@@ -27,7 +27,7 @@ def test_to_json():
     before_each()
     json = env.toJSON()
     assert json["name"] == "connectx"
-    assert json["rewards"] == [0.5, 0.5]
+    assert json["rewards"] == [0, 0]
     assert json["statuses"] == ["ACTIVE", "INACTIVE"]
     assert json["specification"]["reward"]["type"] == ["number", "null"]
 
@@ -40,14 +40,14 @@ def test_can_reset():
             "status": "ACTIVE",
             "info": {},
             "observation": {"board": [0] * 42, "mark": 1},
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 0,
             "status": "INACTIVE",
             "info": {},
             "observation": {"board": [0] * 42, "mark": 2},
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -63,7 +63,7 @@ def test_can_mark():
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
                 "mark": 1,
             },
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 0,
@@ -73,7 +73,7 @@ def test_can_mark():
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
                 "mark": 2,
             },
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -99,7 +99,7 @@ def test_can_mark_out_of_bounds():
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "mark": 2,
             },
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -123,7 +123,7 @@ def test_can_mark_a_full_column():
             "status": "DONE",
             "info": {},
             "observation": {"board": board, "mark": 2},
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -149,7 +149,7 @@ def test_can_win():
             "status": "DONE",
             "info": {},
             "observation": {"board": board_post_move, "mark": 2},
-            "reward": 0,
+            "reward": -1,
         },
     ]
 
@@ -170,14 +170,14 @@ def test_can_tie():
             "status": "DONE",
             "info": {},
             "observation": {"board": board_post_move, "mark": 1},
-            "reward": 0.5,
+            "reward": 0,
         },
         {
             "action": 1,
             "status": "DONE",
             "info": {},
             "observation": {"board": board_post_move, "mark": 2},
-            "reward": 0.5,
+            "reward": 0,
         },
     ]
 
@@ -223,11 +223,11 @@ def test_can_run_agents():
             "status": "DONE",
             "info": {},
             "observation": {"board": board, "mark": 2},
-            "reward": 0,
+            "reward": -1,
         },
     ]
 
 def test_can_evaluate():
     rewards = evaluate("connectx", ["random", "random"], num_episodes=2)
-    assert (rewards[0][0] + rewards[0][1] == 1) and rewards[1][0] + rewards[1][1] == 1
+    assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
 

@@ -85,7 +85,7 @@ def interpreter(state, env):
     if any(all(board[p] == active.observation.mark for p in c) for c in checks):
         active.reward = 1
         active.status = "DONE"
-        inactive.reward = 0
+        inactive.reward = -1
         inactive.status = "DONE"
         return state
 
