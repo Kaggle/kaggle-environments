@@ -287,6 +287,8 @@ class Environment:
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
               be integrated with other frameworks (i.e. gym, stable-baselines).
+              The reward returned by the "step" function here is a diff between the
+              current and the previous step.
 
         Example:
             env = make("tictactoe")
@@ -332,8 +334,11 @@ class Environment:
             self.step(self.__get_actions(agents=agents, none_action=action))
             advance()
             agent = self.state[position]
+            reward = agent.reward
+            if len(self.steps) > 1 and reward != None:
+                reward -= self.steps[-2][position].reward
             return [
-                agent.observation, agent.reward, agent.status != "ACTIVE", agent.info
+                agent.observation, reward, agent.status != "ACTIVE", agent.info
             ]
 
         reset()
