@@ -490,9 +490,12 @@ class Environment:
         return data
 
     def __run_agent(self, agent, state):
-        args = [state.observation, structify(
-            self.configuration), state.reward, state.info]
-        args = args[:agent.__code__.co_argcount]
+        args = [
+            structify(state.observation),
+            structify(self.configuration),
+            state.reward,
+            structify(state.info)
+        ][:agent.__code__.co_argcount]
         try:
             return timeout(agent, *args, seconds=self.configuration.timeout)
         except Exception as e:
