@@ -170,7 +170,7 @@ class Environment:
         self.state = self.__run_interpreter(action_state)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
-        if len(self.steps) == self.configuration.steps - 1:
+        if len(self.steps) == self.configuration.episodeSteps - 1:
             for s in self.state:
                 if s.status == "ACTIVE" or s.status == "INACTIVE":
                     s.status = "DONE"
@@ -497,7 +497,7 @@ class Environment:
             structify(state.info)
         ][:agent.__code__.co_argcount]
         try:
-            return timeout(agent, *args, seconds=self.configuration.timeout)
+            return timeout(agent, *args, seconds=self.configuration.agentTimeout)
         except Exception as e:
             return e
 
@@ -523,31 +523,30 @@ class Environment:
             if reward_type not in ["integer", "number"]:
                 return ("type must be an integer or number", None)
             reward["type"] = [reward_type, "null"]
-        if not has(spec, path=["configuration"]):
-            spec["configuration"] = {}
-        if has(spec, path=["configuration", "steps"]):
-            if spec["configuration"]["steps"]["type"] != "integer" or spec["configuration"]["steps"]["minimum"] < 1 or spec["configuration"]["steps"]["default"] < 1:
-                raise InvalidArgument(
-                    "Configuration steps must be a positive integer")
-        else:
-            spec["configuration"]["steps"] = {
-                "description": "Maximum number of steps the environment can run.",
-                "type": "integer",
-                "minimum": 1,
-                "default": 1000
-            }
-        if has(spec, path=["configuration", "timeout"]):
-            if spec["configuration"]["timeout"]["type"] != "integer" or spec["configuration"]["timeout"]["minimum"] < 1 or spec["configuration"]["timeout"]["default"] < 1:
-                raise InvalidArgument(
-                    "Configuration timeout must be a positive integer")
-        else:
-            spec["configuration"]["timeout"] = {
-                "description": "Seconds an agent can run before timing out.",
-                "type": "integer",
-                "minimum": 1,
-                "default": 2
-            }
 
+        # Allow environments to extend the default configuration.
+        configuration = copy.deepcopy(
+            schemas["configuration"]["properties"])
+
+        for k, v in get(spec, dict, {}, ["configuration"]).items():
+            # Set a new default value.
+            if not isinstance(v, dict):
+                if not has(configuration, path=[k]):
+                    raise InvalidArgument(
+                        f"Configuration was unable to set default of missing property: {k}")
+                configuration[k]["default"] = v
+            # Add a new configuration.
+            elif not has(configuration, path=[k]):
+                configuration[k] = v
+            # Override an existing configuration if types match.
+            elif configuration[k]["type"] == get(v, path=["type"]):
+                configuration[k] = v
+            # Types don't match - unable to extend.
+            else:
+                raise InvalidArgument(
+                    f"Configuration was unable to extend: {k}")
+
+        spec["configuration"] = configuration
         return process_schema(schemas.specification, spec)
 
     def __debug_print(self, message):

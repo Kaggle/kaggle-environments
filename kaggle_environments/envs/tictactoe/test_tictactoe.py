@@ -44,7 +44,8 @@ def custom5():
 def before_each(state=None):
     global env
     steps = [] if state == None else [state]
-    env = make("tictactoe", steps=steps, debug=True)
+    env = make("tictactoe", steps=steps, debug=True,
+               configuration={"agentTimeout": 2})
 
 
 def test_to_json():

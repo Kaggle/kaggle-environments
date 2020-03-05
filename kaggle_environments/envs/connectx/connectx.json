@@ -5,12 +5,6 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "timeout": {
-      "description": "Seconds an agent can run before timing out.",
-      "type": "integer",
-      "minimum": 1,
-      "default": 5
-    },
     "columns": {
       "description": "The number of columns on the board",
       "type": "integer",

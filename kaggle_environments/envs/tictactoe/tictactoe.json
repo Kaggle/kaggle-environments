@@ -5,12 +5,7 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "steps": {
-      "description": "Maximum number of steps the environment can run.",
-      "type": "integer",
-      "minimum": 10,
-      "default": 10
-    }
+    "episodeSteps": 10
   },
   "reward": {
     "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
