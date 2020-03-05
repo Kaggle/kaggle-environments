@@ -48,6 +48,15 @@ parser.add_argument(
     type=json.loads,
     help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
 )
+parser.add_argument(
+    "--middleware", type=str, help="Path to request middleware for use with the http-server."
+)
+parser.add_argument(
+    "--port", type=int, help="http-server Port (default=8000)."
+)
+parser.add_argument(
+    "--host", type=str, help="http-server Host (default=127.0.0.1)."
+)
 
 
 def render(args, env):
@@ -90,8 +99,8 @@ def action_load(args):
     return render(args, env)
 
 
-def action_handler(args):
-    args = utils.structify(
+def parse_args(args):
+    return utils.structify(
         {
             "action": utils.get(args, str, "list", ["action"]),
             "agents": utils.get(args, list, [], ["agents"]),
@@ -100,10 +109,14 @@ def action_handler(args):
             "episodes": utils.get(args, int, 1, ["episodes"]),
             "steps": utils.get(args, list, [], ["steps"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
-            "debug": utils.get(args, bool, False, ["debug"])
+            "debug": utils.get(args, bool, False, ["debug"]),
+            "host": utils.get(args, str, "127.0.0.1", ["host"]),
+            "port": utils.get(args, int, 8000, ["port"]),
         }
     )
 
+
+def action_handler(args):
     for index, agent in enumerate(args.agents):
         agent = utils.read_file(agent, agent)
         args.agents[index] = utils.get_last_callable(agent, agent)
@@ -134,12 +147,21 @@ def action_handler(args):
 def action_http(args):
     from flask import Flask, request
 
+    middleware = None
+    if args.middleware != None:
+        try:
+            raw = utils.read_file(args.middleware)
+            middleware = utils.get_last_callable(raw)
+        except Exception as e:
+            return {"error": str(e), "trace": traceback.format_exc()}
+
     app = Flask(__name__, static_url_path="", static_folder="")
-    app.route("/", methods=["GET", "POST"])(lambda: http_request(request))
-    app.run("127.0.0.1", 8000, debug=True)
+    app.route("/", methods=["GET", "POST"]
+              )(lambda: http_request(request, middleware))
+    app.run(args.host, args.port, debug=True)
 
 
-def http_request(request):
+def http_request(request, middleware):
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
@@ -165,14 +187,18 @@ def http_request(request):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    args = {**params, **body}
+    args = parse_args({**params, **body})
+    if middleware:
+        args = middleware(args)
     return (action_handler(args), 200, headers)
+
 
 def main():
     args = parser.parse_args()
     if args.action == "http-server":
         action_http(args)
-    print(action_handler(vars(args)))
+    print(action_handler(parse_args(vars(args))))
+
 
 if __name__ == "__main__":
     main()
