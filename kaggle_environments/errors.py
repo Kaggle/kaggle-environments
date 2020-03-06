@@ -29,7 +29,7 @@ for status in codes:
 class CanonicalError(Exception):
     def __init__(self, error="", status="UNKNOWN"):
         super().__init__(error)
-        if not status in codes:
+        if status not in codes:
             status = "UNKNOWN"
         self.status = status
         self.message = error
