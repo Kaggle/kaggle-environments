@@ -111,7 +111,7 @@ def action_handler(args):
     if args.action == "list":
         return action_list(args)
 
-    if args.environment == None:
+    if args.environment is None:
         return {"error": "Environment required."}
 
     try:
@@ -167,6 +167,7 @@ def http_request(request):
     body = request.get_json(silent=True, force=True) or {}
     args = {**params, **body}
     return (action_handler(args), 200, headers)
+
 
 def main():
     args = parser.parse_args()
