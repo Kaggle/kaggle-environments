@@ -14,12 +14,14 @@
 
 from importlib import import_module
 from os import listdir
+from .agent import Agent
 from .core import *
 from . import utils
 
 version = "0.1.6"
 
-__all__ = ["environments", "evaluate", "make", "register", "utils", "version"]
+__all__ = ["Agent", "environments", "evaluate",
+           "make", "register", "utils", "version"]
 
 # Register Environments.
 
