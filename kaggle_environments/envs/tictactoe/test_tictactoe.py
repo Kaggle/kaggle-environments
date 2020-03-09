@@ -28,9 +28,10 @@ def custom2(obs):
     return [1, 3, 5, 7][step]
 
 
-def custom3():
-    time.sleep(5)
-    return 3
+def custom3(obs):
+    step = sum(1 for mark in obs.board if mark == obs.mark)
+    time.sleep(2)
+    return [1, 3, 5, 7][step]
 
 
 def custom4():
@@ -44,8 +45,7 @@ def custom5():
 def before_each(state=None):
     global env
     steps = [] if state == None else [state]
-    env = make("tictactoe", steps=steps, debug=True,
-               configuration={"agentTimeout": 2})
+    env = make("tictactoe", steps=steps, debug=True)
 
 
 def test_to_json():
@@ -172,6 +172,7 @@ def test_can_evaluate():
 
 
 def test_can_run_custom_agents():
+    before_each()
     state = env.run([custom1, custom2])[-1]
     assert state == [
         {
@@ -191,7 +192,9 @@ def test_can_run_custom_agents():
     ]
 
 
-def test_agents_can_timeout():
+def test_agents_can_timeout_on_init():
+    env = make("tictactoe", debug=True, configuration={
+               "agentTimeout": 1, "actTimeout": 1})
     state = env.run([custom1, custom3])[-1]
     assert state == [
         {
@@ -211,7 +214,30 @@ def test_agents_can_timeout():
     ]
 
 
+def test_agents_can_timeout_on_act():
+    env = make("tictactoe", debug=True, configuration={
+               "agentTimeout": 5, "actTimeout": 1})
+    state = env.run([custom1, custom3])[-1]
+    assert state == [
+        {
+            "action": 0,
+            "reward": 0,
+            "info": {},
+            "observation": {"board": [1, 2, 1, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "status": "DONE",
+        },
+        {
+            "action": None,
+            "reward": None,
+            "info": {},
+            "observation": {"board": [1, 2, 1, 0, 0, 0, 0, 0, 0], "mark": 2},
+            "status": "TIMEOUT",
+        },
+    ]
+
+
 def test_agents_can_error():
+    before_each()
     state = env.run([custom1, custom4])[-1]
     assert state == [
         {
@@ -232,6 +258,7 @@ def test_agents_can_error():
 
 
 def test_agents_can_have_invalid_actions():
+    before_each()
     state = env.run([custom1, custom5])[-1]
     assert state == [
         {
