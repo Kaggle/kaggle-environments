@@ -114,7 +114,7 @@ def negamax_agent(obs, config):
                     (score, _) = negamax(next_board,
                                          1 if mark == 2 else 2, depth - 1)
                     score = score * -1
-                if score > best_score:
+                if score > best_score or (score == best_score and choice([True, False])):
                     best_score = score
                     best_column = column
 
