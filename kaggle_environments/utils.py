@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import json
 import jsonschema
 import sys
@@ -20,8 +19,8 @@ import traceback
 from copy import deepcopy
 from io import StringIO
 from pathlib import Path
-from threading import Thread
-from .errors import DeadlineExceeded, InvalidArgument, NotFound
+from urllib.parse import urlparse
+from .errors import InvalidArgument, NotFound
 
 
 # Path Utilities.
@@ -84,28 +83,6 @@ class Struct(dict):
     def __setattr__(self, attr, value):
         self.__dict__[attr] = value
         self[attr] = value
-
-
-def timeout(fn, *args, **kwargs):
-    seconds = get(kwargs, int, 60, path=["seconds"])
-    rtn = [DeadlineExceeded(f"Timed out after {seconds} seconds.")]
-
-    def target():
-        try:
-            rtn[0] = fn(*args)
-        except Exception as e:
-            rtn[0] = e
-
-    t = Thread(target=target)
-    t.daemon = True
-    try:
-        t.start()
-        t.join(seconds)
-    except Exception as e:
-        raise e
-    if isinstance(rtn[0], BaseException):
-        raise rtn[0]
-    return rtn[0]
 
 
 # Added benifit of cloning lists and dicts.
@@ -221,6 +198,14 @@ def process_schema(schema, data, use_default=True):
         traceback.print_exc()
         error = str(err)
     return error, data
+
+
+def is_url(url):
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 
 
 # Player utilities
