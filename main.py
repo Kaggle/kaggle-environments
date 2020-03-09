@@ -93,7 +93,6 @@ cached_agent = None
 
 
 def action_act(args):
-    print("action_act", args)
     global cached_agent
     if len(args.agents) != 1:
         return {"error": "One agent must be provided."}
@@ -108,7 +107,6 @@ def action_act(args):
         "reward": args.get("reward", None),
         "info": utils.get(args.state, dict, {}, ["info"])
     }
-    print("args.state", state)
     return {"action": cached_agent.act(state, args.timeout)}
 
 
@@ -151,7 +149,6 @@ def parse_args(args):
 
 
 def action_handler(args):
-    print("action_hanlder", args)
     try:
         if args.action == "list":
             return action_list(args)

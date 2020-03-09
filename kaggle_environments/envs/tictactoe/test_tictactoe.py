@@ -236,6 +236,28 @@ def test_agents_can_timeout_on_act():
     ]
 
 
+def test_run_timeout():
+    env = make("tictactoe", debug=True, configuration={
+               "agentTimeout": 10, "actTimeout": 10, "runTimeout": 6})
+    state = env.run([custom1, custom3])[-1]
+    assert state == [
+        {
+            "action": 0,
+            "reward": 0,
+            "info": {},
+            "observation": {"board": [1, 2, 1, 2, 1, 2, 0, 0, 0], "mark": 1},
+            "status": "ACTIVE",
+        },
+        {
+            "action": 5,
+            "reward": 0,
+            "info": {},
+            "observation": {"board": [1, 2, 1, 2, 1, 2, 0, 0, 0], "mark": 2},
+            "status": "INACTIVE",
+        },
+    ]
+
+
 def test_agents_can_error():
     before_each()
     state = env.run([custom1, custom4])[-1]

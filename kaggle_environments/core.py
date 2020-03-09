@@ -14,6 +14,7 @@
 
 import copy
 import json
+from time import time
 import uuid
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
@@ -180,21 +181,25 @@ class Environment:
 
         return self.state
 
-    def run(self, agents, state=None):
+    def run(self, agents):
         """
-        Steps until the environment is "done".
+        Steps until the environment is "done" or the runTimeout was reached.
 
         Args:
             agents (list of any): List of agents to obtain actions from.
-            state (list of dict, optional): Starting state to begin running from.
 
         Returns:
             list of list of dict: The agent states of all steps executed.
         """
+        if self.state == None or self.done:
+            self.reset(len(agents))
+        if len(self.state) != len(agents):
+            raise InvalidArgument(
+                f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
-        self.reset(len(agents)) if state == None else self.__set_state(state)
         runner = self.__agent_runner(agents)
-        while not self.done:
+        start = time()
+        while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
         runner.destroy()
         return self.steps
