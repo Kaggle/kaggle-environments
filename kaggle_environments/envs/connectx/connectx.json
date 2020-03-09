@@ -2,7 +2,7 @@
   "name": "connectx",
   "title": "ConnectX",
   "description": "Classic Connect in a row but configurable.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "agents": [2],
   "configuration": {
     "columns": {
