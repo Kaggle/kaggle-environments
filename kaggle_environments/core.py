@@ -15,8 +15,9 @@
 import copy
 import json
 import uuid
+from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
-from .utils import get, has, get_player, process_schema, schemas, structify, timeout
+from .utils import get, has, get_player, process_schema, schemas, structify
 
 # Registered Environments.
 environments = {}
@@ -192,8 +193,10 @@ class Environment:
         """
 
         self.reset(len(agents)) if state == None else self.__set_state(state)
+        runner = self.__agent_runner(agents)
         while not self.done:
-            self.step(self.__get_actions(agents))
+            self.step(runner.act())
+        runner.destroy()
         return self.steps
 
     def reset(self, num_agents=None):
@@ -310,6 +313,7 @@ class Environment:
             `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
             `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
+        runner = None
         position = None
         for index, agent in enumerate(agents):
             if agent == None:
@@ -323,20 +327,26 @@ class Environment:
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                self.step(self.__get_actions(agents=agents))
+                self.step(runner.act())
 
         def reset():
+            nonlocal runner
             self.reset(len(agents))
+            if runner != None:
+                runner.destroy()
+            runner = self.__agent_runner(agents)
             advance()
             return self.state[position].observation
 
         def step(action):
-            self.step(self.__get_actions(agents=agents, none_action=action))
+            self.step(runner.act(action))
             advance()
             agent = self.state[position]
             reward = agent.reward
             if len(self.steps) > 1 and reward != None:
                 reward -= self.steps[-2][position].reward
+            if self.done:
+                runner.destroy()
             return [
                 agent.observation, reward, agent.status != "ACTIVE", agent.info
             ]
@@ -429,26 +439,6 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __get_actions(self, agents=[], none_action=None):
-        if len(agents) != len(self.state):
-            raise InvalidArgument(
-                "Number of agents must match the state length")
-
-        actions = [0] * len(agents)
-        for i, agent in enumerate(agents):
-            if self.state[i].status != "ACTIVE":
-                actions[i] = None
-            elif agent == None:
-                actions[i] = none_action
-            elif has(agent, str) and has(self.agents, path=[agent], is_callable=True):
-                actions[i] = self.__run_agent(
-                    self.agents[agent], self.state[i])
-            elif not callable(agent):
-                actions[i] = agent
-            else:
-                actions[i] = self.__run_agent(agents[i], self.state[i])
-        return actions
-
     def __set_state(self, state=[]):
         if len(state) not in self.specification.agents:
             raise InvalidArgument(
@@ -488,18 +478,6 @@ class Environment:
                 f"Default state generation failed for #{position}: " + err
             )
         return data
-
-    def __run_agent(self, agent, state):
-        args = [
-            structify(state.observation),
-            structify(self.configuration),
-            state.reward,
-            structify(state.info)
-        ][:agent.__code__.co_argcount]
-        try:
-            return timeout(agent, *args, seconds=self.configuration.agentTimeout)
-        except Exception as e:
-            return e
 
     def __run_interpreter(self, state):
         try:
@@ -548,6 +526,46 @@ class Environment:
 
         spec["configuration"] = configuration
         return process_schema(schemas.specification, spec)
+
+    def __agent_runner(self, agents):
+        # Replace default agents with their source.
+        for i, agent in enumerate(agents):
+            if has(self.agents, path=[agent]):
+                agents[i] = self.agents[agent]
+
+        # Generate the agents.
+        agents = [Agent(a, self.configuration) if a !=
+                  None else None for a in agents]
+
+        # Have the agents had a chance to initialize (first non-empty act).
+        initialized = [False] * len(agents)
+
+        def act(none_action=None):
+            if len(agents) != len(self.state):
+                raise InvalidArgument(
+                    "Number of agents must match the state length")
+
+            actions = [0] * len(agents)
+            for i, agent in enumerate(agents):
+                state = self.state[i]
+                if state.status != "ACTIVE":
+                    actions[i] = None
+                elif agent == None:
+                    actions[i] = none_action
+                else:
+                    timeout = self.configuration.actTimeout
+
+                    if not initialized[i]:
+                        initialized[i] = True
+                        timeout += self.configuration.agentTimeout
+                    actions[i] = agent.act(state, timeout)
+            return actions
+
+        def destroy():
+            for a in agents:
+                a.destroy()
+
+        return structify({"act": act, "destroy": destroy})
 
     def __debug_print(self, message):
         if self.debug:
