@@ -177,11 +177,15 @@ def action_handler(args):
 def action_http(args):
     from flask import Flask, request
 
-    middleware = None
+    middleware = {"request": None, "response": None}
     if args.middleware != None:
         try:
             raw = utils.read_file(args.middleware)
-            middleware = utils.get_last_callable(raw)
+            local = utils.get_exec(raw)
+            middleware["request"] = utils.get(
+                local, path=["request"], is_callable=True)
+            middleware["response"] = utils.get(
+                local, path=["response"], is_callable=True)
         except Exception as e:
             return {"error": str(e), "trace": traceback.format_exc()}
 
@@ -217,10 +221,16 @@ def http_request(request, middleware):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    args = parse_args({**params, **body})
-    if middleware != None:
-        args = middleware(args)
-    return (action_handler(args), 200, headers)
+
+    req = parse_args({**params, **body})
+    if middleware["request"] != None:
+        req = middleware["request"](req)
+
+    resp = action_handler(req)
+    if middleware["response"] != None:
+        resp = middleware["response"](req, resp)
+
+    return (resp, 200, headers)
 
 
 def main():
