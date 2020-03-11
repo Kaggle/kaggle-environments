@@ -139,10 +139,6 @@ def interpreter(state, env):
         board = [EMPTY] * (rows * columns)
         state[0].observation.board = board
 
-    # Clone board to inactive agent as they share the same observation.
-    state[1].observation.board = board
-
-    # Specification can fully handle the reset apart from board reset.
     if env.done:
         return state
 

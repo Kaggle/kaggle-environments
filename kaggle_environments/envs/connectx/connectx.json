@@ -33,13 +33,14 @@
     "board": {
       "description": "Serialized grid (rows x columns). 0 = Empty, 1 = P1, 2 = P2",
       "type": "array",
+      "shared": true,
       "items": {
         "enum": [0, 1, 2]
       },
       "default": []
     },
     "mark": {
-      "default": 0,
+      "defaults": [1, 2],
       "description": "Which checkers are the agents.",
       "enum": [1, 2]
     }
@@ -50,8 +51,7 @@
     "minimum": 0,
     "default": 0
   },
-  "reset": {
-    "status": ["ACTIVE", "INACTIVE"],
-    "observation": [{ "mark": 1 }, { "mark": 2 }]
+  "status": {
+    "defaults": ["ACTIVE", "INACTIVE"]
   }
 }

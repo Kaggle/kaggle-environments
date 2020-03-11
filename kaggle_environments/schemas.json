@@ -46,7 +46,7 @@
         "type": "object",
         "default": { "type": "integer", "default": 0 }
       },
-      "reset": {
+      "status": {
         "type": "object",
         "default": {}
       }
@@ -109,7 +109,7 @@
       "status": {
         "description": "Agent status caused by stepping through the environment.",
         "type": "string",
-        "default": "INACTIVE",
+        "default": "ACTIVE",
         "enum": ["INACTIVE", "ACTIVE", "DONE", "ERROR", "INVALID", "TIMEOUT"]
       }
     }

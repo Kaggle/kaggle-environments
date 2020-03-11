@@ -20,7 +20,8 @@ env = None
 def before_each(state=None, configuration=None):
     global env
     steps = [] if state == None else [state]
-    env = make("connectx", steps=steps, configuration=configuration, debug=True)
+    env = make("connectx", steps=steps,
+               configuration=configuration, debug=True)
 
 
 def test_to_json():
@@ -46,7 +47,7 @@ def test_can_reset():
             "action": 0,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"board": [0] * 42, "mark": 2},
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -69,10 +70,7 @@ def test_can_mark():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {
-                "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-                "mark": 2,
-            },
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -95,10 +93,7 @@ def test_can_mark_out_of_bounds():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {
-                "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                "mark": 2,
-            },
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -108,7 +103,8 @@ def test_can_mark_a_full_column():
     board = [1, 2, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0, 0]
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {"board": board}}],
+        state=[{"observation": {"board": board}},
+               {"observation": {}}],
     )
     assert env.step([1, None]) == [
         {
@@ -122,7 +118,7 @@ def test_can_mark_a_full_column():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board, "mark": 2},
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -134,7 +130,8 @@ def test_can_win():
     board_post_move[0] = 1
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {"board": board}}],
+        state=[{"observation": {"board": board}},
+               {"observation": {}}],
     )
     assert env.step([0, None]) == [
         {
@@ -148,7 +145,7 @@ def test_can_win():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board_post_move, "mark": 2},
+            "observation": {"mark": 2},
             "reward": -1,
         },
     ]
@@ -161,7 +158,7 @@ def test_can_tie():
     board_post_move[1] = 2
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {"board": board}}],
+        state=[{"observation": {"board": board}}, {"observation": {}}],
     )
     env.step([0, None])
     assert env.step([None, 1]) == [
@@ -176,7 +173,7 @@ def test_can_tie():
             "action": 1,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board_post_move, "mark": 2},
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -186,7 +183,7 @@ def test_can_render():
     board = [0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 2, 1, 0, 1, 2, 1, 2, 1]
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {"board": board}}],
+        state=[{"observation": {"board": board}}, {"observation": {}}],
     )
     assert env.render(mode="ansi").strip() == """
 +---+---+---+---+---+
@@ -204,12 +201,13 @@ def test_can_render():
 def test_can_run_agents():
     def custom1():
         return 1
+
     def custom2():
         return 2
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
     )
-    board = [0,0,0,0,0,0,1,0,0,0,0,1,2,0,0,0,1,2,0,0]
+    board = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0]
     assert env.run([custom1, custom2])[-1] == [
         {
             "action": 1,
@@ -222,12 +220,13 @@ def test_can_run_agents():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board, "mark": 2},
+            "observation": {"mark": 2},
             "reward": -1,
         },
     ]
 
+
 def test_can_evaluate():
     rewards = evaluate("connectx", ["random", "random"], num_episodes=2)
-    assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
-
+    assert (rewards[0][0] + rewards[0][1] ==
+            0) and rewards[1][0] + rewards[1][1] == 0
