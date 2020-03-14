@@ -52,6 +52,30 @@
       }
     }
   },
+  "configuration": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "episodeSteps": {
+        "description": "Maximum number of steps in the episode.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 1000
+      },
+      "agentTimeout": {
+        "description": "Maximum runtime (seconds) to initialize an agent.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 10
+      },
+      "actTimeout": {
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "type": "integer",
+        "minimum": 1,
+        "default": 2
+      }
+    }
+  },
   "state": {
     "type": "object",
     "additionalProperties": false,

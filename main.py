@@ -15,13 +15,12 @@
 import argparse
 import json
 import traceback
-from kaggle_environments import environments, evaluate, make, utils
-
+from kaggle_environments import Agent, environments, evaluate, make, utils
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
     "action",
-    choices=["list", "evaluate", "run", "step", "load", "http-server"],
+    choices=["list", "evaluate", "run", "step", "load", "act", "http-server"],
     help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Start http server.",
 )
 parser.add_argument("--environment", type=str,
@@ -41,12 +40,29 @@ parser.add_argument(
     help="Environment starting states (default=[resetState]).",
 )
 parser.add_argument(
+    "--state",
+    type=json.loads,
+    help="Single agent state used for evaluation (default={}).",
+)
+parser.add_argument(
     "--episodes", type=int, help="Number of episodes to evaluate (default=1)"
 )
 parser.add_argument(
     "--render",
     type=json.loads,
     help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
+)
+parser.add_argument(
+    "--timeout", type=int, help="Agent act timeout (default=10)."
+)
+parser.add_argument(
+    "--middleware", type=str, help="Path to request middleware for use with the http-server."
+)
+parser.add_argument(
+    "--port", type=int, help="http-server Port (default=8000)."
+)
+parser.add_argument(
+    "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
 
 
@@ -73,9 +89,34 @@ def action_evaluate(args):
     )
 
 
+cached_agent = None
+
+
+def action_act(args):
+    print("action_act", args)
+    global cached_agent
+    if len(args.agents) != 1:
+        return {"error": "One agent must be provided."}
+    raw = args.agents[0]
+
+    if cached_agent == None or cached_agent.id != raw:
+        if cached_agent != None:
+            cached_agent.destroy()
+        cached_agent = Agent(raw, args.configuration, raw)
+    state = {
+        "observation": utils.get(args.state, dict, {}, ["observation"]),
+        "reward": args.get("reward", None),
+        "info": utils.get(args.state, dict, {}, ["info"])
+    }
+    print("args.state", state)
+    return {"action": cached_agent.act(state, args.timeout)}
+
+
 def action_step(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
-    env.step(env.__get_actions(args.agents))
+    runner = env.__agent_runner(args.agents)
+    env.step(runner.act())
+    runner.destroy()
     return render(args, env)
 
 
@@ -90,34 +131,39 @@ def action_load(args):
     return render(args, env)
 
 
-def action_handler(args):
-    args = utils.structify(
+def parse_args(args):
+    return utils.structify(
         {
             "action": utils.get(args, str, "list", ["action"]),
             "agents": utils.get(args, list, [], ["agents"]),
             "configuration": utils.get(args, dict, {}, ["configuration"]),
             "environment": args.get("environment", None),
             "episodes": utils.get(args, int, 1, ["episodes"]),
+            "state": utils.get(args, dict, {}, ["state"]),
             "steps": utils.get(args, list, [], ["steps"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
-            "debug": utils.get(args, bool, False, ["debug"])
+            "debug": utils.get(args, bool, False, ["debug"]),
+            "timeout": utils.get(args, int, 10, ["timeout"]),
+            "host": utils.get(args, str, "127.0.0.1", ["host"]),
+            "port": utils.get(args, int, 8000, ["port"]),
         }
     )
 
-    for index, agent in enumerate(args.agents):
-        agent = utils.read_file(agent, agent)
-        args.agents[index] = utils.get_last_callable(agent, agent)
-
-    if args.action == "list":
-        return action_list(args)
-
-    if args.environment is None:
-        return {"error": "Environment required."}
-
+  
+def action_handler(args):
+    print("action_hanlder", args)
     try:
-        if args.action == "http-server":
+        if args.action == "list":
+            return action_list(args)
+        elif args.action == "http-server":
             return {"error": "Already running a http server."}
-        elif args.action == "evaluate":
+        elif args.action == "act":
+            return action_act(args)
+
+        if args.environment == None:
+            return {"error": "Environment required."}
+
+        if args.action == "evaluate":
             return action_evaluate(args)
         elif args.action == "step":
             return action_step(args)
@@ -134,12 +180,21 @@ def action_handler(args):
 def action_http(args):
     from flask import Flask, request
 
+    middleware = None
+    if args.middleware != None:
+        try:
+            raw = utils.read_file(args.middleware)
+            middleware = utils.get_last_callable(raw)
+        except Exception as e:
+            return {"error": str(e), "trace": traceback.format_exc()}
+
     app = Flask(__name__, static_url_path="", static_folder="")
-    app.route("/", methods=["GET", "POST"])(lambda: http_request(request))
-    app.run("127.0.0.1", 8000, debug=True)
+    app.route("/", methods=["GET", "POST"]
+              )(lambda: http_request(request, middleware))
+    app.run(args.host, args.port, debug=True)
 
 
-def http_request(request):
+def http_request(request, middleware):
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
@@ -165,7 +220,9 @@ def http_request(request):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    args = {**params, **body}
+    args = parse_args({**params, **body})
+    if middleware != None:
+        args = middleware(args)
     return (action_handler(args), 200, headers)
 
 
@@ -173,7 +230,8 @@ def main():
     args = parser.parse_args()
     if args.action == "http-server":
         action_http(args)
-    print(action_handler(vars(args)))
+    print(action_handler(parse_args(vars(args))))
+
 
 if __name__ == "__main__":
     main()

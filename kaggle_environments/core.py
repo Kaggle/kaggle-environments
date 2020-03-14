@@ -15,8 +15,9 @@
 import copy
 import json
 import uuid
+from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
-from .utils import get, has, get_player, process_schema, schemas, structify, timeout
+from .utils import get, has, get_player, process_schema, schemas, structify
 
 # Registered Environments.
 environments = {}
@@ -170,7 +171,7 @@ class Environment:
         self.state = self.__run_interpreter(action_state)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
-        if len(self.steps) == self.configuration.steps - 1:
+        if len(self.steps) == self.configuration.episodeSteps - 1:
             for s in self.state:
                 if s.status == "ACTIVE" or s.status == "INACTIVE":
                     s.status = "DONE"
@@ -191,9 +192,9 @@ class Environment:
             list of list of dict: The agent states of all steps executed.
         """
 
-        self.reset(len(agents)) if state is None else self.__set_state(state)
         while not self.done:
-            self.step(self.__get_actions(agents))
+            self.step(runner.act())
+        runner.destroy()
         return self.steps
 
     def reset(self, num_agents=None):
@@ -310,6 +311,7 @@ class Environment:
             `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
             `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
+        runner = None
         position = None
         for index, agent in enumerate(agents):
             if agent is None:
@@ -323,20 +325,26 @@ class Environment:
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                self.step(self.__get_actions(agents=agents))
+                self.step(runner.act())
 
         def reset():
+            nonlocal runner
             self.reset(len(agents))
+            if runner != None:
+                runner.destroy()
+            runner = self.__agent_runner(agents)
             advance()
             return self.state[position].observation
 
         def step(action):
-            self.step(self.__get_actions(agents=agents, none_action=action))
+            self.step(runner.act(action))
             advance()
             agent = self.state[position]
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
+            if self.done:
+                runner.destroy()
             return [
                 agent.observation, reward, agent.status != "ACTIVE", agent.info
             ]
@@ -429,25 +437,6 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __get_actions(self, agents=[], none_action=None):
-        if len(agents) != len(self.state):
-            raise InvalidArgument(
-                "Number of agents must match the state length")
-
-        actions = [0] * len(agents)
-        for i, agent in enumerate(agents):
-            if self.state[i].status != "ACTIVE":
-                actions[i] = None
-            elif agent is None:
-                actions[i] = none_action
-            elif has(agent, str) and has(self.agents, path=[agent], is_callable=True):
-                actions[i] = self.__run_agent(
-                    self.agents[agent], self.state[i])
-            elif not callable(agent):
-                actions[i] = agent
-            else:
-                actions[i] = self.__run_agent(agents[i], self.state[i])
-        return actions
 
     def __set_state(self, state=[]):
         if len(state) not in self.specification.agents:
@@ -489,18 +478,6 @@ class Environment:
             )
         return data
 
-    def __run_agent(self, agent, state):
-        args = [
-            structify(state.observation),
-            structify(self.configuration),
-            state.reward,
-            structify(state.info)
-        ][:agent.__code__.co_argcount]
-        try:
-            return timeout(agent, *args, seconds=self.configuration.timeout)
-        except Exception as e:
-            return e
-
     def __run_interpreter(self, state):
         try:
             args = [structify(state), self]
@@ -523,32 +500,71 @@ class Environment:
             if reward_type not in ["integer", "number"]:
                 return ("type must be an integer or number", None)
             reward["type"] = [reward_type, "null"]
-        if not has(spec, path=["configuration"]):
-            spec["configuration"] = {}
-        if has(spec, path=["configuration", "steps"]):
-            if spec["configuration"]["steps"]["type"] != "integer" or spec["configuration"]["steps"]["minimum"] < 1 or spec["configuration"]["steps"]["default"] < 1:
-                raise InvalidArgument(
-                    "Configuration steps must be a positive integer")
-        else:
-            spec["configuration"]["steps"] = {
-                "description": "Maximum number of steps the environment can run.",
-                "type": "integer",
-                "minimum": 1,
-                "default": 1000
-            }
-        if has(spec, path=["configuration", "timeout"]):
-            if spec["configuration"]["timeout"]["type"] != "integer" or spec["configuration"]["timeout"]["minimum"] < 1 or spec["configuration"]["timeout"]["default"] < 1:
-                raise InvalidArgument(
-                    "Configuration timeout must be a positive integer")
-        else:
-            spec["configuration"]["timeout"] = {
-                "description": "Seconds an agent can run before timing out.",
-                "type": "integer",
-                "minimum": 1,
-                "default": 2
-            }
 
+        # Allow environments to extend the default configuration.
+        configuration = copy.deepcopy(
+            schemas["configuration"]["properties"])
+
+        for k, v in get(spec, dict, {}, ["configuration"]).items():
+            # Set a new default value.
+            if not isinstance(v, dict):
+                if not has(configuration, path=[k]):
+                    raise InvalidArgument(
+                        f"Configuration was unable to set default of missing property: {k}")
+                configuration[k]["default"] = v
+            # Add a new configuration.
+            elif not has(configuration, path=[k]):
+                configuration[k] = v
+            # Override an existing configuration if types match.
+            elif configuration[k]["type"] == get(v, path=["type"]):
+                configuration[k] = v
+            # Types don't match - unable to extend.
+            else:
+                raise InvalidArgument(
+                    f"Configuration was unable to extend: {k}")
+
+        spec["configuration"] = configuration
         return process_schema(schemas.specification, spec)
+
+    def __agent_runner(self, agents):
+        # Replace default agents with their source.
+        for i, agent in enumerate(agents):
+            if has(self.agents, path=[agent]):
+                agents[i] = self.agents[agent]
+
+        # Generate the agents.
+        agents = [Agent(a, self.configuration) if a !=
+                  None else None for a in agents]
+
+        # Have the agents had a chance to initialize (first non-empty act).
+        initialized = [False] * len(agents)
+
+        def act(none_action=None):
+            if len(agents) != len(self.state):
+                raise InvalidArgument(
+                    "Number of agents must match the state length")
+
+            actions = [0] * len(agents)
+            for i, agent in enumerate(agents):
+                state = self.state[i]
+                if state.status != "ACTIVE":
+                    actions[i] = None
+                elif agent == None:
+                    actions[i] = none_action
+                else:
+                    timeout = self.configuration.actTimeout
+
+                    if not initialized[i]:
+                        initialized[i] = True
+                        timeout += self.configuration.agentTimeout
+                    actions[i] = agent.act(state, timeout)
+            return actions
+
+        def destroy():
+            for a in agents:
+                a.destroy()
+
+        return structify({"act": act, "destroy": destroy})
 
     def __debug_print(self, message):
         if self.debug:

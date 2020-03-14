@@ -158,7 +158,7 @@ def interpreter(state, env):
     column = active.action
 
     # Invalid column, agent loses.
-    if column < 0 or active.action > columns or board[column] != EMPTY:
+    if column < 0 or active.action >= columns or board[column] != EMPTY:
         active.status = f"Invalid column: {column}"
         inactive.status = "DONE"
         return state
