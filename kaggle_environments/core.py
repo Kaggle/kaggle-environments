@@ -581,7 +581,7 @@ class Environment:
     def __get_shared_state(self, position):
         if position == 0:
             return self.state[0]
-        state = copy.deepcopy(self.state[1])
+        state = copy.deepcopy(self.state[position])
 
         # Note: state and schema are required to be in sync (apart from shared ones).
         def update_props(shared_state, state, schema_props):
