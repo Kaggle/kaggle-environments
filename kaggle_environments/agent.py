@@ -100,7 +100,8 @@ class Agent():
             self.process.start()
         else:
             self.configuration = configuration
-            self.agent = build_agent(raw)
+            self.raw = raw
+            self.agent = None
 
     def act(self, state, timeout=10):
         if self.use_process:
@@ -125,15 +126,17 @@ class Agent():
                     self.message.action = None
                     return action
         else:
+            if self.agent is None:
+                self.agent = build_agent(self.raw)
             args = [
                 structify(state["observation"]),
                 structify(self.configuration),
                 state["reward"],
                 structify(state["info"]),
                 timeout
-            ][:agent.__code__.co_argcount]
+            ][:self.agent.__code__.co_argcount]
             try:
-                return agent(*args)
+                return self.agent(*args)
             except Exception as e:
                 return e
 
