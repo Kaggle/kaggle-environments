@@ -39,7 +39,7 @@ def register(name, environment):
     environments[name] = environment
 
 
-def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1):
+def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1, use_subprocess=True):
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
@@ -56,7 +56,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     e = make(environment, configuration, steps)
     rewards = [[]] * num_episodes
     for i in range(num_episodes):
-        last_state = e.run(agents)[-1]
+        last_state = e.run(agents, use_subprocess)[-1]
         rewards[i] = [state.reward for state in last_state]
     return rewards
 
@@ -181,7 +181,7 @@ class Environment:
 
         return self.state
 
-    def run(self, agents):
+    def run(self, agents, use_subprocess=False):
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -197,7 +197,7 @@ class Environment:
             raise InvalidArgument(
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
-        runner = self.__agent_runner(agents)
+        runner = self.__agent_runner(agents, use_subprocess)
         start = time()
         while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
@@ -339,7 +339,7 @@ class Environment:
             self.reset(len(agents))
             if runner != None:
                 runner.destroy()
-            runner = self.__agent_runner(agents, false)
+            runner = self.__agent_runner(agents, True)
             advance()
             return self.state[position].observation
 
@@ -539,14 +539,14 @@ class Environment:
         spec["configuration"] = configuration
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents):
+    def __agent_runner(self, agents, use_subprocess):
         # Replace default agents with their source.
         for i, agent in enumerate(agents):
             if has(self.agents, path=[agent]):
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration, true) if a !=
+        agents = [Agent(a, self.configuration, use_subprocess) if a !=
                   None else None for a in agents]
 
         # Have the agents had a chance to initialize (first non-empty act).
