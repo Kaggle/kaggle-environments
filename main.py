@@ -101,7 +101,7 @@ def action_act(args):
     if cached_agent == None or cached_agent.id != raw:
         if cached_agent != None:
             cached_agent.destroy()
-        cached_agent = Agent(raw, args.configuration, raw)
+        cached_agent = Agent(raw, args.configuration, false, raw)
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
         "reward": args.get("reward", None),

@@ -339,7 +339,7 @@ class Environment:
             self.reset(len(agents))
             if runner != None:
                 runner.destroy()
-            runner = self.__agent_runner(agents)
+            runner = self.__agent_runner(agents, false)
             advance()
             return self.state[position].observation
 
@@ -546,7 +546,7 @@ class Environment:
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration) if a !=
+        agents = [Agent(a, self.configuration, true) if a !=
                   None else None for a in agents]
 
         # Have the agents had a chance to initialize (first non-empty act).
