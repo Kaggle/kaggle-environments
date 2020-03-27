@@ -181,7 +181,7 @@ class Environment:
 
         return self.state
 
-    def run(self, agents, use_subprocess=False):
+    def run(self, agents, use_subprocess=True):
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -275,7 +275,7 @@ class Environment:
             raise InvalidArgument(
                 "Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents=[], **kwargs):
+    def play(self, agents=[], use_subprocess=True, **kwargs):
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -286,11 +286,11 @@ class Environment:
             None: prints directly to an IPython notebook
         """
         env = self.clone()
-        trainer = env.train(agents)
+        trainer = env.train(agents, use_subprocess)
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents=[]):
+    def train(self, agents=[], use_subprocess=True):
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -339,7 +339,7 @@ class Environment:
             self.reset(len(agents))
             if runner != None:
                 runner.destroy()
-            runner = self.__agent_runner(agents, True)
+            runner = self.__agent_runner(agents, use_subprocess)
             advance()
             return self.state[position].observation
 
