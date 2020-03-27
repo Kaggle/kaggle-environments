@@ -22,7 +22,7 @@ from .errors import DeadlineExceeded
 from .utils import get_exec, has, is_url, read_file, structify
 
 
-def build_agent(raw, timeout):
+def build_agent(raw):
     # Already callable.
     if callable(raw):
         return raw
@@ -33,7 +33,7 @@ def build_agent(raw, timeout):
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
-        def url_agent(o, c, r, i):
+        def url_agent(o, c, r, i, t):
             data = {
                 "action": "act",
                 "configuration": c,
@@ -42,7 +42,7 @@ def build_agent(raw, timeout):
                     "reward": r,
                     "info": i
                 },
-                "timeout": timeout
+                "timeout": t
             }
             return requests.post(url=raw, data=json.dumps(data)).json()["action"]
         return url_agent
@@ -64,7 +64,7 @@ def build_agent(raw, timeout):
 
 def runner(raw, message):
     try:
-        agent = build_agent(raw, message.timeout)
+        agent = build_agent(raw)
     except Exception as e:
         message.action = e
     while True:
@@ -73,7 +73,8 @@ def runner(raw, message):
                 structify(message.state["observation"]),
                 structify(message.configuration),
                 message.state["reward"],
-                structify(message.state["info"])
+                structify(message.state["info"]),
+                message.timeout
             ][:agent.__code__.co_argcount]
             try:
                 message.action = agent(*args)
@@ -99,7 +100,7 @@ class Agent():
             self.process.start()
         else:
             self.configuration = configuration
-            self.raw = raw
+            self.agent = build_agent(raw)
 
     def act(self, state, timeout=10):
         if self.use_process:
@@ -124,8 +125,17 @@ class Agent():
                     self.message.action = None
                     return action
         else:
-            agent = build_agent(raw, timeout)
-            return agent(structify(state["observation"), structify(self.configuration), state["reward"], structify(state["info"])])
+            args = [
+                structify(state["observation"]),
+                structify(self.configuration),
+                state["reward"],
+                structify(state["info"]),
+                timeout
+            ][:agent.__code__.co_argcount]
+            try:
+                return agent(*args)
+            except Exception as e:
+                return e
 
     def destroy(self):
         if self.id == None or not self.use_process:
