@@ -65,7 +65,7 @@ parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
 parser.add_argument(
-    "--subprocess-agnets", type=bool, help="Use an inner subprocess to isolate each agent."
+    "--subprocess-agents", type=bool, help="Use an inner subprocess to isolate each agent."
 )
 
 
