@@ -22,7 +22,7 @@ from .errors import DeadlineExceeded
 from .utils import get_exec, has, is_url, read_file, structify
 
 
-def build_agent(raw, message):
+def build_agent(raw):
     # Already callable.
     if callable(raw):
         return raw
@@ -33,7 +33,7 @@ def build_agent(raw, message):
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
-        def url_agent(o, c, r, i):
+        def url_agent(o, c, r, i, t):
             data = {
                 "action": "act",
                 "configuration": c,
@@ -42,7 +42,7 @@ def build_agent(raw, message):
                     "reward": r,
                     "info": i
                 },
-                "timeout": message.timeout
+                "timeout": t
             }
             return requests.post(url=raw, data=json.dumps(data)).json()["action"]
         return url_agent
@@ -64,7 +64,7 @@ def build_agent(raw, message):
 
 def runner(raw, message):
     try:
-        agent = build_agent(raw, message)
+        agent = build_agent(raw)
     except Exception as e:
         message.action = e
     while True:
@@ -73,7 +73,8 @@ def runner(raw, message):
                 structify(message.state["observation"]),
                 structify(message.configuration),
                 message.state["reward"],
-                structify(message.state["info"])
+                structify(message.state["info"]),
+                message.timeout
             ][:agent.__code__.co_argcount]
             try:
                 message.action = agent(*args)
@@ -84,42 +85,60 @@ def runner(raw, message):
 
 class Agent():
 
-    def __init__(self, raw, configuration, id=None):
+    def __init__(self, raw, configuration, use_process, id=None):
         self.id = id or str(uuid.uuid1())
-        self.manager = Manager()
-        self.message = self.manager.Namespace()
-        self.message.action = None
-        self.message.state = None
-        self.message.timeout = 0
-        self.message.configuration = configuration
-        self.process = Process(target=runner, args=(raw, self.message))
-        self.process.daemon = True
-        self.process.start()
+        self.use_process = use_process
+        if use_process:
+            self.manager = Manager()
+            self.message = self.manager.Namespace()
+            self.message.action = None
+            self.message.state = None
+            self.message.timeout = 0
+            self.message.configuration = configuration
+            self.process = Process(target=runner, args=(raw, self.message))
+            self.process.daemon = True
+            self.process.start()
+        else:
+            self.configuration = configuration
+            self.agent = build_agent(raw)
 
     def act(self, state, timeout=10):
-        # If an action is already set, there is an error.
-        if self.message.action != None:
-            return self.message.action
-
-        # Inform the agent process an action is requested.
-        self.message.state = state
-        self.message.timeout = timeout
-
-        start = time()
-        while True:
-            # Timeout reached, destroy the agent, and throw an error.
-            if time() - start > timeout:
-                self.destroy()
-                return DeadlineExceeded()
-
-            # Action returned.
+        if self.use_process:
+            # If an action is already set, there is an error.
             if self.message.action != None:
-                action = self.message.action
-                self.message.action = None
-                return action
+                return self.message.action
+
+            # Inform the agent process an action is requested.
+            self.message.state = state
+            self.message.timeout = timeout
+
+            start = time()
+            while True:
+                # Timeout reached, destroy the agent, and throw an error.
+                if time() - start > timeout:
+                    self.destroy()
+                    return DeadlineExceeded()
+
+                # Action returned.
+                if self.message.action != None:
+                    action = self.message.action
+                    self.message.action = None
+                    return action
+        else:
+            args = [
+                structify(state["observation"]),
+                structify(self.configuration),
+                state["reward"],
+                structify(state["info"]),
+                timeout
+            ][:agent.__code__.co_argcount]
+            try:
+                return agent(*args)
+            except Exception as e:
+                return e
 
     def destroy(self):
-        if self.id == None:
+        if self.id == None or not self.use_process:
             return
         self.id = None
         self.process.join(0.1)

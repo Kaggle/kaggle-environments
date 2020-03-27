@@ -64,6 +64,9 @@ parser.add_argument(
 parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
+parser.add_argument(
+    "--subprocess-agents", type=bool, help="Use an inner subprocess to isolate each agent."
+)
 
 
 def render(args, env):
@@ -101,7 +104,7 @@ def action_act(args):
     if cached_agent == None or cached_agent.id != raw:
         if cached_agent != None:
             cached_agent.destroy()
-        cached_agent = Agent(raw, args.configuration, raw)
+        cached_agent = Agent(raw, args.configuration, args.use_subprocess, raw)
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
         "reward": args.get("reward", None),
@@ -112,7 +115,7 @@ def action_act(args):
 
 def action_step(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
-    runner = env.__agent_runner(args.agents)
+    runner = env.__agent_runner(args.agents, args.use_subprocess)
     env.step(runner.act())
     runner.destroy()
     return render(args, env)
@@ -120,7 +123,7 @@ def action_step(args):
 
 def action_run(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
-    env.run(args.agents)
+    env.run(args.agents, args.use_subprocess)
     return render(args, env)
 
 
@@ -144,6 +147,7 @@ def parse_args(args):
             "timeout": utils.get(args, int, 10, ["timeout"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
             "port": utils.get(args, int, 8000, ["port"]),
+            "use_subprocess": utils.get(args, bool, True, ["subprocess-agents"])
         }
     )
 
