@@ -15,7 +15,6 @@
 import json
 import jsonschema
 import sys
-import traceback
 from copy import deepcopy
 from io import StringIO
 from pathlib import Path
@@ -195,7 +194,6 @@ def process_schema(schema, data, use_default=True):
     try:
         jsonschema.validate(data, schema)
     except Exception as err:
-        traceback.print_exc()
         error = str(err)
     return error, data
 
