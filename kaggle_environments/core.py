@@ -39,7 +39,7 @@ def register(name, environment):
     environments[name] = environment
 
 
-def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1, use_subprocess=True):
+def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1):
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
@@ -56,7 +56,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1,
     e = make(environment, configuration, steps)
     rewards = [[]] * num_episodes
     for i in range(num_episodes):
-        last_state = e.run(agents, use_subprocess)[-1]
+        last_state = e.run(agents)[-1]
         rewards[i] = [state.reward for state in last_state]
     return rewards
 
@@ -181,7 +181,7 @@ class Environment:
 
         return self.state
 
-    def run(self, agents, use_subprocess=True):
+    def run(self, agents):
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -191,13 +191,13 @@ class Environment:
         Returns:
             list of list of dict: The agent states of all steps executed.
         """
-        if self.state == None or self.done:
+        if self.state == None or len(self.steps) == 1 or self.done:
             self.reset(len(agents))
         if len(self.state) != len(agents):
             raise InvalidArgument(
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
-        runner = self.__agent_runner(agents, use_subprocess)
+        runner = self.__agent_runner(agents)
         start = time()
         while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
@@ -275,7 +275,7 @@ class Environment:
             raise InvalidArgument(
                 "Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents=[], use_subprocess=True, **kwargs):
+    def play(self, agents=[], **kwargs):
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -286,11 +286,11 @@ class Environment:
             None: prints directly to an IPython notebook
         """
         env = self.clone()
-        trainer = env.train(agents, use_subprocess)
+        trainer = env.train(agents)
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents=[], use_subprocess=True):
+    def train(self, agents=[]):
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -339,7 +339,7 @@ class Environment:
             self.reset(len(agents))
             if runner != None:
                 runner.destroy()
-            runner = self.__agent_runner(agents, use_subprocess)
+            runner = self.__agent_runner(agents)
             advance()
             return self.state[position].observation
 
@@ -539,14 +539,14 @@ class Environment:
         spec["configuration"] = configuration
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents, use_subprocess):
+    def __agent_runner(self, agents):
         # Replace default agents with their source.
         for i, agent in enumerate(agents):
             if has(self.agents, path=[agent]):
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration, use_subprocess) if a !=
+        agents = [Agent(a, self.configuration) if a !=
                   None else None for a in agents]
 
         # Have the agents had a chance to initialize (first non-empty act).

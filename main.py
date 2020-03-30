@@ -15,7 +15,7 @@
 import argparse
 import json
 import traceback
-from kaggle_environments import Agent, environments, evaluate, make, utils
+from kaggle_environments import Agent, environments, errors, evaluate, make, utils
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
@@ -53,9 +53,6 @@ parser.add_argument(
     help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
 )
 parser.add_argument(
-    "--timeout", type=int, help="Agent act timeout (default=10)."
-)
-parser.add_argument(
     "--middleware", type=str, help="Path to request middleware for use with the http-server."
 )
 parser.add_argument(
@@ -63,9 +60,6 @@ parser.add_argument(
 )
 parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
-)
-parser.add_argument(
-    "--subprocess-agents", type=bool, help="Use an inner subprocess to isolate each agent."
 )
 
 
@@ -101,21 +95,36 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
+    # Process the configuration.
+    # (additional environment specificproperties come along without being checked).
+    err, config = utils.structify(utils.process_schema(
+        utils.schemas["configuration"], args.configuration))
+    if err:
+        return {"error": err}
+    timeout = config.actTimeout
+
     if cached_agent == None or cached_agent.id != raw:
         if cached_agent != None:
             cached_agent.destroy()
-        cached_agent = Agent(raw, args.configuration, args.use_subprocess, raw)
+        cached_agent = Agent(raw, config, raw)
+        timeout = config.agentTimeout
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
         "reward": args.get("reward", None),
         "info": utils.get(args.state, dict, {}, ["info"])
     }
-    return {"action": cached_agent.act(state, args.timeout)}
+    action = cached_agent.act(state, timeout)
+    if isinstance(action, errors.DeadlineExceeded):
+        action = "DeadlineExceeded"
+    elif isinstance(action, BaseException):
+        action = "BaseException"
+
+    return {"action": action}
 
 
 def action_step(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
-    runner = env.__agent_runner(args.agents, args.use_subprocess)
+    runner = env.__agent_runner(args.agents)
     env.step(runner.act())
     runner.destroy()
     return render(args, env)
@@ -123,7 +132,7 @@ def action_step(args):
 
 def action_run(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
-    env.run(args.agents, args.use_subprocess)
+    env.run(args.agents)
     return render(args, env)
 
 
@@ -144,10 +153,8 @@ def parse_args(args):
             "steps": utils.get(args, list, [], ["steps"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "debug": utils.get(args, bool, False, ["debug"]),
-            "timeout": utils.get(args, int, 10, ["timeout"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
-            "port": utils.get(args, int, 8000, ["port"]),
-            "use_subprocess": utils.get(args, bool, True, ["subprocess-agents"])
+            "port": utils.get(args, int, 8000, ["port"])
         }
     )
 

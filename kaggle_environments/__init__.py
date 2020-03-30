@@ -16,11 +16,12 @@ from importlib import import_module
 from os import listdir
 from .agent import Agent
 from .core import *
+from . import errors
 from . import utils
 
 version = "0.1.6"
 
-__all__ = ["Agent", "environments", "evaluate",
+__all__ = ["Agent", "environments", "errors", "evaluate",
            "make", "register", "utils", "version"]
 
 # Register Environments.
