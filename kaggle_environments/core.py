@@ -574,7 +574,8 @@ class Environment:
 
         def destroy():
             for a in agents:
-                a.destroy()
+                if a != None:
+                    a.destroy()
 
         return structify({"act": act, "destroy": destroy})
 
