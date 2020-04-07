@@ -110,6 +110,11 @@ def interpreter(state, env):
             food.append(starting_positions[index + num_agents])
         return state
 
+    # Update active agents rewards.
+    for index, agent in enumerate(state):
+        if agent.status == "ACTIVE":
+            agent.reward = len(env.steps) + len(geese[index])
+
     # Apply the actions from active agents.
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
@@ -121,15 +126,15 @@ def interpreter(state, env):
 
         # Wall Hit.
         if new_head == -1:
-            agent.status = f"Wall Hit: {action}"
-            agent.reward = 0
+            env.debug_print(f"Wall Hit: {action}")
+            agent.status = "INACTIVE"
             geese[index] = []
             continue
 
         # Last Body Hit.
         if len(goose) > 1 and goose[1] == new_head:
-            agent.status = f"Body Hit: {action}"
-            agent.reward = 0
+            env.debug_print(f"Body Hit: {action}")
+            agent.status = "INACTIVE"
             geese[index] = []
             continue
 
@@ -146,8 +151,8 @@ def interpreter(state, env):
         if len(env.steps) % hunger_rate == 0:
             goose.pop()
             if len(goose) == 0:
-                agent.status = f"Goose Starved: {action}"
-                agent.reward = 0
+                env.debug_print(f"Goose Starved: {action}")
+                agent.status = "INACTIVE"
                 geese[index] = []
                 continue
 
@@ -159,8 +164,8 @@ def interpreter(state, env):
     for index, agent in enumerate(state):
         for pos in geese[index]:
             if collisions[pos] > 1:
-                agent.status = f"Goose Collision: {agent.action}"
-                agent.reward = 0
+                env.debug_print(f"Goose Collision: {agent.action}")
+                agent.status = "INACTIVE"
                 geese[index] = []
                 continue
 
@@ -172,11 +177,10 @@ def interpreter(state, env):
                 available_positions.remove(pos)
         food.extend(sample(available_positions, min_food - len(food)))
 
-    # If only one ACTIVE agent left, set it's reward to 1 and make INACTIVE.
+    # If only one ACTIVE agent left, set it to INACTIVE.
     active_agents = [a for a in state if a.status == "ACTIVE"]
     if len(active_agents) == 1:
         active_agents[0].status = "INACTIVE"
-        active_agents[0].reward = 1
 
     return state
 
