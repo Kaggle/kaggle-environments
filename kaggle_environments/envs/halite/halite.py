@@ -88,7 +88,7 @@ class Board:
         pos = self.shipyards_by_uid[shipyard_uid]["pos"]
         details = {"halite": 0, "player_index": self.obs.player, "uid": temp_uid, "pos": pos}
         self.ships[pos] = details
-        self.ships_by_uid = details
+        self.ships_by_uid[temp_uid] = details
     
     def __remove_possibles(self, ship_uid):
         pos = self.ships_by_uid[ship_uid]["pos"]
