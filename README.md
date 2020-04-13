@@ -55,7 +55,7 @@ Agent functions can have observation and configuration parameters and must retur
 from kaggle_simulations import make
 env = make("connectx", {rows: 10, columns: 8, inarow: 5})
 
-def agent(observation, configration):
+def agent(observation, configuration):
   print(observation) # {board: [...], mark: 1}
   print(configuration) # {rows: 10, columns: 8, inarow: 5}
   return 3 # Action: always place a mark in the 3rd column.
