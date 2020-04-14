@@ -1,0 +1,61 @@
+{
+    "name": "football",
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": 30,
+      "scenario_name": {
+          "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside scenarios/ dir of GoogleResearchFootball.",
+          "type": "string",
+          "default": "11_vs_11_stochastic"
+      },
+      "team_1": {
+          "description": "Number of players from the first team that agent controls.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 1
+      },
+      "team_2": {
+          "description": "Number of players that other agent controls. If set to 0 - the second agent will always have to return 0 as action.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0
+      }
+    },
+    "reward": {
+      "description": "1.0 for scored goal, -1.0 for lost goal (it is given only when the goal is scored, and changes back to 0 afterwards)",
+      "type": "number"
+    },
+
+    "info": {
+      "debug_info": {
+          "description": "Human readable information passed from the system.",
+          "type": "string"
+      }
+    },
+
+    "observation": {
+        "minimap": {
+          "description": "72x96x4 tensor. Channels: your team, opponent, ball, active_player ",
+          "type": "array",
+          "minItems": 27648,
+          "maxItems": 27648
+        },
+        "controlled_players": {
+            "description": "number of players that agent controls",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+        }
+    },
+    "action": {
+      "description": "A Button to press for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. ",
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 19
+      }
+    }
+}

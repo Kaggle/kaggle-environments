@@ -36,5 +36,6 @@ for name in listdir(utils.envs_path):
             "renderer": getattr(env, "renderer"),
             "specification": getattr(env, "specification"),
         })
-    except:
+    except Exception as e:
+        print("FAiled: %s: %s" % (name, e))
         pass
