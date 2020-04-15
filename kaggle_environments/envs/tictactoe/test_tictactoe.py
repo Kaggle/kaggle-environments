@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import time
-from kaggle_environments import make, evaluate
+from kaggle_environments import make, evaluate, utils
 
 env = None
 
@@ -71,7 +71,7 @@ def test_can_reset():
             "action": 0,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"mark": 2, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -92,7 +92,7 @@ def test_can_place_valid_mark():
             "action": 0,  # None caused the default action to be applied.
             "status": "ACTIVE",
             "info": {},
-            "observation": {"mark": 2, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"mark": 2},
             "reward": 0,
         },
     ]
@@ -115,15 +115,16 @@ def test_can_place_invalid_mark():
             "action": 4,
             "status": "INVALID",
             "info": {},
-            "observation": {"mark": 2, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"mark": 2},
             "reward": None,
         },
     ]
 
 
 def test_can_place_winning_mark():
-    obs = {"observation": {"board": [2, 1, 0, 1, 1, 0, 2, 0, 2]}}
-    before_each([obs, obs])
+    state1 = {"observation": {"board": [2, 1, 0, 1, 1, 0, 2, 0, 2]}}
+    state2 = {}
+    before_each([state1, state2])
 
     assert env.step([7, None]) == [
         {
@@ -137,7 +138,7 @@ def test_can_place_winning_mark():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2]},
+            "observation": {"mark": 2},
             "reward": -1,
         },
     ]
@@ -154,7 +155,8 @@ def test_can_step_through_agents():
     before_each()
     while not env.done:
         action1 = env.agents.random(env.state[0].observation)
-        action2 = env.agents.reaction(env.state[1].observation)
+        action2 = env.agents.reaction(
+            utils.structify({"board": env.state[0].observation.board, "mark": 2}))
         env.step([action1, action2])
     assert env.state[0].reward + env.state[1].reward == 0
 
@@ -186,7 +188,7 @@ def test_can_run_custom_agents():
             "action": 0,
             "reward": -1,
             "info": {},
-            "observation": {"board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 2},
+            "observation": {"mark": 2},
             "status": "DONE",
         },
     ]
@@ -208,7 +210,7 @@ def test_agents_can_timeout_on_init():
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 2},
+            "observation": {"mark": 2},
             "status": "TIMEOUT",
         },
     ]
@@ -230,8 +232,30 @@ def test_agents_can_timeout_on_act():
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"board": [1, 2, 1, 0, 0, 0, 0, 0, 0], "mark": 2},
+            "observation": {"mark": 2},
             "status": "TIMEOUT",
+        },
+    ]
+
+
+def test_run_timeout():
+    env = make("tictactoe", debug=True, configuration={
+               "agentTimeout": 10, "actTimeout": 10, "runTimeout": 6})
+    state = env.run([custom1, custom3])[-1]
+    assert state == [
+        {
+            "action": 0,
+            "reward": 0,
+            "info": {},
+            "observation": {"board": [1, 2, 1, 2, 1, 2, 0, 0, 0], "mark": 1},
+            "status": "ACTIVE",
+        },
+        {
+            "action": 5,
+            "reward": 0,
+            "info": {},
+            "observation": {"mark": 2},
+            "status": "INACTIVE",
         },
     ]
 
@@ -251,7 +275,7 @@ def test_agents_can_error():
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 2},
+            "observation": {"mark": 2},
             "status": "ERROR",
         },
     ]
@@ -272,7 +296,7 @@ def test_agents_can_have_invalid_actions():
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 2},
+            "observation": {"mark": 2},
             "status": "INVALID",
         },
     ]

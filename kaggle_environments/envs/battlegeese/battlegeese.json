@@ -1,0 +1,79 @@
+{
+  "name": "battlegeese",
+  "title": "Battle Geese",
+  "description": "Similar to the classic snake game with multiple players",
+  "version": "1.0.0",
+  "agents": [2, 3, 4, 5, 6, 7, 8],
+  "configuration": {
+    "episodeSteps": 100,
+    "columns": {
+      "description": "Horizontal number of cells on the board.",
+      "type": "integer",
+      "default": 11,
+      "minimum": 3,
+      "maximum": 50
+    },
+    "rows": {
+      "description": "Vertical number of cells on the board.",
+      "type": "integer",
+      "default": 7,
+      "minimum": 3,
+      "maximum": 50
+    },
+    "hunger_rate": {
+      "description": "The number of steps before the goose shrinks a cell.",
+      "type": "integer",
+      "default": 40
+    },
+    "min_food": {
+      "description": "The minimum amount of food present for all steps.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    }
+  },
+  "reward": {
+    "description": "The number of steps the goose has moved plus it's length.",
+    "type": "integer",
+    "default": 0
+  },
+  "observation": {
+    "geese": {
+      "description": "List of geese in order by the agent index.",
+      "type": "array",
+      "default": [],
+      "shared": true,
+      "items": {
+        "description": "A goose represented by positions on the board.",
+        "type": "array",
+        "items": {
+          "description": "A position of a goose with the 0 position representing the head.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "food": {
+      "description": "Positions on the board where food is present.",
+      "type": "array",
+      "default": [],
+      "shared": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "index": {
+      "description": "Index of the agents goose in the list of geese.",
+      "type": "integer",
+      "minimum": 0,
+      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
+    }
+  },
+  "action": {
+    "description": "Direction to move the head of your players goose.",
+    "type": "string",
+    "enum": ["N", "E", "S", "W"],
+    "default": "N"
+  }
+}

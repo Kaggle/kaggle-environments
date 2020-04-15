@@ -16,12 +16,14 @@
     "board": {
       "description": "Serialized 3x3 grid. 0 = Empty, 1 = X, 2 = O",
       "type": "array",
+      "shared": true,
       "default": [0, 0, 0, 0, 0, 0, 0, 0, 0],
       "minItems": 9,
       "maxItems": 9
     },
     "mark": {
       "description": "Mark for the agent to use",
+      "defaults": [1, 2],
       "enum": [1, 2]
     }
   },
@@ -31,9 +33,7 @@
     "minimum": 0,
     "maximum": 8
   },
-  "reset": {
-    "status": ["ACTIVE", "INACTIVE"],
-    "observation": [{ "mark": 1 }, { "mark": 2 }],
-    "reward": 0
+  "status": {
+    "defaults": ["ACTIVE", "INACTIVE"]
   }
 }

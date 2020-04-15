@@ -15,7 +15,7 @@
 import argparse
 import json
 import traceback
-from kaggle_environments import Agent, environments, evaluate, make, utils
+from kaggle_environments import Agent, environments, errors, evaluate, make, utils
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
@@ -51,9 +51,6 @@ parser.add_argument(
     "--render",
     type=json.loads,
     help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
-)
-parser.add_argument(
-    "--timeout", type=int, help="Agent act timeout (default=10)."
 )
 parser.add_argument(
     "--middleware", type=str, help="Path to request middleware for use with the http-server."
@@ -93,23 +90,36 @@ cached_agent = None
 
 
 def action_act(args):
-    print("action_act", args)
     global cached_agent
     if len(args.agents) != 1:
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
+    # Process the configuration.
+    # (additional environment specificproperties come along without being checked).
+    err, config = utils.structify(utils.process_schema(
+        utils.schemas["configuration"], args.configuration))
+    if err:
+        return {"error": err}
+    timeout = config.actTimeout
+
     if cached_agent == None or cached_agent.id != raw:
         if cached_agent != None:
             cached_agent.destroy()
-        cached_agent = Agent(raw, args.configuration, raw)
+        cached_agent = Agent(raw, config, raw)
+        timeout = config.agentTimeout
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
         "reward": args.get("reward", None),
         "info": utils.get(args.state, dict, {}, ["info"])
     }
-    print("args.state", state)
-    return {"action": cached_agent.act(state, args.timeout)}
+    action = cached_agent.act(state, timeout)
+    if isinstance(action, errors.DeadlineExceeded):
+        action = "DeadlineExceeded"
+    elif isinstance(action, BaseException):
+        action = "BaseException"
+
+    return {"action": action}
 
 
 def action_step(args):
@@ -143,15 +153,13 @@ def parse_args(args):
             "steps": utils.get(args, list, [], ["steps"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "debug": utils.get(args, bool, False, ["debug"]),
-            "timeout": utils.get(args, int, 10, ["timeout"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
-            "port": utils.get(args, int, 8000, ["port"]),
+            "port": utils.get(args, int, 8000, ["port"])
         }
     )
 
   
 def action_handler(args):
-    print("action_hanlder", args)
     try:
         if args.action == "list":
             return action_list(args)
@@ -180,11 +188,15 @@ def action_handler(args):
 def action_http(args):
     from flask import Flask, request
 
-    middleware = None
+    middleware = {"request": None, "response": None}
     if args.middleware != None:
         try:
             raw = utils.read_file(args.middleware)
-            middleware = utils.get_last_callable(raw)
+            local = utils.get_exec(raw)
+            middleware["request"] = utils.get(
+                local, path=["request"], is_callable=True)
+            middleware["response"] = utils.get(
+                local, path=["response"], is_callable=True)
         except Exception as e:
             return {"error": str(e), "trace": traceback.format_exc()}
 
@@ -220,10 +232,16 @@ def http_request(request, middleware):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    args = parse_args({**params, **body})
-    if middleware != None:
-        args = middleware(args)
-    return (action_handler(args), 200, headers)
+
+    req = parse_args({**params, **body})
+    if middleware["request"] != None:
+        req = middleware["request"](req)
+
+    resp = action_handler(req)
+    if middleware["response"] != None:
+        resp = middleware["response"](req, resp)
+
+    return (resp, 200, headers)
 
 
 def main():

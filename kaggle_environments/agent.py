@@ -22,7 +22,7 @@ from .errors import DeadlineExceeded
 from .utils import get_exec, has, is_url, read_file, structify
 
 
-def build_agent(raw, message):
+def build_agent(raw):
     # Already callable.
     if callable(raw):
         return raw
@@ -36,15 +36,23 @@ def build_agent(raw, message):
         def url_agent(o, c, r, i):
             data = {
                 "action": "act",
-                "configuration": c,
+                "configuration": {
+                    **c,
+                    "agentExec": "LOCAL"
+                },
                 "state": {
                     "observation": o,
                     "reward": r,
                     "info": i
-                },
-                "timeout": message.timeout
+                }
             }
-            return requests.post(url=raw, data=json.dumps(data)).json()["action"]
+            action = requests.post(
+                url=raw, data=json.dumps(data)).json()["action"]
+            if action == "DeadlineExceeded":
+                action = DeadlineExceeded()
+            elif action == "BaseException":
+                action = BaseException()
+            return action
         return url_agent
 
     # A path exists and attempt to grab the source (fallback to the original string).
@@ -62,66 +70,93 @@ def build_agent(raw, message):
         return lambda: raw
 
 
+def run_agent(agent, message):
+    if message.state != None and message:
+        args = [
+            structify(message.state["observation"]),
+            structify(message.configuration),
+            message.state["reward"],
+            structify(message.state["info"])
+        ][:agent.__code__.co_argcount]
+        try:
+            message.action = agent(*args)
+        except Exception as e:
+            message.action = e
+        message.state = None
+
+
 def runner(raw, message):
     try:
-        agent = build_agent(raw, message)
+        agent = build_agent(raw)
     except Exception as e:
         message.action = e
     while True:
-        if message.state != None and message:
-            args = [
-                structify(message.state["observation"]),
-                structify(message.configuration),
-                message.state["reward"],
-                structify(message.state["info"])
-            ][:agent.__code__.co_argcount]
-            try:
-                message.action = agent(*args)
-            except Exception as e:
-                message.action = e
-            message.state = None
+        run_agent(agent, message)
 
 
 class Agent():
 
     def __init__(self, raw, configuration, id=None):
         self.id = id or str(uuid.uuid1())
-        self.manager = Manager()
-        self.message = self.manager.Namespace()
-        self.message.action = None
-        self.message.state = None
-        self.message.timeout = 0
-        self.message.configuration = configuration
-        self.process = Process(target=runner, args=(raw, self.message))
-        self.process.daemon = True
-        self.process.start()
+        self.configuration = configuration
+        self.raw = raw
+        self.use_process = configuration["agentExec"] == "PROCESS"
+
+        if self.use_process:
+            self.manager = Manager()
+            self.message = self.manager.Namespace()
+            self.message.action = None
+            self.message.state = None
+            self.message.configuration = configuration
+            self.process = Process(target=runner, args=(raw, self.message))
+            self.process.daemon = True
+            self.process.start()
+        else:
+            self.message = structify(
+                {"action": None, "state": None, "configuration": configuration})
+            self.agent = None
 
     def act(self, state, timeout=10):
-        # If an action is already set, there is an error.
+        # Start the timer.
+        start = time()
+
+        # If an action is already set (uncleared), there is an error.
         if self.message.action != None:
             return self.message.action
 
-        # Inform the agent process an action is requested.
+        # Inform the agent an action is requested.
         self.message.state = state
-        self.message.timeout = timeout
 
-        start = time()
-        while True:
-            # Timeout reached, destroy the agent, and throw an error.
-            if time() - start > timeout:
-                self.destroy()
-                return DeadlineExceeded()
+        if self.use_process:
+            # Timeout or Action Returned (will be processed below).
+            while True:
+                if time() - start > timeout or self.message.action != None:
+                    break
+        else:
+            if self.agent is None:
+                try:
+                    self.agent = build_agent(self.raw)
+                    # Update the timeout to add the agentTimeout (incase set to "act").
+                    timeout = self.configuration.agentTimeout + self.configuration.actTimeout
+                except Exception as e:
+                    return e
+            run_agent(self.agent, self.message)
 
-            # Action returned.
-            if self.message.action != None:
-                action = self.message.action
-                self.message.action = None
-                return action
+        # Timeout reached, destroy the agent, and throw an error.
+        if time() - start > timeout:
+            self.destroy()
+            return DeadlineExceeded()
+
+        # Return and clear the action.
+        action = self.message.action
+        self.message.action = None
+        return action
 
     def destroy(self):
         if self.id == None:
             return
         self.id = None
-        self.process.join(0.1)
-        self.process.terminate()
-        self.manager.shutdown()
+        if self.use_process:
+            self.process.join(0.1)
+            self.process.terminate()
+            self.manager.shutdown()

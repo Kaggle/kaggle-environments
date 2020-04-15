@@ -56,7 +56,6 @@ agents = {"random": random_agent, "reaction": reaction_agent}
 
 
 def interpreter(state, env):
-    # Specification can fully handle the reset.
     if env.done:
         return state
 
@@ -68,9 +67,8 @@ def interpreter(state, env):
         inactive.status = "DONE" if inactive.status == "INACTIVE" else inactive.status
         return state
 
-    # Keep the board in sync between both agents.
-    board = active.observation.board
-    inactive.observation.board = board
+    # The board is shared, only update the first state.
+    board = state[0].observation.board
 
     # Illegal move by the active agent.
     if board[active.action] != EMPTY:

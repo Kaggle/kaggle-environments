@@ -81,7 +81,7 @@
       `;
 
       const Logo = styled(
-        props => h`
+        (props) => h`
         <a href="https://kaggle.com" target="_blank" className=${props.className}>
           <svg width="62px" height="20px" viewBox="0 0 62 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
             <g fill="#1EBEFF" fill-rule="nonzero">
@@ -99,7 +99,7 @@
         display: inline-flex;
       `;
 
-      const Header = styled(props => {
+      const Header = styled((props) => {
         const { environment } = useContext(Context);
 
         return h`<div className=${props.className} >
@@ -119,7 +119,7 @@
         width: 100%;
       `;
 
-      const Renderer = styled(props => {
+      const Renderer = styled((props) => {
         const context = useContext(Context);
         const { animate, debug, playing, renderer, speed } = context;
         const ref = preact.createRef();
@@ -150,6 +150,7 @@
                 width: ref.current.clientWidth,
               });
             } catch (error) {
+              if (debug) console.error(error);
               console.log({ ...context, frame, error });
             } finally {
               if (debug) console.timeEnd("render");
@@ -173,9 +174,10 @@
         width: 100%;
       `;
 
-      const Processing = styled(props => {
+      const Processing = styled((props) => {
         const { processing } = useContext(Context);
-        return h`<div className=${props.className}>Processing...</div>`;
+        const text = processing === true ? "Processing..." : processing;
+        return h`<div className=${props.className}>${text}</div>`;
       })`
         bottom: 0;
         color: #fff;
@@ -187,7 +189,7 @@
         width: 100%;
       `;
 
-      const Viewer = styled(props => {
+      const Viewer = styled((props) => {
         const { processing } = useContext(Context);
         return h`<div className=${props.className}>
           <${Renderer} />
@@ -207,17 +209,20 @@
         width: 100%;
       `;
 
-      const Legend = styled(props => {
+      const Legend = styled((props) => {
         const { agents, legend } = useContext(Context);
 
         return h`<div className=${props.className}>
           <ul>
             ${agents
               .sort((a, b) => a.index - b.index)
-              .map(a => h`<li key=${a.id} title="id: ${
-                  a.id
-                }" style="color:${a.color || "#FFF"}">${a.image &&
-                  h`<img src=${a.image} />`}<span>${a.name}</span></li>`
+              .map(
+                (a) =>
+                  h`<li key=${a.id} title="id: ${a.id}" style="color:${
+                    a.color || "#FFF"
+                  }">${a.image && h`<img src=${a.image} />`}<span>${
+                    a.name
+                  }</span></li>`
               )}
           </ul>
         </div>`;
@@ -326,13 +331,13 @@
         pointer-events: none;
       `;
 
-      const Controls = styled(props => {
+      const Controls = styled((props) => {
         const { environment, pause, play, playing, setStep, step } = useContext(
           Context
         );
         const value = step + 1;
         const onClick = () => (playing ? pause() : play());
-        const onInput = e => {
+        const onInput = (e) => {
           pause();
           setStep(parseInt(e.target.value) - 1);
         };
@@ -358,7 +363,7 @@
         width: 100%;
       `;
 
-      const Info = styled(props => {
+      const Info = styled((props) => {
         const {
           environment,
           playing,
@@ -384,7 +389,7 @@
         font-size: 12px;
       `;
 
-      const Settings = styled(props => {
+      const Settings = styled((props) => {
         const { environment, pause, play, playing, setStep, step } = useContext(
           Context
         );
@@ -406,7 +411,7 @@
         }
       `;
 
-      const Player = styled(props => {
+      const Player = styled((props) => {
         const context = useContext(Context);
         const { agents, controls, header, legend, loading, settings } = context;
         return h`
@@ -457,11 +462,11 @@
         // Context helpers.
         const rerender = (contextRef.current.rerender = () =>
           setRenderCount((renderCountRef.current += 1)));
-        const setStep = (contextRef.current.setStep = newStep => {
+        const setStep = (contextRef.current.setStep = (newStep) => {
           contextRef.current.step = newStep;
           rerender();
         });
-        const setPlaying = (contextRef.current.setPlaying = playing => {
+        const setPlaying = (contextRef.current.setPlaying = (playing) => {
           contextRef.current.playing = playing;
           rerender();
         });
@@ -481,7 +486,7 @@
           }
         };
 
-        const play = (contextRef.current.play = continuing => {
+        const play = (contextRef.current.play = (continuing) => {
           const context = contextRef.current;
           if (context.playing && !continuing) return;
           if (!context.playing) setPlaying(true);
@@ -494,7 +499,7 @@
           setTimeout(playNext, context.speed);
         });
 
-        const updateContext = o => {
+        const updateContext = (o) => {
           const context = contextRef.current;
           Object.assign(context, o, {
             environment: { ...context.environment, ...(o.environment || {}) },
@@ -514,7 +519,7 @@
             // Listen for messages received to update the context.
             window.addEventListener(
               "message",
-              event => {
+              (event) => {
                 // Ensure the environment names match before updating.
                 try {
                   if (
@@ -529,11 +534,22 @@
             );
             // Listen for keyboard commands.
             window.addEventListener(
-              "keyup",
-              event => {
-                const { playing, step, environment } = contextRef.current;
+              "keydown",
+              (event) => {
+                const {
+                  interactive,
+                  isInteractive,
+                  playing,
+                  step,
+                  environment,
+                } = contextRef.current;
                 const key = event.keyCode;
-                if (key !== 32 && key !== 37 && key !== 39) return;
+                if (
+                  interactive ||
+                  isInteractive() ||
+                  (key !== 32 && key !== 37 && key !== 39)
+                )
+                  return;
 
                 if (key === 32) {
                   playing ? pause() : play();
@@ -562,12 +578,12 @@
         contextRef.current.update = updateContext;
 
         // Ability to communicate with ipython.
-        const execute = (contextRef.current.execute = source =>
+        const execute = (contextRef.current.execute = (source) =>
           new Promise((resolve, reject) => {
             try {
               window.parent.IPython.notebook.kernel.execute(source, {
                 iopub: {
-                  output: resp => {
+                  output: (resp) => {
                     const type = resp.msg_type;
                     if (type === "stream") return resolve(resp.content.text);
                     if (type === "error") return reject(new Error(resp.evalue));
@@ -581,7 +597,7 @@
           }));
 
         // Ability to return an action from an interactive session.
-        contextRef.current.act = action => {
+        contextRef.current.act = (action) => {
           const id = contextRef.current.environment.id;
           updateContext({ processing: true });
           execute(`
@@ -592,7 +608,7 @@
                 env, trainer = interactives["${id}"]
                 trainer.step(action)
                 print(json.dumps(env.steps))`)
-            .then(resp => {
+            .then((resp) => {
               try {
                 updateContext({
                   processing: false,
@@ -600,10 +616,11 @@
                 });
                 play();
               } catch (e) {
+                updateContext({ processing: resp.split("\n")[0] });
                 console.error(resp, e);
               }
             })
-            .catch(e => console.error(e));
+            .catch((e) => console.error(e));
         };
 
         // Check if currently interactive.
@@ -614,7 +631,7 @@
             context.interactive &&
             !context.processing &&
             context.step === steps.length - 1 &&
-            steps[context.step].some(s => s.status === "ACTIVE")
+            steps[context.step].some((s) => s.status === "ACTIVE")
           );
         };
 

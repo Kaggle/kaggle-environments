@@ -1,0 +1,132 @@
+{
+  "name": "halite",
+  "title": "Halite 3.1",
+  "description": "The game of space salt.",
+  "version": "1.0.0",
+  "agents": [1, 2, 4],
+  "configuration": {
+    "episodeSteps": 400,
+    "halite": {
+      "description": "The starting amount of halite available on the board.",
+      "type": "integer",
+      "default": 24000
+    },
+    "size": {
+      "description": "The number of cells vertically and horizontally on the board.",
+      "type": "integer",
+      "default": 15,
+      "minimum": 2
+    },
+    "spawnCost": {
+      "description": "The amount of halite to spawn a new ship.",
+      "type": "integer",
+      "default": 500,
+      "minimum": 0
+    },
+    "convertCost": {
+      "description": "The amount of halite to convert a ship into a shipyard.",
+      "type": "integer",
+      "default": 2000,
+      "minimum": 0
+    },
+    "moveCost": {
+      "description": "The percent deducted from ship's current halite per move.",
+      "type": "number",
+      "default": 0.1,
+      "minimum": 0
+    },
+    "collectRate": {
+      "description": "The rate of halite collected by a ship from a cell by not moving.",
+      "type": "number",
+      "default": 0.25,
+      "minimum": 0
+    },
+    "regenRate": {
+      "description": "The rate halite regenerates on the board.",
+      "type": "number",
+      "default": 0.02,
+      "minimum": 0
+    }
+  },
+  "reward": {
+    "description": "The amount of player owned halite (equal to players[index][0]).",
+    "type": "integer",
+    "default": 5000,
+    "minimum": 0
+  },
+  "observation": {
+    "halite": {
+      "description": "Halite: Serialized list of available halite per cell on the board.",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "players": {
+      "description": "List of players and their assets.",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "description": "Halite: The amount player owned halite (equal to reward).",
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "description": "Shipyards: The list of player owned shipyards.",
+            "type": "object",
+            "additionalProperties": {
+              "description": "Key: uid of the asset (shipyard). Value: position (row * size + column)",
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "description": "Ships: The list of player owned ships.",
+            "type": "object",
+            "additionalProperties": {
+              "description": "Key: uid of the asset (ship).",
+              "type": "array",
+              "items": [
+                {
+                  "description": "Position: (row * size + column).",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Ship Halite: The amount present in a ship.",
+                  "type": "integer",
+                  "default": 0,
+                  "minimum": 0
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "player": {
+      "description": "The agents player index.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3]
+    },
+    "step": {
+      "description": "The current step index within the episode.",
+      "type": "integer",
+      "shared": true,
+      "minimum": 0
+    }
+  },
+  "action": {
+    "description": "Actions taken per asset (ship or shipyard).",
+    "type": "object",
+    "additionalProperties": {
+      "description": "Key: uid of the asset. Value: action. SPAWN for shipyards, remaining for ships.",
+      "enum": ["CONVERT", "SPAWN", "NORTH", "SOUTH", "EAST", "WEST"]
+    }
+  }
+}

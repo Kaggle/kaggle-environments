@@ -14,6 +14,7 @@
 
 import copy
 import json
+from time import time
 import uuid
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
@@ -154,16 +155,16 @@ class Environment:
             action_state[index] = {**self.state[index], "action": None}
 
             if isinstance(action, DeadlineExceeded):
-                self.__debug_print(f"Timeout: {str(action)}")
+                self.debug_print(f"Timeout: {str(action)}")
                 action_state[index]["status"] = "TIMEOUT"
             elif isinstance(action, BaseException):
-                self.__debug_print(f"Error: {str(action)}")
+                self.debug_print(f"Error: {str(action)}")
                 action_state[index]["status"] = "ERROR"
             else:
                 err, data = process_schema(
                     self.__state_schema.properties.action, action)
                 if err:
-                    self.__debug_print(f"Invalid Action: {str(err)}")
+                    self.debug_print(f"Invalid Action: {str(err)}")
                     action_state[index]["status"] = "INVALID"
                 else:
                     action_state[index]["action"] = data
@@ -180,19 +181,25 @@ class Environment:
 
         return self.state
 
-    def run(self, agents, state=None):
+    def run(self, agents):
         """
-        Steps until the environment is "done".
+        Steps until the environment is "done" or the runTimeout was reached.
 
         Args:
             agents (list of any): List of agents to obtain actions from.
-            state (list of dict, optional): Starting state to begin running from.
 
         Returns:
             list of list of dict: The agent states of all steps executed.
         """
+        if self.state == None or len(self.steps) == 1 or self.done:
+            self.reset(len(agents))
+        if len(self.state) != len(agents):
+            raise InvalidArgument(
+                f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
-        while not self.done:
+        runner = self.__agent_runner(agents)
+        start = time()
+        while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
         runner.destroy()
         return self.steps
@@ -388,8 +395,7 @@ class Environment:
                     "configuration": spec.configuration,
                     "info": spec.info,
                     "observation": spec.observation,
-                    "reward": spec.reward,
-                    "reset": spec.reset
+                    "reward": spec.reward
                 },
                 "steps": self.steps,
                 "rewards": [state.reward for state in self.steps[-1]],
@@ -418,20 +424,28 @@ class Environment:
     def __state_schema(self):
         if not hasattr(self, "__state_schema_value"):
             spec = self.specification
-            # schema = structify(schemas["state"])
             self.__state_schema_value = {
                 **schemas["state"],
                 "properties": {
-                    **schemas.state.properties,
-                    "action": spec.action,
-                    "reward": spec.reward,
+                    "action": {
+                        **schemas.state.properties.action,
+                        **get(spec, dict, path=["action"], fallback={})
+                    },
+                    "reward": {
+                        **schemas.state.properties.reward,
+                        **get(spec, dict, path=["reward"], fallback={})
+                    },
                     "info": {
                         **schemas.state.properties.info,
-                        "properties": spec.info,
+                        "properties": get(spec, dict, path=["info"], fallback={})
                     },
                     "observation": {
                         **schemas.state.properties.observation,
-                        "properties": spec.observation,
+                        "properties": get(spec, dict, path=["observation"], fallback={})
+                    },
+                    "status": {
+                        **schemas.state.properties.status,
+                        **get(spec, dict, path=["status"], fallback={})
                     },
                 },
             }
@@ -451,24 +465,24 @@ class Environment:
     def __get_state(self, position, state):
         key = f"__state_schema_{position}"
         if not hasattr(self, key):
-            defaults = self.specification.reset
-            props = structify(copy.deepcopy(self.__state_schema.properties))
 
-            # Assign different defaults based upon agent position.
-            for d in defaults:
-                new_default = None
-                if hasattr(props, d):
-                    if not has(defaults[d], list):
-                        new_default = defaults[d]
-                    elif len(defaults[d]) > position:
-                        new_default = defaults[d][position]
-                if new_default is not None:
-                    if props[d].type == "object" and has(new_default, dict):
-                        for k in new_default:
-                            if hasattr(props[d].properties, k):
-                                props[d].properties[k].default = new_default[k]
-                    elif props[d].type != "object":
-                        props[d].default = new_default
+            # Update a property default value based on position in defaults.
+            # Remove shared properties from non-first agents.
+            def update_props(props):
+                for k, prop in list(props.items()):
+                    if get(prop, bool, path=["shared"], fallback=False) and position > 0:
+                        del props[k]
+                        continue
+                    if has(prop, list, path=["defaults"]) and len(prop["defaults"]) > position:
+                        prop["default"] = prop["defaults"][position]
+                        del prop["defaults"]
+                    if has(prop, dict, path=["properties"]):
+                        update_props(prop["properties"])
+                return props
+
+            props = structify(update_props(
+                copy.deepcopy(self.__state_schema.properties)))
+
             setattr(self, key, {**self.__state_schema, "properties": props})
 
         err, data = process_schema(getattr(self, key), state)
@@ -485,7 +499,7 @@ class Environment:
                 *args[:self.interpreter.__code__.co_argcount]))
             for agent in new_state:
                 if agent.status not in self.__state_schema.properties.status.enum:
-                    self.__debug_print(f"Invalid Action: {agent.status}")
+                    self.debug_print(f"Invalid Action: {agent.status}")
                     agent.status = "INVALID"
                 if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
                     agent.reward = None
@@ -546,26 +560,42 @@ class Environment:
 
             actions = [0] * len(agents)
             for i, agent in enumerate(agents):
-                state = self.state[i]
-                if state.status != "ACTIVE":
+                if self.state[i]["status"] != "ACTIVE":
                     actions[i] = None
                 elif agent == None:
                     actions[i] = none_action
                 else:
                     timeout = self.configuration.actTimeout
-
                     if not initialized[i]:
                         initialized[i] = True
                         timeout += self.configuration.agentTimeout
+                    state = self.__get_shared_state(i)
                     actions[i] = agent.act(state, timeout)
             return actions
 
         def destroy():
             for a in agents:
-                a.destroy()
+                if a != None:
+                    a.destroy()
 
         return structify({"act": act, "destroy": destroy})
 
-    def __debug_print(self, message):
+    def __get_shared_state(self, position):
+        if position == 0:
+            return self.state[0]
+        state = copy.deepcopy(self.state[position])
+
+        # Note: state and schema are required to be in sync (apart from shared ones).
+        def update_props(shared_state, state, schema_props):
+            for k, prop in schema_props.items():
+                if get(prop, bool, path=["shared"], fallback=False):
+                    state[k] = shared_state[k]
+                elif has(prop, dict, path=["properties"]):
+                    update_props(shared_state[k], state[k], prop["properties"])
+            return state
+
+        return update_props(self.state[0], state, self.__state_schema.properties)
+
+    def debug_print(self, message):
         if self.debug:
             print(message)
