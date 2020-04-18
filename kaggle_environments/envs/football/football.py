@@ -58,15 +58,18 @@ m_envs = {}
 def interpreter(state, env):
   global m_envs
   if (env.id not in m_envs) or env.done:
-    print("Staring a new environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
-    m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
-                                            stacked=False,
-                                            logdir='/tmp/football',
-                                            write_goal_dumps=False,
-                                            write_full_episode_dumps=False,
-                                            render=False,
-                                            number_of_left_players_agent_controls=env.configuration.team_1,
-                                            number_of_right_players_agent_controls=env.configuration.team_2)
+    if env.id not in m_envs:
+      print("Staring a new environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
+      m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
+                                              stacked=False,
+                                              logdir='/tmp/football',
+                                              write_goal_dumps=False,
+                                              write_full_episode_dumps=False,
+                                              render=True,
+                                              number_of_left_players_agent_controls=env.configuration.team_1,
+                                              number_of_right_players_agent_controls=env.configuration.team_2)
+    else:
+      print("Resetting environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
     obs = m_envs[env.id].reset()
     update_observations_and_rewards(configuration=env.configuration, state=state, obs=obs)
 
