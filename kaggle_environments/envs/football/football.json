@@ -37,6 +37,11 @@
           "description": "Directory to write the state dump and video information.",
           "type": "string",
           "default": "/tmp/football"
+      },
+      "running_in_notebook": {
+          "description": "Set to true, if you're creating this environment inside Kaggle/Colab notebook.",
+          "type": "boolean",
+          "default": false
       }
     },
     "reward": {

@@ -24,6 +24,11 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
   state[0].observation.controlled_players = configuration.team_1
   state[1].observation.controlled_players = configuration.team_2
 
+  ## TODO: this has to be re-done.
+  # the shapes are:
+  ## if you control a single player (configuration.team_1 + configuration.team_2 == 1): (72, 96, 4)
+  ## else the shape is: (team_1+team2, 72, 96, 4)
+
   if not configuration.team_2:
     # Single agent setup.
     state[0].observation.minimap = obs.flatten().tolist()
@@ -34,6 +39,7 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
   else:
     # Two agent setup.
     for agent in range(2):
+      ## TODO: this is not correct
       state[agent].observation.minimap = obs[agent].flatten().tolist()
       if rew is not None:
         state[agent].reward = rew[agent].item()
@@ -61,12 +67,31 @@ def cleanup(env):
   global m_envs
   del m_envs[env.id]
 
+def cleanup_all():
+  global m_envs
+  del m_envs
+
+def get_video_path(env):
+  suffix = '.webm' if env.configuration.running_in_notebook else '.avi'
+  names = m_envs[env.id].unwrapped._env._trace._dump_config['episode_done']._dump_names
+  if names:
+    return names[-1] + suffix
+  return None
+
+  
+
 def interpreter(state, env):
   global m_envs
   if (env.id not in m_envs) or env.done:
     if env.id not in m_envs:
       print("Staring a new environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
 
+      other_config_options = {}
+
+      if env.configuration.running_in_notebook:
+        # Use webp to encode videos (so that you can see them in the browser).
+        other_config_options["video_format"] = "webm"
+        assert not env.configuration.render, "Render is not supported inside notebook environment."
 
       m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
                                               stacked=False,
@@ -76,7 +101,8 @@ def interpreter(state, env):
                                               write_video=env.configuration.save_video,
                                               render=env.configuration.render,
                                               number_of_left_players_agent_controls=env.configuration.team_1,
-                                              number_of_right_players_agent_controls=env.configuration.team_2)
+                                              number_of_right_players_agent_controls=env.configuration.team_2,
+                                              other_config_options=other_config_options)
     else:
       print("Resetting environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
     obs = m_envs[env.id].reset()
