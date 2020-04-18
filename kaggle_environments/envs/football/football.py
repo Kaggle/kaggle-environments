@@ -55,17 +55,26 @@ def football_env():
 # Global dictionary with active environments.
 m_envs = {}
 
+def cleanup(env):
+  # TODO: find a way to expose it in the main Kaggle API.
+  # Some things (like video rendering) happen only after the environment is marked as finished.
+  global m_envs
+  del m_envs[env.id]
+
 def interpreter(state, env):
   global m_envs
   if (env.id not in m_envs) or env.done:
     if env.id not in m_envs:
       print("Staring a new environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
+
+
       m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
                                               stacked=False,
-                                              logdir='/tmp/football',
+                                              logdir=path.join(env.configuration.logdir, env.id),
                                               write_goal_dumps=False,
-                                              write_full_episode_dumps=False,
-                                              render=True,
+                                              write_full_episode_dumps=env.configuration.save_video,
+                                              write_video=env.configuration.save_video,
+                                              render=env.configuration.render,
                                               number_of_left_players_agent_controls=env.configuration.team_1,
                                               number_of_right_players_agent_controls=env.configuration.team_2)
     else:

@@ -21,6 +21,22 @@
           "minimum": 0,
           "maximum": 10,
           "default": 0
+      },
+
+      "render": {
+          "description": "If true - renders the game on the screen. This option will work on your local computer, but is not supported in colabs/notebooks.",
+          "type": "boolean",
+          "default": false
+      },
+      "save_video": {
+          "description": "If true, will record the video of the playthrough.",
+          "type": "boolean",
+          "default": false 
+      },
+      "logdir": {
+          "description": "Directory to write the state dump and video information.",
+          "type": "string",
+          "default": "/tmp/football"
       }
     },
     "reward": {
