@@ -71,13 +71,18 @@ def cleanup_all():
   global m_envs
   del m_envs
 
-def get_video_path(env):
-  suffix = '.webm' if env.configuration.running_in_notebook else '.avi'
-  names = m_envs[env.id].unwrapped._env._trace._dump_config['episode_done']._dump_names
-  if names:
-    return names[-1] + suffix
-  return None
 
+def get_video_path(env):
+  ## HACK: we should expose this value inside the football env
+  if not hasattr(env, "video_path"):
+    suffix = '.webm' if env.configuration.running_in_notebook else '.avi'
+    names = m_envs[env.id].unwrapped._env._trace._dump_config['episode_done']._dump_names
+    if names:
+      env.video_path = names[-1] + suffix
+      ## HACK: video is only written if environment is closed.
+      m_envs[env.id].unwrapped._env.close()
+    
+  return env.video_path
   
 
 def interpreter(state, env):
@@ -163,3 +168,16 @@ def html_renderer():
     jspath = path.abspath(path.join(dirpath, "football.js"))
     with open(jspath) as f:
         return f.read()
+
+def render_ipython(env):
+	from IPython.display import display, HTML
+	from base64 import b64encode
+
+	video = open(get_video_path(env), 'rb').read()
+	data_url = "data:video/webm;base64," + b64encode(video).decode()
+
+	display(HTML("""
+<video width=800 controls>
+  <source src="%s" type="video/webm">
+</video>
+""" % data_url)) 
