@@ -22,7 +22,8 @@
       "type": "integer",
       "default": 4,
       "minimum": 1
-    }
+    },
+    "actTimeout": 5
   },
   "reward": {
     "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
