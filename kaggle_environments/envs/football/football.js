@@ -12,18 +12,17 @@ function renderer(context) {
     update,
     width = 800,
     } = context;
-      // Common Dimensions.
-      // Game dimensions: 96x72
-      // We also add 'borders'
-  const unit = Math.floor(Math.min(height / (72+2), width / (96+2)));
-  const offsetX = Math.floor((width % 98)/2);
-  const offsetY = Math.floor((height % 74)/2);
+  CELL_Y = 72;
+  CELL_X = 96;
+  const unit = Math.floor(Math.min(height / (CELL_Y+2), width / (CELL_X+2)));
+  const offsetX = Math.floor((width % (CELL_X + 2))/2);
+  const offsetY = Math.floor((height % (CELL_Y + 2))/2);
 
   // the field's top-left corner starts at (offsetX, offsetY)
   const leftX = offsetX;
   const topY = offsetY;
-  const rightX = offsetX + 98*unit;
-  const bottomY = offsetY + 74*unit;
+  const rightX = offsetX + (CELL_X + 2)*unit;
+  const bottomY = offsetY + (CELL_Y + 2)*unit;
 
   // Canvas Setup.
   let canvas = parent.querySelector("canvas");
@@ -66,9 +65,12 @@ function renderer(context) {
     c.stroke();
   };
 
-  const drawCell = ({x, y, color}) => {
-    const posX = x*unit + leftX;
-    const posY = y*unit + topY;
+  const drawCell = ({ x, y, color }) => {
+    const centerX = (((x + 1) / 2) * CELL_X)*unit + leftX + unit;
+    const centerY = (((y + 1) / 2) * CELL_Y)*unit + topY + unit;
+
+    const posX = centerX - unit / 2;
+    const posY = centerY;
     drawLine({x1: posX, y1:posY, x2:posX+unit, y2:posY, style: {lineWidth:unit, strokeStyle: color}});
   };
 
@@ -79,22 +81,15 @@ function renderer(context) {
   drawLine({x1:leftX, y1:topY, x2:leftX, y2:bottomY, style:{lineWidth:unit, strokeStyle:"#ffffff"}});
   drawLine({x1:rightX, y1:topY, x2:rightX, y2:bottomY, style:{lineWidth:unit, strokeStyle:"#ffffff"}});
 
-  // drawCell({x:10, y:10, color:"#0000ff"});
 
-  const minimap = environment.steps[step][0].observation.minimap;
-  var x,y,z;
-  var i = 0;
-  var colors = ["black", "red", "yellow", "purple"];
-
-  for (y = 0; y<72; y++) {
-    for (x = 0; x<96; x++) {
-      for (z = 0; z < 4; z++) {
-        if (minimap[i] > 0) {
-          drawCell({x:x, y:y, color:colors[z]});
-        }
-        i += 1;
-      }
-    }
-
+  const raw_view_player0 = environment.steps[step][0].observation.players_raw[0];
+  for (let i = 0; i < raw_view_player0['left_team'].length; i++) {
+    const entry = raw_view_player0['left_team'][i];
+    drawCell({ x: entry[0], y: entry[1], color:"black" });
   }
+  for (let i = 0; i < raw_view_player0['right_team'].length; i++) {
+    const entry = raw_view_player0['right_team'][i];
+    drawCell({ x: entry[0], y: entry[1], color:"red" });
   }
+  drawCell({ x: raw_view_player0['ball'][0], y: raw_view_player0['ball'][1], color:"yellow" });
+}

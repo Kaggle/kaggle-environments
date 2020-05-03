@@ -49,12 +49,12 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
   if rew is not None:
     if configuration.team_1 == 1 and configuration.team_2 == 0:
       assert type(rew) == np.float32
-      state[0].reward = rew
-      state[1].reward = -rew
+      state[0].reward = float(rew)
+      state[1].reward = float(-rew)
     else:
       assert len(rew) == configuration.team_1 + configuration.team_2
-      state[0].reward = np.sum(rew[:configuration.team_1])
-      state[1].reward = np.sum(rew[configuration.team_1:])
+      state[0].reward = float(np.sum(rew[:configuration.team_1]))
+      state[1].reward = float(np.sum(rew[configuration.team_1:]))
 
   state[0].observation.players_raw = [
       parse_single_player(obs[x]) for x in range(configuration.team_1)
