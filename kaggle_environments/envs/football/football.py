@@ -72,19 +72,6 @@ def cleanup_all():
   del m_envs
 
 
-def get_video_path(env):
-  ## HACK: we should expose this value inside the football env
-  if not hasattr(env, "video_path"):
-    suffix = '.webm' if env.configuration.running_in_notebook else '.avi'
-    names = m_envs[env.id].unwrapped._env._trace._dump_config['episode_done']._dump_names
-    if names:
-      env.video_path = names[-1] + suffix
-      ## HACK: video is only written if environment is closed.
-      m_envs[env.id].unwrapped._env.close()
-    
-  return env.video_path
-  
-
 def interpreter(state, env):
   global m_envs
   if (env.id not in m_envs) or env.done:
@@ -98,6 +85,7 @@ def interpreter(state, env):
         other_config_options["video_format"] = "webm"
         assert not env.configuration.render, "Render is not supported inside notebook environment."
 
+      env.football_video_path = None
       m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
                                               stacked=False,
                                               logdir=path.join(env.configuration.logdir, env.id),
@@ -147,6 +135,12 @@ def interpreter(state, env):
     actions_to_env = actions_to_env + state[1].action
 
   obs, rew, done, info = m_envs[env.id].step(actions_to_env)
+  
+  if "dumps" in info:
+    print("Episode finished - received video link.")
+    for entry in info["dumps"]:
+      if entry['name'] == 'episode_done':
+        env.football_video_path = entry['video']
 
   update_observations_and_rewards(configuration=env.configuration, state=state, obs=obs, rew=rew)
 
