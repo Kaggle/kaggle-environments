@@ -57,11 +57,9 @@
     },
 
     "observation": {
-        "minimap": {
-          "description": "72x96x4 tensor. Channels: your team, opponent, ball, active_player ",
-          "type": "array",
-          "minItems": 27648,
-          "maxItems": 27648
+        "players_raw": {
+          "description": "Array of raw observations, one entry per each player that your agent controls. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md for detailed description. WARNING: your players will always look like they are 'playing from left to right' (to make training easier).",
+          "type": "array"
         },
         "controlled_players": {
             "description": "number of players that agent controls",

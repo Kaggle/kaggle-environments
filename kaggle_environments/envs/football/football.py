@@ -20,29 +20,30 @@ agents = {"run_right": run_right_agent, "run_left": run_left_agent,
           "do_nothing": do_nothing_agent}
 
 
+def parse_single_player(obs_raw_entry):
+  # Remove pixel information.
+  if "frame" in obs_raw_entry:
+    del obs_raw_entry["frame"]
+  return obs_raw_entry
+
 def update_observations_and_rewards(configuration, state, obs, rew=None):
+  """Updates agent-visible observations given 'raw' observations from environment.
+  
+  Observations in 'obs' are coming directly from the environment and are in 'raw' format.
+  """
   state[0].observation.controlled_players = configuration.team_1
   state[1].observation.controlled_players = configuration.team_2
 
-  ## TODO: this has to be re-done.
-  # the shapes are:
-  ## if you control a single player (configuration.team_1 + configuration.team_2 == 1): (72, 96, 4)
-  ## else the shape is: (team_1+team2, 72, 96, 4)
+  assert len(obs) == configuration.team_1 + configuration.team_2
+  if rew is not None:
+    assert len(rew) == configuration.team_1 + configuration.team_2
+    state[0].reward = np.sum(rew[:configuration.team_1])
+    state[1].reward = np.sum(rew[configuration.team_1:])
 
-  if not configuration.team_2:
-    # Single agent setup.
-    state[0].observation.minimap = obs.flatten().tolist()
-    state[1].observation.minimap = ([0]*72*96*4)
-    if rew is not None:
-      state[0].reward = rew.item()
-      state[1].reward = (-rew).item()
-  else:
-    # Two agent setup.
-    for agent in range(2):
-      ## TODO: this is not correct
-      state[agent].observation.minimap = obs[agent].flatten().tolist()
-      if rew is not None:
-        state[agent].reward = rew[agent].item()
+
+  state[0].observation.players_raw = [parse_single_player(obs[x]) for x in range(configuration.team_1)]
+  state[1].observation.players_raw = [parse_single_player(obs[x+configuration.team_1])
+      for x in range(configuration.team_2)]
 
 
 def update_state_on_invalid_action(bad_agent, good_agent, message):
@@ -62,8 +63,6 @@ def football_env():
 m_envs = {}
 
 def cleanup(env):
-  # TODO: find a way to expose it in the main Kaggle API.
-  # Some things (like video rendering) happen only after the environment is marked as finished.
   global m_envs
   del m_envs[env.id]
 
@@ -79,7 +78,6 @@ def interpreter(state, env):
       print("Staring a new environment %s: with scenario: %s" % (env.id, env.configuration.scenario_name))
 
       other_config_options = {}
-
       if env.configuration.running_in_notebook:
         # Use webp to encode videos (so that you can see them in the browser).
         other_config_options["video_format"] = "webm"
@@ -88,6 +86,8 @@ def interpreter(state, env):
       env.football_video_path = None
       m_envs[env.id] = football_env().create_environment(env_name=env.configuration.scenario_name,
                                               stacked=False,
+                                              # We use 'raw' representation to transfer data between server and agents.
+                                              representation='raw',
                                               logdir=path.join(env.configuration.logdir, env.id),
                                               write_goal_dumps=False,
                                               write_full_episode_dumps=env.configuration.save_video,
@@ -167,13 +167,13 @@ def render_ipython(env):
   if not env.football_video_path:
     raise Exception("No video found. Did episode finish successfully? Was save_video enabled?")
 
-	from IPython.display import display, HTML
-	from base64 import b64encode
+  from IPython.display import display, HTML
+  from base64 import b64encode
 
-	video = open(env.football_video_path, 'rb').read()
-	data_url = "data:video/webm;base64," + b64encode(video).decode()
+  video = open(env.football_video_path, 'rb').read()
+  data_url = "data:video/webm;base64," + b64encode(video).decode()
 
-	display(HTML("""
+  display(HTML("""
 <video width=800 controls>
   <source src="%s" type="video/webm">
 </video>
