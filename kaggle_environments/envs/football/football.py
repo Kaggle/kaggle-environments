@@ -164,10 +164,13 @@ def html_renderer():
         return f.read()
 
 def render_ipython(env):
+  if not env.football_video_path:
+    raise Exception("No video found. Did episode finish successfully? Was save_video enabled?")
+
 	from IPython.display import display, HTML
 	from base64 import b64encode
 
-	video = open(get_video_path(env), 'rb').read()
+	video = open(env.football_video_path, 'rb').read()
 	data_url = "data:video/webm;base64," + b64encode(video).decode()
 
 	display(HTML("""
