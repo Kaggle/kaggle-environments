@@ -20,10 +20,10 @@ def test_to_json():
     assert json["statuses"] == ["ACTIVE", "ACTIVE"]
     assert json["specification"]["reward"]["type"] == ["number", "null"]
 
-def clear_minimap(state):
+def clear_players_raw(state):
   state = copy.deepcopy(state)
   for entry in state:
-    entry.observation.minimap = []
+    entry.observation.players_raw = []
   return state
 
 
@@ -31,7 +31,7 @@ def test_single_agent():
     before_each()
     x = env.reset()
 
-    assert clear_minimap(env.reset()) == [
+    assert clear_players_raw(env.reset()) == [
         {
             "action": [],
             "status": "ACTIVE",
@@ -39,7 +39,7 @@ def test_single_agent():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -49,13 +49,13 @@ def test_single_agent():
             "info": {},
             "observation": {
                 "controlled_players": 0,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
 
     # Correct step from agent 0.
-    assert clear_minimap(env.step([[0],[]])) == [
+    assert clear_players_raw(env.step([[0],[]])) == [
         {
             "action": [0],
             "status": "ACTIVE",
@@ -63,7 +63,7 @@ def test_single_agent():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -73,14 +73,14 @@ def test_single_agent():
             "info": {},
             "observation": {
                 "controlled_players": 0,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
 
     # Incorrect step from agent 1 (it is forbidden to act in this scenario,
     # as 'team_2' players is set to 0).
-    assert clear_minimap(env.step([[0],[1]])) == [
+    assert clear_players_raw(env.step([[0],[1]])) == [
         {
             "action": [0],
             "status": "DONE",
@@ -88,7 +88,7 @@ def test_single_agent():
             'info': {'debug_info': 'Opponent made invalid move. You win.'},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -98,7 +98,7 @@ def test_single_agent():
             'info': {'debug_info': 'Too many actions passed: Expected 0, got 1.'},
             "observation": {
                 "controlled_players": 0,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
@@ -108,7 +108,7 @@ def test_multi_agent():
     before_each(configuration={"team_1": 2, "team_2": 1})
     x = env.reset()
 
-    assert clear_minimap(env.reset()) == [
+    assert clear_players_raw(env.reset()) == [
         {
             "action": [],
             "status": "ACTIVE",
@@ -116,7 +116,7 @@ def test_multi_agent():
             "info": {},
             "observation": {
                 "controlled_players": 2,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -126,13 +126,13 @@ def test_multi_agent():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
 
     # Correct step from both agents.
-    assert clear_minimap(env.step([[0, 2],[4]])) == [
+    assert clear_players_raw(env.step([[0, 2],[4]])) == [
         {
             "action": [0, 2],
             "status": "ACTIVE",
@@ -140,7 +140,7 @@ def test_multi_agent():
             "info": {},
             "observation": {
                 "controlled_players": 2,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -150,13 +150,13 @@ def test_multi_agent():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
 
     # Incorrect step from agent 1  - too many actions passed.
-    assert clear_minimap(env.step([[0, 1, 2], [1]])) == [
+    assert clear_players_raw(env.step([[0, 1, 2], [1]])) == [
         {
             "action": [0, 1, 2],
             "status": "INVALID",
@@ -164,7 +164,7 @@ def test_multi_agent():
             'info': {'debug_info': 'Too many actions passed: Expected 2, got 3.'},
             "observation": {
                 "controlled_players": 2,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -174,7 +174,7 @@ def test_multi_agent():
             'info': {'debug_info': 'Opponent made invalid move. You win.'},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
@@ -183,7 +183,7 @@ def test_deadline():
     before_each()
     x = env.reset()
 
-    assert clear_minimap(env.reset()) == [
+    assert clear_players_raw(env.reset()) == [
         {
             "action": [],
             "status": "ACTIVE",
@@ -191,7 +191,7 @@ def test_deadline():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -201,13 +201,13 @@ def test_deadline():
             "info": {},
             "observation": {
                 "controlled_players": 0,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
 
     # Correct step from agent 0.
-    assert clear_minimap(env.step([DeadlineExceeded(),[]])) == [
+    assert clear_players_raw(env.step([DeadlineExceeded(),[]])) == [
         {
             "action": None,
             "status": "TIMEOUT",
@@ -215,7 +215,7 @@ def test_deadline():
             "info": {},
             "observation": {
                 "controlled_players": 1,
-                "minimap": []
+                "players_raw": []
             }
         },
         {
@@ -225,7 +225,7 @@ def test_deadline():
             "info": {},
             "observation": {
                 "controlled_players": 0,
-                "minimap": []
+                "players_raw": []
             }
         }
     ]
