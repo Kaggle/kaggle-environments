@@ -81,7 +81,6 @@ function renderer(context) {
   drawLine({x1:leftX, y1:topY, x2:leftX, y2:bottomY, style:{lineWidth:unit, strokeStyle:"#ffffff"}});
   drawLine({x1:rightX, y1:topY, x2:rightX, y2:bottomY, style:{lineWidth:unit, strokeStyle:"#ffffff"}});
 
-
   const raw_view_player0 = environment.steps[step][0].observation.players_raw[0];
   for (let i = 0; i < raw_view_player0['left_team'].length; i++) {
     const entry = raw_view_player0['left_team'][i];

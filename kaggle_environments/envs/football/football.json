@@ -4,7 +4,7 @@
     "configuration": {
       "episodeSteps": 100,
       "scenario_name": {
-          "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside scenarios/ dir of GoogleResearchFootball.",
+          "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
           "default": "test_example_multiagent"
       },
@@ -69,7 +69,7 @@
         }
     },
     "action": {
-      "description": "A Button to press for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. ",
+      "description": "A Button to press for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md",
       "type": "array",
       "items": {
         "type": "number",
