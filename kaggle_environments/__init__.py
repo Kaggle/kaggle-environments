@@ -37,5 +37,4 @@ for name in listdir(utils.envs_path):
             "specification": getattr(env, "specification"),
         })
     except Exception as e:
-        print("FAiled: %s: %s" % (name, e))
-        pass
+        print("Failed: %s: %s" % (name, e))
