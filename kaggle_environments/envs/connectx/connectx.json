@@ -23,7 +23,13 @@
       "default": 4,
       "minimum": 1
     },
-    "actTimeout": 5
+    "actTimeout": 5,
+    "timeout": {
+      "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",
+      "type": "integer",
+      "default": 5,
+      "minimum": 0
+    }
   },
   "reward": {
     "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
