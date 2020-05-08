@@ -117,7 +117,7 @@ def action_act(args):
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
-        action = "BaseException"
+        action = "BaseException::" + str(action)
 
     return {"action": action}
 
@@ -234,7 +234,6 @@ def http_request(request, middleware):
     body = request.get_json(silent=True, force=True) or {}
 
     req = parse_args({**params, **body})
-    print(req)
     if middleware["request"] != None:
         req = middleware["request"](req)
 
@@ -242,7 +241,6 @@ def http_request(request, middleware):
     if middleware["response"] != None:
         resp = middleware["response"](req, resp)
 
-    print(resp)
     return (resp, 200, headers)
 
 

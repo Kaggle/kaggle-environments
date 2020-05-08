@@ -50,8 +50,10 @@ def build_agent(raw):
                 url=raw, data=json.dumps(data)).json()["action"]
             if action == "DeadlineExceeded":
                 action = DeadlineExceeded()
-            elif action == "BaseException":
-                action = BaseException()
+            elif action.startsWith("BaseException::"):
+                # Deserialize the exception message
+                parts = action.split("::", 1)
+                action = BaseException(parts[1])
             return action
         return url_agent
 
