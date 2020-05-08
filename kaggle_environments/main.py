@@ -95,18 +95,18 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
-    # Process the configuration.
-    # (additional environment specificproperties come along without being checked).
-    err, config = utils.structify(utils.process_schema(
-        utils.schemas["configuration"], args.configuration))
-    if err:
-        return {"error": err}
+    # Pass empty steps in here because we just need the configuration from the environment
+    env = make(args.environment, args.configuration, [], args.debug)
+    config = env.configuration
     timeout = config.actTimeout
 
     if cached_agent == None or cached_agent.id != raw:
         if cached_agent != None:
             cached_agent.destroy()
-        cached_agent = Agent(raw, config, raw)
+        identifier = raw
+        if utils.has(env.agents, path=[identifier]):
+            raw = env.agents[identifier]
+        cached_agent = Agent(raw, config, identifier)
         timeout = config.agentTimeout
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
