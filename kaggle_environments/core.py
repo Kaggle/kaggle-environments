@@ -546,7 +546,7 @@ class Environment:
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration) if a !=
+        agents = [Agent(a, self.configuration, self.name, debug=self.debug) if a !=
                   None else None for a in agents]
 
         # Have the agents had a chance to initialize (first non-empty act).
