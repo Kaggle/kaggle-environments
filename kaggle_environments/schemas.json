@@ -65,7 +65,7 @@
       "agentExec": {
         "description": "How the agent is executed alongside the running envionment.",
         "type": "string",
-        "default": "PROCESS",
+        "default": "LOCAL",
         "enum": ["LOCAL", "PROCESS"]
       },
       "agentTimeout": {
