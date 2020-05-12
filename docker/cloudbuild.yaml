@@ -1,6 +1,6 @@
 steps:
 - id: 'build-image'
   name: gcr.io/cloud-builders/docker
-  args: ['build', '-f', './docker/Dockerfile', '-t', 'gcr.io/kaggle-images/python-simulations', '.']
+  args: ['build', '-f', './docker/Dockerfile', '-t', 'gcr.io/kaggle-images/python-simulations', '.', '--build-arg', 'USE_GFOOTBALL=false']
 images: ['gcr.io/kaggle-images/python-simulations']
 timeout: 24h
