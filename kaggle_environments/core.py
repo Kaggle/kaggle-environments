@@ -341,7 +341,7 @@ class Environment:
                 runner.destroy()
             runner = self.__agent_runner(agents)
             advance()
-            return self.state[position].observation
+            return self.__get_shared_state(position).observation
 
         def step(action):
             self.step(runner.act(action))
