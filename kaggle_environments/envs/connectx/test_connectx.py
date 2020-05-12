@@ -29,12 +29,16 @@ def test_can_train_first():
     trainer = env.train([None, 'random'])
     obs = trainer.reset()
     assert "board" in obs
+    obs, _, _, _ = trainer.step(0)
+    assert "board" in obs
 
 
 def test_can_train_second():
     before_each()
     trainer = env.train(['random', None])
     obs = trainer.reset()
+    assert "board" in obs
+    obs, _, _, _ = trainer.step(0)
     assert "board" in obs
 
 

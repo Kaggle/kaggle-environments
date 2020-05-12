@@ -346,7 +346,7 @@ class Environment:
         def step(action):
             self.step(runner.act(action))
             advance()
-            agent = self.state[position]
+            agent = self.__get_shared_state(position)
             reward = agent.reward
             if len(self.steps) > 1 and reward != None:
                 reward -= self.steps[-2][position].reward
