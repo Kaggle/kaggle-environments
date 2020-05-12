@@ -4,7 +4,7 @@ WORKDIR /usr/src/app/kaggle_environments
 
 # gfootball dependencies
 RUN apt-get update
-RUN apt-get --assume-yes install libsdl2-gfx-dev libsdl2-ttf-dev libboost-all-dev libsdl2-image-dev
+RUN apt-get --assume-yes install git cmake build-essential libgl1-mesa-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-gfx-dev libboost-all-dev libdirectfb-dev libst-dev mesa-utils xvfb x11vnc libsdl-sge-dev python3-pip
 RUN pip install gfootball
 
 ADD ./kaggle_environments ./kaggle_environments
