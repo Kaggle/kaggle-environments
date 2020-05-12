@@ -282,7 +282,7 @@ function renderer({
     for (let d = 0; d < 8; d++) {
       const seq = getSequence(graph[i], d);
       if (seq) {
-        drawLine(seq[0], seq[3]);
+        drawLine(seq[0], seq[inarow - 1]);
         i = board.length;
         break;
       }
