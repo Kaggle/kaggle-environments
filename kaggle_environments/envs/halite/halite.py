@@ -171,7 +171,11 @@ def interpreter(state, env):
 
         # Randomly place a few halite "seeds".
         for i in range(half):
+            ## random distribution across entire quartile
             grid[randint(0, half-1)][randint(0, half-1)] = i ** 2
+
+            ## as well as a particular distribution weighted toward the center of the map
+            grid[randint(half//2, half-1)][randint(half//2, half-1)] = i ** 2
 
         # Spread the seeds radially.
         radius_grid = copy.deepcopy(grid)
@@ -180,14 +184,25 @@ def interpreter(state, env):
                 value = grid[r][c]
                 if value == 0:
                     continue
-                radius = round((value / half) ** (0.5))
+
+                # keep initial seed values, but constrain radius of clusters
+                radius = min(round((value / half) ** (0.5)), 1)
                 for r2 in range(r-radius+1, r+radius):
                     for c2 in range(c-radius+1, c+radius):
                         if r2 >= 0 and r2 < half and c2 >= 0 and c2 < half:
-                            distance = (abs(r2-r) ** 2 +
-                                        abs(c2-c) ** 2) ** (0.5)
-                            radius_grid[r2][c2] += int(value /
-                                                       max(1, distance) ** distance)
+                            distance = (abs(r2-r) ** 2 + abs(c2-c) ** 2) ** (0.5)
+                            radius_grid[r2][c2] += int(value / max(1, distance) ** distance)
+
+        ## add some random sprouts of halite
+        radius_grid = np.asarray(radius_grid)
+        add_grid = np.random.gumbel(0, 300.0, size=(half,half)).astype(int)
+        sparse_radius_grid = np.random.binomial(1, 0.5, size=(half,half))
+        add_grid = np.clip(add_grid, 0, a_max=None) * sparse_radius_grid
+        radius_grid += add_grid
+
+        ## add another set of random locations to the center corner
+        corner_grid = np.random.gumbel(0, 500.0, size=(half//4,half//4)).astype(int)        
+        radius_grid[half - (half//4):, half - (half//4):] += corner_grid
 
         # Normalize the available halite against the defined configuration starting halite.
         total = sum([sum(row) for row in radius_grid])
@@ -224,6 +239,27 @@ def interpreter(state, env):
 
         return state
 
+    board = [[-1, {}, -1] for _ in range(size ** 2)]
+    for index, agent in enumerate(state):
+        if agent.status != "ACTIVE":
+            continue
+        _, shipyards, ships = obs.players[index]
+        for uid, shipyard_pos in shipyards.items():
+            board[shipyard_pos][0] = index
+            board[shipyard_pos][2] = uid
+        for uid, ship in ships.items():
+            board[ship[0]][1][uid] = index
+    for pos, cell in enumerate(board):
+        shipyard, ships, shipyard_uid = cell
+        # Detect Shipyard Collisions.
+        if shipyard > -1:
+            for uid, index in list(ships.items()):
+                if shipyard != index:
+                    del ships[uid]
+                    del obs.players[index][2][uid]
+                    if shipyard_uid in obs.players[index][1]:
+                        del obs.players[index][1][shipyard_uid]
+
     # Apply actions to create an updated observation.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
@@ -239,7 +275,7 @@ def interpreter(state, env):
                 else:
                     ships[create_uid()] = [shipyards[uid], 0]
                     player_halite -= int(config.spawnCost)
-                break
+                continue
             # Ship Actions. Ship must be present.
             elif not uid in ships:
                 agent.status = f"{uid} ship asset not found."
@@ -257,7 +293,7 @@ def interpreter(state, env):
                     player_halite += int(ship_halite - config.convertCost)
                     obs.halite[ship_pos] = 0
                     del ships[uid]
-                break
+                continue
 
             # Move Ship Actions.
             to_pos = get_to_pos(size, ship_pos, action)
@@ -280,27 +316,19 @@ def interpreter(state, env):
             board[ship[0]][1][uid] = index
     for pos, cell in enumerate(board):
         shipyard, ships = cell
-        # Detect Shipyard Collisions.
-        if shipyard > -1:
-            for uid, index in list(ships.items()):
-                if shipyard != index:
-                    del ships[uid]
-                    del obs.players[index][2][uid]
-        # Detect Ship Collections.
+        # Detect Ship Collisions.
         if len(ships) > 1:
-            largest_ships = [[i, uid, obs.players[i][2][uid][1]]
+            smallest_ships = [[i, uid, obs.players[i][2][uid][1]]
                              for uid, i in ships.items()]
-            largest_ships.sort(key=lambda s: -s[2])
-            for i, lship in enumerate(largest_ships):
+            smallest_ships.sort(key=lambda s: s[2])
+            for i, lship in enumerate(smallest_ships):
                 player_index, uid, ship_halite = lship
                 # Remove collided ships.
-                if i > 0 or ship_halite == largest_ships[i+1][2]:
+                if i > 0 or ship_halite == smallest_ships[i+1][2]:
                     del obs.players[player_index][2][uid]
                 # Reduce halite available with remaining ship.
                 else:
-                    obs.players[player_index][2][uid][1] -= largest_ships[i+1][2]
-            # Remove cell halite (destroyed in explosion)
-            obs.halite[pos] = 0
+                    obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
 
     # Remove players with invalid status or insufficent potential.
     for index, agent in enumerate(state):
@@ -335,7 +363,7 @@ def interpreter(state, env):
     for pos, halite in enumerate(obs.halite):
         if pos in asset_positions:
             continue
-        obs.halite[pos] = halite * (1 + config.regenRate)
+        obs.halite[pos] = min(500, halite * (1 + config.regenRate))
 
 
     # Check if done (< 2 players and num_agents > 1)

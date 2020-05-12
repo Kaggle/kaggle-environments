@@ -14,7 +14,7 @@
     "size": {
       "description": "The number of cells vertically and horizontally on the board.",
       "type": "integer",
-      "default": 15,
+      "default": 18,
       "minimum": 2
     },
     "spawnCost": {
@@ -26,13 +26,13 @@
     "convertCost": {
       "description": "The amount of halite to convert a ship into a shipyard.",
       "type": "integer",
-      "default": 2000,
+      "default": 500,
       "minimum": 0
     },
     "moveCost": {
       "description": "The percent deducted from ship's current halite per move.",
       "type": "number",
-      "default": 0.1,
+      "default": 0,
       "minimum": 0
     },
     "collectRate": {
