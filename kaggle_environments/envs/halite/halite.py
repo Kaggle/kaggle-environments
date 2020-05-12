@@ -355,9 +355,9 @@ def interpreter(state, env):
                 obs.players[index][0] += ship_halite
                 ship[1] = 0
             # Collect halite from cells into ships.
-            elif obs.halite[ship_pos] > 0:
-                collect_halite = max(
-                    1, int(obs.halite[ship_pos] * config.collectRate))
+            elif obs.halite[ship_pos] * config.collectRate >= 1:
+                # Ship halite is int based, so drop off that bit of fractional halite
+                collect_halite = math.floor(obs.halite[ship_pos] * config.collectRate)
                 obs.halite[ship_pos] -= collect_halite
                 ship[1] += collect_halite
     for pos, halite in enumerate(obs.halite):
