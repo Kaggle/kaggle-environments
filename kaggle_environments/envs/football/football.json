@@ -1,0 +1,80 @@
+{
+    "name": "football",
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": 100,
+      "scenario_name": {
+          "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
+          "type": "string",
+          "default": "test_example_multiagent"
+      },
+      "team_1": {
+          "description": "Number of players from the first team that agent controls.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 1
+      },
+      "team_2": {
+          "description": "Number of players that other agent controls. If set to 0 - the second agent will always have to return 0 as action.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0
+      },
+
+      "render": {
+          "description": "If true - renders the game on the screen. This option will work on your local computer, but is not supported in colabs/notebooks.",
+          "type": "boolean",
+          "default": false
+      },
+      "save_video": {
+          "description": "If true, will record the video of the playthrough.",
+          "type": "boolean",
+          "default": false 
+      },
+      "logdir": {
+          "description": "Directory to write the state dump and video information.",
+          "type": "string",
+          "default": "/tmp/football"
+      },
+      "running_in_notebook": {
+          "description": "Set to true, if you're creating this environment inside Kaggle/Colab notebook.",
+          "type": "boolean",
+          "default": false
+      }
+    },
+    "reward": {
+      "description": "1.0 for scored goal, -1.0 for lost goal (it is given only when the goal is scored, and changes back to 0 afterwards)",
+      "type": "number"
+    },
+
+    "info": {
+      "debug_info": {
+          "description": "Human readable information passed from the system.",
+          "type": "string"
+      }
+    },
+
+    "observation": {
+        "players_raw": {
+          "description": "Array of raw observations, one entry per each player that your agent controls. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md for detailed description. WARNING: your players will always look like they are 'playing from left to right' (to make training easier).",
+          "type": "array"
+        },
+        "controlled_players": {
+            "description": "number of players that agent controls",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+        }
+    },
+    "action": {
+      "description": "A Button to press for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md",
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 19
+      }
+    }
+}

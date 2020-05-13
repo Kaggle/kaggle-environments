@@ -341,12 +341,12 @@ class Environment:
                 runner.destroy()
             runner = self.__agent_runner(agents)
             advance()
-            return self.state[position].observation
+            return self.__get_shared_state(position).observation
 
         def step(action):
             self.step(runner.act(action))
             advance()
-            agent = self.state[position]
+            agent = self.__get_shared_state(position)
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
@@ -547,7 +547,7 @@ class Environment:
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration) if a !=
+        agents = [Agent(a, self.configuration, self.name, debug=self.debug) if a !=
                   None else None for a in agents]
 
         # Have the agents had a chance to initialize (first non-empty act).

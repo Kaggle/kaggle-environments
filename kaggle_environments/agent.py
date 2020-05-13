@@ -22,7 +22,7 @@ from .errors import DeadlineExceeded
 from .utils import get_exec, has, is_url, read_file, structify
 
 
-def build_agent(raw):
+def build_agent(raw, environment, debug=False):
     # Already callable.
     if callable(raw):
         return raw
@@ -40,18 +40,26 @@ def build_agent(raw):
                     **c,
                     "agentExec": "LOCAL"
                 },
+                "environment": environment,
                 "state": {
                     "observation": o,
                     "reward": r,
                     "info": i
                 }
             }
-            action = requests.post(
-                url=raw, data=json.dumps(data)).json()["action"]
+            if debug:
+                print("Remote Agent Data: " + str(data))
+            response = requests.post(url=raw, data=json.dumps(data))
+            responseJson = response.json()
+            if debug:
+                print("Remote Agent JSON: " + str(responseJson))
+            action = responseJson["action"]
             if action == "DeadlineExceeded":
                 action = DeadlineExceeded()
-            elif action == "BaseException":
-                action = BaseException()
+            elif has(action, str) and action.startsWith("BaseException::"):
+                # Deserialize the exception message
+                parts = action.split("::", 1)
+                action = BaseException(parts[1])
             return action
         return url_agent
 
@@ -85,9 +93,9 @@ def run_agent(agent, message):
         message.state = None
 
 
-def runner(raw, message):
+def runner(raw, message, environment, debug=False):
     try:
-        agent = build_agent(raw)
+        agent = build_agent(raw, environment, debug)
     except Exception as e:
         message.action = e
     while True:
@@ -96,11 +104,13 @@ def runner(raw, message):
 
 class Agent():
 
-    def __init__(self, raw, configuration, id=None):
+    def __init__(self, raw, configuration, environment, id=None, debug=False):
         self.id = id or str(uuid.uuid1())
         self.configuration = configuration
+        self.environment = environment
         self.raw = raw
         self.use_process = configuration["agentExec"] == "PROCESS"
+        self.debug = debug
 
         if self.use_process:
             self.manager = Manager()
@@ -108,7 +118,7 @@ class Agent():
             self.message.action = None
             self.message.state = None
             self.message.configuration = configuration
-            self.process = Process(target=runner, args=(raw, self.message))
+            self.process = Process(target=runner, args=(raw, self.message, self.environment, self.debug))
             self.process.daemon = True
             self.process.start()
         else:
@@ -135,7 +145,7 @@ class Agent():
         else:
             if self.agent is None:
                 try:
-                    self.agent = build_agent(self.raw)
+                    self.agent = build_agent(self.raw, self.environment, self.debug)
                     # Update the timeout to add the agentTimeout (incase set to "act").
                     timeout = self.configuration.agentTimeout + self.configuration.actTimeout
                 except Exception as e:

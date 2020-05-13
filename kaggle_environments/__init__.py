@@ -19,7 +19,7 @@ from .core import *
 from . import errors
 from . import utils
 
-version = "0.2.1"
+__version__ = "0.2.8"
 
 __all__ = ["Agent", "environments", "errors", "evaluate",
            "make", "register", "utils", "version"]
@@ -36,5 +36,5 @@ for name in listdir(utils.envs_path):
             "renderer": getattr(env, "renderer"),
             "specification": getattr(env, "specification"),
         })
-    except:
-        pass
+    except Exception as e:
+        print("Failed: %s: %s" % (name, e))
