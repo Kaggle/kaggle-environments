@@ -1,10 +1,17 @@
 async function renderer({
   parent,
+  // The gamestep we're rendering, starting at 0 and going by default up to 399.
   step,
+  // We render several frames within a step for animation, and use float values in [0, 1] range.
+  // Rendering while the game is paused gives frame == 1.0.
   frame,
+  // Optional list of agents which will render a legend with player names.
+  agents,
+  // update fn which lets us pass rendering info for `agents` for the legend.
+  update,
   environment,
-  width = 400,
-  height = 400,
+  width = 800,
+  height = 600,
 }) {
   // Configuration.
   const { size } = environment.configuration;
@@ -15,7 +22,7 @@ async function renderer({
   const colors = {
     bg: "#000B49",
     bgGradient: "#000B2A",
-    players: ["#E2CD13", "#F24E4E", "#9BE38E", "#20BDFF"],
+    players: ["#E2CD13", "#F24E4E", "#34BB1C", "#7B33E2"],
     ships: [
       [
         "#F1E61D",
@@ -36,27 +43,30 @@ async function renderer({
         "#161616",
       ],
       [
-        "#51E32A",
-        "#36C61C",
-        "#2EA818",
-        "#299515",
-        "#1B630E",
-        "#17540C",
+        "#4BCF27",
+        "#34BB1C",
+        "#299516",
+        "#268814",
+        "#17560C",
+        "#14470A",
         "#161616",
       ],
       [
-        "#2FDEFF",
-        "#20BDFF",
-        "#1AA1D9",
-        "#168EBE",
-        "#105F80",
-        "#0F516D",
+        "#BA4DF2",
+        "#7B33E2",
+        "#692BC0",
+        "#5C26AB",
+        "#3D1971",
+        "#341561",
         "#161616",
       ],
     ],
   };
 
-  // Rectangle coordinates on a 20x20 grid.
+  // Rectangle coordinates on a 20x20 grid, with ';' as separator.
+  // Each entry is either a color or a list of [x, y, w, h, special, minFrame, maxFrame]
+  // with default values of [0, 0, 1, 1, 0, 0, 1] if missing.  "special" is a bitmask
+  // which indicates to swap across axes to help with mirroring common subimages.
   const rects = {
     ship: [
       "9.5,0;9,1;8,3,1,2;7,5,1,2;6,7,1,2;7,10,2;9,9",
@@ -78,10 +88,10 @@ async function renderer({
       "#FFFFFF66;9,9,2,2,0,0.4;6,6,1,1,14,0.6;5,5,1,1,14,0.7;4,4,1,1,14,0.8;3,3,1,1,14,0.9;2,2,1,1,14,1",
     ],
     explosion: [
-      "#C84302;7,7,1,1,14;6,9,1,2,4;5,5,1,1,14,0.25;9,5,2,10,0,0.25;6,9,8,2,0,0.25;3,3,1,1,14,0.5;7,6,1,1,15,0.5;5,4,1,1,14,0.75;4,5,1,1,14,0.75;8,5,1,1,14,0.75;9,4,2,1,2,0.75;4,8,1,1,14,0.75;7,2,1,1,14,0.75;",
-      "#FF972E;9,6,2,1,2;8,9,4,2;4,9,1,2,4,0.25,0.74;9,6,2,8,0,0.25;7,7,6,2,2,0.25;2,9,1,2,4,0.5;6,7,8,2,2,0.75;9,5,2,10,0,0.75;8,6,4,8,0,0.5;6,6,1,1,14,0.75;5,5,1,1,14,0.75;5,7,1,1,14,0.75;7,4,1,1,14,0.75;",
-      "#FEF545;9,8,2,4;9,7,2,6,0,0.25;8,8,4,4,0,0.25;8,7,1,1,14,0.5;8,7,4,6,1,0.75;9,6,2,1,2,0.75;",
-      "#FFF5FF;9,9,2,2;8,9,4,2,1,0.25;7,9,6,2,0,0.5;9,7,2,6,0,0.75",
+      "#C84302BB;7,7,1,1,14;6,9,1,2,4;5,5,1,1,14,0.25;9,5,2,10,0,0.25;6,9,8,2,0,0.25;3,3,1,1,14,0.5;7,6,1,1,15,0.5;5,4,1,1,14,0.75;4,5,1,1,14,0.75;8,5,1,1,14,0.75;9,4,2,1,2,0.75;4,8,1,1,14,0.75;7,2,1,1,14,0.75;",
+      "#FF972EBB;9,6,2,1,2;8,9,4,2;4,9,1,2,4,0.25,0.74;9,6,2,8,0,0.25;7,7,6,2,2,0.25;2,9,1,2,4,0.5;6,7,8,2,2,0.75;9,5,2,10,0,0.75;8,6,4,8,0,0.5;6,6,1,1,14,0.75;5,5,1,1,14,0.75;5,7,1,1,14,0.75;7,4,1,1,14,0.75;",
+      "#FEF545BB;9,8,2,4;9,7,2,6,0,0.25;8,8,4,4,0,0.25;8,7,1,1,14,0.5;8,7,4,6,1,0.75;9,6,2,1,2,0.75;",
+      "#FFF5FFBB;9,9,2,2;8,9,4,2,1,0.25;7,9,6,2,0,0.5;9,7,2,6,0,0.75",
     ],
     largeHalite: [
       "#008DFF;17,6;2,13;9,1,2,18,1;5,7,10,6,1",
@@ -317,6 +327,12 @@ async function renderer({
         });
       }
     });
+    // Shipyards.
+    colors.players.forEach((color, n) => {
+      move(ctx, { x: 500 + 100 * n, y: 400 }, () => {
+        rects.shipyard.forEach(v => drawRects(ctx, v, color, 5));
+      });
+    })
   }
 
   // Restore Canvases.
@@ -345,7 +361,46 @@ async function renderer({
     yOffset,
   } = data(bufferCanvas, "storage");
 
+  const topLeftCell = getCoords(0);
+  const botRightCell = getCoords(size * size - 1);
+
+  const renderHalite = (ctx, pos, halite, maxHalite, scaleFactor, rotate) => {
+    if (halite <= 0) return;
+
+    let { dx, dy, ds, ss } = getCoords(pos);
+    let sx = 0;
+    let sy = 0;
+
+    const pct = Math.min(1, halite / maxHalite);
+    let scale = 1;
+
+    // Scale by the halite size.
+    if (pct > 0.7) {
+      scale = pct;
+    } else if (pct > 0.3) {
+      sy = 100;
+      scale = pct + 0.3;
+    } else {
+      sy = 200;
+      scale = pct * 3;
+    }
+
+    // Apply the scale.
+    scale = Math.max(0.3, scaleFactor * scale);
+    dx += (ds - ds * scale) / 2;
+    dy += (ds - ds * scale) / 2;
+    ds *= scale;
+
+    // Rotate the halite to get a bit of randomness, if desired.
+    move(
+      ctx,
+      { x: dx, y: dy, width: ds, height: ds, angle: rotate ? haliteRotations[pos] : 0 },
+      () => ctx.drawImage(bufferCanvas, sx, sy, ss, ss, 0, 0, ds, ds)
+    );
+  }
+
   // Render Background once per step (Gradient + Halite)
+  const boxPadding = height * 0.007;
   if (data(bgCanvas, "step") !== step) {
     data(bgCanvas, "step", step);
     bgCtx.fillStyle = colors.bg;
@@ -358,56 +413,42 @@ async function renderer({
     bgCtx.fillStyle = bgStyle;
     bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
 
+    // Render bounding box.
+    bgCtx.strokeStyle = "white";
+    bgCtx.lineWidth = 0.5;
+    bgCtx.strokeRect(
+      topLeftCell.dx - boxPadding,
+      topLeftCell.dy - boxPadding,
+      botRightCell.dx + botRightCell.ds - topLeftCell.dx + 2 * boxPadding,
+      botRightCell.dy + botRightCell.ds - topLeftCell.dy + 2 * boxPadding);
+
     // Render the halite.
-    halite.forEach((cellHalite, pos) => {
-      if (!cellHalite) return;
-
-      let { dx, dy, ds, ss } = getCoords(pos);
-      let sx = 0;
-      let sy = 0;
-
-      const pct = Math.min(cellHalite, maxCellHalite) / maxCellHalite;
-      let scale = 1;
-
-      // Scale by the halite size.
-      if (pct > 0.7) {
-        scale = pct;
-      } else if (pct < 0.3) {
-        scale = pct / 0.3;
-        sy = 200;
-      } else {
-        sy = 100;
-        scale = pct + 0.3;
-      }
-
-      // Apply the scale.
-      scale = Math.max(0.3, scale);
-      dx += (ds - ds * scale) / 2;
-      dy += (ds - ds * scale) / 2;
-      ds *= scale;
-
-      // Rotate the halite to get a bit of randomness.
-      move(
-        bgCtx,
-        { x: dx, y: dy, width: ds, height: ds, angle: haliteRotations[pos] },
-        () => {
-          bgCtx.drawImage(bufferCanvas, sx, sy, ss, ss, 0, 0, ds, ds);
-        }
-      );
-    });
+    halite.forEach((cellHalite, pos) => renderHalite(bgCtx, pos, cellHalite, 500, 1, true));
   }
 
   // Render Foreground (every frame).
 
   // Draw Shipyards.
-  players.forEach((player, player_index) => {
+  players.forEach((player, playerIndex) => {
     Object.values(player[1]).forEach(pos => {
-      const { scale, dx, dy } = getCoords(pos);
-      move(fgCtx, { x: dx, y: dy, scale }, () => {
-        rects.shipyard.forEach((v, i) =>
-          drawRects(fgCtx, v, colors.players[player_index], 5)
-        );
-      });
+      const shipx = 500 + 100 * playerIndex;
+      const ss = fixedCellSize;
+      const { dx, dy, ds } = getCoords(pos);
+      fgCtx.drawImage(bufferCanvas, shipx, 400, ss, ss, dx, dy, ds, ds);
+    });
+  });
+
+  // Draw Ships and a smaller Halite icon according to their current cargo.
+  players.forEach((player, playerIndex) => {
+    Object.entries(player[2]).forEach(([uid, [pos, cargo]]) => {
+      const shipx = 500 + 100 * playerIndex;
+      const flamex = 200 + 100 * Math.min(2, Math.floor(3 * frame));
+      const { dx, dy, ds } = getCoords(pos);
+      const sy = getShipDir(playerIndex, uid) * 100;
+      const ss = fixedCellSize;
+      fgCtx.drawImage(bufferCanvas, shipx, sy, ss, ss, dx, dy, ds, ds);
+      fgCtx.drawImage(bufferCanvas, flamex, sy, ss, ss, dx, dy, ds, ds);
+      renderHalite(fgCtx, pos, cargo, 1500, 0.6, false);
     });
   });
 
@@ -416,19 +457,18 @@ async function renderer({
     const board = Array(size * size)
       .fill(0)
       .map(() => ({ shipyard: -1, ship: null, collision: false }));
-    players.forEach((player, player_index) => {
+    players.forEach((player, playerIndex) => {
       const [, shipyards, ships] = player;
       Object.values(shipyards).forEach(
-        pos => (board[pos].shipyard = player_index)
+        pos => (board[pos].shipyard = playerIndex)
       );
       Object.entries(ships).forEach(([uid, [pos]]) => (board[pos].ship = uid));
     });
     environment.steps[step - 1][0].observation.players.forEach(
-      (player, player_index) => {
-        const status = state[player_index].status;
-        if (status != "ACTIVE" && status != "DONE") return;
+      (player, playerIndex) => {
+        const status = state[playerIndex].status;
         const [, shipyards, ships] = player;
-        const action = environment.steps[step][player_index].action;
+        const action = environment.steps[step][playerIndex].action;
         // Stationary ships collecting Halite.
         Object.entries(ships).forEach(([uid, [pos]]) => {
           if (uid in action) return;
@@ -455,21 +495,83 @@ async function renderer({
       if (!collision) return;
       const { dx, dy, ds, ss } = getCoords(pos);
       const sx = 100;
-      const sy = 100 * Math.round(4 - frame * 4);
+      const sy = 100 * Math.round(4 * (1 - frame));
       fgCtx.drawImage(bufferCanvas, sx, sy, ss, ss, dx, dy, ds, ds);
     });
   }
 
-  // Draw Ships.
-  players.forEach((player, player_index) => {
-    Object.entries(player[2]).forEach(([uid, [pos]]) => {
-      const shipx = 500 + 100 * player_index;
-      const flamex = 200 + (frame <= 0.33 ? 0 : frame >= 0.66 ? 200 : 100);
-      const { dx, dy, ds } = getCoords(pos);
-      const sy = getShipDir(player_index, uid) * 100;
-      const ss = fixedCellSize;
-      fgCtx.drawImage(bufferCanvas, shipx, sy, ss, ss, dx, dy, ds, ds);
-      fgCtx.drawImage(bufferCanvas, flamex, sy, ss, ss, dx, dy, ds, ds);
+  const scoreboardFontSizePx = Math.round(height / 36);
+  const scoreboardPaddingPx = Math.max(1, scoreboardFontSizePx / 4);
+  const scoreboardLineYDiffPx = scoreboardFontSizePx + scoreboardPaddingPx;
+
+  const getHalite = player => player[0];
+  const getCargo = player => Object.entries(player[2]).map(([, v]) => v[1]).reduce((a, b) => a + b, 0);
+  const getNumShips = player => Object.entries(player[2]).length;
+  const getNumShipyards = player => Object.entries(player[1]).length;
+  
+  // Writes two lines, "Halite" and "Cargo", and returns y value for what would be the third line.
+  const writeScoreboardText = (ctx, player, x, y) => {
+    ctx.fillText(`Halite: ${getHalite(player)}`, x, y);
+    ctx.fillText(`Cargo: ${getCargo(player)}`, x, y + scoreboardLineYDiffPx);
+    return y + 2 * scoreboardLineYDiffPx;
+  }
+
+  const scoreboardShipSizePx = scoreboardFontSizePx * 1.7;
+  const drawShip = (ctx, playerIndex, x, y, iconSize = scoreboardShipSizePx) => ctx.drawImage(
+    bufferCanvas, 500 + 100 * playerIndex, 0, fixedCellSize, fixedCellSize,
+    x, y, iconSize, iconSize);
+  const drawShipYard = (ctx, playerIndex, x, y, iconSize = scoreboardShipSizePx) => ctx.drawImage(
+    bufferCanvas, 500 + 100 * playerIndex, 400, fixedCellSize, fixedCellSize,
+    x, y, iconSize, iconSize);
+
+  const scoreboardShipXPaddingPx = scoreboardShipSizePx + scoreboardPaddingPx;
+  const drawShipAndYardCounts = (ctx, player, playerIndex, x, y, iconSize = scoreboardShipSizePx) => {
+    drawShip(ctx, playerIndex, x, y);
+    ctx.fillText(`x ${getNumShips(player)}`, x + scoreboardShipXPaddingPx, y + 0.28 * iconSize);
+    drawShipYard(ctx, playerIndex, x, y + iconSize);
+    ctx.fillText(`x ${getNumShipyards(player)}`, x + scoreboardShipXPaddingPx, y + 1.38 * iconSize);
+  }
+
+  // Render Scoreboard for each player, if we have enough room on the sides of the window.
+  if (width / height >= 1.3) {
+    fgCtx.fillStyle = "#FFFFFF";
+    fgCtx.font = `normal ${scoreboardFontSizePx}px sans-serif`;
+    fgCtx.textBaseline = "top";
+    fgCtx.textAlign = "left";
+    const topStartY = topLeftCell.dy;
+    const bottomStartY = botRightCell.dy + botRightCell.ds - 2 * scoreboardShipSizePx - 2 * scoreboardLineYDiffPx;
+    players.forEach((player, playerIndex) => {
+      const x = playerIndex % 2 === 1
+        ? Math.max(
+            // Make sure we don't start within the game area on the right side.
+            botRightCell.dx + botRightCell.ds + 2 * boxPadding,
+            width - topLeftCell.dy - 5.5 * scoreboardFontSizePx)
+        : topLeftCell.dy;
+      const startY = playerIndex < 2 ? topStartY : bottomStartY;
+      const nextY = writeScoreboardText(fgCtx, player, x, startY);
+      drawShipAndYardCounts(fgCtx, player, playerIndex, x, nextY);
     });
-  });
+  }
+
+  // Populate the legend which renders agent icons and names (see player.html).
+  if (agents && agents.length && (!agents[0].color || !agents[0].image)) {
+    const getPieceImage = playerIndex => {
+      const pieceCanvas = document.createElement("canvas");
+      parent.appendChild(pieceCanvas);
+      pieceCanvas.style.marginLeft = "10000px";
+      pieceCanvas.width = 100;
+      pieceCanvas.height = 100;
+      ctx = pieceCanvas.getContext("2d");
+      drawShip(ctx, playerIndex, 0, 0, 100);
+      const dataUrl = pieceCanvas.toDataURL();
+      parent.removeChild(pieceCanvas);
+      return dataUrl;
+    };
+
+    agents.forEach(agent => {
+      agent.color = "#FFFFFF";
+      agent.image = getPieceImage(agent.index);
+    });
+    update({ agents });
+  }
 }
