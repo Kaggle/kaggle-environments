@@ -562,7 +562,6 @@ async function renderer({
       pieceCanvas.width = 100;
       pieceCanvas.height = 100;
       ctx = pieceCanvas.getContext("2d");
-      //ctx.translate(10, 10);
       drawShip(ctx, playerIndex, 0, 0, 100);
       const dataUrl = pieceCanvas.toDataURL();
       parent.removeChild(pieceCanvas);
