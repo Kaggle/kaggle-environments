@@ -9,3 +9,4 @@ This image is hosted at `gcr.io/kaggle-images/python-simulations`
     * `./run.sh run --environment connectx --agent random random`  
     * `./run.sh http-server`  
 * `./test.sh` will run the unit test suite in docker with pytest.
+    * `./test.sh -k "halite"`
