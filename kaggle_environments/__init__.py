@@ -19,7 +19,7 @@ from .core import *
 from . import errors
 from . import utils
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = ["Agent", "environments", "errors", "evaluate",
            "make", "register", "utils", "version"]

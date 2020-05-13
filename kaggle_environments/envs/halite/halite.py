@@ -17,6 +17,7 @@ import json
 import math
 from os import path
 from random import choice, randint, shuffle
+import numpy as np
 
 
 def get_col_row(size, pos):
