@@ -2,13 +2,8 @@ FROM gcr.io/kaggle-images/python
 
 WORKDIR /usr/src/app/kaggle_environments
 
-ARG USE_GFOOTBALL=true
-# Allow disabling gfootball as it doesn't build in Cloud Build yet.
-RUN if [ "$USE_GFOOTBALL" = "true" ];\
-    then \
-        apt-get update && \
-        apt-get --assume-yes install libsdl2-gfx-dev libsdl2-ttf-dev libboost-all-dev libsdl2-image-dev && \
-        pip install gfootball; fi
+RUN apt-get -y install libboost-filesystem-dev libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev
+RUN pip install gfootball
 
 ADD ./kaggle_environments ./kaggle_environments
 ADD ./setup.py ./setup.py
