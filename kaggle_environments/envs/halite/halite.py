@@ -165,6 +165,8 @@ def interpreter(state, env):
 
     # Initialize the board (place cell halite and starting ships).
     if env.done:
+        # Set step for initialization to 0.
+        obs.step = 0
         # Distribute Halite evenly into quartiles.
         half = math.ceil(size / 2)
         grid = [[0] * half for _ in range(half)]
