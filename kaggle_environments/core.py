@@ -44,7 +44,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
     Args:
-        environment (str|Environment): 
+        environment (str|Environment):
         agents (list):
         configuration (dict, optional):
         steps (list, optional):
@@ -66,7 +66,7 @@ def make(environment, configuration={}, steps=[], debug=False):
     Creates an instance of an Environment.
 
     Args:
-        environment (str|Environment): 
+        environment (str|Environment):
         configuration (dict, optional):
         steps (list, optional):
         debug (bool=False, optional):
@@ -106,7 +106,7 @@ class Environment:
 
         err, configuration = process_schema(
             {"type": "object", "properties": self.specification.configuration},
-            {} if configuration == None else configuration,
+            {} if configuration is None else configuration,
         )
         if err:
             raise InvalidArgument("Configuration Invalid: " + err)
@@ -128,7 +128,7 @@ class Environment:
             raise InvalidArgument("Default agents must be Callable.")
         self.agents = structify(agents)
 
-        if steps == None or len(steps) == 0:
+        if steps is None or len(steps) == 0:
             self.reset()
         else:
             self.__set_state(steps[-1])
@@ -215,7 +215,7 @@ class Environment:
             list of dict: The agents states after the reset.
         """
 
-        if num_agents == None:
+        if num_agents is None:
             num_agents = self.specification.agents[0]
 
         # Get configuration default state.
@@ -321,13 +321,13 @@ class Environment:
         runner = None
         position = None
         for index, agent in enumerate(agents):
-            if agent == None:
-                if position != None:
+            if agent is None:
+                if position is not None:
                     raise InvalidArgument(
                         "Only one agent can be marked 'None'")
                 position = index
 
-        if position == None:
+        if position is None:
             raise InvalidArgument("One agent must be marked 'None' to train.")
 
         def advance():
@@ -348,7 +348,7 @@ class Environment:
             advance()
             agent = self.__get_shared_state(position)
             reward = agent.reward
-            if len(self.steps) > 1 and reward != None:
+            if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
             if self.done:
                 runner.destroy()
@@ -450,6 +450,7 @@ class Environment:
                 },
             }
         return structify(self.__state_schema_value)
+
 
     def __set_state(self, state=[]):
         if len(state) not in self.specification.agents:
