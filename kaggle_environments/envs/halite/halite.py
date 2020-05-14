@@ -242,28 +242,7 @@ def interpreter(state, env):
 
         return state
 
-    board = [[-1, {}, -1] for _ in range(size ** 2)]
-    for index, agent in enumerate(state):
-        if agent.status != "ACTIVE":
-            continue
-        _, shipyards, ships = obs.players[index]
-        for uid, shipyard_pos in shipyards.items():
-            board[shipyard_pos][0] = index
-            board[shipyard_pos][2] = uid
-        for uid, ship in ships.items():
-            board[ship[0]][1][uid] = index
-    for pos, cell in enumerate(board):
-        shipyard, ships, shipyard_uid = cell
-        # Detect Shipyard Collisions.
-        if shipyard > -1:
-            for uid, index in list(ships.items()):
-                if shipyard != index:
-                    del ships[uid]
-                    del obs.players[index][2][uid]
-                    if shipyard_uid in obs.players[index][1]:
-                        del obs.players[index][1][shipyard_uid]
-
-    # Apply actions to create an updated observation.
+    # Apply movement and spawn actions (but not converts) to create an updated observation.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         if agent.action == None:
@@ -285,17 +264,8 @@ def interpreter(state, env):
                 break
             ship_pos, ship_halite = ships[uid]
 
-            # Create a Shipyard.
+            # Converts will be processed after collisions
             if action == "CONVERT":
-                if player_halite < config.convertCost - ship_halite:
-                    agent.status = "Insufficient halite to convert a ship to a shipyard."
-                elif ship_pos in shipyards.values():
-                    agent.status = "Shipyard already present. Cannot convert ship."
-                else:
-                    shipyards[create_uid()] = ship_pos
-                    player_halite += int(ship_halite - config.convertCost)
-                    obs.halite[ship_pos] = 0
-                    del ships[uid]
                 continue
 
             # Move Ship Actions.
@@ -307,18 +277,29 @@ def interpreter(state, env):
 
     # Detect collisions
     # 1. Ships into Foreign Shipyards.
-    # 2. Ships into Ships.
-    board = [[-1, {}] for _ in range(size ** 2)]
+    # 2. Ships into Ships. (record ships destroyed in ship-ship collisions)
+    destroyed_ships = []
+    board = [[-1, {}, -1] for _ in range(size ** 2)]
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
             continue
         _, shipyards, ships = obs.players[index]
         for uid, shipyard_pos in shipyards.items():
             board[shipyard_pos][0] = index
+            board[shipyard_pos][2] = uid
         for uid, ship in ships.items():
             board[ship[0]][1][uid] = index
+
     for pos, cell in enumerate(board):
-        shipyard, ships = cell
+        shipyard, ships, shipyard_uid = cell
+        # Detect Shipyard Collisions.
+        if shipyard > -1:
+            for uid, index in list(ships.items()):
+                if shipyard != index:
+                    del ships[uid]
+                    del obs.players[index][2][uid]
+                    if shipyard_uid in obs.players[index][1]:
+                        del obs.players[index][1][shipyard_uid]
         # Detect Ship Collisions.
         if len(ships) > 1:
             smallest_ships = [[i, uid, obs.players[i][2][uid][1]]
@@ -329,9 +310,36 @@ def interpreter(state, env):
                 # Remove collided ships.
                 if i > 0 or ship_halite == smallest_ships[i+1][2]:
                     del obs.players[player_index][2][uid]
+                    destroyed_ships.append(uid)
                 # Reduce halite available with remaining ship.
                 else:
                     obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
+
+    # Apply convert actions to create an updated observation.
+    for index, agent in enumerate(state):
+        player_halite, shipyards, ships = obs.players[index]
+        if agent.action == None:
+            continue
+        for uid, action in agent.action.items():
+            if action == "CONVERT":
+                if uid in destroyed_ships:
+                    # The convert can't take place because the ship was
+                    # destroyed in a ship-ship collision.  Ignore action,
+                    # do not disqualify agent
+                    continue
+                ship_pos, ship_halite = ships[uid]
+                if player_halite < config.convertCost - ship_halite:
+                    agent.status = "Insufficient halite to convert a ship to a shipyard."
+                elif ship_pos in shipyards.values():
+                    agent.status = "Shipyard already present. Cannot convert ship."
+                else:
+                    shipyards[create_uid()] = ship_pos
+                    player_halite += int(ship_halite - config.convertCost)
+                    obs.halite[ship_pos] = 0
+                    del ships[uid]
+
+        # Update the player.
+        obs.players[index] = [player_halite, shipyards, ships]
 
     # Remove players with invalid status or insufficent potential.
     for index, agent in enumerate(state):
