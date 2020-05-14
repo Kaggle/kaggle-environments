@@ -273,9 +273,10 @@ def interpreter(state, env):
         obs.players[index] = [player_halite, shipyards, ships]
 
     # Detect collisions
-    # 1. Ships into Foreign Shipyards.
+    # 1. Ships into Foreign Shipyards. (record shipyards destroyed)
     # 2. Ships into Ships. (record ships destroyed in ship-ship collisions)
     destroyed_ships = []
+    destroyed_shipyards = []
     board = [[-1, {}, -1] for _ in range(size ** 2)]
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
@@ -295,8 +296,8 @@ def interpreter(state, env):
                 if shipyard != index:
                     del ships[uid]
                     del obs.players[index][2][uid]
-                    if shipyard_uid in obs.players[index][1]:
-                        del obs.players[index][1][shipyard_uid]
+                    del obs.players[shipyard][1][shipyard_uid]
+                    destroyed_shipyards.append(shipyard_uid)
         # Detect Ship Collisions.
         if len(ships) > 1:
             smallest_ships = [[i, uid, obs.players[i][2][uid][1]]
@@ -319,6 +320,11 @@ def interpreter(state, env):
             continue
         for uid, action in agent.action.items():
             if action == "SPAWN":
+                if uid in destroyed_shipyards:
+                    # The spawn can't take place because the shipyard
+                    # was destroyed.  Ignore action, do not disqualify
+                    # agent
+                    continue
                 if not uid in shipyards:
                     agent.status = f"{uid} shipyard asset not found."
                 elif player_halite < config.spawnCost:
