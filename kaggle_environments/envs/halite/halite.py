@@ -242,21 +242,16 @@ def interpreter(state, env):
 
         return state
 
-    # Apply movement and spawn actions (but not converts) to create an updated observation.
+    # Apply movement (but not spawns or converts) to create an updated observation.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         if agent.action == None:
             continue
         for uid, action in agent.action.items():
-            # Shipyard action (spawn ship):
+            # Check for invalid spawns.  Process good spawns later.
             if action == "SPAWN":
                 if not uid in shipyards:
                     agent.status = f"{uid} shipyard asset not found."
-                elif player_halite < config.spawnCost:
-                    agent.status = "Insufficient halite to spawn a ship from a shipyard."
-                else:
-                    ships[create_uid()] = [shipyards[uid], 0]
-                    player_halite -= int(config.spawnCost)
                 continue
             # Ship Actions. Ship must be present.
             elif not uid in ships:
@@ -264,8 +259,11 @@ def interpreter(state, env):
                 break
             ship_pos, ship_halite = ships[uid]
 
-            # Converts will be processed after collisions
+            # Check for invalid converts.  Process good converts later.
             if action == "CONVERT":
+                ship_pos, ship_halite = ships[uid]
+                if ship_pos in shipyards.values():
+                    agent.status = "Shipyard already present. Cannot convert ship."
                 continue
 
             # Move Ship Actions.
@@ -315,12 +313,27 @@ def interpreter(state, env):
                 else:
                     obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
 
-    # Apply convert actions to create an updated observation.
+    # Apply convert and spawn actions to create an updated observation.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         if agent.action == None:
             continue
         for uid, action in agent.action.items():
+            if action == "SPAWN":
+                if not uid in shipyards:
+                    agent.status = f"{uid} shipyard asset not found."
+                elif player_halite < config.spawnCost:
+                    agent.status = "Insufficient halite to spawn a ship from a shipyard."
+                else:
+                    # check to make sure a ship isn't already at yard
+                    yard_pos = shipyards[uid]
+                    ships_at_yard = board[yard_pos][1]
+                    # does not do a full collision, instead
+                    # stops the new ship from being built
+                    if len(ships_at_yard) == 0:
+                        ships[create_uid()] = [yard_pos, 0]
+                    player_halite -= int(config.spawnCost)
+                continue
             if action == "CONVERT":
                 if uid in destroyed_ships:
                     # The convert can't take place because the ship was
