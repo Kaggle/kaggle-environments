@@ -305,13 +305,10 @@ def interpreter(state, env):
         if shipyard > -1:
             for uid, index in list(ships.items()):
                 if shipyard != index:
-                    print ("Collision with shipyard by", uid, shipyard_uid, shipyard, index)
                     del ships[uid]
                     del obs.players[index][2][uid]
-
-                    if feature_flags["shipyards destroyed on collision, prior to spawn v2"]:
-                        if uid != shipyard_uid:
-                            del obs.players[shipyard][1][shipyard_uid]
+                    if uid != shipyard_uid:
+                        del obs.players[shipyard][1][shipyard_uid]
         # Detect Ship Collisions
         if len(ships) > 1:
             smallest_ships = [[i, uid, obs.players[i][2][uid][1]]
