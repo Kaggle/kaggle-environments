@@ -261,7 +261,6 @@ def interpreter(state, env):
 
             # Check for invalid converts.  Process good converts later.
             if action == "CONVERT":
-                ship_pos, ship_halite = ships[uid]
                 if ship_pos in shipyards.values():
                     agent.status = "Shipyard already present. Cannot convert ship."
                 continue
