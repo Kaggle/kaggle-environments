@@ -56,7 +56,7 @@ def build_agent(raw, environment, debug=False):
             action = responseJson["action"]
             if action == "DeadlineExceeded":
                 action = DeadlineExceeded()
-            elif has(action, str) and action.startsWith("BaseException::"):
+            elif has(action, str) and action.startswith("BaseException::"):
                 # Deserialize the exception message
                 parts = action.split("::", 1)
                 action = BaseException(parts[1])
