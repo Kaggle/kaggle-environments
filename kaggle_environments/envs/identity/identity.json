@@ -31,8 +31,5 @@
   "action": {
     "description": "Reward = action if number, otherwise 0.",
     "type": ["number", "string", "null"]
-  },
-  "reset": {
-    "status": "ACTIVE"
   }
 }
