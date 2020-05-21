@@ -23,11 +23,12 @@
       "default": 4,
       "minimum": 1
     },
-    "actTimeout": 5,
+    "agentTimeout": 16,
+    "actTimeout": 8,
     "timeout": {
       "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",
       "type": "integer",
-      "default": 5,
+      "default": 8,
       "minimum": 0
     }
   },
