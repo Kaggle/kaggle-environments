@@ -205,6 +205,7 @@ def interpreter(state, env):
 
         ## add another set of random locations to the center corner
         corner_grid = np.random.gumbel(0, 500.0, size=(half//4,half//4)).astype(int)        
+        corner_grid = np.clip(corner_grid, 0, a_max=None)
         radius_grid[half - (half//4):, half - (half//4):] += corner_grid
 
         # Normalize the available halite against the defined configuration starting halite.
