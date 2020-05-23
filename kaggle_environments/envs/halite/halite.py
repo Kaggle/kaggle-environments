@@ -326,7 +326,32 @@ def interpreter(state, env):
         player_halite, shipyards, ships = obs.players[index]
         for uid in shipyards:
             if uid in spawn_moves:
-                ships[create_uid()] = [shipyards[uid], 0]
+                cell_ships = board[shipyards[uid]][1]
+                if len(cell_ships) > 0:
+                    # spawn in a self-occupied shipyard
+                    # assumes all ships belong to spawning player as
+                    # enemy ships in this shipyard would have already
+                    # caused a collision resulting in this shipyard
+                    # being destroyed
+                    smallest_cargo = float("inf")
+                    for ship_uid in cell_ships.keys():
+                        cargo = obs.players[index][2][ship_uid][1]
+                        if cargo < smallest_cargo:
+                            smallest_cargo = cargo
+                        del obs.players[index][2][ship_uid]
+                    if smallest_cargo > 0:
+                        # new ship gets cargo from smallest existing ship
+                        # with the current rules this cargo will be immediately
+                        # deposited in the shipyard
+                        ships[create_uid()] = [shipyards[uid], smallest_cargo]
+                    else:
+                        # the new ship is immediately destroyed in the
+                        # collision with the existing 0 cargo ship
+                        # don't create
+                        pass
+                else:
+                    # shipyard is unoccupied before spawn
+                    ships[create_uid()] = [shipyards[uid], 0]
         obs.players[index] = [player_halite, shipyards, ships]
 
     # Remove players with invalid status or insufficent potential.
