@@ -303,8 +303,7 @@ def interpreter(state, env):
         shipyard, ships, shipyard_uid = cell
         # Detect Shipyard Collisions.
         if shipyard > -1:
-            occupiers = [x for x in ships.values()]
-            enemy_occupied = any(x != shipyard for x in occupiers)
+            enemy_occupied = any(x != shipyard for x in ships.values())
             if enemy_occupied:
                 del obs.players[shipyard][1][shipyard_uid]
                 for uid, index in list(ships.items()):
