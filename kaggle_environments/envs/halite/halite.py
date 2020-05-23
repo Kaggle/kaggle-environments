@@ -322,6 +322,16 @@ def interpreter(state, env):
                 # Reduce halite available with remaining ship.
                 else:
                     obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
+    board = [[-1, {}, -1] for _ in range(size ** 2)]
+    for index, agent in enumerate(state):
+        if agent.status != "ACTIVE":
+            continue
+        _, shipyards, ships = obs.players[index]
+        for uid, shipyard_pos in shipyards.items():
+            board[shipyard_pos][0] = index
+            board[shipyard_pos][2] = uid
+        for uid, ship in ships.items():
+            board[ship[0]][1][uid] = index
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         for uid in shipyards:
