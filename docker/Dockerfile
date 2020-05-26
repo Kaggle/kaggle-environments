@@ -4,6 +4,7 @@ WORKDIR /usr/src/app/kaggle_environments
 
 # Conda boost interferes with gfootball
 RUN rm -r /opt/conda/lib/cmake/Boost-1.72.0
+RUN apt-get update
 RUN apt-get -y install libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev
 RUN pip install gfootball
 
