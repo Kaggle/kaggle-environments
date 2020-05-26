@@ -15,7 +15,9 @@
 import argparse
 import json
 import traceback
-from kaggle_environments import Agent, environments, errors, evaluate, make, utils
+from . import errors, utils
+from .agent import Agent
+from .core import environments, evaluate, make
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(

@@ -16,12 +16,13 @@ from importlib import import_module
 from os import listdir
 from .agent import Agent
 from .core import *
+from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
-__all__ = ["Agent", "environments", "errors", "evaluate",
+__all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "version"]
 
 # Register Environments.
