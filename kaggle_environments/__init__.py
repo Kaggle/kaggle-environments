@@ -23,7 +23,7 @@ from . import utils
 __version__ = "0.3.5"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
-           "make", "register", "utils", "version"]
+           "make", "register", "utils", "__version__"]
 
 # Register Environments.
 
