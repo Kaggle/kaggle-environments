@@ -333,6 +333,8 @@ def interpreter(state, env):
         for uid, ship in ships.items():
             board[ship[0]][1][uid] = index
     for index, agent in enumerate(state):
+        if agent.status != "ACTIVE":
+            continue
         player_halite, shipyards, ships = obs.players[index]
         for uid in shipyards:
             if uid in spawn_moves:
