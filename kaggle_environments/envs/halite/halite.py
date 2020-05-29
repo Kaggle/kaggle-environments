@@ -314,6 +314,7 @@ def interpreter(state, env):
                 player_index, uid, ship_halite = l_ship
                 # Remove collided ships.
                 if i > 0 or ship_halite == smallest_ships[i+1][2]:
+                    del ships[uid]
                     del obs.players[player_index][2][uid]
                 # Reduce halite available with remaining ship.
                 else:
