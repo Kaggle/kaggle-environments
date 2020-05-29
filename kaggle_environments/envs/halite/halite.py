@@ -21,7 +21,7 @@ import numpy as np
 
 
 def get_col_row(size, pos):
-    return (pos % size, pos // size)
+    return pos % size, pos // size
 
 
 def get_to_pos(size, pos, direction):
@@ -97,6 +97,7 @@ class Board:
             to_pos = get_to_pos(self.config.size, pos, d)
             del self.possible_ships[to_pos][ship_uid]
 
+
 def random_agent(obs, config):
     size = config.size
     halite = obs.halite
@@ -105,14 +106,16 @@ def random_agent(obs, config):
 
     # Move, Convert, or have ships collect halite.
     ships_items = list(ships.items())
-    shuffle(ships_items) # shuffle so ship1 doesn't always have first moving dibs.
+    # shuffle so ship1 doesn't always have first moving dibs.
+    shuffle(ships_items)
     for uid, ship in ships_items:
         pos, ship_halite = ship
         # Collect Halite (50% probability when cell halite > ship_halite).
         if board.shipyards[pos] == -1 and halite[pos] > ship_halite and randint(0,1) == 1:
             continue
         # Convert to Shipyard (50% probability when no shipyards, 5% otherwise).
-        if board.shipyards[pos] == -1 and player_halite > config.convertCost and randint(0, 20 if len(shipyards) else 1) == 1:
+        if board.shipyards[pos] == -1 and player_halite >= config.convertCost and randint(0, 20 if len(shipyards) else 1) == 1:
+            player_halite -= config.convertCost
             board.convert(uid)
             continue
         # Move Ship (random between all available directions).
@@ -123,25 +126,26 @@ def random_agent(obs, config):
             if board.shipyards[to_pos] != obs.player and board.shipyards[to_pos] != -1:
                 continue
             # Larger ship most likely staying in place.
-            if board.ships[to_pos] != None and board.ships[to_pos]["halite"] >= ship_halite:
+            if board.ships[to_pos] is not None and board.ships[to_pos]["halite"] >= ship_halite:
                 continue
             # Weigh the direction based on number of possible larger ships that could be present.
             weight = 6
-            if board.ships[to_pos] != None and board.ships[to_pos]["player_index"] == obs.player:
+            if board.ships[to_pos] is not None and board.ships[to_pos]["player_index"] == obs.player:
                 weight -= 1
             for s in board.possible_ships[to_pos].values():
                 if s["halite"] > ship_halite:
                     weight -= 1
             move_choices += [direction] * weight
         move = choice(move_choices)
-        if move != None:
+        if move is not None:
             board.move(uid, move)
             
     # Spawn ships (30% probability when possible, or 100% if no ships).
     for uid, pos in shipyards.items():
-        if board.ships[pos] == None and player_halite >= config.spawnCost and (randint(0,2) == 2 or len(ships_items) == 0):
+        if board.ships[pos] is None and player_halite >= config.spawnCost and (randint(0, 2) == 2 or len(ships_items) == 0):
+            player_halite -= config.spawnCost
             board.spawn(uid)
-    
+
     return board.action
 
 
@@ -174,10 +178,10 @@ def interpreter(state, env):
 
         # Randomly place a few halite "seeds".
         for i in range(half):
-            ## random distribution across entire quartile
+            # random distribution across entire quartile
             grid[randint(0, half-1)][randint(0, half-1)] = i ** 2
 
-            ## as well as a particular distribution weighted toward the center of the map
+            # as well as a particular distribution weighted toward the center of the map
             grid[randint(half//2, half-1)][randint(half//2, half-1)] = i ** 2
 
         # Spread the seeds radially.
@@ -189,22 +193,22 @@ def interpreter(state, env):
                     continue
 
                 # keep initial seed values, but constrain radius of clusters
-                radius = min(round((value / half) ** (0.5)), 1)
+                radius = min(round((value / half) ** 0.5), 1)
                 for r2 in range(r-radius+1, r+radius):
                     for c2 in range(c-radius+1, c+radius):
-                        if r2 >= 0 and r2 < half and c2 >= 0 and c2 < half:
-                            distance = (abs(r2-r) ** 2 + abs(c2-c) ** 2) ** (0.5)
+                        if 0 <= r2 < half and 0 <= c2 < half:
+                            distance = (abs(r2-r) ** 2 + abs(c2-c) ** 2) ** 0.5
                             radius_grid[r2][c2] += int(value / max(1, distance) ** distance)
 
-        ## add some random sprouts of halite
+        # add some random sprouts of halite
         radius_grid = np.asarray(radius_grid)
-        add_grid = np.random.gumbel(0, 300.0, size=(half,half)).astype(int)
-        sparse_radius_grid = np.random.binomial(1, 0.5, size=(half,half))
+        add_grid = np.random.gumbel(0, 300.0, size=(half, half)).astype(int)
+        sparse_radius_grid = np.random.binomial(1, 0.5, size=(half, half))
         add_grid = np.clip(add_grid, 0, a_max=None) * sparse_radius_grid
         radius_grid += add_grid
 
-        ## add another set of random locations to the center corner
-        corner_grid = np.random.gumbel(0, 500.0, size=(half//4,half//4)).astype(int)        
+        # add another set of random locations to the center corner
+        corner_grid = np.random.gumbel(0, 500.0, size=(half//4, half//4)).astype(int)
         corner_grid = np.clip(corner_grid, 0, a_max=None)
         radius_grid[half - (half//4):, half - (half//4):] += corner_grid
 
@@ -248,12 +252,12 @@ def interpreter(state, env):
     # Apply actions to create an updated observation.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
-        if agent.action == None:
+        if agent.action is None:
             continue
         for uid, action in agent.action.items():
             # Shipyard action (spawn ship):
             if action == "SPAWN":
-                if not uid in shipyards:
+                if uid not in shipyards:
                     agent.status = f"{uid} shipyard asset not found."
                 elif player_halite < config.spawnCost:
                     agent.status = "Insufficient halite to spawn a ship from a shipyard."
@@ -262,7 +266,7 @@ def interpreter(state, env):
                     player_halite -= int(config.spawnCost)
                 continue
             # Ship Actions. Ship must be present.
-            elif not uid in ships:
+            elif uid not in ships:
                 agent.status = f"{uid} ship asset not found."
                 break
             ship_pos, ship_halite = ships[uid]
@@ -312,11 +316,10 @@ def interpreter(state, env):
                     del obs.players[index][2][uid]
         # Detect Ship Collisions
         if len(ships) > 1:
-            smallest_ships = [[i, uid, obs.players[i][2][uid][1]]
-                             for uid, i in ships.items()]
+            smallest_ships = [[i, uid, obs.players[i][2][uid][1]] for uid, i in ships.items()]
             smallest_ships.sort(key=lambda s: s[2])
-            for i, lship in enumerate(smallest_ships):
-                player_index, uid, ship_halite = lship
+            for i, l_ship in enumerate(smallest_ships):
+                player_index, uid, ship_halite = l_ship
                 # Remove collided ships.
                 if i > 0 or ship_halite == smallest_ships[i+1][2]:
                     del obs.players[player_index][2][uid]
@@ -330,7 +333,7 @@ def interpreter(state, env):
                 ships[create_uid()] = [shipyards[uid], 0]
         obs.players[index] = [player_halite, shipyards, ships]
 
-    # Remove players with invalid status or insufficent potential.
+    # Remove players with invalid status or insufficient potential.
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         if agent.status == "ACTIVE" and len(ships) == 0 and (len(shipyards) == 0 or player_halite < config.spawnCost):
@@ -347,9 +350,6 @@ def interpreter(state, env):
         for uid, ship in ships.items():
             ship_pos, ship_halite = ship
             asset_positions.append(ship_pos)
-            # Ship moved and not eligible for collection.
-            if uid in agent.action:
-                continue
             # Collect halite from ships into shipyards.
             if ship_pos in shipyard_positions:
                 obs.players[index][0] += ship_halite
@@ -364,7 +364,6 @@ def interpreter(state, env):
         if pos in asset_positions:
             continue
         obs.halite[pos] = min(500, halite * (1 + config.regenRate))
-
 
     # Check if done (< 2 players and num_agents > 1)
     if len(state) > 1 and sum(1 for agent in state if agent.status == "ACTIVE") < 2:
@@ -397,35 +396,35 @@ def renderer(state, env):
             board[ship_pos][2] = index
             board[ship_pos][3] = ship_halite
 
-    colDivider = "|"
-    rowDivider = "+" + "+".join(["----"] * size) + "+\n"
+    col_divider = "|"
+    row_divider = "+" + "+".join(["----"] * size) + "+\n"
 
-    out = rowDivider
+    out = row_divider
     for row in range(size):
         for col in range(size):
             _, _, ship, ship_halite = board[col + row * size]
-            out += colDivider + (
+            out += col_divider + (
                 f"{min(int(ship_halite), 99)}S{ship}" if ship > -1 else ""
             ).ljust(4)
-        out += colDivider + "\n"
+        out += col_divider + "\n"
         for col in range(size):
             halite, shipyard, _, _ = board[col + row * size]
             if shipyard > -1:
-                out += colDivider + f"SY{shipyard}".ljust(4)
+                out += col_divider + f"SY{shipyard}".ljust(4)
             else:
-                out += colDivider + str(min(int(halite), 9999)).rjust(4)
-        out += colDivider + "\n" + rowDivider
+                out += col_divider + str(min(int(halite), 9999)).rjust(4)
+        out += col_divider + "\n" + row_divider
 
     return out
 
 
-dirpath = path.dirname(__file__)
-jsonpath = path.abspath(path.join(dirpath, "halite.json"))
-with open(jsonpath) as f:
-    specification = json.load(f)
+dir_path = path.dirname(__file__)
+json_path = path.abspath(path.join(dir_path, "halite.json"))
+with open(json_path) as json_file:
+    specification = json.load(json_file)
 
 
 def html_renderer():
-    jspath = path.abspath(path.join(dirpath, "halite.js"))
-    with open(jspath) as f:
-        return f.read()
+    js_path = path.abspath(path.join(dir_path, "halite.js"))
+    with open(js_path) as js_file:
+        return js_file.read()
