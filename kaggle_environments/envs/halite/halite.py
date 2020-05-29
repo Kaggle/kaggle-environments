@@ -306,14 +306,6 @@ def interpreter(state, env):
             board[ship[0]][1][uid] = index
     for pos, cell in enumerate(board):
         shipyard, ships, shipyard_uid = cell
-        # Detect Shipyard Collisions.
-        if shipyard > -1:
-            enemy_occupied = any(x != shipyard for x in ships.values())
-            if enemy_occupied:
-                del obs.players[shipyard][1][shipyard_uid]
-                for uid, index in list(ships.items()):
-                    del ships[uid]
-                    del obs.players[index][2][uid]
         # Detect Ship Collisions
         if len(ships) > 1:
             smallest_ships = [[i, uid, obs.players[i][2][uid][1]] for uid, i in ships.items()]
@@ -326,6 +318,14 @@ def interpreter(state, env):
                 # Reduce halite available with remaining ship.
                 else:
                     obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
+        # Detect Shipyard Collisions.
+        if shipyard > -1:
+            enemy_occupied = any(x != shipyard for x in ships.values())
+            if enemy_occupied:
+                del obs.players[shipyard][1][shipyard_uid]
+                for uid, index in list(ships.items()):
+                    del ships[uid]
+                    del obs.players[index][2][uid]
 
     # Remove players with invalid status or insufficient potential.
     for index, agent in enumerate(state):
