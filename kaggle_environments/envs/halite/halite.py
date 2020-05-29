@@ -257,27 +257,19 @@ def interpreter(state, env):
         for uid, action in agent.action.items():
             # Shipyard action (spawn ship):
             if action == "SPAWN":
-                if uid not in shipyards:
-                    agent.status = f"{uid} shipyard asset not found."
-                elif player_halite < config.spawnCost:
-                    agent.status = "Insufficient halite to spawn a ship from a shipyard."
-                else:
+                if uid in shipyards and player_halite >= config.spawnCost:
                     ships[create_uid()] = [shipyards[uid], 0]
                     player_halite -= int(config.spawnCost)
                 continue
             # Ship Actions. Ship must be present.
             elif uid not in ships:
-                agent.status = f"{uid} ship asset not found."
                 continue
             ship_pos, ship_halite = ships[uid]
 
             # Create a Shipyard.
             if action == "CONVERT":
-                if player_halite < config.convertCost - ship_halite:
-                    agent.status = "Insufficient halite to convert a ship to a shipyard."
-                elif ship_pos in shipyards.values():
-                    agent.status = "Shipyard already present. Cannot convert ship."
-                else:
+                if player_halite >= config.convertCost - ship_halite and ship_pos not in shipyards.values():
+                    # Must have enough halite and must not be in a shipyard spot to convert
                     shipyards[create_uid()] = ship_pos
                     player_halite += int(ship_halite - config.convertCost)
                     obs.halite[ship_pos] = 0
@@ -314,6 +306,7 @@ def interpreter(state, env):
                 player_index, uid, ship_halite = l_ship
                 # Remove collided ships.
                 if i > 0 or ship_halite == smallest_ships[i+1][2]:
+                    del ships[uid]
                     del obs.players[player_index][2][uid]
                 # Reduce halite available with remaining ship.
                 else:
