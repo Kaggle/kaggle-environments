@@ -324,7 +324,8 @@ def interpreter(state, env):
     for index, agent in enumerate(state):
         player_halite, shipyards, ships = obs.players[index]
         if agent.status == "ACTIVE" and len(ships) == 0 and (len(shipyards) == 0 or player_halite < config.spawnCost):
-            agent.status = "No potential to gather halite remaining."
+            # Agent can no longer gather any halite
+            agent.status = "DONE"
         if agent.status != "ACTIVE":
             obs.players[index] = [0, {}, {}]
 
