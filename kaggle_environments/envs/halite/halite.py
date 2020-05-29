@@ -262,13 +262,13 @@ def interpreter(state, env):
                 elif player_halite < config.spawnCost:
                     agent.status = "Insufficient halite to spawn a ship from a shipyard."
                 else:
-                    spawn_moves.add(uid)
+                    ships[create_uid()] = [shipyards[uid], 0]
                     player_halite -= int(config.spawnCost)
                 continue
             # Ship Actions. Ship must be present.
             elif uid not in ships:
                 agent.status = f"{uid} ship asset not found."
-                break
+                continue
             ship_pos, ship_halite = ships[uid]
 
             # Create a Shipyard.
@@ -326,12 +326,6 @@ def interpreter(state, env):
                 # Reduce halite available with remaining ship.
                 else:
                     obs.players[player_index][2][uid][1] += smallest_ships[i+1][2]
-    for index, agent in enumerate(state):
-        player_halite, shipyards, ships = obs.players[index]
-        for uid in shipyards:
-            if uid in spawn_moves:
-                ships[create_uid()] = [shipyards[uid], 0]
-        obs.players[index] = [player_halite, shipyards, ships]
 
     # Remove players with invalid status or insufficient potential.
     for index, agent in enumerate(state):
