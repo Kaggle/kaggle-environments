@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import traceback
 import copy
 import json
 from time import time
@@ -158,7 +159,7 @@ class Environment:
                 self.debug_print(f"Timeout: {str(action)}")
                 action_state[index]["status"] = "TIMEOUT"
             elif isinstance(action, BaseException):
-                self.debug_print(f"Error: {str(action)}")
+                self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
                 action_state[index]["status"] = "ERROR"
             else:
                 err, data = process_schema(

@@ -20,7 +20,14 @@ def test_halite_completes():
     env.run([random_agent, random_agent])
     json = env.toJSON()
     assert json["name"] == "halite"
-    assert (json["statuses"] == ["DONE", "DONE"] or
-            json["statuses"] == ["INVALID", "DONE"] or
-            json["statuses"] == ["DONE", "INVALID"] or
-            json["statuses"] == ["INVALID", "INVALID"])
+    assert json["statuses"] == ["DONE", "DONE"]
+
+
+def test_halite_exception_action_has_error_status():
+    env = make("halite", debug=True)
+    def error_agent(obs, config):
+        raise Exception("An exception occurred!")
+    env.run([error_agent, random_agent])
+    json = env.toJSON()
+    assert json["name"] == "halite"
+    assert json["statuses"] == ["ERROR", "DONE"]
