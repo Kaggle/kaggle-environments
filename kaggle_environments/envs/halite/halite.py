@@ -348,8 +348,8 @@ def interpreter(state, env):
             if ship_pos in shipyard_positions:
                 obs.players[index][0] += ship_halite
                 ship[1] = 0
-            # Collect halite from cells into ships.
-            elif obs.halite[ship_pos] * config.collectRate >= 1:
+            # Collect halite from cells into ships, ensure ship didn't move this turn.
+            elif obs.halite[ship_pos] * config.collectRate >= 1 and uid not in agent.action:
                 # Ship halite is int based, so drop off that bit of fractional halite
                 collect_halite = math.floor(obs.halite[ship_pos] * config.collectRate)
                 obs.halite[ship_pos] -= collect_halite
