@@ -7,6 +7,11 @@
   "configuration": {
     "episodeSteps": 400,
     "halite": {
+      "description": "Deprecated, please use startingHalite instead.",
+      "type": "integer",
+      "default": 24000
+    },
+    "startingHalite": {
       "description": "The starting amount of halite available on the board.",
       "type": "integer",
       "default": 24000
@@ -45,6 +50,12 @@
       "description": "The rate halite regenerates on the board.",
       "type": "number",
       "default": 0.02,
+      "minimum": 0
+    },
+    "maxCellHalite": {
+      "description": "The maximum halite that can be in any cell.",
+      "type": "integer",
+      "default": 500,
       "minimum": 0
     }
   },

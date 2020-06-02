@@ -217,12 +217,11 @@ def interpreter(state, env):
         obs.halite = [0] * (size ** 2)
         for r, row in enumerate(radius_grid):
             for c, val in enumerate(row):
-                val = int(val * config.halite / total / 4)
+                val = int(val * config.startingHalite / total / 4)
                 obs.halite[size * r + c] = val
                 obs.halite[size * r + (size - c - 1)] = val
                 obs.halite[size * (size - 1) - (size * r) + c] = val
-                obs.halite[size * (size - 1) - (size * r) +
-                           (size - c - 1)] = val
+                obs.halite[size * (size - 1) - (size * r) + (size - c - 1)] = val
 
         # Distribute the starting ships evenly.
         num_agents = len(state)
@@ -231,8 +230,7 @@ def interpreter(state, env):
             starting_positions[0] = size * (size // 2) + size // 2
         elif num_agents == 2:
             starting_positions[0] = size * (size // 2) + size // 4
-            starting_positions[1] = size * \
-                (size // 2) + math.ceil(3 * size / 4) - 1
+            starting_positions[1] = size * (size // 2) + math.ceil(3 * size / 4) - 1
         elif num_agents == 4:
             starting_positions[0] = size * (size // 4) + size // 4
             starting_positions[1] = size * (size // 4) + 3 * size // 4
@@ -246,8 +244,6 @@ def interpreter(state, env):
             obs.players.append([state[0].reward, {}, ships])
 
         return state
-
-    spawn_moves = set()
 
     # Apply actions to create an updated observation.
     for index, agent in enumerate(state):
@@ -351,7 +347,7 @@ def interpreter(state, env):
     for pos, halite in enumerate(obs.halite):
         if pos in asset_positions:
             continue
-        obs.halite[pos] = min(500, halite * (1 + config.regenRate))
+        obs.halite[pos] = min(config.maxCellHalite, halite * (1 + config.regenRate))
 
     # Check if done (< 2 players and num_agents > 1)
     if len(state) > 1 and sum(1 for agent in state if agent.status == "ACTIVE") < 2:
