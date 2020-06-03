@@ -11,13 +11,13 @@ def test_halite_no_repeated_steps():
         actual_steps.append(obs.step)
         return {}
 
-    env = make("halite", configuration={"episodeSteps": step_count})
+    env = make("halite", configuration={"episodeSteps": step_count}, debug=True)
     env.run({step_appender_agent})
     assert actual_steps == list(range(step_count - 1))
 
 
 def test_halite_completes():
-    env = make("halite")
+    env = make("halite", debug=True)
     env.run([random_agent, random_agent])
     json = env.toJSON()
     assert json["name"] == "halite"
@@ -36,10 +36,9 @@ def test_halite_exception_action_has_error_status():
 
 
 def test_halite_helpers():
-    env = make("halite")
+    env = make("halite", debug=True)
 
     def helper_agent(obs, config):
-        print("YAH")
         board = Board(obs, config)
         print(board)
         return random_agent(obs, config)
