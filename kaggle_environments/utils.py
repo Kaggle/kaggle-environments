@@ -15,6 +15,7 @@
 import json
 import jsonschema
 import sys
+import typing
 from copy import deepcopy
 from io import StringIO
 from pathlib import Path
@@ -27,9 +28,9 @@ root_path = Path(__file__).parent.resolve()
 envs_path = Path.joinpath(root_path, "envs")
 
 
-# Primative Utilities.
+# Primitive Utilities.
 def get(o, classinfo=None, default=None, path=[], is_callable=None, fallback=None):
-    if o == None and default != None:
+    if o is None and default is not None:
         o = default
     if has(o, classinfo, default, path, is_callable):
         cur = o
@@ -37,7 +38,7 @@ def get(o, classinfo=None, default=None, path=[], is_callable=None, fallback=Non
             cur = cur[p]
         return cur
     else:
-        if default != None:
+        if default is not None:
             return default
         return fallback
 
@@ -47,7 +48,7 @@ def has(o, classinfo=None, default=None, path=[], is_callable=None):
         cur = o
         for p in path:
             cur = cur[p]
-        if classinfo != None and not isinstance(cur, classinfo):
+        if classinfo is not None and not isinstance(cur, classinfo):
             raise "Not a match"
         if is_callable == True and not callable(cur):
             raise "Not callable"
@@ -55,7 +56,7 @@ def has(o, classinfo=None, default=None, path=[], is_callable=None):
             raise "Is callable"
         return True
     except:
-        if default != None and o != None and len(path) > 0:
+        if default is not None and o is not None and len(path) > 0:
             cur = o
             for p in path[:-1]:
                 if not has(cur, dict, path=[p]):
@@ -67,7 +68,7 @@ def has(o, classinfo=None, default=None, path=[], is_callable=None):
 
 def call(o, default=None, path=[], args=[], kwargs={}):
     o = get(o, default=False, path=path, is_callable=True)
-    if o != False:
+    if o is not False:
         return o(*args, **kwargs)
     else:
         return default
@@ -84,7 +85,7 @@ class Struct(dict):
         self[attr] = value
 
 
-# Added benifit of cloning lists and dicts.
+# Added benefit of cloning lists and dicts.
 def structify(o):
     if isinstance(o, list):
         return [structify(o[i]) for i in range(len(o))]
@@ -99,7 +100,7 @@ def read_file(path, fallback=None):
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
     except:
-        if fallback != None:
+        if fallback is not None:
             return fallback
         raise NotFound(f"{path} not found")
 
@@ -113,12 +114,16 @@ def get_exec(raw, fallback=None):
         env = {}
         exec(code_object, env)
         sys.stdout = orig_out
-        print(buffer.getvalue())
+        output = buffer.getvalue()
+        if not output.isspace():
+            print(output)
         return env
     except Exception as e:
         sys.stdout = orig_out
-        print(buffer.getvalue())
-        if fallback != None:
+        output = buffer.getvalue()
+        if not output.isspace():
+            print(output)
+        if fallback is not None:
             return fallback
         raise InvalidArgument("Invalid raw Python: " + str(e))
 
@@ -131,7 +136,7 @@ def get_last_callable(raw, fallback=None):
             return callables[-1]
         raise "Nope"
     except:
-        if fallback != None:
+        if fallback is not None:
             return fallback
         raise InvalidArgument("No callable found")
 
@@ -141,7 +146,7 @@ def get_file_json(path, fallback=None):
         with open(path, "r") as json_file:
             return json.load(json_file)
     except:
-        if fallback != None:
+        if fallback is not None:
             return fallback
         raise InvalidArgument(f"{path} does not contain valid JSON")
 
@@ -152,12 +157,12 @@ schemas = structify(get_file_json(Path.joinpath(root_path, "schemas.json")))
 
 def default_schema(schema, data):
     default = get(schema, path=["default"])
-    if default == None and data == None:
+    if default is None and data is None:
         return
 
     if get(schema, path=["type"]) == "object":
         default = deepcopy(get(default, dict, {}))
-        if data == None or not has(data, dict):
+        if data is None or not has(data, dict):
             obj = default
         else:
             obj = data
@@ -167,7 +172,7 @@ def default_schema(schema, data):
         properties = get(schema, dict, {}, ["properties"])
         for key, prop_schema in properties.items():
             new_value = default_schema(prop_schema, get(obj, path=[key]))
-            if new_value != None:
+            if new_value is not None:
                 obj[key] = new_value
         return obj
 
@@ -176,20 +181,20 @@ def default_schema(schema, data):
         arr = get(data, list, default)
         item_schema = get(schema, dict, {}, ["items"])
         for index, value in enumerate(arr):
-            if value == None and len(default) > index:
+            if value is None and len(default) > index:
                 new_value = default[index]
             else:
                 new_value = default_schema(item_schema, value)
-            if new_value != None:
+            if new_value is not None:
                 arr[index] = new_value
         return arr
 
-    return data if data != None else default
+    return data if data is not None else default
 
 
 def process_schema(schema, data, use_default=True):
     error = None
-    if use_default == True:
+    if use_default is True:
         data = default_schema(schema, deepcopy(data))
     try:
         jsonschema.validate(data, schema)

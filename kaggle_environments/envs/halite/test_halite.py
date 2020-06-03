@@ -1,5 +1,6 @@
 from kaggle_environments import make
 from .halite import random_agent
+from .helpers import Board
 
 
 def test_halite_no_repeated_steps():
@@ -25,9 +26,24 @@ def test_halite_completes():
 
 def test_halite_exception_action_has_error_status():
     env = make("halite", debug=True)
+
     def error_agent(obs, config):
         raise Exception("An exception occurred!")
     env.run([error_agent, random_agent])
     json = env.toJSON()
     assert json["name"] == "halite"
     assert json["statuses"] == ["ERROR", "DONE"]
+
+
+def test_halite_helpers():
+    env = make("halite")
+
+    def helper_agent(obs, config):
+        print("YAH")
+        board = Board(obs, config)
+        print(board)
+        return random_agent(obs, config)
+    env.run([helper_agent, None])
+    json = env.toJSON()
+    assert json["name"] == "halite"
+    assert json["statuses"] == ["DONE", "DONE"]
