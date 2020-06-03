@@ -2,7 +2,7 @@
   "name": "halite",
   "title": "Halite 3.1",
   "description": "The game of space salt.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "agents": [1, 2, 4],
   "configuration": {
     "episodeSteps": 400,
