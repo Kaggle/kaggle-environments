@@ -1,6 +1,6 @@
 from kaggle_environments import make
 from .halite import random_agent
-from .helpers import Board
+from .helpers import *
 
 
 def test_halite_no_repeated_steps():
@@ -40,7 +40,11 @@ def test_halite_helpers():
 
     def helper_agent(obs, config):
         board = Board(obs, config)
-        return random_agent(obs, config)
+        for ship in board.current_player.ships:
+            ship.try_set_pending_action(ShipAction.NORTH)
+        for shipyard in board.current_player.shipyards:
+            shipyard.try_set_pending_spawn(True)
+        return board.pending_actions
 
     env.run([helper_agent, helper_agent])
     json = env.toJSON()

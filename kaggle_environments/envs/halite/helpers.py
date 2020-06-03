@@ -1,3 +1,4 @@
+from enum import Enum, Flag, auto
 from typing import *
 
 
@@ -17,6 +18,9 @@ class ReadOnlyDict(Generic[TKey, TValue]):
 
     def __iter__(self):
         return self._data.__iter__()
+
+    def __str__(self):
+        return self._data.__str__()
 
     def keys(self):
         return self._data.keys()
@@ -120,6 +124,46 @@ PlayerId = NewType('PlayerId', int)
 Point = NewType('Point', Tuple[int, int])
 
 
+def add_points(left: Point, right: Point):
+    (x1, y1) = left
+    (x2, y2) = right
+    return x1 + x2, y1 + y2
+
+
+def mod_point(point: Point, mod: int):
+    (x, y) = point
+    return x % mod, y % mod
+
+
+class ShipAction(Enum):
+    NORTH = auto()
+    SOUTH = auto()
+    EAST = auto()
+    WEST = auto()
+    CONVERT = auto()
+
+    def to_point(self) -> Optional[Point]:
+        """
+        This returns the position offset associated with a particular action or None if the action does not change the ship's position
+        Note that the y axis is inverted so NORTH is downward and SOUTH is upward
+        NORTH -> (0, -1)
+        SOUTH -> (0, 1)
+        EAST -> (1, 0)
+        WEST -> (-1, 0)
+        """
+        return (
+            (0, -1) if self == ShipAction.NORTH else
+            (0, 1) if self == ShipAction.SOUTH else
+            (1, 0) if self == ShipAction.EAST else
+            (-1, 0) if self == ShipAction.WEST else
+            None
+        )
+
+    def __str__(self) -> str:
+        """This will convert a ShipAction into an action string that's recognizable by the Halite interpreter"""
+        return self.name
+
+
 class Cell:
     def __init__(self, position: Point, halite: float, shipyard_id: Optional[ShipyardId], ship_id: Optional[ShipId], board: 'Board') -> None:
         self._position = position
@@ -160,27 +204,67 @@ class Cell:
             else None
         )
 
-    def _get_relative_cell(self, x_offset: int, y_offset: int) -> 'Cell':
-        size = self._board.configuration.size
-        (x, y) = self.position
-        (x, y) = ((x + x_offset) % size, (y + y_offset) % size)
-        return self._board[x + x_offset, y + y_offset]
+    def neighbor(self, offset: Point) -> 'Cell':
+        """Returns the cell at position + offset"""
+        (x, y) = add_points(self.position, offset)
+        return self._board[x, y]
 
     @property
     def north(self) -> 'Cell':
-        return self._get_relative_cell(0, 1)
+        return self.neighbor(ShipAction.NORTH.to_point())
 
     @property
     def south(self) -> 'Cell':
-        return self._get_relative_cell(0, -1)
+        return self.neighbor(ShipAction.SOUTH.to_point())
 
     @property
     def east(self) -> 'Cell':
-        return self._get_relative_cell(1, 0)
+        return self.neighbor(ShipAction.EAST.to_point())
 
     @property
     def west(self) -> 'Cell':
-        return self._get_relative_cell(-1, 0)
+        return self.neighbor(ShipAction.WEST.to_point())
+
+
+class CollisionBehavior(Flag):
+    """
+    CollisionBehaviors are created and passed into Ship.try_move_* methods
+    Ship.try_move_* returns False when the associated movement would cause a collision not allowed by the CollisionBehavior
+    CollisionBehavior.DEFAULT allows collisions with weaker opponents and all shipyards
+    e.g. If you have a weaker opponent ship north of you
+        ship.try_move_north(CollisionBehavior.OPPONENT_SHIPS) == True
+        ship.try_move_north(CollisionBehavior.ALLIES) == False
+        ship.try_move_north(CollisionBehavior.SHIPYARD) == False
+        ship.try_move_north(CollisionBehavior.WEAKER_OPPONENT_SHIPS | CollisionBehavior.OPPONENT_SHIPYARDS) == True
+    """
+    NONE = 0
+    """Prevents your ship from colliding with any ship or shipyard"""
+    ALLY_SHIPS = auto()
+    """Allows your ship to collide with your ships, one ship will be destroyed"""
+    ALLY_SHIPYARDS = auto()
+    """Allows your ship to collide with your shipyards, the shipyard will be unable to SPAWN until the ship moves"""
+    STRONGER_OPPONENT_SHIPS = auto()
+    """Allows your ship to collide with stronger opponent ships, your ship will be destroyed"""
+    EQUAL_OPPONENT_SHIPS = auto()
+    """Allows your ship to collide with equal opponent ships, both ships will be destroyed"""
+    WEAKER_OPPONENT_SHIPS = auto()
+    """Allows your ship to collide with weaker opponent ships, the opponent ship will be destroyed"""
+    OPPONENT_SHIPS = STRONGER_OPPONENT_SHIPS | EQUAL_OPPONENT_SHIPS | WEAKER_OPPONENT_SHIPS
+    """Allows your ship to collide with opponent ships, the weaker ship will be destroyed"""
+    OPPONENT_SHIPYARDS = auto()
+    """Allows your ship to collide with opponent shipyards, both ship and shipyard will be destroyed"""
+    SHIPS = ALLY_SHIPS | OPPONENT_SHIPS
+    """Allows your ship to collide with any ship, the weaker ship will be destroyed"""
+    SHIPYARDS = ALLY_SHIPYARDS | OPPONENT_SHIPYARDS
+    """Allows your ship to collide with any shipyard, both ship and shipyard will be destroyed"""
+    ALLIES = ALLY_SHIPS | ALLY_SHIPYARDS
+    """Allows your ship to collide with your ships and shipyards"""
+    OPPONENTS = OPPONENT_SHIPS | OPPONENT_SHIPYARDS
+    """Allows your ship to collide with opponent ships and shipyards"""
+    ALL = ALLIES | OPPONENTS
+    """No collision guards will be applied to your ship, your ship can collide with any ship or shipyard"""
+    DEFAULT = WEAKER_OPPONENT_SHIPS | EQUAL_OPPONENT_SHIPS | OPPONENT_SHIPYARDS | ALLY_SHIPYARDS
+    """Allows your ship to collide with opponent ships or any shipyard"""
 
 
 class Ship:
@@ -190,6 +274,7 @@ class Ship:
         self._halite = halite
         self._player_id = player_id
         self._board = board
+        self._pending_action = None
 
     @property
     def ship_id(self) -> ShipId:
@@ -215,6 +300,55 @@ class Ship:
     def player(self) -> 'Player':
         return self._board.players[self.player_id]
 
+    @property
+    def pending_action(self) -> Optional[ShipAction]:
+        """This is the action that will be executed by this ship when the current player ends their turn"""
+        return self._pending_action
+
+    def try_set_pending_action(self, action: Optional[ShipAction], collision_behavior: CollisionBehavior = CollisionBehavior.DEFAULT) -> bool:
+        """
+        This method does nothing and returns False if this ship is not owned by the current player
+        This method also returns False when the action causes a collision that would violate the passed CollisionBehavior
+        You can pass CollisionBehavior.ALL to skip collision checks and allow this ship to collide with any object
+        The default is CollisionBehavior.DEFAULT which prevents crashing into stronger opponent ships or your own ships
+        """
+        if not self.player.is_current_player:
+            # This ship is not able to move on this turn because it is owned by a different player
+            return False
+        if action is not None:
+            offset = action.to_point()
+            if offset is None:
+                # action.to_point() returns None for CONVERT so we know this is a CONVERT action
+                if self.player.halite < self._board.configuration.convert_cost:
+                    # Not enough halite to build a shipyard
+                    return False
+            else:
+                is_valid_move = True
+                destination = self.cell.neighbor(offset)
+                # Ensure the correct collision flags are set to allow us to collide with the ship / shipyard at the destination
+                if destination.ship is not None:
+                    if destination.ship.player.is_current_player:
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.ALLY_SHIPS)
+                    elif destination.ship.halite > self.halite:
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.WEAKER_OPPONENT_SHIPS)
+                    elif destination.ship.halite < self.halite:
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.STRONGER_OPPONENT_SHIPS)
+                    else:
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.EQUAL_OPPONENT_SHIPS)
+                if destination.shipyard is not None:
+                    if destination.shipyard.player.is_current_player:
+                        # If the shipyard is spawning a ship, we must also be able to collide with allied ships to move to it
+                        if destination.shipyard.pending_spawn:
+                            is_valid_move &= bool(collision_behavior & CollisionBehavior.ALLY_SHIPS)
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.ALLY_SHIPYARDS)
+                    else:
+                        is_valid_move &= bool(collision_behavior & CollisionBehavior.OPPONENT_SHIPYARDS)
+                if not is_valid_move:
+                    # Collision flags prevent this ship from colliding with something at the destination
+                    return False
+        self._pending_action = action
+        return True
+
 
 class Shipyard:
     def __init__(self, shipyard_id: ShipyardId, position: Point, player_id: PlayerId, board: 'Board') -> None:
@@ -222,6 +356,7 @@ class Shipyard:
         self._position = position
         self._player_id = player_id
         self._board = board
+        self._pending_spawn = False
 
     @property
     def shipyard_id(self) -> ShipyardId:
@@ -243,9 +378,26 @@ class Shipyard:
     def player(self) -> 'Player':
         return self._board.players[self.player_id]
 
+    @property
+    def pending_spawn(self) -> bool:
+        """This returns True if this shipyard will attempt to spawn a ship when the current player ends their turn"""
+        return self._pending_spawn
+
+    def try_set_pending_spawn(self, pending_spawn: bool, prevent_collision: bool = True):
+        """This orders the shipyard to spawn a ship when the current player ends their turn"""
+        if pending_spawn:
+            if prevent_collision and self.cell.ship is not None:
+                # Spawning would cause a collision and collisions are prevented
+                return False
+            if self.player.halite < self._board.configuration.spawn_cost:
+                # Not enough halite to spawn a ship
+                return False
+        self._pending_spawn = pending_spawn
+        return True
+
 
 class Player:
-    def __init__(self, player_id: PlayerId, halite: int, shipyard_ids: Set[ShipyardId], ship_ids: Set[ShipId], board: 'Board') -> None:
+    def __init__(self, player_id: PlayerId, halite: int, shipyard_ids: List[ShipyardId], ship_ids: List[ShipId], board: 'Board') -> None:
         self._player_id = player_id
         self._halite = halite
         self._shipyard_ids = shipyard_ids
@@ -261,20 +413,24 @@ class Player:
         return self._halite
 
     @property
-    def shipyard_ids(self) -> Set[ShipyardId]:
+    def shipyard_ids(self) -> List[ShipyardId]:
         return self._shipyard_ids
 
     @property
-    def ship_ids(self) -> Set[ShipId]:
+    def ship_ids(self) -> List[ShipId]:
         return self._ship_ids
 
     @property
-    def shipyards(self) -> Set[Shipyard]:
-        return set([self._board.shipyards[shipyard_id] for shipyard_id in self.shipyard_ids])
+    def shipyards(self) -> List[Shipyard]:
+        return [self._board.shipyards[shipyard_id] for shipyard_id in self.shipyard_ids]
 
     @property
-    def ships(self) -> Set[Ship]:
-        return set([self._board.ships[ship_id] for ship_id in self.ship_ids])
+    def ships(self) -> List[Ship]:
+        return [self._board.ships[ship_id] for ship_id in self.ship_ids]
+
+    @property
+    def is_current_player(self) -> bool:
+        return self.player_id is self._board.current_player_id
 
 
 class Board:
@@ -290,9 +446,7 @@ class Board:
 
         # We know the length of player is always 3 based on the schema -- this is a tuple in json
         for (player_id, [player_halite, player_shipyards, player_ships]) in enumerate(observation.players):
-            player_shipyard_ids = set(player_shipyards.keys())
-            player_ship_ids = set(player_ships.keys())
-            players[player_id] = Player(player_id, player_halite, player_shipyard_ids, player_ship_ids, self)
+            players[player_id] = Player(player_id, player_halite, player_shipyards.keys(), player_ships.keys(), self)
             for (ship_id, [ship_index, ship_halite]) in player_ships.items():
                 ship_position = divmod(ship_index, size)
                 ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
@@ -315,8 +469,8 @@ class Board:
         self._ships = ReadOnlyDict(ships)
         self._shipyards = ReadOnlyDict(shipyards)
         self._cells = ReadOnlyDict(cells)
-        self._step = observation.step
-        self._my_id = observation.player
+        self._step = observation.step   
+        self._current_player_id = observation.player
 
     @property
     def configuration(self) -> Configuration:
@@ -339,20 +493,31 @@ class Board:
         return self._cells
 
     @property
-    def me(self) -> Player:
-        """
-        Returns the current player (that's you!)
-        This property can help you find your ships and shipyards -- try board.me.ships
-        """
-        return self.players[self._my_id]
+    def current_player_id(self):
+        return self._current_player_id
 
     @property
-    def them(self) -> List[Player]:
+    def current_player(self) -> Player:
         """
-        Returns all players that aren't you
-        You can get all enemy ships with [ship for ship in player.ships for player in board.them]
+        Returns the player that's selecting actions for their ships and shipyards (generally this is you)
+        This property can help you find your ships and shipyards -- try board.current_player.ships
         """
-        return [player for player in self.players if player.player_id is not self._my_id]
+        return self.players[self.current_player_id]
+
+    @property
+    def opponents(self) -> List[Player]:
+        """
+        Returns all players that aren't the current player
+        You can get all opponent ships with [ship for ship in player.ships for player in board.opponents]
+        """
+        return [player for player in self.players if not player.is_current_player]
+
+    @property
+    def pending_actions(self) -> Dict[str, str]:
+        """Returns all pending ship and shipyard actions formatted for the halite interpreter to receive as an agent response"""
+        ship_actions = {ship.ship_id: str(ship.pending_action) for ship in self.ships.values() if ship.pending_action is not None}
+        shipyard_actions = {shipyard.shipyard_id: "CONVERT" for shipyard in self.shipyards.values() if shipyard.pending_spawn}
+        return {**ship_actions, **shipyard_actions}
 
     def __getitem__(self, position: Point) -> Cell:
         """
