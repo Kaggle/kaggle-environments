@@ -48,7 +48,7 @@ class Board:
         self.ships = [None] * size ** 2
         self.ships_by_uid = {}
         self.possible_ships = [{} for _ in range(size ** 2)]
-        
+
         for index, player in enumerate(obs.players):
             _, shipyards, ships = player
             for uid, pos in shipyards.items():

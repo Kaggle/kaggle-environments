@@ -1,19 +1,31 @@
 from typing import *
-from string import Template
 
 
 # See https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json for schema
 
 
-class Object:
-    def __init__(self, data: Dict[str, any]):
+TKey = TypeVar('TKey')
+TValue = TypeVar('TValue')
+
+
+class ReadOnlyDict(Generic[TKey, TValue]):
+    def __init__(self, data: Dict[TKey, TValue]):
         self._data = data
 
-    def __getitem__(self, item):
-        return self._data[item]
+    def __getitem__(self, item) -> Optional[TValue]:
+        return self._data.get(item)
+
+    def __iter__(self):
+        return self._data.__iter__()
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
 
 
-class Observation(Object):
+class Observation(ReadOnlyDict[str, any]):
     @property
     def halite(self) -> List[int]:
         """Serialized list of available halite per cell on the board."""
@@ -35,7 +47,7 @@ class Observation(Object):
         return self["step"]
 
 
-class Configuration(Object):
+class Configuration(ReadOnlyDict[str, any]):
     @property
     def episode_steps(self) -> int:
         """Total number of steps/turns in the run."""
@@ -105,50 +117,15 @@ class Configuration(Object):
 ShipId = NewType('ShipId', str)
 ShipyardId = NewType('ShipyardId', str)
 PlayerId = NewType('PlayerId', int)
-
-
-class Point:
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-
-    def __abs__(self) -> 'Point':
-        return Point(abs(self.x), abs(self.y))
-
-    def __add__(self, other: 'Point') -> 'Point':
-        return Point(self.x + other.x, self.y + other.y)
-
-    def __eq__(self, other: 'Point') -> bool:
-        return self.x == other.x and self.y == other.y
-
-    def __hash__(self) -> int:
-        return hash((self.x, self.y))
-
-    def __neg__(self) -> 'Point':
-        return Point(-self.x, -self.y)
-
-    def __str__(self) -> str:
-        return Template('($x, $y)').substitute(x=self.x, y=self.y)
-
-    def __mul__(self, other) -> 'Point':
-        return Point(self.x * other, self.y * other)
-
-
-class Direction:
-    NORTH = Point(0, 1)
-    SOUTH = Point(0, -1)
-    EAST = Point(1, 0)
-    WEST = Point(-1, 0)
-    ZERO = Point(0, 0)
-    ONE = Point(1, 1)
+Point = NewType('Point', Tuple[int, int])
 
 
 class Cell:
-    def __init__(self, position: Point, halite: float, ship_id: Optional[ShipId], shipyard_id: Optional[ShipyardId], board: 'Board') -> None:
+    def __init__(self, position: Point, halite: float, shipyard_id: Optional[ShipyardId], ship_id: Optional[ShipId], board: 'Board') -> None:
         self._position = position
         self._halite = halite
-        self._ship_id = ship_id
         self._shipyard_id = shipyard_id
+        self._ship_id = ship_id
         self._board = board
 
     @property
@@ -160,17 +137,17 @@ class Cell:
         return self._halite
 
     @property
-    def ship_id(self) -> Optional[ShipId]:
-        return self._ship_id
-
-    @property
     def shipyard_id(self) -> Optional[ShipyardId]:
         return self._shipyard_id
 
     @property
+    def ship_id(self) -> Optional[ShipId]:
+        return self._ship_id
+
+    @property
     def ship(self) -> Optional['Ship']:
         return (
-            self._board.ships.get(self.ship_id)
+            self._board.ships[self.ship_id]
             if self.ship_id is not None
             else None
         )
@@ -178,29 +155,33 @@ class Cell:
     @property
     def shipyard(self) -> Optional['Shipyard']:
         return (
-            self._board.shipyards.get(self.shipyard_id)
+            self._board.shipyards[self.shipyard_id]
             if self.shipyard_id is not None
             else None
         )
 
-    def neighbor(self, direction: Point) -> 'Cell':
-        return self._board.cells[self.position + direction]
+    def _get_relative_cell(self, x_offset: int, y_offset: int) -> 'Cell':
+        size = self._board.configuration.size
+        (x, y) = self.position
+        (x, y) = (x + x_offset, y + y_offset)
+        (x, y) = (x % size, y % size)
+        return self._board.cells[(x + x_offset, y + y_offset)]
 
     @property
     def north(self) -> 'Cell':
-        return self.neighbor(Point.NORTH)
+        return self._get_relative_cell(0, 1)
 
     @property
     def south(self) -> 'Cell':
-        return self.neighbor(Point.SOUTH)
+        return self._get_relative_cell(0, -1)
 
     @property
     def east(self) -> 'Cell':
-        return self.neighbor(Point.EAST)
+        return self._get_relative_cell(1, 0)
 
     @property
     def west(self) -> 'Cell':
-        return self.neighbor(Point.WEST)
+        return self._get_relative_cell(-1, 0)
 
 
 class Ship:
@@ -298,76 +279,84 @@ class Player:
 
 
 class Board:
-    def __init__(self, observation: Observation, configuration: Configuration) -> None:
-        self._configuration = configuration
-        self._players: Dict[PlayerId, Player] = {}
-        self._ships: Dict[ShipId, Ship] = {}
-        self._shipyards: Dict[ShipyardId, Shipyard] = {}
-        self._cells: Dict[Point, Cell] = {}
-        # We know the length of player is always 3 based on the schema -- this is a tuple in json
-        for (player_id, [player_halite, shipyards, ships]) in enumerate(observation.players):
-            self._players[player_id] = Player(player_id, player_halite, shipyards.keys(), ships.keys(), self)
-            for (ship_id, [ship_position, ship_halite]) in ships.items():
-                self._ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
-            for (shipyard_id, shipyard_position) in shipyards.items():
-                self._shipyards[shipyard_id] = Shipyard(shipyard_id, shipyard_position, player_id, self)
-        ships_by_position = {ship.position: ship.ship_id for ship in self.ships.values()}
-        shipyards_by_position = {shipyard.position: shipyard.shipyard_id for shipyard in self.shipyards.values()}
+    def __init__(self, raw_observation: Dict[str, any], raw_configuration: Dict[str, any]) -> None:
+        observation = Observation(raw_observation)
+        self._configuration = Configuration(raw_configuration)
         size = self._configuration.size
+
+        players: Dict[PlayerId, Player] = {}
+        ships: Dict[ShipId, Ship] = {}
+        shipyards: Dict[ShipyardId, Shipyard] = {}
+        cells: Dict[Point, Cell] = {}
+
+        # We know the length of player is always 3 based on the schema -- this is a tuple in json
+        for (player_id, [player_halite, player_shipyards, player_ships]) in enumerate(observation.players):
+            player_shipyard_ids = set(player_shipyards.keys())
+            player_ship_ids = set(player_ships.keys())
+            players[player_id] = Player(player_id, player_halite, player_shipyard_ids, player_ship_ids, self)
+            for (ship_id, [ship_index, ship_halite]) in player_ships.items():
+                ship_position = divmod(ship_index, size)
+                ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
+            for (shipyard_id, shipyard_index) in player_shipyards.items():
+                shipyard_position = divmod(shipyard_index, size)
+                shipyards[shipyard_id] = Shipyard(shipyard_id, shipyard_position, player_id, self)
+
+        ship_ids_by_position = {ship.position: ship.ship_id for ship in ships.values()}
+        shipyard_ids_by_position = {shipyard.position: shipyard.shipyard_id for shipyard in shipyards.values()}
         for x in range(size):
             for y in range(size):
-                position = Point(x, y)
+                position = (x, y)
                 index = size * x + y
                 halite = observation.halite[index]
-                self._cells[position] = Cell(position, halite, ships_by_position.get(position), shipyards_by_position.get(position), self)
+                ship_id = ship_ids_by_position.get(position)
+                shipyard_id = shipyard_ids_by_position.get(position)
+                cells[position] = Cell(position, halite, shipyard_id, ship_id, self)
+
+        self._players = ReadOnlyDict(players)
+        self._ships = ReadOnlyDict(ships)
+        self._shipyards = ReadOnlyDict(shipyards)
+        self._cells = ReadOnlyDict(cells)
 
     @property
-    def configuration(self):
+    def configuration(self) -> Configuration:
         return self._configuration
 
     @property
-    def players(self):
+    def players(self) -> ReadOnlyDict[PlayerId, Player]:
         return self._players
 
     @property
-    def ships(self):
+    def ships(self) -> ReadOnlyDict[ShipId, Ship]:
         return self._ships
 
     @property
-    def shipyards(self):
+    def shipyards(self) -> ReadOnlyDict[ShipyardId, Shipyard]:
         return self._shipyards
 
     @property
-    def cells(self):
+    def cells(self) -> ReadOnlyDict[Point, Cell]:
         return self._cells
 
     def __str__(self):
         size = self.configuration.size
-        result = ''
+        horizontal_line = '-' * (self.configuration.size * 4 + 1) + '\n'
+        result = horizontal_line
         for x in range(size):
             for y in range(size):
-                position = Point(x, y)
+                position = (x, y)
                 cell = self.cells[position]
-                result += '.'
-            result += '\n'
-        return result
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                result += '|'
+                result += (
+                    chr(ord('a') + cell.ship.player_id)
+                    if cell.ship is not None
+                    else ' '
+                )
+                normalized_halite = int(9.0 * cell.halite / float(self.configuration.max_cell_halite))
+                result += str(normalized_halite)
+                result += (
+                    chr(ord('A') + cell.shipyard.player_id)
+                    if cell.shipyard is not None
+                    else ' '
+                )
+            result += '|\n'
+        return result + horizontal_line

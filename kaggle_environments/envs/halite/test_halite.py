@@ -40,9 +40,9 @@ def test_halite_helpers():
 
     def helper_agent(obs, config):
         board = Board(obs, config)
-        print(board)
         return random_agent(obs, config)
-    env.run([helper_agent, None])
+
+    env.run([helper_agent, helper_agent])
     json = env.toJSON()
     assert json["name"] == "halite"
     assert json["statuses"] == ["DONE", "DONE"]
