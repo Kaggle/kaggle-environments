@@ -55,7 +55,7 @@
     "maxCellHalite": {
       "description": "The maximum halite that can be in any cell.",
       "type": "integer",
-      "default": 500,
+      "default": 5000,
       "minimum": 0
     }
   },
@@ -67,7 +67,7 @@
   },
   "observation": {
     "halite": {
-      "description": "Halite: Serialized list of available halite per cell on the board.",
+      "description": "Serialized list of available halite per cell on the board.",
       "type": "array",
       "shared": true,
       "items": {
@@ -121,7 +121,7 @@
       }
     },
     "player": {
-      "description": "The agents player index.",
+      "description": "The current agent's player index.",
       "type": "integer",
       "defaults": [0, 1, 2, 3]
     },
