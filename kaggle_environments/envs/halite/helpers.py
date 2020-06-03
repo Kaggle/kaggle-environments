@@ -163,9 +163,8 @@ class Cell:
     def _get_relative_cell(self, x_offset: int, y_offset: int) -> 'Cell':
         size = self._board.configuration.size
         (x, y) = self.position
-        (x, y) = (x + x_offset, y + y_offset)
-        (x, y) = (x % size, y % size)
-        return self._board.cells[(x + x_offset, y + y_offset)]
+        (x, y) = ((x + x_offset) % size, (y + y_offset) % size)
+        return self._board[x + x_offset, y + y_offset]
 
     @property
     def north(self) -> 'Cell':
@@ -210,7 +209,7 @@ class Ship:
 
     @property
     def cell(self) -> Cell:
-        return self._board.cells[self.position]
+        return self._board[self.position]
 
     @property
     def player(self) -> 'Player':
@@ -238,7 +237,7 @@ class Shipyard:
 
     @property
     def cell(self) -> Cell:
-        return self._board.cells[self.position]
+        return self._board[self.position]
 
     @property
     def player(self) -> 'Player':
@@ -316,6 +315,8 @@ class Board:
         self._ships = ReadOnlyDict(ships)
         self._shipyards = ReadOnlyDict(shipyards)
         self._cells = ReadOnlyDict(cells)
+        self._step = observation.step
+        self._my_id = observation.player
 
     @property
     def configuration(self) -> Configuration:
@@ -337,14 +338,48 @@ class Board:
     def cells(self) -> ReadOnlyDict[Point, Cell]:
         return self._cells
 
+    @property
+    def me(self) -> Player:
+        """
+        Returns the current player (that's you!)
+        This property can help you find your ships and shipyards -- try board.me.ships
+        """
+        return self.players[self._my_id]
+
+    @property
+    def them(self) -> List[Player]:
+        """
+        Returns all players that aren't you
+        You can get all enemy ships with [ship for ship in player.ships for player in board.them]
+        """
+        return [player for player in self.players if player.player_id is not self._my_id]
+
+    def __getitem__(self, position: Point) -> Cell:
+        """
+        This method will wrap the supplied position to fit within the board size and return the cell at that location
+        e.g. on a 3x3 board, board[(2, 1)] is the same as board[(5, 1)]
+        """
+        (x, y) = position
+        size = self.configuration.size
+        key = (x % size, y % size)
+        return self._cells[key]
+
     def __str__(self):
+        """
+        The board is printed in a grid with the following rules:
+        Capital letters are shipyards
+        Lower case letters are ships
+        Digits are a scale from 0-9 directly proportional to a value between 0 and self.configuration.max_cell_halite
+        Player 1 is letter a
+        Player 2 is letter b
+        etc.
+        """
         size = self.configuration.size
         horizontal_line = '-' * (self.configuration.size * 4 + 1) + '\n'
         result = horizontal_line
         for x in range(size):
             for y in range(size):
-                position = (x, y)
-                cell = self.cells[position]
+                cell = self[(x, y)]
                 result += '|'
                 result += (
                     chr(ord('a') + cell.ship.player_id)
