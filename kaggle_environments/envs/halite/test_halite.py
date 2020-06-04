@@ -40,6 +40,7 @@ def test_halite_helpers():
 
     def helper_agent(obs, config):
         board = Board(obs, config)
+        assert board.to_observation()._data == obs
         for ship in board.current_player.ships:
             ship.try_set_pending_action(ShipAction.NORTH)
         for shipyard in board.current_player.shipyards:
@@ -47,6 +48,7 @@ def test_halite_helpers():
         return board.pending_actions
 
     env.run([helper_agent, helper_agent])
+
     json = env.toJSON()
     assert json["name"] == "halite"
     assert json["statuses"] == ["DONE", "DONE"]

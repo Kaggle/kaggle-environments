@@ -1,5 +1,6 @@
 from enum import Enum, Flag, auto
 from typing import *
+import json
 
 
 # See https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json for schema
@@ -27,6 +28,9 @@ class ReadOnlyDict(Generic[TKey, TValue]):
 
     def values(self):
         return self._data.values()
+
+    def json(self):
+        return json.dumps(self._data)
 
 
 class Observation(ReadOnlyDict[str, any]):
@@ -135,6 +139,11 @@ def mod_point(point: Point, mod: int):
     return x % mod, y % mod
 
 
+def point_to_index(point: Point, size: int):
+    (x, y) = point
+    return x * size + y
+
+
 class ShipAction(Enum):
     NORTH = auto()
     SOUTH = auto()
@@ -158,6 +167,14 @@ class ShipAction(Enum):
             (-1, 0) if self == ShipAction.WEST else
             None
         )
+
+    def __str__(self) -> str:
+        """This will convert a ShipAction into an action string that's recognizable by the Halite interpreter"""
+        return self.name
+
+
+class ShipyardAction(Enum):
+    SPAWN = auto()
 
     def __str__(self) -> str:
         """This will convert a ShipAction into an action string that's recognizable by the Halite interpreter"""
@@ -228,9 +245,8 @@ class Cell:
 
 class CollisionBehavior(Flag):
     """
-    CollisionBehaviors are created and passed into Ship.try_move_* methods
-    Ship.try_move_* returns False when the associated movement would cause a collision not allowed by the CollisionBehavior
-    CollisionBehavior.DEFAULT allows collisions with weaker opponents and all shipyards
+    Ship.try_set_pending_action returns False when the associated movement would cause a collision not allowed by the passed CollisionBehavior
+    CollisionBehavior.DEFAULT allows collisions with weaker opponents, equal opponents, and all shipyards
     e.g. If you have a weaker opponent ship north of you
         ship.try_move_north(CollisionBehavior.OPPONENT_SHIPS) == True
         ship.try_move_north(CollisionBehavior.ALLIES) == False
@@ -263,7 +279,7 @@ class CollisionBehavior(Flag):
     """Allows your ship to collide with opponent ships and shipyards"""
     ALL = ALLIES | OPPONENTS
     """No collision guards will be applied to your ship, your ship can collide with any ship or shipyard"""
-    DEFAULT = WEAKER_OPPONENT_SHIPS | EQUAL_OPPONENT_SHIPS | OPPONENT_SHIPYARDS | ALLY_SHIPYARDS
+    DEFAULT = WEAKER_OPPONENT_SHIPS | EQUAL_OPPONENT_SHIPS | SHIPYARDS
     """Allows your ship to collide with opponent ships or any shipyard"""
 
 
@@ -310,7 +326,7 @@ class Ship:
         This method does nothing and returns False if this ship is not owned by the current player
         This method also returns False when the action causes a collision that would violate the passed CollisionBehavior
         You can pass CollisionBehavior.ALL to skip collision checks and allow this ship to collide with any object
-        The default is CollisionBehavior.DEFAULT which prevents crashing into stronger opponent ships or your own ships
+        The default is CollisionBehavior.DEFAULT which prevents collision into stronger opponent ships or your own ships
         """
         if not self.player.is_current_player:
             # This ship is not able to move on this turn because it is owned by a different player
@@ -384,7 +400,12 @@ class Shipyard:
         return self._pending_spawn
 
     def try_set_pending_spawn(self, pending_spawn: bool, prevent_collision: bool = True):
-        """This orders the shipyard to spawn a ship when the current player ends their turn"""
+        """
+        This orders the shipyard to spawn a ship when the current player ends their turn
+        This does nothing and returns False if the player does not have enough halite to spawn a ship
+        This does nothing and returns False if prevent_collision is True and spawning a ship would cause a collision
+        Set prevent_collision to False to disable collision guards
+        """
         if pending_spawn:
             if prevent_collision and self.cell.ship is not None:
                 # Spawning would cause a collision and collisions are prevented
@@ -436,6 +457,8 @@ class Player:
 class Board:
     def __init__(self, raw_observation: Dict[str, any], raw_configuration: Dict[str, any]) -> None:
         observation = Observation(raw_observation)
+        self._step = observation.step
+        self._current_player_id = observation.player
         self._configuration = Configuration(raw_configuration)
         size = self._configuration.size
 
@@ -446,7 +469,7 @@ class Board:
 
         # We know the length of player is always 3 based on the schema -- this is a tuple in json
         for (player_id, [player_halite, player_shipyards, player_ships]) in enumerate(observation.players):
-            players[player_id] = Player(player_id, player_halite, player_shipyards.keys(), player_ships.keys(), self)
+            players[player_id] = Player(player_id, player_halite, list(player_shipyards.keys()), list(player_ships.keys()), self)
             for (ship_id, [ship_index, ship_halite]) in player_ships.items():
                 ship_position = divmod(ship_index, size)
                 ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
@@ -469,8 +492,6 @@ class Board:
         self._ships = ReadOnlyDict(ships)
         self._shipyards = ReadOnlyDict(shipyards)
         self._cells = ReadOnlyDict(cells)
-        self._step = observation.step   
-        self._current_player_id = observation.player
 
     @property
     def configuration(self) -> Configuration:
@@ -491,6 +512,10 @@ class Board:
     @property
     def cells(self) -> ReadOnlyDict[Point, Cell]:
         return self._cells
+
+    @property
+    def step(self) -> int:
+        return self._step
 
     @property
     def current_player_id(self):
@@ -516,8 +541,39 @@ class Board:
     def pending_actions(self) -> Dict[str, str]:
         """Returns all pending ship and shipyard actions formatted for the halite interpreter to receive as an agent response"""
         ship_actions = {ship.ship_id: str(ship.pending_action) for ship in self.ships.values() if ship.pending_action is not None}
-        shipyard_actions = {shipyard.shipyard_id: "CONVERT" for shipyard in self.shipyards.values() if shipyard.pending_spawn}
+        shipyard_actions = {shipyard.shipyard_id: str(ShipyardAction.SPAWN) for shipyard in self.shipyards.values() if shipyard.pending_spawn}
         return {**ship_actions, **shipyard_actions}
+
+    def to_observation(self) -> Observation:
+        """This converts a Board back to the observation that constructed it."""
+        def normalize_player(player: Player):
+            shipyards = {
+                shipyard.shipyard_id: shipyard.position
+                for shipyard in player.shipyards
+            }
+            ships = {
+                ship.ship_id: [point_to_index(ship.position, self.configuration.size), ship.halite]
+                for ship in player.ships
+            }
+            return [player.halite, shipyards, ships]
+
+        size = self.configuration.size
+        halite = [
+            self[(x, y)].halite
+            for x in range(size)
+            for y in range(size)
+        ]
+        players = [
+            normalize_player(player)
+            for player in self.players.values()
+        ]
+
+        return Observation({
+            "halite": halite,
+            "players": players,
+            "player": self.current_player_id,
+            "step": self.step,
+        })
 
     def __getitem__(self, position: Point) -> Cell:
         """
