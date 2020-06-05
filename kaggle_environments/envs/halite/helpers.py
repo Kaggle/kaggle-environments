@@ -6,6 +6,15 @@ import json
 # See https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json for schema
 
 
+def histogram(data: Iterable[any]):
+    results = {}
+    for value in data:
+        if value not in results:
+            results[value] = 0
+        results[value] += 1
+    return results
+
+
 TKey = TypeVar('TKey')
 TValue = TypeVar('TValue')
 
@@ -280,7 +289,7 @@ class CollisionBehavior(Flag):
     ALL = ALLIES | OPPONENTS
     """No collision guards will be applied to your ship, your ship can collide with any ship or shipyard"""
     DEFAULT = WEAKER_OPPONENT_SHIPS | EQUAL_OPPONENT_SHIPS | SHIPYARDS
-    """Allows your ship to collide with opponent ships or any shipyard"""
+    """Prevents your ship from colliding into stronger opponent ships or your own ships"""
 
 
 class Ship:
@@ -321,6 +330,11 @@ class Ship:
         """This is the action that will be executed by this ship when the current player ends their turn"""
         return self._pending_action
 
+    @pending_action.setter
+    def pending_action(self, value) -> None:
+        """Note that this method offers no protections for setting suboptimal or invalid actions, see try_set_pending_action for a protected version"""
+        self._pending_action = value
+
     def try_set_pending_action(self, action: Optional[ShipAction], collision_behavior: CollisionBehavior = CollisionBehavior.DEFAULT) -> bool:
         """
         This method does nothing and returns False if this ship is not owned by the current player
@@ -335,8 +349,11 @@ class Ship:
             offset = action.to_point()
             if offset is None:
                 # action.to_point() returns None for CONVERT so we know this is a CONVERT action
-                if self.player.halite < self._board.configuration.convert_cost:
+                if self.player.halite + self.halite < self._board.configuration.convert_cost:
                     # Not enough halite to build a shipyard
+                    return False
+                if self.cell.shipyard is not None:
+                    # There's already a shipyard here, no point in building another one
                     return False
             else:
                 is_valid_move = True
@@ -399,6 +416,11 @@ class Shipyard:
         """This returns True if this shipyard will attempt to spawn a ship when the current player ends their turn"""
         return self._pending_spawn
 
+    @pending_spawn.setter
+    def pending_spawn(self, value) -> None:
+        """Note that this method offers no protections for setting suboptimal or invalid actions, see try_set_pending_spawn for a protected version"""
+        self._pending_spawn = value
+
     def try_set_pending_spawn(self, pending_spawn: bool, prevent_collision: bool = True):
         """
         This orders the shipyard to spawn a ship when the current player ends their turn
@@ -431,7 +453,18 @@ class Player:
 
     @property
     def halite(self) -> int:
-        return self._halite
+        action_histogram = histogram(self._board.pending_actions.values())
+        spawn_costs = (
+            action_histogram[ShipyardAction.SPAWN.name] * self._board.configuration.spawn_cost
+            if ShipyardAction.SPAWN.name in action_histogram
+            else 0
+        )
+        convert_costs = (
+            action_histogram[ShipAction.CONVERT.name] * self._board.configuration.convert_cost
+            if ShipAction.CONVERT.name in action_histogram
+            else 0
+        )
+        return self._halite - spawn_costs - convert_costs
 
     @property
     def shipyard_ids(self) -> List[ShipyardId]:
