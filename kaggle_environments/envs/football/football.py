@@ -13,17 +13,25 @@ def run_right_agent(obs):
 
 
 def run_left_agent(obs):
+  # keep running left.
   return [1] * obs.controlled_players
 
 
 def do_nothing_agent(obs):
+  # do nothing.
   return [0] * obs.controlled_players
+
+
+def builtin_ai_agent(obs):
+  # execute builtin AI behavior.
+  return [19] * obs.controlled_players
 
 
 agents = {
     "run_right": run_right_agent,
     "run_left": run_left_agent,
     "do_nothing": do_nothing_agent
+    "builtin_ai": builtin_ai_agent,
 }
 
 
@@ -47,14 +55,14 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
 
   assert len(obs) == configuration.team_1 + configuration.team_2
   if rew is not None:
-    if configuration.team_1 == 1 and configuration.team_2 == 0:
-      assert type(rew) == np.float32
-      state[0].reward = float(rew)
-      state[1].reward = float(-rew)
+    if type(rew) == np.float32:
+      rew = [rew]
+    assert len(rew) == configuration.team_1 + configuration.team_2
+    if configuration.team_1 > 0:
+      state[0].reward = float(rew[0])
     else:
-      assert len(rew) == configuration.team_1 + configuration.team_2
-      state[0].reward = float(np.sum(rew[:configuration.team_1]))
-      state[1].reward = float(np.sum(rew[configuration.team_1:]))
+      state[0].reward = float(-rew[0])
+    state[1].reward = -state[1].reward
 
   state[0].observation.players_raw = [
       parse_single_player(obs[x]) for x in range(configuration.team_1)
