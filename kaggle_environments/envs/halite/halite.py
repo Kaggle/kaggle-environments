@@ -46,7 +46,7 @@ def random_agent(obs, config):
     shipyards = me.shipyards
     for shipyard in shipyards:
         shipyard.pending_spawn = choice([True, False])
-    return board.current_player.agent_actions
+    return board.current_player.pending_actions
 
 
 agents = {"random": random_agent}

@@ -44,8 +44,7 @@ def test_halite_helpers():
             ship.pending_action = ShipAction.NORTH
         for shipyard in board.current_player.shipyards:
             shipyard.pending_spawn = True
-        print(board)
-        return board.current_player.agent_actions
+        return board.current_player.pending_actions
 
     env.run([helper_agent, random_agent])
 

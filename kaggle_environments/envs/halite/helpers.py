@@ -376,7 +376,7 @@ class Player:
         return self.player_id is self._board.current_player_id
 
     @property
-    def agent_actions(self) -> Dict[str, str]:
+    def pending_actions(self) -> Dict[str, str]:
         """Returns all pending ship and shipyard actions for this player formatted for the halite interpreter to receive as an agent response"""
         ship_actions = {
             ship.ship_id: str(ship.pending_action)
@@ -391,53 +391,24 @@ class Player:
         return {**ship_actions, **shipyard_actions}
 
 
-class Board:
-    def __init__(self, observation: Union[Configuration, Dict[str, any]], configuration: Union[Configuration, Dict[str, any]], actions: Optional[Dict[str, str]]) -> None:
-        if actions is None:
-            actions = {}
-        if isinstance(observation, dict):
-            observation = Observation(observation)
-        if isinstance(configuration, dict):
-            configuration = Configuration(configuration)
-        self._step = observation.step
-        self._current_player_id = observation.player
-        self._configuration: Configuration = configuration
-        size = self._configuration.size
-
-        players: Dict[PlayerId, Player] = {}
-        ships: Dict[ShipId, Ship] = {}
-        shipyards: Dict[ShipyardId, Shipyard] = {}
-        cells: Dict[Point, Cell] = {}
-
-        # We know the length of player is always 3 based on the schema -- this is a hack to have a tuple in json
-        for (player_id, [player_halite, player_shipyards, player_ships]) in enumerate(observation.players):
-            players[player_id] = Player(player_id, player_halite, list(player_shipyards.keys()), list(player_ships.keys()), self)
-            for (ship_id, [ship_index, ship_halite]) in player_ships.items():
-                ship_position = divmod(ship_index, size)
-                ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
-                if ship_id in actions:
-                    ships[ship_id].pending_action = ShipAction[actions[ship_id]]
-            for (shipyard_id, shipyard_index) in player_shipyards.items():
-                shipyard_position = divmod(shipyard_index, size)
-                shipyards[shipyard_id] = Shipyard(shipyard_id, shipyard_position, player_id, self)
-                if shipyard_id in actions:
-                    shipyards[shipyard_id].pending_spawn = True
-
-        ship_ids_by_position = {ship.position: ship.ship_id for ship in ships.values()}
-        shipyard_ids_by_position = {shipyard.position: shipyard.shipyard_id for shipyard in shipyards.values()}
-        for x in range(size):
-            for y in range(size):
-                position = (x, y)
-                index = size * x + y
-                halite = observation.halite[index]
-                ship_id = ship_ids_by_position.get(position)
-                shipyard_id = shipyard_ids_by_position.get(position)
-                cells[position] = Cell(position, halite, shipyard_id, ship_id, self)
-
-        self._players = ReadOnlyDict(players)
-        self._ships = ReadOnlyDict(ships)
-        self._shipyards = ReadOnlyDict(shipyards)
-        self._cells = ReadOnlyDict(cells)
+class _Board:
+    def __init__(
+        self,
+        current_player_id: PlayerId,
+        players: ReadOnlyDict[PlayerId, Player],
+        ships: ReadOnlyDict[ShipId, Ship],
+        shipyards: ReadOnlyDict[ShipyardId, Shipyard],
+        cells: ReadOnlyDict[Point, Cell],
+        step: int,
+        configuration: Configuration
+    ):
+        self._current_player_id = current_player_id
+        self._players = players
+        self._ships = ships
+        self._shipyards = shipyards
+        self._cells = cells
+        self._step = step
+        self._configuration = configuration
 
     @property
     def configuration(self) -> Configuration:
@@ -479,13 +450,137 @@ class Board:
         """
         return [player for player in self.players if not player.is_current_player]
 
+    def __deepcopy__(self, _):
+        actions = {}
+        for player in self.players.values():
+            actions = {**actions, **player.pending_actions}
+        return Board(self.raw(), self.configuration, actions)
+
+    def __getitem__(self, position: Point) -> Cell:
+        """
+        This method will wrap the supplied position to fit within the board size and return the cell at that location
+        e.g. on a 3x3 board, board[(2, 1)] is the same as board[(5, 1)]
+        """
+        (x, y) = position
+        size = self.configuration.size
+        key = (x % size, y % size)
+        return self._cells[key]
+
+    def __str__(self):
+        """
+        The board is printed in a grid with the following rules:
+        Capital letters are shipyards
+        Lower case letters are ships
+        Digits are cell halite and scale from 0-9 directly proportional to a value between 0 and self.configuration.max_cell_halite
+        Player 1 is letter a/A
+        Player 2 is letter b/B
+        etc.
+        """
+        size = self.configuration.size
+        horizontal_line = '-' * (self.configuration.size * 4 + 1) + '\n'
+        result = horizontal_line
+        for x in range(size):
+            for y in range(size):
+                cell = self[(x, y)]
+                result += '|'
+                result += (
+                    chr(ord('a') + cell.ship.player_id)
+                    if cell.ship is not None
+                    else ' '
+                )
+                normalized_halite = int(9.0 * cell.halite / float(self.configuration.max_cell_halite))
+                result += str(normalized_halite)
+                result += (
+                    chr(ord('A') + cell.shipyard.player_id)
+                    if cell.shipyard is not None
+                    else ' '
+                )
+            result += '|\n'
+        return result + horizontal_line
+
+    def raw(self) -> Dict[str, Any]:
+        """This converts a Board back to the observation that constructed it."""
+        size = self.configuration.size
+
+        def raw_player(player: Player):
+            shipyards = {
+                shipyard.shipyard_id: point_to_index(shipyard.position, size)
+                for shipyard in player.shipyards
+            }
+            ships = {
+                ship.ship_id: [point_to_index(ship.position, size), ship.halite]
+                for ship in player.ships
+            }
+            return [player.halite, shipyards, ships]
+
+        halite = [
+            self[(x, y)].halite
+            for x in range(size)
+            for y in range(size)
+        ]
+        players = [
+            raw_player(player)
+            for player in self.players.values()
+        ]
+
+        return {
+            "halite": halite,
+            "players": players,
+            "player": self.current_player_id,
+            "step": self.step,
+        }
+
+
+class Board(_Board):
+    def __init__(self, observation: Union[Observation, Dict[str, any]], configuration: Union[Configuration, Dict[str, any]], actions: Optional[Dict[str, str]] = None) -> None:
+        if isinstance(observation, dict):
+            observation = Observation(observation)
+        if isinstance(configuration, dict):
+            configuration = Configuration(configuration)
+        if actions is None:
+            actions = {}
+        size = configuration.size
+
+        players: Dict[PlayerId, Player] = {}
+        ships: Dict[ShipId, Ship] = {}
+        shipyards: Dict[ShipyardId, Shipyard] = {}
+        cells: Dict[Point, Cell] = {}
+
+        # We know the length of player is always 3 based on the schema -- this is a hack to have a tuple in json
+        for (player_id, [player_halite, player_shipyards, player_ships]) in enumerate(observation.players):
+            players[player_id] = Player(player_id, player_halite, list(player_shipyards.keys()), list(player_ships.keys()), self)
+            for (ship_id, [ship_index, ship_halite]) in player_ships.items():
+                ship_position = divmod(ship_index, size)
+                ships[ship_id] = Ship(ship_id, ship_position, ship_halite, player_id, self)
+                if ship_id in actions:
+                    ships[ship_id].pending_action = ShipAction[actions[ship_id]]
+            for (shipyard_id, shipyard_index) in player_shipyards.items():
+                shipyard_position = divmod(shipyard_index, size)
+                shipyards[shipyard_id] = Shipyard(shipyard_id, shipyard_position, player_id, self)
+                if shipyard_id in actions:
+                    shipyards[shipyard_id].pending_spawn = True
+
+        ship_ids_by_position = {ship.position: ship.ship_id for ship in ships.values()}
+        shipyard_ids_by_position = {shipyard.position: shipyard.shipyard_id for shipyard in shipyards.values()}
+        for x in range(size):
+            for y in range(size):
+                position = (x, y)
+                index = size * x + y
+                halite = observation.halite[index]
+                ship_id = ship_ids_by_position.get(position)
+                shipyard_id = shipyard_ids_by_position.get(position)
+                cells[position] = Cell(position, halite, shipyard_id, ship_id, self)
+
+        _Board.__init__(self, observation.player, ReadOnlyDict(players), ReadOnlyDict(ships), ReadOnlyDict(shipyards), ReadOnlyDict(cells), observation.step, configuration)
+
     def simulate_actions(self) -> 'Board':
         """
         Returns a new board with the current board's pending actions applied
         The current board is unmodified
         """
-        convert_cost = self.configuration.convert_cost
-        spawn_cost = self.configuration.spawn_cost
+        board = deepcopy(self)
+        convert_cost = board.configuration.convert_cost
+        spawn_cost = board.configuration.spawn_cost
 
         # This is the stored halite total for each player after all actions have processed
         players: Dict[PlayerId, int] = {}
@@ -500,7 +595,7 @@ class Board:
             return f"{self.step}-{uid_counter}"
 
         # Process actions and store the results in the ships and shipyards lists for collision checking
-        for player in self.players.values():
+        for player in board.players.values():
             player_halite = player.halite
             leftover_convert_halite = 0
 
@@ -509,7 +604,7 @@ class Board:
                 if shipyard.pending_spawn and player_halite > spawn_cost:
                     player_halite -= spawn_cost
                     ship_id = ShipId(create_uid())
-                    ship = Ship(ship_id, shipyard.position, 0, player.player_id, self)
+                    ship = Ship(ship_id, shipyard.position, 0, player.player_id, board)
                     ships.append(ship)
 
             for ship in player.ships:
@@ -526,12 +621,12 @@ class Board:
                         leftover_convert_halite += max(delta_halite, 0)
                         player_halite += min(delta_halite, 0)
                         shipyard_id = ShipyardId(create_uid())
-                        shipyard = Shipyard(shipyard_id, ship.position, player.player_id, self)
+                        shipyard = Shipyard(shipyard_id, ship.position, player.player_id, board)
                         shipyards.append(shipyard)
                 else:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     offset = ship.pending_action.to_point()
-                    ship = Ship(ship.ship_id, translate_point(ship.position, offset), ship.halite, ship.player_id, self)
+                    ship = Ship(ship.ship_id, translate_point(ship.position, offset), ship.halite, ship.player_id, board)
                     ships.append(ship)
 
             player_halite += leftover_convert_halite
@@ -565,7 +660,6 @@ class Board:
                     shipyards.remove(shipyard)
                     del ships_by_position[shipyard.position]
 
-        board = deepcopy(self)
         board._ships = ReadOnlyDict({
             ship.ship_id: ship
             for ship in ships_by_position.values()
@@ -610,82 +704,3 @@ class Board:
 
         board._step += 1
         return board
-
-    def raw(self) -> Dict[str, Any]:
-        size = self.configuration.size
-        """This converts a Board back to the observation that constructed it."""
-        def normalize_player(player: Player):
-            shipyards = {
-                shipyard.shipyard_id: point_to_index(shipyard.position, size)
-                for shipyard in player.shipyards
-            }
-            ships = {
-                ship.ship_id: [point_to_index(ship.position, size), ship.halite]
-                for ship in player.ships
-            }
-            return [player.halite, shipyards, ships]
-
-        halite = [
-            self[(x, y)].halite
-            for x in range(size)
-            for y in range(size)
-        ]
-        players = [
-            normalize_player(player)
-            for player in self.players.values()
-        ]
-
-        return {
-            "halite": halite,
-            "players": players,
-            "player": self.current_player_id,
-            "step": self.step,
-        }
-
-    def __deepcopy__(self, _):
-        actions = {}
-        for player in self.players.values():
-            actions = {**actions, **player.agent_actions}
-        return Board(self.raw(), self.configuration, actions)
-
-    def __getitem__(self, position: Point) -> Cell:
-        """
-        This method will wrap the supplied position to fit within the board size and return the cell at that location
-        e.g. on a 3x3 board, board[(2, 1)] is the same as board[(5, 1)]
-        """
-        (x, y) = position
-        size = self.configuration.size
-        key = (x % size, y % size)
-        return self._cells[key]
-
-    def __str__(self):
-        """
-        The board is printed in a grid with the following rules:
-        Capital letters are shipyards
-        Lower case letters are ships
-        Digits are a scale from 0-9 directly proportional to a value between 0 and self.configuration.max_cell_halite
-        Player 1 is letter a
-        Player 2 is letter b
-        etc.
-        """
-        size = self.configuration.size
-        horizontal_line = '-' * (self.configuration.size * 4 + 1) + '\n'
-        result = horizontal_line
-        for x in range(size):
-            for y in range(size):
-                cell = self[(x, y)]
-                result += '|'
-                result += (
-                    chr(ord('a') + cell.ship.player_id)
-                    if cell.ship is not None
-                    else ' '
-                )
-                normalized_halite = int(9.0 * cell.halite / float(self.configuration.max_cell_halite))
-                result += str(normalized_halite)
-                result += (
-                    chr(ord('A') + cell.shipyard.player_id)
-                    if cell.shipyard is not None
-                    else ' '
-                )
-            result += '|\n'
-        return result + horizontal_line
