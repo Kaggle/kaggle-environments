@@ -36,18 +36,18 @@ def test_halite_exception_action_has_error_status():
 
 
 def test_halite_helpers():
-    env = make("halite", debug=True)
+    env = make("halite", debug=True, configuration={"size": 3})
 
     def helper_agent(obs, config):
-        board = Board(obs, config)
-        assert board.to_observation()._data == obs
+        board = Board(obs, config, {})
         for ship in board.current_player.ships:
-            ship.try_set_pending_action(ShipAction.NORTH)
+            ship.pending_action = ShipAction.NORTH
         for shipyard in board.current_player.shipyards:
-            shipyard.try_set_pending_spawn(True)
-        return board.pending_actions
+            shipyard.pending_spawn = True
+        print(board)
+        return board.current_player.agent_actions
 
-    env.run([helper_agent, helper_agent])
+    env.run([helper_agent, random_agent])
 
     json = env.toJSON()
     assert json["name"] == "halite"
