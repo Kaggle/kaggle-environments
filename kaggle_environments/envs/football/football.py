@@ -198,16 +198,10 @@ with open(jsonpath) as f:
   specification = json.load(f)
 
 
-def html_renderer():
-  jspath = path.abspath(path.join(dirpath, "football.js"))
-  with open(jspath) as f:
-    return f.read()
-
-
-def render_ipython(env):
+def html_renderer(env):
   if not env.football_video_path:
     raise Exception(
-        "No video found. Did episode finish successfully? Was save_video enabled?"
+        "To enable render support create environment with save_video enabled."
     )
 
   from IPython.display import display, HTML
