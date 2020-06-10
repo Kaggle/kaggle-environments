@@ -55,7 +55,7 @@
     "maxCellHalite": {
       "description": "The maximum halite that can be in any cell.",
       "type": "integer",
-      "default": 5000,
+      "default": 500,
       "minimum": 0
     }
   },
