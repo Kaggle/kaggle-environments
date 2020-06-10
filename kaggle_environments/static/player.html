@@ -209,22 +209,34 @@
         width: 100%;
       `;
 
+      // Partitions the elements of arr into subarrays of max length num.
+      const groupIntoSets = (arr, num) => {
+        const sets = [];
+        arr.forEach(a => {
+          if (sets.length === 0 || sets[sets.length - 1].length === num) {
+            sets.push([]);
+          }
+          sets[sets.length - 1].push(a);
+        });
+        return sets;
+      }
+
+      // Expects `width` input prop to set proper max-width for agent name span.
       const Legend = styled((props) => {
         const { agents, legend } = useContext(Context);
 
+        const agentPairs = groupIntoSets(agents.sort((a, b) => a.index - b.index), 2);
+
         return h`<div className=${props.className}>
-          <ul>
-            ${agents
-              .sort((a, b) => a.index - b.index)
-              .map(
-                (a) =>
-                  h`<li key=${a.id} title="id: ${a.id}" style="color:${
-                    a.color || "#FFF"
-                  }">${a.image && h`<img src=${a.image} />`}<span>${
-                    a.name
-                  }</span></li>`
-              )}
-          </ul>
+          ${agentPairs.map(agentList =>
+            h`<ul>
+                ${agentList.map(a =>
+                  h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
+                      ${a.image && h`<img src=${a.image} />`}
+                      <span>${a.name}</span>
+                    </li>`
+                )}
+              </ul>`)}
         </div>`;
       })`
         background-color: #000b2a;
@@ -242,12 +254,11 @@
         li {
           align-items: center;
           display: inline-flex;
-          padding: 8px;
           transition: color 1s;
         }
 
         span {
-          max-width: 100px;
+          max-width: ${p => (p.width || 400) * 0.5 - 36}px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -255,6 +266,7 @@
 
         img {
           height: 24px;
+          margin-left: 4px;
           margin-right: 4px;
           width: 24px;
         }
@@ -413,13 +425,13 @@
 
       const Player = styled((props) => {
         const context = useContext(Context);
-        const { agents, controls, header, legend, loading, settings } = context;
+        const { agents, controls, header, legend, loading, settings, width } = context;
         return h`
           <div className=${props.className}>
             ${loading && h`<${Loading} />`}
             ${!loading && header && h`<${Header} />`}
             ${!loading && h`<${Viewer} />`}
-            ${!loading && agents.length > 0 && legend && h`<${Legend} />`}
+            ${!loading && agents.length > 0 && legend && h`<${Legend} width=${width}/>`}
             ${!loading && controls && h`<${Controls} />`}
             ${!loading && settings && h`<${Settings} />`}
           </div>`;
@@ -448,6 +460,7 @@
           debug: false,
           environment: { steps: [] },
           header: window.innerHeight >= 600,
+          height: window.innerHeight,
           interactive: false,
           legend: true,
           loading: false,
@@ -457,6 +470,7 @@
           settings: false,
           speed: 500,
           step: 0,
+          width: window.innerWidth,
         });
 
         // Context helpers.
