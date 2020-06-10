@@ -30,7 +30,7 @@ def builtin_ai_agent(obs):
 agents = {
     "run_right": run_right_agent,
     "run_left": run_left_agent,
-    "do_nothing": do_nothing_agent
+    "do_nothing": do_nothing_agent,
     "builtin_ai": builtin_ai_agent,
 }
 
