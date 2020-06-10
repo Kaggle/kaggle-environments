@@ -19,6 +19,7 @@ from os import path
 from random import choice, randint, shuffle
 import numpy as np
 from .helpers import Board, Observation, ShipAction
+from kaggle_environments import utils
 
 
 def get_col_row(size, pos):
@@ -42,20 +43,27 @@ def random_agent(obs, config):
     me = board.current_player
     ships = me.ships
     for ship in ships:
-        ship.pending_action = choice([ship_action for ship_action in ShipAction])
+        ship.next_action = choice([ship_action for ship_action in ShipAction])
     shipyards = me.shipyards
     for shipyard in shipyards:
         shipyard.pending_spawn = choice([True, False])
-    return board.current_player.pending_actions
+    return board.current_player.next_actions
 
 
 agents = {"random": random_agent}
 
 
-def populate_board(state, env, create_uid):
+def populate_board(state, env):
     obs = state[0].observation
     config = env.configuration
     size = env.configuration.size
+    uid_counter = 0
+
+    # This is a consistent way to generate unique strings to form ship and shipyard ids
+    def create_uid():
+        nonlocal uid_counter
+        uid_counter += 1
+        return f"{obs.step}-{uid_counter}"
 
     # Set step for initialization to 0.
     obs.step = 0
@@ -137,22 +145,15 @@ def interpreter(state, env):
     obs = state[0].observation
     config = env.configuration
 
-    # UID generator.
-    uid_counter = 0
-
-    def create_uid():
-        nonlocal uid_counter
-        uid_counter += 1
-        return f"{obs.step}-{uid_counter}"
-
     # Initialize the board (place cell halite and starting ships).
     if env.done:
-        return populate_board(state, env, create_uid)
+        return populate_board(state, env)
 
-    for index, agent in enumerate(state):
-        board = Board(obs, config, agent.action)
-        board = board.simulate_actions()
-        state[0].observation = obs = Observation(board.raw())
+    obs.step = len(env.steps)
+    actions = [agent.action for agent in state]
+    board = Board(obs, config, actions)
+    board = board.next()
+    state[0].observation = obs = utils.structify(board.observation)
 
     # Remove players with invalid status or insufficient potential.
     for index, agent in enumerate(state):
@@ -160,7 +161,7 @@ def interpreter(state, env):
         if agent.status == "ACTIVE" and len(ships) == 0 and (len(shipyards) == 0 or player_halite < config.spawnCost):
             # Agent can no longer gather any halite
             agent.status = "DONE"
-        if agent.status != "ACTIVE":
+        if agent.status != "ACTIVE" and agent.status != "DONE":
             obs.players[index] = [0, {}, {}]
 
     # Check if done (< 2 players and num_agents > 1)

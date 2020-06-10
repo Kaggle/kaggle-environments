@@ -12,7 +12,7 @@ def test_halite_no_repeated_steps():
         return {}
 
     env = make("halite", configuration={"episodeSteps": step_count}, debug=True)
-    env.run({step_appender_agent})
+    env.run([step_appender_agent])
     assert actual_steps == list(range(step_count - 1))
 
 
@@ -39,14 +39,14 @@ def test_halite_helpers():
     env = make("halite", debug=True, configuration={"size": 3})
 
     def helper_agent(obs, config):
-        board = Board(obs, config, {})
+        board = Board(obs, config)
         for ship in board.current_player.ships:
-            ship.pending_action = ShipAction.NORTH
+            ship.next_action = ShipAction.NORTH
         for shipyard in board.current_player.shipyards:
-            shipyard.pending_spawn = True
-        return board.current_player.pending_actions
+            shipyard.next_action = ShipyardAction.SPAWN
+        return board.current_player.next_actions
 
-    env.run([helper_agent, random_agent])
+    env.run([helper_agent, helper_agent])
 
     json = env.toJSON()
     assert json["name"] == "halite"
