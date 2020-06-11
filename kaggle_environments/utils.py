@@ -115,13 +115,13 @@ def get_exec(raw, fallback=None):
         exec(code_object, env)
         sys.stdout = orig_out
         output = buffer.getvalue()
-        if not output.isspace():
+        if output:
             print(output)
         return env
     except Exception as e:
         sys.stdout = orig_out
         output = buffer.getvalue()
-        if not output.isspace():
+        if output:
             print(output)
         if fallback is not None:
             return fallback

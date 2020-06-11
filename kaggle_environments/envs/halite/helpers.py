@@ -13,8 +13,11 @@ def translate_point(point: Point, offset: Point) -> Point:
     return x1 + x2, y1 + y2
 
 
-def mod_point(point: Point, mod: int) -> Point:
-    """Returns (point.x % mod, point.y % mod)"""
+def wrap_point(point: Point, mod: int) -> Point:
+    """
+    Returns (point.x % mod, point.y % mod)
+    If the point is not on the board it will be wrapped around to fit on the board
+    """
     (x, y) = point
     return x % mod, y % mod
 
@@ -25,7 +28,7 @@ def position_to_index(point: Point, size: int) -> int:
     See index_to_position for the inverse.
     """
     x, y = point
-    return y * size + x
+    return (size - y - 1) * size + x
 
 
 def index_to_position(index: int, size: int) -> Point:
@@ -34,7 +37,7 @@ def index_to_position(index: int, size: int) -> Point:
     See position_to_index for the inverse.
     """
     y, x = divmod(index, size)
-    return x, y
+    return x, (size - y - 1)
 
 
 def range_2d(size: int) -> List[Point]:
@@ -206,8 +209,8 @@ class ShipAction(Enum):
         WEST -> (-1, 0)
         """
         return (
-            (0, -1) if self == ShipAction.NORTH else
-            (0, 1) if self == ShipAction.SOUTH else
+            (0, 1) if self == ShipAction.NORTH else
+            (0, -1) if self == ShipAction.SOUTH else
             (1, 0) if self == ShipAction.EAST else
             (-1, 0) if self == ShipAction.WEST else
             None
@@ -338,7 +341,7 @@ class Ship:
         return self._next_action
 
     @next_action.setter
-    def next_action(self, value) -> None:
+    def next_action(self, value: Optional[ShipAction]) -> None:
         """Sets the action that will be executed by this ship when Board.next() is called (when the current turn ends)."""
         self._next_action = value
 
@@ -383,7 +386,7 @@ class Shipyard:
         return self._next_action
 
     @next_action.setter
-    def next_action(self, value) -> None:
+    def next_action(self, value: Optional[ShipyardAction]) -> None:
         """Sets the action that will be executed by this shipyard when Board.next() is called (when the current turn ends)."""
         self._next_action = value
 
@@ -470,12 +473,14 @@ class Board:
         next_actions: Optional[List[Dict[str, str]]] = None
     ) -> None:
         """
-        Creates a board from the provided observation, configuration, and next_actions.
+        Creates a board from the provided observation, configuration, and next_actions as specified by
+        https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json
         Board tracks players (by id), ships (by id), shipyards (by id), and cells (by position).
         Each entity contains both key values (e.g. ship.player_id) as well as entity references (e.g. ship.player).
         References are deep and chainable e.g.
             [ship.halite for player in board.players for ship in player.ships]
             ship.player.shipyards[0].cell.north.east.ship
+        Consumers should not set or modify any attributes except Ship.next_action and Shipyard.next_action
         """
         observation = Observation(raw_observation)
         # Pending actions is effectively a Dict[Union[[ShipId, ShipAction], [ShipyardId, ShipyardAction]]]
@@ -492,15 +497,16 @@ class Board:
         self._cells: Dict[Point, Cell] = {}
 
         size = self.configuration.size
+        # Create a cell for every point in a size x size grid
         for position in range_2d(size):
             halite = observation.halite[position_to_index(position, size)]
-            # We'll populate the cell's ships and shipyards as we loop through them down below
+            # We'll populate the cell's ships and shipyards in _add_ship and _add_shipyard
             self.cells[position] = Cell(position, halite, None, None, self)
 
         for (player_id, player_observation) in enumerate(observation.players):
             # We know the len(player_observation) == 3 based on the schema -- this is a hack to have a tuple in json
             [player_halite, player_shipyards, player_ships] = player_observation
-            # We'll populate the player's ships and shipyards as we loop through them down below
+            # We'll populate the player's ships and shipyards in _add_ship and _add_shipyard
             self.players[player_id] = Player(player_id, player_halite, [], [], self)
             player_actions = next_actions[player_id] or {}
 
@@ -508,18 +514,20 @@ class Board:
                 # In the raw observation, halite is stored as a 1d list but we convert it to a 2d dict for convenience
                 # Accordingly we also need to convert our list indices to dict keys / 2d positions
                 ship_position = index_to_position(ship_index, size)
+                raw_action = player_actions.get(ship_id)
                 action = (
-                    ShipAction[player_actions[ship_id]]
-                    if ship_id in player_actions
+                    ShipAction[raw_action]
+                    if raw_action is not None
                     else None
                 )
                 self._add_ship(Ship(ship_id, ship_position, ship_halite, player_id, self, action))
 
             for (shipyard_id, shipyard_index) in player_shipyards.items():
                 shipyard_position = index_to_position(shipyard_index, size)
+                raw_action = player_actions.get(shipyard_id)
                 action = (
-                    ShipyardAction[player_actions[shipyard_id]]
-                    if shipyard_id in player_actions
+                    ShipyardAction[raw_action]
+                    if raw_action is not None
                     else None
                 )
                 self._add_shipyard(Shipyard(shipyard_id, shipyard_position, player_id, self, action))
@@ -566,13 +574,13 @@ class Board:
         Returns all players that aren't the current player.
         You can get all opponent ships with [ship for ship in player.ships for player in board.opponents]
         """
-        return [player for player in self.players if not player.is_current_player]
+        return [player for player in self.players.values() if not player.is_current_player]
 
     @property
     def observation(self) -> Dict[str, Any]:
         """Converts a Board back to the normalized observation that constructed it."""
         size = self.configuration.size
-        halite = [self[position].halite for position in range_2d(size)]
+        halite = [self[index_to_position(index, size)].halite for index in range(size * size)]
         players = [player.observation for player in self.players.values()]
 
         return {
@@ -591,7 +599,7 @@ class Board:
         This method will wrap the supplied position to fit within the board size and return the cell at that location.
         e.g. on a 3x3 board, board[(2, 1)] is the same as board[(5, 1)]
         """
-        return self._cells[mod_point(position, self.configuration.size)]
+        return self._cells[wrap_point(position, self.configuration.size)]
 
     def __str__(self):
         """
@@ -604,11 +612,10 @@ class Board:
         etc.
         """
         size = self.configuration.size
-        horizontal_line = '-' * (self.configuration.size * 4 + 1) + '\n'
-        result = horizontal_line
-        for x in range(size):
-            for y in range(size):
-                cell = self[(x, y)]
+        result = ''
+        for y in range(size):
+            for x in range(size):
+                cell = self[(x, size - y - 1)]
                 result += '|'
                 result += (
                     chr(ord('a') + cell.ship.player_id)
@@ -623,7 +630,7 @@ class Board:
                     else ' '
                 )
             result += '|\n'
-        return result + horizontal_line
+        return result
 
     def _add_ship(self: 'Board', ship: Ship):
         ship.player.ship_ids.append(ship.id)
@@ -633,19 +640,20 @@ class Board:
     def _add_shipyard(self: 'Board', shipyard: Shipyard):
         shipyard.player.shipyard_ids.append(shipyard.id)
         shipyard.cell._shipyard_id = shipyard.id
+        shipyard.cell._halite = 0
         self.shipyards[shipyard.id] = shipyard
 
     def _delete_ship(self: 'Board', ship: Ship):
         ship.player.ship_ids.remove(ship.id)
         if ship.cell.ship_id == ship.id:
             ship.cell._ship_id = None
-        del self.ships[ship.id]
+        del self._ships[ship.id]
 
     def _delete_shipyard(self: 'Board', shipyard: Shipyard):
         shipyard.player.shipyard_ids.remove(shipyard.id)
         if shipyard.cell.shipyard_id == shipyard.id:
             shipyard.cell._shipyard_id = None
-        del self.shipyards[shipyard.id]
+        del self._shipyards[shipyard.id]
 
     def next(self) -> 'Board':
         """
@@ -654,6 +662,7 @@ class Board:
         This can form a halite interpreter, e.g.
             next_observation = Board(current_observation, configuration, actions).next.observation
         """
+        # Create a copy of the board to modify so we don't affect the current board
         board = deepcopy(self)
         configuration = board.configuration
         convert_cost = configuration.convert_cost
@@ -675,7 +684,8 @@ class Board:
                     # Handle SPAWN actions
                     player._halite -= spawn_cost
                     board._add_ship(Ship(ShipId(create_uid()), shipyard.position, 0, player.id, board))
-                shipyard.next_spawn = False
+                # Clear the shipyard's action so it doesn't repeat the same action automatically
+                shipyard.next_action = None
 
             for ship in player.ships:
                 if ship.next_action == ShipAction.CONVERT:
@@ -692,8 +702,11 @@ class Board:
                 elif ship.next_action is not None:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     ship.cell._ship_id = None
-                    ship._position = translate_point(ship.position, ship.next_action.to_point())
+                    ship._position = wrap_point(translate_point(ship.position, ship.next_action.to_point()), configuration.size)
+                    # Setting the cell's ship_id here is optimistic as it will be overwritten by another ship in the case of collision
+                    # but down below we'll iterate through all collided ships and re-set the cell._ship_id to the winner.
                     ship.cell._ship_id = ship.id
+                # Clear the ship's action so it doesn't repeat the same action automatically
                 ship.next_action = None
 
             player._halite += leftover_convert_halite
@@ -710,22 +723,25 @@ class Board:
             smallest_ships = ships_by_halite[smallest_halite]
             if len(smallest_ships) == 1:
                 # There was a winner, return it
-                return smallest_ships[0], smallest_ships[1:]
+                winner = smallest_ships[0]
+                return winner, [ship for ship in ships if ship != winner]
             # There was a tie for least halite, all are deleted
             return None, ships
 
-        # Check for collisions
+        # Check for ship to ship collisions
         ship_collision_groups = group_by(board.ships.values(), lambda ship: ship.position)
         for position, collided_ships in ship_collision_groups.items():
             winner, deleted = resolve_collision(collided_ships)
             for ship in deleted:
                 board._delete_ship(ship)
                 if winner is not None:
-                    # Winner takes destroyed ships' halite
+                    # Winner takes deleted ships' halite
                     winner._halite += ship.halite
             if winner is not None:
+                # Re-set the cell ship_id to the winner
                 winner.cell._ship_id = winner.id
 
+        # Check for ship to shipyard collisions
         for shipyard in list(board.shipyards.values()):
             ship = shipyard.cell.ship
             if ship is None:
@@ -740,24 +756,33 @@ class Board:
                 board._delete_shipyard(shipyard)
                 board._delete_ship(ship)
 
+        # Collect halite from cells into ships
         for ship in board.ships.values():
             cell = ship.cell
             delta_halite = int(cell.halite * configuration.collect_rate)
-            if cell.shipyard_id is None and delta_halite > 1:
+            if cell.shipyard_id is None and delta_halite > 0:
                 ship._halite += delta_halite
                 cell._halite -= delta_halite
 
-        board._step = board.step + 1
+        # Regenerate halite in cells
+        for cell in board.cells.values():
+            next_halite = round(cell.halite * (1 + configuration.regen_rate), 3)
+            cell._halite = min(next_halite, configuration.max_cell_halite)
+
         return board
 
 
-def helper_agent(obs, config):
-    board = Board(obs, config)
-    for ship in board.current_player.ships:
-        if ship.cell.shipyard is None:
-            ship.next_action = ShipAction.CONVERT
-        else:
-            ship.next_action = ShipAction.NORTH
-    for shipyard in board.current_player.shipyards:
-        shipyard.next_action = ShipyardAction.SPAWN
-    return board.current_player.next_actions
+def board_agent(agent: Callable[[Board], None]):
+    """
+    Decorator used to create an agent that modifies a board rather than an observation and a configuration
+    Automatically returns the modified board's next actions
+
+    @board_agent
+    def my_agent(board: Board) -> None:
+        ...
+    """
+    def wrapper(obs, config):
+        board = Board(obs, config)
+        agent(board)
+        return board.current_player.next_actions
+    return wrapper
