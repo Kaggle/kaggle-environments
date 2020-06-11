@@ -13,13 +13,13 @@ def translate_point(point: Point, offset: Point) -> Point:
     return x1 + x2, y1 + y2
 
 
-def wrap_point(point: Point, mod: int) -> Point:
+def wrap_point(point: Point, size: int) -> Point:
     """
-    Returns (point.x % mod, point.y % mod)
-    If the point is not on the board it will be wrapped around to fit on the board
+    Returns (point.x % size, point.y % size)
+    If the point is not on the board of width and height size it will be wrapped around to fit on the board
     """
     (x, y) = point
-    return x % mod, y % mod
+    return x % size, y % size
 
 
 def position_to_index(point: Point, size: int) -> int:
@@ -40,20 +40,11 @@ def index_to_position(index: int, size: int) -> Point:
     return x, (size - y - 1)
 
 
-def range_2d(size: int) -> List[Point]:
-    """Returns all points from (0, 0) to (size - 1, size - 1)."""
-    return [
-        (x, y)
-        for x in range(size)
-        for y in range(size)
-    ]
-
-
 TElement = TypeVar('TElement')
 THash = TypeVar('TComparable')
 
 
-def group_by(elements: Iterable[TElement], selector: Callable[[TElement], THash]):
+def group_by(elements: Iterable[TElement], selector: Callable[[TElement], THash]) -> Dict[THash, List[TElement]]:
     results = {}
     for element in elements:
         key = selector(element)
@@ -498,10 +489,12 @@ class Board:
 
         size = self.configuration.size
         # Create a cell for every point in a size x size grid
-        for position in range_2d(size):
-            halite = observation.halite[position_to_index(position, size)]
-            # We'll populate the cell's ships and shipyards in _add_ship and _add_shipyard
-            self.cells[position] = Cell(position, halite, None, None, self)
+        for x in range(size):
+            for y in range(size):
+                position = (x, y)
+                halite = observation.halite[position_to_index(position, size)]
+                # We'll populate the cell's ships and shipyards in _add_ship and _add_shipyard
+                self.cells[position] = Cell(position, halite, None, None, self)
 
         for (player_id, player_observation) in enumerate(observation.players):
             # We know the len(player_observation) == 3 based on the schema -- this is a hack to have a tuple in json
@@ -560,11 +553,11 @@ class Board:
         return self._step
 
     @property
-    def current_player_id(self):
+    def current_player_id(self) -> PlayerId:
         return self._current_player_id
 
     @property
-    def current_player(self):
+    def current_player(self) -> Player:
         """Returns the current player (generally this is you)."""
         return self._players[self.current_player_id]
 
@@ -590,7 +583,7 @@ class Board:
             "step": self.step
         }
 
-    def __deepcopy__(self, _):
+    def __deepcopy__(self, _) -> 'Board':
         actions = [player.next_actions for player in self.players.values()]
         return Board(self.observation, self.configuration, actions)
 
@@ -601,7 +594,7 @@ class Board:
         """
         return self._cells[wrap_point(position, self.configuration.size)]
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         The board is printed in a grid with the following rules:
         Capital letters are shipyards
@@ -632,24 +625,24 @@ class Board:
             result += '|\n'
         return result
 
-    def _add_ship(self: 'Board', ship: Ship):
+    def _add_ship(self: 'Board', ship: Ship) -> None:
         ship.player.ship_ids.append(ship.id)
         ship.cell._ship_id = ship.id
         self.ships[ship.id] = ship
 
-    def _add_shipyard(self: 'Board', shipyard: Shipyard):
+    def _add_shipyard(self: 'Board', shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.append(shipyard.id)
         shipyard.cell._shipyard_id = shipyard.id
         shipyard.cell._halite = 0
         self.shipyards[shipyard.id] = shipyard
 
-    def _delete_ship(self: 'Board', ship: Ship):
+    def _delete_ship(self: 'Board', ship: Ship) -> None:
         ship.player.ship_ids.remove(ship.id)
         if ship.cell.ship_id == ship.id:
             ship.cell._ship_id = None
         del self._ships[ship.id]
 
-    def _delete_shipyard(self: 'Board', shipyard: Shipyard):
+    def _delete_shipyard(self: 'Board', shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.remove(shipyard.id)
         if shipyard.cell.shipyard_id == shipyard.id:
             shipyard.cell._shipyard_id = None
@@ -781,8 +774,8 @@ def board_agent(agent: Callable[[Board], None]):
     def my_agent(board: Board) -> None:
         ...
     """
-    def wrapper(obs, config):
+    def agent_wrapper(obs, config) -> Dict[str, str]:
         board = Board(obs, config)
         agent(board)
         return board.current_player.next_actions
-    return wrapper
+    return agent_wrapper
