@@ -6,20 +6,20 @@
       "scenario_name": {
           "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
-          "default": "test_example_multiagent"
+          "default": "11_vs_11_kaggle"
       },
       "team_1": {
           "description": "Number of players from the first team that agent controls.",
           "type": "integer",
-          "minimum": 1,
-          "maximum": 10,
+          "minimum": 0,
+          "maximum": 11,
           "default": 1
       },
       "team_2": {
           "description": "Number of players that other agent controls. If set to 0 - the second agent will always have to return 0 as action.",
           "type": "integer",
           "minimum": 0,
-          "maximum": 10,
+          "maximum": 11,
           "default": 0
       },
 
@@ -65,7 +65,7 @@
             "description": "number of players that agent controls",
             "type": "number",
             "minimum": 0,
-            "maximum": 10
+            "maximum": 11
         }
     },
     "action": {
