@@ -129,7 +129,8 @@ def test_cells_regen_halite():
     next_board = board.next()
     next_cell = next_board[cell.position]
     expected_regen = round(cell.halite * board.configuration.regen_rate, 3)
-    assert next_cell.halite - cell.halite == expected_regen
+    # We compare to a floating point value here to handle float rounding errors
+    assert next_cell.halite - cell.halite - expected_regen < .000001
 
 
 def test_no_move_on_halite_gathers_halite():

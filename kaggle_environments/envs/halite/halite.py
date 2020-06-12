@@ -150,7 +150,6 @@ def interpreter(state, env):
     if env.done:
         return populate_board(state, env)
 
-    obs.step = len(env.steps)
     actions = [agent.action for agent in state]
     board = Board(obs, config, actions)
     board = board.next()

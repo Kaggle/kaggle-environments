@@ -193,9 +193,8 @@ class ShipAction(Enum):
     def to_point(self) -> Optional[Point]:
         """
         This returns the position offset associated with a particular action or None if the action does not change the ship's position.
-        Note that the y axis is inverted so NORTH is downward and SOUTH is upward.
-        NORTH -> (0, -1)
-        SOUTH -> (0, 1)
+        NORTH -> (0, 1)
+        SOUTH -> (0, -1)
         EAST -> (1, 0)
         WEST -> (-1, 0)
         """
@@ -628,13 +627,13 @@ class Board:
     def _add_ship(self: 'Board', ship: Ship) -> None:
         ship.player.ship_ids.append(ship.id)
         ship.cell._ship_id = ship.id
-        self.ships[ship.id] = ship
+        self._ships[ship.id] = ship
 
     def _add_shipyard(self: 'Board', shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.append(shipyard.id)
         shipyard.cell._shipyard_id = shipyard.id
         shipyard.cell._halite = 0
-        self.shipyards[shipyard.id] = shipyard
+        self._shipyards[shipyard.id] = shipyard
 
     def _delete_ship(self: 'Board', ship: Ship) -> None:
         ship.player.ship_ids.remove(ship.id)
@@ -696,9 +695,8 @@ class Board:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     ship.cell._ship_id = None
                     ship._position = wrap_point(translate_point(ship.position, ship.next_action.to_point()), configuration.size)
-                    # Setting the cell's ship_id here is optimistic as it will be overwritten by another ship in the case of collision
-                    # but down below we'll iterate through all collided ships and re-set the cell._ship_id to the winner.
-                    ship.cell._ship_id = ship.id
+                    # We don't set the new cell's ship_id here as it would be overwritten by another ship in the case of collision.
+                    # Later we'll iterate through all ships and re-set the cell._ship_id as appropriate.
                 # Clear the ship's action so it doesn't repeat the same action automatically
                 ship.next_action = None
 
@@ -725,14 +723,13 @@ class Board:
         ship_collision_groups = group_by(board.ships.values(), lambda ship: ship.position)
         for position, collided_ships in ship_collision_groups.items():
             winner, deleted = resolve_collision(collided_ships)
+            if winner is not None:
+                winner.cell._ship_id = winner.id
             for ship in deleted:
                 board._delete_ship(ship)
                 if winner is not None:
                     # Winner takes deleted ships' halite
                     winner._halite += ship.halite
-            if winner is not None:
-                # Re-set the cell ship_id to the winner
-                winner.cell._ship_id = winner.id
 
         # Check for ship to shipyard collisions
         for shipyard in list(board.shipyards.values()):
@@ -761,6 +758,8 @@ class Board:
         for cell in board.cells.values():
             next_halite = round(cell.halite * (1 + configuration.regen_rate), 3)
             cell._halite = min(next_halite, configuration.max_cell_halite)
+
+        board._step += 1
 
         return board
 
