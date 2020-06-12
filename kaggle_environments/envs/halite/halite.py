@@ -16,7 +16,7 @@ import copy
 import json
 import math
 from os import path
-from random import choice, randint
+from random import choices, randint, sample
 import numpy as np
 from .helpers import board_agent, Board, ShipAction, ShipyardAction
 from kaggle_environments import utils
@@ -42,13 +42,16 @@ def get_to_pos(size, pos, direction):
 def random_agent(board):
     me = board.current_player
     ships = me.ships
+    ships = sample(ships, len(ships))
     for ship in ships:
         # None represents the chance to do nothing
-        ship.next_action = choice([ship_action for ship_action in ShipAction] + [None])
+        actions = [ship_action for ship_action in ShipAction]
+        ship.next_action = choices(actions + [None], [1] * len(actions) + [3])
     shipyards = me.shipyards
+    shipyards = sample(shipyards, len(shipyards))
     for shipyard in shipyards:
         # 20% chance to spawn
-        shipyard.next_action = choice([ShipyardAction.SPAWN, None, None, None, None])
+        shipyard.next_action = choices([ShipyardAction.SPAWN, None], [1, 4])
 
 
 agents = {"random": random_agent}

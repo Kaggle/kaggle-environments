@@ -4,6 +4,11 @@ from typing import *
 
 # region Helper Classes and Methods
 Point = NewType('Point', Tuple[int, int])
+"""
+Point are expressed in the form (x, y) where x is the board column and y is the row
+(0, 0) is the lower left corner of the board and (size - 1, size - 1) is the upper right corner of the board
+Note that this differs from arrays where the top left is (0, 0) and the bottom right is (size - 1, size - 1)
+"""
 
 
 def translate_point(point: Point, offset: Point) -> Point:
@@ -143,9 +148,9 @@ class Configuration(ReadOnlyDict[str, any]):
         return self["runTimeout"]
 
     @property
-    def halite(self) -> int:
+    def starting_halite(self) -> int:
         """The starting amount of halite available on the board."""
-        return self["halite"]
+        return self["startingHalite"]
 
     @property
     def size(self) -> int:
@@ -185,8 +190,8 @@ class Configuration(ReadOnlyDict[str, any]):
 
 class ShipAction(Enum):
     NORTH = auto()
-    SOUTH = auto()
     EAST = auto()
+    SOUTH = auto()
     WEST = auto()
     CONVERT = auto()
 
@@ -194,14 +199,14 @@ class ShipAction(Enum):
         """
         This returns the position offset associated with a particular action or None if the action does not change the ship's position.
         NORTH -> (0, 1)
-        SOUTH -> (0, -1)
         EAST -> (1, 0)
+        SOUTH -> (0, -1)
         WEST -> (-1, 0)
         """
         return (
             (0, 1) if self == ShipAction.NORTH else
-            (0, -1) if self == ShipAction.SOUTH else
             (1, 0) if self == ShipAction.EAST else
+            (0, -1) if self == ShipAction.SOUTH else
             (-1, 0) if self == ShipAction.WEST else
             None
         )
@@ -249,20 +254,12 @@ class Cell:
     @property
     def ship(self) -> Optional['Ship']:
         """Returns the ship on this cell if it exists and None otherwise."""
-        return (
-            self._board.ships[self.ship_id]
-            if self.ship_id is not None
-            else None
-        )
+        return self._board.ships.get(self.ship_id)
 
     @property
     def shipyard(self) -> Optional['Shipyard']:
         """Returns the shipyard on this cell if it exists and None otherwise."""
-        return (
-            self._board.shipyards[self.shipyard_id]
-            if self.shipyard_id is not None
-            else None
-        )
+        return self._board.shipyards.get(self.shipyard_id)
 
     def neighbor(self, offset: Point) -> 'Cell':
         """Returns the cell at self.position + offset."""
@@ -473,7 +470,7 @@ class Board:
         Consumers should not set or modify any attributes except Ship.next_action and Shipyard.next_action
         """
         observation = Observation(raw_observation)
-        # Pending actions is effectively a Dict[Union[[ShipId, ShipAction], [ShipyardId, ShipyardAction]]]
+        # next_actions is effectively a Dict[Union[[ShipId, ShipAction], [ShipyardId, ShipyardAction]]]
         # but that type's not very expressible so we simplify it to Dict[str, str]
         # Later we'll iterate through it once for each ship and shipyard to pull all the actions out
         next_actions = next_actions or ([{}] * len(observation.players))
@@ -614,6 +611,7 @@ class Board:
                     if cell.ship is not None
                     else ' '
                 )
+                # This normalizes a value from 0 to max_cell halite to a value from 0 to 9
                 normalized_halite = int(9.0 * cell.halite / float(self.configuration.max_cell_halite))
                 result += str(normalized_halite)
                 result += (
@@ -672,7 +670,7 @@ class Board:
             leftover_convert_halite = 0
 
             for shipyard in player.shipyards:
-                if shipyard.next_action == ShipyardAction.SPAWN and player.halite > spawn_cost:
+                if shipyard.next_action == ShipyardAction.SPAWN and player.halite >= spawn_cost:
                     # Handle SPAWN actions
                     player._halite -= spawn_cost
                     board._add_ship(Ship(ShipId(create_uid()), shipyard.position, 0, player.id, board))
@@ -682,7 +680,7 @@ class Board:
             for ship in player.ships:
                 if ship.next_action == ShipAction.CONVERT:
                     # Can't convert on an existing shipyard but you can use halite in a ship to fund conversion
-                    if ship.cell.shipyard_id is None and (ship.halite + player.halite) > convert_cost:
+                    if ship.cell.shipyard_id is None and (ship.halite + player.halite) >= convert_cost:
                         # Handle CONVERT actions
                         delta_halite = ship.halite - convert_cost
                         # Excess halite leftover from conversion is added to the player's total only after all conversions have completed
@@ -702,6 +700,8 @@ class Board:
                 ship.next_action = None
 
             player._halite += leftover_convert_halite
+            # Lets just check and make sure.
+            assert player.halite >= 0
 
         def resolve_collision(ships: List[Ship]) -> Tuple[Optional[Ship], List[Ship]]:
             """
@@ -760,6 +760,8 @@ class Board:
             if cell.ship_id is None:
                 next_halite = round(cell.halite * (1 + configuration.regen_rate), 3)
                 cell._halite = min(next_halite, configuration.max_cell_halite)
+                # Lets just check and make sure.
+            assert cell.halite >= 0
 
         board._step += 1
 
