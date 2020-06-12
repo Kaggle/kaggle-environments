@@ -63,6 +63,9 @@ parser.add_argument(
 parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
+parser.add_argument(
+    "--out", type=str, help="Output file to write the results of the episode."
+)
 
 
 def render(args, env):
@@ -73,8 +76,12 @@ def render(args, env):
         args.render["mode"] = "html"
     else:
         args.render["mode"] = "json"
-    return env.render(**args.render)
-
+    result = env.render(**args.render)
+    if args.out is not None:
+        with open(args.out, mode="w") as out_file:
+            out_file.write(str(result))
+        return 0
+    return result
 
 def action_list(args):
     return json.dumps([*environments])
@@ -156,7 +163,8 @@ def parse_args(args):
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
-            "port": utils.get(args, int, 8000, ["port"])
+            "port": utils.get(args, int, 8000, ["port"]),
+            "out": utils.get(args, str, None, ["out"]),
         }
     )
 
@@ -250,7 +258,7 @@ def main():
     args = parser.parse_args()
     if args.action == "http-server":
         action_http(args)
-    print(action_handler(parse_args(vars(args))))
+    return action_handler(parse_args(vars(args)))
 
 
 if __name__ == "__main__":

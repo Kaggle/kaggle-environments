@@ -6,11 +6,6 @@
   "agents": [1, 2, 4],
   "configuration": {
     "episodeSteps": 400,
-    "halite": {
-      "description": "Deprecated, please use startingHalite instead.",
-      "type": "integer",
-      "default": 24000
-    },
     "startingHalite": {
       "description": "The starting amount of halite available on the board.",
       "type": "integer",

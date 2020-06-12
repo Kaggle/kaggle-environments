@@ -102,8 +102,7 @@ def runner(raw, message, environment, debug=False):
         run_agent(agent, message)
 
 
-class Agent():
-
+class Agent:
     def __init__(self, raw, configuration, environment, id=None, debug=False):
         self.id = id or str(uuid.uuid1())
         self.configuration = configuration
