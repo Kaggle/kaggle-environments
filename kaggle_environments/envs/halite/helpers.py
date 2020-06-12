@@ -702,6 +702,13 @@ class Board:
 
             player._halite += leftover_convert_halite
 
+        # Deposit halite from ships into shipyards
+        for shipyard in list(board.shipyards.values()):
+            ship = shipyard.cell.ship
+            if ship is not None and ship.player_id == shipyard.player_id:
+                shipyard.player._halite += ship.halite
+                ship._halite = 0
+
         def resolve_collision(ships: List[Ship]) -> Tuple[Optional[Ship], List[Ship]]:
             """
             Accepts the list of ships at a particular position (must not be empty).
@@ -737,11 +744,7 @@ class Board:
             if ship is None:
                 # No collision
                 continue
-            elif ship.player_id == shipyard.player_id:
-                # Ship depositing halite
-                shipyard.player._halite += ship.halite
-                ship._halite = 0
-            else:
+            elif ship.player_id != shipyard.player_id:
                 # Ship to shipyard collision
                 board._delete_shipyard(shipyard)
                 board._delete_ship(ship)
@@ -756,8 +759,9 @@ class Board:
 
         # Regenerate halite in cells
         for cell in board.cells.values():
-            next_halite = round(cell.halite * (1 + configuration.regen_rate), 3)
-            cell._halite = min(next_halite, configuration.max_cell_halite)
+            if cell.ship_id is None:
+                next_halite = round(cell.halite * (1 + configuration.regen_rate), 3)
+                cell._halite = min(next_halite, configuration.max_cell_halite)
 
         board._step += 1
 
