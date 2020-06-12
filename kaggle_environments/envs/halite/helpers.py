@@ -336,7 +336,7 @@ class Ship:
         self._next_action = value
 
     @property
-    def observation(self) -> List[int]:
+    def _observation(self) -> List[int]:
         """Converts a ship back to the normalized observation subset that constructed it."""
         return [position_to_index(self.position, self._board.configuration.size), self.halite]
 
@@ -381,7 +381,7 @@ class Shipyard:
         self._next_action = value
 
     @property
-    def observation(self) -> int:
+    def _observation(self) -> int:
         """Converts a shipyard back to the normalized observation subset that constructed it."""
         return position_to_index(self.position, self._board.configuration.size)
 
@@ -447,10 +447,10 @@ class Player:
         return {**ship_actions, **shipyard_actions}
 
     @property
-    def observation(self):
+    def _observation(self):
         """Converts a player back to the normalized observation subset that constructed it."""
-        shipyards = {shipyard.id: shipyard.observation for shipyard in self.shipyards}
-        ships = {ship.id: ship.observation for ship in self.ships}
+        shipyards = {shipyard.id: shipyard._observation for shipyard in self.shipyards}
+        ships = {ship.id: ship._observation for ship in self.ships}
         return [self.halite, shipyards, ships]
 # endregion
 
@@ -573,7 +573,7 @@ class Board:
         """Converts a Board back to the normalized observation that constructed it."""
         size = self.configuration.size
         halite = [self[index_to_position(index, size)].halite for index in range(size * size)]
-        players = [player.observation for player in self.players.values()]
+        players = [player._observation for player in self.players.values()]
 
         return {
             "halite": halite,
@@ -652,7 +652,7 @@ class Board:
         Returns a new board with the current board's next actions applied.
         The current board is unmodified.
         This can form a halite interpreter, e.g.
-            next_observation = Board(current_observation, configuration, actions).next.observation
+            next_observation = Board(current_observation, configuration, actions).next().observation
         """
         # Create a copy of the board to modify so we don't affect the current board
         board = deepcopy(self)
