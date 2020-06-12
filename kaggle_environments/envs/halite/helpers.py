@@ -214,6 +214,15 @@ class ShipAction(Enum):
     def __str__(self) -> str:
         return self.name
 
+    @staticmethod
+    def moves() -> List['ShipAction']:
+        return [
+            ShipAction.NORTH,
+            ShipAction.EAST,
+            ShipAction.SOUTH,
+            ShipAction.WEST,
+        ]
+
 
 class ShipyardAction(Enum):
     SPAWN = auto()
