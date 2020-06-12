@@ -46,12 +46,13 @@ def random_agent(board):
     for ship in ships:
         # None represents the chance to do nothing
         actions = [ship_action for ship_action in ShipAction]
-        ship.next_action = choices(actions + [None], [1] * len(actions) + [3])
+        ship.next_action = choices(actions + [None], [1] * len(actions) + [3], k=1)[0]
     shipyards = me.shipyards
     shipyards = sample(shipyards, len(shipyards))
     for shipyard in shipyards:
         # 20% chance to spawn
-        shipyard.next_action = choices([ShipyardAction.SPAWN, None], [1, 4])
+        if board.next().current_player.halite > board.configuration.spawn_cost:
+            shipyard.next_action = choices([ShipyardAction.SPAWN, None], [1, 4], k=1)[0]
 
 
 agents = {"random": random_agent}
