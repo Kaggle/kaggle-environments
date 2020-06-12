@@ -695,6 +695,7 @@ class Board:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     ship.cell._ship_id = None
                     ship._position = wrap_point(translate_point(ship.position, ship.next_action.to_point()), configuration.size)
+                    ship._halite *= (1 - board.configuration.move_cost)
                     # We don't set the new cell's ship_id here as it would be overwritten by another ship in the case of collision.
                     # Later we'll iterate through all ships and re-set the cell._ship_id as appropriate.
                 # Clear the ship's action so it doesn't repeat the same action automatically

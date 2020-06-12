@@ -161,6 +161,7 @@ def interpreter(state, env):
         if agent.status == "ACTIVE" and len(ships) == 0 and (len(shipyards) == 0 or player_halite < config.spawnCost):
             # Agent can no longer gather any halite
             agent.status = "DONE"
+            agent.reward = board.step - board.configuration.episode_steps - 1
         if agent.status != "ACTIVE" and agent.status != "DONE":
             obs.players[index] = [0, {}, {}]
 
@@ -172,9 +173,9 @@ def interpreter(state, env):
 
     # Update Rewards.
     for index, agent in enumerate(state):
-        if agent.status == "ACTIVE" or agent.status == "DONE":
+        if agent.status == "ACTIVE":
             agent.reward = obs.players[index][0]
-        else:
+        elif agent.status != "DONE":
             agent.reward = 0
 
     return state
