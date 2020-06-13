@@ -1,48 +1,85 @@
 from copy import deepcopy
 from enum import Enum, auto
 from typing import *
+import operator
+
 
 # region Helper Classes and Methods
-Point = NewType('Point', Tuple[int, int])
-"""
-Point are expressed in the form (x, y) where x is the board column and y is the row
-(0, 0) is the lower left corner of the board and (size - 1, size - 1) is the upper right corner of the board
-Note that this differs from arrays where the top left is (0, 0) and the bottom right is (size - 1, size - 1)
-"""
-
-
-def translate_point(point: Point, offset: Point) -> Point:
-    """Returns (point.x + offset.x, point.y + offset.y)"""
-    (x1, y1) = point
-    (x2, y2) = offset
-    return x1 + x2, y1 + y2
-
-
-def wrap_point(point: Point, size: int) -> Point:
+class Point(tuple):
     """
-    Returns (point.x % size, point.y % size)
-    If the point is not on the board of width and height size it will be wrapped around to fit on the board
+    This type wraps Tuple[int, int] to provide additional operators and convenience members.
+    Point are expressed in the form (x, y) where x is the board column and y is the row.
+    (0, 0) is the lower left corner of the board and (size - 1, size - 1) is the upper right corner of the board.
+    Note that this differs from arrays where the top left is (0, 0) and the bottom right is (size - 1, size - 1).
+    Note that operators in this class do not constrain points to the board.
+    You can generally constrain a point to the board by calling point % board.configuration.size.
     """
-    (x, y) = point
-    return x % size, y % size
+    def __new__(cls: Type['Point'], x: int, y: int):
+        return super(Point, cls).__new__(cls, tuple((x, y)))
 
+    @property
+    def x(self):
+        return self[0]
 
-def position_to_index(point: Point, size: int) -> int:
-    """
-    Converts a 2d position in the form (x, y) to an index in the observation.halite list.
-    See index_to_position for the inverse.
-    """
-    x, y = point
-    return (size - y - 1) * size + x
+    @property
+    def y(self):
+        return self[1]
 
+    def map(self, f: Callable[[int], int]) -> 'Point':
+        return Point(f(self[0]), f(self[1]))
 
-def index_to_position(index: int, size: int) -> Point:
-    """
-    Converts an index in the observation.halite list to a 2d position in the form (x, y).
-    See position_to_index for the inverse.
-    """
-    y, x = divmod(index, size)
-    return x, (size - y - 1)
+    def map2(self, other: Union[Tuple[int, int], 'Point'], f: Callable[[int, int], int]) -> 'Point':
+        return Point(f(self[0], other[0]), f(self[1], other[1]))
+
+    def translate(self, offset: 'Point', size: int):
+        """Translates the current point by offset and wraps it around a board of width and height size"""
+        return (self + offset) % size
+
+    def to_index(self, size: int):
+        """
+        Converts a 2d position in the form (x, y) to an index in the observation.halite list.
+        See index_to_position for the inverse.
+        """
+        return (size - self.y - 1) * size + self.x
+
+    @staticmethod
+    def from_index(index: int, size: int) -> 'Point':
+        """
+        Converts an index in the observation.halite list to a 2d position in the form (x, y).
+        See position_to_index for the inverse.
+        """
+        y, x = divmod(index, size)
+        return Point(x, (size - y - 1))
+
+    def __abs__(self) -> 'Point':
+        return self.map(operator.abs)
+
+    def __add__(self, other: Union[Tuple[int, int], 'Point']) -> 'Point':
+        return self.map2(other, operator.add)
+
+    def __eq__(self, other: Union[Tuple[int, int], 'Point']) -> bool:
+        return self[0] == other[0] and self[1] == other[1]
+
+    def __floordiv__(self, denominator: int) -> 'Point':
+        return self.map(lambda x: x // denominator)
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+
+    def __mod__(self, mod: int) -> 'Point':
+        return self.map(lambda x: x % mod)
+
+    def __mul__(self, factor: int) -> 'Point':
+        return self.map(lambda x: x * factor)
+
+    def __neg__(self) -> 'Point':
+        return self.map(operator.neg)
+
+    def __str__(self):
+        return f"({self.x}, {self.y})"
+
+    def __sub__(self, other: Union[Tuple[int, int], 'Point']) -> 'Point':
+        return self.map2(other, operator.sub)
 
 
 TElement = TypeVar('TElement')
@@ -204,10 +241,10 @@ class ShipAction(Enum):
         WEST -> (-1, 0)
         """
         return (
-            (0, 1) if self == ShipAction.NORTH else
-            (1, 0) if self == ShipAction.EAST else
-            (0, -1) if self == ShipAction.SOUTH else
-            (-1, 0) if self == ShipAction.WEST else
+            Point(0, 1) if self == ShipAction.NORTH else
+            Point(1, 0) if self == ShipAction.EAST else
+            Point(0, -1) if self == ShipAction.SOUTH else
+            Point(-1, 0) if self == ShipAction.WEST else
             None
         )
 
@@ -272,7 +309,7 @@ class Cell:
 
     def neighbor(self, offset: Point) -> 'Cell':
         """Returns the cell at self.position + offset."""
-        (x, y) = translate_point(self.position, offset)
+        (x, y) = self.position + offset
         return self._board[x, y]
 
     @property
@@ -344,7 +381,7 @@ class Ship:
     @property
     def _observation(self) -> List[int]:
         """Converts a ship back to the normalized observation subset that constructed it."""
-        return [position_to_index(self.position, self._board.configuration.size), self.halite]
+        return [self.position.to_index(self._board.configuration.size), self.halite]
 
 
 class Shipyard:
@@ -389,7 +426,7 @@ class Shipyard:
     @property
     def _observation(self) -> int:
         """Converts a shipyard back to the normalized observation subset that constructed it."""
-        return position_to_index(self.position, self._board.configuration.size)
+        return self.position.to_index(self._board.configuration.size)
 
 
 class Player:
@@ -496,8 +533,8 @@ class Board:
         # Create a cell for every point in a size x size grid
         for x in range(size):
             for y in range(size):
-                position = (x, y)
-                halite = observation.halite[position_to_index(position, size)]
+                position = Point(x, y)
+                halite = observation.halite[position.to_index(size)]
                 # We'll populate the cell's ships and shipyards in _add_ship and _add_shipyard
                 self.cells[position] = Cell(position, halite, None, None, self)
 
@@ -511,7 +548,7 @@ class Board:
             for (ship_id, [ship_index, ship_halite]) in player_ships.items():
                 # In the raw observation, halite is stored as a 1d list but we convert it to a 2d dict for convenience
                 # Accordingly we also need to convert our list indices to dict keys / 2d positions
-                ship_position = index_to_position(ship_index, size)
+                ship_position = Point.from_index(ship_index, size)
                 raw_action = player_actions.get(ship_id)
                 action = (
                     ShipAction[raw_action]
@@ -521,7 +558,7 @@ class Board:
                 self._add_ship(Ship(ship_id, ship_position, ship_halite, player_id, self, action))
 
             for (shipyard_id, shipyard_index) in player_shipyards.items():
-                shipyard_position = index_to_position(shipyard_index, size)
+                shipyard_position = Point.from_index(shipyard_index, size)
                 raw_action = player_actions.get(shipyard_id)
                 action = (
                     ShipyardAction[raw_action]
@@ -578,7 +615,7 @@ class Board:
     def observation(self) -> Dict[str, Any]:
         """Converts a Board back to the normalized observation that constructed it."""
         size = self.configuration.size
-        halite = [self[index_to_position(index, size)].halite for index in range(size * size)]
+        halite = [self[Point.from_index(index, size)].halite for index in range(size * size)]
         players = [player._observation for player in self.players.values()]
 
         return {
@@ -592,12 +629,15 @@ class Board:
         actions = [player.next_actions for player in self.players.values()]
         return Board(self.observation, self.configuration, actions)
 
-    def __getitem__(self, position: Point) -> Cell:
+    def __getitem__(self, point: Union[Tuple[int, int], Point]) -> Cell:
         """
         This method will wrap the supplied position to fit within the board size and return the cell at that location.
-        e.g. on a 3x3 board, board[(2, 1)] is the same as board[(5, 1)]
+        e.g. on a 3x3 board, board[2, 1] is the same as board[5, 1]
         """
-        return self._cells[wrap_point(position, self.configuration.size)]
+        if not isinstance(point, Point):
+            (x, y) = point
+            point = Point(x, y)
+        return self._cells[point % self.configuration.size]
 
     def __str__(self) -> str:
         """
@@ -701,12 +741,10 @@ class Board:
                 elif ship.next_action is not None:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     ship.cell._ship_id = None
-                    ship._position = wrap_point(translate_point(ship.position, ship.next_action.to_point()), configuration.size)
+                    ship._position = ship.position.translate(ship.next_action.to_point(), configuration.size)
                     ship._halite *= (1 - board.configuration.move_cost)
                     # We don't set the new cell's ship_id here as it would be overwritten by another ship in the case of collision.
                     # Later we'll iterate through all ships and re-set the cell._ship_id as appropriate.
-                # Clear the ship's action so it doesn't repeat the same action automatically
-                ship.next_action = None
 
             player._halite += leftover_convert_halite
             # Lets just check and make sure.
@@ -760,9 +798,11 @@ class Board:
         for ship in board.ships.values():
             cell = ship.cell
             delta_halite = int(cell.halite * configuration.collect_rate)
-            if cell.shipyard_id is None and delta_halite > 0:
+            if ship.next_action not in ShipAction.moves() and cell.shipyard_id is None and delta_halite > 0:
                 ship._halite += delta_halite
                 cell._halite -= delta_halite
+            # Clear the ship's action so it doesn't repeat the same action automatically
+            ship.next_action = None
 
         # Regenerate halite in cells
         for cell in board.cells.values():
