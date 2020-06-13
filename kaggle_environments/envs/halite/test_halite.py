@@ -141,6 +141,5 @@ def test_no_move_on_halite_gathers_halite():
     next_ship = next_board.ships[ship.id]
     ship_delta = next_ship.halite - ship.halite
     cell_delta = round(ship.cell.halite - next_ship.cell.halite, 3)
-    cell_regen = round((ship.cell.halite - expected_delta) * board.configuration.regen_rate, 3)
     assert ship_delta == expected_delta
-    assert cell_delta + cell_regen == expected_delta
+    assert cell_delta == expected_delta
