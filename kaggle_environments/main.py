@@ -80,8 +80,9 @@ def render(args, env):
     if args.out is not None:
         with open(args.out, mode="w") as out_file:
             out_file.write(str(result))
-        return 0
-    return result
+    else:
+        print(result)
+    return 0
 
 def action_list(args):
     return json.dumps([*environments])

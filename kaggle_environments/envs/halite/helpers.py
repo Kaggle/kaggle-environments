@@ -63,7 +63,7 @@ class Point(tuple):
     def __floordiv__(self, denominator: int) -> 'Point':
         return self.map(lambda x: x // denominator)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.x, self.y))
 
     def __mod__(self, mod: int) -> 'Point':
@@ -472,7 +472,7 @@ class Player:
     @property
     def is_current_player(self) -> bool:
         """Returns whether this player is the current player (generally if this returns True, this player is you)."""
-        return self.id is self._board.current_player_id
+        return self.id == self._board.current_player_id
 
     @property
     def next_actions(self) -> Dict[str, str]:
@@ -501,8 +501,8 @@ class Player:
 class Board:
     def __init__(
         self,
-        raw_observation: Dict[str, any],
-        raw_configuration: Union[Configuration, Dict[str, any]],
+        raw_observation: Dict[str, Any],
+        raw_configuration: Union[Configuration, Dict[str, Any]],
         next_actions: Optional[List[Dict[str, str]]] = None
     ) -> None:
         """
