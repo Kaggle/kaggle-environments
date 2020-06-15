@@ -712,7 +712,7 @@ class Board:
         def create_uid():
             nonlocal uid_counter
             uid_counter += 1
-            return f"{self.step}-{uid_counter}"
+            return f"{self.step + 1}-{uid_counter}"
 
         # Process actions and store the results in the ships and shipyards lists for collision checking
         for player in board.players.values():

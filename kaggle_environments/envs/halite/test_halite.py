@@ -167,3 +167,12 @@ def test_failed_convert_gathers_halite():
     cell_delta = round(ship.cell.halite - next_ship.cell.halite, 3)
     assert ship_delta == expected_delta
     assert cell_delta == expected_delta
+
+
+def test_shipyard_ids_not_reused():
+    board = create_board(starting_halite=1000, agent_count=1)
+    ship = first(board.ships.values())
+    ship.next_action = ShipAction.CONVERT
+    board = board.next()
+    shipyard = board.cells[ship.position].shipyard
+    assert ship.id != shipyard.id
