@@ -52,7 +52,10 @@
       "type": "integer",
       "default": 500,
       "minimum": 0
-    }
+    },
+    "agentTimeout": 12,
+    "actTimeout": 6,
+    "runTimeout": 9600
   },
   "reward": {
     "description": "The amount of player owned halite (equal to players[index][0]).",
