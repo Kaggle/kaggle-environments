@@ -31,7 +31,7 @@ agents = {
     "run_right": run_right_agent,
     "run_left": run_left_agent,
     "do_nothing": do_nothing_agent,
-    "builtin_ai": builtin_ai_agent
+    "builtin_ai": builtin_ai_agent,
 }
 
 
@@ -156,7 +156,7 @@ def interpreter(state, env):
   if len(state[0].action) != env.configuration.team_1:
     # Player 1 sent wrong data.
     update_state_on_invalid_action(
-        state[0], state[1], "Too many actions passed: Expected %d, got %d." %
+        state[0], state[1], "Invalid number of actions provided: Expected %d, got %d." %
         (env.configuration.team_1, len(state[0].action)))
     return state
   actions_to_env = state[0].action
@@ -164,7 +164,7 @@ def interpreter(state, env):
   if len(state[1].action) != env.configuration.team_2:
     # Player 2 sent wrong data.
     update_state_on_invalid_action(
-        state[1], state[0], "Too many actions passed: Expected %d, got %d." %
+        state[1], state[0], "Invalid number of actions provided: Expected %d, got %d." %
         (env.configuration.team_2, len(state[1].action)))
     return state
 
@@ -198,10 +198,16 @@ with open(jsonpath) as f:
   specification = json.load(f)
 
 
-def html_renderer(env):
+def html_renderer():
+  jspath = path.abspath(path.join(dirpath, "football.js"))
+  with open(jspath) as f:
+    return f.read()
+
+
+def render_ipython(env):
   if not env.football_video_path:
     raise Exception(
-        "To enable render support create environment with save_video enabled."
+        "No video found. Did episode finish successfully? Was save_video enabled?"
     )
 
   from IPython.display import display, HTML

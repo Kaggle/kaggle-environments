@@ -95,7 +95,7 @@ def test_single_agent():
             "action": [1],
             "status": "INVALID",
             "reward": None,
-            'info': {'debug_info': 'Too many actions passed: Expected 0, got 1.'},
+            'info': {'debug_info': 'Invalid number of actions provided: Expected 0, got 1.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []
@@ -105,7 +105,7 @@ def test_single_agent():
 
 
 def test_multi_agent():
-    before_each(configuration={"team_1": 2, "team_2": 1})
+    before_each(configuration={"team_1": 2, "team_2": 1, "scenario_name": "11_vs_11_stochastic"})
     x = env.reset()
 
     assert clear_players_raw(env.reset()) == [
@@ -161,7 +161,7 @@ def test_multi_agent():
             "action": [0, 1, 2],
             "status": "INVALID",
             "reward": None,
-            'info': {'debug_info': 'Too many actions passed: Expected 2, got 3.'},
+            'info': {'debug_info': 'Invalid number of actions provided: Expected 2, got 3.'},
             "observation": {
                 "controlled_players": 2,
                 "players_raw": []
@@ -229,5 +229,4 @@ def test_deadline():
             }
         }
     ]
-
 
