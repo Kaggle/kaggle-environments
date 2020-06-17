@@ -52,8 +52,10 @@ def test_halite_helpers():
     assert json["statuses"] == ["DONE", "DONE"]
 
 
-def create_board(size=3, starting_halite=0, agent_count=2):
-    env = make("halite", configuration={"size": size, "startingHalite": starting_halite})
+def create_board(size=3, starting_halite=0, agent_count=2, random_seed=0):
+    env = make("halite", configuration={"size": size,
+                                        "startingHalite": starting_halite,
+                                        "randomSeed": random_seed})
     return Board(env.reset(agent_count)[0].observation, env.configuration)
 
 
@@ -176,3 +178,10 @@ def test_shipyard_ids_not_reused():
     board = board.next()
     shipyard = board.cells[ship.position].shipyard
     assert ship.id != shipyard.id
+
+def test_seed_parameter():
+    seed = 9
+    def aggregate_halite_for_board(s):
+      board = create_board(starting_halite=1000, agent_count=1, random_seed=s)
+      return sum(map(lambda c: c.halite, board.cells.values()))
+    assert aggregate_halite_for_board(seed)==aggregate_halite_for_board(seed)

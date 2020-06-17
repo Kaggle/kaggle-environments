@@ -224,6 +224,10 @@ class Configuration(ReadOnlyDict[str, any]):
         """The maximum halite that can be in any cell."""
         return self["maxCellHalite"]
 
+    @property
+    def random_seed(self) -> int:
+        """The seed to the random number generator (0 means no seed)."""
+        return self["randomSeed"]
 
 class ShipAction(Enum):
     NORTH = auto()
