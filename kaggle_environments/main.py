@@ -78,9 +78,6 @@ def render(args, env):
     else:
         args.render["mode"] = "json"
     result = env.render(**args.render)
-    if args.out is not None:
-        with open(args.out, mode="w") as out_file:
-            out_file.write(str(result))
     return result
 
 
@@ -277,7 +274,13 @@ def main():
     if args.action == "http-server":
         action_http(args)
     else:
-        print(action_handler(parse_args(vars(args))))
+        result = action_handler(parse_args(vars(args)))
+        if args.out is None:
+            print(result)
+        else:
+            with open(args.out, mode="w") as out_file:
+                out_file.write(str(result))
+
         return 0
 
 
