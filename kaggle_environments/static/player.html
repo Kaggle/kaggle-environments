@@ -578,7 +578,7 @@
                 if (
                   interactive ||
                   isInteractive() ||
-                  (key !== 32 && key !== 37 && key !== 39 && !(zero_key >= 48 && key <= nine_key))
+                  (key !== 32 && key !== 37 && key !== 39 && !(key >= zero_key && key <= nine_key))
                 )
                   return;
 
