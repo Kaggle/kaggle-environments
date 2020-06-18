@@ -104,6 +104,7 @@
 
         return h`<div className=${props.className} >
           <${Logo} />
+          <span><b>Left / Right Arrow:</b> Increase / Decrease Step</span><span><b>0-9 Row Keys:</b> Playback Speed</span><span><b>Space:</b> Pause / Play</span>
           ${environment.title}
         </div>`;
       })`
@@ -468,7 +469,7 @@
           processing: false,
           renderer: () => "DNE",
           settings: false,
-          speed: 500,
+          speed: 6,
           step: 0,
           width: window.innerWidth,
         });
@@ -500,6 +501,20 @@
           }
         };
 
+        // These are bindings to the 0-9 keys and are milliseconds of timeout per step
+        const speeds = [
+          0,
+          10,
+          25,
+          50,
+          100,
+          200,
+          333, // Default
+          500,
+          1000,
+          3000,
+        ];
+
         const play = (contextRef.current.play = (continuing) => {
           const context = contextRef.current;
           if (context.playing && !continuing) return;
@@ -510,7 +525,7 @@
           ) {
             setStep(0);
           }
-          setTimeout(playNext, context.speed);
+          setTimeout(playNext, speeds[context.speed]);
         });
 
         const updateContext = (o) => {
@@ -561,20 +576,22 @@
                 if (
                   interactive ||
                   isInteractive() ||
-                  (key !== 32 && key !== 37 && key !== 39)
+                  (key !== 32 && key !== 37 && key !== 39 && !(key >= 48 && key <= 57))
                 )
                   return;
 
                 if (key === 32) {
                   playing ? pause() : play();
-                } else if (event.keyCode === 39) {
+                } else if (key === 39) {
                   contextRef.current.playing = false;
                   if (step < environment.steps.length - 1) setStep(step + 1);
                   rerender();
-                } else if (event.keyCode === 37) {
+                } else if (key === 37) {
                   contextRef.current.playing = false;
                   if (step > 0) setStep(step - 1);
                   rerender();
+                } else if (key >= 48 && key <= 57) {
+                  contextRef.current.speed = key - 48;
                 }
                 event.preventDefault();
                 return false;
