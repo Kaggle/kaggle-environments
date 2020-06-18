@@ -176,6 +176,7 @@ def interpreter(state, env):
     if env.done:
         return populate_board(state, env)
 
+    # Interpreter invoked here
     actions = [agent.action for agent in state]
     board = Board(obs, config, actions)
     board = board.next()
