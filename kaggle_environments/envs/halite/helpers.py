@@ -235,6 +235,7 @@ class ShipAction(Enum):
     SOUTH = auto()
     WEST = auto()
     CONVERT = auto()
+    # Use None to collect halite on a cell
 
     def to_point(self) -> Optional[Point]:
         """
