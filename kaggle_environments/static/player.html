@@ -469,7 +469,7 @@
           processing: false,
           renderer: () => "DNE",
           settings: false,
-          speed: 6,
+          speed: 4,
           step: 0,
           width: window.innerWidth,
         });
@@ -504,15 +504,15 @@
         // These are bindings to the 0-9 keys and are milliseconds of timeout per step
         const speeds = [
           0,
-          10,
-          25,
-          50,
-          100,
-          200,
-          333, // Default
-          500,
-          1000,
           3000,
+          1000,
+          500,
+          333, // Default
+          200,
+          100,
+          50,
+          25,
+          10,
         ];
 
         const play = (contextRef.current.play = (continuing) => {
@@ -573,10 +573,12 @@
                   environment,
                 } = contextRef.current;
                 const key = event.keyCode;
+                const zero_key = 48
+                const nine_key = 57
                 if (
                   interactive ||
                   isInteractive() ||
-                  (key !== 32 && key !== 37 && key !== 39 && !(key >= 48 && key <= 57))
+                  (key !== 32 && key !== 37 && key !== 39 && !(zero_key >= 48 && key <= nine_key))
                 )
                   return;
 
@@ -590,8 +592,8 @@
                   contextRef.current.playing = false;
                   if (step > 0) setStep(step - 1);
                   rerender();
-                } else if (key >= 48 && key <= 57) {
-                  contextRef.current.speed = key - 48;
+                } else if (key >= zero_key && key <= nine_key) {
+                  contextRef.current.speed = key - zero_key;
                 }
                 event.preventDefault();
                 return false;
