@@ -14,12 +14,8 @@
 
 import json
 import jsonschema
-import sys
-import typing
 from copy import deepcopy
-from io import StringIO
 from pathlib import Path
-from urllib.parse import urlparse
 from .errors import InvalidArgument, NotFound
 
 
@@ -105,42 +101,6 @@ def read_file(path, fallback=None):
         raise NotFound(f"{path} not found")
 
 
-def get_exec(raw, fallback=None):
-    orig_out = sys.stdout
-    buffer = StringIO()
-    sys.stdout = buffer
-    try:
-        code_object = compile(raw, "<string>", "exec")
-        env = {}
-        exec(code_object, env)
-        sys.stdout = orig_out
-        output = buffer.getvalue()
-        if output:
-            print(output)
-        return env
-    except Exception as e:
-        sys.stdout = orig_out
-        output = buffer.getvalue()
-        if output:
-            print(output)
-        if fallback is not None:
-            return fallback
-        raise InvalidArgument("Invalid raw Python: " + str(e))
-
-
-def get_last_callable(raw, fallback=None):
-    try:
-        local = get_exec(raw)
-        callables = [v for v in local.values() if callable(v)]
-        if len(callables) > 0:
-            return callables[-1]
-        raise "Nope"
-    except:
-        if fallback is not None:
-            return fallback
-        raise InvalidArgument("No callable found")
-
-
 def get_file_json(path, fallback=None):
     try:
         with open(path, "r") as json_file:
@@ -201,14 +161,6 @@ def process_schema(schema, data, use_default=True):
     except Exception as err:
         error = str(err)
     return error, data
-
-
-def is_url(url):
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except ValueError:
-        return False
 
 
 # Player utilities

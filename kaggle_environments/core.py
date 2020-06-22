@@ -85,7 +85,6 @@ def make(environment, configuration={}, steps=[], debug=False):
 
 
 class Environment:
-
     def __init__(
         self,
         specification={},
@@ -202,7 +201,6 @@ class Environment:
         start = time()
         while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
-        runner.destroy()
         return self.steps
 
     def reset(self, num_agents=None):
@@ -272,8 +270,7 @@ class Environment:
         elif mode == "json":
             return json.dumps(self.toJSON(), sort_keys=True)
         else:
-            raise InvalidArgument(
-                "Available render modes: human, ansi, html, ipython")
+            raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
     def play(self, agents=[], **kwargs):
         """
@@ -337,8 +334,6 @@ class Environment:
         def reset():
             nonlocal runner
             self.reset(len(agents))
-            if runner != None:
-                runner.destroy()
             runner = self.__agent_runner(agents)
             advance()
             return self.__get_shared_state(position).observation
@@ -350,8 +345,6 @@ class Environment:
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
-            if self.done:
-                runner.destroy()
             return [
                 agent.observation, reward, agent.status != "ACTIVE", agent.info
             ]
@@ -450,7 +443,6 @@ class Environment:
                 },
             }
         return structify(self.__state_schema_value)
-
 
     def __set_state(self, state=[]):
         if len(state) not in self.specification.agents:
@@ -577,12 +569,7 @@ class Environment:
                     actions[i] = agent.act(state, timeout)
             return actions
 
-        def destroy():
-            for a in agents:
-                if a != None:
-                    a.destroy()
-
-        return structify({"act": act, "destroy": destroy})
+        return structify({"act": act})
 
     def __get_shared_state(self, position):
         if position == 0:
