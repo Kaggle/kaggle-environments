@@ -53,7 +53,7 @@
       "default": 500,
       "minimum": 0
     },
-    "agentTimeout": 12,
+    "agentTimeout": 30,
     "actTimeout": 6,
     "runTimeout": 9600
   },
