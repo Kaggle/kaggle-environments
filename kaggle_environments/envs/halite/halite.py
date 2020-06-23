@@ -16,7 +16,7 @@ import copy
 import json
 import math
 from os import path
-from random import choice, randint, sample
+from random import choice, randint, sample, seed
 import numpy as np
 from .helpers import board_agent, Board, ShipAction, ShipyardAction
 from kaggle_environments import utils
@@ -85,6 +85,11 @@ def populate_board(state, env):
     config = env.configuration
     size = env.configuration.size
     uid_counter = 0
+
+    # Set seed for random number generators
+    if hasattr(config, "randomSeed"):
+      np.random.seed(config.randomSeed)
+      seed(config.randomSeed)
 
     # This is a consistent way to generate unique strings to form ship and shipyard ids
     def create_uid():

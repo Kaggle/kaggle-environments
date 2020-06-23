@@ -53,6 +53,11 @@
       "default": 500,
       "minimum": 0
     },
+    "randomSeed": {
+      "description": "The seed used to initialize the random number generator.",
+      "type": "integer",
+      "default": null
+    },
     "agentTimeout": 30,
     "actTimeout": 6,
     "runTimeout": 9600
