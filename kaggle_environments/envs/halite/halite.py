@@ -88,8 +88,8 @@ def populate_board(state, env):
 
     # Set seed for random number generators
     if hasattr(config, "randomSeed"):
-      np.random.seed(config.randomSeed)
-      seed(config.randomSeed)
+        np.random.seed(config.randomSeed)
+        seed(config.randomSeed)
 
     # This is a consistent way to generate unique strings to form ship and shipyard ids
     def create_uid():
