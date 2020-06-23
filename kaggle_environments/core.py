@@ -505,7 +505,7 @@ class Environment:
                     agent.reward = None
             return new_state
         except Exception as err:
-            raise Internal("Error running environment: " + str(err))
+            raise Internal("Error running environment: " + repr(err))
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):

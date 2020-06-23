@@ -58,7 +58,7 @@
       "type": "integer",
       "default": null
     },
-    "agentTimeout": 12,
+    "agentTimeout": 30,
     "actTimeout": 6,
     "runTimeout": 9600
   },
