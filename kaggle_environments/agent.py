@@ -69,16 +69,14 @@ def build_agent(raw, environment):
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
-        def url_agent(o, c, r, i):
+        def url_agent(observation, configuration):
             data = {
                 "action": "act",
-                "configuration": c,
+                "configuration": configuration,
                 "environment": environment.name,
                 "state": {
-                    "observation": o,
-                    "reward": r,
-                    "info": i
-                }
+                    "observation": observation,
+                },
             }
             response = requests.post(url=raw, data=json.dumps(data))
             response_json = response.json()
@@ -107,7 +105,7 @@ class Agent:
         self.raw = raw
         self.agent = None
 
-    def act(self, state, timeout=10):
+    def act(self, observation, timeout=10):
         # Start the timer.
         start = time()
 
@@ -116,18 +114,15 @@ class Agent:
             # Add in the initialization timeout since this is the first time this agent is called
             timeout += self.configuration.agentTimeout
 
-        if state is not None:
-            args = [
-               structify(state["observation"]),
-               structify(self.configuration),
-               state["reward"],
-               structify(state["info"])
-            ][:self.agent.__code__.co_argcount]
+        args = [
+           structify(observation),
+           structify(self.configuration)
+        ][:self.agent.__code__.co_argcount]
 
-            try:
-                action = self.agent(*args)
-            except Exception as e:
-                action = e
+        try:
+            action = self.agent(*args)
+        except Exception as e:
+            action = e
 
         # Timeout reached, throw an error.
         if time() - start > timeout:

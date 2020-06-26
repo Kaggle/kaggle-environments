@@ -561,7 +561,7 @@ class Environment:
                         initialized[i] = True
                         timeout += self.configuration.agentTimeout
                     state = self.__get_shared_state(i)
-                    actions[i] = agent.act(state, timeout)
+                    actions[i] = agent.act(state["observation"], timeout)
             return actions
 
         return structify({"act": act})

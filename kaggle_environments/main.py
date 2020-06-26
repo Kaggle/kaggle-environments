@@ -107,12 +107,8 @@ def action_act(args):
     if cached_agent is None or cached_agent.raw != raw:
         cached_agent = Agent(raw, config, env)
         timeout = config.agentTimeout
-    state = {
-        "observation": utils.get(args.state, dict, {}, ["observation"]),
-        "reward": args.get("reward", None),
-        "info": utils.get(args.state, dict, {}, ["info"])
-    }
-    action = cached_agent.act(state, timeout)
+    observation = utils.get(args.state, dict, {}, ["observation"])
+    action = cached_agent.act(observation, timeout)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
