@@ -35,6 +35,7 @@ def get_last_callable(raw, fallback=None):
     orig_out = sys.stdout
     buffer = StringIO()
     sys.stdout = buffer
+
     try:
         code_object = compile(raw, "<string>", "exec")
         env = {}
@@ -43,7 +44,7 @@ def get_last_callable(raw, fallback=None):
         output = buffer.getvalue()
         if output:
             print(output)
-        return [v for v in env.values() if callable(v)]
+        return [v for v in env.values() if callable(v)][-1]
     except Exception as e:
         sys.stdout = orig_out
         output = buffer.getvalue()
@@ -51,10 +52,13 @@ def get_last_callable(raw, fallback=None):
             print(output)
         if fallback is not None:
             return fallback
-        raise InvalidArgument("Invalid raw Python: " + str(e))
+        raise InvalidArgument("Invalid raw Python: " + repr(e))
 
 
 def build_agent(raw, environment):
+    if raw in environment.agents:
+        return environment.agents[raw]
+
     # Already callable.
     if callable(raw):
         return raw
@@ -72,7 +76,7 @@ def build_agent(raw, environment):
                     **c,
                     "agentExec": "LOCAL"
                 },
-                "environment": environment,
+                "environment": environment.name,
                 "state": {
                     "observation": o,
                     "reward": r,

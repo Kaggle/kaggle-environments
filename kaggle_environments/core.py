@@ -533,14 +533,9 @@ class Environment:
         return process_schema(schemas.specification, spec)
 
     def __agent_runner(self, agents):
-        # Replace default agents with their source.
-        for i, agent in enumerate(agents):
-            if has(self.agents, path=[agent]):
-                agents[i] = self.agents[agent]
-
         # Generate the agents.
         agents = [
-            Agent(a, self.configuration, self.name, debug=self.debug)
+            Agent(a, self.configuration, self)
             if a is not None
             else None
             for a in agents
@@ -558,7 +553,7 @@ class Environment:
             for i, agent in enumerate(agents):
                 if self.state[i]["status"] != "ACTIVE":
                     actions[i] = None
-                elif agent == None:
+                elif agent is None:
                     actions[i] = none_action
                 else:
                     timeout = self.configuration.actTimeout

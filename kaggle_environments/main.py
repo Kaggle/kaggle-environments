@@ -104,11 +104,8 @@ def action_act(args):
     config = env.configuration
     timeout = config.actTimeout
 
-    if cached_agent is None or cached_agent.id != raw:
-        identifier = raw
-        if utils.has(env.agents, path=[identifier]):
-            raw = env.agents[identifier]
-        cached_agent = Agent(raw, config, args.environment, identifier, args.debug)
+    if cached_agent is None or cached_agent.raw != raw:
+        cached_agent = Agent(raw, config, env)
         timeout = config.agentTimeout
     state = {
         "observation": utils.get(args.state, dict, {}, ["observation"]),
