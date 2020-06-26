@@ -62,12 +62,6 @@
         "minimum": 1,
         "default": 1000
       },
-      "agentExec": {
-        "description": "How the agent is executed alongside the running envionment.",
-        "type": "string",
-        "default": "LOCAL",
-        "enum": ["LOCAL", "PROCESS"]
-      },
       "agentTimeout": {
         "description": "Maximum runtime (seconds) to initialize an agent.",
         "type": "integer",

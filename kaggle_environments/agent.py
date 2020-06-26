@@ -72,10 +72,7 @@ def build_agent(raw, environment):
         def url_agent(o, c, r, i):
             data = {
                 "action": "act",
-                "configuration": {
-                    **c,
-                    "agentExec": "LOCAL"
-                },
+                "configuration": c,
                 "environment": environment.name,
                 "state": {
                     "observation": o,

@@ -179,11 +179,6 @@ class Configuration(ReadOnlyDict[str, any]):
         return self["episodeSteps"]
 
     @property
-    def agent_exec(self) -> str:
-        """How the agent is executed alongside the running envionment ('LOCAL' or separate 'PROCESS')."""
-        return self["agentExec"]
-
-    @property
     def agent_timeout(self) -> float:
         """Maximum runtime (seconds) to initialize an agent."""
         return self["agentTimeout"]
