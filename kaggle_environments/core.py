@@ -261,6 +261,7 @@ class Environment:
             player_html = get_player(window_kaggle, self.html_renderer)
             if mode == "html":
                 return player_html
+
             from IPython.display import display, HTML
             player_html = player_html.replace('"', '&quot;')
             width = get(kwargs, int, 300, path=["width"])
