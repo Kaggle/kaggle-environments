@@ -64,20 +64,20 @@
       },
       "agentTimeout": {
         "description": "Maximum runtime (seconds) to initialize an agent.",
-        "type": "integer",
-        "minimum": 1,
+        "type": "number",
+        "minimum": 0,
         "default": 12
       },
       "actTimeout": {
         "description": "Maximum runtime (seconds) to obtain an action from an agent.",
-        "type": "integer",
-        "minimum": 1,
+        "type": "number",
+        "minimum": 0,
         "default": 6
       },
       "runTimeout": {
         "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
-        "type": "integer",
-        "minimum": 1,
+        "type": "number",
+        "minimum": 0,
         "default": 1200
       }
     }

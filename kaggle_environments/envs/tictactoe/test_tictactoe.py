@@ -195,8 +195,7 @@ def test_can_run_custom_agents():
 
 
 def test_agents_can_timeout_on_init():
-    env = make("tictactoe", debug=True, configuration={
-               "agentTimeout": 1, "actTimeout": 1})
+    env = make("tictactoe", debug=True, configuration={"agentTimeout": 0.5, "actTimeout": 0.5})
     state = env.run([custom1, custom3])[-1]
     assert state == [
         {
