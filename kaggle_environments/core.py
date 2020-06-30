@@ -34,7 +34,7 @@ def register(name, environment):
      * specification - JSON Schema representing the environment.
      * interpreter - Function(state, environment) -> new_state
      * renderer - Function(state, environment) -> string
-     * html_renderer(optional) - JavaScript HTML renderer function.
+     * html_renderer - Function(environment) -> JavaScript HTML renderer function.
      * agents(optional) - List of default agents [Function(observation, config) -> action]
     """
     environments[name] = environment
@@ -121,9 +121,9 @@ class Environment:
             raise InvalidArgument("Renderer is not Callable.")
         self.renderer = renderer
 
-        if callable(html_renderer):
-            html_renderer = html_renderer()
-        self.html_renderer = get(html_renderer, str, "")
+        if not callable(html_renderer):
+            raise InvalidArgument("Html_renderer is not Callable.")
+        self.html_renderer = html_renderer
 
         if not all([callable(a) for a in agents.values()]):
             raise InvalidArgument("Default agents must be Callable.")
@@ -260,7 +260,9 @@ class Environment:
                 "environment": self.toJSON(),
                 **kwargs,
             }
-            player_html = get_player(window_kaggle, self.html_renderer)
+            args = [self]
+            player_html = get_player(window_kaggle,
+                                     self.html_renderer(*args[:self.html_renderer.__code__.co_argcount]))
             if mode == "html":
                 return player_html
             from IPython.display import display, HTML

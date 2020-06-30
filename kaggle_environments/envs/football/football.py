@@ -156,7 +156,7 @@ def interpreter(state, env):
   if len(state[0].action) != env.configuration.team_1:
     # Player 1 sent wrong data.
     update_state_on_invalid_action(
-        state[0], state[1], "Too many actions passed: Expected %d, got %d." %
+        state[0], state[1], "Invalid number of actions provided: Expected %d, got %d." %
         (env.configuration.team_1, len(state[0].action)))
     return state
   actions_to_env = state[0].action
@@ -164,7 +164,7 @@ def interpreter(state, env):
   if len(state[1].action) != env.configuration.team_2:
     # Player 2 sent wrong data.
     update_state_on_invalid_action(
-        state[1], state[0], "Too many actions passed: Expected %d, got %d." %
+        state[1], state[0], "Invalid number of actions provided: Expected %d, got %d." %
         (env.configuration.team_2, len(state[1].action)))
     return state
 
