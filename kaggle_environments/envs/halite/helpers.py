@@ -40,7 +40,7 @@ class Point(tuple):
         Converts a 2d position in the form (x, y) to an index in the observation.halite list.
         See index_to_position for the inverse.
         """
-        return (size - self.y - 1) * size + self.x
+        return self.y * size + self.x
 
     @staticmethod
     def from_index(index: int, size: int) -> 'Point':
@@ -49,7 +49,7 @@ class Point(tuple):
         See position_to_index for the inverse.
         """
         y, x = divmod(index, size)
-        return Point(x, (size - y - 1))
+        return Point(x, y)
 
     def __abs__(self) -> 'Point':
         return self.map(operator.abs)
