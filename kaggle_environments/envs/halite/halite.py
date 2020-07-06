@@ -163,7 +163,7 @@ def populate_board(state, env):
     obs.players = []
     for i in range(num_agents):
         ships = {create_uid(): [starting_positions[i], 0]}
-        obs.players.append([state[0].reward, {}, ships])
+        obs.players.append([config.playerStartingHalite, {}, ships])
 
     return state
 

@@ -16,10 +16,16 @@ import traceback
 import copy
 import json
 from time import time
+from typing import *
 import uuid
 from .agent import Agent
+from .configuration import Configuration
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify
+
+
+TConfiguration = TypeVar('TConfiguration', bound=Configuration)
+
 
 # Registered Environments.
 environments = {}
@@ -99,7 +105,7 @@ class Environment:
         self.id = str(uuid.uuid1())
         self.debug = debug
 
-        err, specification = self.__process_specification(specification)
+        err, specification = Environment.__process_specification(specification)
         if err:
             raise InvalidArgument("Specification Invalid: " + err)
         self.specification = structify(specification)
@@ -500,12 +506,13 @@ class Environment:
         except Exception as err:
             raise Internal("Error running environment: " + str(err))
 
-    def __process_specification(self, spec):
-        if has(spec, path=["reward"]):
+    @staticmethod
+    def __process_specification(spec):
+        if "reward" in spec:
             reward = spec["reward"]
             reward_type = get(reward, str, "number", ["type"])
             if reward_type not in ["integer", "number"]:
-                return ("type must be an integer or number", None)
+                return "type must be an integer or number", None
             reward["type"] = [reward_type, "null"]
 
         # Allow environments to extend the default configuration.

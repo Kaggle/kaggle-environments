@@ -49,8 +49,14 @@
     },
     "maxCellHalite": {
       "description": "The maximum halite that can be in any cell.",
-      "type": "integer",
+      "type": "number",
       "default": 500,
+      "minimum": 0
+    },
+    "playerStartingHalite": {
+      "description": "The amount of halite each player starts with.",
+      "type": "number",
+      "default": 5000,
       "minimum": 0
     },
     "agentTimeout": 12,
