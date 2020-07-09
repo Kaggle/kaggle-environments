@@ -15,15 +15,17 @@
 from importlib import import_module
 from os import listdir
 from .agent import Agent
+from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
 from .core import *
 from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "0.3.12"
+__version__ = "1.0.12"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
-           "make", "register", "utils", "__version__"]
+           "make", "register", "utils", "__version__",
+           "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
 
 # Register Environments.
 

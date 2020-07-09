@@ -102,8 +102,7 @@ def runner(raw, message, environment, debug=False):
         run_agent(agent, message)
 
 
-class Agent():
-
+class Agent:
     def __init__(self, raw, configuration, environment, id=None, debug=False):
         self.id = id or str(uuid.uuid1())
         self.configuration = configuration
@@ -131,7 +130,7 @@ class Agent():
         start = time()
 
         # If an action is already set (uncleared), there is an error.
-        if self.message.action != None:
+        if self.message.action is not None:
             return self.message.action
 
         # Inform the agent an action is requested.
@@ -140,7 +139,7 @@ class Agent():
         if self.use_process:
             # Timeout or Action Returned (will be processed below).
             while True:
-                if time() - start > timeout or self.message.action != None:
+                if time() - start > timeout or self.message.action is not None:
                     break
         else:
             if self.agent is None:

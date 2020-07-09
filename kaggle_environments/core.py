@@ -192,7 +192,7 @@ class Environment:
         Returns:
             list of list of dict: The agent states of all steps executed.
         """
-        if self.state == None or len(self.steps) == 1 or self.done:
+        if self.state is None or len(self.steps) == 1 or self.done:
             self.reset(len(agents))
         if len(self.state) != len(agents):
             raise InvalidArgument(
@@ -251,7 +251,6 @@ class Environment:
             out = self.renderer(*args[:self.renderer.__code__.co_argcount])
             if mode == "ansi":
                 return out
-            print(out)
         elif mode == "html" or mode == "ipython":
             window_kaggle = {
                 "debug": get(kwargs, bool, self.debug, path=["debug"]),
@@ -508,7 +507,7 @@ class Environment:
                     agent.reward = None
             return new_state
         except Exception as err:
-            raise Internal("Error running environment: " + str(err))
+            raise Internal("Error running environment: " + repr(err))
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):
@@ -550,8 +549,12 @@ class Environment:
                 agents[i] = self.agents[agent]
 
         # Generate the agents.
-        agents = [Agent(a, self.configuration, self.name, debug=self.debug) if a !=
-                  None else None for a in agents]
+        agents = [
+            Agent(a, self.configuration, self.name, debug=self.debug)
+            if a is not None
+            else None
+            for a in agents
+        ]
 
         # Have the agents had a chance to initialize (first non-empty act).
         initialized = [False] * len(agents)

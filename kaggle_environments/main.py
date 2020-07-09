@@ -18,6 +18,7 @@ import traceback
 from . import errors, utils
 from .agent import Agent
 from .core import environments, evaluate, make
+from logging.config import dictConfig
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
@@ -63,6 +64,9 @@ parser.add_argument(
 parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
+parser.add_argument(
+    "--out", type=str, help="Output file to write the results of the episode."
+)
 
 
 def render(args, env):
@@ -73,7 +77,8 @@ def render(args, env):
         args.render["mode"] = "html"
     else:
         args.render["mode"] = "json"
-    return env.render(**args.render)
+    result = env.render(**args.render)
+    return result
 
 
 def action_list(args):
@@ -102,8 +107,8 @@ def action_act(args):
     config = env.configuration
     timeout = config.actTimeout
 
-    if cached_agent == None or cached_agent.id != raw:
-        if cached_agent != None:
+    if cached_agent is None or cached_agent.id != raw:
+        if cached_agent is not None:
             cached_agent.destroy()
         identifier = raw
         if utils.has(env.agents, path=[identifier]):
@@ -156,7 +161,8 @@ def parse_args(args):
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
-            "port": utils.get(args, int, 8000, ["port"])
+            "port": utils.get(args, int, 8000, ["port"]),
+            "out": utils.get(args, str, None, ["out"]),
         }
     )
 
@@ -190,6 +196,23 @@ def action_handler(args):
 def action_http(args):
     from flask import Flask, request
 
+    # Setup logging to console for Flask
+    dictConfig({
+        'version': 1,
+        'formatters': {'default': {
+            'format': '%(levelname)s: %(message)s',
+        }},
+        'handlers': {'wsgi': {
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
+            'formatter': 'default'
+        }},
+        'root': {
+            'level': 'INFO',
+            'handlers': ['wsgi']
+        }
+    })
+
     middleware = {"request": None, "response": None}
     if args.middleware != None:
         try:
@@ -220,7 +243,7 @@ def http_request(request, middleware):
             "Access-Control-Max-Age": "3600",
         }
 
-        return ("", 204, headers)
+        return "", 204, headers
 
     headers = {"Access-Control-Allow-Origin": "*"}
 
@@ -236,21 +259,29 @@ def http_request(request, middleware):
     body = request.get_json(silent=True, force=True) or {}
 
     req = parse_args({**params, **body})
-    if middleware["request"] != None:
+    if middleware["request"] is not None:
         req = middleware["request"](req)
 
     resp = action_handler(req)
-    if middleware["response"] != None:
+    if middleware["response"] is not None:
         resp = middleware["response"](req, resp)
 
-    return (resp, 200, headers)
+    return resp, 200, headers
 
 
 def main():
     args = parser.parse_args()
     if args.action == "http-server":
         action_http(args)
-    print(action_handler(parse_args(vars(args))))
+    else:
+        result = action_handler(parse_args(vars(args)))
+        if args.out is None:
+            print(result)
+        else:
+            with open(args.out, mode="w") as out_file:
+                out_file.write(str(result))
+
+        return 0
 
 
 if __name__ == "__main__":
