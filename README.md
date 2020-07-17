@@ -197,7 +197,6 @@ There are two types of configuration: Defaults applying to every environment and
 | Name         | Description                                                     |
 | ------------ | --------------------------------------------------------------- |
 | episodeSteps | Maximum number of steps in the episode.                         |
-| agentExec    | How the agent is executed alongside the envionment.             |
 | agentTimeout | Maximum runtime (seconds) to initialize an agent.               |
 | actTimeout   | Maximum runtime (seconds) to obtain an action from an agent.    |
 | runTimeout   | Maximum runtime (seconds) of an episode (not necessarily DONE). |
@@ -206,7 +205,6 @@ There are two types of configuration: Defaults applying to every environment and
 env = make("connectx", configuration={
   "columns": 19, # Specific to ConnectX.
   "actTimeout": 10,
-  "agentExec": "LOCAL"
 })
 ```
 
@@ -327,26 +325,6 @@ The HTTP server contains the same interface/actions as the CLI above merging bot
 
 ```bash
 python main.py http-server --port=8012 --host=0.0.0.0
-```
-
-## Adding Middleware
-
-```python
-# middleware.py
-import time
-
-def request(req):
-    time.sleep(30)
-    req.agents = ["random", "random"]
-    return req
-
-def response(req, resp):
-    time.sleep(10)
-    return resp
-```
-
-```bash
-python3 main.py http-server --middleware=/path/to/middleware.py
 ```
 
 ### Running Agents on Separate Servers

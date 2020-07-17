@@ -56,9 +56,6 @@ parser.add_argument(
     help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
 )
 parser.add_argument(
-    "--middleware", type=str, help="Path to request middleware for use with the http-server."
-)
-parser.add_argument(
     "--port", type=int, help="http-server Port (default=8000)."
 )
 parser.add_argument(
@@ -107,20 +104,11 @@ def action_act(args):
     config = env.configuration
     timeout = config.actTimeout
 
-    if cached_agent is None or cached_agent.id != raw:
-        if cached_agent is not None:
-            cached_agent.destroy()
-        identifier = raw
-        if utils.has(env.agents, path=[identifier]):
-            raw = env.agents[identifier]
-        cached_agent = Agent(raw, config, args.environment, identifier, args.debug)
+    if cached_agent is None or cached_agent.raw != raw:
+        cached_agent = Agent(raw, config, env)
         timeout = config.agentTimeout
-    state = {
-        "observation": utils.get(args.state, dict, {}, ["observation"]),
-        "reward": args.get("reward", None),
-        "info": utils.get(args.state, dict, {}, ["info"])
-    }
-    action = cached_agent.act(state, timeout)
+    observation = utils.get(args.state, dict, {}, ["observation"])
+    action = cached_agent.act(observation, timeout)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
@@ -133,7 +121,6 @@ def action_step(args):
     env = make(args.environment, args.configuration, args.steps, args.debug)
     runner = env.__agent_runner(args.agents)
     env.step(runner.act())
-    runner.destroy()
     return render(args, env)
 
 
@@ -176,7 +163,7 @@ def action_handler(args):
         elif args.action == "act":
             return action_act(args)
 
-        if args.environment == None:
+        if args.environment is None:
             return {"error": "Environment required."}
 
         if args.action == "evaluate":
@@ -213,25 +200,12 @@ def action_http(args):
         }
     })
 
-    middleware = {"request": None, "response": None}
-    if args.middleware != None:
-        try:
-            raw = utils.read_file(args.middleware)
-            local = utils.get_exec(raw)
-            middleware["request"] = utils.get(
-                local, path=["request"], is_callable=True)
-            middleware["response"] = utils.get(
-                local, path=["response"], is_callable=True)
-        except Exception as e:
-            return {"error": str(e), "trace": traceback.format_exc()}
-
     app = Flask(__name__, static_url_path="", static_folder="")
-    app.route("/", methods=["GET", "POST"]
-              )(lambda: http_request(request, middleware))
+    app.route("/", methods=["GET", "POST"])(http_request)
     app.run(args.host, args.port, debug=True)
 
 
-def http_request(request, middleware):
+def http_request(request):
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
@@ -246,7 +220,6 @@ def http_request(request, middleware):
         return "", 204, headers
 
     headers = {"Access-Control-Allow-Origin": "*"}
-
     params = request.args.to_dict()
     for key in list(params.keys()):
         if key.endswith("[]"):
@@ -257,15 +230,8 @@ def http_request(request, middleware):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-
     req = parse_args({**params, **body})
-    if middleware["request"] is not None:
-        req = middleware["request"](req)
-
     resp = action_handler(req)
-    if middleware["response"] is not None:
-        resp = middleware["response"](req, resp)
-
     return resp, 200, headers
 
 
