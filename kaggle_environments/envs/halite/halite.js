@@ -256,11 +256,11 @@ async function renderer({
 
   const getShipDir = (playerIndex, uid) => {
     for (let s = step; s >= 0; s--) {
-      const action = environment.steps[s][playerIndex].action;
+      const action = environment.steps[s][playerIndex].action || {};
       if (uid in action) return Math.max(directions.indexOf(action[uid]), 0);
     }
     for (let s = step + 1; s < environment.steps.length; s++) {
-      const action = environment.steps[s][playerIndex].action;
+      const action = environment.steps[s][playerIndex].action || {};
       if (uid in action) return Math.max(directions.indexOf(action[uid]), 0);
     }
     return 0;
@@ -468,7 +468,7 @@ async function renderer({
       (player, playerIndex) => {
         const status = state[playerIndex].status;
         const [, shipyards, ships] = player;
-        const action = environment.steps[step][playerIndex].action;
+        const action = environment.steps[step][playerIndex].action || {};
         // Stationary ships collecting Halite.
         Object.entries(ships).forEach(([uid, [pos]]) => {
           if (uid in action) return;
