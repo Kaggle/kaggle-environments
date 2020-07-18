@@ -190,10 +190,19 @@
         width: 100%;
       `;
 
+      const Console = styled((props) => {
+        let { logs, step } = useContext(Context);
+        logs = logs || [];
+        let log = step < logs.length ? logs[step] : [];
+        return h`<div className=${props.className}>${log[0].stdout}</div>`
+      })`
+      `;
+
       const Viewer = styled((props) => {
         const { processing } = useContext(Context);
         return h`<div className=${props.className}>
           <${Renderer} />
+          <${Console} />
           ${processing && h`<${Processing} />`}
         </div>`;
       })`

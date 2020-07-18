@@ -16,6 +16,7 @@ import json
 import os
 import requests
 import sys
+import traceback
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from time import time
@@ -123,6 +124,7 @@ class Agent:
             try:
                 action = self.agent(*args)
             except Exception as e:
+                traceback.print_exc(file=err_buffer)
                 action = e
             # Allow up to 1k log characters per step which is ~1MB per 600 step episode
             max_log_length = 1024

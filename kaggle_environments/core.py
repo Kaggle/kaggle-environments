@@ -265,7 +265,7 @@ class Environment:
                 "step": 0 if get(kwargs, bool, self.done, path=["autoplay"]) else (len(self.steps) - 1),
                 "controls": get(kwargs, bool, self.done, path=["controls"]),
                 "environment": self.toJSON(),
-                "logs": json.dumps(self.logs),
+                "logs": self.logs,
                 **kwargs,
             }
             args = [self]
