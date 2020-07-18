@@ -124,14 +124,16 @@ class Agent:
                 action = self.agent(*args)
             except Exception as e:
                 action = e
-            out = out_buffer.getvalue()
-            err = err_buffer.getvalue()
+            # Allow up to 1k log characters per step which is ~1MB per 600 step episode
+            max_log_length = 1024
+            out = out_buffer.getvalue()[0:max_log_length]
+            err = err_buffer.getvalue()[0:max_log_length]
 
         duration = time() - start
         log = {
+            "duration": round(duration, 6),
             "stdout": out,
             "stderr": err,
-            "duration": duration,
         }
 
         # Timeout reached, throw an error.

@@ -53,7 +53,12 @@ parser.add_argument(
 parser.add_argument(
     "--render",
     type=json.loads,
-    help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
+    help="Response from run, step, or load. Calls environment render (default={mode='json'}).",
+)
+parser.add_argument(
+    "--display",
+    type=str,
+    help="Shortcut to the --render {mode=''} argument (default json).",
 )
 parser.add_argument(
     "--port", type=int, help="http-server Port (default=8000)."
@@ -73,7 +78,13 @@ parser.add_argument(
 
 
 def render(args, env):
-    mode = utils.get(args.render, str, "json", path=["mode"])
+    mode = \
+        args.display \
+        if args.display is not None \
+        else utils.get(args.render, str, "json", path=["mode"])
+
+    print(args)
+
     if mode == "human" or mode == "ansi":
         args.render["mode"] = "ansi"
     elif mode == "ipython" or mode == "html":
@@ -120,9 +131,10 @@ def action_act(args):
     elif isinstance(action, BaseException):
         action = "BaseException::" + str(action)
 
-    if args.log is not None:
-        with open(args.log, mode="w+") as log_file:
-            log_file.write(log)
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            json.dump([log], log_file)
+            log_file.write(",\n ")
 
     return {"action": action}
 
@@ -131,8 +143,8 @@ def action_step(args):
     env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     runner = env.__agent_runner(args.agents)
     env.step(runner.act())
-    if args.log is not None:
-        with open(args.log, mode="w+") as log_file:
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
             json.dump(env.logs[-1], log_file)
             log_file.write(",")
     return render(args, env)
@@ -141,22 +153,23 @@ def action_step(args):
 def action_run(args):
     env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     env.run(args.agents)
-    if args.log is not None:
-        with open(args.log, mode="w") as log_file:
+    if args.log_path is not None:
+        with open(args.log_path, mode="w") as log_file:
             json.dump(env.logs, log_file)
     return render(args, env)
 
 
 def action_load(args):
-    if args.input is not None:
-        with open(args.input, mode="r") as replay_file:
-            args = {**json.load(replay_file), **args}
-
-    if args.log is not None:
-        with open(args.log, mode="r") as log_file:
+    if args.log_path is not None:
+        with open(args.log_path, mode="r") as log_file:
             args.logs = json.load(log_file)
 
-    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
+    if args.input is not None:
+        with open(args.input, mode="r") as replay_file:
+            json_args = json.load(replay_file)
+        env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.logs, args.debug)
+    else:
+        env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     return render(args, env)
 
 
@@ -166,11 +179,15 @@ disposed = True
 # This method is only called at the end of an episode to write the final array brace in the logs file
 def action_dispose(args):
     global cached_agent, disposed
-    if not disposed:
-        cached_agent = None
-        if args.log is not None:
-            with open(args.log, mode="w+") as log_file:
-                log_file.write("]")
+    if disposed:
+        return "Already disposed"
+
+    cached_agent = None
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            log_file.write("]")
+    disposed = True
+    return "Successfully disposed"
 
 
 def parse_args(args):
@@ -185,12 +202,13 @@ def parse_args(args):
             "steps": utils.get(args, list, [], ["steps"]),
             "logs": utils.get(args, list, [], ["logs"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
+            "display": utils.get(args, str, None, ["display"]),
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
             "port": utils.get(args, int, 8000, ["port"]),
             "input": utils.get(args, str, None, ["in"]),
-            "out": utils.get(args, str, None, ["out"]),
-            "log": utils.get(args, str, None, ["log"]),
+            "out_path": utils.get(args, str, None, ["out"]),
+            "log_path": utils.get(args, str, None, ["log"]),
         }
     )
 
@@ -203,6 +221,10 @@ def action_handler(args):
             return {"error": "Already running a http server."}
         elif args.action == "act":
             return action_act(args)
+        elif args.action == "dispose":
+            return action_dispose(args)
+        elif args.action == "load":
+            return action_load(args)
 
         if args.environment is None:
             return {"error": "Environment required."}
@@ -213,22 +235,23 @@ def action_handler(args):
             return action_step(args)
         elif args.action == "run":
             return action_run(args)
-        elif args.action == "load":
-            return action_load(args)
-        elif args.action == "dispose":
-            return action_dispose(args)
         else:
             return {"error": "Unknown Action"}
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
 
+log_path = None
+
+
 def action_http(args):
     global disposed
     disposed = False
     # Write the opening array brace for the logs file if there is a logs file.
-    if args.log is not None:
-        with open(args.log, mode="w") as log_file:
+    if args.log_path is not None:
+        global log_path
+        log_path = args.log_path
+        with open(log_path, mode="w") as log_file:
             log_file.write("[")
 
     from flask import Flask, request
@@ -253,6 +276,8 @@ def action_http(args):
     app = Flask(__name__, static_url_path="", static_folder="")
     app.route("/", methods=["GET", "POST"])(lambda: http_request(request))
     app.run(args.host, args.port, debug=True)
+
+    # TODO(sam): Write closing log list brace here rather than in dispose
 
 
 def http_request(request):
@@ -280,21 +305,26 @@ def http_request(request):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    req = parse_args({**params, **body})
-    resp = action_handler(req)
+    args = {**params, **body}
+    if "render" in args:
+        args["render"] = json.loads(args["render"])
+    args = parse_args(args)
+    if args.log_path is None:
+        args.log_path = log_path
+    resp = action_handler(args)
     return resp, 200, headers
 
 
 def main():
-    args = parser.parse_args()
+    args = parse_args(vars(parser.parse_args()))
     if args.action == "http-server":
         action_http(args)
     else:
-        result = action_handler(parse_args(vars(args)))
-        if args.out is None:
+        result = action_handler(args)
+        if args.out_path is None:
             print(result)
         else:
-            with open(args.out, mode="w") as out_file:
+            with open(args.out_path, mode="w") as out_file:
                 out_file.write(str(result))
 
         return 0
