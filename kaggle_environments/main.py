@@ -23,7 +23,7 @@ from logging.config import dictConfig
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
     "action",
-    choices=["list", "evaluate", "run", "step", "load", "act", "http-server"],
+    choices=["list", "evaluate", "run", "step", "load", "act", "dispose", "http-server"],
     help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Start http server.",
 )
 parser.add_argument("--environment", type=str,
@@ -62,7 +62,13 @@ parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
 parser.add_argument(
-    "--out", type=str, help="Output file to write the results of the episode."
+    "--in", type=str, help="Episode replay file to load. Only works when the action is load."
+)
+parser.add_argument(
+    "--out", type=str, help="Output file to write the results of the episode. This does nothing when the action is http-server."
+)
+parser.add_argument(
+    "--log", type=str, help="Agent log file to write the std out, resource, and step timing for each agent. Also used to load logs from a file with the load action."
 )
 
 
@@ -105,34 +111,66 @@ def action_act(args):
     timeout = config.actTimeout
 
     if cached_agent is None or cached_agent.raw != raw:
-        cached_agent = Agent(raw, config, env)
+        cached_agent = Agent(raw, env)
         timeout = config.agentTimeout
     observation = utils.get(args.state, dict, {}, ["observation"])
-    action = cached_agent.act(observation, timeout)
+    action, log = cached_agent.act(observation, timeout)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
         action = "BaseException::" + str(action)
 
+    if args.log is not None:
+        with open(args.log, mode="w+") as log_file:
+            log_file.write(log)
+
     return {"action": action}
 
 
 def action_step(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     runner = env.__agent_runner(args.agents)
     env.step(runner.act())
+    if args.log is not None:
+        with open(args.log, mode="w+") as log_file:
+            json.dump(env.logs[-1], log_file)
+            log_file.write(",")
     return render(args, env)
 
 
 def action_run(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     env.run(args.agents)
+    if args.log is not None:
+        with open(args.log, mode="w") as log_file:
+            json.dump(env.logs, log_file)
     return render(args, env)
 
 
 def action_load(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    if args.input is not None:
+        with open(args.input, mode="r") as replay_file:
+            args = {**json.load(replay_file), **args}
+
+    if args.log is not None:
+        with open(args.log, mode="r") as log_file:
+            args.logs = json.load(log_file)
+
+    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     return render(args, env)
+
+
+disposed = True
+
+
+# This method is only called at the end of an episode to write the final array brace in the logs file
+def action_dispose(args):
+    global cached_agent, disposed
+    if not disposed:
+        cached_agent = None
+        if args.log is not None:
+            with open(args.log, mode="w+") as log_file:
+                log_file.write("]")
 
 
 def parse_args(args):
@@ -145,11 +183,14 @@ def parse_args(args):
             "episodes": utils.get(args, int, 1, ["episodes"]),
             "state": utils.get(args, dict, {}, ["state"]),
             "steps": utils.get(args, list, [], ["steps"]),
+            "logs": utils.get(args, list, [], ["logs"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
             "port": utils.get(args, int, 8000, ["port"]),
+            "input": utils.get(args, str, None, ["in"]),
             "out": utils.get(args, str, None, ["out"]),
+            "log": utils.get(args, str, None, ["log"]),
         }
     )
 
@@ -174,6 +215,8 @@ def action_handler(args):
             return action_run(args)
         elif args.action == "load":
             return action_load(args)
+        elif args.action == "dispose":
+            return action_dispose(args)
         else:
             return {"error": "Unknown Action"}
     except Exception as e:
@@ -181,6 +224,13 @@ def action_handler(args):
 
 
 def action_http(args):
+    global disposed
+    disposed = False
+    # Write the opening array brace for the logs file if there is a logs file.
+    if args.log is not None:
+        with open(args.log, mode="w") as log_file:
+            log_file.write("[")
+
     from flask import Flask, request
 
     # Setup logging to console for Flask

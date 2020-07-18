@@ -16,6 +16,7 @@ import json
 import os
 import requests
 import sys
+from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from time import time
 from urllib.parse import urlparse
@@ -99,8 +100,7 @@ def build_agent(raw, environment):
 
 
 class Agent:
-    def __init__(self, raw, configuration, environment):
-        self.configuration = configuration
+    def __init__(self, raw, environment):
         self.environment = environment
         self.raw = raw
         self.agent = None
@@ -112,20 +112,30 @@ class Agent:
         if self.agent is None:
             self.agent = build_agent(self.raw, self.environment)
             # Add in the initialization timeout since this is the first time this agent is called
-            timeout += self.configuration.agentTimeout
+            timeout += self.environment.configuration.agentTimeout
 
         args = [
            structify(observation),
-           structify(self.configuration)
+           structify(self.environment.configuration)
         ][:self.agent.__code__.co_argcount]
 
-        try:
-            action = self.agent(*args)
-        except Exception as e:
-            action = e
+        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+            try:
+                action = self.agent(*args)
+            except Exception as e:
+                action = e
+            out = out_buffer.getvalue()
+            err = err_buffer.getvalue()
+
+        duration = time() - start
+        log = {
+            "stdout": out,
+            "stderr": err,
+            "duration": duration,
+        }
 
         # Timeout reached, throw an error.
-        if time() - start > timeout:
-            return DeadlineExceeded()
+        if duration > timeout:
+            action = DeadlineExceeded()
 
-        return action
+        return action, log

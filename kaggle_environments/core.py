@@ -62,7 +62,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, steps=[], debug=False):
+def make(environment, configuration={}, steps=[], logs=[], debug=False):
     """
     Creates an instance of an Environment.
 
@@ -76,11 +76,11 @@ def make(environment, configuration={}, steps=[], debug=False):
         Environment: Instance of a specific environment.
     """
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, steps=steps, debug=debug)
+        return Environment(**environments[environment], configuration=configuration, steps=steps, logs=logs, debug=debug)
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, steps=steps, debug=debug)
+        return Environment(interpreter=environment, configuration=configuration, steps=steps, logs=logs, debug=debug)
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, steps=steps, debug=debug)
+        return Environment(**environment, configuration=configuration, steps=steps, logs=logs, debug=debug)
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -90,6 +90,7 @@ class Environment:
         specification={},
         configuration={},
         steps=[],
+        logs=[],
         agents={},
         interpreter=None,
         renderer=None,
@@ -134,12 +135,15 @@ class Environment:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
 
-    def step(self, actions):
+        self.logs = logs
+
+    def step(self, actions, logs=None):
         """
         Execute the environment interpreter using the current state and a list of actions.
 
         Args:
             actions (list): Actions to pair up with the current agent states.
+            logs (list): Logs to pair up with each agent for the current step.
 
         Returns:
             list of dict: The agents states after the step.
@@ -178,6 +182,8 @@ class Environment:
                     s.status = "DONE"
 
         self.steps.append(self.state)
+        if logs is not None:
+            self.logs.append(logs)
 
         return self.state
 
@@ -189,7 +195,9 @@ class Environment:
             agents (list of any): List of agents to obtain actions from.
 
         Returns:
-            list of list of dict: The agent states of all steps executed.
+            tuple of:
+                list of list of dict: The agent states of all steps executed.
+                list of list of dict: The agent logs of all steps executed.
         """
         if self.state is None or len(self.steps) == 1 or self.done:
             self.reset(len(agents))
@@ -200,7 +208,8 @@ class Environment:
         runner = self.__agent_runner(agents)
         start = time()
         while not self.done and time() - start < self.configuration.runTimeout:
-            self.step(runner.act())
+            actions, logs = runner.act()
+            self.step(actions, logs)
         return self.steps
 
     def reset(self, num_agents=None):
@@ -332,7 +341,8 @@ class Environment:
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                self.step(runner.act())
+                actions, logs = runner.act()
+                self.step(actions, logs)
 
         def reset():
             nonlocal runner
@@ -342,7 +352,8 @@ class Environment:
             return self.__get_shared_state(position).observation
 
         def step(action):
-            self.step(runner.act(action))
+            actions, logs = runner.act(action)
+            self.step(actions, logs)
             advance()
             agent = self.__get_shared_state(position)
             reward = agent.reward
@@ -538,7 +549,7 @@ class Environment:
     def __agent_runner(self, agents):
         # Generate the agents.
         agents = [
-            Agent(a, self.configuration, self)
+            Agent(a, self)
             if a is not None
             else None
             for a in agents
@@ -553,6 +564,7 @@ class Environment:
                     "Number of agents must match the state length")
 
             actions = [0] * len(agents)
+            logs = [None] * len(agents)
             for i, agent in enumerate(agents):
                 if self.state[i]["status"] != "ACTIVE":
                     actions[i] = None
@@ -564,8 +576,8 @@ class Environment:
                         initialized[i] = True
                         timeout += self.configuration.agentTimeout
                     state = self.__get_shared_state(i)
-                    actions[i] = agent.act(state["observation"], timeout)
-            return actions
+                    actions[i], logs[i] = agent.act(state["observation"], timeout)
+            return actions, logs
 
         return structify({"act": act})
 

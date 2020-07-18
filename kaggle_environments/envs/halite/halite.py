@@ -40,6 +40,7 @@ def get_to_pos(size, pos, direction):
 
 @board_agent
 def random_agent(board):
+    print("Hello Kaggle!")
     me = board.current_player
     remaining_halite = me.halite
     ships = me.ships
