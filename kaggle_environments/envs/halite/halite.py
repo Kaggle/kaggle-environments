@@ -94,7 +94,6 @@ def populate_board(state, env):
     np.random.seed(config.randomSeed)
     seed(config.randomSeed)
 
-
     # This is a consistent way to generate unique strings to form ship and shipyard ids
     def create_uid():
         nonlocal uid_counter

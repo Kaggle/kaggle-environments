@@ -83,8 +83,6 @@ def render(args, env):
         if args.display is not None \
         else utils.get(args.render, str, "json", path=["mode"])
 
-    print(args)
-
     if mode == "human" or mode == "ansi":
         args.render["mode"] = "ansi"
     elif mode == "ipython" or mode == "html":
