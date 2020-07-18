@@ -17,6 +17,7 @@ import copy
 import json
 from time import time
 import uuid
+from multiprocessing import Pool
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify
@@ -84,6 +85,19 @@ def make(environment, configuration={}, steps=[], logs=[], debug=False):
     raise InvalidArgument("Unknown Environment Specification")
 
 
+def act_agent(args):
+    agent, state, is_initialized, configuration, none_action = args
+    if state["status"] != "ACTIVE":
+        return None, None
+    elif agent is None:
+        return none_action, None
+    else:
+        timeout = configuration.actTimeout
+        if not is_initialized:
+            timeout += configuration.agentTimeout
+        return agent.act(state["observation"], timeout)
+
+
 class Environment:
     def __init__(
         self,
@@ -136,6 +150,7 @@ class Environment:
             self.steps = steps[0:-1] + self.steps
 
         self.logs = logs
+        self.pool = Pool(processes=len(agents))
 
     def step(self, actions, logs=None):
         """
@@ -550,34 +565,24 @@ class Environment:
     def __agent_runner(self, agents):
         # Generate the agents.
         agents = [
-            Agent(a, self)
-            if a is not None
+            Agent(agent, self)
+            if agent is not None
             else None
-            for a in agents
+            for agent in agents
         ]
-
-        # Have the agents had a chance to initialize (first non-empty act).
-        initialized = [False] * len(agents)
 
         def act(none_action=None):
             if len(agents) != len(self.state):
                 raise InvalidArgument(
                     "Number of agents must match the state length")
 
-            actions = [0] * len(agents)
-            logs = [None] * len(agents)
-            for i, agent in enumerate(agents):
-                if self.state[i]["status"] != "ACTIVE":
-                    actions[i] = None
-                elif agent is None:
-                    actions[i] = none_action
-                else:
-                    timeout = self.configuration.actTimeout
-                    if not initialized[i]:
-                        initialized[i] = True
-                        timeout += self.configuration.agentTimeout
-                    state = self.__get_shared_state(i)
-                    actions[i], logs[i] = agent.act(state["observation"], timeout)
+            act_args = [
+                (agent, self.__get_shared_state(i), len(self.steps) == 1, self.configuration, none_action)
+                for i, agent in enumerate(agents)
+            ]
+            results = self.pool.map(act_agent, act_args)
+            # This assignment is just here to show the effects of the unzipping process
+            actions, logs = zip(*results)
             return actions, logs
 
         return structify({"act": act})

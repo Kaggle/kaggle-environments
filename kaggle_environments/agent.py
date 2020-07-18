@@ -57,9 +57,9 @@ def get_last_callable(raw, fallback=None):
         raise InvalidArgument("Invalid raw Python: " + repr(e))
 
 
-def build_agent(raw, environment):
-    if raw in environment.agents:
-        return environment.agents[raw]
+def build_agent(raw, builtin_agents, environment):
+    if raw in builtin_agents:
+        return builtin_agents[raw]
 
     # Already callable.
     if callable(raw):
@@ -75,7 +75,7 @@ def build_agent(raw, environment):
             data = {
                 "action": "act",
                 "configuration": configuration,
-                "environment": environment.name,
+                "environment": environment,
                 "state": {
                     "observation": observation,
                 },
@@ -102,7 +102,9 @@ def build_agent(raw, environment):
 
 class Agent:
     def __init__(self, raw, environment):
-        self.environment = environment
+        self.builtin_agents = environment.agents
+        self.configuration = environment.configuration
+        self.environment = environment.name
         self.raw = raw
         self.agent = None
 
@@ -111,13 +113,13 @@ class Agent:
         start = time()
 
         if self.agent is None:
-            self.agent = build_agent(self.raw, self.environment)
+            self.agent = build_agent(self.raw, self.builtin_agents, self.environment)
             # Add in the initialization timeout since this is the first time this agent is called
-            timeout += self.environment.configuration.agentTimeout
+            timeout += self.configuration.agentTimeout
 
         args = [
            structify(observation),
-           structify(self.environment.configuration)
+           structify(self.configuration)
         ][:self.agent.__code__.co_argcount]
 
         with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):

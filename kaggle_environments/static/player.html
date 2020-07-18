@@ -194,7 +194,7 @@
         let { logs, step } = useContext(Context);
         logs = logs || [];
         let log = step < logs.length ? logs[step] : [];
-        return h`<div className=${props.className}>${log[0].stdout}</div>`
+        return h`<div className=${props.className}>${log[0] && log[0].stdout}</div>`
       })`
       `;
 
