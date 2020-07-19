@@ -15,7 +15,7 @@
 import traceback
 import copy
 import json
-from time import time
+from time import perf_counter
 import uuid
 from multiprocessing import Pool
 from .agent import Agent
@@ -221,8 +221,8 @@ class Environment:
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
         runner = self.__agent_runner(agents)
-        start = time()
-        while not self.done and time() - start < self.configuration.runTimeout:
+        start = perf_counter()
+        while not self.done and perf_counter() - start < self.configuration.runTimeout:
             actions, logs = runner.act()
             self.step(actions, logs)
         return self.steps
@@ -580,7 +580,11 @@ class Environment:
                 (agent, self.__get_shared_state(i), len(self.steps) == 1, self.configuration, none_action)
                 for i, agent in enumerate(agents)
             ]
-            results = self.pool.map(act_agent, act_args)
+
+            results =\
+                self.pool.map(act_agent, act_args) \
+                if self.configuration["isProduction"] \
+                else map(act_agent, act_args)
             # This assignment is just here to show the effects of the unzipping process
             actions, logs = zip(*results)
             return actions, logs

@@ -89,7 +89,8 @@ def populate_board(state, env):
 
     # Set seed for random number generators
     if not hasattr(config, "randomSeed"):
-        config.randomSeed = randrange(sys.maxsize)
+        max_int_32 = 2 ** 31 - 1
+        config.randomSeed = randrange(max_int_32)
 
     np.random.seed(config.randomSeed)
     seed(config.randomSeed)

@@ -19,7 +19,7 @@ import sys
 import traceback
 from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
-from time import time
+from time import perf_counter
 from urllib.parse import urlparse
 from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
@@ -110,7 +110,7 @@ class Agent:
 
     def act(self, observation, timeout=10):
         # Start the timer.
-        start = time()
+        start = perf_counter()
 
         if self.agent is None:
             self.agent = build_agent(self.raw, self.builtin_agents, self.environment)
@@ -133,7 +133,7 @@ class Agent:
             out = out_buffer.getvalue()[0:max_log_length]
             err = err_buffer.getvalue()[0:max_log_length]
 
-        duration = time() - start
+        duration = perf_counter() - start
         log = {
             "duration": round(duration, 6),
             "stdout": out,
