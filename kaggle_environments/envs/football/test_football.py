@@ -230,3 +230,8 @@ def test_deadline():
         }
     ]
 
+
+def test_render():
+    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "tests.penalty", "save_video": True})
+    env.run(["run_right", "run_left"])
+    env.render(mode="ipython", width=800, height=600)

@@ -2,11 +2,11 @@
     "name": "football",
     "agents": [2],
     "configuration": {
-      "episodeSteps": 100,
+      "episodeSteps": 3002,
       "scenario_name": {
-          "description": "Name of the scenario: for example 11_vs_11_stochastic. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
+          "description": "Name of the scenario: for example 11_vs_11_competition. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
-          "default": "11_vs_11_kaggle"
+          "default": "11_vs_11_competition"
       },
       "team_1": {
           "description": "Number of players from the first team that agent controls.",
