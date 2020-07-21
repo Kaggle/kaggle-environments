@@ -15,7 +15,7 @@
 import traceback
 import copy
 import json
-from time import time
+from time import perf_counter
 import uuid
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
@@ -198,8 +198,8 @@ class Environment:
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
         runner = self.__agent_runner(agents)
-        start = time()
-        while not self.done and time() - start < self.configuration.runTimeout:
+        start = perf_counter()
+        while not self.done and perf_counter() - start < self.configuration.runTimeout:
             self.step(runner.act())
         return self.steps
 
