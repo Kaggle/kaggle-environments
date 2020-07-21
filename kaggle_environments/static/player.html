@@ -453,6 +453,20 @@
         const renderCountRef = useRef(0);
         const [_, setRenderCount] = useState(0);
 
+        // These are bindings to the 0-9 keys and are milliseconds of timeout per step
+        const speeds = [
+          0,
+          3000,
+          1000,
+          500,
+          333, // Default
+          200,
+          100,
+          50,
+          25,
+          10,
+        ];
+
         const contextRef = useRef({
           animate: false,
           agents: [],
@@ -469,7 +483,7 @@
           processing: false,
           renderer: () => "DNE",
           settings: false,
-          speed: 4,
+          speed: speeds[4],
           step: 0,
           width: window.innerWidth,
         });
@@ -501,20 +515,6 @@
           }
         };
 
-        // These are bindings to the 0-9 keys and are milliseconds of timeout per step
-        const speeds = [
-          0,
-          3000,
-          1000,
-          500,
-          333, // Default
-          200,
-          100,
-          50,
-          25,
-          10,
-        ];
-
         const play = (contextRef.current.play = (continuing) => {
           const context = contextRef.current;
           if (context.playing && !continuing) return;
@@ -525,7 +525,7 @@
           ) {
             setStep(0);
           }
-          setTimeout(playNext, speeds[context.speed]);
+          setTimeout(playNext, context.speed);
         });
 
         const updateContext = (o) => {
@@ -593,7 +593,7 @@
                   if (step > 0) setStep(step - 1);
                   rerender();
                 } else if (key >= zero_key && key <= nine_key) {
-                  contextRef.current.speed = key - zero_key;
+                  contextRef.current.speed = speeds[key - zero_key];
                 }
                 event.preventDefault();
                 return false;
