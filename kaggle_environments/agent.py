@@ -141,7 +141,7 @@ class Agent:
         }
 
         # Timeout reached, throw an error.
-        if time() - start > timeout:
+        if perf_counter() - start > timeout:
             action = DeadlineExceeded()
 
         return action, log
