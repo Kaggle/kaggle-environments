@@ -55,17 +55,20 @@ def get_last_callable(raw, fallback=None):
         raise InvalidArgument("Invalid raw Python: " + repr(e))
 
 
-def build_agent(raw, environment):
-    if raw in environment.agents:
-        return environment.agents[raw]
+def build_agent(raw, builtin_agents, environment_name):
+    """
+    Returns the agent and whether the agent is picklable.
+    """
+    if raw in builtin_agents:
+        return builtin_agents[raw], False
 
     # Already callable.
     if callable(raw):
-        return raw
+        return raw, False
 
     # Not a string, static action.
     if not isinstance(raw, str):
-        return lambda: raw
+        return lambda: raw, True
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
@@ -73,7 +76,7 @@ def build_agent(raw, environment):
             data = {
                 "action": "act",
                 "configuration": configuration,
-                "environment": environment.name,
+                "environment": environment_name,
                 "state": {
                     "observation": observation,
                 },
@@ -88,31 +91,44 @@ def build_agent(raw, environment):
                 parts = action.split("::", 1)
                 action = BaseException(parts[1])
             return action
-        return url_agent
+        return url_agent, True
 
     # A path exists and attempt to grab the source (fallback to the original string).
     if os.path.exists(raw):
         raw = read_file(raw, raw)
 
     # Attempt to execute the last callable or just return the string.
-    return get_last_callable(raw) or (lambda: raw)
+    agent = None
+
+    def callable_agent(observation, configuration):
+        nonlocal agent
+        if agent is None:
+            agent = get_last_callable(raw) or raw
+        return \
+            agent(observation, configuration) \
+            if callable(agent) \
+            else agent
+
+    return callable_agent, False
 
 
 class Agent:
-    def __init__(self, raw, configuration, environment):
-        self.configuration = configuration
-        self.environment = environment
+    def __init__(self, raw, environment):
+        self.builtin_agents = environment.agents
+        self.configuration = environment.configuration
+        self.environment_name = environment.name
         self.raw = raw
-        self.agent = None
+        self.agent, self.is_picklable = build_agent(self.raw, self.builtin_agents, self.environment_name)
+        self.is_initialized = False
 
     def act(self, observation, timeout=10):
         # Start the timer.
         start = perf_counter()
 
-        if self.agent is None:
-            self.agent = build_agent(self.raw, self.environment)
+        if not self.is_initialized:
             # Add in the initialization timeout since this is the first time this agent is called
             timeout += self.configuration.agentTimeout
+            self.is_initialized = True
 
         args = [
            structify(observation),
