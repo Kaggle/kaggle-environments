@@ -1,10 +1,11 @@
 import importlib
 import json
 from os import path
+import time
 import numpy as np
 
 def renderer(state, env):
-  return html_renderer(env)
+  html_renderer(env)
 
 
 def run_right_agent(obs):
@@ -222,10 +223,10 @@ def html_renderer(env):
   env.football_video_path = None
   data_url = "data:video/webm;base64," + b64encode(video).decode()
 
-  display(
-      HTML("""
+  html = """
 <video width=800 controls>
   <source src="%s" type="video/webm">
 </video>
-""" % data_url))
+""" % data_url
+  display(HTML(html))
   return ""

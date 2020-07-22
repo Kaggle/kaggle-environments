@@ -1,3 +1,17 @@
+// Copyright 2020 Kaggle Inc
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 async function renderer({
   parent,
   // The gamestep we're rendering, starting at 0 and going by default up to 399.
@@ -256,11 +270,11 @@ async function renderer({
 
   const getShipDir = (playerIndex, uid) => {
     for (let s = step; s >= 0; s--) {
-      const action = environment.steps[s][playerIndex].action;
+      const action = environment.steps[s][playerIndex].action || {};
       if (uid in action) return Math.max(directions.indexOf(action[uid]), 0);
     }
     for (let s = step + 1; s < environment.steps.length; s++) {
-      const action = environment.steps[s][playerIndex].action;
+      const action = environment.steps[s][playerIndex].action || {};
       if (uid in action) return Math.max(directions.indexOf(action[uid]), 0);
     }
     return 0;
@@ -468,7 +482,7 @@ async function renderer({
       (player, playerIndex) => {
         const status = state[playerIndex].status;
         const [, shipyards, ships] = player;
-        const action = environment.steps[step][playerIndex].action;
+        const action = environment.steps[step][playerIndex].action || {};
         // Stationary ships collecting Halite.
         Object.entries(ships).forEach(([uid, [pos]]) => {
           if (uid in action) return;

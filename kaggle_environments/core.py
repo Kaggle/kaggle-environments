@@ -85,7 +85,6 @@ def make(environment, configuration={}, steps=[], debug=False):
 
 
 class Environment:
-
     def __init__(
         self,
         specification={},
@@ -202,7 +201,6 @@ class Environment:
         start = time()
         while not self.done and time() - start < self.configuration.runTimeout:
             self.step(runner.act())
-        runner.destroy()
         return self.steps
 
     def reset(self, num_agents=None):
@@ -265,6 +263,7 @@ class Environment:
                                      self.html_renderer(*args[:self.html_renderer.__code__.co_argcount]))
             if mode == "html":
                 return player_html
+
             from IPython.display import display, HTML
             player_html = player_html.replace('"', '&quot;')
             width = get(kwargs, int, 300, path=["width"])
@@ -274,8 +273,7 @@ class Environment:
         elif mode == "json":
             return json.dumps(self.toJSON(), sort_keys=True)
         else:
-            raise InvalidArgument(
-                "Available render modes: human, ansi, html, ipython")
+            raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
     def play(self, agents=[], **kwargs):
         """
@@ -339,8 +337,6 @@ class Environment:
         def reset():
             nonlocal runner
             self.reset(len(agents))
-            if runner != None:
-                runner.destroy()
             runner = self.__agent_runner(agents)
             advance()
             return self.__get_shared_state(position).observation
@@ -352,8 +348,6 @@ class Environment:
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
-            if self.done:
-                runner.destroy()
             return [
                 agent.observation, reward, agent.status != "ACTIVE", agent.info
             ]
@@ -453,7 +447,6 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-
     def __set_state(self, state=[]):
         if len(state) not in self.specification.agents:
             raise InvalidArgument(
@@ -543,14 +536,9 @@ class Environment:
         return process_schema(schemas.specification, spec)
 
     def __agent_runner(self, agents):
-        # Replace default agents with their source.
-        for i, agent in enumerate(agents):
-            if has(self.agents, path=[agent]):
-                agents[i] = self.agents[agent]
-
         # Generate the agents.
         agents = [
-            Agent(a, self.configuration, self.name, debug=self.debug)
+            Agent(a, self.configuration, self)
             if a is not None
             else None
             for a in agents
@@ -568,7 +556,7 @@ class Environment:
             for i, agent in enumerate(agents):
                 if self.state[i]["status"] != "ACTIVE":
                     actions[i] = None
-                elif agent == None:
+                elif agent is None:
                     actions[i] = none_action
                 else:
                     timeout = self.configuration.actTimeout
@@ -576,15 +564,10 @@ class Environment:
                         initialized[i] = True
                         timeout += self.configuration.agentTimeout
                     state = self.__get_shared_state(i)
-                    actions[i] = agent.act(state, timeout)
+                    actions[i] = agent.act(state["observation"], timeout)
             return actions
 
-        def destroy():
-            for a in agents:
-                if a != None:
-                    a.destroy()
-
-        return structify({"act": act, "destroy": destroy})
+        return structify({"act": act})
 
     def __get_shared_state(self, position):
         if position == 0:
