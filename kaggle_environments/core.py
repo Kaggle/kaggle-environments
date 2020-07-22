@@ -86,16 +86,13 @@ def make(environment, configuration={}, steps=[], debug=False):
 
 
 def act_agent(args):
-    agent, state, is_initialized, configuration, none_action = args
+    agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
         return None
     elif agent is None:
         return none_action
     else:
-        timeout = configuration.actTimeout
-        if not is_initialized:
-            timeout += configuration.agentTimeout
-        return agent.act(state["observation"], timeout)
+        return agent.act(state["observation"])
 
 
 class Environment:
@@ -569,7 +566,6 @@ class Environment:
                 (
                     agent,
                     self.__get_shared_state(i),
-                    len(self.steps) == 1,
                     self.configuration,
                     none_action,
                 )

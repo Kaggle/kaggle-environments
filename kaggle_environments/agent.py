@@ -121,10 +121,8 @@ class Agent:
         self.agent, self.is_picklable = build_agent(self.raw, self.builtin_agents, self.environment_name)
         self.is_initialized = False
 
-    def act(self, observation, timeout=10):
-        # Start the timer.
-        start = perf_counter()
-
+    def act(self, observation):
+        timeout = self.configuration.actTimeout
         if not self.is_initialized:
             # Add in the initialization timeout since this is the first time this agent is called
             timeout += self.configuration.agentTimeout
@@ -135,6 +133,8 @@ class Agent:
            structify(self.configuration)
         ][:self.agent.__code__.co_argcount]
 
+        # Start the timer.
+        start = perf_counter()
         try:
             action = self.agent(*args)
         except Exception as e:
