@@ -141,7 +141,7 @@ class Agent:
         }
 
         # Timeout reached, throw an error.
-        if duration > timeout:
+        if time() - start > timeout:
             action = DeadlineExceeded()
 
         return action, log

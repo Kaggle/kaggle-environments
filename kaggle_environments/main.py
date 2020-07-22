@@ -162,8 +162,8 @@ def action_load(args):
         with open(args.log_path, mode="r") as log_file:
             args.logs = json.load(log_file)
 
-    if args.input is not None:
-        with open(args.input, mode="r") as replay_file:
+    if args.in_path is not None:
+        with open(args.in_path, mode="r") as replay_file:
             json_args = json.load(replay_file)
         env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.logs, args.debug)
     else:
@@ -204,7 +204,7 @@ def parse_args(args):
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
             "port": utils.get(args, int, 8000, ["port"]),
-            "input": utils.get(args, str, None, ["in"]),
+            "in_path": utils.get(args, str, None, ["in"]),
             "out_path": utils.get(args, str, None, ["out"]),
             "log_path": utils.get(args, str, None, ["log"]),
         }
@@ -215,13 +215,13 @@ def action_handler(args):
     try:
         if args.action == "list":
             return action_list(args)
-        elif args.action == "http-server":
+        if args.action == "http-server":
             return {"error": "Already running a http server."}
-        elif args.action == "act":
+        if args.action == "act":
             return action_act(args)
-        elif args.action == "dispose":
+        if args.action == "dispose":
             return action_dispose(args)
-        elif args.action == "load":
+        if args.action == "load":
             return action_load(args)
 
         if args.environment is None:
@@ -229,12 +229,11 @@ def action_handler(args):
 
         if args.action == "evaluate":
             return action_evaluate(args)
-        elif args.action == "step":
+        if args.action == "step":
             return action_step(args)
-        elif args.action == "run":
+        if args.action == "run":
             return action_run(args)
-        else:
-            return {"error": "Unknown Action"}
+        return {"error": "Unknown Action"}
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
@@ -305,6 +304,8 @@ def http_request(request):
     body = request.get_json(silent=True, force=True) or {}
     args = {**params, **body}
     if "render" in args:
+        # Manually deserialize render argument
+        # We should eventually refactor this to use the same deserializer as the cmd line arg parser
         args["render"] = json.loads(args["render"])
     args = parse_args(args)
     if args.log_path is None:
