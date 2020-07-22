@@ -105,10 +105,11 @@ class Agent:
         self.raw = raw
         self.agent = None
 
-    def act(self, observation, timeout=10):
+    def act(self, observation):
         # Start the timer.
         start = perf_counter()
 
+        timeout = self.configuration.actTimeout
         if self.agent is None:
             self.agent = build_agent(self.raw, self.environment)
             # Add in the initialization timeout since this is the first time this agent is called
