@@ -1,7 +1,6 @@
 import importlib
 import json
 from os import path
-import time
 import numpy as np
 
 def renderer(state, env):
