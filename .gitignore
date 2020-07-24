@@ -132,3 +132,6 @@ dmypy.json
 temp.*
 
 .idea/
+
+# Git merge artifacts
+*.orig

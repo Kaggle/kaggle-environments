@@ -53,7 +53,12 @@ parser.add_argument(
 parser.add_argument(
     "--render",
     type=json.loads,
-    help="Response from run, step, or load. Calls environment render. (default={mode='json'})",
+    help="Response from run, step, or load. Calls environment render (default={mode='json'}).",
+)
+parser.add_argument(
+    "--display",
+    type=str,
+    help="Shortcut to the --render {mode=''} argument (default json).",
 )
 parser.add_argument(
     "--port", type=int, help="http-server Port (default=8000)."
@@ -62,12 +67,19 @@ parser.add_argument(
     "--host", type=str, help="http-server Host (default=127.0.0.1)."
 )
 parser.add_argument(
-    "--out", type=str, help="Output file to write the results of the episode."
+    "--in", type=str, help="Episode replay file to load. Only works when the action is load."
+)
+parser.add_argument(
+    "--out", type=str, help="Output file to write the results of the episode. Does nothing in http-server mode."
 )
 
 
 def render(args, env):
-    mode = utils.get(args.render, str, "json", path=["mode"])
+    mode = \
+        args.display \
+        if args.display is not None \
+        else utils.get(args.render, str, "json", path=["mode"])
+
     if mode == "human" or mode == "ansi":
         args.render["mode"] = "ansi"
     elif mode == "ipython" or mode == "html":
@@ -131,7 +143,12 @@ def action_run(args):
 
 
 def action_load(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    if args.in_path is not None:
+        with open(args.in_path, mode="r") as replay_file:
+            json_args = json.load(replay_file)
+        env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.debug)
+    else:
+        env = make(args.environment, args.configuration, args.steps, args.debug)
     return render(args, env)
 
 
@@ -146,10 +163,12 @@ def parse_args(args):
             "state": utils.get(args, dict, {}, ["state"]),
             "steps": utils.get(args, list, [], ["steps"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
+            "display": utils.get(args, str, None, ["display"]),
             "debug": utils.get(args, bool, False, ["debug"]),
             "host": utils.get(args, str, "127.0.0.1", ["host"]),
             "port": utils.get(args, int, 8000, ["port"]),
-            "out": utils.get(args, str, None, ["out"]),
+            "in_path": utils.get(args, str, None, ["in"]),
+            "out_path": utils.get(args, str, None, ["out"]),
         }
     )
 
@@ -158,24 +177,24 @@ def action_handler(args):
     try:
         if args.action == "list":
             return action_list(args)
-        elif args.action == "http-server":
+        if args.action == "http-server":
             return {"error": "Already running a http server."}
-        elif args.action == "act":
+        if args.action == "act":
             return action_act(args)
+        if args.action == "load":
+            return action_load(args)
 
         if args.environment is None:
             return {"error": "Environment required."}
 
         if args.action == "evaluate":
             return action_evaluate(args)
-        elif args.action == "step":
+        if args.action == "step":
             return action_step(args)
-        elif args.action == "run":
+        if args.action == "run":
             return action_run(args)
-        elif args.action == "load":
-            return action_load(args)
-        else:
-            return {"error": "Unknown Action"}
+
+        return {"error": "Unknown Action"}
     except Exception as e:
         return {"error": str(e), "trace": traceback.format_exc()}
 
@@ -230,21 +249,25 @@ def http_request(request):
             del params[key]
 
     body = request.get_json(silent=True, force=True) or {}
-    req = parse_args({**params, **body})
-    resp = action_handler(req)
+    args = {**params, **body}
+    if "render" in args:
+        # Manually deserialize render argument
+        # We should eventually refactor this to use the same deserializer as the cmd line arg parser
+        args["render"] = json.loads(args["render"])
+    resp = action_handler(parse_args(args))
     return resp, 200, headers
 
 
 def main():
-    args = parser.parse_args()
+    args = parse_args(vars(parser.parse_args()))
     if args.action == "http-server":
         action_http(args)
     else:
-        result = action_handler(parse_args(vars(args)))
-        if args.out is None:
+        result = action_handler(args)
+        if args.out_path is None:
             print(result)
         else:
-            with open(args.out, mode="w") as out_file:
+            with open(args.out_path, mode="w") as out_file:
                 out_file.write(str(result))
 
         return 0

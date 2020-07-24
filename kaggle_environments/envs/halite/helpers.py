@@ -566,7 +566,7 @@ class Board:
                 raw_action = player_actions.get(ship_id)
                 action = (
                     ShipAction[raw_action]
-                    if raw_action is not None
+                    if raw_action in ShipAction.__members__
                     else None
                 )
                 self._add_ship(Ship(ship_id, ship_position, ship_halite, player_id, self, action))
@@ -576,7 +576,7 @@ class Board:
                 raw_action = player_actions.get(shipyard_id)
                 action = (
                     ShipyardAction[raw_action]
-                    if raw_action is not None
+                    if raw_action in ShipyardAction.__members__
                     else None
                 )
                 self._add_shipyard(Shipyard(shipyard_id, shipyard_position, player_id, self, action))
