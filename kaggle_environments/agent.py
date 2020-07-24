@@ -17,7 +17,7 @@ import os
 import requests
 import sys
 from io import StringIO
-from time import time
+from time import perf_counter
 from urllib.parse import urlparse
 from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
@@ -105,10 +105,11 @@ class Agent:
         self.raw = raw
         self.agent = None
 
-    def act(self, observation, timeout=10):
+    def act(self, observation):
         # Start the timer.
-        start = time()
+        start = perf_counter()
 
+        timeout = self.configuration.actTimeout
         if self.agent is None:
             self.agent = build_agent(self.raw, self.environment)
             # Add in the initialization timeout since this is the first time this agent is called
@@ -125,7 +126,7 @@ class Agent:
             action = e
 
         # Timeout reached, throw an error.
-        if time() - start > timeout:
+        if perf_counter() - start > timeout:
             return DeadlineExceeded()
 
         return action

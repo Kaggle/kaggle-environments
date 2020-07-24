@@ -74,7 +74,7 @@
         }
     },
     "action": {
-      "description": "A Button to press for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md",
+      "description": "An action to execute for each player that agent controls: 0-idle, 1-left, 2-top_left, etc. See https://github.com/google-research/football/blob/master/gfootball/doc/observation.md",
       "type": "array",
       "items": {
         "type": "number",

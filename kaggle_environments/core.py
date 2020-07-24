@@ -15,7 +15,7 @@
 import traceback
 import copy
 import json
-from time import time
+from time import perf_counter
 import uuid
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
@@ -198,8 +198,8 @@ class Environment:
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
         runner = self.__agent_runner(agents)
-        start = time()
-        while not self.done and time() - start < self.configuration.runTimeout:
+        start = perf_counter()
+        while not self.done and perf_counter() - start < self.configuration.runTimeout:
             self.step(runner.act())
         return self.steps
 
@@ -544,9 +544,6 @@ class Environment:
             for a in agents
         ]
 
-        # Have the agents had a chance to initialize (first non-empty act).
-        initialized = [False] * len(agents)
-
         def act(none_action=None):
             if len(agents) != len(self.state):
                 raise InvalidArgument(
@@ -559,12 +556,8 @@ class Environment:
                 elif agent is None:
                     actions[i] = none_action
                 else:
-                    timeout = self.configuration.actTimeout
-                    if not initialized[i]:
-                        initialized[i] = True
-                        timeout += self.configuration.agentTimeout
                     state = self.__get_shared_state(i)
-                    actions[i] = agent.act(state["observation"], timeout)
+                    actions[i] = agent.act(state["observation"])
             return actions
 
         return structify({"act": act})

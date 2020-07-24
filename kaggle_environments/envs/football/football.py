@@ -6,7 +6,7 @@ import uuid
 
 
 def renderer(state, env):
-    return "inline rendering not supported."
+    html_renderer(env)
 
 
 def run_right_agent(obs):
@@ -104,6 +104,14 @@ def cleanup_all():
     del m_envs
 
 
+def retrieve_video_link(dumps):
+    for entry in dumps:
+        if entry['name'] == 'episode_done':
+            print("Received video link.")
+            return entry['video']
+    return None
+
+
 def interpreter(state, env):
     global m_envs
     if "id" not in env.configuration or env.configuration.id is None:
@@ -111,7 +119,7 @@ def interpreter(state, env):
 
     if (env.configuration.id not in m_envs) or env.done:
         if env.configuration.id not in m_envs:
-            print("Starting a new environment %s: with scenario: %s" %
+            print("Staring a new environment %s: with scenario: %s" %
                   (env.configuration.id, env.configuration.scenario_name))
 
             other_config_options = {}
@@ -179,10 +187,7 @@ def interpreter(state, env):
     obs, rew, done, info = m_envs[env.configuration.id].step(actions_to_env)
 
     if "dumps" in info:
-        print("Episode finished - received video link.")
-        for entry in info["dumps"]:
-            if entry['name'] == 'episode_done':
-                env.football_video_path = entry['video']
+        env.football_video_path = retrieve_video_link(info["dumps"])
 
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
@@ -205,19 +210,27 @@ with open(jsonpath) as f:
 
 def html_renderer(env):
     if not env.football_video_path:
-        raise Exception(
-            "No video found. Did episode finish successfully? Was environment created with save_video enabled?"
-        )
+        trace = m_envs[env.configuration.id].env._env._trace
+        trace._dump_config['episode_done']._min_frequency = 0
+        dumps = trace.process_pending_dumps(True)
+        env.football_video_path = retrieve_video_link(dumps)
+        if not env.football_video_path:
+            raise Exception(
+                "No video found. Was environment created with save_video enabled?"
+            )
+        trace.write_dump('episode_done')
 
     from IPython.display import display, HTML
     from base64 import b64encode
 
     video = open(env.football_video_path, 'rb').read()
+    env.football_video_path = None
     data_url = "data:video/webm;base64," + b64encode(video).decode()
 
-    display(
-        HTML("""
+    html = """
 <video width=800 controls>
   <source src="%s" type="video/webm">
 </video>
-""" % data_url))
+""" % data_url
+    display(HTML(html))
+    return ""
