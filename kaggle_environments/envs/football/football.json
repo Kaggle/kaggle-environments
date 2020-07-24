@@ -8,6 +8,11 @@
           "type": "string",
           "default": "11_vs_11_competition"
       },
+      "id": {
+          "description": "Id of this environment run, a random uuid.",
+          "type": "string",
+          "default": null
+      },
       "team_1": {
           "description": "Number of players from the first team that agent controls.",
           "type": "integer",
