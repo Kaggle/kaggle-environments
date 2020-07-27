@@ -572,7 +572,7 @@ class Environment:
                 for i, agent in enumerate(agents)
             ]
 
-            if all(agent.is_picklable for agent in agents):
+            if all(agent.is_parallelizable for agent in agents):
                 if self.pool is None:
                     self.pool = Pool(processes=len(agents))
                 return self.pool.map(act_agent, act_args)

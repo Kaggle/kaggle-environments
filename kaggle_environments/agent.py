@@ -57,7 +57,7 @@ def get_last_callable(raw, fallback=None):
 
 def build_agent(raw, builtin_agents, environment_name):
     """
-    Returns the agent and whether the agent is picklable.
+    Returns the agent and whether the agent is parallelizable.
     """
     if raw in builtin_agents:
         return builtin_agents[raw], False
@@ -118,7 +118,7 @@ class Agent:
         self.configuration = environment.configuration
         self.environment_name = environment.name
         self.raw = raw
-        self.agent, self.is_picklable = build_agent(self.raw, self.builtin_agents, self.environment_name)
+        self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
         self.is_initialized = False
 
     def act(self, observation):
