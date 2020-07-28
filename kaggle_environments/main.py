@@ -114,13 +114,11 @@ def action_act(args):
     # Pass empty steps in here because we just need the configuration from the environment
     env = make(args.environment, args.configuration, [], args.debug)
     config = env.configuration
-    timeout = config.actTimeout
 
     if cached_agent is None or cached_agent.raw != raw:
-        cached_agent = Agent(raw, env)
-        timeout = config.agentTimeout
+        cached_agent = Agent(raw, config, env)
     observation = utils.get(args.state, dict, {}, ["observation"])
-    action = cached_agent.act(observation, timeout)
+    action = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
