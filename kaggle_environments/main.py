@@ -111,12 +111,10 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
-    # Pass empty steps in here because we just need the configuration from the environment
-    env = make(args.environment, args.configuration, [], args.debug)
-    config = env.configuration
+    env = make(args.environment, args.configuration, [args.state], args.debug)
 
     if cached_agent is None or cached_agent.raw != raw:
-        cached_agent = Agent(raw, config, env)
+        cached_agent = Agent(raw, env)
     observation = utils.get(args.state, dict, {}, ["observation"])
     action = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):

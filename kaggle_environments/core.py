@@ -157,7 +157,6 @@ class Environment:
         Returns:
             list of dict: The agents states after the step.
         """
-
         if self.done:
             raise FailedPrecondition("Environment done, reset required.")
         if not actions or len(actions) != len(self.state):
@@ -572,12 +571,12 @@ class Environment:
                 for i, agent in enumerate(agents)
             ]
 
-            if all(agent.is_parallelizable for agent in agents):
+            if all((agent is None or agent.is_parallelizable) for agent in agents):
                 if self.pool is None:
                     self.pool = Pool(processes=len(agents))
                 return self.pool.map(act_agent, act_args)
 
-            return map(act_agent, act_args)
+            return list(map(act_agent, act_args))
 
         return structify({"act": act})
 
