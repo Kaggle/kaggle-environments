@@ -72,7 +72,6 @@ class UrlAgent:
         }
         response = requests.post(url=self.raw, data=json.dumps(data))
         response_json = response.json()
-        print(response_json)
         action = response_json["action"]
         if action == "DeadlineExceeded":
             action = DeadlineExceeded()
