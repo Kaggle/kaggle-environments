@@ -96,7 +96,7 @@ def build_agent(raw, builtin_agents, environment_name):
 
     # Not a string, static action.
     if not isinstance(raw, str):
-        return lambda: raw, True
+        return lambda: raw, False
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
@@ -137,10 +137,18 @@ class Agent:
             timeout += self.configuration.agentTimeout
             self.is_initialized = True
 
+        args = [
+            structify(observation),
+            structify(self.configuration)
+        ]
+
+        if hasattr(self.agent, "__code__"):
+            args = args[:self.agent.__code__.co_argcount]
+
         # Start the timer.
         start = perf_counter()
         try:
-            action = self.agent(structify(observation), structify(self.configuration))
+            action = self.agent(*args)
         except Exception as e:
             action = e
 
