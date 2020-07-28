@@ -116,7 +116,7 @@ def action_act(args):
     config = env.configuration
 
     if cached_agent is None or cached_agent.raw != raw:
-        cached_agent = Agent(raw, config, env)
+        cached_agent = Agent(raw, env)
     observation = utils.get(args.state, dict, {}, ["observation"])
     action = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):

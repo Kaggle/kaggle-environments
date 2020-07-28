@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import json
 import os
 import requests
@@ -55,6 +56,33 @@ def get_last_callable(raw, fallback=None):
         raise InvalidArgument("Invalid raw Python: " + repr(e))
 
 
+class UrlAgent:
+    def __init__(self, raw, environment_name):
+        self.raw = raw
+        self.environment_name = environment_name
+
+    def __call__(self, observation, configuration):
+        data = {
+            "action": "act",
+            "configuration": configuration,
+            "environment": self.environment_name,
+            "state": {
+                "observation": observation,
+            },
+        }
+        response = requests.post(url=self.raw, data=json.dumps(data))
+        response_json = response.json()
+        print(response_json)
+        action = response_json["action"]
+        if action == "DeadlineExceeded":
+            action = DeadlineExceeded()
+        elif isinstance(action, str) and action.startswith("BaseException::"):
+            # Deserialize the exception message
+            parts = action.split("::", 1)
+            action = BaseException(parts[1])
+        return action
+
+
 def build_agent(raw, builtin_agents, environment_name):
     """
     Returns the agent and whether the agent is parallelizable.
@@ -72,26 +100,7 @@ def build_agent(raw, builtin_agents, environment_name):
 
     # A URL and will be initialized on the calling server.
     if is_url(raw):
-        def url_agent(observation, configuration):
-            data = {
-                "action": "act",
-                "configuration": configuration,
-                "environment": environment_name,
-                "state": {
-                    "observation": observation,
-                },
-            }
-            response = requests.post(url=raw, data=json.dumps(data))
-            response_json = response.json()
-            action = response_json["action"]
-            if action == "DeadlineExceeded":
-                action = DeadlineExceeded()
-            elif isinstance(action, str) and action.startswith("BaseException::"):
-                # Deserialize the exception message
-                parts = action.split("::", 1)
-                action = BaseException(parts[1])
-            return action
-        return url_agent, True
+        return UrlAgent(raw, environment_name), True
 
     # A path exists and attempt to grab the source (fallback to the original string).
     if os.path.exists(raw):
@@ -128,15 +137,10 @@ class Agent:
             timeout += self.configuration.agentTimeout
             self.is_initialized = True
 
-        args = [
-           structify(observation),
-           structify(self.configuration)
-        ][:self.agent.__code__.co_argcount]
-
         # Start the timer.
         start = perf_counter()
         try:
-            action = self.agent(*args)
+            action = self.agent(structify(observation), structify(self.configuration))
         except Exception as e:
             action = e
 

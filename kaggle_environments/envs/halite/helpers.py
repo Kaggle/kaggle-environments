@@ -14,8 +14,10 @@
 
 from copy import deepcopy
 from enum import Enum, auto
+from functools import wraps
 from typing import *
 import operator
+import sys
 
 
 # region Helper Classes and Methods
@@ -840,8 +842,12 @@ def board_agent(agent: Callable[[Board], None]):
     def my_agent(board: Board) -> None:
         ...
     """
+    @wraps(agent)
     def agent_wrapper(obs, config) -> Dict[str, str]:
         board = Board(obs, config)
         agent(board)
         return board.current_player.next_actions
+
+    if agent.__module__ is not None and agent.__module__ in sys.modules:
+        setattr(sys.modules[agent.__module__], agent.__name__, agent_wrapper)
     return agent_wrapper
