@@ -177,7 +177,7 @@ def action_load(args):
 disposed = True
 
 
-# This method is only called at the end of an episode to write the final array brace in the logs file
+# This method is only called at the end of an episode to write the final array brace in the logs file and dispose the cached agent to force reinitialization
 def action_dispose(args):
     global cached_agent, disposed
     if disposed:
@@ -277,9 +277,10 @@ def action_http(args):
 def http_request(request):
     global disposed
     # Write the opening array brace for the logs file if there is a logs file.
-    if disposed and log_path is not None:
-        with open(log_path, mode="w") as log_file:
-            log_file.write("[")
+    if disposed:
+        if log_path is not None:
+            with open(log_path, mode="w") as log_file:
+                log_file.write("[")
         disposed = False
 
     # Set CORS headers for the preflight request
