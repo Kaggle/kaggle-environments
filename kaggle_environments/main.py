@@ -15,6 +15,7 @@
 import argparse
 import json
 import traceback
+from typing import *
 from . import errors, utils
 from .agent import Agent
 from .core import environments, evaluate, make
@@ -121,14 +122,11 @@ def action_act(args):
 
     # Pass empty steps in here because we just need the configuration from the environment
     env = make(args.environment, args.configuration, [], args.debug)
-    config = env.configuration
-    timeout = config.actTimeout
 
     if cached_agent is None or cached_agent.raw != raw:
         cached_agent = Agent(raw, env)
-        timeout = config.agentTimeout
     observation = utils.get(args.state, dict, {}, ["observation"])
-    action, log = cached_agent.act(observation, timeout)
+    action, log = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
@@ -244,20 +242,15 @@ def action_handler(args):
         return {"error": str(e), "trace": traceback.format_exc()}
 
 
-log_path = None
+log_path: Optional[str] = None
 
 
 def action_http(args):
-    global disposed
-    disposed = False
-    # Write the opening array brace for the logs file if there is a logs file.
+    from flask import Flask, request
+
     if args.log_path is not None:
         global log_path
         log_path = args.log_path
-        with open(log_path, mode="w") as log_file:
-            log_file.write("[")
-
-    from flask import Flask, request
 
     # Setup logging to console for Flask
     dictConfig({
@@ -282,6 +275,13 @@ def action_http(args):
 
 
 def http_request(request):
+    global disposed
+    # Write the opening array brace for the logs file if there is a logs file.
+    if disposed and log_path is not None:
+        with open(log_path, mode="w") as log_file:
+            log_file.write("[")
+        disposed = False
+
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type

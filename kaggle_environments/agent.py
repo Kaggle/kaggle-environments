@@ -85,6 +85,7 @@ def build_agent(raw, builtin_agents, environment_name):
             }
             response = requests.post(url=raw, data=json.dumps(data))
             response_json = response.json()
+            print(response_json)
             action = response_json["action"]
             if action == "DeadlineExceeded":
                 action = DeadlineExceeded()
