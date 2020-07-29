@@ -130,6 +130,7 @@ class Agent:
     def __init__(self, raw, environment):
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
+        self.debug = environment.debug
         self.environment_name = environment.name
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
@@ -170,6 +171,12 @@ class Agent:
             "stdout": out,
             "stderr": err,
         }
+
+        if self.debug:
+            if not log["stdout"].isspace():
+                print(log["stdout"], end="")
+            if not log["stderr"].isspace():
+                print(log["stderr"], end="")
 
         # Timeout reached, throw an error.
         if perf_counter() - start > timeout:
