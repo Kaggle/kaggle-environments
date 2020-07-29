@@ -255,7 +255,7 @@ Running above essentially just steps until no agent is still active. To execute 
 ```python
 agent1_action = agent1(env.state[0].observation)
 agent2_action = agent2(env.state[1].observation)
-state = env.step(agent1_action, agent2_action)
+state = env.step([agent1_action, agent2_action])
 ```
 
 ## Playing

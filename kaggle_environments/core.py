@@ -15,8 +15,9 @@
 import traceback
 import copy
 import json
-from time import time
 import uuid
+from multiprocessing import Pool
+from time import perf_counter
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify
@@ -84,6 +85,16 @@ def make(environment, configuration={}, steps=[], debug=False):
     raise InvalidArgument("Unknown Environment Specification")
 
 
+def act_agent(args):
+    agent, state, configuration, none_action = args
+    if state["status"] != "ACTIVE":
+        return None
+    elif agent is None:
+        return none_action
+    else:
+        return agent.act(state["observation"])
+
+
 class Environment:
     def __init__(
         self,
@@ -134,6 +145,8 @@ class Environment:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
 
+        self.pool = None
+
     def step(self, actions):
         """
         Execute the environment interpreter using the current state and a list of actions.
@@ -144,7 +157,6 @@ class Environment:
         Returns:
             list of dict: The agents states after the step.
         """
-
         if self.done:
             raise FailedPrecondition("Environment done, reset required.")
         if not actions or len(actions) != len(self.state):
@@ -198,8 +210,8 @@ class Environment:
                 f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
         runner = self.__agent_runner(agents)
-        start = time()
-        while not self.done and time() - start < self.configuration.runTimeout:
+        start = perf_counter()
+        while not self.done and perf_counter() - start < self.configuration.runTimeout:
             self.step(runner.act())
         return self.steps
 
@@ -538,34 +550,33 @@ class Environment:
     def __agent_runner(self, agents):
         # Generate the agents.
         agents = [
-            Agent(a, self.configuration, self)
-            if a is not None
+            Agent(agent, self)
+            if agent is not None
             else None
-            for a in agents
+            for agent in agents
         ]
-
-        # Have the agents had a chance to initialize (first non-empty act).
-        initialized = [False] * len(agents)
 
         def act(none_action=None):
             if len(agents) != len(self.state):
                 raise InvalidArgument(
                     "Number of agents must match the state length")
 
-            actions = [0] * len(agents)
-            for i, agent in enumerate(agents):
-                if self.state[i]["status"] != "ACTIVE":
-                    actions[i] = None
-                elif agent is None:
-                    actions[i] = none_action
-                else:
-                    timeout = self.configuration.actTimeout
-                    if not initialized[i]:
-                        initialized[i] = True
-                        timeout += self.configuration.agentTimeout
-                    state = self.__get_shared_state(i)
-                    actions[i] = agent.act(state["observation"], timeout)
-            return actions
+            act_args = [
+                (
+                    agent,
+                    self.__get_shared_state(i),
+                    self.configuration,
+                    none_action,
+                )
+                for i, agent in enumerate(agents)
+            ]
+
+            if all((agent is None or agent.is_parallelizable) for agent in agents):
+                if self.pool is None:
+                    self.pool = Pool(processes=len(agents))
+                return self.pool.map(act_agent, act_args)
+
+            return list(map(act_agent, act_args))
 
         return structify({"act": act})
 

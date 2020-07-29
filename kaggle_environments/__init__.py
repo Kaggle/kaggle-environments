@@ -21,7 +21,7 @@ from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "1.0.13"
+__version__ = "1.1.0"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
