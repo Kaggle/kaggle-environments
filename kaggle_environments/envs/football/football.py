@@ -49,6 +49,7 @@ def parse_single_player(obs_raw_entry):
 
 def update_observations_and_rewards(configuration, state, obs, rew=None):
     """Updates agent-visible observations given 'raw' observations from environment.
+
     Observations in 'obs' are coming directly from the environment and are in 'raw' format.
     """
     state[0].observation.controlled_players = configuration.team_1
