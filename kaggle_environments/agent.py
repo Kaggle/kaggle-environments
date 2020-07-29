@@ -112,8 +112,12 @@ def build_agent(raw, builtin_agents, environment_name):
         nonlocal agent
         if agent is None:
             agent = get_last_callable(raw) or raw
+
+        args = [observation, configuration]
+        args = args[:agent.__code__.co_argcount]
+
         return \
-            agent(observation, configuration) \
+            agent(*args) \
             if callable(agent) \
             else agent
 
