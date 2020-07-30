@@ -63,7 +63,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, steps=[], debug=False):
+def make(environment, configuration={}, steps=[], debug=False, state=None):
     """
     Creates an instance of an Environment.
 
@@ -77,11 +77,11 @@ def make(environment, configuration={}, steps=[], debug=False):
         Environment: Instance of a specific environment.
     """
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, steps=steps, debug=debug)
+        return Environment(**environments[environment], configuration=configuration, steps=steps, debug=debug, state=state)
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, steps=steps, debug=debug)
+        return Environment(interpreter=environment, configuration=configuration, steps=steps, debug=debug, state=state)
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, steps=steps, debug=debug)
+        return Environment(**environment, configuration=configuration, steps=steps, debug=debug, state=state)
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -106,6 +106,7 @@ class Environment:
         renderer=None,
         html_renderer=None,
         debug=False,
+        state=None,
     ):
         self.id = str(uuid.uuid1())
         self.debug = debug
@@ -139,11 +140,15 @@ class Environment:
             raise InvalidArgument("Default agents must be Callable.")
         self.agents = structify(agents)
 
-        if steps is None or len(steps) == 0:
-            self.reset()
-        else:
+        if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
+        elif state is not None:
+            step = [{}] * self.specification.agents[0]
+            step[0] = state
+            self.__set_state(step)
+        else:
+            self.reset()
 
         self.pool = None
 
