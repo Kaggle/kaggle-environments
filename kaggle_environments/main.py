@@ -122,7 +122,8 @@ def action_act(args):
 
     env = make(args.environment, args.configuration, [args.state], args.debug)
 
-    if cached_agent is None or cached_agent.raw != raw:
+    is_first_run = cached_agent is None or cached_agent.raw != raw
+    if is_first_run:
         cached_agent = Agent(raw, env)
     observation = utils.get(args.state, dict, {}, ["observation"])
     action, log = cached_agent.act(observation)
@@ -133,8 +134,9 @@ def action_act(args):
 
     if args.log_path is not None:
         with open(args.log_path, mode="a") as log_file:
+            if not is_first_run:
+                log_file.write(",\n ")
             json.dump([log], log_file)
-            log_file.write(",\n ")
 
     return {"action": action}
 
@@ -274,14 +276,6 @@ def action_http(args):
 
 
 def http_request(request):
-    global disposed
-    # Write the opening array brace for the logs file if there is a logs file.
-    if disposed:
-        if log_path is not None:
-            with open(log_path, mode="w") as log_file:
-                log_file.write("[")
-        disposed = False
-
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
@@ -314,6 +308,14 @@ def http_request(request):
     args = parse_args(args)
     if args.log_path is None:
         args.log_path = log_path
+
+    global disposed
+    # Write the opening array brace for the logs file if there is a logs file.
+    if disposed and args["action"] != "dispose" and args.log_path is not None:
+        with open(args.log_path, mode="w") as log_file:
+            log_file.write("[")
+        disposed = False
+
     resp = action_handler(args)
     return resp, 200, headers
 
