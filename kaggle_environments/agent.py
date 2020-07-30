@@ -17,6 +17,8 @@ import json
 import os
 import requests
 import sys
+import traceback
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from time import perf_counter
 from urllib.parse import urlparse
@@ -128,6 +130,7 @@ class Agent:
     def __init__(self, raw, environment):
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
+        self.debug = environment.debug
         self.environment_name = environment.name
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
@@ -149,14 +152,34 @@ class Agent:
             args = args[:self.agent.__code__.co_argcount]
 
         # Start the timer.
-        start = perf_counter()
-        try:
-            action = self.agent(*args)
-        except Exception as e:
-            action = e
+
+        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+            try:
+                start = perf_counter()
+                action = self.agent(*args)
+            except Exception as e:
+                traceback.print_exc(file=err_buffer)
+                action = e
+            # Allow up to 1k log characters per step which is ~1MB per 600 step episode
+            max_log_length = 1024
+            out = out_buffer.getvalue()[0:max_log_length]
+            err = err_buffer.getvalue()[0:max_log_length]
+
+        duration = perf_counter() - start
+        log = {
+            "duration": round(duration, 6),
+            "stdout": out,
+            "stderr": err,
+        }
+
+        if self.debug:
+            if not log["stdout"].isspace():
+                print(log["stdout"], end="")
+            if not log["stderr"].isspace():
+                print(log["stderr"], end="")
 
         # Timeout reached, throw an error.
         if perf_counter() - start > timeout:
-            return DeadlineExceeded()
+            action = DeadlineExceeded()
 
-        return action
+        return action, log

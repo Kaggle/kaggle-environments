@@ -63,7 +63,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, steps=[], debug=False, state=None):
+def make(environment, configuration={}, steps=[], logs=[], debug=False, state=None):
     """
     Creates an instance of an Environment.
 
@@ -77,11 +77,11 @@ def make(environment, configuration={}, steps=[], debug=False, state=None):
         Environment: Instance of a specific environment.
     """
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, steps=steps, debug=debug, state=state)
+        return Environment(**environments[environment], configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, steps=steps, debug=debug, state=state)
+        return Environment(interpreter=environment, configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, steps=steps, debug=debug, state=state)
+        return Environment(**environment, configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -101,6 +101,7 @@ class Environment:
         specification={},
         configuration={},
         steps=[],
+        logs=[],
         agents={},
         interpreter=None,
         renderer=None,
@@ -150,14 +151,16 @@ class Environment:
         else:
             self.reset()
 
+        self.logs = logs
         self.pool = None
 
-    def step(self, actions):
+    def step(self, actions, logs=None):
         """
         Execute the environment interpreter using the current state and a list of actions.
 
         Args:
             actions (list): Actions to pair up with the current agent states.
+            logs (list): Logs to pair up with each agent for the current step.
 
         Returns:
             list of dict: The agents states after the step.
@@ -195,6 +198,8 @@ class Environment:
                     s.status = "DONE"
 
         self.steps.append(self.state)
+        if logs is not None:
+            self.logs.append(logs)
 
         return self.state
 
@@ -206,7 +211,9 @@ class Environment:
             agents (list of any): List of agents to obtain actions from.
 
         Returns:
-            list of list of dict: The agent states of all steps executed.
+            tuple of:
+                list of list of dict: The agent states of all steps executed.
+                list of list of dict: The agent logs of all steps executed.
         """
         if self.state is None or len(self.steps) == 1 or self.done:
             self.reset(len(agents))
@@ -217,7 +224,8 @@ class Environment:
         runner = self.__agent_runner(agents)
         start = perf_counter()
         while not self.done and perf_counter() - start < self.configuration.runTimeout:
-            self.step(runner.act())
+            actions, logs = runner.act()
+            self.step(actions, logs)
         return self.steps
 
     def reset(self, num_agents=None):
@@ -273,6 +281,7 @@ class Environment:
                 "step": 0 if get(kwargs, bool, self.done, path=["autoplay"]) else (len(self.steps) - 1),
                 "controls": get(kwargs, bool, self.done, path=["controls"]),
                 "environment": self.toJSON(),
+                "logs": self.logs,
                 **kwargs,
             }
             args = [self]
@@ -349,7 +358,8 @@ class Environment:
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                self.step(runner.act())
+                actions, logs = runner.act()
+                self.step(actions, logs)
 
         def reset():
             nonlocal runner
@@ -359,7 +369,8 @@ class Environment:
             return self.__get_shared_state(position).observation
 
         def step(action):
-            self.step(runner.act(action))
+            actions, logs = runner.act(action)
+            self.step(actions, logs)
             advance()
             agent = self.__get_shared_state(position)
             reward = agent.reward
@@ -579,9 +590,12 @@ class Environment:
             if all((agent is None or agent.is_parallelizable) for agent in agents):
                 if self.pool is None:
                     self.pool = Pool(processes=len(agents))
-                return self.pool.map(act_agent, act_args)
+                results = self.pool.map(act_agent, act_args)
+            else:
+                results = map(act_agent, act_args)
 
-            return list(map(act_agent, act_args))
+            actions, logs = zip(*results)
+            return actions, logs
 
         return structify({"act": act})
 
