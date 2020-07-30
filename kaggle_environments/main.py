@@ -120,7 +120,7 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
-    env = make(args.environment, args.configuration, [args.state], args.debug)
+    env = make(args.environment, args.configuration, state=args.state, debug=args.debug)
 
     is_first_run = cached_agent is None or cached_agent.raw != raw
     if is_first_run:
