@@ -88,9 +88,9 @@ def make(environment, configuration={}, steps=[], logs=[], debug=False, state=No
 def act_agent(args):
     agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
-        return None
+        return None, {}
     elif agent is None:
-        return none_action
+        return none_action, {}
     else:
         return agent.act(state["observation"])
 
@@ -592,7 +592,7 @@ class Environment:
                     self.pool = Pool(processes=len(agents))
                 results = self.pool.map(act_agent, act_args)
             else:
-                results = map(act_agent, act_args)
+                results = list(map(act_agent, act_args))
 
             actions, logs = zip(*results)
             return actions, logs
