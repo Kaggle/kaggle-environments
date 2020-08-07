@@ -5,8 +5,8 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "symbols": {
-      "description": "Number of choices each round eg. (rock 1, paper 2, scissors 3, ...).",
+    "weapons": {
+      "description": "Number of choices each round (Rock = 0, Paper = 1, Scissors = 2, etc).",
       "type": "integer",
       "minimum": 3,
       "maximum": 100,
@@ -21,7 +21,7 @@
   },
   "reward": {
     "description": "0 = Lost, 0.5 = Draw, 1 = Won",
-    "enum": [-1, 0, 1],
+    "enum": [0, 0.5, 1],
     "default": 0
   },
   "observation": {
@@ -39,7 +39,7 @@
     }
   },
   "action": {
-    "description": "Choice of weapon for the round. (Rock = 1, Paper = 2, Scissors = 3, etc)",
+    "description": "Choice of weapon for the round (Rock = 0, Paper = 1, Scissors = 2, etc)",
     "type": "integer",
     "minimum": 0,
     "maximum": 99
