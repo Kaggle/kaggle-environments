@@ -5,49 +5,43 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "weapons": {
+    "symbols": {
       "description": "Number of choices each round eg. (rock 1, paper 2, scissors 3, ...).",
       "type": "integer",
       "minimum": 3,
+      "maximum": 100,
       "default": 5
     },
     "steps": {
       "description": "Maximum number of rounds the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 1,
-      "default": 100
+      "default": 1000
     }
   },
   "reward": {
     "description": "0 = Lost, 0.5 = Draw, 1 = Won",
-    "enum": [0, 0.5, 1],
-    "default": 0.5
+    "enum": [-1, 0, 1],
+    "default": 0
   },
   "observation": {
-    "p1_moves": {
-      "description": "History of moves by player 1",
-      "type": "array",
-      "default": []
+    "last_opponent_action": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
     },
-    "p2_moves": {
-      "description": "History of moves by player 2",
-      "type": "array",
-      "default": []
-    },
-    "results":{
-      "description": "Winners for each round listed",
-      "type": "array",
-      "default": []
-    },
-    "mark": {
-      "description": "Mark for the agent to use",
-      "enum": [1, 2]
+    "last_winner":{
+      "description": "Winner of the last round. None on the first round.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
     }
   },
   "action": {
     "description": "Choice of weapon for the round. (Rock = 1, Paper = 2, Scissors = 3, etc)",
     "type": "integer",
-    "minimum": 1,
-    "default": 1
+    "minimum": 0,
+    "maximum": 99
   }
 }

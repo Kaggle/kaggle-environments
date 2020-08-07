@@ -13,10 +13,109 @@ async function renderer(context) {
         width = 400,
     } = context;
 
-    weapon_name = ["Rock","Paper","Scissors","Spock","Lizard","Airplane","Sun","Moon","Camera","Grass","Fire","Film","Spanner","Toilet","School","Air","Death","Planet","Curse","Guitar","Lock","Bowl","Pickaxe","Cup","Peace","Beer","Computer","Rain","Castle","Water","Snake","TV","Blood","Rainbow","Porcupine","UFO","Eagle","Alien","Monkey","Prayer","King","Mountain","Queen","Satan","Wizard","Dragon","Mermaid","Diamond","Police","Trophy","Woman","Money","Baby","Devil","Man","Link","Home","Video Game","Train","Math","Car","Robot","Noise","Heart","Bicycle","Electricity","Tree","Lightning","Potato","Ghost","Duck","Power","Wolf","Microscope","Cat","Nuke","Chicken","Cloud","Fish","Truck","Spider","Helicopter","Bee","Bomb","Brain","Tornado","Community","Sand","Zombie","Pit","Bank","Chain","Vampire","Gun","Bath","Law","Monument","Baloon","Pancake","Sword","Book"]
-    weapon_emoji = ["👊🏽","📄","✂️","🖖","🦎","✈️","☀️","🌙","📷","🌱","🔥","🎥","🔧","🚽","🏫","💨","☠","🌎","🥀","🎸","🔒","🥣","⛏️","☕","🕊️","🍺","💻","🌧️","🏰","💧","🐍","📺","💉","🌈","🦔","🛸","🦅","👽","🐒","🙏🏽","🤴🏼","🏔️","👸🏽","😈","🧙🏼‍♂️","🐉","🧜🏽‍♀️","💎","👮🏽‍♀️","🏆","👩🏻","💰","👶🏽","👹","👨🏾","🔗","🏠","🎮","🚂","🔢","🚗","🤖","🔔","❤️","🚲","💡","🌲","⚡","🥔","👻","🦆","🔋","🐺","🔬","🐈","☢️","🐓","☁️","🐟","🚚","🕷️","🚁","🐝","💣","🧠","🌪️","👥","🏖️","🧟‍♂️","🕳️","🏦","⛓️","🧛🏽‍♂️","🔫","🛁","⚖️","🏛️","🎈","🥞","🗡️","📖"]
-
-    // ------------------------------------------------------------------------------------//
+    const weapons = {
+        "Air": "💨",
+        "Airplane": "✈️",
+        "Alien": "👽",
+        "Baby": "👶🏽",
+        "Baloon": "🎈",
+        "Bank": "🏦",
+        "Bath": "🛁",
+        "Bee": "🐝",
+        "Beer": "🍺",
+        "Bicycle": "🚲",
+        "Blood": "💉",
+        "Bomb": "💣",
+        "Book": "📖",
+        "Bowl": "🥣",
+        "Brain": "🧠",
+        "Camera": "📷",
+        "Car": "🚗",
+        "Castle": "🏰",
+        "Cat": "🐈",
+        "Chain": "⛓️",
+        "Chicken": "🐓",
+        "Cloud": "☁️",
+        "Community": "👥",
+        "Computer": "💻",
+        "Cup": "☕",
+        "Curse": "🥀",
+        "Death": "☠",
+        "Devil": "👹",
+        "Diamond": "💎",
+        "Dragon": "🐉",
+        "Duck": "🦆",
+        "Eagle": "🦅",
+        "Electricity": "💡",
+        "Film": "🎥",
+        "Fire": "🔥",
+        "Fish": "🐟",
+        "Ghost": "👻",
+        "Grass": "🌱",
+        "Guitar": "🎸",
+        "Gun": "🔫",
+        "Heart": "❤️",
+        "Helicopter": "🚁",
+        "Home": "🏠",
+        "King": "🤴🏼",
+        "Law": "⚖️",
+        "Lightning": "⚡",
+        "Link": "🔗",
+        "Lizard": "🦎",
+        "Lock": "🔒",
+        "Man": "👨🏾",
+        "Math": "🔢",
+        "Mermaid": "🧜🏽‍♀️",
+        "Microscope": "🔬",
+        "Money": "💰",
+        "Monkey": "🐒",
+        "Monument": "🏛️",
+        "Moon": "🌙",
+        "Mountain": "🏔️",
+        "Noise": "🔔",
+        "Nuke": "☢️",
+        "Pancake": "🥞",
+        "Paper": "📄",
+        "Peace": "🕊️",
+        "Pickaxe": "⛏️",
+        "Pit": "🕳️",
+        "Planet": "🌎",
+        "Police": "👮🏽‍♀️",
+        "Porcupine": "🦔",
+        "Potato": "🥔",
+        "Power": "🔋",
+        "Prayer": "🙏🏽",
+        "Queen": "👸🏽",
+        "Rain": "🌧️",
+        "Rainbow": "🌈",
+        "Robot": "🤖",
+        "Rock": "👊",
+        "Sand": "🏖️",
+        "Satan": "😈",
+        "School": "🏫",
+        "Scissors": "✂️",
+        "Snake": "🐍",
+        "Spanner": "🔧",
+        "Spider": "🕷️",
+        "Spock": "🖖",
+        "Sun": "☀️",
+        "Sword": "🗡️",
+        "TV": "📺",
+        "Toilet": "🚽",
+        "Tornado": "🌪️",
+        "Train": "🚂",
+        "Tree": "🌲",
+        "Trophy": "🏆",
+        "Truck": "🚚",
+        "UFO": "🛸",
+        "Vampire": "🧛🏽‍♂️",
+        "Video Game": "🎮",
+        "Water": "💧",
+        "Wizard": "🧙🏼‍♂️",
+        "Wolf": "🐺",
+        "Woman": "👩🏻",
+        "Zombie": "🧟‍♂️"
+    }
 
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
@@ -40,6 +139,7 @@ async function renderer(context) {
             });
         }
     }
+
     canvas.style.cursor = isInteractive() ? "pointer" : "default";
 
     // Canvas setup and reset.
@@ -53,7 +153,6 @@ async function renderer(context) {
     test = environment.steps[step][0].observation.results[0]
 
     if (test !=null) {
-
         p1moves = environment.steps[step][0].observation.p1_moves;
         p2moves = environment.steps[step][0].observation.p2_moves;
         results = environment.steps[step][0].observation.results;
