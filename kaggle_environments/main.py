@@ -15,6 +15,7 @@
 import argparse
 import json
 import traceback
+from typing import *
 from . import errors, utils
 from .agent import Agent
 from .core import environments, evaluate, make
@@ -23,7 +24,7 @@ from logging.config import dictConfig
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
     "action",
-    choices=["list", "evaluate", "run", "step", "load", "act", "http-server"],
+    choices=["list", "evaluate", "run", "step", "load", "act", "dispose", "http-server"],
     help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Start http server.",
 )
 parser.add_argument("--environment", type=str,
@@ -41,6 +42,11 @@ parser.add_argument(
     "--steps",
     type=json.loads,
     help="Environment starting states (default=[resetState]).",
+)
+parser.add_argument(
+    "--logs",
+    type=json.loads,
+    help="Environment starting logs (default=[]).",
 )
 parser.add_argument(
     "--state",
@@ -71,6 +77,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--out", type=str, help="Output file to write the results of the episode. Does nothing in http-server mode."
+)
+parser.add_argument(
+    "--log", type=str, help="Agent log file to write the std out, resource, and step timing for each agent. Also used to load logs from a file with the load action."
 )
 
 
@@ -111,41 +120,76 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
-    env = make(args.environment, args.configuration, [args.state], args.debug)
+    env = make(args.environment, args.configuration, state=args.state, debug=args.debug)
 
-    if cached_agent is None or cached_agent.raw != raw:
+    is_first_run = cached_agent is None or cached_agent.raw != raw
+    if is_first_run:
         cached_agent = Agent(raw, env)
     observation = utils.get(args.state, dict, {}, ["observation"])
-    action = cached_agent.act(observation)
+    action, log = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
         action = "DeadlineExceeded"
     elif isinstance(action, BaseException):
         action = "BaseException::" + str(action)
 
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            if not is_first_run:
+                log_file.write(",\n ")
+            json.dump([log], log_file)
+
     return {"action": action}
 
 
 def action_step(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     runner = env.__agent_runner(args.agents)
     env.step(runner.act())
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            json.dump(env.logs[-1], log_file)
+            log_file.write(",")
     return render(args, env)
 
 
 def action_run(args):
-    env = make(args.environment, args.configuration, args.steps, args.debug)
+    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     env.run(args.agents)
+    if args.log_path is not None:
+        with open(args.log_path, mode="w") as log_file:
+            json.dump(env.logs, log_file)
     return render(args, env)
 
 
 def action_load(args):
+    if args.log_path is not None:
+        with open(args.log_path, mode="r") as log_file:
+            args.logs = json.load(log_file)
+
     if args.in_path is not None:
         with open(args.in_path, mode="r") as replay_file:
             json_args = json.load(replay_file)
-        env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.debug)
+        env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.logs, args.debug)
     else:
-        env = make(args.environment, args.configuration, args.steps, args.debug)
+        env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
     return render(args, env)
+
+
+disposed = True
+
+
+# This method is only called at the end of an episode to write the final array brace in the logs file and dispose the cached agent to force reinitialization
+def action_dispose(args):
+    global cached_agent, disposed
+    if disposed:
+        return "Already disposed"
+
+    cached_agent = None
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            log_file.write("]")
+    disposed = True
+    return "Successfully disposed"
 
 
 def parse_args(args):
@@ -158,6 +202,7 @@ def parse_args(args):
             "episodes": utils.get(args, int, 1, ["episodes"]),
             "state": utils.get(args, dict, {}, ["state"]),
             "steps": utils.get(args, list, [], ["steps"]),
+            "logs": utils.get(args, list, [], ["logs"]),
             "render": utils.get(args, dict, {"mode": "json"}, ["render"]),
             "display": utils.get(args, str, None, ["display"]),
             "debug": utils.get(args, bool, False, ["debug"]),
@@ -165,6 +210,7 @@ def parse_args(args):
             "port": utils.get(args, int, 8000, ["port"]),
             "in_path": utils.get(args, str, None, ["in"]),
             "out_path": utils.get(args, str, None, ["out"]),
+            "log_path": utils.get(args, str, None, ["log"]),
         }
     )
 
@@ -177,6 +223,8 @@ def action_handler(args):
             return {"error": "Already running a http server."}
         if args.action == "act":
             return action_act(args)
+        if args.action == "dispose":
+            return action_dispose(args)
         if args.action == "load":
             return action_load(args)
 
@@ -195,8 +243,15 @@ def action_handler(args):
         return {"error": str(e), "trace": traceback.format_exc()}
 
 
+log_path: Optional[str] = None
+
+
 def action_http(args):
     from flask import Flask, request
+
+    if args.log_path is not None:
+        global log_path
+        log_path = args.log_path
 
     # Setup logging to console for Flask
     dictConfig({
@@ -250,7 +305,18 @@ def http_request(request):
         # Manually deserialize render argument
         # We should eventually refactor this to use the same deserializer as the cmd line arg parser
         args["render"] = json.loads(args["render"])
-    resp = action_handler(parse_args(args))
+    args = parse_args(args)
+    if args.log_path is None:
+        args.log_path = log_path
+
+    global disposed
+    # Write the opening array brace for the logs file if there is a logs file.
+    if disposed and args["action"] != "dispose" and args.log_path is not None:
+        with open(args.log_path, mode="w") as log_file:
+            log_file.write("[")
+        disposed = False
+
+    resp = action_handler(args)
     return resp, 200, headers
 
 
