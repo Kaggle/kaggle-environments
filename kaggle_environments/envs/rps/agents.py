@@ -45,53 +45,30 @@ def scissorsish(observation, configuration):
 
 
 def copy_opponent(observation, configuration):
-    me = observation.mark
-    opponent = 2 if me == 1 else 1
-    rounds_played = len(observation.results)
-
-    if rounds_played > 0:
-        if me == 1:
-            return observation.p2_moves[-1]
-        else:
-            return observation.p1_moves[-1]
+    if observation.round > 0:
+        return observation.opponent_last_action
     else:
         return random.randint(0, configuration.weapons - 1)
 
 
 def reactionary(observation, configuration):
-    me = observation.mark
-    if me == 1:
-        my_moves = observation.p1_moves
-        opponent_moves = observation.p2_moves
-    else:
-        my_moves = observation.p2_moves
-        opponent_moves = observation.p1_moves
-
-    if len(observation.results) == 0:
+    if observation.round == 0:
         return random.randint(0, configuration.weapons - 1)
     
-    if observation.results[-1] == me:
-        return my_moves[-1]
+    if observation.your_last_score == 1:
+        return observation.your_last_action
     else:
-        return (opponent_moves[-1] + 1) % configuration.weapons
+        return (observation.opponent_last_action + 1) % configuration.weapons
 
 
 def counter_reactionary(observation, configuration):
-    me = observation.mark
-    if me == 1:
-        my_moves = observation.p1_moves
-        opponent_moves = observation.p2_moves
-    else:
-        my_moves = observation.p2_moves
-        opponent_moves = observation.p1_moves
-
-    if len(observation.results) == 0:
+    if observation.round == 0:
         return random.randint(0, configuration.weapons - 1)
 
-    if observation.results[-1] < 2:
-        return (my_moves[-1] + 2) % configuration.weapons
+    if observation.your_last_score == 1:
+        return (observation.your_last_action + 2) % configuration.weapons
     else:
-        return (opponent_moves[-1] + 1) % configuration.weapons
+        return (observation.opponent_last_action + 1) % configuration.weapons
 
 
 agents = {
