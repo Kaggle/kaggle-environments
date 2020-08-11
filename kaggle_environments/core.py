@@ -63,13 +63,14 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, steps=[], logs=[], debug=False, state=None):
+def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False, state=None):
     """
     Creates an instance of an Environment.
 
     Args:
         environment (str|Environment):
         configuration (dict, optional):
+        info (dict, optional):
         steps (list, optional):
         debug (bool=False, optional):
 
@@ -77,11 +78,11 @@ def make(environment, configuration={}, steps=[], logs=[], debug=False, state=No
         Environment: Instance of a specific environment.
     """
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -100,6 +101,7 @@ class Environment:
         self,
         specification={},
         configuration={},
+        info={},
         steps=[],
         logs=[],
         agents={},
@@ -111,6 +113,7 @@ class Environment:
     ):
         self.id = str(uuid.uuid1())
         self.debug = debug
+        self.info = info
 
         err, specification = self.__process_specification(specification)
         if err:
