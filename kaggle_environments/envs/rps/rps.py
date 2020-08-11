@@ -2,15 +2,28 @@ import json
 from os import path
 from .agents import agents as all_agents
 
+def check_action(player, weapons):
+    if player.action is None:
+        player.status = "INVALID"
+        player.REWARD = 0
+        return False
+
+    if not isinstance(player.action, int) or player.action < 0 or player.action >= weapons:
+        player.status = "INVALID"
+        player.REWARD = 0
+        return False
+    return True
+
 
 def interpreter(state, env):
-    print(state)
-    for agent_state in state:
-        observation = agent_state.observation
-
-
     player1 = state[0]
     player2 = state[1]
+
+    if 'p1_moves' not in player1.observation:
+        player1.observation.p1_moves = []
+        player1.observation.p2_moves = []
+        player1.observation.results = []
+        
 
     p1_moves = player1.observation.p1_moves
     player2.observation.p1_moves = p1_moves
@@ -26,25 +39,15 @@ def interpreter(state, env):
         return state
 
     # Check for validity of actions
-
-    if player1.action is None:
-        player1.status = f"No move returned"
-        player2.status = "DONE"
-        return state
-
-    if player1.action > env.configuration.weapons:
-        player1.status = f"Invalid move: {player1.action}"
-        player2.status = "DONE"
-        return state
-
-    if player2.action is None:
-        player2.status = f"No move returned"
-        player1.status = "DONE"
-        return state
-
-    if player2.action > env.configuration.weapons:
-        player2.status = f"Invalid move: {player2.action}"
-        player1.status = "DONE"
+    player1_ok = check_action(player1, env.configuration.weapons)
+    player2_ok = check_action(player2, env.configuration.weapons)
+    if not player1_ok or not player2_ok:
+        if player1_ok:
+            player1.status = "DONE"
+            player1.reward = 1
+        elif player2_ok:
+            player2.status = "DONE"
+            player2.reward = 1
         return state
 
     p1_moves.append(player1.action)
