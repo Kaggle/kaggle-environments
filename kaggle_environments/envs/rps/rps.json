@@ -12,7 +12,7 @@
       "maximum": 100,
       "default": 5
     },
-    "steps": {
+    "episodeSteps": {
       "description": "Maximum number of rounds the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 1,
@@ -25,17 +25,47 @@
     "default": 0
   },
   "observation": {
-    "last_opponent_action": {
+    "your_last_action": {
       "description": "Symbol returned by your opponent last round. None on the first turn.",
       "type": "integer",
       "minimum": 0,
       "maximum": 99
     },
-    "last_winner":{
-      "description": "Winner of the last round. None on the first round.",
+    "your_last_score": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
       "type": "integer",
       "minimum": 0,
-      "maximum": 1
+      "maximum": 99
+    },
+    "your_score": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
+    },
+    "opponent_last_action": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
+    },
+    "opponent_last_score": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
+    },
+    "opponent_score": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
+    },
+    "round": {
+      "description": "Symbol returned by your opponent last round. None on the first turn.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 99
     }
   },
   "action": {
