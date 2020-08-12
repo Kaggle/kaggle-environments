@@ -13,109 +13,212 @@ async function renderer(context) {
         width = 400,
     } = context;
 
-    const weapons = {
-        "Air": "💨",
-        "Airplane": "✈️",
-        "Alien": "👽",
-        "Baby": "👶🏽",
-        "Baloon": "🎈",
-        "Bank": "🏦",
-        "Bath": "🛁",
-        "Bee": "🐝",
-        "Beer": "🍺",
-        "Bicycle": "🚲",
-        "Blood": "💉",
-        "Bomb": "💣",
-        "Book": "📖",
-        "Bowl": "🥣",
-        "Brain": "🧠",
-        "Camera": "📷",
-        "Car": "🚗",
-        "Castle": "🏰",
-        "Cat": "🐈",
-        "Chain": "⛓️",
-        "Chicken": "🐓",
-        "Cloud": "☁️",
-        "Community": "👥",
-        "Computer": "💻",
-        "Cup": "☕",
-        "Curse": "🥀",
-        "Death": "☠",
-        "Devil": "👹",
-        "Diamond": "💎",
-        "Dragon": "🐉",
-        "Duck": "🦆",
-        "Eagle": "🦅",
-        "Electricity": "💡",
-        "Film": "🎥",
-        "Fire": "🔥",
-        "Fish": "🐟",
-        "Ghost": "👻",
-        "Grass": "🌱",
-        "Guitar": "🎸",
-        "Gun": "🔫",
-        "Heart": "❤️",
-        "Helicopter": "🚁",
-        "Home": "🏠",
-        "King": "🤴🏼",
-        "Law": "⚖️",
-        "Lightning": "⚡",
-        "Link": "🔗",
-        "Lizard": "🦎",
-        "Lock": "🔒",
-        "Man": "👨🏾",
-        "Math": "🔢",
-        "Mermaid": "🧜🏽‍♀️",
-        "Microscope": "🔬",
-        "Money": "💰",
-        "Monkey": "🐒",
-        "Monument": "🏛️",
-        "Moon": "🌙",
-        "Mountain": "🏔️",
-        "Noise": "🔔",
-        "Nuke": "☢️",
-        "Pancake": "🥞",
-        "Paper": "📄",
-        "Peace": "🕊️",
-        "Pickaxe": "⛏️",
-        "Pit": "🕳️",
-        "Planet": "🌎",
-        "Police": "👮🏽‍♀️",
-        "Porcupine": "🦔",
-        "Potato": "🥔",
-        "Power": "🔋",
-        "Prayer": "🙏🏽",
-        "Queen": "👸🏽",
-        "Rain": "🌧️",
-        "Rainbow": "🌈",
-        "Robot": "🤖",
-        "Rock": "👊",
-        "Sand": "🏖️",
-        "Satan": "😈",
-        "School": "🏫",
-        "Scissors": "✂️",
-        "Snake": "🐍",
-        "Spanner": "🔧",
-        "Spider": "🕷️",
-        "Spock": "🖖",
-        "Sun": "☀️",
-        "Sword": "🗡️",
-        "TV": "📺",
-        "Toilet": "🚽",
-        "Tornado": "🌪️",
-        "Train": "🚂",
-        "Tree": "🌲",
-        "Trophy": "🏆",
-        "Truck": "🚚",
-        "UFO": "🛸",
-        "Vampire": "🧛🏽‍♂️",
-        "Video Game": "🎮",
-        "Water": "💧",
-        "Wizard": "🧙🏼‍♂️",
-        "Wolf": "🐺",
-        "Woman": "👩🏻",
-        "Zombie": "🧟‍♂️"
-    }
+    const weapon_names = [
+        "Air",
+        "Airplane",
+        "Alien",
+        "Baby",
+        "Baloon",
+        "Bank",
+        "Bath",
+        "Bee",
+        "Beer",
+        "Bicycle",
+        "Blood",
+        "Bomb",
+        "Book",
+        "Bowl",
+        "Brain",
+        "Camera",
+        "Car",
+        "Castle",
+        "Cat",
+        "Chain",
+        "Chicken",
+        "Cloud",
+        "Community",
+        "Computer",
+        "Cup",
+        "Curse",
+        "Death",
+        "Devil",
+        "Diamond",
+        "Dragon",
+        "Duck",
+        "Eagle",
+        "Electricity",
+        "Film",
+        "Fire",
+        "Fish",
+        "Ghost",
+        "Grass",
+        "Guitar",
+        "Gun",
+        "Heart",
+        "Helicopter",
+        "Home",
+        "King",
+        "Law",
+        "Lightning",
+        "Link",
+        "Lizard",
+        "Lock",
+        "Man",
+        "Math",
+        "Mermaid",
+        "Microscope",
+        "Money",
+        "Monkey",
+        "Monument",
+        "Moon",
+        "Mountain",
+        "Noise",
+        "Nuke",
+        "Pancake",
+        "Paper",
+        "Peace",
+        "Pickaxe",
+        "Pit",
+        "Planet",
+        "Police",
+        "Porcupine",
+        "Potato",
+        "Power",
+        "Prayer",
+        "Queen",
+        "Rain",
+        "Rainbow",
+        "Robot",
+        "Rock",
+        "Sand",
+        "Satan",
+        "School",
+        "Scissors",
+        "Snake",
+        "Spanner",
+        "Spider",
+        "Spock",
+        "Sun",
+        "Sword",
+        "TV",
+        "Toilet",
+        "Tornado",
+        "Train",
+        "Tree",
+        "Trophy",
+        "Truck",
+        "UFO",
+        "Vampire",
+        "Video Game",
+        "Water",
+        "Wizard",
+        "Wolf",
+        "Woman",
+        "Zombie"
+    ]
+    const weapon_icons = [
+        "💨",
+        "✈️",
+        "👽",
+        "👶🏽",
+        "🎈",
+        "🏦",
+        "🛁",
+        "🐝",
+        "🍺",
+        "🚲",
+        "💉",
+        "💣",
+        "📖",
+        "🥣",
+        "🧠",
+        "📷",
+        "🚗",
+        "🏰",
+        "🐈",
+        "⛓️",
+        "🐓",
+        "☁️",
+        "👥",
+        "💻",
+        "☕",
+        "🥀",
+        "☠",
+        "👹",
+        "💎",
+        "🐉",
+        "🦆",
+        "🦅",
+        "💡",
+        "🎥",
+        "🔥",
+        "🐟",
+        "👻",
+        "🌱",
+        "🎸",
+        "🔫",
+        "❤️",
+        "🚁",
+        "🏠",
+        "🤴🏼",
+        "⚖️",
+        "⚡",
+        "🔗",
+        "🦎",
+        "🔒",
+        "👨🏾",
+        "🔢",
+        "🧜🏽‍♀️",
+        "🔬",
+        "💰",
+        "🐒",
+        "🏛️",
+        "🌙",
+        "🏔️",
+        "🔔",
+        "☢️",
+        "🥞",
+        "📄",
+        "🕊️",
+        "⛏️",
+        "🕳️",
+        "🌎",
+        "👮🏽‍♀️",
+        "🦔",
+        "🥔",
+        "🔋",
+        "🙏🏽",
+        "👸🏽",
+        "🌧️",
+        "🌈",
+        "🤖",
+        "👊",
+        "🏖️",
+        "😈",
+        "🏫",
+        "✂️",
+        "🐍",
+        "🔧",
+        "🕷️",
+        "🖖",
+        "☀️",
+        "🗡️",
+        "📺",
+        "🚽",
+        "🌪️",
+        "🚂",
+        "🌲",
+        "🏆",
+        "🚚",
+        "🛸",
+        "🧛🏽‍♂️",
+        "🎮",
+        "💧",
+        "🧙🏼‍♂️",
+        "🐺",
+        "👩🏻",
+        "🧟‍♂️"
+    ]
 
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
@@ -157,59 +260,56 @@ async function renderer(context) {
         p2move = environment.steps[step][0].observation.opponent_last_action;
         p1score = environment.steps[step][0].observation.your_last_score;
 
-        p1score = 0;
-        p2score = 0;
-        ties = 0;
-        for(i = 1; i < environment.steps.length; ++i){
-            score = environment.steps[step][0].observation.your_last_score;
-            if(score == 0) {
-                p2score += 1;
-            } else if(score == 1) {
-                p1score += 1;
-            } else {
-                ties += 1;
-            }
-        }
-
         ctx = canvas.getContext("2d");
+        label_x = 0;
+        player1_x = 250;
+        player2_x = 500;
+        middle_x = (player1_x + player2_x) / 2 + 30;
+        label_y = 40;
+        weapon_id_y = 80;
+        weapon_name_y = 120;
+        weapon_icon_y = 160;
+        result_y = 200;
+        score_y = 240;
+
+        ctx.font = "30px sans-serif";
+        ctx.fillStyle = "#FFFFFF";
 
         // Player Row
+        ctx.fillText("Player 1", player1_x, label_y)
+        ctx.fillText("Player 2", player2_x, label_y)
 
-        ctx.font = "20px sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText("Player 1",0,20)
-        ctx.fillText("Player 2",170,20)
+        // Weapon id Row
+
+        ctx.fillText("Weapon ID:", label_x, weapon_id_y);
+        ctx.fillText(p1move, player1_x, weapon_id_y);
+        ctx.fillText(p2move, player2_x, weapon_id_y);
+
+        // Weapon name Row
+        ctx.fillText("Weapon name:", label_x, weapon_name_y);
+        ctx.fillText(weapon_names[p1move], player1_x, weapon_name_y);
+        ctx.fillText("vs", middle_x,weapon_name_y);
+        ctx.fillText(weapon_names[p2move], player2_x, weapon_name_y);
 
         // Emoji Row
 
-        ctx.font = "60px sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(weapon_emoji[p1move], 0,100);
-        ctx.fillText("vs", 90,100);
-        ctx.fillText(weapon_emoji[p2move], 180,100);
+        ctx.fillText("Weapon icon:", label_x, weapon_icon_y);
+        ctx.fillText(weapon_icons[p1move], player1_x, weapon_icon_y);
+        ctx.fillText(weapon_icons[p2move], player2_x, weapon_icon_y);
 
         // Result Row
-
-        ctx.font = "20px sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-
+        ctx.fillText("Result:", label_x, result_y);
         if (p1score == 1) {
-            ctx.fillText("Win", 15,150);
-        }
-
-        if (p1score == 0) {
-            ctx.fillText("Win", 195,150);
-        }
-
-        if (p1score == 0.5) {
-            ctx.fillText("Tie", 105,150);
+            ctx.fillText("Win", player1_x, result_y);
+        } else if (p1score == 0) {
+            ctx.fillText("Win", player2_x, result_y);
+        } else {
+            ctx.fillText("Tie", middle_x, result_y);
         }
 
         // Score Row
-        ctx.font = "20px sans-serif";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(p1score, 20,200);
-        ctx.fillText(ties, 110,200);
-        ctx.fillText(p2score, 205,200);
+        ctx.fillText("Score:", label_x, score_y);
+        ctx.fillText(environment.steps[step][0].observation.your_score, player1_x, score_y);
+        ctx.fillText(environment.steps[step][0].observation.opponent_score, player2_x, score_y);
     }
 }
