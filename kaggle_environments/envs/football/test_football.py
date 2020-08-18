@@ -28,7 +28,7 @@ def clear_players_raw(state):
 
 
 def test_single_agent():
-    before_each()
+    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic"})
     x = env.reset()
 
     assert clear_players_raw(env.reset()) == [
@@ -180,7 +180,7 @@ def test_multi_agent():
     ]
 
 def test_deadline():
-    before_each()
+    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic"})
     x = env.reset()
 
     assert clear_players_raw(env.reset()) == [
