@@ -39,6 +39,11 @@ parser.add_argument(
     help="Environment configuration to setup the environment.",
 )
 parser.add_argument(
+    "--info",
+    type=json.loads,
+    help="Information about agents playing.",
+)
+parser.add_argument(
     "--steps",
     type=json.loads,
     help="Environment starting states (default=[resetState]).",
@@ -120,7 +125,7 @@ def action_act(args):
         return {"error": "One agent must be provided."}
     raw = args.agents[0]
 
-    env = make(args.environment, args.configuration, state=args.state, debug=args.debug)
+    env = make(args.environment, args.configuration, args.info, state=args.state, debug=args.debug)
 
     is_first_run = cached_agent is None or cached_agent.raw != raw
     if is_first_run:
@@ -142,7 +147,7 @@ def action_act(args):
 
 
 def action_step(args):
-    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
+    env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
     runner = env.__agent_runner(args.agents)
     env.step(runner.act())
     if args.log_path is not None:
@@ -153,7 +158,7 @@ def action_step(args):
 
 
 def action_run(args):
-    env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
+    env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
     env.run(args.agents)
     if args.log_path is not None:
         with open(args.log_path, mode="w") as log_file:
@@ -169,9 +174,9 @@ def action_load(args):
     if args.in_path is not None:
         with open(args.in_path, mode="r") as replay_file:
             json_args = json.load(replay_file)
-        env = make(json_args["name"], json_args["configuration"], json_args["steps"], args.logs, args.debug)
+        env = make(json_args["name"], json_args["configuration"], json_args["info"], json_args["steps"], args.logs, args.debug)
     else:
-        env = make(args.environment, args.configuration, args.steps, args.logs, args.debug)
+        env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
     return render(args, env)
 
 
@@ -211,6 +216,7 @@ def parse_args(args):
             "in_path": utils.get(args, str, None, ["in"]),
             "out_path": utils.get(args, str, None, ["out"]),
             "log_path": utils.get(args, str, None, ["log"]),
+            "info": utils.get(args, dict, {}, ["info"]),
         }
     )
 
