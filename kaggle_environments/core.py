@@ -428,6 +428,7 @@ class Environment:
                 "rewards": [state.reward for state in self.steps[-1]],
                 "statuses": [state.status for state in self.steps[-1]],
                 "schema_version": 1,
+                "info": self.info,
             }
         )
 
