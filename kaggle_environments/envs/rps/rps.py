@@ -2,6 +2,7 @@ import json
 from os import path
 from .agents import agents as all_agents
 
+
 def check_action(player, weapons):
     if player.action is None:
         player.status = "INVALID"
@@ -13,6 +14,7 @@ def check_action(player, weapons):
         player.reward = 0
         return False
     return True
+
 
 def update_player2_state(state):
     player1 = state[0].observation
@@ -26,6 +28,7 @@ def update_player2_state(state):
     player2.opponent_score = player1.your_score
     player2.round = player1.round
     return state
+
 
 def interpreter(state, env):
     player1 = state[0]
@@ -53,18 +56,17 @@ def interpreter(state, env):
             player2.reward = 1
         return update_player2_state(state)
 
-    your_score = 0
-    if (player1.action + player2.action) % 2 > 0:
-        if (player1.action > player2.action):
+    if player1.action + player2.action % 2 > 0:
+        if player1.action > player2.action:
             your_score = 1
-        elif (player1.action < player2.action):
+        elif player1.action < player2.action:
             your_score = 0
         else:
             your_score = 0.5
     else:
-        if (player1.action < player2.action):
+        if player1.action < player2.action:
             your_score = 1
-        elif (player1.action > player2.action):
+        elif player1.action > player2.action:
             your_score = 0
         else:
             your_score = 0.5
@@ -90,7 +92,7 @@ def interpreter(state, env):
 
 
 def renderer(state, env):
-    weapon_name = ["Rock", "Paper", "Scissors", "Spock", "Lizard", "Airplane", "Sun", "Moon", "Camera", "Grass", "Fire", "Film", "Spanner", "Toilet", "School", "Air", "Death", "Planet", "Curse", "Guitar", "Lock", "Bowl", "Pickaxe", "Cup", "Peace", "Beer", "Computer", "Rain", "Castle", "Water", "Snake", "TV", "Blood", "Rainbow", "Porcupine", "UFO", "Eagle", "Alien", "Monkey", "Prayer", "King", "Mountain", "Queen", "Satan", "Wizard", "Dragon", "Mermaid", "Diamond", "Police", "Trophy", "Woman", "Money", "Baby", "Devil", "Man", "Link", "Home", "Video Game", "Train", "Math", "Car", "Robot", "Noise", "Heart", "Bicycle", "Electricity", "Tree", "Lightning", "Potato", "Ghost", "Duck", "Power", "Wolf", "Microscope", "Cat", "Nuke", "Chicken", "Cloud", "Fish", "Truck", "Spider", "Helicopter", "Bee", "Bomb", "Brain", "Tornado", "Community", "Sand", "Zombie", "Pit", "Bank", "Chain", "Vampire", "Gun", "Bath", "Law", "Monument", "Baloon", "Pancake", "Sword", "Book"]
+    weapon_order = ["Rock", "Paper", "Scissors", "Spock", "Lizard", "Airplane", "Sun", "Moon", "Camera", "Grass", "Fire", "Film", "Spanner", "Toilet", "School", "Air", "Death", "Planet", "Curse", "Guitar", "Lock", "Bowl", "Pickaxe", "Cup", "Peace", "Beer", "Computer", "Rain", "Castle", "Water", "Snake", "TV", "Blood", "Rainbow", "Porcupine", "UFO", "Eagle", "Alien", "Monkey", "Prayer", "King", "Mountain", "Queen", "Satan", "Wizard", "Dragon", "Mermaid", "Diamond", "Police", "Trophy", "Woman", "Money", "Baby", "Devil", "Man", "Link", "Home", "Video Game", "Train", "Math", "Car", "Robot", "Noise", "Heart", "Bicycle", "Electricity", "Tree", "Lightning", "Potato", "Ghost", "Duck", "Power", "Wolf", "Microscope", "Cat", "Nuke", "Chicken", "Cloud", "Fish", "Truck", "Spider", "Helicopter", "Bee", "Bomb", "Brain", "Tornado", "Community", "Sand", "Zombie", "Pit", "Bank", "Chain", "Vampire", "Gun", "Bath", "Law", "Monument", "Baloon", "Pancake", "Sword", "Book"]
 
     rounds_played = len(env.steps)
     board = ""
@@ -98,7 +100,7 @@ def renderer(state, env):
     # This line prints results each round, good for debugging
     for i in range(1, rounds_played):
         obs = env.steps[i][0].observation
-        board = board + f"Round {i}: {weapon_name[obs.your_last_action]} vs {weapon_name[obs.opponent_last_action]}, Score: {obs.your_last_score} to {obs.opponent_last_score}\n"
+        board = board + f"Round {i}: {weapon_order[obs.your_last_action]} vs {weapon_order[obs.opponent_last_action]}, Score: {obs.your_last_score} to {obs.opponent_last_score}\n"
 
     board = board + f"Game ended on round {rounds_played - 1}, final score: {state[0].observation.your_score} to {state[0].observation.opponent_score}\n"
 
@@ -118,108 +120,3 @@ def html_renderer():
 
 
 agents = all_agents
-
-
-weapons = {
-    "Air": "💨",
-    "Airplane": "✈️",
-    "Alien": "👽",
-    "Baby": "👶🏽",
-    "Baloon": "🎈",
-    "Bank": "🏦",
-    "Bath": "🛁",
-    "Bee": "🐝",
-    "Beer": "🍺",
-    "Bicycle": "🚲",
-    "Blood": "💉",
-    "Bomb": "💣",
-    "Book": "📖",
-    "Bowl": "🥣",
-    "Brain": "🧠",
-    "Camera": "📷",
-    "Car": "🚗",
-    "Castle": "🏰",
-    "Cat": "🐈",
-    "Chain": "⛓️",
-    "Chicken": "🐓",
-    "Cloud": "☁️",
-    "Community": "👥",
-    "Computer": "💻",
-    "Cup": "☕",
-    "Curse": "🥀",
-    "Death": "☠",
-    "Devil": "👹",
-    "Diamond": "💎",
-    "Dragon": "🐉",
-    "Duck": "🦆",
-    "Eagle": "🦅",
-    "Electricity": "💡",
-    "Film": "🎥",
-    "Fire": "🔥",
-    "Fish": "🐟",
-    "Ghost": "👻",
-    "Grass": "🌱",
-    "Guitar": "🎸",
-    "Gun": "🔫",
-    "Heart": "❤️",
-    "Helicopter": "🚁",
-    "Home": "🏠",
-    "King": "🤴🏼",
-    "Law": "⚖️",
-    "Lightning": "⚡",
-    "Link": "🔗",
-    "Lizard": "🦎",
-    "Lock": "🔒",
-    "Man": "👨🏾",
-    "Math": "🔢",
-    "Mermaid": "🧜🏽‍♀️",
-    "Microscope": "🔬",
-    "Money": "💰",
-    "Monkey": "🐒",
-    "Monument": "🏛️",
-    "Moon": "🌙",
-    "Mountain": "🏔️",
-    "Noise": "🔔",
-    "Nuke": "☢️",
-    "Pancake": "🥞",
-    "Paper": "📄",
-    "Peace": "🕊️",
-    "Pickaxe": "⛏️",
-    "Pit": "🕳️",
-    "Planet": "🌎",
-    "Police": "👮🏽‍♀️",
-    "Porcupine": "🦔",
-    "Potato": "🥔",
-    "Power": "🔋",
-    "Prayer": "🙏🏽",
-    "Queen": "👸🏽",
-    "Rain": "🌧️",
-    "Rainbow": "🌈",
-    "Robot": "🤖",
-    "Rock": "👊",
-    "Sand": "🏖️",
-    "Satan": "😈",
-    "School": "🏫",
-    "Scissors": "✂️",
-    "Snake": "🐍",
-    "Spanner": "🔧",
-    "Spider": "🕷️",
-    "Spock": "🖖",
-    "Sun": "☀️",
-    "Sword": "🗡️",
-    "TV": "📺",
-    "Toilet": "🚽",
-    "Tornado": "🌪️",
-    "Train": "🚂",
-    "Tree": "🌲",
-    "Trophy": "🏆",
-    "Truck": "🚚",
-    "UFO": "🛸",
-    "Vampire": "🧛🏽‍♂️",
-    "Video Game": "🎮",
-    "Water": "💧",
-    "Wizard": "🧙🏼‍♂️",
-    "Wolf": "🐺",
-    "Woman": "👩🏻",
-    "Zombie": "🧟‍♂️"
-}
