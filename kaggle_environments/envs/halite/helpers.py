@@ -74,7 +74,10 @@ class Point(tuple):
         return self.map2(other, operator.add)
 
     def __eq__(self, other: Union[Tuple[int, int], 'Point']) -> bool:
-        return self[0] == other[0] and self[1] == other[1]
+        try:
+            return self[0] == other[0] and self[1] == other[1]
+        except (TypeError, IndexError):
+            return False
 
     def __floordiv__(self, denominator: int) -> 'Point':
         return self.map(lambda x: x // denominator)
