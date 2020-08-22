@@ -56,28 +56,51 @@ last_react_action = None
 
 
 def reactionary(observation, configuration):
-    global last_action
+    global last_react_action
     if observation.step == 0:
-        last_action = random.randrange(0, configuration.signs)
-    elif get_score(last_action, observation.last_opponent_action) <= 1:
-        last_action = (observation.last_opponent_action + 1) % configuration.signs
+        last_react_action = random.randrange(0, configuration.signs)
+    elif get_score(last_react_action, observation.last_opponent_action) <= 1:
+        last_react_action = (observation.last_opponent_action + 1) % configuration.signs
 
-    return last_action
+    return last_react_action
 
 
-last_counter_reaction = None
+last_counter_action = None
 
 
 def counter_reactionary(observation, configuration):
-    global last_counter_reaction
+    global last_counter_action
     if observation.step == 0:
-        last_counter_reaction = random.randrange(0, configuration.signs)
-    elif get_score(last_counter_reaction, observation.last_opponent_action) == 1:
-        last_counter_reaction = (last_counter_reaction + 2) % configuration.signs
+        last_counter_action = random.randrange(0, configuration.signs)
+    elif get_score(last_counter_action, observation.last_opponent_action) == 1:
+        last_counter_action = (last_counter_action + 2) % configuration.signs
     else:
-        last_counter_reaction = (observation.last_opponent_action + 1) % configuration.signs
+        last_counter_action = (observation.last_opponent_action + 1) % configuration.signs
 
-    return last_counter_reaction
+    return last_counter_action
+
+
+action_histogram = {}
+
+
+def statistical(observation, configuration):
+    global action_histogram
+    if observation.step == 0:
+        action_histogram = {}
+        return
+    action = observation.last_opponent_action
+    if action not in action_histogram:
+        action_histogram[action] = 0
+    action_histogram[action] += 1
+    mode_action = None
+    mode_action_count = None
+    for k, v in action_histogram.items():
+        if mode_action_count is None or v > mode_action_count:
+            mode_action = k
+            mode_action_count = v
+            continue
+
+    return (mode_action + 1) % configuration.signs
 
 
 agents = {
@@ -90,5 +113,6 @@ agents = {
     "scissorsish": scissorsish,
     "copy_opponent": copy_opponent,
     "reactionary": reactionary,
-    "counter_reactionary": counter_reactionary
+    "counter_reactionary": counter_reactionary,
+    "statistical": statistical
 }
