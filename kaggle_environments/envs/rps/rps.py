@@ -68,11 +68,11 @@ def renderer(state, env):
     # This line prints results each round, good for debugging
     for i in range(1, rounds_played):
         step = env.steps[i]
-        right_move = step[0].observation.opponent_last_action
-        left_move = step[1].observation.opponent_last_action
-        board += f"Round {i}: {sign_names[left_move]} vs {sign_names[right_move]}, Score: {obs.your_last_score} to {obs.opponent_last_score}\n"
+        right_move = step[0].observation.last_opponent_action
+        left_move = step[1].observation.last_opponent_action
+        board += f"Round {i}: {sign_names[left_move]} vs {sign_names[right_move]}, Score: {step[0].reward} to {step[1].reward}\n"
 
-    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].observation.your_score} to {state[0].observation.opponent_score}\n"
+    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
     return board
 
 

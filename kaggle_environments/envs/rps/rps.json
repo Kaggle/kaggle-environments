@@ -15,7 +15,7 @@
     "episodeSteps": {
       "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
-      "minimum": 1,
+      "minimum": 2,
       "default": 1000
     }
   },

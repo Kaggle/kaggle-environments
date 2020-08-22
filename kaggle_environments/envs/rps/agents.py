@@ -46,7 +46,7 @@ def scissorsish(observation, configuration):
 
 
 def copy_opponent(observation, configuration):
-    if observation.round > 0:
+    if observation.step > 0:
         return observation.last_opponent_action
     else:
         return random.randrange(0, configuration.signs)
