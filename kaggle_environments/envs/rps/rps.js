@@ -14,7 +14,7 @@ async function renderer(context) {
     } = context;
 
     const weapon_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
-    const weapons_icons = ["👊", "📄", "✂️", "🦎", "🖖"]
+    const weapons_icons = ["👊", "📄", "✂️", "🖖", "🦎"]
 
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
