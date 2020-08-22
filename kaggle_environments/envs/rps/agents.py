@@ -1,8 +1,9 @@
 import random
+from .utils import get_score
 
 
 def random_agent(observation, configuration):
-    return random.randint(0, configuration.weapons - 1)
+    return random.randrange(0, configuration.signs)
 
 
 def rock(observation, configuration):
@@ -21,7 +22,7 @@ def rockish(observation, configuration):
     rand = random.random()
 
     if rand > 0.5:
-        return random.randint(0, configuration.weapons - 1)
+        return random.randrange(0, configuration.signs)
     else:
         return 0
 
@@ -30,7 +31,7 @@ def paperish(observation, configuration):
     rand = random.random()
 
     if rand > 0.5:
-        return random.randint(0, configuration.weapons - 1)
+        return random.randrange(0, configuration.signs)
     else:
         return 1
 
@@ -39,36 +40,44 @@ def scissorsish(observation, configuration):
     rand = random.random()
 
     if rand > 0.5:
-        return random.randint(0, configuration.weapons - 1)
+        return random.randrange(0, configuration.signs)
     else:
         return 2
 
 
 def copy_opponent(observation, configuration):
     if observation.round > 0:
-        return observation.opponent_last_action
+        return observation.last_opponent_action
     else:
-        return random.randint(0, configuration.weapons - 1)
+        return random.randrange(0, configuration.signs)
+
+
+last_react_action = None
 
 
 def reactionary(observation, configuration):
-    if observation.round == 0:
-        return random.randint(0, configuration.weapons - 1)
-    
-    if observation.your_last_score == 1:
-        return observation.your_last_action
-    else:
-        return (observation.opponent_last_action + 1) % configuration.weapons
+    global last_action
+    if observation.step == 0:
+        last_action = random.randrange(0, configuration.signs)
+    elif get_score(last_action, observation.last_opponent_action) <= 1:
+        last_action = (observation.last_opponent_action + 1) % configuration.signs
+
+    return last_action
+
+
+last_counter_reaction = None
 
 
 def counter_reactionary(observation, configuration):
-    if observation.round == 0:
-        return random.randint(0, configuration.weapons - 1)
-
-    if observation.your_last_score == 1:
-        return (observation.your_last_action + 2) % configuration.weapons
+    global last_counter_reaction
+    if observation.step == 0:
+        last_counter_reaction = random.randrange(0, configuration.signs)
+    elif get_score(last_counter_reaction, observation.last_opponent_action) == 1:
+        last_counter_reaction = (last_counter_reaction + 2) % configuration.signs
     else:
-        return (observation.opponent_last_action + 1) % configuration.weapons
+        last_counter_reaction = (observation.last_opponent_action + 1) % configuration.signs
+
+    return last_counter_reaction
 
 
 agents = {

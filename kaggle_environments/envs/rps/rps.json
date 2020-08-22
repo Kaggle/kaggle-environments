@@ -5,15 +5,15 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "weapons": {
-      "description": "Number of choices each round (Rock = 0, Paper = 1, Scissors = 2, etc).",
+    "signs": {
+      "description": "Number of choices each step (Rock = 0, Paper = 1, Scissors = 2, etc).",
       "type": "integer",
       "minimum": 3,
-      "maximum": 100,
-      "default": 5
+      "maximum": 5,
+      "default": 3
     },
     "episodeSteps": {
-      "description": "Maximum number of rounds the environment can run. Total is this number -1.",
+      "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 1,
       "default": 1000
@@ -25,53 +25,24 @@
     "default": 0
   },
   "observation": {
-    "your_last_action": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
+    "last_opponent_action": {
+      "description": "Symbol returned by opponent last step. None on the first step.",
       "type": "integer",
       "minimum": 0,
-      "maximum": 99
+      "maximum": 4
     },
-    "your_last_score": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
+    "step": {
+      "description": "Current step within the episode.",
       "type": "integer",
+      "shared": true,
       "minimum": 0,
-      "maximum": 99
-    },
-    "your_score": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 99
-    },
-    "opponent_last_action": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 99
-    },
-    "opponent_last_score": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 99
-    },
-    "opponent_score": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 99
-    },
-    "round": {
-      "description": "Symbol returned by your opponent last round. None on the first turn.",
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 99
+      "default": 0
     }
   },
   "action": {
-    "description": "Choice of weapon for the round (Rock = 0, Paper = 1, Scissors = 2, etc)",
+    "description": "Choice of weapon for the step (Rock = 0, Paper = 1, Scissors = 2, etc)",
     "type": "integer",
     "minimum": 0,
-    "maximum": 99
+    "maximum": 4
   }
 }
