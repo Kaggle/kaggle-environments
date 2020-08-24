@@ -13,8 +13,8 @@ async function renderer(context) {
         width = 400,
     } = context;
 
-    const weapon_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
-    const weapons_icons = ["👊", "📄", "✂️", "🖖", "🦎"]
+    const sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
+    const sign_icons = ["👊", "📄", "✂️", "🖖", "🦎"]
 
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
@@ -63,9 +63,9 @@ async function renderer(context) {
         const player2_x = 500;
         const middle_x = (player1_x + player2_x) / 2 + 30;
         const label_y = 40;
-        const weapon_id_y = 80;
-        const weapon_name_y = 120;
-        const weapon_icon_y = 160;
+        const sign_id_y = 80;
+        const sign_name_y = 120;
+        const sign_icon_y = 160;
         const result_y = 200;
         const score_y = 240;
 
@@ -76,21 +76,21 @@ async function renderer(context) {
         ctx.fillText("Player 1", player1_x, label_y)
         ctx.fillText("Player 2", player2_x, label_y)
 
-        // Weapon id Row
-        ctx.fillText("Id:", label_x, weapon_id_y);
-        ctx.fillText(p1_move, player1_x, weapon_id_y);
-        ctx.fillText(p2_move, player2_x, weapon_id_y);
+        // Sign id Row
+        ctx.fillText("Id:", label_x, sign_id_y);
+        ctx.fillText(p1_move, player1_x, sign_id_y);
+        ctx.fillText(p2_move, player2_x, sign_id_y);
 
-        // Weapon name Row
-        ctx.fillText("Name:", label_x, weapon_name_y);
-        ctx.fillText(weapon_names[p1_move], player1_x, weapon_name_y);
-        ctx.fillText("vs", middle_x, weapon_name_y);
-        ctx.fillText(weapon_names[p2_move], player2_x, weapon_name_y);
+        // Sign name Row
+        ctx.fillText("Name:", label_x, sign_name_y);
+        ctx.fillText(sign_names[p1_move], player1_x, sign_name_y);
+        ctx.fillText("vs", middle_x, sign_name_y);
+        ctx.fillText(sign_names[p2_move], player2_x, sign_name_y);
 
         // Emoji Row
-        ctx.fillText("Icon:", label_x, weapon_icon_y);
-        ctx.fillText(weapons_icons[p1_move], player1_x, weapon_icon_y);
-        ctx.fillText(weapons_icons[p2_move], player2_x, weapon_icon_y);
+        ctx.fillText("Icon:", label_x, sign_icon_y);
+        ctx.fillText(sign_icons[p1_move], player1_x, sign_icon_y);
+        ctx.fillText(sign_icons[p2_move], player2_x, sign_icon_y);
 
         // Result Row
         ctx.fillText("Result:", label_x, result_y);

@@ -40,7 +40,7 @@
     }
   },
   "action": {
-    "description": "Choice of weapon for the step (Rock = 0, Paper = 1, Scissors = 2, etc)",
+    "description": "Choice of sign for the step (Rock = 0, Paper = 1, Scissors = 2, etc)",
     "type": "integer",
     "minimum": 0,
     "maximum": 4

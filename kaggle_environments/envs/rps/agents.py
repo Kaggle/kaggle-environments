@@ -2,10 +2,6 @@ import random
 from .utils import get_score
 
 
-def random_agent(observation, configuration):
-    return random.randrange(0, configuration.signs)
-
-
 def rock(observation, configuration):
     return 0
 
@@ -16,33 +12,6 @@ def paper(observation, configuration):
 
 def scissors(observation, configuration):
     return 2
-
-
-def rockish(observation, configuration):
-    rand = random.random()
-
-    if rand > 0.5:
-        return random.randrange(0, configuration.signs)
-    else:
-        return 0
-
-
-def paperish(observation, configuration):
-    rand = random.random()
-
-    if rand > 0.5:
-        return random.randrange(0, configuration.signs)
-    else:
-        return 1
-
-
-def scissorsish(observation, configuration):
-    rand = random.random()
-
-    if rand > 0.5:
-        return random.randrange(0, configuration.signs)
-    else:
-        return 2
 
 
 def copy_opponent(observation, configuration):
@@ -104,13 +73,9 @@ def statistical(observation, configuration):
 
 
 agents = {
-    "random": random_agent,
     "rock": rock,
     "paper": paper,
     "scissors": scissors,
-    "rockish": rockish,
-    "paperish": paperish,
-    "scissorsish": scissorsish,
     "copy_opponent": copy_opponent,
     "reactionary": reactionary,
     "counter_reactionary": counter_reactionary,

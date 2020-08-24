@@ -15,11 +15,11 @@ def interpreter(state, env):
     step = len(env.steps)
     player1.observation.step = step
 
-    def is_valid_action(player, max_sign):
+    def is_valid_action(player, sign_count):
         return (
             player.action is not None and
             isinstance(player.action, int) and
-            0 <= player.action < max_sign
+            0 <= player.action < sign_count
         )
 
     # Check for validity of actions
