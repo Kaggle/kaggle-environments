@@ -17,7 +17,9 @@
       "type": "integer",
       "minimum": 2,
       "default": 1000
-    }
+    },
+    "agentTimeout": 15,
+    "actTimeout": 1
   },
   "reward": {
     "description": "0 = Lost, 0.5 = Draw, 1 = Won",
