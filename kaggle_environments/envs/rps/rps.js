@@ -54,8 +54,8 @@ async function renderer(context) {
         const last_state = environment.steps[step]
         const delta_reward = state[0].reward - last_state[0].reward
 
-        const p1_move = state[1].observation.last_opponent_action;
-        const p2_move = state[0].observation.last_opponent_action;
+        const p1_move = state[1].observation.lastOpponentAction;
+        const p2_move = state[0].observation.lastOpponentAction;
 
         const ctx = canvas.getContext("2d");
         const label_x = 0;

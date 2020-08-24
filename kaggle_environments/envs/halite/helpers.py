@@ -243,6 +243,7 @@ class Configuration(ReadOnlyDict[str, any]):
         """The seed to the random number generator (0 means no seed)."""
         return self["randomSeed"]
 
+
 class ShipAction(Enum):
     NORTH = auto()
     EAST = auto()

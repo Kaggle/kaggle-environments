@@ -25,7 +25,7 @@
     "default": 0
   },
   "observation": {
-    "last_opponent_action": {
+    "lastOpponentAction": {
       "description": "Symbol returned by opponent last step. None on the first step.",
       "type": "integer",
       "minimum": 0,

@@ -46,9 +46,9 @@ def interpreter(state, env):
             return state
 
     score = get_score(player1.action, player2.action)
-    player1.observation.last_opponent_action = player2.action
+    player1.observation.lastOpponentAction = player2.action
     player1.reward += score
-    player2.observation.last_opponent_action = player1.action
+    player2.observation.lastOpponentAction = player1.action
     player2.reward += -score
     remaining_steps = env.configuration.episodeSteps - step - 1
     if abs(player1.reward - player2.reward) > remaining_steps * 2:
@@ -68,8 +68,8 @@ def renderer(state, env):
     # This line prints results each round, good for debugging
     for i in range(1, rounds_played):
         step = env.steps[i]
-        right_move = step[0].observation.last_opponent_action
-        left_move = step[1].observation.last_opponent_action
+        right_move = step[0].observation.lastOpponentAction
+        left_move = step[1].observation.lastOpponentAction
         board += f"Round {i}: {sign_names[left_move]} vs {sign_names[right_move]}, Score: {step[0].reward} to {step[1].reward}\n"
 
     board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
