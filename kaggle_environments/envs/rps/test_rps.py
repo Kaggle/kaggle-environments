@@ -1,5 +1,5 @@
 from kaggle_environments import make
-from .agents import random_agent, rock, paper, agents
+from .agents import rock, paper, agents
 
 
 def negative_move_agent(observation, configuration):
@@ -20,7 +20,7 @@ def none_agent(observation, configuration):
 
 def test_rps_completes():
     env = make("rps", configuration={"episodeSteps": 10})
-    env.run([random_agent, random_agent])
+    env.run([rock, rock])
     json = env.toJSON()
     assert json["name"] == "rps"
     assert json["statuses"] == ["DONE", "DONE"]
