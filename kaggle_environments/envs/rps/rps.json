@@ -1,0 +1,50 @@
+{
+  "name": "rps",
+  "title": "Rock Paper Scissors",
+  "description": "Repeated Rock Paper Scissors",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "signs": {
+      "description": "Number of choices each step (Rock = 0, Paper = 1, Scissors = 2, etc).",
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 5,
+      "default": 3
+    },
+    "episodeSteps": {
+      "description": "Maximum number of steps the environment can run. Total is this number -1.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 1000
+    },
+    "agentTimeout": 15,
+    "actTimeout": 1
+  },
+  "reward": {
+    "description": "0 = Lost, 0.5 = Draw, 1 = Won",
+    "enum": [0, 0.5, 1],
+    "default": 0
+  },
+  "observation": {
+    "lastOpponentAction": {
+      "description": "Symbol returned by opponent last step. None on the first step.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "step": {
+      "description": "Current step within the episode.",
+      "type": "integer",
+      "shared": true,
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "action": {
+    "description": "Choice of sign for the step (Rock = 0, Paper = 1, Scissors = 2, etc)",
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 4
+  }
+}
