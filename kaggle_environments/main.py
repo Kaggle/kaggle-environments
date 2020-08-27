@@ -307,7 +307,7 @@ def http_request(request):
 
     body = request.get_json(silent=True, force=True) or {}
     args = {**params, **body}
-    if "render" in args:
+    if "render" in args and isinstance(args["render"], str):
         # Manually deserialize render argument
         # We should eventually refactor this to use the same deserializer as the cmd line arg parser
         args["render"] = json.loads(args["render"])
