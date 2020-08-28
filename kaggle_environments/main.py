@@ -335,7 +335,7 @@ def main():
         if args.out_path is None:
             print(result)
         else:
-            with open(args.out_path, encoding="utf16", mode="w") as out_file:
+            with open(args.out_path, encoding="utf-8", mode="w") as out_file:
                 out_file.write(str(result))
 
         return 0

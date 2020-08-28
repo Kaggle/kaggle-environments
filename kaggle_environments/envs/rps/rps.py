@@ -84,7 +84,7 @@ with open(json_path) as json_file:
 
 def html_renderer():
     js_path = path.abspath(path.join(dir_path, "rps.js"))
-    with open(js_path, encoding="utf8") as js_file:
+    with open(js_path, encoding="utf-8") as js_file:
         return js_file.read()
 
 
