@@ -130,12 +130,12 @@ def interpreter(state, env):
                 assert not env.configuration.render, "Render is not supported inside notebook environment."
 
             env.football_video_path = None
-            if 'agents' in env.info:
-                names = env.info['agents']
+            if 'TeamNames' in env.info:
+                names = env.info['TeamNames']
                 assert len(names) == 2
                 other_config_options['custom_display_stats'] = [
-                    'LEFT PLAYER: %s' % names[0]['teamName'],
-                    'RIGHT PLAYER: %s' % names[1]['teamName']]
+                    'LEFT PLAYER: %s' % names[0],
+                    'RIGHT PLAYER: %s' % names[1]]
             m_envs[env.configuration.id] = football_env().create_environment(
                 env_name=env.configuration.scenario_name,
                 stacked=False,
