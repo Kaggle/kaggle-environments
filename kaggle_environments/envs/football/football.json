@@ -3,6 +3,9 @@
     "agents": [2],
     "configuration": {
       "episodeSteps": 3002,
+      "agentTimeout": 60,
+      "actTimeout": 6,
+      "runTimeout": 9600
       "scenario_name": {
           "description": "Name of the scenario: for example 11_vs_11_competition. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
