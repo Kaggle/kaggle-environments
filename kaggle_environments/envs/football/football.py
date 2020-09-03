@@ -1,7 +1,9 @@
 import importlib
 import json
+from pathlib import Path
 from os import path
 import numpy as np
+import os
 import uuid
 
 
@@ -49,7 +51,6 @@ def parse_single_player(obs_raw_entry):
 
 def update_observations_and_rewards(configuration, state, obs, rew=None):
     """Updates agent-visible observations given 'raw' observations from environment.
-
     Observations in 'obs' are coming directly from the environment and are in 'raw' format.
     """
     state[0].observation.controlled_players = configuration.team_1
@@ -194,7 +195,11 @@ def interpreter(state, env):
 
     if "dumps" in info:
         env.football_video_path = retrieve_video_link(info["dumps"])
-
+        if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
+            target_path = Path(env.info['LiveVideoPath'])
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            os.rename(env.football_video_path, target_path)
+            env.football_video_path = env.info['LiveVideoPath']
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,

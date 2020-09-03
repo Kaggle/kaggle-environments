@@ -1,15 +1,16 @@
 from kaggle_environments import make, evaluate
 from kaggle_environments.errors import DeadlineExceeded
 import copy
+import os
 
 env = None
 
 
-def before_each(state=None, configuration=None):
+def before_each(state=None, configuration=None, info={}):
     global env
     steps = [] if state == None else [state]
     env = make("football", steps=steps,
-               configuration=configuration, debug=True)
+               configuration=configuration, info=info, debug=True)
 
 
 def test_to_json():
@@ -232,8 +233,13 @@ def test_deadline():
 
 
 def test_render():
-    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "tests.penalty", "save_video": True})
+    video_file = "/tmp/video.webm"
+    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "tests.penalty", "save_video": True},
+        info={"LiveVideoPath": video_file})
     env.step([[0],[0]])
     env.render(mode="human", width=800, height=600)
-    env.step([[0],[0]])
+    output = env.step([[0],[0]])
     env.render(mode="human", width=800, height=600)
+    while output[0]['status'] == 'ACTIVE':
+        output = env.step([[0],[0]])
+    assert os.path.isfile(video_file)
