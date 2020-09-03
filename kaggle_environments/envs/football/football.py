@@ -1,7 +1,9 @@
 import importlib
 import json
+from pathlib import Path
 from os import path
 import numpy as np
+import os
 import uuid
 
 
@@ -194,7 +196,11 @@ def interpreter(state, env):
 
     if "dumps" in info:
         env.football_video_path = retrieve_video_link(info["dumps"])
-
+        if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
+            path = Path(env.info['LiveVideoPath'])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            os.rename(env.football_video_path, path)
+            env.football_video_path = env.info['LiveVideoPath']
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,
