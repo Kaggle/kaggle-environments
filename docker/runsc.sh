@@ -1,0 +1,2 @@
+# Start the orchestrator container in gVisor
+docker run --runtime=runsc -it --cpus="0.8" --memory="4g" --entrypoint kaggle-environments --rm -p 127.0.0.1:8080:8080/tcp --name python-simulations python-simulations "$@"
