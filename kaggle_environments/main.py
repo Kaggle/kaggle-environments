@@ -94,10 +94,12 @@ def render(args, env):
         if args.display is not None \
         else utils.get(args.render, str, "json", path=["mode"])
 
-    if mode == "human" or mode == "ansi":
+    if mode == "human" or mode == "ansi" or mode == "txt":
         args.render["mode"] = "ansi"
     elif mode == "ipython" or mode == "html":
         args.render["mode"] = "html"
+    elif mode == "webm" or mode == "video":
+        args.render["mode"] = "webm"
     else:
         args.render["mode"] = "json"
     result = env.render(**args.render)
