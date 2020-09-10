@@ -5,6 +5,7 @@ from os import path
 import numpy as np
 import os
 import uuid
+import time
 
 
 def renderer(state, env):
@@ -196,10 +197,16 @@ def interpreter(state, env):
     if "dumps" in info:
         env.football_video_path = retrieve_video_link(info["dumps"])
         if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
+            print("env info: " + str(env.info))
             target_path = Path(env.info['LiveVideoPath'])
+            print("target path: " + str(target_path))
             target_path.parent.mkdir(parents=True, exist_ok=True)
+            print("before rename: " + str(os.listdir(target_path.parent)))
             os.rename(env.football_video_path, target_path)
+            print("after rename: " + str(os.listdir(target_path.parent)))
             env.football_video_path = env.info['LiveVideoPath']
+            time.sleep(5)
+            print("after sleep: " + str(os.listdir(target_path.parent)))
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,
