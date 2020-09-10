@@ -1,3 +1,5 @@
+# DANGER -- If you update this file, make sure to also update gpu.Dockerfile!
+
 FROM gcr.io/kaggle-images/python:latest
 
 WORKDIR /usr/src/app/kaggle_environments
