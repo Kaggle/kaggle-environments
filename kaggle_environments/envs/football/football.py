@@ -221,7 +221,7 @@ def interpreter(state, env):
     ## TODO: pass other information from 'info' to the state/agent.
     if done:
         for agent in range(2):
-            state[agent].status = "INACTIVE"
+            state[agent].status = "DONE"
 
     return state
 
