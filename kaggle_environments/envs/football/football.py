@@ -51,6 +51,25 @@ def parse_single_player(obs_raw_entry):
     return obs_raw_entry
 
 
+def try_get_video(env):
+    if not env.football_video_path:
+        internal_env = m_envs[env.configuration.id]
+        while not hasattr(internal_env, '_env'):
+            internal_env = internal_env.env
+        trace = internal_env._env._trace
+        trace._dump_config['episode_done']._min_frequency = 0
+        dumps = trace.process_pending_dumps(True)
+        env.football_video_path = retrieve_video_link(dumps)
+        if not env.football_video_path:
+            return
+        trace.write_dump('episode_done')
+    if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
+        target_path = Path(env.info['LiveVideoPath'])
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(env.football_video_path, target_path)
+        env.football_video_path = env.info['LiveVideoPath']
+
+
 def update_observations_and_rewards(configuration, state, obs, rew=None):
     """Updates agent-visible observations given 'raw' observations from environment.
     Observations in 'obs' are coming directly from the environment and are in 'raw' format.
@@ -164,12 +183,11 @@ def interpreter(state, env):
 
     # Check if both players responded.
     for agent in range(2):
-        # TODO: it seems that ACTIVE/INACTIVE/DONE are not present in 'status_codes.json'
-        # not sure what are the correct values here.
-        if (state[agent].status != "OK" and state[agent].status != "ACTIVE"):
+        if (state[agent].status != "ACTIVE"):
             # something went wrong.
             print("AGENT %d returned invalid state: %s" %
                   (agent, state[agent].status))
+            try_get_video(env)
             return state
 
     # verify actions.
@@ -180,6 +198,7 @@ def interpreter(state, env):
         update_state_on_invalid_action(
             state[0], state[1], "Invalid number of actions provided: Expected %d, got %d." %
                                 (env.configuration.team_1, len(state[0].action)))
+        try_get_video(env)
         return state
     actions_to_env = state[0].action
 
@@ -188,6 +207,7 @@ def interpreter(state, env):
         update_state_on_invalid_action(
             state[1], state[0], "Invalid number of actions provided: Expected %d, got %d." %
                                 (env.configuration.team_2, len(state[1].action)))
+        try_get_video(env)
         return state
 
     if env.configuration.team_2:
@@ -197,11 +217,6 @@ def interpreter(state, env):
 
     if "dumps" in info:
         env.football_video_path = retrieve_video_link(info["dumps"])
-        if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
-            target_path = Path(env.info['LiveVideoPath'])
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(env.football_video_path, target_path)
-            env.football_video_path = env.info['LiveVideoPath']
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,
@@ -211,6 +226,7 @@ def interpreter(state, env):
     if done:
         for agent in range(2):
             state[agent].status = "DONE"
+        try_get_video(env)
 
     return state
 
@@ -222,16 +238,11 @@ with open(jsonpath) as f:
 
 
 def html_renderer(env):
+    try_get_video(env)
     if not env.football_video_path:
-        trace = m_envs[env.configuration.id].env._env._trace
-        trace._dump_config['episode_done']._min_frequency = 0
-        dumps = trace.process_pending_dumps(True)
-        env.football_video_path = retrieve_video_link(dumps)
-        if not env.football_video_path:
-            raise Exception(
-                "No video found. Was environment created with save_video enabled?"
-            )
-        trace.write_dump('episode_done')
+        raise Exception(
+            "No video found. Was environment created with save_video enabled?"
+        )
 
     from IPython.display import display, HTML
     from base64 import b64encode
