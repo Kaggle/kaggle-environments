@@ -104,6 +104,31 @@ def test_single_agent():
         }
     ]
 
+    # Incorrect step from agent 1 (out of range).
+    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic"})
+    x = env.reset()
+    assert clear_players_raw(env.step([[100],[]])) == [
+        {
+            "action": [100],
+            "status": "INVALID",
+            "reward": None,
+            'info': {'debug_info': 'Invalid action provided: 100.'},
+            "observation": {
+                "controlled_players": 1,
+                "players_raw": []
+            }
+        },
+        {
+            "action": [],
+            "status": "DONE",
+            "reward": 100,
+            'info': {'debug_info': 'Opponent made invalid move. You win.'},
+            "observation": {
+                "controlled_players": 0,
+                "players_raw": []
+            }
+        }
+    ]
 
 def test_multi_agent():
     before_each(configuration={"team_1": 2, "team_2": 1, "scenario_name": "11_vs_11_stochastic"})

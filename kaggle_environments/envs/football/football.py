@@ -8,6 +8,8 @@ import uuid
 import time
 import shutil
 
+from gfootball.env import football_action_set
+
 
 def renderer(state, env):
     html_renderer(env)
@@ -192,6 +194,7 @@ def interpreter(state, env):
 
     # verify actions.
     controlled_players = env.configuration.team_1
+    action_set = football_action_set.action_set_dict['default']
 
     if len(state[0].action) != env.configuration.team_1:
         # Player 1 sent wrong data.
@@ -200,6 +203,14 @@ def interpreter(state, env):
                                 (env.configuration.team_1, len(state[0].action)))
         try_get_video(env)
         return state
+    for action in state[0].action:
+        try:
+            football_action_set.named_action_from_action_set(action_set, action)
+        except AssertionError:
+            update_state_on_invalid_action(
+                state[0], state[1], "Invalid action provided: %s." % action)
+            try_get_video(env)
+            return state
     actions_to_env = state[0].action
 
     if len(state[1].action) != env.configuration.team_2:
@@ -209,7 +220,14 @@ def interpreter(state, env):
                                 (env.configuration.team_2, len(state[1].action)))
         try_get_video(env)
         return state
-
+    for action in state[1].action:
+        try:
+            football_action_set.named_action_from_action_set(action_set, action)
+        except AssertionError:
+            update_state_on_invalid_action(
+                state[1], state[0], "Invalid action provided: %s." % action)
+            try_get_video(env)
+            return state
     if env.configuration.team_2:
         actions_to_env = actions_to_env + state[1].action
 
