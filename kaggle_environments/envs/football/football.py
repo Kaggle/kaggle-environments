@@ -199,10 +199,15 @@ def interpreter(state, env):
         if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
             print("env info: " + str(env.info))
             target_path = Path(env.info['LiveVideoPath'])
+            print("current path: " + str(env.football_video_path))
             print("target path: " + str(target_path))
             target_path.parent.mkdir(parents=True, exist_ok=True)
             print("before rename: " + str(os.listdir(target_path.parent)))
-            os.rename(env.football_video_path, target_path)
+            try:
+                os.rename(env.football_video_path, target_path)
+            except Exception as e:
+                print("exception: " + str(e))
+                raise e
             print("after rename: " + str(os.listdir(target_path.parent)))
             env.football_video_path = env.info['LiveVideoPath']
             time.sleep(5)
