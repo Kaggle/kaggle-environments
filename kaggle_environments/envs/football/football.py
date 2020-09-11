@@ -202,7 +202,6 @@ def interpreter(state, env):
             target_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(env.football_video_path, target_path)
             env.football_video_path = env.info['LiveVideoPath']
-            time.sleep(5)
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,
