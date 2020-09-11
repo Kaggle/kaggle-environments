@@ -6,6 +6,7 @@ import numpy as np
 import os
 import uuid
 import time
+import shutil
 
 
 def renderer(state, env):
@@ -204,7 +205,7 @@ def interpreter(state, env):
             target_path.parent.mkdir(parents=True, exist_ok=True)
             print("before rename: " + str(os.listdir(target_path.parent)))
             try:
-                os.rename(env.football_video_path, target_path)
+                shutil.move(env.football_video_path, target_path)
             except Exception as e:
                 print("exception: " + str(e))
                 raise e
