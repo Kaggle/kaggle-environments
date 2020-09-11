@@ -126,9 +126,9 @@ def interpreter(state, env):
                   (env.configuration.id, env.configuration.scenario_name))
 
             other_config_options = {}
+            # Use webm to encode videos (so that you can see them in the browser).
+            other_config_options["video_format"] = "webm"
             if env.configuration.running_in_notebook:
-                # Use webp to encode videos (so that you can see them in the browser).
-                other_config_options["video_format"] = "webm"
                 assert not env.configuration.render, "Render is not supported inside notebook environment."
 
             env.football_video_path = None
