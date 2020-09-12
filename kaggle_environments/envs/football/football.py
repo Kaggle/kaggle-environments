@@ -207,25 +207,24 @@ def interpreter(state, env):
     controlled_players = env.configuration.team_1
     action_set = football_action_set.action_set_dict['default']
 
-
+    try:
+        for action in state[0].action:
+            football_action_set.named_action_from_action_set(action_set, action)
+    except AssertionError:
+        mark_invalid(state[0], "Invalid action provided: %s." % state[0].action)
     if len(state[0].action) != env.configuration.team_1:
         mark_invalid(state[0], "Invalid number of actions provided: Expected %d, got %d." %
             (env.configuration.team_1, len(state[0].action)))
-    for action in state[0].action:
-        try:
-            football_action_set.named_action_from_action_set(action_set, action)
-        except AssertionError:
-            mark_invalid(state[0], "Invalid action provided: %s." % action)
     actions_to_env = state[0].action
 
+    try:
+        for action in state[1].action:
+            football_action_set.named_action_from_action_set(action_set, action)
+    except AssertionError:
+        mark_invalid(state[1], "Invalid action provided: %s." % state[1].action)
     if len(state[1].action) != env.configuration.team_2:
         mark_invalid(state[1], "Invalid number of actions provided: Expected %d, got %d." %
             (env.configuration.team_2, len(state[1].action)))
-    for action in state[1].action:
-        try:
-            football_action_set.named_action_from_action_set(action_set, action)
-        except AssertionError:
-            mark_invalid(state[1], "Invalid action provided: %s." % action)
     if env.configuration.team_2:
         actions_to_env = actions_to_env + state[1].action
     
