@@ -210,7 +210,7 @@ def interpreter(state, env):
     try:
         for action in state[0].action:
             football_action_set.named_action_from_action_set(action_set, action)
-    except AssertionError:
+    except Exception:
         mark_invalid(state[0], "Invalid action provided: %s." % state[0].action)
     if len(state[0].action) != env.configuration.team_1:
         mark_invalid(state[0], "Invalid number of actions provided: Expected %d, got %d." %
@@ -220,7 +220,7 @@ def interpreter(state, env):
     try:
         for action in state[1].action:
             football_action_set.named_action_from_action_set(action_set, action)
-    except AssertionError:
+    except Exception:
         mark_invalid(state[1], "Invalid action provided: %s." % state[1].action)
     if len(state[1].action) != env.configuration.team_2:
         mark_invalid(state[1], "Invalid number of actions provided: Expected %d, got %d." %
