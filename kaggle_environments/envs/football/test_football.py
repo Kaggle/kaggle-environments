@@ -105,7 +105,7 @@ def test_single_agent():
     ]
 
     # Incorrect step from agent 1 (out of range).
-    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic"})
+    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic", "save_video": True})
     x = env.reset()
     assert clear_players_raw(env.step([[100],[]])) == [
         {
@@ -129,6 +129,9 @@ def test_single_agent():
             }
         }
     ]
+    # We can render even an "empty" episode...
+    env.render(mode="human", width=800, height=600)
+
 
 def test_multi_agent():
     before_each(configuration={"team_1": 2, "team_2": 1, "scenario_name": "11_vs_11_stochastic"})
