@@ -205,7 +205,7 @@ def parse_args(args):
             "action": utils.get(args, str, "list", ["action"]),
             "agents": utils.get(args, list, [], ["agents"]),
             "configuration": utils.get(args, dict, {}, ["configuration"]),
-            "environment": args.get("environment", None),
+            "environment": args.get("environment", args.get("name", None)),
             "episodes": utils.get(args, int, 1, ["episodes"]),
             "state": utils.get(args, dict, {}, ["state"]),
             "steps": utils.get(args, list, [], ["steps"]),
