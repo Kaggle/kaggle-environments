@@ -3,9 +3,9 @@
     "agents": [2],
     "configuration": {
       "episodeSteps": 3002,
-      "agentTimeout": 120,
-      "actTimeout": 60,
-      "runTimeout": 9600,
+      "agentTimeout": 60,
+      "actTimeout": 0.5,
+      "runTimeout": 500,
       "scenario_name": {
           "description": "Name of the scenario: for example 11_vs_11_kaggle. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
