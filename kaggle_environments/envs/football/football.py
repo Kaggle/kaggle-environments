@@ -102,14 +102,29 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
     ]
 
 
-def update_state_on_invalid_action(bad_agent, good_agent, message):
-    bad_agent.status = "INVALID"
-    bad_agent.reward = -100
-    bad_agent.info.debug_info = message
+def mark_invalid(agent, message):
+    agent.status = "INVALID"
+    agent.reward = -100
+    agent.info.debug_info = message
 
-    good_agent.status = "DONE"
-    good_agent.reward = 100
-    good_agent.info.debug_info = "Opponent made invalid move. You win."
+
+def maybe_terminate(env, state):
+    if state[0].status != "ACTIVE" or state[1].status != "ACTIVE":
+        if state[0].status == "ACTIVE":
+            state[0].status = "DONE"
+            state[0].reward = 100
+            state[0].info.debug_info = "Oponnent forfeited. You win."
+        elif not state[0].reward:
+            state[0].reward = -100
+        if state[1].status == "ACTIVE":
+            state[1].status = "DONE"
+            state[1].reward = 100
+            state[1].info.debug_info = "Oponnent forfeited. You win."
+        elif not state[1].reward:
+            state[1].reward = -100
+        try_get_video(env)
+        return True
+    return False
 
 
 def football_env():
@@ -182,58 +197,39 @@ def interpreter(state, env):
         update_observations_and_rewards(configuration=env.configuration,
                                         state=state,
                                         obs=obs)
-
     if env.done:
         return state
 
-    # Check if both players responded.
-    for agent in range(2):
-        if (state[agent].status != "ACTIVE"):
-            # something went wrong.
-            print("AGENT %d returned invalid state: %s" %
-                  (agent, state[agent].status))
-            try_get_video(env)
-            return state
+    if maybe_terminate(env, state):
+        return state
 
     # verify actions.
     controlled_players = env.configuration.team_1
     action_set = football_action_set.action_set_dict['default']
 
-    if len(state[0].action) != env.configuration.team_1:
-        # Player 1 sent wrong data.
-        update_state_on_invalid_action(
-            state[0], state[1], "Invalid number of actions provided: Expected %d, got %d." %
-                                (env.configuration.team_1, len(state[0].action)))
-        try_get_video(env)
-        return state
-    for action in state[0].action:
-        try:
+    try:
+        for action in state[0].action:
             football_action_set.named_action_from_action_set(action_set, action)
-        except AssertionError:
-            update_state_on_invalid_action(
-                state[0], state[1], "Invalid action provided: %s." % action)
-            try_get_video(env)
-            return state
+    except Exception:
+        mark_invalid(state[0], "Invalid action provided: %s." % state[0].action)
+    if len(state[0].action) != env.configuration.team_1:
+        mark_invalid(state[0], "Invalid number of actions provided: Expected %d, got %d." %
+            (env.configuration.team_1, len(state[0].action)))
     actions_to_env = state[0].action
 
-    if len(state[1].action) != env.configuration.team_2:
-        # Player 2 sent wrong data.
-        update_state_on_invalid_action(
-            state[1], state[0], "Invalid number of actions provided: Expected %d, got %d." %
-                                (env.configuration.team_2, len(state[1].action)))
-        try_get_video(env)
-        return state
-    for action in state[1].action:
-        try:
+    try:
+        for action in state[1].action:
             football_action_set.named_action_from_action_set(action_set, action)
-        except AssertionError:
-            update_state_on_invalid_action(
-                state[1], state[0], "Invalid action provided: %s." % action)
-            try_get_video(env)
-            return state
+    except Exception:
+        mark_invalid(state[1], "Invalid action provided: %s." % state[1].action)
+    if len(state[1].action) != env.configuration.team_2:
+        mark_invalid(state[1], "Invalid number of actions provided: Expected %d, got %d." %
+            (env.configuration.team_2, len(state[1].action)))
     if env.configuration.team_2:
         actions_to_env = actions_to_env + state[1].action
-
+    
+    if maybe_terminate(env, state):
+        return state
     obs, rew, done, info = m_envs[env.configuration.id].step(actions_to_env)
 
     if "dumps" in info:

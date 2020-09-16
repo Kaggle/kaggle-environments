@@ -86,7 +86,7 @@ def test_single_agent():
             "action": [0],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Opponent made invalid move. You win.'},
+            'info': {'debug_info': 'Oponnent forfeited. You win.'},
             "observation": {
                 "controlled_players": 1,
                 "players_raw": []
@@ -112,7 +112,7 @@ def test_single_agent():
             "action": [100],
             "status": "INVALID",
             "reward": None,
-            'info': {'debug_info': 'Invalid action provided: 100.'},
+            'info': {'debug_info': 'Invalid action provided: [100].'},
             "observation": {
                 "controlled_players": 1,
                 "players_raw": []
@@ -122,7 +122,7 @@ def test_single_agent():
             "action": [],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Opponent made invalid move. You win.'},
+            'info': {'debug_info': 'Oponnent forfeited. You win.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []
@@ -131,6 +131,32 @@ def test_single_agent():
     ]
     # We can render even an "empty" episode...
     env.render(mode="human", width=800, height=600)
+
+    # Incorrect step from agent 1 (not a list).
+    before_each(configuration={"team_1": 1, "team_2": 0, "scenario_name": "11_vs_11_stochastic"})
+    x = env.reset()
+    assert clear_players_raw(env.step([100, []])) == [
+        {
+            "action": [],
+            "status": "INVALID",
+            "reward": None,
+            'info': {'debug_info': 'Invalid number of actions provided: Expected 1, got 0.'},
+            "observation": {
+                "controlled_players": 1,
+                "players_raw": []
+            }
+        },
+        {
+            "action": [],
+            "status": "DONE",
+            "reward": 100,
+            'info': {'debug_info': 'Oponnent forfeited. You win.'},
+            "observation": {
+                "controlled_players": 0,
+                "players_raw": []
+            }
+        }
+    ]
 
 
 def test_multi_agent():
@@ -200,7 +226,7 @@ def test_multi_agent():
             "action": [1],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Opponent made invalid move. You win.'},
+            'info': {'debug_info': 'Oponnent forfeited. You win.'},
             "observation": {
                 "controlled_players": 1,
                 "players_raw": []
@@ -249,9 +275,9 @@ def test_deadline():
         },
         {
             "action": [],
-            "status": "ACTIVE",
-            "reward": 0,
-            "info": {},
+            "status": "DONE",
+            "reward": 100,
+            "info": {'debug_info': 'Oponnent forfeited. You win.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []
@@ -270,4 +296,8 @@ def test_render():
     env.render(mode="human", width=800, height=600)
     while output[0]['status'] == 'ACTIVE':
         output = env.step([[0],[0]])
+    assert output[0]['reward'] == 0
+    assert output[1]['reward'] == 0
+    assert output[0]['status'] == "DONE"
+    assert output[1]['status'] == "DONE"
     assert os.path.isfile(video_file)
