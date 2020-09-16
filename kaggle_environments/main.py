@@ -149,22 +149,29 @@ def action_act(args):
 
 
 def action_step(args):
-    env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
-    runner = env.__agent_runner(args.agents)
-    env.step(runner.act())
-    if args.log_path is not None:
-        with open(args.log_path, mode="a") as log_file:
-            json.dump(env.logs[-1], log_file)
-            log_file.write(",")
+    env = {"logs": args.logs}
+    try:
+        env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
+        runner = env.__agent_runner(args.agents)
+        env.step(runner.act())
+    finally:
+        if args.log_path is not None:
+            with open(args.log_path, mode="a") as log_file:
+                json.dump(env.logs[-1], log_file)
+                log_file.write(",")
     return render(args, env)
 
 
 def action_run(args):
-    env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
-    env.run(args.agents)
-    if args.log_path is not None:
-        with open(args.log_path, mode="w") as log_file:
-            json.dump(env.logs, log_file)
+    # Create a fake env so we can make the real env in our try body
+    env = {"logs": args.logs}
+    try:
+        env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
+        env.run(args.agents)
+    finally:
+        if args.log_path is not None:
+            with open(args.log_path, mode="w") as log_file:
+                json.dump(env.logs, log_file, indent=2)
     return render(args, env)
 
 

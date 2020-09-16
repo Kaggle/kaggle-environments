@@ -16,6 +16,8 @@ import traceback
 import copy
 import json
 import uuid
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
 from .agent import Agent
@@ -111,9 +113,11 @@ class Environment:
         debug=False,
         state=None,
     ):
+        self.logs = logs
         self.id = str(uuid.uuid1())
         self.debug = debug
         self.info = info
+        self.pool = None
 
         err, specification = self.__process_specification(specification)
         if err:
@@ -153,9 +157,6 @@ class Environment:
             self.__set_state(step)
         else:
             self.reset()
-
-        self.logs = logs
-        self.pool = None
 
     def step(self, actions, logs=None):
         """
@@ -520,19 +521,37 @@ class Environment:
         return data
 
     def __run_interpreter(self, state):
-        try:
-            args = [structify(state), self]
-            new_state = structify(self.interpreter(
-                *args[:self.interpreter.__code__.co_argcount]))
-            for agent in new_state:
-                if agent.status not in self.__state_schema.properties.status.enum:
-                    self.debug_print(f"Invalid Action: {agent.status}")
-                    agent.status = "INVALID"
-                if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
-                    agent.reward = None
-            return new_state
-        except Exception as err:
-            raise Internal("Error running environment: " + repr(err))
+        if len(self.logs) == 0:
+            self.logs.append([])
+        log = self.logs[-1]
+        # Append any environmental logs to any agent logs we collected.
+        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+            try:
+                args = [structify(state), self]
+                new_state = structify(self.interpreter(
+                    *args[:self.interpreter.__code__.co_argcount]))
+                for agent in new_state:
+                    if agent.status not in self.__state_schema.properties.status.enum:
+                        self.debug_print(f"Invalid Action: {agent.status}")
+                        agent.status = "INVALID"
+                    if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+                        agent.reward = None
+                return new_state
+            except Exception as e:
+                # Print the exception stack trace to our log
+                traceback.print_exc(file=err_buffer)
+                # Reraise e to ensure that the program exits
+                raise e
+            finally:
+                # Allow up to 1k log characters per step which is ~1MB per 600 step episode
+                max_log_length = 1024
+                out = out_buffer.getvalue()[0:max_log_length]
+                err = err_buffer.getvalue()[0:max_log_length]
+                if out or err:
+                    log.append({
+                        "stdout": out,
+                        "stderr": err
+                    })
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):
@@ -598,8 +617,10 @@ class Environment:
             else:
                 results = list(map(act_agent, act_args))
 
+            # results is a list of tuples where the first element is an agent action and the second is the agent log
+            # This destructures into two lists, a list of actions and a list of logs.
             actions, logs = zip(*results)
-            return actions, logs
+            return list(actions), list(logs)
 
         return structify({"act": act})
 
