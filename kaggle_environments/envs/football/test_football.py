@@ -86,7 +86,7 @@ def test_single_agent():
             "action": [0],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Oponnent forfeited. You win.'},
+            'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
                 "controlled_players": 1,
                 "players_raw": []
@@ -122,7 +122,7 @@ def test_single_agent():
             "action": [],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Oponnent forfeited. You win.'},
+            'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []
@@ -150,7 +150,7 @@ def test_single_agent():
             "action": [],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Oponnent forfeited. You win.'},
+            'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []
@@ -226,7 +226,7 @@ def test_multi_agent():
             "action": [1],
             "status": "DONE",
             "reward": 100,
-            'info': {'debug_info': 'Oponnent forfeited. You win.'},
+            'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
                 "controlled_players": 1,
                 "players_raw": []
@@ -277,7 +277,7 @@ def test_deadline():
             "action": [],
             "status": "DONE",
             "reward": 100,
-            "info": {'debug_info': 'Oponnent forfeited. You win.'},
+            "info": {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
                 "controlled_players": 0,
                 "players_raw": []

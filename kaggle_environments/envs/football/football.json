@@ -5,7 +5,7 @@
       "episodeSteps": 3002,
       "agentTimeout": 60,
       "actTimeout": 0.5,
-      "runTimeout": 500,
+      "runTimeout": 1600,
       "scenario_name": {
           "description": "Name of the scenario: for example 11_vs_11_kaggle. Look inside https://github.com/google-research/football/tree/master/gfootball/scenarios.",
           "type": "string",
@@ -30,7 +30,6 @@
           "maximum": 11,
           "default": 1
       },
-
       "render": {
           "description": "If true - renders the game on the screen. This option will work on your local computer, but is not supported in colabs/notebooks.",
           "type": "boolean",
