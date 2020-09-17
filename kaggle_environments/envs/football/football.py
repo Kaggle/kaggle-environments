@@ -53,7 +53,7 @@ def parse_single_player(obs_raw_entry):
     return obs_raw_entry
 
 
-def try_get_video(env):
+def try_get_video(env, keep_running=False):
     if not env.football_video_path:
         internal_env = m_envs[env.configuration.id]
         while not hasattr(internal_env, '_env'):
@@ -67,7 +67,8 @@ def try_get_video(env):
         env.football_video_path = retrieve_video_link(dumps)
         if not env.football_video_path:
             return
-        trace.write_dump('episode_done')
+        if keep_running:
+            trace.write_dump('episode_done')
     if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
         target_path = Path(env.info['LiveVideoPath'])
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -255,7 +256,7 @@ with open(jsonpath) as f:
 
 
 def html_renderer(env):
-    try_get_video(env)
+    try_get_video(env, keep_running=True)
     if not env.football_video_path:
         raise Exception(
             "No video found. Was environment created with save_video enabled?"
