@@ -58,7 +58,7 @@ def try_get_video(env, keep_running=False):
         internal_env = m_envs[env.configuration.id]
         while not hasattr(internal_env, '_env'):
             internal_env = internal_env.env
-        if env.done and internal_env._env._step == -1:
+        if not keep_running and internal_env._env._step == -1:
             # Generate no-op step, so that video is available.
             internal_env.step([0] * (env.configuration.team_1 + env.configuration.team_2))
         trace = internal_env._env._trace
