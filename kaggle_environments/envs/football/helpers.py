@@ -1,5 +1,6 @@
 from functools import wraps
 from enum import Enum
+from typing import *
 
 
 class Action(Enum):
@@ -61,7 +62,7 @@ class GameMode(Enum):
     Penalty = 6
 
 
-def human_readable_agent(agent):
+def human_readable_agent(agent: Callable[[Dict], Action]):
     """
     Decorator allowing for more human-friendly implementation of the agent function.
 
@@ -71,7 +72,7 @@ def human_readable_agent(agent):
         return football_action_set.action_right
     """
     @wraps(agent)
-    def agent_wrapper(obs):
+    def agent_wrapper(obs) -> List[int]:
         # Extract observations for the first (and only) player we control.
         obs = obs['players_raw'][0]
         # Turn 'sticky_actions' into a set of active actions (strongly typed).
