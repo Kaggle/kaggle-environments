@@ -1,4 +1,6 @@
 from kaggle_environments import make, evaluate
+from kaggle_environments.envs.football import helpers
+from helpers import Action
 from kaggle_environments.errors import DeadlineExceeded
 import copy
 import os
@@ -26,6 +28,19 @@ def clear_players_raw(state):
   for entry in state:
     entry.observation.players_raw = []
   return state
+
+
+@helpers.human_readable_agent
+def human_readable_agent(obs):
+    if Action.Sprint not in obs['sticky_actions']:
+        return Action.Sprint
+    controlled_player_pos = obs['left_team'][obs['active']]
+    if obs['ball_owned_player'] == obs['active'] and obs['ball_owned_team'] == 0:
+        if controlled_player_pos[0] > 0.5:
+            return Action.Shot
+        return Action.Right
+    else:
+        return Action.Slide
 
 
 def test_single_agent():
@@ -301,3 +316,11 @@ def test_render():
     assert output[0]['status'] == "DONE"
     assert output[1]['status'] == "DONE"
     assert os.path.isfile(video_file)
+
+
+def test_human_readable_agent():
+    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "tests.penalty"})
+    action = [0]
+    for _ in range(10):
+      obs = env.step([action, [0]])
+      action  = human_readable_agent(obs[0]['observation'])
