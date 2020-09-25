@@ -5,5 +5,6 @@ steps:
 - id: 'build-gpu-image'
   name: gcr.io/cloud-builders/docker
   args: ['build', '-f', './docker/gpu.Dockerfile', '-t', 'gcr.io/kaggle-gpu-images/python-simulations', '.']
+  waitFor: ['-']
 images: ['gcr.io/kaggle-images/python-simulations', 'gcr.io/kaggle-gpu-images/python-simulations']
 timeout: 24h
