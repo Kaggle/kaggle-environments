@@ -54,6 +54,7 @@ def parse_single_player(obs_raw_entry):
 
 
 def try_get_video(env, keep_running=False):
+    print("try get video")
     if not env.football_video_path:
         internal_env = m_envs[env.configuration.id]
         while not hasattr(internal_env, '_env'):
@@ -72,6 +73,7 @@ def try_get_video(env, keep_running=False):
     if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
         target_path = Path(env.info['LiveVideoPath'])
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        print("live path", env.football_video_path, env.info['LiveVideoPath'])
         shutil.move(env.football_video_path, target_path)
         env.football_video_path = env.info['LiveVideoPath']
 
@@ -123,6 +125,7 @@ def maybe_terminate(env, state):
             state[1].info.debug_info = "Opponent forfeited. You win."
         elif not state[1].reward:
             state[1].reward = -100
+        print("terminate")
         try_get_video(env)
         return True
     return False
@@ -199,9 +202,11 @@ def interpreter(state, env):
                                         state=state,
                                         obs=obs)
     if env.done:
+        print("a")
         return state
 
     if maybe_terminate(env, state):
+        print("b")
         return state
 
     # verify actions.
@@ -230,6 +235,7 @@ def interpreter(state, env):
         actions_to_env = actions_to_env + state[1].action
     
     if maybe_terminate(env, state):
+        print("c")
         return state
     obs, rew, done, info = m_envs[env.configuration.id].step(actions_to_env)
 
@@ -246,6 +252,7 @@ def interpreter(state, env):
             state[agent].status = "DONE"
         try_get_video(env)
 
+    print("d")
     return state
 
 
