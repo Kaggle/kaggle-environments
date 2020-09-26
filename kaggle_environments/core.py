@@ -524,36 +524,41 @@ class Environment:
         if len(self.logs) == 0:
             self.logs.append([])
         log = self.logs[-1]
+        out = None
+        err = None
         # Append any environmental logs to any agent logs we collected.
-        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
-            try:
-                args = [structify(state), self]
-                new_state = structify(self.interpreter(
-                    *args[:self.interpreter.__code__.co_argcount]))
-                for agent in new_state:
-                    if agent.status not in self.__state_schema.properties.status.enum:
-                        self.debug_print(f"Invalid Action: {agent.status}")
-                        agent.status = "INVALID"
-                    if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
-                        agent.reward = None
-                return new_state
-            except Exception as e:
-                # Print the exception stack trace to our log
-                traceback.print_exc(file=err_buffer)
-                # Reraise e to ensure that the program exits
-                raise e
-            finally:
-                # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-                max_log_length = 1024
-                out = out_buffer.getvalue()[0:max_log_length]
-                err = err_buffer.getvalue()[0:max_log_length]
-                if out or err:
-                    log.append({
-                        "stdout": out,
-                        "stderr": err
-                    })
-                    self.debug_print(out)
-                    self.debug_print(err)
+        try:
+            with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+                try:
+                    args = [structify(state), self]
+                    new_state = structify(self.interpreter(
+                        *args[:self.interpreter.__code__.co_argcount]))
+                    for agent in new_state:
+                        if agent.status not in self.__state_schema.properties.status.enum:
+                            self.debug_print(f"Invalid Action: {agent.status}")
+                            agent.status = "INVALID"
+                        if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+                            agent.reward = None
+                    return new_state
+                except Exception as e:
+                    # Print the exception stack trace to our log
+                    traceback.print_exc(file=err_buffer)
+                    # Reraise e to ensure that the program exits
+                    raise e
+                finally:
+                    # Allow up to 1k log characters per step which is ~1MB per 600 step episode
+                    max_log_length = 1024
+                    out = out_buffer.getvalue()[0:max_log_length]
+                    err = err_buffer.getvalue()[0:max_log_length]
+                    if out or err:
+                        log.append({
+                            "stdout": out,
+                            "stderr": err
+                        })
+        finally:
+            if out or err:
+                self.debug_print(out)
+                self.debug_print(err)
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):
