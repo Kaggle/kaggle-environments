@@ -552,6 +552,8 @@ class Environment:
                         "stdout": out,
                         "stderr": err
                     })
+                    self.debug_print(out)
+                    self.debug_print(err)
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):
@@ -641,5 +643,5 @@ class Environment:
         return update_props(self.state[0], state, self.__state_schema.properties)
 
     def debug_print(self, message):
-        if self.debug:
+        if self.debug or self.configuration.isProduction:
             print(message)
