@@ -16,6 +16,7 @@ RUN cd /tmp && \
     sed -i 's/os\.remove/# os.remove/g' gfootball/env/observation_processor.py && \
     sed -i 's/except:/except Exception as e:/g' gfootball/env/observation_processor.py && \
     sed -i 's/logging\.error(traceback\.format_exc())/raise e/g' gfootball/env/observation_processor.py && \
+    sed -i 's/logging\.info/print/g' gfootball/env/observation_processor.py && \
     pip3 install . && \
     cd /tmp && rm -rf football
 
