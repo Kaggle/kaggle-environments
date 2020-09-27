@@ -548,16 +548,21 @@ class Environment:
                 finally:
                     # Allow up to 1k log characters per step which is ~1MB per 600 step episode
                     max_log_length = 1024
-                    out = out_buffer.getvalue()[0:max_log_length]
-                    err = err_buffer.getvalue()[0:max_log_length]
+                    out = out_buffer.getvalue()
+                    err = err_buffer.getvalue()
                     if out or err:
                         log.append({
-                            "stdout": out,
-                            "stderr": err
+                            "stdout": out[0:max_log_length],
+                            "stderr": err[0:max_log_length]
                         })
         finally:
-            if out or err:
+            if out:
+                while out.endswith('\n'):
+                    out = out[:-1]
                 self.debug_print(out)
+            if err:
+                while err.endswith('\n'):
+                    err = err[:-1]
                 self.debug_print(err)
 
     def __process_specification(self, spec):
