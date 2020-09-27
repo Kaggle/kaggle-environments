@@ -54,7 +54,6 @@ def parse_single_player(obs_raw_entry):
 
 
 def try_get_video(env, keep_running=False):
-    print("try get video")
     if not env.football_video_path:
         internal_env = m_envs[env.configuration.id]
         while not hasattr(internal_env, '_env'):
@@ -73,7 +72,6 @@ def try_get_video(env, keep_running=False):
     if 'LiveVideoPath' in env.info and env.info['LiveVideoPath'] is not None:
         target_path = Path(env.info['LiveVideoPath'])
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        print("live path", env.football_video_path, env.info['LiveVideoPath'])
         shutil.move(env.football_video_path, target_path)
         env.football_video_path = env.info['LiveVideoPath']
 
@@ -125,7 +123,6 @@ def maybe_terminate(env, state):
             state[1].info.debug_info = "Opponent forfeited. You win."
         elif not state[1].reward:
             state[1].reward = -100
-        print("terminate")
         try_get_video(env)
         return True
     return False
@@ -159,104 +156,96 @@ def retrieve_video_link(dumps):
 
 
 def interpreter(state, env):
-    try:
-        global m_envs
-        if "id" not in env.configuration or env.configuration.id is None:
-            env.configuration.id = str(uuid.uuid4())
+    global m_envs
+    if "id" not in env.configuration or env.configuration.id is None:
+        env.configuration.id = str(uuid.uuid4())
 
-        if (env.configuration.id not in m_envs) or env.done:
-            if env.configuration.id not in m_envs:
-                print("Staring a new environment %s: with scenario: %s" %
-                      (env.configuration.id, env.configuration.scenario_name))
+    if (env.configuration.id not in m_envs) or env.done:
+        if env.configuration.id not in m_envs:
+            print("Staring a new environment %s: with scenario: %s" %
+                  (env.configuration.id, env.configuration.scenario_name))
 
-                other_config_options = {}
-                # Use webm to encode videos (so that you can see them in the browser).
-                other_config_options["video_format"] = "webm"
-                if env.configuration.running_in_notebook:
-                    assert not env.configuration.render, "Render is not supported inside notebook environment."
+            other_config_options = {}
+            # Use webm to encode videos (so that you can see them in the browser).
+            other_config_options["video_format"] = "webm"
+            if env.configuration.running_in_notebook:
+                assert not env.configuration.render, "Render is not supported inside notebook environment."
 
-                env.football_video_path = None
-                if 'TeamNames' in env.info:
-                    names = env.info['TeamNames']
-                    assert len(names) == 2
-                    other_config_options['custom_display_stats'] = [
-                        'LEFT PLAYER: %s' % names[0],
-                        'RIGHT PLAYER: %s' % names[1]]
-                m_envs[env.configuration.id] = football_env().create_environment(
-                    env_name=env.configuration.scenario_name,
-                    stacked=False,
-                    # We use 'raw' representation to transfer data between server and agents.
-                    representation='raw',
-                    logdir=path.join(env.configuration.logdir, env.configuration.id),
-                    write_goal_dumps=False,
-                    write_full_episode_dumps=env.configuration.save_video,
-                    write_video=env.configuration.save_video,
-                    render=env.configuration.render,
-                    number_of_left_players_agent_controls=env.configuration.team_1,
-                    number_of_right_players_agent_controls=env.configuration.team_2,
-                    other_config_options=other_config_options)
-            else:
-                print("Resetting environment %s: with scenario: %s" %
-                      (env.configuration.id, env.configuration.scenario_name))
-            obs = m_envs[env.configuration.id].reset()
-            update_observations_and_rewards(configuration=env.configuration,
-                                            state=state,
-                                            obs=obs)
-        if env.done:
-            print("a")
-            return state
-
-        if maybe_terminate(env, state):
-            print("b")
-            return state
-
-        # verify actions.
-        controlled_players = env.configuration.team_1
-        action_set = football_action_set.action_set_dict['default']
-
-        try:
-            for action in state[0].action:
-                football_action_set.named_action_from_action_set(action_set, action)
-        except Exception:
-            mark_invalid(state[0], "Invalid action provided: %s." % state[0].action)
-        if len(state[0].action) != env.configuration.team_1:
-            mark_invalid(state[0], "Invalid number of actions provided: Expected %d, got %d." %
-                (env.configuration.team_1, len(state[0].action)))
-        actions_to_env = state[0].action
-
-        try:
-            for action in state[1].action:
-                football_action_set.named_action_from_action_set(action_set, action)
-        except Exception:
-            mark_invalid(state[1], "Invalid action provided: %s." % state[1].action)
-        if len(state[1].action) != env.configuration.team_2:
-            mark_invalid(state[1], "Invalid number of actions provided: Expected %d, got %d." %
-                (env.configuration.team_2, len(state[1].action)))
-        if env.configuration.team_2:
-            actions_to_env = actions_to_env + state[1].action
-
-        if maybe_terminate(env, state):
-            print("c")
-            return state
-        print(m_envs[env.configuration.id]._env._step)
-        obs, rew, done, info = m_envs[env.configuration.id].step(actions_to_env)
-
-        if "dumps" in info:
-            env.football_video_path = retrieve_video_link(info["dumps"])
+            env.football_video_path = None
+            if 'TeamNames' in env.info:
+                names = env.info['TeamNames']
+                assert len(names) == 2
+                other_config_options['custom_display_stats'] = [
+                    'LEFT PLAYER: %s' % names[0],
+                    'RIGHT PLAYER: %s' % names[1]]
+            m_envs[env.configuration.id] = football_env().create_environment(
+                env_name=env.configuration.scenario_name,
+                stacked=False,
+                # We use 'raw' representation to transfer data between server and agents.
+                representation='raw',
+                logdir=path.join(env.configuration.logdir, env.configuration.id),
+                write_goal_dumps=False,
+                write_full_episode_dumps=env.configuration.save_video,
+                write_video=env.configuration.save_video,
+                render=env.configuration.render,
+                number_of_left_players_agent_controls=env.configuration.team_1,
+                number_of_right_players_agent_controls=env.configuration.team_2,
+                other_config_options=other_config_options)
+        else:
+            print("Resetting environment %s: with scenario: %s" %
+                  (env.configuration.id, env.configuration.scenario_name))
+        obs = m_envs[env.configuration.id].reset()
         update_observations_and_rewards(configuration=env.configuration,
                                         state=state,
-                                        obs=obs,
-                                        rew=rew)
+                                        obs=obs)
+    if env.done:
+        return state
 
-        ## TODO: pass other information from 'info' to the state/agent.
-        if done:
-            for agent in range(2):
-                state[agent].status = "DONE"
-            try_get_video(env)
+    if maybe_terminate(env, state):
+        return state
 
-        print("d", done, info["dumps"] if "dumps" in info else "-1")
-    except Exception as e:
-        print(e)
+    # verify actions.
+    controlled_players = env.configuration.team_1
+    action_set = football_action_set.action_set_dict['default']
+
+    try:
+        for action in state[0].action:
+            football_action_set.named_action_from_action_set(action_set, action)
+    except Exception:
+        mark_invalid(state[0], "Invalid action provided: %s." % state[0].action)
+    if len(state[0].action) != env.configuration.team_1:
+        mark_invalid(state[0], "Invalid number of actions provided: Expected %d, got %d." %
+            (env.configuration.team_1, len(state[0].action)))
+    actions_to_env = state[0].action
+
+    try:
+        for action in state[1].action:
+            football_action_set.named_action_from_action_set(action_set, action)
+    except Exception:
+        mark_invalid(state[1], "Invalid action provided: %s." % state[1].action)
+    if len(state[1].action) != env.configuration.team_2:
+        mark_invalid(state[1], "Invalid number of actions provided: Expected %d, got %d." %
+            (env.configuration.team_2, len(state[1].action)))
+    if env.configuration.team_2:
+        actions_to_env = actions_to_env + state[1].action
+
+    if maybe_terminate(env, state):
+        return state
+    obs, rew, done, info = m_envs[env.configuration.id].step(actions_to_env)
+
+    if "dumps" in info:
+        env.football_video_path = retrieve_video_link(info["dumps"])
+    update_observations_and_rewards(configuration=env.configuration,
+                                    state=state,
+                                    obs=obs,
+                                    rew=rew)
+
+    ## TODO: pass other information from 'info' to the state/agent.
+    if done:
+        for agent in range(2):
+            state[agent].status = "DONE"
+        try_get_video(env)
+
     return state
 
 
