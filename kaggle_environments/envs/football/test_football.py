@@ -327,7 +327,7 @@ def test_human_readable_agent():
 
 
 def test_score():
-    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "1_vs_1_easy", "save_video": True, "reverse_team_processing": False})
-    res = env.run(["run_left", "run_left"])
-    assert res[-1][0]['reward'] == -2
-    assert res[-1][1]['reward'] == 2
+    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "tests.goal_test", "save_video": True, "episode_number": 0})
+    res = env.run(["run_right", "run_right"])
+    assert res[-1][0]['reward'] == -1
+    assert res[-1][1]['reward'] == 1
