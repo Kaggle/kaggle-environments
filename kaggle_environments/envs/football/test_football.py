@@ -324,3 +324,10 @@ def test_human_readable_agent():
     for _ in range(10):
       obs = env.step([action, [0]])
       action  = human_readable_agent(obs[0]['observation'])
+
+
+def test_score():
+    before_each(configuration={"team_1": 1, "team_2": 1, "scenario_name": "1_vs_1_easy", "save_video": True, "reverse_team_processing": False})
+    res = env.run(["run_left", "run_left"])
+    assert res[-1][0]['reward'] == -2
+    assert res[-1][1]['reward'] == 2
