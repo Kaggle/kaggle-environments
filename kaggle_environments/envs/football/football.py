@@ -62,9 +62,10 @@ def try_get_video(env, keep_running=False):
             # Generate no-op step, so that video is available.
             internal_env.step([0] * (env.configuration.team_1 + env.configuration.team_2))
         trace = internal_env._env._trace
-        trace._dump_config['episode_done']._min_frequency = 0
-        dumps = trace.process_pending_dumps(True)
-        env.football_video_path = retrieve_video_link(dumps)
+        if trace:
+          trace._dump_config['episode_done']._min_frequency = 0
+          dumps = trace.process_pending_dumps(True)
+          env.football_video_path = retrieve_video_link(dumps)
         if not env.football_video_path:
             return
         if keep_running:
@@ -85,15 +86,8 @@ def update_observations_and_rewards(configuration, state, obs, rew=None):
 
     assert len(obs) == configuration.team_1 + configuration.team_2
     if rew is not None:
-        if type(rew) == np.float32:
-            rew = [rew]
-        assert len(rew) == configuration.team_1 + configuration.team_2
-        if configuration.team_1 > 0:
-            state[0].reward = float(rew[0])
-        else:
-            state[0].reward = float(-rew[0])
-        state[1].reward = -state[1].reward
-
+        state[0].reward = rew
+        state[1].reward = -rew
     state[0].observation.players_raw = [
         parse_single_player(obs[x]) for x in range(configuration.team_1)
     ]
@@ -238,7 +232,7 @@ def interpreter(state, env):
     update_observations_and_rewards(configuration=env.configuration,
                                     state=state,
                                     obs=obs,
-                                    rew=rew)
+                                    rew=obs[0]['score'][0]-obs[0]['score'][1])
 
     ## TODO: pass other information from 'info' to the state/agent.
     if done:
