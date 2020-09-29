@@ -10,7 +10,7 @@ RUN apt-get update
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y install libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev xorg
 RUN cd /tmp && \
-    git clone --single-branch --branch v2.3 https://github.com/google-research/football.git && \
+    git clone --single-branch --branch v2.4 https://github.com/google-research/football.git && \
     cd football && \
     sed -i 's/copy2/move/g' gfootball/env/observation_processor.py && \
     sed -i 's/os\.remove/# os.remove/g' gfootball/env/observation_processor.py && \
