@@ -83,8 +83,8 @@ def human_readable_agent(agent: Callable[[Dict], Action]):
         if 'designated' in obs:
             del obs['designated']
         # Conver players' roles to enum.
-        obs['left_team_roles'] = { PlayerRole(role) for role in obs['left_team_roles'] }
-        obs['right_team_roles'] = { PlayerRole(role) for role in obs['right_team_roles'] }
+        obs['left_team_roles'] = [ PlayerRole(role) for role in obs['left_team_roles'] ]
+        obs['right_team_roles'] = [ PlayerRole(role) for role in obs['right_team_roles'] ]
 
         action = agent(obs)
         return [action.value]
