@@ -1,4 +1,4 @@
-#version 150
+#version 140
 
 /* matrix spaces primer :
 

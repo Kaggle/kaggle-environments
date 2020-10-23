@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#version 150
+#version 140
 
 #pragma optimize(on)
 
