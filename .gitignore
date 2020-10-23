@@ -109,6 +109,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+!docker/envs/football/egl/gfootball/env/
 
 # Spyder project settings
 .spyderproject
