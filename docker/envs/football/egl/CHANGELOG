@@ -1,0 +1,115 @@
+Numbering scheme:
+Each environment release number is of the form vX.Y. X is the major version
+number, Y is the minor version number. Experiment results within the same X
+should not change, as modifications made to the environment are either
+new features or backward compatible bug fixes. We will maintain vX branches
+pointing at the most recent vX.Y.
+
+v2.7
+- Fix propagation of a single pass/shot action between players upon control switch.
+- Improve logic which prevents agents blocking the game.
+
+v2.6
+- Address minor issues reported by Kaggle contestants.
+
+v2.5
+- Make 2D videos more readable and color-blind friendly.
+- Do not allow agents to block the game by exploiting kick-off.
+
+v2.4
+- Support for configurable rendering resolution.
+- Kaggle competition links.
+
+v2.3
+- Fix to scenario's second_half feature.
+
+v2.2
+- Minor changes to the information displayed in the video replays.
+- Changes to Kaggle competition scenario.
+- Minor code cleanups.
+
+v2.1
+- Introduction of `builtin_ai` action, which lets agent dynamically give control
+  of the player to the native game's built-in AI. It can be useful when training
+  multiagent setup incrementally (for example start by controlling all 11 players,
+  for 10 of them generate `builtin_ai` action. Over time stop using `builtin_ai`
+  action for an increasing number of players). Introduction of `v2` action set
+  which is an extension of the `default` action set with `builtin_ai` action.
+- Improved documentation for using Docker image, support for rendering with Docker.
+- Fix to observation shape returned by wrappers.
+
+v2.0.7
+- A number of documentation updates.
+- `info` returned by step() API call returns pointers to recorded dumps.
+
+v2.0.6
+- Small fixes to getState/setState.
+- Memory usage reduction when saving replay videos is enabled.
+
+v2.0.5
+- Support compilation on OSX.
+
+v2.0.4
+- Added Colab support (see readme file).
+- Some minor bug fixes (including https://github.com/google-research/football/issues/110)
+
+v2.0 - this release is not backward-compatible due to making game fully symmetric (training agents can behave differently).
+- Game is fully symmetric now (playing left to right and right to left is equivalent). All observations are modified inside of the
+  environment and from agent's perspective the game is always presented as playing from left to right (no need to train from both
+  sides).
+- Introduction of get_state() and set_state() API methods, which allow for saving and loading state of the entire environment.
+  Using these methods it is possible to move back in time and investigate possible outcomes of different actions taken
+  at exactly the same non-initial state of the episode.
+- Introduction of GYM-like render() method to the environment API which enables rendering dynamically. It is not needed anymore to
+  pro-actively start environment with --render flag in order to see rendered episodes at any time.
+- By default team losing the goal starts the game with the ball.
+
+v1.5
+- Fix to numerical issue resulting in asserts in long runs (https://github.com/google-research/football/issues/78).
+- Eliminate dependense on Glee (https://github.com/google-research/football/issues/77)
+- Created google-research-football@google.com email for direct contact with the environment team.
+
+v1.4
+- Added implementation of architecture 'gfootball_impala_cnn' used in the paper.
+- Added possibility of loading PPO checkpoints as players, added example checkpoints (for levels 11_vs_11_easy_stochastic and academy_run_to_score_with_keeper).
+- Removed TensorFlow dependency when running only the environment (but for training OpenAI baselines it's still needed)
+
+v1.3
+- Fix to pixel representation (https://github.com/google-research/football/issues/54,56,57).
+
+v1.2
+- Reduction of memory usage by the environment (https://github.com/google-research/football/issues/47).
+- Reduction of memory usage during compilation (https://github.com/google-research/football/issues/49).
+- Elimination of --no-pie compilation flag (https://github.com/google-research/football/issues/53).
+- Fix for broken wrappers.py (https://github.com/google-research/football/issues/54).
+
+v1.1
+- Add support for running multiple environment instances in a single process.
+- Replaced left_players and right_players with a single players flag. This allows for controling players in both teams by a single agent (useful for self-play).
+- Make ball_owned_player and ball_owned_team consistent (fix for https://github.com/google-research/football/issues/45).
+- Removed paper.pdf and references to it. The paper is now at https://arxiv.org/abs/1907.11180.
+
+v1.0 (released July 19th, 2019)
+- added support for multi agent training with run_multiagent_rllib.py example.
+- added enable_sides_swap parameter to create_environment, which enables random swapping of team sides for each episode. This is useful for self-play training.
+- over 3x speedup to the game engine.
+- renamed home/away teams to left/right.
+- eliminated implicit observation and action rotation for the right team. `is_active_left` denotes controlling left team.
+- config is not passed anymore to the reset method.
+- minor game engine bug fixes and code cleanup.
+- eliminated chdir calls from the environment, so that working dir does not change.
+- backfilled missing values in simple115 representation for the case when training with less than 22 players.
+- updated game engine to use Boost.Signals2.
+- updated environment to the new OpenAI Gym API.
+
+v0.3 (released June 14th, 2019)
+- change action set to include sliding, dribbling and keeper rush.
+- cleanup in action set & sticky actions on python side.
+- change to env: now it release non-sticky actions after a single environment step.
+- game engine change: the goalkeeper now move backwards when the ball if bound.
+  for the goal and is flying high.
+- game engine change: call randomize with seed right before match creation.
+- update documentation with frequent problems & mailing list.
+- updated paper.pdf with citation to RoboCup and new action set.
+
+v0.2 - initial release (released June 7th, 2019)
