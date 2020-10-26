@@ -14,7 +14,7 @@ async function renderer(context) {
     } = context;
 
     const sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
-    const sign_icons = ["👊", "📄", "✂️", "🖖", "🦎"]
+    const sign_icons = ["\u{1f44a}", "\u{270b}", "\u{2702}", "\u{1f596}", "\u{1f98e}"]
 
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
@@ -58,9 +58,10 @@ async function renderer(context) {
         const p2_move = state[0].observation.lastOpponentAction;
 
         const ctx = canvas.getContext("2d");
+        const row_width = canvasSize / 3;
         const label_x = 0;
-        const player1_x = 250;
-        const player2_x = 500;
+        const player1_x = row_width;
+        const player2_x = 2 * row_width;
         const middle_x = (player1_x + player2_x) / 2 + 30;
         const label_y = 40;
         const sign_id_y = 80;
@@ -77,7 +78,7 @@ async function renderer(context) {
         ctx.fillText("Player 2", player2_x, label_y)
 
         // Sign id Row
-        ctx.fillText("Id:", label_x, sign_id_y);
+        ctx.fillText("Action:", label_x, sign_id_y);
         ctx.fillText(p1_move, player1_x, sign_id_y);
         ctx.fillText(p2_move, player2_x, sign_id_y);
 
