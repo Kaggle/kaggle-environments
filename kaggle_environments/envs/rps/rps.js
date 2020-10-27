@@ -17,7 +17,8 @@ async function renderer(context) {
     const sign_icons = ["\u{1f44a}", "\u{270b}", "\u{2702}\u{fe0f}", "\u{1f596}", "\u{1f98e}"]
 
     // Common Dimensions.
-    const maxSize = 960;
+    const maxWidth = 960;
+    const maxHeight = 280;
     const canvasSize = Math.min(height, width);
     const unit = 8;
     const offset = canvasSize > 400 ? canvasSize * 0.1 : unit / 2;
@@ -44,13 +45,12 @@ async function renderer(context) {
 
     // Canvas setup and reset.
     let c = canvas.getContext("2d");
-    canvas.width = Math.min(maxSize, width);
-    canvas.height = Math.min(maxSize, height);
+    canvas.width = Math.min(maxWidth, width);
+    canvas.height = Math.min(maxHeight, height);
     c.clearRect(0, 0, canvas.width, canvas.height);
 
     // ------------------------------------------------------------------------------------//
 
-    console.log(environment);
     if (step < environment.steps.length - 1) {
         const state = environment.steps[step + 1]
         const last_state = environment.steps[step]
@@ -60,11 +60,11 @@ async function renderer(context) {
         const p2_move = state[0].observation.lastOpponentAction;
 
         const ctx = canvas.getContext("2d");
-        const row_width = Math.min(maxSize, width) / 3;
-        const label_x = 0;
-        const player1_x = row_width;
-        const player2_x = 2 * row_width;
-        const middle_x = (player1_x + player2_x) / 2;
+        const padding = 20;
+        const row_width = (Math.min(maxWidth, width) - padding * 2) / 3;
+        const label_x = padding;
+        const player1_x = padding + row_width;
+        const player2_x = padding + 2 * row_width;
         const label_y = 40;
         const sign_id_y = 80;
         const sign_name_y = 120;
