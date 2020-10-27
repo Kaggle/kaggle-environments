@@ -59,12 +59,17 @@ async function renderer(context) {
         const p1_move = state[1].observation.lastOpponentAction;
         const p2_move = state[0].observation.lastOpponentAction;
 
+        const info = environment.info;
+        const player1_text = info?.TeamNames?.[0] || "Player 1";
+        const player2_text = info?.TeamNames?.[1] || "Player 2";
+
         const ctx = canvas.getContext("2d");
         const padding = 20;
         const row_width = (Math.min(maxWidth, width) - padding * 2) / 3;
         const label_x = padding;
         const player1_x = padding + row_width;
         const player2_x = padding + 2 * row_width;
+        const middle_x = padding + row_width * 1.5;
         const label_y = 40;
         const sign_id_y = 80;
         const sign_name_y = 120;
@@ -76,8 +81,8 @@ async function renderer(context) {
         ctx.fillStyle = "#FFFFFF";
 
         // Player Row
-        ctx.fillText("Player 1", player1_x, label_y)
-        ctx.fillText("Player 2", player2_x, label_y)
+        ctx.fillText(player1_text, player1_x, label_y)
+        ctx.fillText(player2_text, player2_x, label_y)
 
         // Action Id Row
         ctx.fillText("Action:", label_x, sign_id_y);
