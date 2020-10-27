@@ -17,6 +17,7 @@ async function renderer(context) {
     const sign_icons = ["\u{1f44a}", "\u{270b}", "\u{2702}", "\u{1f596}", "\u{1f98e}"]
 
     // Common Dimensions.
+    const maxSize = 960;
     const canvasSize = Math.min(height, width);
     const unit = 8;
     const offset = canvasSize > 400 ? canvasSize * 0.1 : unit / 2;
@@ -43,12 +44,13 @@ async function renderer(context) {
 
     // Canvas setup and reset.
     let c = canvas.getContext("2d");
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
+    canvas.width = Math.min(maxSize, width);
+    canvas.height = Math.min(maxSize, height);
     c.clearRect(0, 0, canvas.width, canvas.height);
 
     // ------------------------------------------------------------------------------------//
 
+    console.log(environment);
     if (step < environment.steps.length - 1) {
         const state = environment.steps[step + 1]
         const last_state = environment.steps[step]
@@ -58,11 +60,11 @@ async function renderer(context) {
         const p2_move = state[0].observation.lastOpponentAction;
 
         const ctx = canvas.getContext("2d");
-        const row_width = canvasSize / 3;
+        const row_width = Math.min(maxSize, width) / 3;
         const label_x = 0;
         const player1_x = row_width;
         const player2_x = 2 * row_width;
-        const middle_x = (player1_x + player2_x) / 2 + 30;
+        const middle_x = (player1_x + player2_x) / 2;
         const label_y = 40;
         const sign_id_y = 80;
         const sign_name_y = 120;
@@ -77,15 +79,14 @@ async function renderer(context) {
         ctx.fillText("Player 1", player1_x, label_y)
         ctx.fillText("Player 2", player2_x, label_y)
 
-        // Sign id Row
+        // Action Id Row
         ctx.fillText("Action:", label_x, sign_id_y);
         ctx.fillText(p1_move, player1_x, sign_id_y);
         ctx.fillText(p2_move, player2_x, sign_id_y);
 
-        // Sign name Row
+        // Action Name Row
         ctx.fillText("Name:", label_x, sign_name_y);
         ctx.fillText(sign_names[p1_move], player1_x, sign_name_y);
-        ctx.fillText("vs", middle_x, sign_name_y);
         ctx.fillText(sign_names[p2_move], player2_x, sign_name_y);
 
         // Emoji Row
