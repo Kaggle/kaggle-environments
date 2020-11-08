@@ -14,6 +14,7 @@ def interpreter(state, env):
 
     step = len(env.steps)
     player1.observation.step = step
+    player2.observation.step = step
 
     def is_valid_action(player, sign_count):
         return (
