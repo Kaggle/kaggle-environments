@@ -287,7 +287,7 @@ def action_http(args):
 
     app = Flask(__name__, static_url_path="", static_folder="")
     app.route("/", methods=["GET", "POST"])(lambda: http_request(request))
-    app.run(args.host, args.port, debug=True)
+    app.run(args.host, args.port, debug=args.debug, use_reloader=args.debug)
 
 
 def http_request(request):
