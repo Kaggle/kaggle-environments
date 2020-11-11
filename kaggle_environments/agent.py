@@ -125,7 +125,6 @@ def build_agent(raw, builtin_agents, environment_name):
 
     return callable_agent, False
 
-
 class Agent:
     def __init__(self, raw, environment):
         self.builtin_agents = environment.agents
@@ -134,15 +133,8 @@ class Agent:
         self.environment_name = environment.name
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
-        self.is_initialized = False
 
     def act(self, observation):
-        timeout = self.configuration.actTimeout
-        if not self.is_initialized:
-            # Add in the initialization timeout since this is the first time this agent is called
-            timeout += self.configuration.agentTimeout
-            self.is_initialized = True
-
         args = [
             structify(observation),
             structify(self.configuration)
@@ -178,8 +170,8 @@ class Agent:
             if not log["stderr"].isspace():
                 print(log["stderr"], end="")
 
-        # Timeout reached, throw an error.
-        if perf_counter() - start > timeout:
+        if duration - self.configuration.actTimeout > observation.remainingOverageTime:
+            # No overage time left, timeout agent
             action = DeadlineExceeded()
 
         return action, log

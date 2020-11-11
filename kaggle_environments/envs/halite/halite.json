@@ -58,8 +58,8 @@
       "type": "integer",
       "default": null
     },
-    "agentTimeout": 30,
-    "actTimeout": 6,
+    "agentTimeout": 60,
+    "actTimeout": 3,
     "runTimeout": 9600
   },
   "reward": {
@@ -132,7 +132,8 @@
       "type": "integer",
       "shared": true,
       "minimum": 0
-    }
+    },
+    "remainingOverageTime": 60
   },
   "action": {
     "description": "Actions taken per asset (ship or shipyard).",

@@ -63,7 +63,7 @@
         "default": 1000
       },
       "agentTimeout": {
-        "description": "Maximum runtime (seconds) to initialize an agent.",
+        "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
         "type": "number",
         "minimum": 0,
         "default": 12
@@ -109,6 +109,16 @@
       "observation": {
         "description": "Observation to create an action based upon.",
         "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "remainingOverageTime": {
+            "description": "Remaining per-step timeout overage -- agent is disqualified when this reaches 0.",
+            "shared": false,
+            "type": "number",
+            "minimum": 0,
+            "default": 1
+          }
+        },
         "default": {}
       },
       "status": {
