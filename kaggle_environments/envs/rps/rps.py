@@ -49,14 +49,15 @@ def interpreter(state, env):
     player1.observation.lastOpponentAction = player2.action
     player1.reward += score
     player2.observation.lastOpponentAction = player1.action
-    player2.reward += -score
+    player2.reward -= score
     remaining_steps = env.configuration.episodeSteps - step - 1
-    if abs(player1.reward - player2.reward) > remaining_steps * 2:
+    if remaining_steps <= 0:
         player1.status = "DONE"
         player2.status = "DONE"
-    elif remaining_steps <= 0:
-        player1.status = "DONE"
-        player2.status = "DONE"
+        # Player performance too similar, consider the match a tie.
+        if abs(player1.reward) < env.configuration.tieRewardThreshold:
+            player1.reward = 0
+            player2.reward = 0
     return state
 
 
