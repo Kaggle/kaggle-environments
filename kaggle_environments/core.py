@@ -601,10 +601,7 @@ class Environment:
             spec[field_name] = field
 
         extend_specification(schemas, "configuration")
-        try:
-            extend_specification(schemas["state"]["properties"], "observation")
-        except Exception as e:
-            print(e)
+        extend_specification(schemas["state"]["properties"], "observation")
 
         return process_schema(schemas.specification, spec)
 

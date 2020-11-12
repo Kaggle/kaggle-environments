@@ -112,7 +112,7 @@
         "additionalProperties": true,
         "properties": {
           "remainingOverageTime": {
-            "description": "Remaining per-step timeout overage -- agent is disqualified when this reaches 0.",
+            "description": "Remaining per-step timeout overage -- agent is disqualified by TIMEOUT when this reaches 0.",
             "shared": false,
             "type": "number",
             "minimum": 0,
