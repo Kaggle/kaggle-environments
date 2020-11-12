@@ -112,11 +112,11 @@
         "additionalProperties": true,
         "properties": {
           "remainingOverageTime": {
-            "description": "Remaining per-step timeout overage -- agent is disqualified by TIMEOUT when this drops below 0.",
+            "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
             "shared": false,
             "type": "number",
             "minimum": 0,
-            "default": 1
+            "default": 12
           }
         },
         "default": {}
