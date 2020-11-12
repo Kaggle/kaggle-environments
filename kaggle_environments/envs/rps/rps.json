@@ -23,7 +23,7 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 1000,
-      "default": 17
+      "default": 20
     },
     "agentTimeout": 60,
     "actTimeout": 1
