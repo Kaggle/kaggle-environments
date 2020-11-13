@@ -193,7 +193,7 @@ class Environment:
                 else:
                     action_state[index]["action"] = data
 
-        self.state = self.__run_interpreter(action_state)
+        self.state = self.__run_interpreter(action_state, logs)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if len(self.steps) == self.configuration.episodeSteps - 1:
@@ -253,7 +253,9 @@ class Environment:
         for agent in self.state:
             agent.status = "INACTIVE"
         # Give the interpreter an opportunity to make any initializations.
-        self.__set_state(self.__run_interpreter(self.state))
+        logs = []
+        self.__set_state(self.__run_interpreter(self.state, logs))
+        self.logs.append(logs)
         # Replace the starting "status" if still "done".
         if self.done and len(self.state) == len(statuses):
             for i in range(len(self.state)):
@@ -520,10 +522,7 @@ class Environment:
             )
         return data
 
-    def __run_interpreter(self, state):
-        if len(self.logs) == 0:
-            self.logs.append([])
-        log = self.logs[-1]
+    def __run_interpreter(self, state, logs):
         out = None
         err = None
         # Append any environmental logs to any agent logs we collected.
@@ -534,8 +533,8 @@ class Environment:
                     new_state = structify(self.interpreter(
                         *args[:self.interpreter.__code__.co_argcount]))
                     for index, agent in enumerate(new_state):
-                        if index < len(log):
-                            duration = log[index]["duration"]
+                        if index < len(logs) and "duration" in logs[index]:
+                            duration = logs[index]["duration"]
                             overage_time_consumed = max(0, duration - self.configuration.actTimeout)
                             agent.observation.remainingOverageTime -= overage_time_consumed
                         if agent.status not in self.__state_schema.properties.status.enum:
@@ -555,7 +554,7 @@ class Environment:
                     out = out_buffer.getvalue()
                     err = err_buffer.getvalue()
                     if out or err:
-                        log.append({
+                        logs.append({
                             "stdout": out[0:max_log_length],
                             "stderr": err[0:max_log_length]
                         })

@@ -172,6 +172,11 @@ class Observation(ReadOnlyDict[str, any]):
         """The current step index within the episode."""
         return self["step"]
 
+    @property
+    def remaining_overage_time(self) -> int:
+        """The current step index within the episode."""
+        return self["remainingOverageTime"]
+
 
 class Configuration(ReadOnlyDict[str, any]):
     """
@@ -542,6 +547,7 @@ class Board:
         next_actions = next_actions or ([{}] * len(observation.players))
 
         self._step = observation.step
+        self._remaining_overage_time = observation.remaining_overage_time
         self._configuration = Configuration(raw_configuration)
         self._current_player_id = observation.player
         self._players: Dict[PlayerId, Player] = {}
@@ -642,7 +648,8 @@ class Board:
             "halite": halite,
             "players": players,
             "player": self.current_player_id,
-            "step": self.step
+            "step": self.step,
+            "remainingOverageTime": self._remaining_overage_time,
         }
 
     def __deepcopy__(self, _) -> 'Board':
