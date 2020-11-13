@@ -193,7 +193,7 @@ class Environment:
                 else:
                     action_state[index]["action"] = data
 
-        self.state = self.__run_interpreter(action_state)
+        self.state = self.__run_interpreter(action_state, logs)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if len(self.steps) == self.configuration.episodeSteps - 1:
@@ -253,7 +253,9 @@ class Environment:
         for agent in self.state:
             agent.status = "INACTIVE"
         # Give the interpreter an opportunity to make any initializations.
-        self.__set_state(self.__run_interpreter(self.state))
+        logs = []
+        self.__set_state(self.__run_interpreter(self.state, logs))
+        self.logs.append(logs)
         # Replace the starting "status" if still "done".
         if self.done and len(self.state) == len(statuses):
             for i in range(len(self.state)):
@@ -301,7 +303,7 @@ class Environment:
             html = f'<iframe srcdoc="{player_html}" width="{width}" height="{height}" frameborder="0"></iframe> '
             display(HTML(html))
         elif mode == "json":
-            return json.dumps(self.toJSON(), sort_keys=True)
+            return json.dumps(self.toJSON(), sort_keys=True, indent=2 if self.debug else None)
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
@@ -520,10 +522,7 @@ class Environment:
             )
         return data
 
-    def __run_interpreter(self, state):
-        if len(self.logs) == 0:
-            self.logs.append([])
-        log = self.logs[-1]
+    def __run_interpreter(self, state, logs):
         out = None
         err = None
         # Append any environmental logs to any agent logs we collected.
@@ -533,7 +532,11 @@ class Environment:
                     args = [structify(state), self]
                     new_state = structify(self.interpreter(
                         *args[:self.interpreter.__code__.co_argcount]))
-                    for agent in new_state:
+                    for index, agent in enumerate(new_state):
+                        if index < len(logs) and "duration" in logs[index]:
+                            duration = logs[index]["duration"]
+                            overage_time_consumed = max(0, duration - self.configuration.actTimeout)
+                            agent.observation.remainingOverageTime -= overage_time_consumed
                         if agent.status not in self.__state_schema.properties.status.enum:
                             self.debug_print(f"Invalid Action: {agent.status}")
                             agent.status = "INVALID"
@@ -551,7 +554,7 @@ class Environment:
                     out = out_buffer.getvalue()
                     err = err_buffer.getvalue()
                     if out or err:
-                        log.append({
+                        logs.append({
                             "stdout": out[0:max_log_length],
                             "stderr": err[0:max_log_length]
                         })
@@ -573,29 +576,32 @@ class Environment:
                 return ("type must be an integer or number", None)
             reward["type"] = [reward_type, "null"]
 
-        # Allow environments to extend the default configuration.
-        configuration = copy.deepcopy(
-            schemas["configuration"]["properties"])
-
-        for k, v in get(spec, dict, {}, ["configuration"]).items():
-            # Set a new default value.
-            if not isinstance(v, dict):
-                if not has(configuration, path=[k]):
+        # Allow environments to extend various parts of the specification.
+        def extend_specification(source, field_name):
+            field = copy.deepcopy(source[field_name]["properties"])
+            for k, v in get(spec, dict, {}, [field_name]).items():
+                # Set a new default value.
+                if not isinstance(v, dict):
+                    if not has(field, path=[k]):
+                        raise InvalidArgument(
+                            f"Field {field} was unable to set default of missing property: {k}")
+                    field[k]["default"] = v
+                # Add a new field.
+                elif not has(field, path=[k]):
+                    field[k] = v
+                # Override an existing field if types match.
+                elif field[k]["type"] == get(v, path=["type"]):
+                    field[k] = v
+                # Types don't match - unable to extend.
+                else:
                     raise InvalidArgument(
-                        f"Configuration was unable to set default of missing property: {k}")
-                configuration[k]["default"] = v
-            # Add a new configuration.
-            elif not has(configuration, path=[k]):
-                configuration[k] = v
-            # Override an existing configuration if types match.
-            elif configuration[k]["type"] == get(v, path=["type"]):
-                configuration[k] = v
-            # Types don't match - unable to extend.
-            else:
-                raise InvalidArgument(
-                    f"Configuration was unable to extend: {k}")
+                        f"Field {field} was unable to extend: {k}")
 
-        spec["configuration"] = configuration
+            spec[field_name] = field
+
+        extend_specification(schemas, "configuration")
+        extend_specification(schemas["state"]["properties"], "observation")
+
         return process_schema(schemas.specification, spec)
 
     def __agent_runner(self, agents):

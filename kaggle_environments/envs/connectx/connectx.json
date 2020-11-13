@@ -23,12 +23,12 @@
       "default": 4,
       "minimum": 1
     },
-    "agentTimeout": 16,
-    "actTimeout": 8,
+    "agentTimeout": 60,
+    "actTimeout": 2,
     "timeout": {
       "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",
       "type": "integer",
-      "default": 8,
+      "default": 2,
       "minimum": 0
     }
   },
@@ -51,7 +51,8 @@
       "defaults": [1, 2],
       "description": "Which checkers are the agents.",
       "enum": [1, 2]
-    }
+    },
+    "remainingOverageTime": 60
   },
   "action": {
     "description": "Column to drop a checker onto the board.",

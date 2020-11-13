@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import time
 from os import path
 from random import choice, gauss
 
@@ -33,11 +34,17 @@ def avg_agent(obs, config):
     return (config.min + config.max) // 2
 
 
+def timeout_agent(obs, config):
+    time.sleep(config.actTimeout + obs.remainingOverageTime / 2)
+    return random_agent(obs, config)
+
+
 agents = {
     "random": random_agent,
     "max": max_agent,
     "min": min_agent,
     "avg": avg_agent,
+    "timeout": timeout_agent,
 }
 
 
@@ -53,8 +60,11 @@ def interpreter(state, env):
         if value < env.configuration.min or value > env.configuration.max:
             agent.status = f"Invalid action: {value}"
         else:
-            agent.reward = value + \
+            agent.reward += value + \
                 gauss(0, 1) * env.configuration.noise // 1
+
+    if len(env.steps) >= env.configuration.episodeSteps:
+        for agent in state:
             agent.status = "DONE"
 
     return state
@@ -62,6 +72,10 @@ def interpreter(state, env):
 
 def renderer(state, env):
     return json.dumps([{"action": a.action, "reward": a.reward} for a in state])
+
+
+def html_renderer(state, env):
+    return ""
 
 
 dirpath = path.dirname(__file__)

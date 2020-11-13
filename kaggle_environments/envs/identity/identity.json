@@ -21,13 +21,17 @@
       "description": "Noise added to the reward.",
       "type": "number",
       "default": 0
-    }
+    },
+    "actTimeout": 1,
+    "episodeSteps": 25
   },
   "reward": {
     "description": "The value of the agent action is set as: action + gauss * noise.",
     "type": "integer"
   },
-  "observation": {},
+  "observation": {
+    "remainingOverageTime": 12
+  },
   "action": {
     "description": "Reward = action if number, otherwise 0.",
     "type": ["number", "string", "null"]
