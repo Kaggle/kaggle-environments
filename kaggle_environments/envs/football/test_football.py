@@ -54,6 +54,7 @@ def test_single_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -64,6 +65,7 @@ def test_single_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -78,6 +80,7 @@ def test_single_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -88,6 +91,7 @@ def test_single_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -103,6 +107,7 @@ def test_single_agent():
             "reward": 100,
             'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -113,6 +118,7 @@ def test_single_agent():
             "reward": None,
             'info': {'debug_info': 'Invalid number of actions provided: Expected 0, got 1.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -129,6 +135,7 @@ def test_single_agent():
             "reward": None,
             'info': {'debug_info': 'Invalid action provided: [100].'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -139,6 +146,7 @@ def test_single_agent():
             "reward": 100,
             'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -157,6 +165,7 @@ def test_single_agent():
             "reward": None,
             'info': {'debug_info': 'Invalid number of actions provided: Expected 1, got 0.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -167,6 +176,7 @@ def test_single_agent():
             "reward": 100,
             'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -185,6 +195,7 @@ def test_multi_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 2,
                 "players_raw": []
             }
@@ -195,6 +206,7 @@ def test_multi_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -209,6 +221,7 @@ def test_multi_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 2,
                 "players_raw": []
             }
@@ -219,6 +232,7 @@ def test_multi_agent():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -233,6 +247,7 @@ def test_multi_agent():
             "reward": None,
             'info': {'debug_info': 'Invalid number of actions provided: Expected 2, got 3.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 2,
                 "players_raw": []
             }
@@ -243,6 +258,7 @@ def test_multi_agent():
             "reward": 100,
             'info': {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -260,6 +276,7 @@ def test_deadline():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -270,6 +287,7 @@ def test_deadline():
             "reward": 0,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }
@@ -284,6 +302,7 @@ def test_deadline():
             "reward": None,
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 1,
                 "players_raw": []
             }
@@ -294,6 +313,7 @@ def test_deadline():
             "reward": 100,
             "info": {'debug_info': 'Opponent forfeited. You win.'},
             "observation": {
+                "remainingOverageTime": 60,
                 "controlled_players": 0,
                 "players_raw": []
             }

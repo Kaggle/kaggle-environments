@@ -30,7 +30,7 @@ def custom2(obs):
 
 def custom3(obs):
     step = sum(1 for mark in obs.board if mark == obs.mark)
-    time.sleep(2)
+    time.sleep(4)
     return [1, 3, 5, 7][step]
 
 
@@ -40,6 +40,12 @@ def custom4():
 
 def custom5():
     return -1
+
+
+def custom6(obs):
+    step = sum(1 for mark in obs.board if mark == obs.mark)
+    time.sleep(2)
+    return [1, 3, 5, 7][step]
 
 
 def before_each(state=None):
@@ -64,14 +70,14 @@ def test_can_reset():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {"mark": 1, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
             "reward": 0,
         },
         {
             "action": 0,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "reward": 0,
         },
     ]
@@ -85,14 +91,14 @@ def test_can_place_valid_mark():
             "action": 4,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
             "reward": 0,
         },
         {
             "action": 0,  # None caused the default action to be applied.
             "status": "ACTIVE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "reward": 0,
         },
     ]
@@ -108,14 +114,14 @@ def test_can_place_invalid_mark():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
             "reward": 0,
         },
         {
             "action": 4,
             "status": "INVALID",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "reward": None,
         },
     ]
@@ -131,14 +137,14 @@ def test_can_place_winning_mark():
             "action": 7,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 1, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2]},
             "reward": 1,
         },
         {
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "reward": -1,
         },
     ]
@@ -181,79 +187,51 @@ def test_can_run_custom_agents():
             "action": 6,
             "reward": 1,
             "info": {},
-            "observation": {"board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 1},
             "status": "DONE",
         },
         {
             "action": 0,
             "reward": -1,
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "status": "DONE",
         },
     ]
 
 
 def test_agents_can_timeout_on_init():
-    env = make("tictactoe", debug=True, configuration={"agentTimeout": 0.5, "actTimeout": 0.5})
+    env = make("tictactoe", debug=True)
     state = env.run([custom1, custom3])[-1]
-    assert state == [
-        {
-            "action": 0,
-            "reward": 0,
-            "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
-            "status": "DONE",
-        },
-        {
-            "action": None,
-            "reward": None,
-            "info": {},
-            "observation": {"mark": 2},
-            "status": "TIMEOUT",
-        },
-    ]
+    assert state[1]["status"] == "TIMEOUT"
+    assert state[1]["observation"]["remainingOverageTime"] < 0
 
 
 def test_agents_can_timeout_on_act():
-    env = make("tictactoe", debug=True, configuration={
-               "agentTimeout": 5, "actTimeout": 1})
-    state = env.run([custom1, custom3])[-1]
-    assert state == [
-        {
-            "action": 0,
-            "reward": 0,
-            "info": {},
-            "observation": {"board": [1, 2, 1, 0, 0, 0, 0, 0, 0], "mark": 1},
-            "status": "DONE",
-        },
-        {
-            "action": None,
-            "reward": None,
-            "info": {},
-            "observation": {"mark": 2},
-            "status": "TIMEOUT",
-        },
-    ]
+    env = make("tictactoe", debug=True)
+    state = env.run([custom1, custom6])[-1]
+    print(state)
+    assert state[1]["status"] == "TIMEOUT"
+    assert state[1]["observation"]["remainingOverageTime"] < 0
 
 
 def test_run_timeout():
     env = make("tictactoe", debug=True, configuration={
-               "agentTimeout": 10, "actTimeout": 10, "runTimeout": 6})
+               "agentTimeout": 10, "actTimeout": 10, "runTimeout": 1})
     state = env.run([custom1, custom3])[-1]
     assert state == [
         {
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"board": [1, 2, 1, 2, 1, 2, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 2, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "ACTIVE",
         },
         {
-            "action": 5,
+            "action": 1,
             "reward": 0,
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "status": "INACTIVE",
         },
     ]
@@ -267,14 +245,14 @@ def test_agents_can_error():
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "DONE",
         },
         {
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "status": "ERROR",
         },
     ]
@@ -288,14 +266,14 @@ def test_agents_can_have_invalid_actions():
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
             "status": "DONE",
         },
         {
             "action": None,
             "reward": None,
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 2, "mark": 2},
             "status": "INVALID",
         },
     ]

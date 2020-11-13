@@ -158,7 +158,7 @@ class Environment:
         else:
             self.reset()
 
-    def step(self, actions, logs=None):
+    def step(self, actions, logs=[]):
         """
         Execute the environment interpreter using the current state and a list of actions.
 

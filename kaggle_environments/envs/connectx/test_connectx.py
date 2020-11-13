@@ -26,8 +26,8 @@ def before_each(state=None, configuration=None):
 
 def test_has_correct_timeouts():
     before_each()
-    assert env.configuration.actTimeout == 8
-    assert env.configuration.agentTimeout == 16
+    assert env.configuration.actTimeout == 2
+    assert env.configuration.agentTimeout == 60
 
 
 def test_can_train_first():
@@ -64,14 +64,14 @@ def test_can_reset():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {"board": [0] * 42, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": [0] * 42, "mark": 1},
             "reward": 0,
         },
         {
             "action": 0,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": 0,
         },
     ]
@@ -85,6 +85,7 @@ def test_can_mark():
             "status": "INACTIVE",
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
                 "mark": 1,
             },
@@ -94,7 +95,7 @@ def test_can_mark():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": 0,
         },
     ]
@@ -108,6 +109,7 @@ def test_can_mark_out_of_bounds():
             "status": "INVALID",
             "info": {},
             "observation": {
+                "remainingOverageTime": 60,
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "mark": 1,
             },
@@ -117,7 +119,7 @@ def test_can_mark_out_of_bounds():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": 0,
         },
     ]
@@ -135,14 +137,14 @@ def test_can_mark_a_full_column():
             "action": 1,
             "status": "INVALID",
             "info": {},
-            "observation": {"board": board, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1},
             "reward": None,
         },
         {
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": 0,
         },
     ]
@@ -162,14 +164,14 @@ def test_can_win():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board_post_move, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1},
             "reward": 1,
         },
         {
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": -1,
         },
     ]
@@ -182,7 +184,7 @@ def test_can_tie():
     board_post_move[1] = 2
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {}}],
+        state=[{"observation": {"remainingOverageTime": 60, "board": board}}, {"observation": {}}],
     )
     env.step([0, None])
     assert env.step([None, 1]) == [
@@ -190,14 +192,14 @@ def test_can_tie():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board_post_move, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1},
             "reward": 0,
         },
         {
             "action": 1,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": 0,
         },
     ]
@@ -207,7 +209,7 @@ def test_can_render():
     board = [0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 2, 1, 0, 1, 2, 1, 2, 1]
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}}, {"observation": {}}],
+        state=[{"observation": {"remainingOverageTime": 60, "board": board}}, {"observation": {}}],
     )
     assert env.render(mode="ansi").strip() == """
 +---+---+---+---+---+
@@ -237,14 +239,14 @@ def test_can_run_agents():
             "action": 1,
             "status": "DONE",
             "info": {},
-            "observation": {"board": board, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1},
             "reward": 1,
         },
         {
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"mark": 2},
+            "observation": {"remainingOverageTime": 60, "mark": 2},
             "reward": -1,
         },
     ]

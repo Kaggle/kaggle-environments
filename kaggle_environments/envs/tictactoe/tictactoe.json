@@ -5,7 +5,9 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "episodeSteps": 10
+    "episodeSteps": 10,
+    "actTimeout": 1,
+    "agentTimeout": 2
   },
   "reward": {
     "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
@@ -25,7 +27,8 @@
       "description": "Mark for the agent to use",
       "defaults": [1, 2],
       "enum": [1, 2]
-    }
+    },
+    "remainingOverageTime": 2
   },
   "action": {
     "description": "Position to place a mark on the board.",
