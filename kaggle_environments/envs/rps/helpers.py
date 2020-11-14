@@ -29,8 +29,8 @@ class Configuration(ReadOnlyDict[str, any]):
 
     @property
     def signs(self) -> int:
-        """Maximum runtime (seconds) to initialize an agent."""
-        return self["agentTimeout"]
+        """Number of choices each step (3 for the normal rock, paper, scissors)"""
+        return self["signs"]
 
     @property
     def act_timeout(self) -> float:
