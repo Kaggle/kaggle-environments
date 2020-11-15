@@ -52,8 +52,8 @@ help(env.reset)
 Agent functions can have observation and configuration parameters and must return a valid action. Details about the observation, configuration, and actions can seen by viewing the specification.
 
 ```python
-from kaggle_simulations import make
-env = make("connectx", {rows: 10, columns: 8, inarow: 5})
+from kaggle_environments import make
+env = make("connectx", {"rows": 10, "columns": 8, "inarow": 5})
 
 def agent(observation, configuration):
   print(observation) # {board: [...], mark: 1}
@@ -102,7 +102,7 @@ agent6 = "http://localhost:8000/run/agent"
 Most environments contain default agents to play against. To see the list of available agents for a specific environment run:
 
 ```python
-from kaggle_simulations import make
+from kaggle_environments import make
 env = make("tictactoe")
 
 # The list of available default agents.
@@ -146,7 +146,7 @@ There are 3 types of errors which can occur from agent execution:
 To help debug your agent and why it threw the errors above, add the `debug` flag when setting up the environment.
 
 ```python
-from kaggle_simulations import make
+from kaggle_environments import make
 
 def agent():
   return "Something Bad"
@@ -231,13 +231,12 @@ print(steps)
 Evaluation is used to run an episode (environment + agents) multiple times and just return the rewards.
 
 ```python
-from kaggle_simulations import evaluate
+from kaggle_environments import evaluate
 
 # Same definitions as "make" above.
-envrionment = "connectx"
-configuration = {rows: 10, columns: 8, inarow: 5}
+environment = "connectx"
+configuration = {"rows": 10, "columns": 8, "inarow": 5}
 steps = []
-debug = False
 
 # Which agents to run repeatedly.  Same as env.run(agents)
 agents = ["random", agent1]
@@ -245,7 +244,7 @@ agents = ["random", agent1]
 # How many times to run them.
 num_episodes = 10
 
-rewards = evaluate(environment, agents, configuration, steps, num_episodes, debug)
+rewards = evaluate(environment, agents, configuration, steps, num_episodes)
 ```
 
 ## Stepping
@@ -263,7 +262,7 @@ state = env.step([agent1_action, agent2_action])
 A few environments offer an interactive play against agents within jupyter notebooks. An example of this is using connectx:
 
 ```python
-from kaggle_simulations import make
+from kaggle_environments import make
 
 env = make("connectx")
 # None indicates which agent will be manually played.
