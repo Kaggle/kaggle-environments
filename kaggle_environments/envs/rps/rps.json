@@ -18,6 +18,13 @@
       "minimum": 2,
       "default": 1000
     },
+    "tieRewardThreshold": {
+      "description": "Minimum reward needed to achieve a win rather than a tie.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "default": 20
+    },
     "agentTimeout": 60,
     "actTimeout": 1
   },
