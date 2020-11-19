@@ -50,6 +50,10 @@ def interpreter(state, env):
     player1.reward += score
     player2.observation.lastOpponentAction = player1.action
     player2.reward -= score
+    player1.observation.myScore = player1.reward
+    player1.observation.opponentScore = player2.reward
+    player2.observation.myScore = player2.reward
+    player2.observation.opponentScore = player1.reward
     remaining_steps = env.configuration.episodeSteps - step - 1
     if remaining_steps <= 0:
         player1.status = "DONE"
