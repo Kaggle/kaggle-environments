@@ -91,3 +91,12 @@ def test_too_big_move():
     json = env.toJSON()
     assert json["rewards"] == [1, None]
     assert json["statuses"] == ['DONE', 'INVALID']
+
+def test_agent_reward():
+    env = make("rps", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})
+    env.run([paper, rock])
+    json = env.toJSON()
+    last_step = json["steps"][-1]
+    assert last_step[0]["observation"]["step"] == last_step[0]["observation"]["reward"]
+    assert last_step[0]["observation"]["reward"] == -last_step[1]["observation"]["reward"]
+    assert json["statuses"] == ["DONE", "DONE"]

@@ -47,7 +47,14 @@
       "minimum": 0,
       "default": 0
     },
-    "remainingOverageTime": 60
+    "remainingOverageTime": 60,
+    "reward": {
+      "description": "Current reward of the agent.",
+      "type": "integer",
+      "minimum": -999,
+      "maximum": 999,
+      "default": 0
+    }
   },
   "action": {
     "description": "Choice of sign for the step (Rock = 0, Paper = 1, Scissors = 2, etc)",
