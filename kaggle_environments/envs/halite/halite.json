@@ -127,12 +127,6 @@
       "type": "integer",
       "defaults": [0, 1, 2, 3]
     },
-    "step": {
-      "description": "The current step index within the episode.",
-      "type": "integer",
-      "shared": true,
-      "minimum": 0
-    },
     "remainingOverageTime": 60
   },
   "action": {

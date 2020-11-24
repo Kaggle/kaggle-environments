@@ -62,12 +62,6 @@
         "minimum": 1,
         "default": 1000
       },
-      "agentTimeout": {
-        "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
-        "type": "number",
-        "minimum": 0,
-        "default": 12
-      },
       "actTimeout": {
         "description": "Maximum runtime (seconds) to obtain an action from an agent.",
         "type": "number",
@@ -79,11 +73,6 @@
         "type": "number",
         "minimum": 0,
         "default": 1200
-      },
-      "isProduction": {
-        "description": "Whether this episode is running in Kaggle's production evaluation system. Undefined behavior when set to True locally.",
-        "type": "boolean",
-        "default": false
       }
     }
   },
@@ -117,6 +106,13 @@
             "type": "number",
             "minimum": 0,
             "default": 12
+          },
+          "step": {
+            "description": "Current step within the episode.",
+            "type": "integer",
+            "shared": true,
+            "minimum": 0,
+            "default": 0
           }
         },
         "default": {}

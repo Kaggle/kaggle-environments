@@ -1,27 +1,66 @@
 import json
+import numpy as np
+import random
 from os import path
 from .agents import agents as all_agents
-from .utils import get_score
+from ..helpers import *
+
+
+class Observation(Observation):
+    """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
+    @property
+    def last_opponent_action(self):
+        """Bandit chosen by opponent last step. None on the first step."""
+        return self["lastOpponentAction"]
+
+    @property
+    def reward(self):
+        """Current reward of the agent."""
+        return self["reward"]
+
+
+class Configuration(Configuration):
+    """This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
+    @property
+    def bandit_count(self):
+        """Number of bandits available to choose from. Max bandit is this number -1."""
+        return self["banditCount"]
+
+    @property
+    def seed(self):
+        """Seed value used to initialize bandits for this episode."""
+        return self["seed"]
+
+    @seed.setter
+    def seed(self, value):
+        self._data["seed"] = value
 
 
 def interpreter(state, env):
+    configuration = Configuration(env.configuration)
+
+    if env.done:
+        if not hasattr(configuration, "seed"):
+            max_int_32 = (1 << 31) - 1
+            configuration.seed = random.randrange(max_int_32)
+
+        np.random.seed(configuration.seed)
+        random.seed(configuration.seed)
+
+        return state
+
     player1 = state[0]
     player2 = state[1]
 
-    # Specification can fully handle the reset.
-    if env.done:
-        return state
-
-    def is_valid_action(player, sign_count):
+    def is_valid_action(player):
         return (
             player.action is not None and
             isinstance(player.action, int) and
-            0 <= player.action < sign_count
+            0 <= player.action < configuration.bandit_count
         )
 
     # Check for validity of actions
-    is_player1_valid = is_valid_action(player1, env.configuration.signs)
-    is_player2_valid = is_valid_action(player2, env.configuration.signs)
+    is_player1_valid, is_player2_valid = is_valid_action(player1), is_valid_action(player2)
     if not is_player2_valid:
         player2.status = "INVALID"
         player2.reward = 0
@@ -38,9 +77,8 @@ def interpreter(state, env):
         if is_player2_valid:
             player2.status = "DONE"
             player2.reward = 1
-            return state
-        else:
-            return state
+
+        return state
 
     score = get_score(player1.action, player2.action)
     player1.observation.lastOpponentAction = player2.action
@@ -61,19 +99,7 @@ def interpreter(state, env):
 
 
 def renderer(state, env):
-    sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
-    rounds_played = len(env.steps)
-    board = ""
-
-    # This line prints results each round, good for debugging
-    for i in range(1, rounds_played):
-        step = env.steps[i]
-        right_move = step[0].observation.lastOpponentAction
-        left_move = step[1].observation.lastOpponentAction
-        board += f"Round {i}: {sign_names[left_move]} vs {sign_names[right_move]}, Score: {step[0].reward} to {step[1].reward}\n"
-
-    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
-    return board
+    return "Hello!"
 
 
 dir_path = path.dirname(__file__)

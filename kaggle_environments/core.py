@@ -532,6 +532,7 @@ class Environment:
                     args = [structify(state), self]
                     new_state = structify(self.interpreter(
                         *args[:self.interpreter.__code__.co_argcount]))
+                    new_state[0].observation.step = len(self.steps)
                     for index, agent in enumerate(new_state):
                         if index < len(logs) and "duration" in logs[index]:
                             duration = logs[index]["duration"]
@@ -659,5 +660,5 @@ class Environment:
         return update_props(self.state[0], state, self.__state_schema.properties)
 
     def debug_print(self, message):
-        if self.debug or self.configuration.isProduction:
+        if self.debug:
             print(message)

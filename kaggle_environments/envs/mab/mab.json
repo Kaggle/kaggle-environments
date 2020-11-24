@@ -1,0 +1,48 @@
+{
+  "name": "mab",
+  "title": "Adversarial Multi-armed Bandit",
+  "description": "Adversarial Multi-armed Bandit",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": 300,
+    "actTimeout": 1,
+    "banditCount": {
+      "description": "Number of bandits available to choose from. Max bandit is this number -1.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 20
+    },
+    "seed": {
+      "description": "Seed value used to initialize bandits for this episode.",
+      "type": "integer"
+    }
+  },
+  "reward": {
+    "description": "The total reward each player has accumulated from the bandits across all steps.",
+    "type": "number",
+    "minimum": 0,
+    "default": 0
+  },
+  "observation": {
+    "lastOpponentAction": {
+      "description": "Bandit chosen by opponent last step. None on the first step.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "remainingOverageTime": 60,
+    "reward": {
+      "description": "Current reward of the agent.",
+      "type": "number",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "action": {
+    "description": "Choice of bandit for the step (min bandit = 0, max bandit = configuration.banditCount - 1)",
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 19
+  }
+}
