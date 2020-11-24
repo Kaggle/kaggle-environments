@@ -26,15 +26,6 @@ class Configuration(Configuration):
         """Number of bandits available to choose from. Max bandit is this number -1."""
         return self["banditCount"]
 
-    @property
-    def seed(self):
-        """Seed value used to initialize bandits for this episode."""
-        return self["seed"]
-
-    @seed.setter
-    def seed(self, value):
-        self._data["seed"] = value
-
 
 random = SystemRandom()
 
@@ -86,7 +77,7 @@ def interpreter(state, env):
     current_thresholds = reduce(
         lambda thresholds, current_actions:
             [
-                min(initial_thresholds[i], threshold * (1.1 if i in current_actions else 0.9))
+                max(initial_thresholds[i], threshold * (1.1 if i in current_actions else 0.9))
                 for i, threshold in enumerate(thresholds)
             ],
         actions, initial_thresholds)
@@ -101,10 +92,6 @@ def interpreter(state, env):
     if remaining_steps <= 0:
         player1.status = "DONE"
         player2.status = "DONE"
-        # Player performance too similar, consider the match a tie.
-        if abs(player1.reward) < env.configuration.tieRewardThreshold:
-            player1.reward = 0
-            player2.reward = 0
     return state
 
 
