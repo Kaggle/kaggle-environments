@@ -96,7 +96,18 @@ def interpreter(state, env):
 
 
 def renderer(state, env):
-    return "Hello!"
+    rounds_played = len(env.steps)
+    board = ""
+
+    # This line prints results each round, good for debugging
+    for i in range(1, rounds_played):
+        step = env.steps[i]
+        right_move = step[0].observation.lastOpponentAction
+        left_move = step[1].observation.lastOpponentAction
+        board += f"Round {i}: {left_move} vs {right_move}, Score: {step[0].reward} to {step[1].reward}\n"
+
+    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
+    return board
 
 
 dir_path = path.dirname(__file__)
