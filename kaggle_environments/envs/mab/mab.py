@@ -1,9 +1,9 @@
 import json
-import numpy as np
-import random
+from functools import reduce
 from os import path
+from random import SystemRandom
 from .agents import agents as all_agents
-from ..helpers import *
+from ...helpers import *
 
 
 class Observation(Observation):
@@ -36,17 +36,13 @@ class Configuration(Configuration):
         self._data["seed"] = value
 
 
+random = SystemRandom()
+
+
 def interpreter(state, env):
     configuration = Configuration(env.configuration)
 
     if env.done:
-        if not hasattr(configuration, "seed"):
-            max_int_32 = (1 << 31) - 1
-            configuration.seed = random.randrange(max_int_32)
-
-        np.random.seed(configuration.seed)
-        random.seed(configuration.seed)
-
         return state
 
     player1 = state[0]
@@ -80,14 +76,28 @@ def interpreter(state, env):
 
         return state
 
-    score = get_score(player1.action, player2.action)
+    actions = [[agent.action for agent in step] for step in env.steps]
+
+    initial_thresholds = [
+        random.randint(0, 100)
+        for _ in range(configuration.bandit_count)
+    ]
+
+    current_thresholds = reduce(
+        lambda thresholds, current_actions:
+            [
+                min(initial_thresholds[i], threshold * (1.1 if i in current_actions else 0.9))
+                for i, threshold in enumerate(thresholds)
+            ],
+        actions, initial_thresholds)
+
     player1.observation.lastOpponentAction = player2.action
-    player1.reward += score
+    player1.reward += 1 if random.randint(0, 100) > current_thresholds[player1.action] else 0
     player2.observation.lastOpponentAction = player1.action
-    player2.reward -= score
+    player2.reward += 1 if random.randint(0, 100) > current_thresholds[player2.action] else 0
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
-    remaining_steps = env.configuration.episodeSteps - step - 1
+    remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
     if remaining_steps <= 0:
         player1.status = "DONE"
         player2.status = "DONE"
@@ -103,13 +113,13 @@ def renderer(state, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "rps.json"))
+json_path = path.abspath(path.join(dir_path, "mab.json"))
 with open(json_path) as json_file:
     specification = json.load(json_file)
 
 
 def html_renderer():
-    js_path = path.abspath(path.join(dir_path, "rps.js"))
+    js_path = path.abspath(path.join(dir_path, "mab.js"))
     with open(js_path, encoding="utf-8") as js_file:
         return js_file.read()
 

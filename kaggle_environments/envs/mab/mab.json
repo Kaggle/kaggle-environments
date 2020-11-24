@@ -5,17 +5,13 @@
   "version": "1.0.0",
   "agents": [2],
   "configuration": {
-    "episodeSteps": 300,
-    "actTimeout": 1,
+    "episodeSteps": 1200,
+    "actTimeout": 0.25,
     "banditCount": {
       "description": "Number of bandits available to choose from. Max bandit is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 20
-    },
-    "seed": {
-      "description": "Seed value used to initialize bandits for this episode.",
-      "type": "integer"
+      "default": 12
     }
   },
   "reward": {
@@ -29,7 +25,7 @@
       "description": "Bandit chosen by opponent last step. None on the first step.",
       "type": "integer",
       "minimum": 0,
-      "maximum": 4
+      "maximum": 11
     },
     "remainingOverageTime": 60,
     "reward": {
@@ -43,6 +39,6 @@
     "description": "Choice of bandit for the step (min bandit = 0, max bandit = configuration.banditCount - 1)",
     "type": "integer",
     "minimum": 0,
-    "maximum": 19
+    "maximum": 11
   }
 }

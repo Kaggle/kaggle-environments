@@ -1,6 +1,6 @@
 import json
 from os import path
-from ..halite.helpers import *
+from ...helpers import *
 
 
 class Observation(Observation):
