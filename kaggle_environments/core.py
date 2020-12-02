@@ -196,7 +196,7 @@ class Environment:
         self.state = self.__run_interpreter(action_state, logs)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
-        if len(self.steps) == self.configuration.episodeSteps - 1:
+        if self.state[0].observation.step == self.configuration.episodeSteps:
             for s in self.state:
                 if s.status == "ACTIVE" or s.status == "INACTIVE":
                     s.status = "DONE"
