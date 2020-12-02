@@ -23,7 +23,12 @@
       "default": 4,
       "minimum": 1
     },
-    "agentTimeout": 60,
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
     "actTimeout": 2,
     "timeout": {
       "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",

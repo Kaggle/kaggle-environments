@@ -532,7 +532,11 @@ class Environment:
                     args = [structify(state), self]
                     new_state = structify(self.interpreter(
                         *args[:self.interpreter.__code__.co_argcount]))
-                    new_state[0].observation.step = len(self.steps)
+                    new_state[0].observation.step = (
+                        0 if self.done
+                        else len(self.steps)
+                    )
+
                     for index, agent in enumerate(new_state):
                         if index < len(logs) and "duration" in logs[index]:
                             duration = logs[index]["duration"]

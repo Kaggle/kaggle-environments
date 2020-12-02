@@ -52,8 +52,8 @@ async function renderer(context) {
         const state = environment.steps[step + 1]
         const last_state = environment.steps[step]
 
-        const p1_move = state[1].observation.lastOpponentAction;
-        const p2_move = state[0].observation.lastOpponentAction;
+        const p1_move = state[0].observation.lastActions[0];
+        const p2_move = state[0].observation.lastActions[1];
 
         const info = environment.info;
         const player1_text = info?.TeamNames?.[0] || "Player 1";

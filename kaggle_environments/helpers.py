@@ -125,8 +125,17 @@ class ReadOnlyDict(Generic[TKey, TValue]):
     def values(self):
         return self._data.values()
 
+    def add(self, key, value) -> 'ReadOnlyDict[TKey, TValue]':
+        return ReadOnlyDict({**self._data, key: value})
 
-class Observation(ReadOnlyDict[str, any]):
+
+class DictWrapper(Dict[TKey, TValue]):
+    """Wraps dictionary with a constructor."""
+    def __init__(self, data: Mapping[TKey, TValue]):
+        super().__init__(data)
+
+
+class Observation(DictWrapper[str, any]):
     """
     Observation provides access to per-step parameters in the environment.
     """
@@ -141,7 +150,7 @@ class Observation(ReadOnlyDict[str, any]):
         return self["remainingOverageTime"]
 
 
-class Configuration(ReadOnlyDict[str, any]):
+class Configuration(DictWrapper[str, any]):
     """
     Configuration provides access to tunable parameters in the environment.
     """

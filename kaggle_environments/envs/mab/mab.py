@@ -1,5 +1,4 @@
 import json
-from functools import reduce
 from os import path
 from random import SystemRandom
 from .agents import agents as all_agents
@@ -9,14 +8,22 @@ from ...helpers import *
 class Observation(Observation):
     """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
     @property
-    def last_opponent_action(self) -> int:
+    def last_actions(self) -> List[int]:
         """Bandit chosen by opponent last step. None on the first step."""
-        return self["lastOpponentAction"]
+        return self["lastActions"]
+
+    @last_actions.setter
+    def last_actions(self, value):
+        self["lastActions"] = value
 
     @property
     def reward(self) -> float:
         """Current reward of the agent."""
         return self["reward"]
+
+    @reward.setter
+    def reward(self, value):
+        self["reward"] = value
 
     @property
     def thresholds(self) -> List[float]:
@@ -26,6 +33,10 @@ class Observation(Observation):
             if "thresholds" in self
             else None
         )
+
+    @thresholds.setter
+    def thresholds(self, value):
+        self["thresholds"] = value
 
 
 class Configuration(Configuration):
@@ -40,88 +51,72 @@ class Configuration(Configuration):
         """Rate that reward chance threshold increases per step that a bandit is chosen by an agent."""
         return self["decayRate"]
 
+    @property
+    def sample_resolution(self) -> int:
+        """Maximum value that can be returned by a bandit."""
+        return self["sampleResolution"]
+
 
 random = SystemRandom()
 
 
-def interpreter(state, env):
+def interpreter(agents, env):
     configuration = Configuration(env.configuration)
+    shared_agent = agents[0]
+    shared_agent.observation = shared_observation = Observation(shared_agent.observation)
+
+    def sample():
+        return random.randint(0, configuration.sample_resolution)
 
     if env.done:
-        state[0].observation.thresholds = [
-            random.randint(0, 100)
-            for _ in range(configuration.bandit_count)
-        ]
-        return state
+        shared_observation.last_actions = None
+        shared_observation.thresholds = [sample() for _ in range(configuration.bandit_count)]
+        return agents
 
-    player1 = state[0]
-    player2 = state[1]
-    current_thresholds = player1.observation.thresholds
+    shared_observation.last_actions = [agent.action for agent in agents]
+    thresholds = shared_observation.thresholds
 
-    def is_valid_action(player):
-        return (
-            player.action is not None and
-            isinstance(player.action, int) and
-            0 <= player.action < configuration.bandit_count
-        )
+    for agent in agents:
+        if (
+            agent.action is not None and
+            isinstance(agent.action, int) and
+            0 <= agent.action < configuration.bandit_count
+        ):
+            agent.reward += 1 if sample() > thresholds[agent.action] else 0
+            agent.observation.reward = agent.reward
+        else:
+            agent.status = "INVALID"
+            agent.reward = -1
 
-    # Check for validity of actions
-    is_player1_valid, is_player2_valid = is_valid_action(player1), is_valid_action(player2)
-    if not is_player2_valid:
-        player2.status = "INVALID"
-        player2.reward = 0
-
-        if is_player1_valid:
-            player1.status = "DONE"
-            player1.reward = 1
-            return state
-
-    if not is_player1_valid:
-        player1.status = "INVALID"
-        player1.reward = 0
-
-        if is_player2_valid:
-            player2.status = "DONE"
-            player2.reward = 1
-
-        return state
-
-    player1.observation.lastOpponentAction = player2.action
-    player2.observation.lastOpponentAction = player1.action
-
-    player1.reward += 1 if random.randint(0, 100) > current_thresholds[player1.action] else 0
-    player2.reward += 1 if random.randint(0, 100) > current_thresholds[player2.action] else 0
-
-    player1.observation.reward = player1.reward
-    player2.observation.reward = player2.reward
-
-    actions = [player.action for player in state]
     initial_thresholds = env.steps[0][0].observation.thresholds
+    chosen_bandits = set(shared_observation.last_actions)
 
-    for index, threshold in enumerate(current_thresholds):
-        update_sign = 1 if index in actions else -1
+    for index, threshold in enumerate(thresholds):
+        update_sign = 1 if index in chosen_bandits else -1
         update_rate = 1 + update_sign * configuration.decay_rate
-        current_thresholds[index] = max(threshold * update_rate, initial_thresholds[index])
+        thresholds[index] = max(threshold * update_rate, initial_thresholds[index])
 
-    if player1.observation.step >= configuration.episode_steps - 1:
-        player1.status = "DONE"
-        player2.status = "DONE"
+    active_agents = [
+        agent for agent in agents
+        if agent.status == "ACTIVE" or agent.status == "INACTIVE"
+    ]
 
-    return state
+    if len(active_agents) <= 1 or shared_observation.step >= configuration.episode_steps - 1:
+        for agent in active_agents:
+            agent.status = "DONE"
+
+    return agents
 
 
-def renderer(state, env):
+def renderer(steps, env):
     rounds_played = len(env.steps)
     board = ""
 
-    # This line prints results each round, good for debugging
     for i in range(1, rounds_played):
-        step = env.steps[i]
-        right_move = step[0].observation.lastOpponentAction
-        left_move = step[1].observation.lastOpponentAction
-        board += f"Round {i}: {left_move} vs {right_move}, Score: {step[0].reward} to {step[1].reward}\n"
+        actions = [agent.action for agent in steps[i]]
+        rewards = [agent.reward for agent in steps[i]]
+        board += f"Round {i} Actions: {actions}, Rewards: {rewards}\n"
 
-    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
     return board
 
 
