@@ -644,20 +644,24 @@ class Environment:
         return structify({"act": act})
 
     def __get_shared_state(self, position):
-        if position == 0:
-            return self.state[0]
-        state = copy.deepcopy(self.state[position])
-
         # Note: state and schema are required to be in sync (apart from shared ones).
         def update_props(shared_state, state, schema_props):
             for k, prop in schema_props.items():
-                if get(prop, bool, path=["shared"], fallback=False):
+                # Hidden fields are tracked in the episode replay but are not provided to the agent at runtime
+                if get(prop, bool, path=["hidden"], fallback=False):
+                    if k in state:
+                        del state[k]
+                elif get(prop, bool, path=["shared"], fallback=False):
                     state[k] = shared_state[k]
                 elif has(prop, dict, path=["properties"]):
                     update_props(shared_state[k], state[k], prop["properties"])
             return state
 
-        return update_props(self.state[0], state, self.__state_schema.properties)
+        return update_props(
+            self.state[0],
+            copy.deepcopy(self.state[position]),
+            self.__state_schema.properties
+        )
 
     def debug_print(self, message):
         if self.debug:

@@ -8,10 +8,16 @@
     "episodeSteps": 1200,
     "actTimeout": 0.25,
     "banditCount": {
-      "description": "Number of bandits available to choose from. Max bandit is this number -1.",
+      "description": "Number of bandits available to choose from. Max action is this number -1.",
       "type": "integer",
       "minimum": 2,
       "default": 12
+    },
+    "decayRate": {
+      "description": "Rate that reward chance threshold increases per step that a bandit is chosen by an agent.",
+      "type": "number",
+      "minimum": 0,
+      "default": 0.03
     }
   },
   "reward": {
@@ -33,6 +39,16 @@
       "type": "number",
       "minimum": 0,
       "default": 0
+    },
+    "thresholds": {
+      "description": "Probability values for each machine payout on this step. Hidden from agents at runtime.",
+      "type": "array",
+      "shared": true,
+      "hidden": true,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
     }
   },
   "action": {
