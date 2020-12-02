@@ -89,11 +89,11 @@ def interpreter(agents, env):
             agent.reward = -1
 
     initial_thresholds = env.steps[0][0].observation.thresholds
-    chosen_bandits = set(shared_observation.last_actions)
+    action_histogram = histogram(shared_observation.last_actions)
 
     for index, threshold in enumerate(thresholds):
-        update_sign = 1 if index in chosen_bandits else -1
-        update_rate = 1 + update_sign * configuration.decay_rate
+        action_count = action_histogram[index] if index in action_histogram else -1
+        update_rate = (1 + configuration.decay_rate) ** action_count
         thresholds[index] = max(threshold * update_rate, initial_thresholds[index])
 
     active_agents = [

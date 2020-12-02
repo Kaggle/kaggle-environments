@@ -82,17 +82,27 @@ class Point(tuple):
         return self.map2(other, operator.sub)
 
 
-TElement = TypeVar('TElement')
+TItem = TypeVar('TItem')
 THash = TypeVar('TComparable')
 
 
-def group_by(elements: Iterable[TElement], selector: Callable[[TElement], THash]) -> Dict[THash, List[TElement]]:
+def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict[THash, List[TItem]]:
     results = {}
-    for element in elements:
-        key = selector(element)
+    for item in items:
+        key = selector(item)
         if key not in results:
             results[key] = []
-        results[key].append(element)
+        results[key].append(item)
+    return results
+
+
+def histogram(items: Iterable[TItem]) -> Dict[TItem, int]:
+    results = {}
+    for item in items:
+        if item not in results:
+            results[item] = 1
+        else:
+            results[item] += 1
     return results
 
 
