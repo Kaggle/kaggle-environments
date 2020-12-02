@@ -17,6 +17,11 @@ class Observation(Observation):
     def reward(self):
         """Current reward of the agent."""
         return self["reward"]
+    
+    @property
+    def last_action(self):
+        """Bandit chosen by this agent last step. None on the first step."""
+        return self["lastAction"]    
 
 
 class Configuration(Configuration):
@@ -28,17 +33,27 @@ class Configuration(Configuration):
 
 
 random = SystemRandom()
-
+initial_thresholds = None
+current_thresholds = None
 
 def interpreter(state, env):
     configuration = Configuration(env.configuration)
 
+    global current_thresholds    
+    
     if env.done:
+        global initial_thresholds
+        initial_thresholds = [
+            random.randint(0, 100)
+            for _ in range(configuration.bandit_count)
+        ]
+        
+        current_thresholds = initial_thresholds.copy()     
         return state
 
     player1 = state[0]
     player2 = state[1]
-
+    
     def is_valid_action(player):
         return (
             player.action is not None and
@@ -68,26 +83,27 @@ def interpreter(state, env):
         return state
 
     actions = [[agent.action for agent in step] for step in env.steps]
-
-    initial_thresholds = [
-        random.randint(0, 100)
-        for _ in range(configuration.bandit_count)
-    ]
+    
+    decay_rate = 1.03 ## should probably set from config?        
+    recovery_rate = 2.0 - decay_rate #0.9
+            
+    player1.observation.lastOpponentAction = player2.action
+    player1.observation.lastAction = player1.action
+    player1.reward += 1 if random.randint(0, 100) > current_thresholds[player1.action] else 0
+    player2.observation.lastOpponentAction = player1.action
+    player2.observation.lastAction = player2.action    
+    player2.reward += 1 if random.randint(0, 100) > current_thresholds[player2.action] else 0
+    player1.observation.reward = int(player1.reward)
+    player2.observation.reward = int(player2.reward)
 
     current_thresholds = reduce(
         lambda thresholds, current_actions:
             [
-                max(initial_thresholds[i], threshold * (1.1 if i in current_actions else 0.9))
+                min(max(initial_thresholds[i], threshold * (decay_rate if i in current_actions else recovery_rate)), 100.0)
                 for i, threshold in enumerate(thresholds)
             ],
         actions, initial_thresholds)
-
-    player1.observation.lastOpponentAction = player2.action
-    player1.reward += 1 if random.randint(0, 100) > current_thresholds[player1.action] else 0
-    player2.observation.lastOpponentAction = player1.action
-    player2.reward += 1 if random.randint(0, 100) > current_thresholds[player2.action] else 0
-    player1.observation.reward = int(player1.reward)
-    player2.observation.reward = int(player2.reward)
+    
     remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
     if remaining_steps <= 0:
         player1.status = "DONE"
