@@ -2,7 +2,7 @@ import json
 from os import path
 from random import SystemRandom
 from .agents import agents as all_agents
-from ...helpers import *
+from kaggle_environments.helpers import *
 
 
 class Observation(Observation):

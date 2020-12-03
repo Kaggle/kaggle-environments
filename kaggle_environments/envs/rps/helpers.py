@@ -1,6 +1,6 @@
 import json
 from os import path
-from ...helpers import *
+from kaggle_environments.helpers import *
 
 
 class Observation(Observation):

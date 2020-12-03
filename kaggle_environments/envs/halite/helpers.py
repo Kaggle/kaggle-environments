@@ -16,7 +16,7 @@ from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
 from typing import *
-from ...helpers import *
+from kaggle_environments.helpers import *
 import sys
 
 
