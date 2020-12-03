@@ -659,5 +659,5 @@ class Environment:
         return update_props(self.state[0], state, self.__state_schema.properties)
 
     def debug_print(self, message):
-        if self.debug or self.configuration.isProduction:
+        if self.debug:
             print(message)

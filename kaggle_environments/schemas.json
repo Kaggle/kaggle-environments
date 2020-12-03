@@ -79,11 +79,6 @@
         "type": "number",
         "minimum": 0,
         "default": 1200
-      },
-      "isProduction": {
-        "description": "Whether this episode is running in Kaggle's production evaluation system. Undefined behavior when set to True locally.",
-        "type": "boolean",
-        "default": false
       }
     }
   },
