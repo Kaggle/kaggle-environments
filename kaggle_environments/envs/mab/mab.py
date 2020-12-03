@@ -57,22 +57,27 @@ class Configuration(Configuration):
         return self["sampleResolution"]
 
 
+# SystemRandom is used to provide stronger randoms than builtin twister
 random = SystemRandom()
 
 
 def interpreter(agents, env):
     configuration = Configuration(env.configuration)
     shared_agent = agents[0]
+    # Assign shared_agent.observation so that changes that we make to the shared observation are propagated back to the agent state.
     shared_agent.observation = shared_observation = Observation(shared_agent.observation)
 
     def sample():
+        """Obtain a value between 0 and sampleResolution to check against a bandit threshold."""
         return random.randint(0, configuration.sample_resolution)
 
     if env.done:
+        # Initialize thresholds
         shared_observation.last_actions = None
         shared_observation.thresholds = [sample() for _ in range(configuration.bandit_count)]
         return agents
 
+    # Provide actions in the next observation so agents can monitor opponents.
     shared_observation.last_actions = [agent.action for agent in agents]
     thresholds = shared_observation.thresholds
 
@@ -82,6 +87,7 @@ def interpreter(agents, env):
             isinstance(agent.action, int) and
             0 <= agent.action < configuration.bandit_count
         ):
+            # If the sample exceeds the threshold the agent gains reward, otherwise nothing
             agent.reward += 1 if sample() > thresholds[agent.action] else 0
             agent.observation.reward = agent.reward
         else:
@@ -92,6 +98,8 @@ def interpreter(agents, env):
     action_histogram = histogram(shared_observation.last_actions)
 
     for index, threshold in enumerate(thresholds):
+        # Every time a threshold is selected it is multiplied by (1 + decay_rate) for each agent that selected it.
+        # When a threshold is not selected it is reduced by (1 + decay_rate) ^ -1.
         action_count = action_histogram[index] if index in action_histogram else -1
         update_rate = (1 + configuration.decay_rate) ** action_count
         thresholds[index] = max(threshold * update_rate, initial_thresholds[index])
@@ -101,7 +109,7 @@ def interpreter(agents, env):
         if agent.status == "ACTIVE" or agent.status == "INACTIVE"
     ]
 
-    if len(active_agents) <= 1 or shared_observation.step >= configuration.episode_steps - 1:
+    if len(active_agents) <= 1:
         for agent in active_agents:
             agent.status = "DONE"
 
