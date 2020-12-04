@@ -15,13 +15,14 @@
 from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
+from kaggle_environments.helpers import Point, group_by
 from typing import *
-from kaggle_environments.helpers import *
 import sys
+import kaggle_environments.helpers
 
 
 # region Data Model Classes
-class Observation(Observation):
+class Observation(kaggle_environments.helpers.Observation):
     """
     Observation primarily used as a helper to construct the Board from the raw observation.
     This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json
@@ -42,7 +43,7 @@ class Observation(Observation):
         return self["player"]
 
 
-class Configuration(Configuration):
+class Configuration(kaggle_environments.helpers.Configuration):
     """
     Configuration provides access to tunable parameters in the environment.
     This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json

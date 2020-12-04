@@ -1,11 +1,12 @@
 import json
+import kaggle_environments.helpers
 from os import path
 from random import SystemRandom
+from typing import List
 from .agents import agents as all_agents
-from kaggle_environments.helpers import *
 
 
-class Observation(Observation):
+class Observation(kaggle_environments.helpers.Observation):
     """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
     @property
     def last_actions(self) -> List[int]:
@@ -39,7 +40,7 @@ class Observation(Observation):
         self["thresholds"] = value
 
 
-class Configuration(Configuration):
+class Configuration(kaggle_environments.helpers.Configuration):
     """This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
     @property
     def bandit_count(self) -> int:
@@ -95,7 +96,7 @@ def interpreter(agents, env):
             agent.reward = -1
 
     initial_thresholds = env.steps[0][0].observation.thresholds
-    action_histogram = histogram(shared_observation.last_actions)
+    action_histogram = kaggle_environments.helpers.histogram(shared_observation.last_actions)
 
     for index, threshold in enumerate(thresholds):
         # Every time a threshold is selected it is multiplied by (1 + decay_rate) for each agent that selected it.
