@@ -56,7 +56,8 @@ def test_single_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 0
             }
         },
         {
@@ -82,7 +83,8 @@ def test_single_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 1
             }
         },
         {
@@ -109,7 +111,8 @@ def test_single_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 2
             }
         },
         {
@@ -137,7 +140,8 @@ def test_single_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 1
             }
         },
         {
@@ -167,7 +171,8 @@ def test_single_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 1
             }
         },
         {
@@ -197,7 +202,8 @@ def test_multi_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 2,
-                "players_raw": []
+                "players_raw": [],
+                "step": 0
             }
         },
         {
@@ -223,7 +229,8 @@ def test_multi_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 2,
-                "players_raw": []
+                "players_raw": [],
+                "step": 1
             }
         },
         {
@@ -249,7 +256,8 @@ def test_multi_agent():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 2,
-                "players_raw": []
+                "players_raw": [],
+                "step": 2
             }
         },
         {
@@ -278,7 +286,8 @@ def test_deadline():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 0
             }
         },
         {
@@ -304,7 +313,8 @@ def test_deadline():
             "observation": {
                 "remainingOverageTime": 60,
                 "controlled_players": 1,
-                "players_raw": []
+                "players_raw": [],
+                "step": 1
             }
         },
         {

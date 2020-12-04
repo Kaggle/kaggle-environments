@@ -12,9 +12,6 @@ def interpreter(state, env):
     if env.done:
         return state
 
-    step = len(env.steps)
-    player1.observation.step = step
-
     def is_valid_action(player, sign_count):
         return (
             player.action is not None and
@@ -52,8 +49,10 @@ def interpreter(state, env):
     player2.reward -= score
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
-    remaining_steps = env.configuration.episodeSteps - step - 1
-    if remaining_steps <= 0:
+    remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
+
+    # This is the last step
+    if remaining_steps <= 1:
         player1.status = "DONE"
         player2.status = "DONE"
         # Player performance too similar, consider the match a tie.

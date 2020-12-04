@@ -63,7 +63,7 @@ def test_can_reset():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {"remainingOverageTime": 60, "board": [0] * 42, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": [0] * 42, "mark": 1, "step": 0},
             "reward": 0,
         },
         {
@@ -87,6 +87,7 @@ def test_can_mark():
                 "remainingOverageTime": 60,
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
                 "mark": 1,
+                "step": 1,
             },
             "reward": 0,
         },
@@ -111,6 +112,7 @@ def test_can_mark_out_of_bounds():
                 "remainingOverageTime": 60,
                 "board": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "mark": 1,
+                "step": 1,
             },
             "reward": None,
         },
@@ -136,7 +138,7 @@ def test_can_mark_a_full_column():
             "action": 1,
             "status": "INVALID",
             "info": {},
-            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1, "step": 1},
             "reward": None,
         },
         {
@@ -163,7 +165,7 @@ def test_can_win():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1, "step": 1},
             "reward": 1,
         },
         {
@@ -191,7 +193,7 @@ def test_can_tie():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board_post_move, "mark": 1, "step": 2},
             "reward": 0,
         },
         {
@@ -238,7 +240,7 @@ def test_can_run_agents():
             "action": 1,
             "status": "DONE",
             "info": {},
-            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1},
+            "observation": {"remainingOverageTime": 60, "board": board, "mark": 1, "step": 5},
             "reward": 1,
         },
         {

@@ -100,8 +100,6 @@ def populate_board(state, env):
         uid_counter += 1
         return f"{obs.step}-{uid_counter}"
 
-    # Set step for initialization to 0.
-    obs.step = 0
     # Distribute Halite evenly into quartiles.
     half = math.ceil(size / 2)
     grid = [[0] * half for _ in range(half)]

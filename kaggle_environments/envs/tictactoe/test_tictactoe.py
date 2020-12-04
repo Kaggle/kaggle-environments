@@ -70,7 +70,7 @@ def test_can_reset():
             "action": 0,
             "status": "ACTIVE",
             "info": {},
-            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 0, 0, 0, 0, 0], "step": 0},
             "reward": 0,
         },
         {
@@ -91,7 +91,7 @@ def test_can_place_valid_mark():
             "action": 4,
             "status": "INACTIVE",
             "info": {},
-            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0], "step": 1},
             "reward": 0,
         },
         {
@@ -114,7 +114,7 @@ def test_can_place_invalid_mark():
             "action": 0,
             "status": "DONE",
             "info": {},
-            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [0, 0, 0, 0, 1, 0, 0, 0, 0], "step": 2},
             "reward": 0,
         },
         {
@@ -137,7 +137,7 @@ def test_can_place_winning_mark():
             "action": 7,
             "status": "DONE",
             "info": {},
-            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2]},
+            "observation": {"remainingOverageTime": 2, "mark": 1, "board": [2, 1, 0, 1, 1, 0, 2, 1, 2], "step": 1},
             "reward": 1,
         },
         {
@@ -187,7 +187,7 @@ def test_can_run_custom_agents():
             "action": 6,
             "reward": 1,
             "info": {},
-            "observation": {"remainingOverageTime": 2, "board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 2, 1, 2, 1, 2, 1, 0, 0], "mark": 1, "step": 7},
             "status": "DONE",
         },
         {
@@ -223,7 +223,7 @@ def test_run_timeout():
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"remainingOverageTime": 2, "board": [1, 2, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 2, 0, 0, 0, 0, 0, 0, 0], "mark": 1, "step": 2},
             "status": "ACTIVE",
         },
         {
@@ -244,7 +244,7 @@ def test_agents_can_error():
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1, "step": 2},
             "status": "DONE",
         },
         {
@@ -265,7 +265,7 @@ def test_agents_can_have_invalid_actions():
             "action": 0,
             "reward": 0,
             "info": {},
-            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1},
+            "observation": {"remainingOverageTime": 2, "board": [1, 0, 0, 0, 0, 0, 0, 0, 0], "mark": 1, "step": 2},
             "status": "DONE",
         },
         {
