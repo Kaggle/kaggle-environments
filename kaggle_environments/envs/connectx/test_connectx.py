@@ -27,7 +27,6 @@ def before_each(state=None, configuration=None):
 def test_has_correct_timeouts():
     before_each()
     assert env.configuration.actTimeout == 2
-    assert env.configuration.agentTimeout == 60
 
 
 def test_can_train_first():

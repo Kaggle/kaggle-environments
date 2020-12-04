@@ -25,7 +25,12 @@
       "maximum": 1000,
       "default": 20
     },
-    "agentTimeout": 60,
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
     "actTimeout": 1
   },
   "reward": {

@@ -216,8 +216,7 @@ def test_agents_can_timeout_on_act():
 
 
 def test_run_timeout():
-    env = make("tictactoe", debug=True, configuration={
-               "agentTimeout": 10, "actTimeout": 10, "runTimeout": 1})
+    env = make("tictactoe", debug=True, configuration={"actTimeout": 10, "runTimeout": 1})
     state = env.run([custom1, custom3])[-1]
     assert state == [
         {
