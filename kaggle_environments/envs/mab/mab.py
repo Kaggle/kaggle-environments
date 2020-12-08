@@ -88,8 +88,8 @@ def interpreter(agents, env):
             isinstance(agent.action, int) and
             0 <= agent.action < configuration.bandit_count
         ):
-            # If the sample exceeds the threshold the agent gains reward, otherwise nothing
-            agent.reward += 1 if sample() > thresholds[agent.action] else 0
+            # If the sample is less than the threshold the agent gains reward, otherwise nothing
+            agent.reward += 1 if sample() < thresholds[agent.action] else 0
             agent.observation.reward = agent.reward
         else:
             agent.status = "INVALID"
@@ -99,11 +99,11 @@ def interpreter(agents, env):
     action_histogram = kaggle_environments.helpers.histogram(shared_observation.last_actions)
 
     for index, threshold in enumerate(thresholds):
-        # Every time a threshold is selected it is multiplied by (1 + decay_rate) for each agent that selected it.
-        # When a threshold is not selected it is reduced by (1 + decay_rate) ^ -1.
-        action_count = action_histogram[index] if index in action_histogram else -1
-        update_rate = (1 + configuration.decay_rate) ** action_count
-        thresholds[index] = max(threshold * update_rate, initial_thresholds[index])
+        # Every time a threshold is selected it is multiplied by (decay_rate) for each agent that selected it.
+        # When a threshold is not selected it is reduced by (decay_rate) ^ 0 (i.e. no recovery).
+        action_count = action_histogram[index] if index in action_histogram else 0
+        update_rate = (configuration.decay_rate) ** action_count
+        thresholds[index] = min(threshold * update_rate, initial_thresholds[index])
 
     active_agents = [
         agent for agent in agents
