@@ -5,19 +5,19 @@
   "version": "1.0.0",
   "agents": [2, 3, 4, 5, 6, 7, 8],
   "configuration": {
-    "episodeSteps": 1200,
+    "episodeSteps": 2000,
     "actTimeout": 0.25,
     "banditCount": {
       "description": "Number of bandits available to choose from. Max action is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 12
+      "default": 100
     },
     "decayRate": {
       "description": "Rate that reward chance threshold increases per step that a bandit is chosen by an agent.",
       "type": "number",
       "minimum": 0,
-      "default": 0.03
+      "default": 0.97
     },
     "sampleResolution": {
       "description": "Maximum value that can be returned by a bandit.",
