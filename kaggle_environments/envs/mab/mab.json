@@ -64,7 +64,6 @@
   "action": {
     "description": "Choice of bandit for the step (min bandit = 0, max bandit = configuration.banditCount - 1)",
     "type": "integer",
-    "minimum": 0,
-    "maximum": 11
+    "minimum": 0
   }
 }
