@@ -7,6 +7,11 @@ from .agents import agents as all_agents
 
 
 class Observation(kaggle_environments.helpers.Observation):
+    @property
+    def agent_index(self) -> float:
+        """The current agent's index within observation.last_actions."""
+        return self["agentIndex"]
+
     """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
     @property
     def last_actions(self) -> List[int]:

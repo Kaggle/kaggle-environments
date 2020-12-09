@@ -34,6 +34,11 @@
   },
   "observation": {
     "remainingOverageTime": 60,
+    "agentIndex": {
+      "description": "The current agent's index within observation.lastActions.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
     "reward": {
       "description": "Current reward of the agent.",
       "type": "number",
