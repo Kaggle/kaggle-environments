@@ -280,6 +280,7 @@ class Environment:
             out = self.renderer(*args[:self.renderer.__code__.co_argcount])
             if mode == "ansi":
                 return out
+            print(out)
         elif mode == "html" or mode == "ipython":
             window_kaggle = {
                 "debug": get(kwargs, bool, self.debug, path=["debug"]),
