@@ -127,8 +127,8 @@ def renderer(steps, env):
     board = ""
 
     for i in range(1, rounds_played):
-        actions = [agent.action for agent in steps[i]]
-        rewards = [agent.reward for agent in steps[i]]
+        actions = [agent.action for agent in env.steps[i]]
+        rewards = [agent.reward for agent in env.steps[i]]
         board += f"Round {i} Actions: {actions}, Rewards: {rewards}\n"
 
     return board
