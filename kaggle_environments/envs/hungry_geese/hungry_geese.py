@@ -212,12 +212,12 @@ def renderer(state, env):
 
 
 dirpath = path.dirname(__file__)
-jsonpath = path.abspath(path.join(dirpath, "battlegeese.json"))
+jsonpath = path.abspath(path.join(dirpath, "hungry_geese.json"))
 with open(jsonpath) as f:
     specification = json.load(f)
 
 
 def html_renderer():
-    jspath = path.abspath(path.join(dirpath, "battlegeese.js"))
+    jspath = path.abspath(path.join(dirpath, "hungry_geese.js"))
     with open(jspath) as f:
         return f.read()

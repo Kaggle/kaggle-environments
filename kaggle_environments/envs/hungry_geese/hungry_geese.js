@@ -312,7 +312,7 @@ function renderer({
 
   // Canvas setup and reset.
   const [bufferCanvas] = getCanvas("buffer");
-  const [canvas, c] = getCanvas("battlegeese");
+  const [canvas, c] = getCanvas("hungry_geese");
   c.fillStyle = "#000B2A";
   c.fillRect(0, 0, canvas.width, canvas.height);
 
