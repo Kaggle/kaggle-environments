@@ -1,4 +1,5 @@
 import operator
+from enum import Enum
 from typing import *
 
 
@@ -83,7 +84,7 @@ class Point(tuple):
 
 
 TItem = TypeVar('TItem')
-THash = TypeVar('TComparable')
+THash = TypeVar('THash')
 
 
 def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict[THash, List[TItem]]:
@@ -104,39 +105,6 @@ def histogram(items: Iterable[TItem]) -> Dict[TItem, int]:
         else:
             results[item] += 1
     return results
-
-
-TKey = TypeVar('TKey')
-TValue = TypeVar('TValue')
-
-
-class ReadOnlyDict(Generic[TKey, TValue]):
-    """Offers Dict-like semantics while preventing modification of the underlying datastructure."""
-    def __init__(self, data: Union['ReadOnlyDict[TKey, TValue]', Dict[TKey, TValue]]):
-        if isinstance(data, dict):
-            self._data = data
-        else:
-            # If it's not a Dict it must be a ReadOnlyDict based on our type
-            # Unwrap inner ReadOnlyDict's data
-            self._data = data._data
-
-    def __getitem__(self, item) -> Optional[TValue]:
-        return self._data.get(item)
-
-    def __iter__(self):
-        return self._data.__iter__()
-
-    def __str__(self):
-        return self._data.__str__()
-
-    def keys(self):
-        return self._data.keys()
-
-    def values(self):
-        return self._data.values()
-
-    def add(self, key, value) -> 'ReadOnlyDict[TKey, TValue]':
-        return ReadOnlyDict({**self._data, key: value})
 
 
 class Observation(Dict[str, any]):
@@ -172,3 +140,59 @@ class Configuration(Dict[str, any]):
     def run_timeout(self) -> float:
         """Maximum runtime (seconds) of an episode (not necessarily DONE)."""
         return self["runTimeout"]
+
+
+TConfiguration = TypeVar('TConfiguration', Configuration)
+TObservation = TypeVar('TObservation', Observation)
+TAction = TypeVar('TAction')
+Agent = Callable[TObservation, TConfiguration, TAction]
+
+
+class AgentStatus(Enum):
+    UNKNOWN = 0
+    ACTIVE = 1
+    INACTIVE = 2
+    DONE = 3
+    INVALID = 4
+    ERROR = 5
+
+
+class AgentState(Generic[TObservation, TAction], Dict[str, any]):
+    @property
+    def observation(self) -> TObservation:
+        return self["observation"]
+
+    @property
+    def action(self) -> TAction:
+        return self["action"]
+
+    @property
+    def reward(self) -> int:
+        return self["reward"]
+
+    @property
+    def status(self) -> AgentStatus:
+        status = self["status"]
+        if status in AgentStatus.__members__:
+            return AgentStatus[status]
+        return AgentStatus.UNKNOWN
+
+
+class Environment(Generic[TConfiguration, TObservation, TAction]):
+    @property
+    def specification(self) -> Dict[str, any]:
+        raise NotImplemented()
+
+    def interpret(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> List[AgentState[TObservation, TAction]]:
+        raise NotImplemented()
+
+    def render_html(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
+        raise NotImplemented()
+
+    def render_text(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
+        raise NotImplemented()
+
+    @property
+    def builtin_agents(self) -> Dict[str, Agent]:
+        """Override this property to provide default agents that can be referenced by name in this environment, e.g. `{"random": my_random_agent}`"""
+        return {}

@@ -13,8 +13,14 @@
 # limitations under the License.
 
 import json
+import kaggle_environments.helpers
 from os import path
 from random import choice, sample
+from typing import List
+
+
+class Observation(kaggle_environments.helpers.Observation):
+    def geese(self) -> List[List[int]]:
 
 
 def get_pos(from_pos, direction, columns, rows):
@@ -47,7 +53,7 @@ def random_agent():
 
 def shortest_path_agent(obs, config):
     columns = config.columns
-    rows = config.rows
+    rows = config.rows  
     goose = obs.geese[obs.index]
     head = goose[0]
     max_value = columns * rows
