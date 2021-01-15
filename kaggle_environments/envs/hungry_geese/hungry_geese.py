@@ -14,109 +14,158 @@
 
 import json
 import kaggle_environments.helpers
+from enum import auto, Enum
+from kaggle_environments.helpers import histogram, with_print
 from os import path
 from random import choice, sample
 from typing import List
 
 
 class Observation(kaggle_environments.helpers.Observation):
+    @property
     def geese(self) -> List[List[int]]:
+        return self["geese"]
+
+    @property
+    def food(self) -> List[int]:
+        return self["food"]
+
+    @property
+    def index(self) -> int:
+        return self["index"]
 
 
-def get_pos(from_pos, direction, columns, rows):
-    if direction == "N":
-        if from_pos - columns < 0:
-            return -1
-        return from_pos - columns
-    if direction == "S":
-        if from_pos + columns >= columns * rows:
-            return -1
-        return from_pos + columns
-    if direction == "E":
-        if from_pos // columns != (from_pos + 1) // columns:
-            return -1
-        return from_pos + 1
-    if direction == "W":
-        if from_pos // columns != (from_pos - 1) // columns:
-            return -1
-        return from_pos - 1
+class Configuration(kaggle_environments.helpers.Configuration):
+    @property
+    def columns(self) -> int:
+        return self["columns"]
+
+    @property
+    def rows(self) -> int:
+        return self["rows"]
+
+    @property
+    def hunger_rate(self) -> int:
+        return self["hunger_rate"]
+
+    @property
+    def min_food(self) -> int:
+        return self["min_food"]
 
 
-def min_distance(pos, food, config):
-    cols = config.columns
-    return min([abs(pos % cols - fpos % cols) + abs(pos // cols - fpos // cols) for fpos in food])
+class Action(Enum):
+    NORTH = auto()
+    EAST = auto()
+    SOUTH = auto()
+    WEST = auto()
+
+
+def translate(position: int, direction: Action, columns: int, rows: int) -> int:
+    total = columns * rows
+    offset = (
+        -columns if direction == Action.NORTH else
+         columns if direction == Action.SOUTH else
+        -1       if direction == Action.WEST  else
+         1       if direction == Action.EAST  else
+         0
+    )
+    return (position + offset) % total
+
+
+def adjacent_positions(position: int, columns: int, rows: int) -> List[int]:
+    return [
+        translate(position, action, columns, rows)
+        for action in Action
+    ]
+
+
+def min_distance(position: int, food: List[int], columns: int):
+    row, column = position % columns, position // columns
+    return min(
+        abs(row - food_row) + abs(column - food_column)
+        for food_position in food
+        for food_row, food_column in [(food_position % columns, food_position // columns)]
+    )
 
 
 def random_agent():
-    return choice(["N", "S", "E", "W"])
+    return choice([action for action in Action]).name
 
 
-def shortest_path_agent(obs, config):
-    columns = config.columns
-    rows = config.rows  
-    goose = obs.geese[obs.index]
-    head = goose[0]
-    max_value = columns * rows
-    directions = ["N", "S", "E", "W"]
+def greedy_agent(observation, configuration):
+    observation = Observation(observation)
+    configuration = Configuration(configuration)
+    rows, columns = configuration.rows, configuration.columns
 
-    geese = [g for g in obs.geese if len(g) > 0]
-    heads = [g[0] for g in geese]
-    tails = [g[-1] for g in geese]
-    bodies = [p for g in geese for p in g[:-1]]
+    food = observation.food
+    geese = observation.geese
+    opponents = [
+        goose
+        for index, goose in enumerate(geese)
+        if index != observation.index and len(goose) > 0
+    ]
 
-    actions = {}
-    for d in directions:
-        # Get new position - or -1 if run into wall.
-        pos = get_pos(head, d, columns, rows)
+    # Don't move adjacent to any heads
+    head_adjacent_positions = {
+        opponent_head_adjacent
+        for opponent in opponents
+        for opponent_head in [opponent[0]]
+        for opponent_head_adjacent in adjacent_positions(opponent_head, rows, columns)
+    }
+    # Don't move into any bodies
+    bodies = {position for goose in geese for position in goose[0:-1]}
+    # Don't move into tails of heads that are adjacent to food
+    tails = {
+        opponent[-1]
+        for opponent in opponents
+        for opponent_head in [opponent[0]]
+        if any(
+            adjacent_position in food
+            # Head of opponent is adjacent to food so tail is not safe
+            for adjacent_position in adjacent_positions(opponent_head, rows, columns)
+        )
+    }
+
+    # Move to the closest food
+    position = geese[observation.index][0]
+    actions = {
+        action: min_distance(new_position, food, columns)
+        for action in Action
+        for new_position in [translate(position, action, columns, rows)]
         if (
-            pos in bodies or  # Hit a body.
-            (len(goose) > 1 and goose[1] == pos) or  # Backwards.
-            # Hit a tail when head over food.
-            (pos in tails and heads[tails.index(pos)] in obs.food)
-        ):
-            pos = -1
-        actions[d] = max_value if pos == - \
-            1 else min_distance(pos, obs.food, config)
-        # Possibility of a collision, devalue a valid action.
-        for h in heads:
-            if h == head:
-                continue
-            for dh in directions:
-                posh = get_pos(h, dh, columns, rows)
-                if posh == pos:
-                    actions[d] += 1
+            new_position not in head_adjacent_positions and
+            new_position not in bodies and
+            new_position not in tails
+        )
+    }
 
-    return min(actions, key=actions.get)
+    if any(actions):
+        return min(actions, key=actions.get).name
+
+    return random_agent()
 
 
-agents = {"random": random_agent, "shortest": shortest_path_agent}
+agents = {"random": random_agent, "greedy": greedy_agent}
 
 
 def interpreter(state, env):
-    config = env.configuration
-    columns = config.columns
-    rows = config.rows
-    hunger_rate = config.hunger_rate
-    min_food = config.min_food
-    num_agents = len(state)
-
-    # Clone the geese and food observation between all the agents.
-    geese = state[0].observation.geese
-    food = state[0].observation.food
-    for agent in state:
-        agent.observation.geese = geese
-        agent.observation.food = food
+    configuration = Configuration(env.configuration)
+    columns = configuration.columns
+    rows = configuration.rows
+    min_food = configuration.min_food
+    state[0].observation = shared_observation = Observation(state[0].observation)
 
     # Reset the environment.
     if env.done:
-        # Distribute food and geese randomly.
-        starting_positions = sample(range(columns * rows), num_agents * 2)
-        for index in range(num_agents):
-            geese.append([starting_positions[index]])
-            food.append(starting_positions[index + num_agents])
+        agent_count = len(state)
+        shared_observation["geese"] = [[head] for head in sample(range(columns * rows), agent_count)]
+        shared_observation["food"] = sample(range(columns * rows), min_food)
         return state
 
-    # Update active agents rewards.
+    geese = shared_observation.geese
+    food = shared_observation.food
+
+    # Update active agent rewards.
     for index, agent in enumerate(state):
         if agent.status == "ACTIVE":
             agent.reward = len(env.steps) + len(geese[index])
@@ -125,68 +174,64 @@ def interpreter(state, env):
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
             continue
-        action = agent.action
+        action = Action[agent.action]
         goose = geese[index]
-        head = goose[0]
-        new_head = get_pos(head, action, columns, rows)
+        head = translate(goose[0], action, columns, rows)
 
-        # Wall Hit.
-        if new_head == -1:
-            env.debug_print(f"Wall Hit: {action}")
-            agent.status = "INACTIVE"
-            geese[index] = []
-            continue
-
-        # Last Body Hit.
-        if len(goose) > 1 and goose[1] == new_head:
-            env.debug_print(f"Body Hit: {action}")
-            agent.status = "INACTIVE"
-            geese[index] = []
-            continue
-
-        # Add New Head to the Goose.
-        goose.insert(0, new_head)
-
-        # Check Food.
+        # Consume food or drop a tail piece.
         if head in food:
             food.remove(head)
         else:
             goose.pop()
 
         # If hunger strikes remove from the tail.
-        if len(env.steps) % hunger_rate == 0:
-            goose.pop()
+        if len(env.steps) % configuration.hunger_rate == 0:
+            if len(goose) > 0:
+                goose.pop()
             if len(goose) == 0:
                 env.debug_print(f"Goose Starved: {action}")
-                agent.status = "INACTIVE"
-                geese[index] = []
+                agent.status = "DONE"
                 continue
+
+        # Self collision.
+        if head in goose:
+            env.debug_print(f"Body Hit: {action}")
+            agent.status = "DONE"
+            geese[index] = []
+            continue
+
+        # Add New Head to the Goose.
+        goose.insert(0, head)
+
+    goose_positions = histogram(
+        position
+        for goose in geese
+        for position in goose
+    )
 
     # Check for collisions.
-    collisions = {}
-    for goose in geese:
-        for pos in goose:
-            collisions[pos] = collisions.get(pos, 0) + 1
     for index, agent in enumerate(state):
-        for pos in geese[index]:
-            if collisions[pos] > 1:
-                env.debug_print(f"Goose Collision: {agent.action}")
-                agent.status = "INACTIVE"
-                geese[index] = []
-                continue
+        if any(goose_positions[position] > 1 for position in geese[index]):
+            env.debug_print(f"Goose Collision: {agent.action}")
+            agent.status = "DONE"
+            geese[index] = []
+            continue
 
     # Add food if min_food threshold reached.
-    if len(food) < min_food:
-        available_positions = list(range(rows * columns))
-        for goose in geese:
-            for pos in goose:
-                available_positions.remove(pos)
-        food.extend(sample(available_positions, min_food - len(food)))
+    needed_food = min_food - len(food)
+    if needed_food > 0:
+        collisions = {
+            position
+            for goose in geese
+            for position in goose
+        }
+        available_positions = {i for i in range(rows * columns)}.difference(collisions)
+        food.extend(sample(available_positions, needed_food))
 
-    # If only one ACTIVE agent left, set it to INACTIVE.
+    # If only one ACTIVE agent left, set it to DONE.
     active_agents = [a for a in state if a.status == "ACTIVE"]
     if len(active_agents) == 1:
-        active_agents[0].status = "INACTIVE"
+        active_agents[0].status = "DONE"
 
     return state
 
@@ -196,23 +241,23 @@ def renderer(state, env):
     columns = config.columns
     rows = config.rows
 
-    foodSymbol = "F"
-    colDivider = "|"
-    rowDivider = "+" + "+".join(["---"] * columns) + "+\n"
+    food_symbol = "F"
+    column_divider = "|"
+    row_divider = "+" + "+".join(["---"] * columns) + "+\n"
 
     board = [" "] * (rows * columns)
     for pos in state[0].observation.food:
-        board[pos] = foodSymbol
+        board[pos] = food_symbol
 
     for index, goose in enumerate(state[0].observation.geese):
-        for pos in goose:
-            board[pos] = index
+        for position in goose:
+            board[position] = index
 
-    out = rowDivider
+    out = row_divider
     for row in range(rows):
         for col in range(columns):
-            out += colDivider + f" {board[(row * columns) + col]} "
-        out += colDivider + "\n" + rowDivider
+            out += column_divider + f" {board[(row * columns) + col]} "
+        out += column_divider + "\n" + row_divider
 
     return out
 

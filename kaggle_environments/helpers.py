@@ -98,6 +98,7 @@ def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict
 
 
 def histogram(items: Iterable[TItem]) -> Dict[TItem, int]:
+    """Accepts a list of hashable items and returns a dictionary where the keys are items and the values are counts of each item in the list."""
     results = {}
     for item in items:
         if item not in results:
@@ -105,6 +106,12 @@ def histogram(items: Iterable[TItem]) -> Dict[TItem, int]:
         else:
             results[item] += 1
     return results
+
+
+def with_print(item: TItem) -> TItem:
+    """Prints an item and returns it -- useful for debug printing in lambdas and chained functions."""
+    print(item)
+    return item
 
 
 class Observation(Dict[str, any]):
@@ -142,10 +149,10 @@ class Configuration(Dict[str, any]):
         return self["runTimeout"]
 
 
-TConfiguration = TypeVar('TConfiguration', Configuration)
-TObservation = TypeVar('TObservation', Observation)
+TConfiguration = TypeVar('TConfiguration', bound=Configuration)
+TObservation = TypeVar('TObservation', bound=Observation)
 TAction = TypeVar('TAction')
-Agent = Callable[TObservation, TConfiguration, TAction]
+Agent = Callable[[TObservation, TConfiguration], TAction]
 
 
 class AgentStatus(Enum):

@@ -35,7 +35,7 @@
     "description": "The number of steps the goose has moved plus it's length.",
     "type": "integer",
     "default": 0,
-    "minimum": 1
+    "minimum": 0
   },
   "observation": {
     "geese": {
@@ -73,7 +73,7 @@
   "action": {
     "description": "Direction to move the head of your players goose.",
     "type": "string",
-    "enum": ["N", "E", "S", "W"],
-    "default": "N"
+    "enum": ["NORTH", "EAST", "SOUTH", "WEST"],
+    "default": "NORTH"
   }
 }
