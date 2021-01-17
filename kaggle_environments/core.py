@@ -22,10 +22,9 @@ from multiprocessing import Pool
 from time import perf_counter
 from typing import *
 
-from .agent import Agent
+from .agent import AgentRunner
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
-from .helpers import State, TState, TConfiguration, TObservation, TAction, Log
-from .helpers import Agent as TAgent
+from .helpers import Agent, State, TState, TConfiguration, TObservation, TAction, Log
 from .utils import get, has, get_player, process_schema, schemas, structify
 
 # Registered Environments.
@@ -70,11 +69,9 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
 
 
 def act_agent(args):
-    agent, state, configuration, none_action = args
+    agent, state, configuration = args
     if state["status"] != "ACTIVE":
         return None, {}
-    elif agent is None:
-        return none_action, {}
     else:
         return agent.act(state["observation"])
 
@@ -87,7 +84,7 @@ class Environment(Generic[TState, TConfiguration]):
         renderer: Callable[[TState, TConfiguration], str],
         html_renderer: Callable[[TConfiguration], str],
         configuration: Optional[TConfiguration] = None,
-        agents: Optional[Dict[str, TAgent]] = None,
+        agents: Optional[Dict[str, Agent]] = None,
         steps: Optional[List[List[TState]]] = None,
         logs: Optional[List[List[Log]]] = None,
         debug: bool = False,
@@ -107,7 +104,7 @@ class Environment(Generic[TState, TConfiguration]):
         self.interpreter = interpreter
         self.renderer = renderer
         self.html_renderer = html_renderer
-        self.agents: Dict[str, TAgent] = agents or {}
+        self.agents: Dict[str, Agent] = agents or {}
 
         if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
@@ -162,13 +159,12 @@ class Environment(Generic[TState, TConfiguration]):
                 if s.status == "ACTIVE" or s.status == "INACTIVE":
                     s.status = "DONE"
 
-
         if logs is not None:
             self.logs.append(logs)
 
         return self.state
 
-    def run(self, agents: List[TAgent]):
+    def run(self, agents: List[Agent]):
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -193,33 +189,21 @@ class Environment(Generic[TState, TConfiguration]):
             self.step(actions, logs)
         return self.steps
 
-    def __agent_runner(self, agents):
+    def __agent_runner(self, agents: List[Agent]):
         if len(agents) != len(self.state):
             raise InvalidArgument("Number of agents must match the state length")
 
         # Generate the agents.
-        agents = [
-            Agent(agent, self)
-            if agent is not None
-            else None
-            for agent in agents
-        ]
+        agents = [AgentRunner(agent, self) for agent in agents]
 
-        def act(none_action=None):
+        def act():
             act_args = [
-                (
-                    agent,
-                    self.__get_shared_state(i),
-                    self.configuration,
-                    none_action,
-                )
+                (agent, observation, self.configuration)
                 for i, agent in enumerate(agents)
+                for observation in [self.__get_shared_state(i)]
             ]
 
-            if all(
-                agent is None or agent.is_parallelizable
-                for agent in agents
-            ):
+            if all(agent.is_parallelizable for agent in agents):
                 if self.pool is None:
                     self.pool = Pool(processes=len(agents))
                 results = self.pool.map(act_agent, act_args)
@@ -308,21 +292,6 @@ class Environment(Generic[TState, TConfiguration]):
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents=[], **kwargs):
-        """
-        Renders a visual representation of the environment and allows interactive action selection.
-
-        Args:
-            **kwargs (dict): Args directly passed into render().  Mode is fixed to ipython.
-
-        Returns:
-            None: prints directly to an IPython notebook
-        """
-        env = self.clone()
-        trainer = env.train(agents)
-        interactives[env.id] = (env, trainer)
-        env.render(mode="ipython", interactive=True, **kwargs)
-
     def train(self, agents=[]):
         """
         Setup a lightweight training environment for a single agent.
@@ -351,7 +320,7 @@ class Environment(Generic[TState, TConfiguration]):
             `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
             `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
-        runner: Callable[TAction, Tuple[List[TAction], List[Log]]] = None
+        runner: Callable[[Optional[TAction]], Tuple[List[TAction], List[Log]]] = None
         position = None
         for index, agent in enumerate(agents):
             if agent is None:
@@ -365,7 +334,7 @@ class Environment(Generic[TState, TConfiguration]):
 
         def advance():
             while not self.done and self.state[position].status == "INACTIVE":
-                actions, logs = runner.act()
+                actions, logs = runner(None)
                 self.step(actions, logs)
 
         def reset():
@@ -506,8 +475,7 @@ class Environment(Generic[TState, TConfiguration]):
                             update_props(prop["properties"])
                     return props
 
-                props = structify(update_props(
-                    copy.deepcopy(self.__state_schema.properties)))
+                props = structify(update_props(copy.deepcopy(self.__state_schema.properties)))
 
                 setattr(self, key, {**self.__state_schema, "properties": props})
 

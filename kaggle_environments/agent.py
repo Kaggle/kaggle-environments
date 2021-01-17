@@ -21,8 +21,12 @@ import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from time import perf_counter
+from typing import *
 from urllib.parse import urlparse
+
+from . import Environment
 from .errors import DeadlineExceeded, InvalidArgument
+from .helpers import Agent, TAction, TObservation, TConfiguration
 from .utils import read_file, structify
 
 
@@ -84,7 +88,10 @@ class UrlAgent:
         return action
 
 
-def build_agent(raw, builtin_agents, environment_name):
+TRawAgent = TypeVar('TRawAgent', Agent, Optional[TAction], str)
+
+
+def build_agent(raw: TRawAgent, builtin_agents: Dict[str, ], environment_name):
     """
     Returns the agent and whether the agent is parallelizable.
     """
@@ -125,8 +132,8 @@ def build_agent(raw, builtin_agents, environment_name):
 
     return callable_agent, False
 
-class Agent:
-    def __init__(self, raw, environment):
+class AgentRunner(Generic[TObservation, TConfiguration, TAction]):
+    def __init__(self, raw: TRawAgent, environment: Environment):
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
         self.debug = environment.debug
