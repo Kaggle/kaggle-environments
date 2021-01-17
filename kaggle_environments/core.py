@@ -88,10 +88,10 @@ class Environment(Generic[TState, TConfiguration]):
         html_renderer: Callable[[TConfiguration], str],
         configuration: Optional[TConfiguration] = None,
         agents: Optional[Dict[str, TAgent]] = None,
-        steps: List[List[TState]] = None,
-        logs: List[List[Log]] = None,
+        steps: Optional[List[List[TState]]] = None,
+        logs: Optional[List[List[Log]]] = None,
         debug: bool = False,
-        info: Dict[str, any] = None,
+        info: Optional[Dict[str, any]] = None,
     ):
         self.logs = logs
         self.id = str(uuid.uuid1())
@@ -109,13 +109,17 @@ class Environment(Generic[TState, TConfiguration]):
         self.html_renderer = html_renderer
         self.agents: Dict[str, TAgent] = agents or {}
 
-        if steps:
+        if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
         else:
             self.reset()
 
-    def step(self, actions, logs = None):
+    @property
+    def state(self):
+        return self.steps[-1]
+
+    def step(self, actions: List[TAction], logs: List[Log] = None):
         """
         Execute the environment interpreter using the current state and a list of actions.
 
@@ -128,7 +132,8 @@ class Environment(Generic[TState, TConfiguration]):
         """
         logs = logs or []
         if self.done:
-            raise FailedPrecondition("Environment done, reset required.")
+            # No agents can act, nothing left to simulate.
+            return self.state
         if not actions or len(actions) != len(self.state):
             raise InvalidArgument(f"{len(self.state)} actions required.")
 
@@ -149,7 +154,7 @@ class Environment(Generic[TState, TConfiguration]):
                     action_state[index]["status"] = "INVALID"
                     raise e
 
-        self.state = self.__run_interpreter(action_state, logs)
+        self.steps.append(self.__run_interpreter(action_state, logs))
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if self.state[0].observation.step >= self.configuration.episodeSteps - 1:
@@ -157,13 +162,13 @@ class Environment(Generic[TState, TConfiguration]):
                 if s.status == "ACTIVE" or s.status == "INACTIVE":
                     s.status = "DONE"
 
-        self.steps.append(self.state)
+
         if logs is not None:
             self.logs.append(logs)
 
         return self.state
 
-    def run(self, agents):
+    def run(self, agents: List[TAgent]):
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -187,6 +192,46 @@ class Environment(Generic[TState, TConfiguration]):
             actions, logs = runner()
             self.step(actions, logs)
         return self.steps
+
+    def __agent_runner(self, agents):
+        if len(agents) != len(self.state):
+            raise InvalidArgument("Number of agents must match the state length")
+
+        # Generate the agents.
+        agents = [
+            Agent(agent, self)
+            if agent is not None
+            else None
+            for agent in agents
+        ]
+
+        def act(none_action=None):
+            act_args = [
+                (
+                    agent,
+                    self.__get_shared_state(i),
+                    self.configuration,
+                    none_action,
+                )
+                for i, agent in enumerate(agents)
+            ]
+
+            if all(
+                agent is None or agent.is_parallelizable
+                for agent in agents
+            ):
+                if self.pool is None:
+                    self.pool = Pool(processes=len(agents))
+                results = self.pool.map(act_agent, act_args)
+            else:
+                results = list(map(act_agent, act_args))
+
+            # results is a list of tuples where the first element is an agent action and the second is the agent log
+            # This destructures into two lists, a list of actions and a list of logs.
+            actions, logs = zip(*results)
+            return list(actions), list(logs)
+
+        return act
 
     def reset(self, num_agents=None):
         """
@@ -213,9 +258,9 @@ class Environment(Generic[TState, TConfiguration]):
         self.__set_state(self.__run_interpreter(self.state, logs))
         self.logs.append(logs)
         # Replace the starting "status" if still "done".
-        if self.done and len(self.state) == len(statuses):
-            for i in range(len(self.state)):
-                self.state[i].status = statuses[i]
+        if self.done:
+            for agent, status in zip(self.state, statuses):
+                agent.status = status
         return self.state
 
     def render(self, **kwargs):
@@ -438,12 +483,12 @@ class Environment(Generic[TState, TConfiguration]):
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state):
+    def __set_state(self, state) -> None:
         if len(state) not in self.specification.agents:
             raise InvalidArgument(
                 f"{len(state)} is not a valid number of agent(s).")
 
-        def __get_state(self, position, state):
+        def __get_state(position, state):
             key = f"__state_schema_{position}"
             if not hasattr(self, key):
 
@@ -468,10 +513,10 @@ class Environment(Generic[TState, TConfiguration]):
 
             return State(process_schema(getattr(self, key), state))
 
-        self.state = structify([self.__get_state(index, s)
-                                for index, s in enumerate(state)])
-        self.steps = [self.state]
-        return self.state
+        self.steps = [[
+            structify(__get_state(index, s)
+            for index, s in enumerate(state))
+        ]]
 
     def __run_interpreter(self, state, logs):
         out = None
@@ -523,44 +568,6 @@ class Environment(Generic[TState, TConfiguration]):
                 while err.endswith('\n'):
                     err = err[:-1]
                 self.debug_print(err)
-
-    def __agent_runner(self, agents):
-        # Generate the agents.
-        agents = [
-            Agent(agent, self)
-            if agent is not None
-            else None
-            for agent in agents
-        ]
-
-        def act(none_action=None):
-            if len(agents) != len(self.state):
-                raise InvalidArgument(
-                    "Number of agents must match the state length")
-
-            act_args = [
-                (
-                    agent,
-                    self.__get_shared_state(i),
-                    self.configuration,
-                    none_action,
-                )
-                for i, agent in enumerate(agents)
-            ]
-
-            if all((agent is None or agent.is_parallelizable) for agent in agents):
-                if self.pool is None:
-                    self.pool = Pool(processes=len(agents))
-                results = self.pool.map(act_agent, act_args)
-            else:
-                results = list(map(act_agent, act_args))
-
-            # results is a list of tuples where the first element is an agent action and the second is the agent log
-            # This destructures into two lists, a list of actions and a list of logs.
-            actions, logs = zip(*results)
-            return list(actions), list(logs)
-
-        return act
 
     def __get_shared_state(self, position):
         # Note: state and schema are required to be in sync (apart from shared ones).
