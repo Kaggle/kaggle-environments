@@ -105,17 +105,17 @@ def act_agent(args):
 class Environment(Generic[TState, TConfiguration]):
     def __init__(
         self,
+        specification: Dict[str, any],
         interpreter: Callable[[TState, TConfiguration], TState],
-        specification = None,
+        renderer: Callable[[TState, TConfiguration], str],
+        html_renderer: Callable[[TConfiguration], str],
         configuration: Optional[TConfiguration] = None,
-        info: Dict[str, any] = None,
+        agents: Optional[Dict[str, TAgent]] = None,
         steps: List[List[TState]] = None,
+        state: TState = None,
         logs = None,
-        agents: Dict[str, TAgent] = None,
-        renderer = None,
-        html_renderer = None,
-        debug = False,
-        state = None,
+        debug: bool = False,
+        info: Dict[str, any] = None,
     ):
         self.logs = logs
         self.id = str(uuid.uuid1())
@@ -123,33 +123,16 @@ class Environment(Generic[TState, TConfiguration]):
         self.info = info
         self.pool = None
 
-        err, specification = self.__process_specification(specification or {})
-        if err:
-            raise InvalidArgument("Specification Invalid: " + err)
-        self.specification = structify(specification)
+        self.specification = self.__process_specification(specification)
 
-        err, configuration = process_schema(
+        configuration = process_schema(
             {"type": "object", "properties": self.specification.configuration},
-            configuration or {},
+            configuration or {}
         )
-        if err:
-            raise InvalidArgument("Configuration Invalid: " + err)
         self.configuration = structify(configuration)
-
-        if not callable(interpreter):
-            raise InvalidArgument("Interpreter is not Callable.")
         self.interpreter = interpreter
-
-        if not callable(renderer):
-            raise InvalidArgument("Renderer is not Callable.")
         self.renderer = renderer
-
-        if not callable(html_renderer):
-            raise InvalidArgument("Html_renderer is not Callable.")
         self.html_renderer = html_renderer
-
-        if not all([callable(a) for a in agents.values()]):
-            raise InvalidArgument("Default agents must be Callable.")
         self.agents = structify(agents)
 
         if steps is not None and len(steps) > 0:
@@ -179,7 +162,7 @@ class Environment(Generic[TState, TConfiguration]):
         if not actions or len(actions) != len(self.state):
             raise InvalidArgument(f"{len(self.state)} actions required.")
 
-        action_state = [0] * len(self.state)
+        action_state = [{}] * len(self.state)
         for index, action in enumerate(actions):
             action_state[index] = {**self.state[index], "action": None}
 
@@ -190,13 +173,11 @@ class Environment(Generic[TState, TConfiguration]):
                 self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
                 action_state[index]["status"] = "ERROR"
             else:
-                err, data = process_schema(
-                    self.__state_schema.properties.action, action)
-                if err:
-                    self.debug_print(f"Invalid Action: {str(err)}")
+                try:
+                    action_state[index]["action"] = process_schema(self.__state_schema.properties.action, action)
+                except Exception as e:
                     action_state[index]["status"] = "INVALID"
-                else:
-                    action_state[index]["action"] = data
+                    raise e
 
         self.state = self.__run_interpreter(action_state, logs)
 
@@ -578,12 +559,13 @@ class Environment(Generic[TState, TConfiguration]):
                     err = err[:-1]
                 self.debug_print(err)
 
-    def __process_specification(self, spec):
+    @staticmethod
+    def __process_specification(spec):
         if has(spec, path=["reward"]):
             reward = spec["reward"]
             reward_type = get(reward, str, "number", ["type"])
             if reward_type not in ["integer", "number"]:
-                return ("type must be an integer or number", None)
+                raise InvalidArgument("Reward type must be an integer or number")
             reward["type"] = [reward_type, "null"]
 
         # Allow environments to extend various parts of the specification.
@@ -593,8 +575,7 @@ class Environment(Generic[TState, TConfiguration]):
                 # Set a new default value.
                 if not isinstance(v, dict):
                     if not has(field, path=[k]):
-                        raise InvalidArgument(
-                            f"Field {field} was unable to set default of missing property: {k}")
+                        raise InvalidArgument(f"Field {field} was unable to set default of missing property: {k}")
                     field[k]["default"] = v
                 # Add a new field.
                 elif not has(field, path=[k]):
@@ -612,7 +593,7 @@ class Environment(Generic[TState, TConfiguration]):
         extend_specification(schemas, "configuration")
         extend_specification(schemas["state"]["properties"], "observation")
 
-        return process_schema(schemas.specification, spec)
+        return structify(process_schema(schemas.specification, spec))
 
     def __agent_runner(self, agents):
         # Generate the agents.

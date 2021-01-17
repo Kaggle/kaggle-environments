@@ -153,14 +153,10 @@ def default_schema(schema, data):
 
 
 def process_schema(schema, data, use_default=True):
-    error = None
     if use_default is True:
         data = default_schema(schema, deepcopy(data))
-    try:
-        jsonschema.validate(data, schema)
-    except Exception as err:
-        error = str(err)
-    return error, data
+    jsonschema.validate(data, schema)
+    return data
 
 
 # Player utilities
