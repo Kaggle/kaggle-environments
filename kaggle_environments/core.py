@@ -194,16 +194,16 @@ class Environment(Generic[TState, TConfiguration]):
             raise InvalidArgument("Number of agents must match the state length")
 
         # Generate the agents.
-        agents = [AgentRunner(agent, self) for agent in agents]
+        agent_runners = [AgentRunner(agent, self) for agent in agents]
 
         def act():
             act_args = [
-                (agent, observation, self.configuration)
-                for i, agent in enumerate(agents)
+                (agent_runner, observation, self.configuration)
+                for i, agent_runner in enumerate(agent_runners)
                 for observation in [self.__get_shared_state(i)]
             ]
 
-            if all(agent.is_parallelizable for agent in agents):
+            if all(agent_runner.is_parallelizable for agent_runner in agent_runners):
                 if self.pool is None:
                     self.pool = Pool(processes=len(agents))
                 results = self.pool.map(act_agent, act_args)
