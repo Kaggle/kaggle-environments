@@ -142,6 +142,20 @@ class Configuration(Dict[str, any]):
         return self["runTimeout"]
 
 
+class Log(Dict[str, any]):
+    @property
+    def duration(self) -> int:
+        return self["action"]
+
+    @property
+    def stdout(self) -> str:
+        return self["action"]
+
+    @property
+    def stderr(self) -> str:
+        return self["action"]
+
+
 TConfiguration = TypeVar('TConfiguration', bound=Configuration)
 TObservation = TypeVar('TObservation', bound=Observation)
 TAction = TypeVar('TAction')

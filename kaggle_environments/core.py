@@ -24,7 +24,7 @@ from typing import *
 
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
-from .helpers import State, TState, TConfiguration
+from .helpers import State, TState, TConfiguration, TObservation, TAction, Log
 from .helpers import Agent as TAgent
 from .utils import get, has, get_player, process_schema, schemas, structify
 
@@ -69,29 +69,6 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False):
-    """
-    Creates an instance of an Environment.
-
-    Args:
-        environment (str|Environment):
-        configuration (dict, optional):
-        info (dict, optional):
-        steps (list, optional):
-        debug (bool=False, optional):
-
-    Returns:
-        Environment: Instance of a specific environment.
-    """
-    if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
-    elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
-    elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
-    raise InvalidArgument("Unknown Environment Specification")
-
-
 def act_agent(args):
     agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
@@ -112,7 +89,7 @@ class Environment(Generic[TState, TConfiguration]):
         configuration: Optional[TConfiguration] = None,
         agents: Optional[Dict[str, TAgent]] = None,
         steps: List[List[TState]] = None,
-        logs = None,
+        logs: List[List[Log]] = None,
         debug: bool = False,
         info: Dict[str, any] = None,
     ):
@@ -132,7 +109,7 @@ class Environment(Generic[TState, TConfiguration]):
         self.html_renderer = html_renderer
         self.agents: Dict[str, TAgent] = agents or {}
 
-        if steps is not None and len(steps) > 0:
+        if steps:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
         else:
@@ -207,7 +184,7 @@ class Environment(Generic[TState, TConfiguration]):
         runner = self.__agent_runner(agents)
         start = perf_counter()
         while not self.done and perf_counter() - start < self.configuration.runTimeout:
-            actions, logs = runner.act()
+            actions, logs = runner()
             self.step(actions, logs)
         return self.steps
 
@@ -329,7 +306,7 @@ class Environment(Generic[TState, TConfiguration]):
             `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
             `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
-        runner = None
+        runner: Callable[TAction, Tuple[List[TAction], List[Log]]] = None
         position = None
         for index, agent in enumerate(agents):
             if agent is None:
@@ -354,7 +331,7 @@ class Environment(Generic[TState, TConfiguration]):
             return self.__get_shared_state(position).observation
 
         def step(action):
-            actions, logs = runner.act(action)
+            actions, logs = runner(action)
             self.step(actions, logs)
             advance()
             agent = self.__get_shared_state(position)
@@ -461,40 +438,40 @@ class Environment(Generic[TState, TConfiguration]):
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state=[]):
+    def __set_state(self, state):
         if len(state) not in self.specification.agents:
             raise InvalidArgument(
                 f"{len(state)} is not a valid number of agent(s).")
+
+        def __get_state(self, position, state):
+            key = f"__state_schema_{position}"
+            if not hasattr(self, key):
+
+                # Update a property default value based on position in defaults.
+                # Remove shared properties from non-first agents.
+                def update_props(props):
+                    for k, prop in list(props.items()):
+                        if get(prop, bool, path=["shared"], fallback=False) and position > 0:
+                            del props[k]
+                            continue
+                        if has(prop, list, path=["defaults"]) and len(prop["defaults"]) > position:
+                            prop["default"] = prop["defaults"][position]
+                            del prop["defaults"]
+                        if has(prop, dict, path=["properties"]):
+                            update_props(prop["properties"])
+                    return props
+
+                props = structify(update_props(
+                    copy.deepcopy(self.__state_schema.properties)))
+
+                setattr(self, key, {**self.__state_schema, "properties": props})
+
+            return State(process_schema(getattr(self, key), state))
 
         self.state = structify([self.__get_state(index, s)
                                 for index, s in enumerate(state)])
         self.steps = [self.state]
         return self.state
-
-    def __get_state(self, position, state):
-        key = f"__state_schema_{position}"
-        if not hasattr(self, key):
-
-            # Update a property default value based on position in defaults.
-            # Remove shared properties from non-first agents.
-            def update_props(props):
-                for k, prop in list(props.items()):
-                    if get(prop, bool, path=["shared"], fallback=False) and position > 0:
-                        del props[k]
-                        continue
-                    if has(prop, list, path=["defaults"]) and len(prop["defaults"]) > position:
-                        prop["default"] = prop["defaults"][position]
-                        del prop["defaults"]
-                    if has(prop, dict, path=["properties"]):
-                        update_props(prop["properties"])
-                return props
-
-            props = structify(update_props(
-                copy.deepcopy(self.__state_schema.properties)))
-
-            setattr(self, key, {**self.__state_schema, "properties": props})
-
-        return State(process_schema(getattr(self, key), state))
 
     def __run_interpreter(self, state, logs):
         out = None
@@ -547,39 +524,6 @@ class Environment(Generic[TState, TConfiguration]):
                     err = err[:-1]
                 self.debug_print(err)
 
-    @staticmethod
-    def __process_specification(spec):
-        if has(spec, path=["reward"]):
-            reward = spec["reward"]
-            reward_type = get(reward, str, "number", ["type"])
-            if reward_type not in ["integer", "number"]:
-                raise InvalidArgument("Reward type must be an integer or number")
-            reward["type"] = [reward_type, "null"]
-
-        # Allow environments to extend various parts of the specification.
-        def extend_specification(source, field_name):
-            field = copy.deepcopy(source[field_name]["properties"])
-            for key, value in get(spec, dict, {}, [field_name]).items():
-                # Set a new default value.
-                if not isinstance(value, dict):
-                    if not has(field, path=[key]):
-                        raise InvalidArgument(f"Field {field} was unable to set default of missing property: {k}")
-                    field[key]["default"] = value
-                # Merge over an existing field if the types match.
-                elif has(field, path=[key]) and field[key]["type"] == get(value, path=["type"]):
-                    for inner_key, inner_value in value.items():
-                        field[key][inner_key] = inner_value
-                # Add / replace a field.
-                else:
-                    field[key] = value
-
-            spec[field_name] = field
-
-        extend_specification(schemas, "configuration")
-        extend_specification(schemas["state"]["properties"], "observation")
-
-        return structify(process_schema(schemas.specification, spec))
-
     def __agent_runner(self, agents):
         # Generate the agents.
         agents = [
@@ -616,7 +560,7 @@ class Environment(Generic[TState, TConfiguration]):
             actions, logs = zip(*results)
             return list(actions), list(logs)
 
-        return structify({"act": act})
+        return act
 
     def __get_shared_state(self, position):
         # Note: state and schema are required to be in sync (apart from shared ones).
@@ -641,3 +585,40 @@ class Environment(Generic[TState, TConfiguration]):
     def debug_print(self, message):
         if self.debug:
             print(message)
+
+    @staticmethod
+    def __process_specification(spec):
+        if has(spec, path=["reward"]):
+            reward = spec["reward"]
+            reward_type = get(reward, str, "number", ["type"])
+            if reward_type not in ["integer", "number"]:
+                raise InvalidArgument("Reward type must be an integer or number")
+            reward["type"] = [reward_type, "null"]
+
+        # Allow environments to extend various parts of the specification.
+        def extend_specification(source, field_name):
+            field = copy.deepcopy(source[field_name]["properties"])
+            for key, value in get(spec, dict, {}, [field_name]).items():
+                # Set a new default value.
+                if not isinstance(value, dict):
+                    if not has(field, path=[key]):
+                        raise InvalidArgument(f"Field {field} was unable to set default of missing property: {key}")
+                    field[key]["default"] = value
+                # Merge over an existing field if the types match.
+                elif has(field, path=[key]) and field[key]["type"] == get(value, path=["type"]):
+                    for inner_key, inner_value in value.items():
+                        field[key][inner_key] = inner_value
+                # Add / replace a field.
+                else:
+                    field[key] = value
+
+            spec[field_name] = field
+
+        extend_specification(schemas, "configuration")
+        extend_specification(schemas["state"]["properties"], "observation")
+
+        return structify(process_schema(schemas.specification, spec))
+
+
+def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> Environment:
+    return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
