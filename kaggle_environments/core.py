@@ -69,7 +69,7 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
     return rewards
 
 
-def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False, state=None):
+def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False):
     """
     Creates an instance of an Environment.
 
@@ -84,11 +84,11 @@ def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False,
         Environment: Instance of a specific environment.
     """
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -112,7 +112,6 @@ class Environment(Generic[TState, TConfiguration]):
         configuration: Optional[TConfiguration] = None,
         agents: Optional[Dict[str, TAgent]] = None,
         steps: List[List[TState]] = None,
-        state: TState = None,
         logs = None,
         debug: bool = False,
         info: Dict[str, any] = None,
@@ -124,7 +123,6 @@ class Environment(Generic[TState, TConfiguration]):
         self.pool = None
 
         self.specification = self.__process_specification(specification)
-
         self.configuration = process_schema(
             {"type": "object", "properties": self.specification.configuration},
             configuration or {}
@@ -137,10 +135,6 @@ class Environment(Generic[TState, TConfiguration]):
         if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
-        elif state is not None:
-            step = [State({})] * self.specification.agents[0]
-            step[0] = State(state)
-            self.__set_state(step)
         else:
             self.reset()
 
