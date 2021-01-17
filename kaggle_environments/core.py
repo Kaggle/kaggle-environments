@@ -20,8 +20,12 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
+from typing import *
+
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
+from .helpers import State, TState, TConfiguration
+from .helpers import Agent as TAgent
 from .utils import get, has, get_player, process_schema, schemas, structify
 
 # Registered Environments.
@@ -98,20 +102,20 @@ def act_agent(args):
         return agent.act(state["observation"])
 
 
-class Environment:
+class Environment(Generic[TState, TConfiguration]):
     def __init__(
         self,
-        specification={},
-        configuration={},
-        info={},
-        steps=[],
-        logs=[],
-        agents={},
-        interpreter=None,
-        renderer=None,
-        html_renderer=None,
-        debug=False,
-        state=None,
+        interpreter: Callable[[TState, TConfiguration], TState],
+        specification = None,
+        configuration: Optional[TConfiguration] = None,
+        info: Dict[str, any] = None,
+        steps: List[List[TState]] = None,
+        logs = None,
+        agents: Dict[str, TAgent] = None,
+        renderer = None,
+        html_renderer = None,
+        debug = False,
+        state = None,
     ):
         self.logs = logs
         self.id = str(uuid.uuid1())
@@ -119,14 +123,14 @@ class Environment:
         self.info = info
         self.pool = None
 
-        err, specification = self.__process_specification(specification)
+        err, specification = self.__process_specification(specification or {})
         if err:
             raise InvalidArgument("Specification Invalid: " + err)
         self.specification = structify(specification)
 
         err, configuration = process_schema(
             {"type": "object", "properties": self.specification.configuration},
-            {} if configuration is None else configuration,
+            configuration or {},
         )
         if err:
             raise InvalidArgument("Configuration Invalid: " + err)
@@ -152,13 +156,13 @@ class Environment:
             self.__set_state(steps[-1])
             self.steps = steps[0:-1] + self.steps
         elif state is not None:
-            step = [{}] * self.specification.agents[0]
-            step[0] = state
+            step = [State({})] * self.specification.agents[0]
+            step[0] = State(state)
             self.__set_state(step)
         else:
             self.reset()
 
-    def step(self, actions, logs=[]):
+    def step(self, actions, logs = None):
         """
         Execute the environment interpreter using the current state and a list of actions.
 
@@ -169,6 +173,7 @@ class Environment:
         Returns:
             list of dict: The agents states after the step.
         """
+        logs = logs or []
         if self.done:
             raise FailedPrecondition("Environment done, reset required.")
         if not actions or len(actions) != len(self.state):
@@ -520,7 +525,7 @@ class Environment:
             raise InvalidArgument(
                 f"Default state generation failed for #{position}: " + err
             )
-        return data
+        return State(data)
 
     def __run_interpreter(self, state, logs):
         out = None

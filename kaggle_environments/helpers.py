@@ -1,5 +1,5 @@
 import operator
-from enum import Enum
+from enum import Enum, auto
 from typing import *
 
 
@@ -149,50 +149,55 @@ Agent = Callable[TObservation, TConfiguration, TAction]
 
 
 class AgentStatus(Enum):
-    UNKNOWN = 0
-    ACTIVE = 1
-    INACTIVE = 2
-    DONE = 3
-    INVALID = 4
-    ERROR = 5
+    UNKNOWN = auto()
+    INACTIVE = auto()
+    ACTIVE = auto()
+    DONE = auto()
+    ERROR = auto()
+    INVALID = auto()
+    TIMEOUT = auto()
 
 
-class AgentState(Generic[TObservation, TAction], Dict[str, any]):
-    @property
-    def observation(self) -> TObservation:
-        return self["observation"]
-
+class State(Generic[TObservation, TAction], Dict[str, any]):
     @property
     def action(self) -> TAction:
         return self["action"]
+
+    @action.setter
+    def action(self, action: TAction):
+        self["action"] = action
 
     @property
     def reward(self) -> int:
         return self["reward"]
 
+    @reward.setter
+    def reward(self, reward: int):
+        self["reward"] = reward
+
+    @property
+    def info(self) -> Dict[str, any]:
+        return self["info"]
+
+    @info.setter
+    def info(self, info: Dict[str, any]):
+        self["info"] = info
+
+    @property
+    def observation(self) -> TObservation:
+        return self["observation"]
+
+    @observation.setter
+    def observation(self, observation: TObservation):
+        self["observation"] = observation
+
     @property
     def status(self) -> AgentStatus:
-        status = self["status"]
-        if status in AgentStatus.__members__:
-            return AgentStatus[status]
-        return AgentStatus.UNKNOWN
+        return AgentStatus.__members__.get(self["status"]) or AgentStatus.UNKNOWN
+
+    @status.setter
+    def status(self, status: AgentStatus):
+        self["status"] = status.name
 
 
-class Environment(Generic[TConfiguration, TObservation, TAction]):
-    @property
-    def specification(self) -> Dict[str, any]:
-        raise NotImplemented()
-
-    def interpret(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> List[AgentState[TObservation, TAction]]:
-        raise NotImplemented()
-
-    def render_html(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplemented()
-
-    def render_text(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplemented()
-
-    @property
-    def builtin_agents(self) -> Dict[str, Agent]:
-        """Override this property to provide default agents that can be referenced by name in this environment, e.g. `{"random": my_random_agent}`"""
-        return {}
+TState = TypeVar('TState', bound=State[TObservation, TAction])
