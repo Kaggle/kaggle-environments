@@ -142,10 +142,10 @@ class Configuration(Dict[str, any]):
         return self["runTimeout"]
 
 
-TConfiguration = TypeVar('TConfiguration', Configuration)
-TObservation = TypeVar('TObservation', Observation)
+TConfiguration = TypeVar('TConfiguration', bound=Configuration)
+TObservation = TypeVar('TObservation', bound=Observation)
 TAction = TypeVar('TAction')
-Agent = Callable[TObservation, TConfiguration, TAction]
+Agent = Callable[[TObservation, TConfiguration], TAction]
 
 
 class AgentStatus(Enum):

@@ -15,8 +15,6 @@
 import time
 from kaggle_environments import make, evaluate, utils
 
-env = None
-
 
 def custom1(obs):
     step = sum(1 for mark in obs.board if mark == obs.mark)
@@ -48,14 +46,8 @@ def custom6(obs):
     return [1, 3, 5, 7][step]
 
 
-def before_each(state=None):
-    global env
-    steps = [] if state == None else [state]
-    env = make("tictactoe", steps=steps, debug=True)
-
-
 def test_to_json():
-    before_each()
+    env = make("tictactoe", debug=True)
     json = env.toJSON()
     assert json["name"] == "tictactoe"
     assert json["rewards"] == [0, 0]
@@ -64,7 +56,7 @@ def test_to_json():
 
 
 def test_can_reset():
-    before_each()
+    env = make("tictactoe", debug=True)
     assert env.reset() == [
         {
             "action": 0,
@@ -84,8 +76,7 @@ def test_can_reset():
 
 
 def test_can_place_valid_mark():
-    before_each()
-
+    env = make("tictactoe", debug=True)
     assert env.step([4, None]) == [
         {
             "action": 4,
@@ -105,8 +96,7 @@ def test_can_place_valid_mark():
 
 
 def test_can_place_invalid_mark():
-    before_each()
-
+    env = make("tictactoe", debug=True)
     env.step([4, None])
 
     assert env.step([None, 4]) == [
@@ -130,7 +120,7 @@ def test_can_place_invalid_mark():
 def test_can_place_winning_mark():
     state1 = {"observation": {"board": [2, 1, 0, 1, 1, 0, 2, 0, 2]}}
     state2 = {}
-    before_each([state1, state2])
+    env = make("tictactoe", debug=True, steps=[state1, state2])
 
     assert env.step([7, None]) == [
         {
@@ -152,23 +142,23 @@ def test_can_place_winning_mark():
 
 def test_can_render():
     obs = {"observation": {"board": [0, 1, 0, 2, 1, 2, 0, 0, 2]}}
-    before_each([obs, obs])
+    env = make("tictactoe", debug=True, steps=[obs, obs])
     out = "   | X |   \n---+---+---\n O | X | O \n---+---+---\n   |   | O "
     assert env.render(mode="ansi") == out
 
 
 def test_can_step_through_agents():
-    before_each()
+    env = make("tictactoe", debug=True)
     while not env.done:
-        action1 = env.agents.random(env.state[0].observation)
-        action2 = env.agents.reaction(
+        action1 = env.agents["random"](env.state[0].observation)
+        action2 = env.agents["reaction"](
             utils.structify({"board": env.state[0].observation.board, "mark": 2}))
         env.step([action1, action2])
     assert env.state[0].reward + env.state[1].reward == 0
 
 
 def test_can_run_agents():
-    before_each()
+    env = make("tictactoe", debug=True)
     state = env.run(["random", "reaction"])[-1]
     assert state[0].reward + state[1].reward == 0
 
@@ -180,7 +170,7 @@ def test_can_evaluate():
 
 
 def test_can_run_custom_agents():
-    before_each()
+    env = make("tictactoe", debug=True)
     state = env.run([custom1, custom2])[-1]
     assert state == [
         {
@@ -237,7 +227,7 @@ def test_run_timeout():
 
 
 def test_agents_can_error():
-    before_each()
+    env = make("tictactoe", debug=True)
     state = env.run([custom1, custom4])[-1]
     assert state == [
         {
@@ -258,7 +248,7 @@ def test_agents_can_error():
 
 
 def test_agents_can_have_invalid_actions():
-    before_each()
+    env = make("tictactoe", debug=True)
     state = env.run([custom1, custom5])[-1]
     assert state == [
         {

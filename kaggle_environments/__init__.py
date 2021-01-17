@@ -23,7 +23,7 @@ from . import utils
 
 __version__ = "1.7.3"
 
-__all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
+__all__ = ["Agent", "Environment", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
            "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
 

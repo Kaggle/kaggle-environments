@@ -125,15 +125,14 @@ class Environment(Generic[TState, TConfiguration]):
 
         self.specification = self.__process_specification(specification)
 
-        configuration = process_schema(
+        self.configuration = process_schema(
             {"type": "object", "properties": self.specification.configuration},
             configuration or {}
         )
-        self.configuration = structify(configuration)
         self.interpreter = interpreter
         self.renderer = renderer
         self.html_renderer = html_renderer
-        self.agents = structify(agents)
+        self.agents: Dict[str, TAgent] = agents or {}
 
         if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
@@ -501,12 +500,7 @@ class Environment(Generic[TState, TConfiguration]):
 
             setattr(self, key, {**self.__state_schema, "properties": props})
 
-        err, data = process_schema(getattr(self, key), state)
-        if err:
-            raise InvalidArgument(
-                f"Default state generation failed for #{position}: " + err
-            )
-        return State(data)
+        return State(process_schema(getattr(self, key), state))
 
     def __run_interpreter(self, state, logs):
         out = None
@@ -571,22 +565,19 @@ class Environment(Generic[TState, TConfiguration]):
         # Allow environments to extend various parts of the specification.
         def extend_specification(source, field_name):
             field = copy.deepcopy(source[field_name]["properties"])
-            for k, v in get(spec, dict, {}, [field_name]).items():
+            for key, value in get(spec, dict, {}, [field_name]).items():
                 # Set a new default value.
-                if not isinstance(v, dict):
-                    if not has(field, path=[k]):
+                if not isinstance(value, dict):
+                    if not has(field, path=[key]):
                         raise InvalidArgument(f"Field {field} was unable to set default of missing property: {k}")
-                    field[k]["default"] = v
-                # Add a new field.
-                elif not has(field, path=[k]):
-                    field[k] = v
-                # Override an existing field if types match.
-                elif field[k]["type"] == get(v, path=["type"]):
-                    field[k] = v
-                # Types don't match - unable to extend.
+                    field[key]["default"] = value
+                # Merge over an existing field if the types match.
+                elif has(field, path=[key]) and field[key]["type"] == get(value, path=["type"]):
+                    for inner_key, inner_value in value.items():
+                        field[key][inner_key] = inner_value
+                # Add / replace a field.
                 else:
-                    raise InvalidArgument(
-                        f"Field {field} was unable to extend: {k}")
+                    field[key] = value
 
             spec[field_name] = field
 
