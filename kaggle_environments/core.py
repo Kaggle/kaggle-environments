@@ -19,19 +19,19 @@ import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from multiprocessing import Pool
+from sys import path
 from time import perf_counter
 from typing import *
 
 from .agent import AgentRunner
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
-from .helpers import Agent, State, TState, TConfiguration, TObservation, TAction, Log
-from .utils import get, has, get_player, process_schema, schemas, structify
-
-# Registered Environments.
-environments = {}
+from .helpers import Agent, State, TState, TConfiguration, TObservation, TAction, Log, with_print, AgentStatus, Environment
+from .utils import get, has, get_player, process_schema, schemas, structify, process_properties
 
 # Registered Interactive Sessions.
 interactives = {}
+# Registered Environments.
+environments = {}
 
 
 def register(name, environment):
@@ -70,41 +70,35 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
 
 def act_agent(args):
     agent, state, configuration = args
-    if state["status"] != "ACTIVE":
+    if state["status"] != AgentStatus.ACTIVE:
         return None, {}
     else:
         return agent.act(state["observation"])
 
 
-class Environment(Generic[TState, TConfiguration]):
+class EnvironmentRunner(Generic[TState, TConfiguration]):
     def __init__(
         self,
-        specification: Dict[str, any],
-        interpreter: Callable[[TState, TConfiguration], TState],
-        renderer: Callable[[TState, TConfiguration], str],
-        html_renderer: Callable[[TConfiguration], str],
+        environment: Environment,
         configuration: Optional[TConfiguration] = None,
-        agents: Optional[Dict[str, Agent]] = None,
         steps: Optional[List[List[TState]]] = None,
         logs: Optional[List[List[Log]]] = None,
         debug: bool = False,
-        info: Optional[Dict[str, any]] = None,
+        info: Optional[Dict[str, Any]] = None,
     ):
-        self.logs = logs
+        self.logs = logs or []
         self.id = str(uuid.uuid1())
         self.debug = debug
         self.info = info
         self.pool = None
+        self.environment = environment
 
-        self.specification = self.__process_specification(specification)
-        self.configuration = process_schema(
-            {"type": "object", "properties": self.specification.configuration},
-            configuration or {}
-        )
-        self.interpreter = interpreter
-        self.renderer = renderer
-        self.html_renderer = html_renderer
-        self.agents: Dict[str, Agent] = agents or {}
+        # TODO: Move configuration creation out of the env runner.
+        self.configuration = process_properties(environment.specification["configuration"], configuration)
+        self.interpreter = environment.step
+        self.renderer = environment.render_text
+        self.html_renderer = environment.render_html
+        self.agents = environment.builtin_agents()
 
         if steps is not None and len(steps) > 0:
             self.__set_state(steps[-1])
@@ -134,30 +128,31 @@ class Environment(Generic[TState, TConfiguration]):
         if not actions or len(actions) != len(self.state):
             raise InvalidArgument(f"{len(self.state)} actions required.")
 
-        action_state = [{}] * len(self.state)
+        action_states = [State()] * len(self.state)
         for index, action in enumerate(actions):
-            action_state[index] = {**self.state[index], "action": None}
+            action_state = action_states[index] = copy.deepcopy(self.state[index])
+            action_state.action = None
 
             if isinstance(action, DeadlineExceeded):
                 self.debug_print(f"Timeout: {str(action)}")
-                action_state[index]["status"] = "TIMEOUT"
+                action_state.status = AgentStatus.TIMEOUT
             elif isinstance(action, BaseException):
                 self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
-                action_state[index]["status"] = "ERROR"
+                action_state.status = AgentStatus.ERROR
             else:
                 try:
-                    action_state[index]["action"] = process_schema(self.__state_schema.properties.action, action)
+                    action_state.action = process_schema(self.__state_schema.properties.action, action)
                 except Exception as e:
-                    action_state[index]["status"] = "INVALID"
+                    action_state[index].status = AgentStatus.INVALID
                     raise e
 
-        self.steps.append(self.__run_interpreter(action_state, logs))
+        self.steps.append(self.__run_interpreter(action_states, logs))
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if self.state[0].observation.step >= self.configuration.episodeSteps - 1:
             for s in self.state:
-                if s.status == "ACTIVE" or s.status == "INACTIVE":
-                    s.status = "DONE"
+                if s.status == AgentStatus.ACTIVE or s.status == AgentStatus.INACTIVE:
+                    s.status = AgentStatus.DONE
 
         if logs is not None:
             self.logs.append(logs)
@@ -177,10 +172,10 @@ class Environment(Generic[TState, TConfiguration]):
                 list of list of dict: The agent logs of all steps executed.
         """
         if self.state is None or len(self.steps) == 1 or self.done:
-            self.reset(len(agents))
-        if len(self.state) != len(agents):
+            self.reset()
+        if self.configuration.agent_count != len(agents):
             raise InvalidArgument(
-                f"{len(self.state)} agents were expected, but {len(agents)} was given.")
+                f"{self.configuration.agent_count} agents were expected, but {len(agents)} were given.")
 
         runner = self.__agent_runner(agents)
         start = perf_counter()
@@ -194,7 +189,7 @@ class Environment(Generic[TState, TConfiguration]):
             raise InvalidArgument("Number of agents must match the state length")
 
         # Generate the agents.
-        agent_runners = [AgentRunner(agent, self) for agent in agents]
+        agent_runners = [AgentRunner(agent, self.agents, self.configuration, self.debug, self.name) for agent in agents]
 
         def act():
             act_args = [
@@ -217,26 +212,19 @@ class Environment(Generic[TState, TConfiguration]):
 
         return act
 
-    def reset(self, num_agents=None):
+    def reset(self):
         """
         Resets the environment state to the initial step.
-
-        Args:
-            num_agents (int): Resets the state assuming a fixed number of agents.
 
         Returns:
             list of dict: The agents states after the reset.
         """
-
-        if num_agents is None:
-            num_agents = self.specification.agents[0]
-
         # Get configuration default state.
-        self.__set_state([{} for _ in range(num_agents)])
+        self.__set_state([{} for _ in range(self.configuration.agent_count)])
         # Reset all agents to status=INACTIVE (copy out values to reset afterwards).
         statuses = [a.status for a in self.state]
         for agent in self.state:
-            agent.status = "INACTIVE"
+            agent.status = AgentStatus.INACTIVE
         # Give the interpreter an opportunity to make any initializations.
         logs = []
         self.__set_state(self.__run_interpreter(self.state, logs))
@@ -292,7 +280,7 @@ class Environment(Generic[TState, TConfiguration]):
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def train(self, agents=[]):
+    def train(self, agents = None):
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -322,6 +310,7 @@ class Environment(Generic[TState, TConfiguration]):
         """
         runner: Callable[[Optional[TAction]], Tuple[List[TAction], List[Log]]] = None
         position = None
+        agents = agents or []
         for index, agent in enumerate(agents):
             if agent is None:
                 if position is not None:
@@ -333,13 +322,13 @@ class Environment(Generic[TState, TConfiguration]):
             raise InvalidArgument("One agent must be marked 'None' to train.")
 
         def advance():
-            while not self.done and self.state[position].status == "INACTIVE":
+            while not self.done and self.state[position].status == AgentStatus.INACTIVE:
                 actions, logs = runner(None)
                 self.step(actions, logs)
 
         def reset():
             nonlocal runner
-            self.reset(len(agents))
+            self.reset()
             runner = self.__agent_runner(agents)
             advance()
             return self.__get_shared_state(position).observation
@@ -353,7 +342,7 @@ class Environment(Generic[TState, TConfiguration]):
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
             return [
-                agent.observation, reward, agent.status != "ACTIVE", agent.info
+                agent.observation, reward, agent.status != AgentStatus.ACTIVE, agent.info
             ]
 
         reset()
@@ -363,24 +352,24 @@ class Environment(Generic[TState, TConfiguration]):
     @property
     def name(self):
         """str: The name from the specification."""
-        return get(self.specification, str, "", ["name"])
+        return get(self.environment.specification, str, "", ["name"])
 
     @property
     def version(self):
         """str: The version from the specification."""
-        return get(self.specification, str, "", ["version"])
+        return get(self.environment.specification, str, "", ["version"])
 
     @property
     def done(self):
         """bool: If any agents have an ACTIVE status."""
-        return all(s.status != "ACTIVE" for s in self.state)
+        return all(s.status != AgentStatus.ACTIVE for s in self.state)
 
     def toJSON(self):
         """
         Returns:
             dict: Specifcation and current state of the Environment instance.
         """
-        spec = self.specification
+        spec = self.environment.specification
         return copy.deepcopy(
             {
                 "id": self.id,
@@ -410,21 +399,17 @@ class Environment(Generic[TState, TConfiguration]):
         Returns:
             Environment: A copy of the current environment.
         """
-        return Environment(
-            specification=self.specification,
+        return EnvironmentRunner(
+            environment=self.environment,
             configuration=self.configuration,
             steps=self.steps,
-            agents=self.agents,
-            interpreter=self.interpreter,
-            renderer=self.renderer,
-            html_renderer=self.html_renderer,
             debug=self.debug,
         )
 
     @property
     def __state_schema(self):
         if not hasattr(self, "__state_schema_value"):
-            spec = self.specification
+            spec = self.environment.specification
             self.__state_schema_value = {
                 **schemas["state"],
                 "properties": {
@@ -453,14 +438,12 @@ class Environment(Generic[TState, TConfiguration]):
         return structify(self.__state_schema_value)
 
     def __set_state(self, state) -> None:
-        if len(state) not in self.specification.agents:
-            raise InvalidArgument(
-                f"{len(state)} is not a valid number of agent(s).")
+        if len(state) != self.configuration.agent_count:
+            raise InvalidArgument(f"{len(state)} is not a valid number of agent(s).")
 
-        def __get_state(position, state):
+        def get_state(position, state):
             key = f"__state_schema_{position}"
             if not hasattr(self, key):
-
                 # Update a property default value based on position in defaults.
                 # Remove shared properties from non-first agents.
                 def update_props(props):
@@ -482,8 +465,8 @@ class Environment(Generic[TState, TConfiguration]):
             return State(process_schema(getattr(self, key), state))
 
         self.steps = [[
-            structify(__get_state(index, s)
-            for index, s in enumerate(state))
+            structify(get_state(index, s))
+            for index, s in enumerate(state)
         ]]
 
     def __run_interpreter(self, state, logs):
@@ -494,8 +477,8 @@ class Environment(Generic[TState, TConfiguration]):
             with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
                 try:
                     args = [structify(state), self]
-                    new_state = structify(self.interpreter(
-                        *args[:self.interpreter.__code__.co_argcount]))
+                    new_state = self.interpreter(
+                        *args[:self.interpreter.__code__.co_argcount])
                     new_state[0].observation.step = (
                         0 if self.done
                         else len(self.steps)
@@ -508,8 +491,8 @@ class Environment(Generic[TState, TConfiguration]):
                             agent.observation.remainingOverageTime -= overage_time_consumed
                         if agent.status not in self.__state_schema.properties.status.enum:
                             self.debug_print(f"Invalid Action: {agent.status}")
-                            agent.status = "INVALID"
-                        if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+                            agent.status = AgentStatus.INVALID
+                        if agent.status in [AgentStatus.ERROR, AgentStatus.INVALID, AgentStatus.TIMEOUT]:
                             agent.reward = None
                     return new_state
                 except Exception as e:
@@ -561,39 +544,6 @@ class Environment(Generic[TState, TConfiguration]):
         if self.debug:
             print(message)
 
-    @staticmethod
-    def __process_specification(spec):
-        if has(spec, path=["reward"]):
-            reward = spec["reward"]
-            reward_type = get(reward, str, "number", ["type"])
-            if reward_type not in ["integer", "number"]:
-                raise InvalidArgument("Reward type must be an integer or number")
-            reward["type"] = [reward_type, "null"]
 
-        # Allow environments to extend various parts of the specification.
-        def extend_specification(source, field_name):
-            field = copy.deepcopy(source[field_name]["properties"])
-            for key, value in get(spec, dict, {}, [field_name]).items():
-                # Set a new default value.
-                if not isinstance(value, dict):
-                    if not has(field, path=[key]):
-                        raise InvalidArgument(f"Field {field} was unable to set default of missing property: {key}")
-                    field[key]["default"] = value
-                # Merge over an existing field if the types match.
-                elif has(field, path=[key]) and field[key]["type"] == get(value, path=["type"]):
-                    for inner_key, inner_value in value.items():
-                        field[key][inner_key] = inner_value
-                # Add / replace a field.
-                else:
-                    field[key] = value
-
-            spec[field_name] = field
-
-        extend_specification(schemas, "configuration")
-        extend_specification(schemas["state"]["properties"], "observation")
-
-        return structify(process_schema(schemas.specification, spec))
-
-
-def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> Environment:
-    return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
+def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> EnvironmentRunner:
+    return EnvironmentRunner(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)

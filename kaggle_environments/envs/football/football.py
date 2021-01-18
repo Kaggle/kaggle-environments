@@ -251,6 +251,7 @@ with open(jsonpath) as f:
 
 def html_renderer(env):
     try_get_video(env, keep_running=True)
+    # TODO(harrisse): Move football_video_path into the configuration now that we only pass configuration to html_renderer
     if not env.football_video_path:
         raise Exception(
             "No video found. Was environment created with save_video enabled?"

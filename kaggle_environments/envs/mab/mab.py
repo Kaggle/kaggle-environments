@@ -63,6 +63,9 @@ class Configuration(kaggle_environments.helpers.Configuration):
         return self["sampleResolution"]
 
 
+State = kaggle_environments.helpers.State[Observation, Configuration]
+
+
 # SystemRandom is used to provide stronger randoms than builtin twister
 random = SystemRandom()
 

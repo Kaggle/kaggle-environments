@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import json
 import os
 import requests
@@ -24,7 +23,6 @@ from time import perf_counter
 from typing import *
 from urllib.parse import urlparse
 
-from . import Environment
 from .errors import DeadlineExceeded, InvalidArgument
 from .helpers import Agent, TAction, TObservation, TConfiguration
 from .utils import read_file, structify
@@ -91,7 +89,7 @@ class UrlAgent:
 TRawAgent = TypeVar('TRawAgent', Agent, Optional[TAction], str)
 
 
-def build_agent(raw: TRawAgent, builtin_agents: Dict[str, ], environment_name):
+def build_agent(raw: TRawAgent, builtin_agents: Dict[str, TRawAgent], environment_name):
     """
     Returns the agent and whether the agent is parallelizable.
     """
@@ -133,11 +131,11 @@ def build_agent(raw: TRawAgent, builtin_agents: Dict[str, ], environment_name):
     return callable_agent, False
 
 class AgentRunner(Generic[TObservation, TConfiguration, TAction]):
-    def __init__(self, raw: TRawAgent, environment: Environment):
-        self.builtin_agents = environment.agents
-        self.configuration = environment.configuration
-        self.debug = environment.debug
-        self.environment_name = environment.name
+    def __init__(self, raw: TRawAgent, builtin_agents: Dict[str, TRawAgent], configuration: TConfiguration, debug: bool, environment_name: str):
+        self.builtin_agents = builtin_agents
+        self.configuration = configuration
+        self.debug = debug
+        self.environment_name = environment_name
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
 

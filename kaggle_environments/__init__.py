@@ -17,7 +17,7 @@ from os import listdir
 from .agent import Agent
 from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
 from .core import *
-from .main import http_request
+from .main import *
 from . import errors
 from . import utils
 

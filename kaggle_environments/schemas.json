@@ -32,7 +32,19 @@
       },
       "reward": {
         "type": "object",
-        "default": { "type": ["number", "null"], "default": 0 }
+        "properties": {
+          "type": {
+            "description": "Reward type returned by the environment for each agent for each step. Can be \"integer\" or \"number\" (float).",
+            "default": "integer",
+            "enum": ["integer", "number"],
+            "type": "string"
+          },
+          "default": {
+            "description": "Default reward value set for each step.",
+            "default": 0,
+            "type": "integer"
+          }
+        }
       },
       "info": {
         "type": "object",
@@ -73,6 +85,12 @@
         "type": "number",
         "minimum": 0,
         "default": 1200
+      },
+      "agentCount": {
+        "description": "Total number of agents that will participate in the episode -- must be a value from environment.specification.agents.",
+        "type": "integer",
+        "default": 2,
+        "minimum": 1
       }
     }
   },

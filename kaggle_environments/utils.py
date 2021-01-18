@@ -16,6 +16,7 @@ import json
 import jsonschema
 from copy import deepcopy
 from pathlib import Path
+from typing import *
 from .errors import InvalidArgument, NotFound
 
 
@@ -152,9 +153,16 @@ def default_schema(schema, data):
     return data if data is not None else default
 
 
-def process_schema(schema, data, use_default=True):
-    if use_default is True:
-        data = default_schema(schema, deepcopy(data))
+def process_properties(properties: Dict[str, Any], data):
+    return process_schema({
+        "type": "object",
+        "properties": properties
+    }, data)
+
+
+def process_schema(schema, data):
+    schema = schema or {}
+    data = default_schema(schema, deepcopy(data))
     jsonschema.validate(data, schema)
     return data
 

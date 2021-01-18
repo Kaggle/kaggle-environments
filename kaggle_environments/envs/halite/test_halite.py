@@ -56,9 +56,10 @@ def create_board(size=3, starting_halite=0, agent_count=2, random_seed=0):
     env = make("halite", configuration={
         "size": size,
         "startingHalite": starting_halite,
-        "randomSeed": random_seed
+        "randomSeed": random_seed,
+        "agentCount": agent_count
     })
-    return Board(env.reset(agent_count)[0].observation, env.configuration)
+    return Board(env.reset()[0].observation, env.configuration)
 
 
 def test_move_moves_ship():
