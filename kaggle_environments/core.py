@@ -23,6 +23,8 @@ from sys import path
 from time import perf_counter
 from typing import *
 
+from jsonschema import SchemaError, ValidationError
+
 from .agent import AgentRunner
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .helpers import Agent, State, TState, TConfiguration, TObservation, TAction, Log, with_print, AgentStatus, Environment
@@ -162,10 +164,11 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
                 action_state.status = AgentStatus.ERROR
             else:
                 try:
-                    action_state.action = process_schema(self.__state_schema.properties.action, action)
-                except Exception as e:
-                    action_state[index].status = AgentStatus.INVALID
+                    self.specification.action.validate(action)
+                except ValidationError as e:
+                    action_state.status = AgentStatus.INVALID
                     raise e
+                action_state.action = action
 
         def run():
             new_state = self.environment.step(action_states, self.configuration)
@@ -228,13 +231,16 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             raise InvalidArgument("Number of agents must match the state length")
 
         # Generate the agents.
-        agent_runners = [AgentRunner(agent, self.agents, self.configuration, self.debug, self.name) for agent in agents]
+        agent_runners = [
+            AgentRunner(agent, self.agents, self.configuration, self.debug, self.name)
+            for agent in agents
+        ]
 
         def act():
             act_args = [
                 (agent_runner, observation, self.configuration)
                 for i, agent_runner in enumerate(agent_runners)
-                for observation in [self.__get_shared_state(i)]
+                for observation in [self.get_observation(i)]
             ]
 
             if all(agent_runner.is_parallelizable for agent_runner in agent_runners):
@@ -456,7 +462,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
                 # Update a property default value based on position in defaults.
                 # Remove shared properties from non-first agents.
                 def update_props(props):
-                    for k, prop in list(props.items()):
+                    for k, prop in props.items():
                         if get(prop, bool, path=["shared"], fallback=False) and position > 0:
                             del props[k]
                             continue
@@ -480,23 +486,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
 
     def get_observation(self, position):
         """An observation consists of each agent's individual state merged over the shared state with hidden properties removed."""
-        def update_props(shared_state, state, schema_props):
-            for k, prop in schema_props.items():
-                # Hidden fields are tracked in the episode replay but are not provided to the agent at runtime
-                if get(prop, bool, path=["hidden"], fallback=False):
-                    if k in state:
-                        del state[k]
-                elif get(prop, bool, path=["shared"], fallback=False):
-                    state[k] = shared_state[k]
-                elif has(prop, dict, path=["properties"]):
-                    update_props(shared_state[k], state[k], prop["properties"])
-            return state
-
-        return update_props(
-            self.shared_state,
-            copy.deepcopy(self.state[position]),
-            self.__state_schema.properties
-        )
+        return self.specification.observation.state_to_observation(self.state, position)
 
 
 def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> EnvironmentRunner:

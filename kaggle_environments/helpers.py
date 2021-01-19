@@ -5,6 +5,7 @@ import traceback
 from contextlib import redirect_stdout, redirect_stderr
 from time import perf_counter
 
+import jsonschema
 from StringIO import StringIO
 from enum import Enum, auto
 from typing import *
@@ -306,6 +307,17 @@ class Field(Generic[TField], Dict[str, Any]):
     def description(self) -> TItem:
         return self["description"]
 
+    @property
+    def hidden(self) -> bool:
+        return self["hidden"]
+
+    @property
+    def shared(self) -> bool:
+        return self["shared"]
+
+    def validate(self, data):
+        jsonschema.validate(data, self)
+
 
 class NumericField(Field[TNumericField]):
     @property
@@ -341,6 +353,23 @@ class ObjectField(Field[Dict[str, Any]]):
     def properties(self) -> Dict[str, Field[Any]]:
         return self["properties"]
 
+    def hide(self, target: Dict[str, Any]):
+        """Recursively deletes all hidden properties from the target."""
+        for name, property in self.properties.items():
+            if name in target:
+                if property.hidden:
+                    del target[name]
+                elif isinstance(property, ObjectField):
+                    property.hide(target[name])
+
+    def share(self, source: Dict[str, Any], target: Dict[str, Any]):
+        """Recursively copies all shared properties from source to target."""
+        for name, property in self.properties.items():
+            if property.shared:
+                target[name] = source[name]
+            elif isinstance(property, ObjectField):
+                property.share(source[name], target[name])
+
 
 class ConfigurationField(Generic[TConfiguration], ObjectField):
     @property
@@ -370,6 +399,13 @@ class ObservationField(ObjectField):
     @property
     def step(self) -> NumericField[int]:
         return cast(NumericField[int], self.properties["step"])
+
+    def state_to_observation(self, states: List[TState], position: int):
+        shared_state = states[0]
+        observation = copy.deepcopy(states[position])
+        self.share(shared_state, observation)
+        self.hide(observation)
+        return observation
 
 
 TActionField = TypeVar('TActionField', bound=Field[TAction])
@@ -414,7 +450,7 @@ class Specification(ObjectField):
 
     @property
     def action(self) -> TActionField:
-        return cast(TActionField, self.properties["action"]
+        return cast(TActionField, self.properties["action"])
 
     @property
     def status(self) -> Field[str]:
