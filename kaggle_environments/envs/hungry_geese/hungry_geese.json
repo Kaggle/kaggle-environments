@@ -1,6 +1,6 @@
 {
-  "name": "battlegeese",
-  "title": "Battle Geese",
+  "name": "hungry_geese",
+  "title": "Hungry Geese",
   "description": "Similar to the classic snake game with multiple players",
   "version": "1.0.0",
   "agents": [2, 3, 4, 5, 6, 7, 8],
@@ -10,19 +10,18 @@
       "description": "Horizontal number of cells on the board.",
       "type": "integer",
       "default": 11,
-      "minimum": 3,
-      "maximum": 50
+      "minimum": 3
     },
     "rows": {
       "description": "Vertical number of cells on the board.",
       "type": "integer",
       "default": 7,
-      "minimum": 3,
-      "maximum": 50
+      "minimum": 3
     },
     "hunger_rate": {
       "description": "The number of steps before the goose shrinks a cell.",
       "type": "integer",
+      "minimum": 1,
       "default": 40
     },
     "min_food": {
@@ -33,9 +32,10 @@
     }
   },
   "reward": {
-    "description": "The number of steps the goose has moved plus it's length.",
+    "description": "The number of steps the goose has moved plus its length.",
     "type": "integer",
-    "default": 0
+    "default": 0,
+    "minimum": 0
   },
   "observation": {
     "geese": {
@@ -64,7 +64,7 @@
       }
     },
     "index": {
-      "description": "Index of the agents goose in the list of geese.",
+      "description": "Index of the current agent's goose in the list of geese.",
       "type": "integer",
       "minimum": 0,
       "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
@@ -73,7 +73,7 @@
   "action": {
     "description": "Direction to move the head of your players goose.",
     "type": "string",
-    "enum": ["N", "E", "S", "W"],
-    "default": "N"
+    "enum": ["NORTH", "EAST", "SOUTH", "WEST"],
+    "default": "NORTH"
   }
 }
