@@ -32,7 +32,7 @@
     }
   },
   "reward": {
-    "description": "The number of steps the goose has moved plus it's length.",
+    "description": "The number of steps the goose has moved plus its length.",
     "type": "integer",
     "default": 0,
     "minimum": 0
