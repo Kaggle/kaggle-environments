@@ -24,7 +24,7 @@ from typing import *
 from urllib.parse import urlparse
 
 from .errors import DeadlineExceeded, InvalidArgument
-from .helpers import Agent, TAction, TObservation, TConfiguration
+from .helpers import Agent, TAction, TObservation, TConfiguration, Log
 from .utils import read_file, structify
 
 
@@ -148,34 +148,8 @@ class AgentRunner(Generic[TObservation, TConfiguration, TAction]):
         if hasattr(self.agent, "__code__"):
             args = args[:self.agent.__code__.co_argcount]
 
-        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
-            try:
-                # Start the timer.
-                start = perf_counter()
-                action = self.agent(*args)
-            except Exception as e:
-                traceback.print_exc(file=err_buffer)
-                action = e
-            # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-            max_log_length = 1024
-            out = out_buffer.getvalue()[0:max_log_length]
-            err = err_buffer.getvalue()[0:max_log_length]
-
-        # End the timer.
-        duration = perf_counter() - start
-        log = {
-            "duration": round(duration, 6),
-            "stdout": out,
-            "stderr": err,
-        }
-
-        if self.debug:
-            if not log["stdout"].isspace():
-                print(log["stdout"], end="")
-            if not log["stderr"].isspace():
-                print(log["stderr"], end="")
-
-        if duration - self.configuration.actTimeout > observation.remainingOverageTime:
+        action, log = Log.collect(lambda: self.agent(*args), self.debug)
+        if log.duration - self.configuration.act_timeout > observation.remainingOverageTime:
             # No overage time left, timeout agent
             action = DeadlineExceeded()
 

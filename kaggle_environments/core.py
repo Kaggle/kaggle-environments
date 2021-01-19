@@ -110,6 +110,29 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
     def state(self):
         return self.steps[-1]
 
+    @property
+    def specification(self):
+        return self.environment.specification
+
+    @property
+    def name(self):
+        """str: The name from the specification."""
+        return get(self.environment.specification, str, "", ["name"])
+
+    @property
+    def version(self):
+        """str: The version from the specification."""
+        return get(self.environment.specification, str, "", ["version"])
+
+    @property
+    def done(self):
+        """bool: If all agents are in a terminal status."""
+        return all(s.status.is_terminal for s in self.state)
+
+    @property
+    def shared_state(self):
+        return self.state[0]
+
     def step(self, actions: List[TAction], logs: List[Log] = None):
         """
         Execute the environment interpreter using the current state and a list of actions.
@@ -314,8 +337,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
         for index, agent in enumerate(agents):
             if agent is None:
                 if position is not None:
-                    raise InvalidArgument(
-                        "Only one agent can be marked 'None'")
+                    raise InvalidArgument("Only one agent can be marked 'None'")
                 position = index
 
         if position is None:
@@ -348,21 +370,6 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
         reset()
 
         return structify({"step": step, "reset": reset})
-
-    @property
-    def name(self):
-        """str: The name from the specification."""
-        return get(self.environment.specification, str, "", ["name"])
-
-    @property
-    def version(self):
-        """str: The version from the specification."""
-        return get(self.environment.specification, str, "", ["version"])
-
-    @property
-    def done(self):
-        """bool: If any agents have an ACTIVE status."""
-        return all(s.status != AgentStatus.ACTIVE for s in self.state)
 
     def toJSON(self):
         """
@@ -415,23 +422,23 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
                 "properties": {
                     "action": {
                         **schemas.state.properties.action,
-                        **get(spec, dict, path=["action"], fallback={})
+                        **spec.action
                     },
                     "reward": {
                         **schemas.state.properties.reward,
-                        **get(spec, dict, path=["reward"], fallback={})
+                        **spec.reward
                     },
                     "info": {
                         **schemas.state.properties.info,
-                        "properties": get(spec, dict, path=["info"], fallback={})
+                        "properties": spec.info
                     },
                     "observation": {
                         **schemas.state.properties.observation,
-                        "properties": get(spec, dict, path=["observation"], fallback={})
+                        "properties": spec.observation
                     },
                     "status": {
                         **schemas.state.properties.status,
-                        **get(spec, dict, path=["status"], fallback={})
+                        **spec.status
                     },
                 },
             }
@@ -469,59 +476,31 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             for index, s in enumerate(state)
         ]]
 
-    def __run_interpreter(self, state, logs):
-        out = None
-        err = None
-        # Append any environmental logs to any agent logs we collected.
-        try:
-            with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
-                try:
-                    args = [structify(state), self]
-                    new_state = self.interpreter(
-                        *args[:self.interpreter.__code__.co_argcount])
-                    new_state[0].observation.step = (
-                        0 if self.done
-                        else len(self.steps)
-                    )
+    def __run_interpreter(self, state: TState, logs: List[Log]) -> List[Tuple[TState, Log]]:
+        def run():
+            new_state = self.environment.step(state, self.configuration)
+            new_state[0].observation.step += 1
 
-                    for index, agent in enumerate(new_state):
-                        if index < len(logs) and "duration" in logs[index]:
-                            duration = logs[index]["duration"]
-                            overage_time_consumed = max(0, duration - self.configuration.actTimeout)
-                            agent.observation.remainingOverageTime -= overage_time_consumed
-                        if agent.status not in self.__state_schema.properties.status.enum:
-                            self.debug_print(f"Invalid Action: {agent.status}")
-                            agent.status = AgentStatus.INVALID
-                        if agent.status in [AgentStatus.ERROR, AgentStatus.INVALID, AgentStatus.TIMEOUT]:
-                            agent.reward = None
-                    return new_state
-                except Exception as e:
-                    # Print the exception stack trace to our log
-                    traceback.print_exc(file=err_buffer)
-                    # Reraise e to ensure that the program exits
-                    raise e
-                finally:
-                    # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-                    max_log_length = 1024
-                    out = out_buffer.getvalue()
-                    err = err_buffer.getvalue()
-                    if out or err:
-                        logs.append({
-                            "stdout": out[0:max_log_length],
-                            "stderr": err[0:max_log_length]
-                        })
-        finally:
-            if out:
-                while out.endswith('\n'):
-                    out = out[:-1]
-                self.debug_print(out)
-            if err:
-                while err.endswith('\n'):
-                    err = err[:-1]
-                self.debug_print(err)
+            for index, agent in enumerate(new_state):
+                if index < len(logs) and "duration" in logs[index]:
+                    duration = logs[index]["duration"]
+                    overage_time_consumed = max(0, duration - self.configuration.actTimeout)
+                    agent.observation.remainingOverageTime -= overage_time_consumed
+                if agent.status.is_error:
+                    agent.reward = None
 
-    def __get_shared_state(self, position):
-        # Note: state and schema are required to be in sync (apart from shared ones).
+            return new_state
+
+        result, log = Log.collect(run)
+        # Append our environment log to the list of agent logs.
+        logs.append(log)
+        if isinstance(result, Exception):
+            raise result
+
+        return result
+
+    def get_observation(self, position):
+        """An observation consists of each agent's individual state merged over the shared state with hidden properties removed."""
         def update_props(shared_state, state, schema_props):
             for k, prop in schema_props.items():
                 # Hidden fields are tracked in the episode replay but are not provided to the agent at runtime
@@ -535,7 +514,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             return state
 
         return update_props(
-            self.state[0],
+            self.shared_state,
             copy.deepcopy(self.state[position]),
             self.__state_schema.properties
         )

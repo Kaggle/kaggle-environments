@@ -1,6 +1,11 @@
 import copy
 import json
 import operator
+import traceback
+from contextlib import redirect_stdout, redirect_stderr
+from time import perf_counter
+
+from StringIO import StringIO
 from enum import Enum, auto
 from typing import *
 
@@ -117,6 +122,12 @@ def with_print(value: TItem) -> TItem:
     return value
 
 
+def trim_end(string: str, to_trim: str):
+    while string.endswith(to_trim):
+        string = string[:-len(to_trim)]
+    return string
+
+
 class Observation(Dict[str, Any]):
     """
     Observation provides access to per-step parameters in the environment.
@@ -157,18 +168,53 @@ class Configuration(Dict[str, Any]):
         return self["agentCount"]
 
 
+TResult = TypeVar('TResult')
+
+
 class Log(Dict[str, Any]):
     @property
-    def duration(self) -> int:
-        return self["action"]
+    def duration(self) -> float:
+        return self["duration"]
 
     @property
     def stdout(self) -> str:
-        return self["action"]
+        return self["stdout"]
 
     @property
     def stderr(self) -> str:
-        return self["action"]
+        return self["stderr"]
+
+    @staticmethod
+    def collect(function: Callable[[], TResult], print_std: bool = False) -> Tuple[Union[TResult, Exception], 'Log']:
+        """This function aggregates stdout, stderr, duration, and exception stack trace (if applicable) from a function execution as a Log."""
+        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+            duration = 0
+            try:
+                duration = perf_counter()
+                result = function()
+                duration = perf_counter() - duration
+            except Exception as exception:
+                # Print the exception stack trace to our log
+                traceback.print_exc(file=err_buffer)
+                result = exception
+
+            # Allow up to 1k log characters per step which is ~1MB per 600 step episode
+            max_log_length = 1024
+            out = out_buffer.getvalue()
+            err = err_buffer.getvalue()
+            log = Log({
+                "stdout": out[0:max_log_length],
+                "stderr": err[0:max_log_length],
+                "duration": duration,
+            })
+
+            if print_std:
+                if out:
+                    print(trim_end(out, '\n'))
+                if err:
+                    print(trim_end(err, '\n'))
+
+            return result, log
 
 
 TConfiguration = TypeVar('TConfiguration', bound=Configuration)
@@ -185,6 +231,19 @@ class AgentStatus(Enum):
     ERROR = auto()
     INVALID = auto()
     TIMEOUT = auto()
+
+    @property
+    def is_terminal(self):
+        return self != AgentStatus.INACTIVE and self != AgentStatus.ACTIVE
+
+    @property
+    def is_error(self):
+        return self in {
+            AgentStatus.UNKNOWN,
+            AgentStatus.ERROR,
+            AgentStatus.INVALID,
+            AgentStatus.TIMEOUT,
+        }
 
 
 class State(Generic[TObservation, TAction], Dict[str, Any]):
@@ -230,12 +289,157 @@ class State(Generic[TObservation, TAction], Dict[str, Any]):
 
 
 TState = TypeVar('TState', bound=State[TObservation, TAction])
+TField = TypeVar('TField')
+TNumericField = TypeVar('TNumericField', int, float)
+
+
+class Field(Generic[TField], Dict[str, Any]):
+    @property
+    def type(self) -> str:
+        return self["type"]
+
+    @property
+    def default(self) -> TItem:
+        return self["default"]
+
+    @property
+    def description(self) -> TItem:
+        return self["description"]
+
+
+class NumericField(Field[TNumericField]):
+    @property
+    def minimum(self) -> TItem:
+        return self["minimum"]
+
+    @property
+    def maximum(self) -> TItem:
+        return self["maximum"]
+
+
+class ArrayField(Field[List[TField]]):
+    def __init__(self, *args: List[Any], **kwargs: Dict[str, Any]):
+        kwargs["items"] = create_field(kwargs["items"])
+        super().__init__(*args, **kwargs)
+
+    @property
+    def items(self) -> Field[TField]:
+        return self["items"]
+
+
+class ObjectField(Field[Dict[str, Any]]):
+    def __init__(self, *args: List[Any], **kwargs: Dict[str, Any]):
+        properties = kwargs["properties"]
+        default = kwargs["default"]
+        for name, property in properties.items():
+            property = properties[name] = create_field(property)
+            if name not in default:
+                default[name] = property.default
+        super().__init__(*args, **kwargs)
+
+    @property
+    def properties(self) -> Dict[str, Field[Any]]:
+        return self["properties"]
+
+
+class ConfigurationField(Generic[TConfiguration], ObjectField):
+    @property
+    def episode_steps(self) -> NumericField[int]:
+        # These casts should be safe unless an environment has inappropriately overridden specification.**.type
+        # Environments cannot overwrite these types because the competition system depends on their existence
+        return cast(NumericField[int], self.properties["episodeSteps"])
+
+    @property
+    def act_timeout(self) -> NumericField[float]:
+        return cast(NumericField[float], self.properties["actTimeout"])
+
+    @property
+    def run_timeout(self) -> NumericField[float]:
+        return cast(NumericField[float], self.properties["runTimeout"])
+
+    @property
+    def agent_count(self) -> NumericField[int]:
+        return cast(NumericField[int], self.properties["agentCount"])
+
+
+class ObservationField(ObjectField):
+    @property
+    def remaining_overage_time(self) -> NumericField[float]:
+        return cast(NumericField[float], self.properties["remainingOverageTime"])
+
+    @property
+    def step(self) -> NumericField[int]:
+        return cast(NumericField[int], self.properties["step"])
+
+
+class Specification(ObjectField):
+    @property
+    def name(self) -> Field[str]:
+        return self.properties["name"]
+
+    @property
+    def title(self) -> Field[str]:
+        return self.properties["title"]
+
+    @property
+    def version(self) -> Field[str]:
+        return self.properties["version"]
+
+    @property
+    def description(self) -> Field[str]:
+        return self.properties["description"]
+
+    @property
+    def configuration(self) -> ConfigurationField:
+        return cast(ConfigurationField, self.properties["configuration"])
+
+    @property
+    def agents(self) -> ArrayField[int]:
+        return cast(ArrayField[int], self.properties["agents"])
+
+    @property
+    def reward(self) -> NumericField[int]:
+        return cast(NumericField[int], self.properties["reward"])
+
+    @property
+    def info(self) -> ObjectField:
+        return cast(ObjectField, self.properties["info"])
+
+    @property
+    def observation(self) -> ObservationField:
+        return cast(ObservationField, self.properties["observation"])
+
+    @property
+    def action(self) -> Field[str]:
+        return self.properties["action"]
+
+    @property
+    def status(self) -> Field[str]:
+        return self.properties["status"]
+
+
+field_type_registry = {
+    "object": ObjectField,
+    "array": ArrayField,
+    "number": NumericField,
+    "integer": NumericField,
+    "Configuration": ConfigurationField,
+    "Observation": ObservationField,
+    "Specification": Specification
+}
+
+
+def create_field(json: Dict[str, Any]) -> Field[TField]:
+    type = json["type"]
+    if type in field_type_registry:
+        return field_type_registry[type](**json)
+    return Field(**json)
 
 
 class Environment(Generic[TState, TConfiguration]):
     """This class represents the base interface for an environment compatible with kaggle-environments."""
     @property
-    def specification(self) -> Dict[str, Any]:
+    def specification(self) -> Specification:
         raise NotImplemented()
 
     def reset(self, default_state: TState, configuration: TConfiguration) -> TState:
@@ -257,14 +461,14 @@ class Environment(Generic[TState, TConfiguration]):
 class BaseEnvironment(Environment[TState, TConfiguration]):
     """This class provides helpful implementations for part of the Environment interface."""
     def __init__(self, specification_path: str):
-        self._specification = BaseEnvironment.__load_specification(specification_path)
+        self._specification = BaseEnvironment.load_specification(specification_path)
 
     @property
-    def specification(self) -> Dict[str, Any]:
+    def specification(self) -> Specification:
         return self._specification
 
     @staticmethod
-    def __load_specification(specification_file_path: str) -> Dict[str, Any]:
+    def load_specification(specification_file_path: str) -> Specification:
         """Create a default specification file from schema.json and merge in a json specification file on disk."""
         with open(specification_file_path) as json_file:
             specification = json.load(json_file)
@@ -288,4 +492,4 @@ class BaseEnvironment(Environment[TState, TConfiguration]):
 
         extend_specification(schemas, "configuration")
         extend_specification(schemas["state"]["properties"], "observation")
-        return structify(process_schema(schemas.specification, specification))
+        return Specification(process_schema(schemas.specification, specification))

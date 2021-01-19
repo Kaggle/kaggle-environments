@@ -1,6 +1,6 @@
 {
   "specification": {
-    "type": "object",
+    "type": "Specification",
     "additionalProperties": false,
     "properties": {
       "name": {
@@ -20,7 +20,7 @@
         "default": ""
       },
       "configuration": {
-        "type": "object",
+        "type": "Configuration",
         "default": {}
       },
       "agents": {
@@ -30,33 +30,17 @@
         },
         "default": [1]
       },
-      "reward": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "description": "Reward type returned by the environment for each agent for each step. Can be \"integer\" or \"number\" (float).",
-            "default": "integer",
-            "enum": ["integer", "number"],
-            "type": "string"
-          },
-          "default": {
-            "description": "Default reward value set for each step.",
-            "default": 0,
-            "type": "integer"
-          }
-        }
-      },
       "info": {
         "type": "object",
         "default": {}
       },
       "observation": {
-        "type": "object",
+        "type": "Observation",
         "default": {}
       },
       "action": {
-        "type": "object",
-        "default": { "type": "integer", "default": 0 }
+        "type": "integer",
+        "default": 0
       },
       "status": {
         "type": "object",
