@@ -3,10 +3,10 @@ import json
 import operator
 import traceback
 from contextlib import redirect_stdout, redirect_stderr
+from io import StringIO
 from time import perf_counter
 
 import jsonschema
-from StringIO import StringIO
 from enum import Enum, auto
 from typing import *
 
@@ -371,7 +371,7 @@ class ObjectField(Field[Dict[str, Any]]):
                 property.share(source[name], target[name])
 
 
-class ConfigurationField(Generic[TConfiguration], ObjectField):
+class ConfigurationField(ObjectField):
     @property
     def episode_steps(self) -> NumericField[int]:
         # These casts should be safe unless an environment has inappropriately overridden specification.**.type
@@ -400,12 +400,13 @@ class ObservationField(ObjectField):
     def step(self) -> NumericField[int]:
         return cast(NumericField[int], self.properties["step"])
 
-    def state_to_observation(self, states: List[TState], position: int):
+    def state_to_observation(self, states: List[State], position: int):
+        """Converts the current state for each agent into an observation for a particular agent."""
         shared_state = states[0]
-        observation = copy.deepcopy(states[position])
-        self.share(shared_state, observation)
-        self.hide(observation)
-        return observation
+        observation_state = copy.deepcopy(states[position])
+        self.share(shared_state, observation_state)
+        self.hide(observation_state)
+        return observation_state.observation
 
 
 TActionField = TypeVar('TActionField', bound=Field[TAction])
