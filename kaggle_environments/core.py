@@ -157,10 +157,8 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             action_state.action = None
 
             if isinstance(action, DeadlineExceeded):
-                self.debug_print(f"Timeout: {str(action)}")
                 action_state.status = AgentStatus.TIMEOUT
             elif isinstance(action, BaseException):
-                self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
                 action_state.status = AgentStatus.ERROR
             else:
                 try:
@@ -169,7 +167,27 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
                     action_state[index].status = AgentStatus.INVALID
                     raise e
 
-        self.steps.append(self.__run_interpreter(action_states, logs))
+        def run():
+            new_state = self.environment.step(action_states, self.configuration)
+            new_state[0].observation.step += 1
+
+            for index, agent in enumerate(new_state):
+                if index < len(logs) and "duration" in logs[index]:
+                    duration = logs[index]["duration"]
+                    overage_time_consumed = max(0, duration - self.configuration.actTimeout)
+                    agent.observation.remainingOverageTime -= overage_time_consumed
+                if agent.status.is_error:
+                    agent.reward = None
+
+            return new_state
+
+        result, log = Log.collect(run)
+        logs.append(log)
+
+        if isinstance(result, Exception):
+            raise result
+        else:
+            self.steps.append(result)
 
         # Max Steps reached. Mark ACTIVE/INACTIVE agents as DONE.
         if self.state[0].observation.step >= self.configuration.episodeSteps - 1:
@@ -177,9 +195,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
                 if s.status == AgentStatus.ACTIVE or s.status == AgentStatus.INACTIVE:
                     s.status = AgentStatus.DONE
 
-        if logs is not None:
-            self.logs.append(logs)
-
+        self.logs.append(logs)
         return self.state
 
     def run(self, agents: List[Agent]):
@@ -242,21 +258,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
         Returns:
             list of dict: The agents states after the reset.
         """
-        # Get configuration default state.
-        self.__set_state([{} for _ in range(self.configuration.agent_count)])
-        # Reset all agents to status=INACTIVE (copy out values to reset afterwards).
-        statuses = [a.status for a in self.state]
-        for agent in self.state:
-            agent.status = AgentStatus.INACTIVE
-        # Give the interpreter an opportunity to make any initializations.
-        logs = []
-        self.__set_state(self.__run_interpreter(self.state, logs))
-        self.logs.append(logs)
-        # Replace the starting "status" if still "done".
-        if self.done:
-            for agent, status in zip(self.state, statuses):
-                agent.status = status
-        return self.state
+        self.__set_state(self.environment.reset(self.configuration))
 
     def render(self, **kwargs):
         """
@@ -353,13 +355,13 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             self.reset()
             runner = self.__agent_runner(agents)
             advance()
-            return self.__get_shared_state(position).observation
+            return self.get_observation(position).observation
 
         def step(action):
             actions, logs = runner(action)
             self.step(actions, logs)
             advance()
-            agent = self.__get_shared_state(position)
+            agent = self.get_observation(position)
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
@@ -444,7 +446,7 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state) -> None:
+    def __set_state(self, state: List[TState]) -> None:
         if len(state) != self.configuration.agent_count:
             raise InvalidArgument(f"{len(state)} is not a valid number of agent(s).")
 
@@ -476,29 +478,6 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             for index, s in enumerate(state)
         ]]
 
-    def __run_interpreter(self, state: TState, logs: List[Log]) -> List[Tuple[TState, Log]]:
-        def run():
-            new_state = self.environment.step(state, self.configuration)
-            new_state[0].observation.step += 1
-
-            for index, agent in enumerate(new_state):
-                if index < len(logs) and "duration" in logs[index]:
-                    duration = logs[index]["duration"]
-                    overage_time_consumed = max(0, duration - self.configuration.actTimeout)
-                    agent.observation.remainingOverageTime -= overage_time_consumed
-                if agent.status.is_error:
-                    agent.reward = None
-
-            return new_state
-
-        result, log = Log.collect(run)
-        # Append our environment log to the list of agent logs.
-        logs.append(log)
-        if isinstance(result, Exception):
-            raise result
-
-        return result
-
     def get_observation(self, position):
         """An observation consists of each agent's individual state merged over the shared state with hidden properties removed."""
         def update_props(shared_state, state, schema_props):
@@ -518,10 +497,6 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
             copy.deepcopy(self.state[position]),
             self.__state_schema.properties
         )
-
-    def debug_print(self, message):
-        if self.debug:
-            print(message)
 
 
 def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> EnvironmentRunner:

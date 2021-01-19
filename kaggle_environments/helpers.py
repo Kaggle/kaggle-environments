@@ -372,6 +372,9 @@ class ObservationField(ObjectField):
         return cast(NumericField[int], self.properties["step"])
 
 
+TActionField = TypeVar('TActionField', bound=Field[TAction])
+
+
 class Specification(ObjectField):
     @property
     def name(self) -> Field[str]:
@@ -410,8 +413,8 @@ class Specification(ObjectField):
         return cast(ObservationField, self.properties["observation"])
 
     @property
-    def action(self) -> Field[str]:
-        return self.properties["action"]
+    def action(self) -> TActionField:
+        return cast(TActionField, self.properties["action"]
 
     @property
     def status(self) -> Field[str]:
@@ -442,16 +445,19 @@ class Environment(Generic[TState, TConfiguration]):
     def specification(self) -> Specification:
         raise NotImplemented()
 
-    def reset(self, default_state: TState, configuration: TConfiguration) -> TState:
+    def reset(self, configuration: TConfiguration) -> List[TState]:
         raise NotImplemented()
 
-    def step(self, state: TState, configuration: TConfiguration) -> TState:
+    def step(self, state: List[TState], configuration: TConfiguration) -> List[TState]:
         raise NotImplemented()
 
     def builtin_agents(self) -> Dict[str, Agent]:
         raise NotImplemented()
 
-    def render_text(self, configuration: TConfiguration, state: List[TState]) -> str:
+    def builtin_configurations(self) -> Dict[str, TConfiguration]:
+        raise NotImplemented()
+
+    def render_text(self, configuration: TConfiguration, state: List[List[TState]]) -> str:
         raise NotImplemented()
 
     def render_html(self, configuration: TConfiguration) -> str:
