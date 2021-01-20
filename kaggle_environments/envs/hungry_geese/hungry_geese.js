@@ -157,10 +157,10 @@ function renderer({
   const getRowCol = (cell) => [Math.floor(cell / columns), mod(cell, columns)];
 
   const diff = (row, column, nextRow, nextColumn, rows, columns) => {
-    const north = mod(row - 1, rows) === nextRow
-    const south = mod(row + 1, rows) === nextRow
-    const east = mod(column + 1, columns) === nextColumn
-    const west = mod(column - 1, columns) === nextColumn
+    const north = mod(row - 1, rows) === nextRow;
+    const south = mod(row + 1, rows) === nextRow;
+    const east = mod(column + 1, columns) === nextColumn;
+    const west = mod(column - 1, columns) === nextColumn;
     return [north, south, east, west];
   }
 
@@ -173,7 +173,7 @@ function renderer({
     let s = step;
     if (!active) {
       // Find the last step where the goose existed.
-      while (s >= 0 && !goose.length) {
+      while (s > 0 && !goose.length) {
         goose = environment.steps[--s][0].observation.geese[gooseIndex];
       }
     }
