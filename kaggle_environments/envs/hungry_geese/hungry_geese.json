@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "agents": [2, 3, 4, 5, 6, 7, 8],
   "configuration": {
-    "episodeSteps": 100,
+    "episodeSteps": 200,
     "columns": {
       "description": "Horizontal number of cells on the board.",
       "type": "integer",

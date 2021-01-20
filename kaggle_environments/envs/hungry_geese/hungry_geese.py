@@ -18,7 +18,7 @@ from enum import auto, Enum
 from kaggle_environments.helpers import histogram, with_print
 from os import path
 from random import choice, sample
-from typing import List
+from typing import *
 
 
 class Observation(kaggle_environments.helpers.Observation):
@@ -59,17 +59,28 @@ class Action(Enum):
     SOUTH = auto()
     WEST = auto()
 
+    def to_row_col(self):
+        if self == Action.NORTH:
+            return -1, 0
+        if self == Action.SOUTH:
+            return 1, 0
+        if self == Action.EAST:
+            return 0, 1
+        if self == Action.WEST:
+            return 0, -1
+        return 0, 0
+
+
+def row_col(position: int, columns: int) -> Tuple[int, int]:
+    return position // columns, position % columns
+
 
 def translate(position: int, direction: Action, columns: int, rows: int) -> int:
-    total = columns * rows
-    offset = (
-        -columns if direction == Action.NORTH else
-         columns if direction == Action.SOUTH else
-        -1       if direction == Action.WEST  else
-         1       if direction == Action.EAST  else
-         0
-    )
-    return (position + offset) % total
+    row, column = row_col(position, columns)
+    row_offset, column_offset = direction.to_row_col()
+    row = (row + row_offset) % rows
+    column = (column + column_offset) % columns
+    return row * columns + column
 
 
 def adjacent_positions(position: int, columns: int, rows: int) -> List[int]:
@@ -80,11 +91,11 @@ def adjacent_positions(position: int, columns: int, rows: int) -> List[int]:
 
 
 def min_distance(position: int, food: List[int], columns: int):
-    row, column = position % columns, position // columns
+    row, column = row_col(position, columns)
     return min(
         abs(row - food_row) + abs(column - food_column)
         for food_position in food
-        for food_row, food_column in [(food_position % columns, food_position // columns)]
+        for food_row, food_column in [row_col(food_position, columns)]
     )
 
 
@@ -184,15 +195,6 @@ def interpreter(state, env):
         else:
             goose.pop()
 
-        # If hunger strikes remove from the tail.
-        if len(env.steps) % configuration.hunger_rate == 0:
-            if len(goose) > 0:
-                goose.pop()
-            if len(goose) == 0:
-                env.debug_print(f"Goose Starved: {action}")
-                agent.status = "DONE"
-                continue
-
         # Self collision.
         if head in goose:
             env.debug_print(f"Body Hit: {action}")
@@ -202,6 +204,15 @@ def interpreter(state, env):
 
         # Add New Head to the Goose.
         goose.insert(0, head)
+
+        # If hunger strikes remove from the tail.
+        if len(env.steps) % configuration.hunger_rate == 0:
+            if len(goose) > 0:
+                goose.pop()
+            if len(goose) == 0:
+                env.debug_print(f"Goose Starved: {action}")
+                agent.status = "DONE"
+                continue
 
     goose_positions = histogram(
         position
@@ -225,7 +236,10 @@ def interpreter(state, env):
             for goose in geese
             for position in goose
         }
-        available_positions = {i for i in range(rows * columns)}.difference(collisions)
+        available_positions = {
+            i for i in range(rows * columns)
+            if i not in collisions
+        }
         food.extend(sample(available_positions, needed_food))
 
     # If only one ACTIVE agent left, set it to DONE.

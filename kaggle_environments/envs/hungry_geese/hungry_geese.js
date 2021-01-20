@@ -151,36 +151,53 @@ function renderer({
     ],
   };
 
-  const getRowCol = (cell) => [Math.floor(cell / columns), cell % columns];
+  // Javascript does not correctly handle mod of negatives
+  const mod = (number, divisor) => ((number % divisor) + divisor) % divisor;
 
-  // Observation.
+  const getRowCol = (cell) => [Math.floor(cell / columns), mod(cell, columns)];
+
+  const diff = (row, column, nextRow, nextColumn, rows, columns) => {
+    const north = mod(row - 1, rows) === nextRow
+    const south = mod(row + 1, rows) === nextRow
+    const east = mod(column + 1, columns) === nextColumn
+    const west = mod(column - 1, columns) === nextColumn
+    return [north, south, east, west];
+  }
+
   const { geese, food } = environment.steps[step][0].observation;
 
   // Organize the geese positions for rendering.
   const geesePositions = {};
-  geese.forEach((goose, index) => {
+  geese.forEach((goose, gooseIndex) => {
     const active = goose.length > 0;
     let s = step;
     if (!active) {
       // Find the last step where the goose existed.
       while (s >= 0 && !goose.length) {
-        goose = environment.steps[--s][0].observation.geese[index];
+        goose = environment.steps[--s][0].observation.geese[gooseIndex];
       }
     }
-    goose.forEach((pos, posIndex) => {
-      if (!active && pos in geesePositions) return;
-      const [r, c] = getRowCol(pos);
-      const [br, bc] = posIndex === 0 ? [r, c] : getRowCol(goose[posIndex - 1]);
-      const [ar, ac] =
-        posIndex === goose.length - 1 ? [r, c] : getRowCol(goose[posIndex + 1]);
-      geesePositions[pos] = {
-        index,
-        head: posIndex === 0,
-        tail: posIndex === goose.length - 1,
-        east: bc > c || ac > c,
-        west: bc < c || ac < c,
-        south: br > r || ar > r,
-        north: br < r || ar < r,
+    goose.forEach((position, segmentIndex) => {
+      if (!active && position in geesePositions) return;
+      const [row, column] = getRowCol(position);
+      const [previousRow, previousColumn] =
+          segmentIndex === 0
+              ? [row, column]
+              : getRowCol(goose[segmentIndex - 1]);
+      const [nextRow, nextColumn] =
+          segmentIndex === goose.length - 1
+              ? [row, column]
+              : getRowCol(goose[segmentIndex + 1]);
+      const [previousNorth, previousSouth, previousEast, previousWest] = diff(row, column, previousRow, previousColumn, rows, columns)
+      const [nextNorth, nextSouth, nextEast, nextWest] = diff(row, column, nextRow, nextColumn, rows, columns)
+      geesePositions[position] = {
+        index: gooseIndex,
+        head: segmentIndex === 0,
+        tail: segmentIndex === goose.length - 1,
+        east: previousEast || nextEast,
+        west: previousWest || nextWest,
+        south: previousSouth || nextSouth,
+        north: previousNorth || nextNorth,
         active,
       };
     });
