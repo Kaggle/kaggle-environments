@@ -1,6 +1,6 @@
 {
   "specification": {
-    "type": "Specification",
+    "type": "object",
     "additionalProperties": false,
     "properties": {
       "name": {
@@ -20,7 +20,7 @@
         "default": ""
       },
       "configuration": {
-        "type": "Configuration",
+        "type": "object",
         "default": {}
       },
       "agents": {
@@ -35,7 +35,7 @@
         "default": {}
       },
       "observation": {
-        "type": "Observation",
+        "type": "object",
         "default": {}
       },
       "action": {

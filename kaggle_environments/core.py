@@ -33,10 +33,10 @@ from .utils import get, has, get_player, process_schema, schemas, structify, pro
 # Registered Interactive Sessions.
 interactives = {}
 # Registered Environments.
-environments = {}
+environments: Dict[str, Environment] = {}
 
 
-def register(name, environment):
+def register(name: str, environment: Environment):
     """
     Register an environment by name.  An environment contains the following:
      * specification - JSON Schema representing the environment.
@@ -490,4 +490,4 @@ class EnvironmentRunner(Generic[TState, TConfiguration]):
 
 
 def make(environment, configuration = None, info = None, steps = None, logs = None, debug = False) -> EnvironmentRunner:
-    return EnvironmentRunner(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)
+    return EnvironmentRunner(environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug)

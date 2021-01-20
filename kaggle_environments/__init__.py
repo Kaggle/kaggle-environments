@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from importlib import import_module
-from os import listdir
 from .agent import Agent
 from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
 from .core import *
@@ -26,18 +24,3 @@ __version__ = "1.7.3"
 __all__ = ["Agent", "Environment", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
            "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
-
-# Register Environments.
-
-for name in listdir(utils.envs_path):
-    try:
-        env = import_module(f".envs.{name}.{name}", __name__)
-        register(name, {
-            "agents": getattr(env, "agents", []),
-            "html_renderer": getattr(env, "html_renderer", None),
-            "interpreter": getattr(env, "interpreter"),
-            "renderer": getattr(env, "renderer"),
-            "specification": getattr(env, "specification"),
-        })
-    except Exception as e:
-        print("Loading environment %s failed: %s" % (name, e))

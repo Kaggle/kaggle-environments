@@ -1,12 +1,15 @@
-import json
-import kaggle_environments.helpers
+from kaggle_environments.helpers import *
 from os import path
 from random import SystemRandom
 from typing import List
 from .agents import agents as all_agents
 
 
-class Observation(kaggle_environments.helpers.Observation):
+# SystemRandom is used to provide stronger randoms than builtin twister
+random = SystemRandom()
+
+
+class MabObservation(Observation):
     @property
     def agent_index(self) -> float:
         """The current agent's index within observation.last_actions."""
@@ -45,7 +48,7 @@ class Observation(kaggle_environments.helpers.Observation):
         self["thresholds"] = value
 
 
-class Configuration(kaggle_environments.helpers.Configuration):
+class MabConfiguration(Configuration):
     """This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
     @property
     def bandit_count(self) -> int:
@@ -62,67 +65,17 @@ class Configuration(kaggle_environments.helpers.Configuration):
         """Maximum value that can be returned by a bandit."""
         return self["sampleResolution"]
 
+    @property
+    def initial_thresholds(self) -> List[float]:
+        if "initialThresholds" not in self:
+            self["initialThresholds"] = [
+                random.randint(0, self.sample_resolution)
+                for _ in range(self.bandit_count)
+            ]
+        return self["initialThresholds"]
 
-State = kaggle_environments.helpers.State[Observation, Configuration]
 
-
-# SystemRandom is used to provide stronger randoms than builtin twister
-random = SystemRandom()
-
-
-def interpreter(agents, env):
-    configuration = Configuration(env.configuration)
-    shared_agent = agents[0]
-    # Assign shared_agent.observation so that changes that we make to the shared observation are propagated back to the agent state.
-    shared_agent.observation = shared_observation = Observation(shared_agent.observation)
-
-    def sample():
-        """Obtain a value between 0 and sampleResolution to check against a bandit threshold."""
-        return random.randint(0, configuration.sample_resolution)
-
-    if env.done:
-        # Initialize thresholds
-        shared_observation.last_actions = None
-        shared_observation.thresholds = [sample() for _ in range(configuration.bandit_count)]
-        return agents
-
-    # Provide actions in the next observation so agents can monitor opponents.
-    shared_observation.last_actions = [agent.action for agent in agents]
-    thresholds = shared_observation.thresholds
-
-    for agent in agents:
-        if (
-            agent.action is not None and
-            isinstance(agent.action, int) and
-            0 <= agent.action < configuration.bandit_count
-        ):
-            # If the sample is less than the threshold the agent gains reward, otherwise nothing
-            agent.reward += 1 if sample() < thresholds[agent.action] else 0
-            agent.observation.reward = agent.reward
-        else:
-            agent.status = "INVALID"
-            agent.reward = -1
-
-    initial_thresholds = env.steps[0][0].observation.thresholds
-    action_histogram = kaggle_environments.helpers.histogram(shared_observation.last_actions)
-
-    for index, threshold in enumerate(thresholds):
-        # Every time a threshold is selected it is multiplied by (decay_rate) for each agent that selected it.
-        # When a threshold is not selected it is reduced by (decay_rate) ^ 0 (i.e. no recovery).
-        action_count = action_histogram[index] if index in action_histogram else 0
-        update_rate = (configuration.decay_rate) ** action_count
-        thresholds[index] = min(threshold * update_rate, initial_thresholds[index])
-
-    active_agents = [
-        agent for agent in agents
-        if agent.status == "ACTIVE" or agent.status == "INACTIVE"
-    ]
-
-    if len(active_agents) <= 1:
-        for agent in active_agents:
-            agent.status = "DONE"
-
-    return agents
+MabState = State[MabObservation, int]
 
 
 def renderer(steps, env):
@@ -138,9 +91,6 @@ def renderer(steps, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "mab.json"))
-with open(json_path) as json_file:
-    specification = json.load(json_file)
 
 
 def html_renderer():
@@ -150,3 +100,62 @@ def html_renderer():
 
 
 agents = all_agents
+
+
+class MabEnvironment(Environment[MabState, MabConfiguration]):
+    def __init__(self):
+        json_path = path.abspath(path.join(dir_path, "mab.json"))
+        self._specification = Environment.load_specification(json_path)
+
+    @property
+    def specification(self) -> Specification:
+        return self._specification
+
+    def reset(self, configuration: MabConfiguration) -> List[MabState]:
+        states = [
+            # Scrub shared fields from non-1st agents.
+            state if i == 0 else self.specification.unshare(state)
+            for i in range(configuration.agent_count)
+            for state in [MabState(self.specification.default)]
+        ]
+        states[0].observation.thresholds = configuration.initial_thresholds
+        return states
+
+    def step(self, state: List[MabState], configuration: MabConfiguration) -> List[MabState]:
+        shared_observation = state[0].observation
+        # Provide actions in the next observation so agents can monitor opponents.
+        shared_observation.last_actions = [agent.action for agent in state]
+        thresholds = shared_observation.thresholds
+
+        for agent in state:
+            if (
+                agent.action is not None and
+                0 <= agent.action < configuration.bandit_count
+            ):
+                sample = random.randint(0, configuration.sample_resolution)
+                is_win = sample < thresholds[agent.action]
+                agent.reward += 1 if is_win else 0
+                agent.observation.reward = agent.reward
+            else:
+                agent.status = "INVALID"
+                agent.reward = -1
+
+        action_histogram = histogram(shared_observation.last_actions)
+
+        for index, threshold in enumerate(thresholds):
+            # Every time a threshold is selected it is multiplied by (decay_rate) for each agent that selected it.
+            # When a threshold is not selected it is reduced by (decay_rate) ^ 0 (i.e. no recovery).
+            action_count = action_histogram[index] if index in action_histogram else 0
+            update_rate = configuration.decay_rate ** action_count
+            thresholds[index] = min(threshold * update_rate, configuration.initial_thresholds[index])
+
+        active_agents = [
+            agent for agent in state
+            if not agent.status.is_terminal
+        ]
+
+        if len(active_agents) <= 1:
+            for agent in active_agents:
+                agent.status = "DONE"
+
+        return state

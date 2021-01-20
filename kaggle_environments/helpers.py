@@ -370,6 +370,15 @@ class ObjectField(Field[Dict[str, Any]]):
             elif isinstance(property, ObjectField):
                 property.share(source[name], target[name])
 
+    def unshare(self, target: Dict[str, Any]):
+        """Recursively deletes all shared properties from the target."""
+        for name, property in self.properties.items():
+            if name in target:
+                if property.shared:
+                    del target[name]
+                elif isinstance(property, ObjectField):
+                    property.unshare(target[name])
+
 
 class ConfigurationField(ObjectField):
     @property
@@ -402,11 +411,11 @@ class ObservationField(ObjectField):
 
     def state_to_observation(self, states: List[State], position: int):
         """Converts the current state for each agent into an observation for a particular agent."""
-        shared_state = states[0]
-        observation_state = copy.deepcopy(states[position])
-        self.share(shared_state, observation_state)
-        self.hide(observation_state)
-        return observation_state.observation
+        shared_observation = states[0].observation
+        agent_observation = copy.deepcopy(states[position].observation)
+        self.share(shared_observation, agent_observation)
+        self.hide(agent_observation)
+        return agent_observation
 
 
 TActionField = TypeVar('TActionField', bound=Field[TAction])
@@ -499,16 +508,6 @@ class Environment(Generic[TState, TConfiguration]):
 
     def render_html(self, configuration: TConfiguration) -> str:
         raise NotImplemented()
-
-
-class BaseEnvironment(Environment[TState, TConfiguration]):
-    """This class provides helpful implementations for part of the Environment interface."""
-    def __init__(self, specification_path: str):
-        self._specification = BaseEnvironment.load_specification(specification_path)
-
-    @property
-    def specification(self) -> Specification:
-        return self._specification
 
     @staticmethod
     def load_specification(specification_file_path: str) -> Specification:

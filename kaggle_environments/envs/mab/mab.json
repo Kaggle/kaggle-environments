@@ -24,6 +24,16 @@
       "type": "integer",
       "minimum": 1,
       "default": 100
+    },
+    "initialThresholds": {
+      "description": "Probability values for each machine payout on the first step.",
+      "type": "array",
+      "hidden": true,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "default": null
     }
   },
   "reward": {
