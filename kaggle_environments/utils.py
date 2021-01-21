@@ -106,14 +106,14 @@ def get_file_json(path, fallback=None):
     try:
         with open(path, "r") as json_file:
             return json.load(json_file)
-    except:
+    except Exception as e:
         if fallback is not None:
             return fallback
         raise InvalidArgument(f"{path} does not contain valid JSON")
 
 
 # Schema Utilities.
-schemas = structify(get_file_json(Path.joinpath(root_path, "schemas.json")))
+schemas = structify(get_file_json(Path.joinpath(root_path, "schema.json")))
 
 
 def default_schema(schema, data):

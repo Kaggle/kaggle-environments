@@ -291,35 +291,77 @@ class State(Generic[TObservation, TAction], Dict[str, Any]):
 
 TState = TypeVar('TState', bound=State[TObservation, TAction])
 TField = TypeVar('TField')
-TNumericField = TypeVar('TNumericField', int, float)
 
 
-class Field(Generic[TField], Dict[str, Any]):
+class Access(Enum):
+    PUBLIC = auto()
+    AGENT = auto()
+    PRIVATE = auto()
+
+    def to_string(self):
+        return self.name.lower()
+
+    @staticmethod
+    def from_string(string: str) -> 'Access':
+        return Access.__members__.get(string.upper())
+
+class Schema(Dict[str, Any], Generic[TField]):
     @property
     def type(self) -> str:
         return self["type"]
 
     @property
-    def default(self) -> TItem:
+    def enum(self) -> List[TField]:
+        return self["enum"]
+
+    @property
+    def default(self) -> TField:
         return self["default"]
 
     @property
-    def description(self) -> TItem:
+    def description(self) -> str:
         return self["description"]
 
     @property
-    def hidden(self) -> bool:
-        return self["hidden"]
-
-    @property
-    def shared(self) -> bool:
-        return self["shared"]
+    def access(self) -> Access:
+        return Access.from_string(self["access"])
 
     def validate(self, data):
         jsonschema.validate(data, self)
 
+    def apply_access(self, target: TField, current_index: int, current_access: Access) -> Optional[TField]:
+        if current_access == Access.PRIVATE:
+            # Consumer is authorized to consume all target fields.
+            return target
 
-class NumericField(Field[TNumericField]):
+        needed_access = target.get("access", Access.PUBLIC)
+        if needed_access == Access.PRIVATE:
+            # Consumer is not authorized to view the target.
+            return None
+
+        if needed_access == Access.AGENT:
+            raise InvalidArgument("\"access\": \"agent\" is only valid on array typed properties.")
+
+        if isinstance(self, ArraySchema):
+            return [
+                self.items.apply_access(item, current_index, current_access)
+                for item in target
+            ]
+
+        if isinstance(self, ObjectSchema):
+            return {
+                key: schema.apply_access(target[key], current_index, current_access)
+                for key, schema in self.properties.items()
+            }
+
+        return target
+
+
+TActionSchema = TypeVar('TActionSchema', bound=Schema[TAction])
+TNumericField = TypeVar('TNumericField', int, float)
+
+
+class NumericSchema(Schema[TNumericField]):
     @property
     def minimum(self) -> TItem:
         return self["minimum"]
@@ -329,29 +371,36 @@ class NumericField(Field[TNumericField]):
         return self["maximum"]
 
 
-class ArrayField(Field[List[TField]]):
+class ArraySchema(Schema[List[TField]]):
     def __init__(self, *args: List[Any], **kwargs: Dict[str, Any]):
-        kwargs["items"] = create_field(kwargs["items"])
+        kwargs["items"] = create_schema(kwargs["items"])
         super().__init__(*args, **kwargs)
 
     @property
-    def items(self) -> Field[TField]:
+    def items(self) -> Schema[TField]:
         return self["items"]
 
+    def apply_access(self, target: TField, current_index: int, current_access: Access) -> Optional[TField]:
 
-class ObjectField(Field[Dict[str, Any]]):
+        if isinstance(self, ArraySchema):
+            # This array is scoped to the agent, pick out the value corresponding to current agent index.
+            return self.items.apply_access(target[current_index], current_index, current_access)
+
+
+class ObjectSchema(Schema[Dict[str, Any]]):
     def __init__(self, *args: List[Any], **kwargs: Dict[str, Any]):
         properties = kwargs["properties"]
         default = kwargs["default"]
         for name, property in properties.items():
-            property = properties[name] = create_field(property)
+            property = properties[name] = create_schema(property)
             if name not in default:
                 default[name] = property.default
         super().__init__(*args, **kwargs)
 
     @property
-    def properties(self) -> Dict[str, Field[Any]]:
+    def properties(self) -> Dict[str, Schema[Any]]:
         return self["properties"]
+
 
     def hide(self, target: Dict[str, Any]):
         """Recursively deletes all hidden properties from the target."""
@@ -359,7 +408,7 @@ class ObjectField(Field[Dict[str, Any]]):
             if name in target:
                 if property.hidden:
                     del target[name]
-                elif isinstance(property, ObjectField):
+                elif isinstance(property, ObjectSchema):
                     property.hide(target[name])
 
     def share(self, source: Dict[str, Any], target: Dict[str, Any]):
@@ -367,7 +416,7 @@ class ObjectField(Field[Dict[str, Any]]):
         for name, property in self.properties.items():
             if property.shared:
                 target[name] = source[name]
-            elif isinstance(property, ObjectField):
+            elif isinstance(property, ObjectSchema):
                 property.share(source[name], target[name])
 
     def unshare(self, target: Dict[str, Any]):
@@ -376,38 +425,46 @@ class ObjectField(Field[Dict[str, Any]]):
             if name in target:
                 if property.shared:
                     del target[name]
-                elif isinstance(property, ObjectField):
+                elif isinstance(property, ObjectSchema):
                     property.unshare(target[name])
 
 
-class ConfigurationField(ObjectField):
+class ConfigurationSchema(ObjectSchema):
     @property
-    def episode_steps(self) -> NumericField[int]:
+    def episode_steps(self) -> NumericSchema[int]:
         # These casts should be safe unless an environment has inappropriately overridden specification.**.type
         # Environments cannot overwrite these types because the competition system depends on their existence
-        return cast(NumericField[int], self.properties["episodeSteps"])
+        return cast(NumericSchema[int], self.properties["episodeSteps"])
 
     @property
-    def act_timeout(self) -> NumericField[float]:
-        return cast(NumericField[float], self.properties["actTimeout"])
+    def act_timeout(self) -> NumericSchema[float]:
+        return cast(NumericSchema[float], self.properties["actTimeout"])
 
     @property
-    def run_timeout(self) -> NumericField[float]:
-        return cast(NumericField[float], self.properties["runTimeout"])
+    def run_timeout(self) -> NumericSchema[float]:
+        return cast(NumericSchema[float], self.properties["runTimeout"])
 
     @property
-    def agent_count(self) -> NumericField[int]:
-        return cast(NumericField[int], self.properties["agentCount"])
+    def agent_count(self) -> NumericSchema[int]:
+        return cast(NumericSchema[int], self.properties["agentCount"])
 
 
-class ObservationField(ObjectField):
+class AgentSchema(ObjectSchema, Generic[TActionSchema]):
     @property
-    def remaining_overage_time(self) -> NumericField[float]:
-        return cast(NumericField[float], self.properties["remainingOverageTime"])
+    def action(self) -> TActionSchema:
+        return cast(TActionSchema, self.properties["action"])
 
     @property
-    def step(self) -> NumericField[int]:
-        return cast(NumericField[int], self.properties["step"])
+    def reward(self) -> NumericSchema[int]:
+        return cast(NumericSchema[int], self.properties["reward"])
+
+    @property
+    def remaining_overage_time(self) -> NumericSchema[float]:
+        return cast(NumericSchema[float], self.properties["remainingOverageTime"])
+
+    @property
+    def status(self) -> Schema[AgentStatus]:
+        return self.properties["status"]
 
     def state_to_observation(self, states: List[State], position: int):
         """Converts the current state for each agent into an observation for a particular agent."""
@@ -418,77 +475,61 @@ class ObservationField(ObjectField):
         return agent_observation
 
 
-TActionField = TypeVar('TActionField', bound=Field[TAction])
-
-
-class Specification(ObjectField):
+class StateSchema(ObjectSchema, Generic[TActionSchema]):
     @property
-    def name(self) -> Field[str]:
+    def agents(self) -> ArraySchema[AgentSchema[TActionSchema]]:
+        return cast(ArraySchema[AgentSchema[TActionSchema]], self.properties["agents"])
+
+    @property
+    def step(self) -> NumericSchema[int]:
+        return cast(NumericSchema[int], self.properties["step"])
+
+
+class EnvironmentSchema(ObjectSchema, Generic[TActionSchema]):
+    @property
+    def name(self) -> Schema[str]:
         return self.properties["name"]
 
     @property
-    def title(self) -> Field[str]:
+    def title(self) -> Schema[str]:
         return self.properties["title"]
 
     @property
-    def version(self) -> Field[str]:
+    def version(self) -> Schema[str]:
         return self.properties["version"]
 
     @property
-    def description(self) -> Field[str]:
+    def description(self) -> Schema[str]:
         return self.properties["description"]
 
     @property
-    def configuration(self) -> ConfigurationField:
-        return cast(ConfigurationField, self.properties["configuration"])
+    def configuration(self) -> ConfigurationSchema:
+        return cast(ConfigurationSchema, self.properties["configuration"])
 
     @property
-    def agents(self) -> ArrayField[int]:
-        return cast(ArrayField[int], self.properties["agents"])
-
-    @property
-    def reward(self) -> NumericField[int]:
-        return cast(NumericField[int], self.properties["reward"])
-
-    @property
-    def info(self) -> ObjectField:
-        return cast(ObjectField, self.properties["info"])
-
-    @property
-    def observation(self) -> ObservationField:
-        return cast(ObservationField, self.properties["observation"])
-
-    @property
-    def action(self) -> TActionField:
-        return cast(TActionField, self.properties["action"])
-
-    @property
-    def status(self) -> Field[str]:
-        return self.properties["status"]
+    def state(self) -> StateSchema[TActionSchema]:
+        return cast(StateSchema[TActionSchema], self.properties["state"])
 
 
-field_type_registry = {
-    "object": ObjectField,
-    "array": ArrayField,
-    "number": NumericField,
-    "integer": NumericField,
-    "Configuration": ConfigurationField,
-    "Observation": ObservationField,
-    "Specification": Specification
+schema_type_registry = {
+    "object": ObjectSchema,
+    "array": ArraySchema,
+    "number": NumericSchema,
+    "integer": NumericSchema
 }
 
 
-def create_field(json: Dict[str, Any]) -> Field[TField]:
+def create_schema(json: Dict[str, Any]) -> Schema[TField]:
     type = json["type"]
-    if type in field_type_registry:
-        return field_type_registry[type](**json)
-    return Field(**json)
+    if type in schema_type_registry:
+        return schema_type_registry[type](**json)
+    return Schema(**json)
 
 
 class Environment(Generic[TState, TConfiguration]):
     """This class represents the base interface for an environment compatible with kaggle-environments."""
     @property
-    def specification(self) -> Specification:
+    def specification(self) -> EnvironmentSchema[Schema[TActionSchema]]:
         raise NotImplemented()
 
     def reset(self, configuration: TConfiguration) -> List[TState]:
@@ -510,7 +551,7 @@ class Environment(Generic[TState, TConfiguration]):
         raise NotImplemented()
 
     @staticmethod
-    def load_specification(specification_file_path: str) -> Specification:
+    def load_specification(specification_file_path: str) -> EnvironmentSchema:
         """Create a default specification file from schema.json and merge in a json specification file on disk."""
         with open(specification_file_path) as json_file:
             specification = json.load(json_file)
@@ -518,12 +559,12 @@ class Environment(Generic[TState, TConfiguration]):
         # Allow environments to extend various parts of the specification.
         def extend_specification(source, field_name):
             field = copy.deepcopy(source[field_name]["properties"])
-            for key, value in get(specification, dict, {}, [field_name]).items():
+            for key, value in specification[field_name].items():
                 # The override is a literal value, use it as the default value in the specification.
                 if not isinstance(value, dict):
                     field[key]["default"] = value
                 # The override already exists in the specification, merge it in.
-                elif key in field:
+                elif key in field and field[key]["type"] == value["type"]:
                     for inner_key, inner_value in value.items():
                         field[key][inner_key] = inner_value
                 # The override is not yet in the specification, add it in.
@@ -534,4 +575,4 @@ class Environment(Generic[TState, TConfiguration]):
 
         extend_specification(schemas, "configuration")
         extend_specification(schemas["state"]["properties"], "observation")
-        return Specification(process_schema(schemas.specification, specification))
+        return EnvironmentSchema(process_schema(schemas.specification, specification))

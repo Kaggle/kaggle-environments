@@ -108,7 +108,7 @@ class MabEnvironment(Environment[MabState, MabConfiguration]):
         self._specification = Environment.load_specification(json_path)
 
     @property
-    def specification(self) -> Specification:
+    def specification(self) -> StateSchema[NumericSchema[int]]:
         return self._specification
 
     def reset(self, configuration: MabConfiguration) -> List[MabState]:
