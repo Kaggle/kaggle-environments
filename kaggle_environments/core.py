@@ -281,10 +281,11 @@ class Environment:
             if mode == "ansi":
                 return out
         elif mode == "html" or mode == "ipython":
+            is_playing = get(kwargs, bool, self.done, path=["playing"])
             window_kaggle = {
                 "debug": get(kwargs, bool, self.debug, path=["debug"]),
-                "autoplay": get(kwargs, bool, self.done, path=["autoplay"]),
-                "step": 0 if get(kwargs, bool, self.done, path=["autoplay"]) else (len(self.steps) - 1),
+                "playing": is_playing,
+                "step": 0 if is_playing else len(self.steps) - 1,
                 "controls": get(kwargs, bool, self.done, path=["controls"]),
                 "environment": self.toJSON(),
                 "logs": self.logs,

@@ -244,6 +244,7 @@
         background-color: #000b2a;
         font-family: sans-serif;
         font-size: 14px;
+        height: 48px;
         width: 100%;
 
         ul {
@@ -433,7 +434,7 @@
             ${loading && h`<${Loading} />`}
             ${!loading && header && h`<${Header} />`}
             ${!loading && h`<${Viewer} />`}
-            ${!loading && agents.length > 0 && legend && h`<${Legend} width=${width}/>`}
+            ${!loading && legend && h`<${Legend} width=${width}/>`}
             ${!loading && controls && h`<${Controls} />`}
             ${!loading && settings && h`<${Settings} />`}
           </div>`;
@@ -471,7 +472,6 @@
         const contextRef = useRef({
           animate: false,
           agents: [],
-          autoplay: false,
           controls: false,
           debug: false,
           environment: { steps: [], info: {} },
@@ -535,9 +535,6 @@
             environment: { ...context.environment, ...(o.environment || {}) },
           });
           rerender();
-
-          // If autoplay, toggle to playing.
-          if (context.autoplay) play();
         };
 
         // First time setup.
@@ -546,6 +543,12 @@
           setTimeout(() => {
             // Initialize context with window.kaggle.
             updateContext(window.kaggle || {});
+
+            console.log(window.kaggle);
+            if (window.kaggle.playing) {
+                play(true);
+            }
+
             // Listen for messages received to update the context.
             window.addEventListener(
               "message",
