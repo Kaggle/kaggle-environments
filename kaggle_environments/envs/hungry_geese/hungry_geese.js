@@ -206,7 +206,7 @@ function renderer({
   // Common Dimensions.
   const unit = 8;
   const minCanvasSize = Math.min(height, width);
-  const minOffset = minCanvasSize > 400 ? 30 : unit / 2;
+  const minOffset = minCanvasSize > 800 ? 50 : unit / 2;
   const cellSize = Math.min(
     (width - minOffset * 2) / columns,
     (height - minOffset * 2) / rows
@@ -401,7 +401,6 @@ function renderer({
         width: 100,
         height: 100,
       });
-      canvas.style.marginLeft = "10000px";
       ctx.drawImage(
         bufferCanvas,
         cellSize * agent.index,
