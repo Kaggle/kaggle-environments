@@ -6,6 +6,7 @@
   "agents": [2, 3, 4, 5, 6, 7, 8],
   "configuration": {
     "episodeSteps": 200,
+    "actTimeout": 1,
     "columns": {
       "description": "Horizontal number of cells on the board.",
       "type": "integer",
@@ -68,7 +69,8 @@
       "type": "integer",
       "minimum": 0,
       "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
-    }
+    },
+    "remainingOverageTime": 60
   },
   "action": {
     "description": "Direction to move the head of your players goose.",
