@@ -111,7 +111,7 @@ def min_distance(position: int, food: List[int], columns: int):
 
 
 def random_agent():
-    return choice([action for action in Action])
+    return choice([action for action in Action]).name
 
 
 class GreedyAgent:
@@ -153,7 +153,7 @@ class GreedyAgent:
             )
         }
 
-        action = min(actions, key=actions.get) if any(actions) else random_agent()
+        action = min(actions, key=actions.get) if any(actions) else choice([action for action in Action])
         self.last_action = action
         return action.name
 
