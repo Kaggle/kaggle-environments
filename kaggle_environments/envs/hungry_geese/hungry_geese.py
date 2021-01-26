@@ -213,7 +213,6 @@ def interpreter(state, env):
         # Self collision.
         last_agent = last_state[index]
         last_action = Action[last_agent["action"]] if "action" in last_agent else action
-        env.debug_print(f"{agent.observation.index, action, last_action, head, goose}")
         if head in goose or last_action == action.opposite():
             env.debug_print(f"Body Hit: {agent.observation.index, action, last_action, head, goose}")
             agent.status = "DONE"
@@ -265,6 +264,8 @@ def interpreter(state, env):
     # If only one ACTIVE agent left, set it to DONE.
     active_agents = [a for a in state if a.status == "ACTIVE"]
     if len(active_agents) == 1:
+        # Boost the survivor's reward to maximum
+        active_agents[0].reward = 2 * configuration.episode_steps
         active_agents[0].status = "DONE"
 
     return state
