@@ -70,6 +70,17 @@ class Action(Enum):
             return 0, -1
         return 0, 0
 
+    def opposite(self):
+        if self == Action.NORTH:
+            return Action.SOUTH
+        if self == Action.SOUTH:
+            return Action.NORTH
+        if self == Action.EAST:
+            return Action.WEST
+        if self == Action.WEST:
+            return Action.EAST
+        raise TypeError(str(self) + " is not a valid Action.")
+
 
 def row_col(position: int, columns: int) -> Tuple[int, int]:
     return position // columns, position % columns
@@ -100,60 +111,61 @@ def min_distance(position: int, food: List[int], columns: int):
 
 
 def random_agent():
-    return choice([action for action in Action]).name
+    return choice([action for action in Action])
 
 
-def greedy_agent(observation, configuration):
-    observation = Observation(observation)
-    configuration = Configuration(configuration)
-    rows, columns = configuration.rows, configuration.columns
+class GreedyAgent:
+    def __init__(self, configuration: Configuration):
+        self.configuration = configuration
+        self.last_action = None
 
-    food = observation.food
-    geese = observation.geese
-    opponents = [
-        goose
-        for index, goose in enumerate(geese)
-        if index != observation.index and len(goose) > 0
-    ]
+    def __call__(self, observation: Observation):
+        rows, columns = self.configuration.rows, self.configuration.columns
 
-    # Don't move adjacent to any heads
-    head_adjacent_positions = {
-        opponent_head_adjacent
-        for opponent in opponents
-        for opponent_head in [opponent[0]]
-        for opponent_head_adjacent in adjacent_positions(opponent_head, rows, columns)
-    }
-    # Don't move into any bodies
-    bodies = {position for goose in geese for position in goose[0:-1]}
-    # Don't move into tails of heads that are adjacent to food
-    tails = {
-        opponent[-1]
-        for opponent in opponents
-        for opponent_head in [opponent[0]]
-        if any(
-            adjacent_position in food
-            # Head of opponent is adjacent to food so tail is not safe
-            for adjacent_position in adjacent_positions(opponent_head, rows, columns)
-        )
-    }
+        food = observation.food
+        geese = observation.geese
+        opponents = [
+            goose
+            for index, goose in enumerate(geese)
+            if index != observation.index and len(goose) > 0
+        ]
 
-    # Move to the closest food
-    position = geese[observation.index][0]
-    actions = {
-        action: min_distance(new_position, food, columns)
-        for action in Action
-        for new_position in [translate(position, action, columns, rows)]
-        if (
-            new_position not in head_adjacent_positions and
-            new_position not in bodies and
-            new_position not in tails
-        )
-    }
+        # Don't move adjacent to any heads
+        head_adjacent_positions = {
+            opponent_head_adjacent
+            for opponent in opponents
+            for opponent_head in [opponent[0]]
+            for opponent_head_adjacent in adjacent_positions(opponent_head, rows, columns)
+        }
+        # Don't move into any bodies
+        bodies = {position for goose in geese for position in goose}
 
-    if any(actions):
-        return min(actions, key=actions.get).name
+        # Move to the closest food
+        position = geese[observation.index][0]
+        actions = {
+            action: min_distance(new_position, food, columns)
+            for action in Action
+            for new_position in [translate(position, action, columns, rows)]
+            if (
+                new_position not in head_adjacent_positions and
+                new_position not in bodies and
+                (self.last_action is None or action != self.last_action.opposite())
+            )
+        }
 
-    return random_agent()
+        action = min(actions, key=actions.get) if any(actions) else random_agent()
+        self.last_action = action
+        return action.name
+
+
+cached_greedy_agents = {}
+
+
+def greedy_agent(obs, config):
+    index = obs["index"]
+    if index not in cached_greedy_agents:
+        cached_greedy_agents[index] = GreedyAgent(Configuration(config))
+    return cached_greedy_agents[index](Observation(obs))
 
 
 agents = {"random": random_agent, "greedy": greedy_agent}
@@ -169,8 +181,9 @@ def interpreter(state, env):
     # Reset the environment.
     if env.done:
         agent_count = len(state)
-        shared_observation["geese"] = [[head] for head in sample(range(columns * rows), agent_count)]
-        shared_observation["food"] = sample(range(columns * rows), min_food)
+        heads = sample(range(columns * rows), agent_count)
+        shared_observation["geese"] = [[head] for head in heads]
+        shared_observation["food"] = sample(set(range(columns * rows)).difference(heads), min_food)
         return state
 
     geese = shared_observation.geese
@@ -181,6 +194,8 @@ def interpreter(state, env):
         if agent.status == "ACTIVE":
             agent.reward = len(env.steps) + len(geese[index])
 
+    # If there is no last state, reuse current state so that current action is never the opposite of the last action.
+    last_state = env.steps[-1] if len(env.steps) > 1 else state
     # Apply the actions from active agents.
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
@@ -196,8 +211,11 @@ def interpreter(state, env):
             goose.pop()
 
         # Self collision.
-        if head in goose:
-            env.debug_print(f"Body Hit: {action}")
+        last_agent = last_state[index]
+        last_action = Action[last_agent["action"]] if "action" in last_agent else action
+        env.debug_print(f"{agent.observation.index, action, last_action, head, goose}")
+        if head in goose or last_action == action.opposite():
+            env.debug_print(f"Body Hit: {agent.observation.index, action, last_action, head, goose}")
             agent.status = "DONE"
             geese[index] = []
             continue
@@ -222,11 +240,13 @@ def interpreter(state, env):
 
     # Check for collisions.
     for index, agent in enumerate(state):
-        if any(goose_positions[position] > 1 for position in geese[index]):
-            env.debug_print(f"Goose Collision: {agent.action}")
-            agent.status = "DONE"
-            geese[index] = []
-            continue
+        goose = geese[index]
+        if len(goose) > 0:
+            head = geese[index][0]
+            if goose_positions[head] > 1:
+                env.debug_print(f"Goose Collision: {agent.action}")
+                agent.status = "DONE"
+                geese[index] = []
 
     # Add food if min_food threshold reached.
     needed_food = min_food - len(food)
