@@ -1,6 +1,6 @@
 steps:
 - id: 'build-cpu-image'
   name: gcr.io/cloud-builders/docker
-  args: ['build', '-f', './docker/cpu.Dockerfile', '-t', 'gcr.io/kaggle-images/python-simulations', '.', '&&', 'docker', 'run', '-it', '--entrypoint', 'pytest', '--rm', 'gcr.io/kaggle-images/python-simulations']
+  args: ['build', '-f', './docker/cpu.Dockerfile', '-t', 'gcr.io/kaggle-images/python-simulations', '.']
 images: ['gcr.io/kaggle-images/python-simulations']
 timeout: 24h
