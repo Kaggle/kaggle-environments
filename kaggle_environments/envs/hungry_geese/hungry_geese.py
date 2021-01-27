@@ -264,9 +264,10 @@ def interpreter(state, env):
     # If only one ACTIVE agent left, set it to DONE.
     active_agents = [a for a in state if a.status == "ACTIVE"]
     if len(active_agents) == 1:
+        agent = active_agents[0]
         # Boost the survivor's reward to maximum
-        active_agents[0].reward = 2 * configuration.episode_steps
-        active_agents[0].status = "DONE"
+        agent.reward = 2 * configuration.episode_steps + len(geese[agent.observation.index])
+        agent.status = "DONE"
 
     return state
 
