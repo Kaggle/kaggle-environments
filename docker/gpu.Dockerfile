@@ -5,7 +5,7 @@ FROM gcr.io/kaggle-gpu-images/python:latest
 WORKDIR /usr/src/app/kaggle_environments
 
 # Conda boost interferes with gfootball
-RUN rm -rf /opt/conda/lib/cmake/Boost-1.74.0
+RUN rm -r /opt/conda/lib/cmake/Boost-1.*
 RUN apt-get update
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y install libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev xorg
