@@ -23,5 +23,6 @@ ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 RUN pip install .
+RUN pytest
 
 CMD kaggle-environments
