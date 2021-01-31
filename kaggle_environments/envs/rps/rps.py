@@ -63,7 +63,7 @@ def interpreter(state, env):
 
 
 def renderer(state, env):
-    sign_names = ["Rock", "Paper", "Scissors", "Lizard", "Spock"]
+    sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
     rounds_played = len(env.steps)
     board = ""
 

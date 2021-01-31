@@ -13,8 +13,8 @@ async function renderer(context) {
         width = 400,
     } = context;
 
-    const sign_names = ["Rock", "Paper", "Scissors", "Lizard", "Spock"]
-    const sign_icons = ["\u{1f44a}", "\u{270b}", "\u{2702}\u{fe0f}", "\u{1f98e}", "\u{1f596}"]
+    const sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
+    const sign_icons = ["\u{1f44a}", "\u{270b}", "\u{2702}\u{fe0f}", "\u{1f596}", "\u{1f98e}"]
 
     // Common Dimensions.
     const maxWidth = 960;
