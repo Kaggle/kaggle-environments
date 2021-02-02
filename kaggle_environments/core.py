@@ -43,7 +43,7 @@ def register(name, environment):
     environments[name] = environment
 
 
-def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1):
+def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1, debug=False, state=None):
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
@@ -53,11 +53,13 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1)
         configuration (dict, optional):
         steps (list, optional):
         num_episodes (int=1, optional): How many episodes to execute (run until done).
+        debug (bool=False, optional): Render print() statments to stdout
+        state (optional)
 
     Returns:
         list of list of int: List of final rewards for all agents for all episodes.
     """
-    e = make(environment, configuration, steps)
+    e = make(environment, configuration, steps, debug=debug, state=state)
     rewards = [[]] * num_episodes
     for i in range(num_episodes):
         last_state = e.run(agents)[-1]
@@ -74,7 +76,8 @@ def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False,
         configuration (dict, optional):
         info (dict, optional):
         steps (list, optional):
-        debug (bool=False, optional):
+        debug (bool=False, optional): Render print() statments to stdout
+        state (optional):
 
     Returns:
         Environment: Instance of a specific environment.
