@@ -200,7 +200,18 @@ def interpreter(state, env):
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
             continue
+
         action = Action[agent.action]
+
+        # Check action direction
+        last_agent = last_state[index]
+        last_action = Action[last_agent["action"]] if "action" in last_agent else action
+        if last_action == action.opposite():
+            env.debug_print(f"Opposite action: {agent.observation.index, action, last_action}")
+            agent.status = "DONE"
+            geese[index] = []
+            continue
+
         goose = geese[index]
         head = translate(goose[0], action, columns, rows)
 
@@ -211,10 +222,8 @@ def interpreter(state, env):
             goose.pop()
 
         # Self collision.
-        last_agent = last_state[index]
-        last_action = Action[last_agent["action"]] if "action" in last_agent else action
-        if head in goose or last_action == action.opposite():
-            env.debug_print(f"Body Hit: {agent.observation.index, action, last_action, head, goose}")
+        if head in goose:
+            env.debug_print(f"Body Hit: {agent.observation.index, action, head, goose}")
             agent.status = "DONE"
             geese[index] = []
             continue
@@ -257,7 +266,10 @@ def interpreter(state, env):
         }
         available_positions = {
             i for i in range(rows * columns)
-            if i not in collisions
+            if (
+                i not in collisions and
+                i not in food
+            )
         }
         food.extend(sample(available_positions, needed_food))
 
