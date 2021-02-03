@@ -257,7 +257,10 @@ def interpreter(state, env):
         }
         available_positions = {
             i for i in range(rows * columns)
-            if i not in collisions
+            if (
+                i not in collisions and
+                i not in food
+            )
         }
         food.extend(sample(available_positions, needed_food))
 
