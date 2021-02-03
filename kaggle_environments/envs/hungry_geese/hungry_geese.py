@@ -135,7 +135,7 @@ class GreedyAgent:
             opponent_head_adjacent
             for opponent in opponents
             for opponent_head in [opponent[0]]
-            for opponent_head_adjacent in adjacent_positions(opponent_head, rows, columns)
+            for opponent_head_adjacent in adjacent_positions(opponent_head, columns, rows)
         }
         # Don't move into any bodies
         bodies = {position for goose in geese for position in goose}
