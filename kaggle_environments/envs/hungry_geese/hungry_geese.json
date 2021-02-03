@@ -32,13 +32,13 @@
       "minimum": 1
     },
     "max_length": {
-      "description": "The max length any goose can be. Total reward = (max length + 1) * step + goose length.",
+      "description": "The max length any goose can be. Total reward = (max length + 1) * steps survived + goose length.",
       "type": "integer",
       "default": 99
     }
   },
   "reward": {
-    "description": "steps moved * (max goose length + 1) + current goose length.",
+    "description": "steps survived * (max goose length + 1) + current goose length.",
     "type": "integer",
     "default": 0,
     "minimum": 0
