@@ -52,6 +52,10 @@ class Configuration(kaggle_environments.helpers.Configuration):
     def min_food(self) -> int:
         return self["min_food"]
 
+    @property
+    def max_length(self) -> int:
+        return self["max_length"]
+
 
 class Action(Enum):
     NORTH = auto()
@@ -135,7 +139,7 @@ class GreedyAgent:
             opponent_head_adjacent
             for opponent in opponents
             for opponent_head in [opponent[0]]
-            for opponent_head_adjacent in adjacent_positions(opponent_head, rows, columns)
+            for opponent_head_adjacent in adjacent_positions(opponent_head, columns, rows)
         }
         # Don't move into any bodies
         bodies = {position for goose in geese for position in goose}
@@ -183,22 +187,23 @@ def interpreter(state, env):
         agent_count = len(state)
         heads = sample(range(columns * rows), agent_count)
         shared_observation["geese"] = [[head] for head in heads]
-        shared_observation["food"] = sample(set(range(columns * rows)).difference(heads), min_food)
+        food_candidates = set(range(columns * rows)).difference(heads)
+        # Ensure we only place as many food as there are open squares
+        min_food = min(min_food, len(food_candidates))
+        shared_observation["food"] = sample(food_candidates, min_food)
         return state
 
     geese = shared_observation.geese
     food = shared_observation.food
-
-    # Update active agent rewards.
-    for index, agent in enumerate(state):
-        if agent.status == "ACTIVE":
-            agent.reward = len(env.steps) + len(geese[index])
 
     # If there is no last state, reuse current state so that current action is never the opposite of the last action.
     last_state = env.steps[-1] if len(env.steps) > 1 else state
     # Apply the actions from active agents.
     for index, agent in enumerate(state):
         if agent.status != "ACTIVE":
+            if agent.status != "INACTIVE" and agent.status != "DONE":
+                # ERROR, INVALID, or TIMEOUT, remove the goose.
+                geese[index] = []
             continue
         action = Action[agent.action]
         goose = geese[index]
@@ -219,6 +224,9 @@ def interpreter(state, env):
             geese[index] = []
             continue
 
+        while len(goose) >= configuration.max_length:
+            # Free a spot for the new head if needed
+            goose.pop()
         # Add New Head to the Goose.
         goose.insert(0, head)
 
@@ -255,18 +263,21 @@ def interpreter(state, env):
             for goose in geese
             for position in goose
         }
-        available_positions = {
-            i for i in range(rows * columns)
-            if i not in collisions
-        }
+        available_positions = set(range(rows * columns)).difference(collisions).difference(food)
+        # Ensure we don't sample more food than available positions.
+        needed_food = min(needed_food, len(available_positions))
         food.extend(sample(available_positions, needed_food))
+
+    # Set rewards after deleting all geese to ensure that geese don't receive a reward on the turn they perish.
+    for index, agent in enumerate(state):
+        if agent.status == "ACTIVE":
+            # Adding 1 to len(env.steps) ensures that if an agent gets reward 4507, it died on turn 45 with length 7.
+            agent.reward = (len(env.steps) + 1) * (configuration.max_length + 1) + len(geese[index])
 
     # If only one ACTIVE agent left, set it to DONE.
     active_agents = [a for a in state if a.status == "ACTIVE"]
     if len(active_agents) == 1:
         agent = active_agents[0]
-        # Boost the survivor's reward to maximum
-        agent.reward = 2 * configuration.episode_steps + len(geese[agent.observation.index])
         agent.status = "DONE"
 
     return state

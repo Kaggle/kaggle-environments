@@ -3,7 +3,7 @@
   "title": "Hungry Geese",
   "description": "Similar to the classic snake game with multiple players",
   "version": "1.0.0",
-  "agents": [2, 3, 4, 5, 6, 7, 8],
+  "agents": [1, 2, 3, 4, 5, 6, 7, 8],
   "configuration": {
     "episodeSteps": 200,
     "actTimeout": 1,
@@ -30,10 +30,15 @@
       "type": "integer",
       "default": 2,
       "minimum": 1
+    },
+    "max_length": {
+      "description": "The max length any goose can be. Total reward = (max length + 1) * step + goose length.",
+      "type": "integer",
+      "default": 99
     }
   },
   "reward": {
-    "description": "The number of steps the goose has moved plus its length.",
+    "description": "steps moved * (max goose length + 1) + current goose length.",
     "type": "integer",
     "default": 0,
     "minimum": 0
