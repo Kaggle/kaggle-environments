@@ -1,0 +1,61 @@
+{
+  "name": "dollar_auction",
+  "title": "Dollar Auction",
+  "description": "Dollar Auction",
+  "version": "1.0.0",
+  "agents": [2, 3, 4, 5, 6, 7, 8],
+  "configuration": {
+    "episodeSteps": 1000,
+    "actTimeout": 0.25,
+    "auctionReward": {
+      "description": "Reward provided by winning an auction.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 10
+    },
+    "agentIndex": {
+      "description": "The index of the current agent.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
+    }
+  },
+  "reward": {
+    "description": "The total reward each player has accumulated from the auctions across all steps.",
+    "type": "number",
+    "minimum": 0,
+    "default": 100
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "currentBid": {
+      "description": "The current auction bid.",
+      "type": "integer",
+      "shared": true,
+      "defaults": 0
+    },
+    "penultimateBidderIndex": {
+      "description": "The index of the second-last agent who bid. This is not passed to agents.",
+      "type": ["integer", "null"],
+      "hidden": true,
+      "shared": true,
+      "defaults": null
+    },
+    "ultimateBidderIndex": {
+      "description": "The index of the last agent who bid. This is not passed to agents.",
+      "type": ["integer", "null"],
+      "hidden": true,
+      "shared": true,
+      "defaults": null
+    },
+    "reward": {
+      "description": "Reward of the current agent.",
+      "type": "number",
+      "minimum": 0
+    }
+  },
+  "action": {
+    "description": "Whether this agent wants to bid on this auction.",
+    "type": "boolean",
+    "default": false
+  }
+}
