@@ -1,4 +1,5 @@
 import operator
+from abc import abstractmethod, ABC
 from enum import Enum
 from typing import *
 
@@ -152,7 +153,6 @@ class Configuration(Dict[str, any]):
 TConfiguration = TypeVar('TConfiguration', bound=Configuration)
 TObservation = TypeVar('TObservation', bound=Observation)
 TAction = TypeVar('TAction')
-Agent = Callable[[TObservation, TConfiguration], TAction]
 
 
 class AgentStatus(Enum):
@@ -185,6 +185,16 @@ class AgentState(Generic[TObservation, TAction], Dict[str, any]):
         return AgentStatus.UNKNOWN
 
 
+class Agent(ABC, Generic[TConfiguration, TObservation, TAction]):
+    @abstractmethod
+    def __init__(self, configuration: TConfiguration):
+        pass
+
+    @abstractmethod
+    def __call__(self, observation: TObservation) -> TAction:
+        pass
+
+
 class Environment(Generic[TConfiguration, TObservation, TAction]):
     @property
     def specification(self) -> Dict[str, any]:
@@ -200,6 +210,16 @@ class Environment(Generic[TConfiguration, TObservation, TAction]):
         raise NotImplemented()
 
     @property
-    def builtin_agents(self) -> Dict[str, Agent]:
+    def builtin_agents(self) -> Dict[str, Agent[TConfiguration, TObservation, TAction]]:
         """Override this property to provide default agents that can be referenced by name in this environment, e.g. `{"random": my_random_agent}`"""
         return {}
+
+
+cached_agents = {}
+def make_cached_agent(agent_constructor: Callable[[TConfiguration], Agent[TConfiguration, TObservation, TAction]], configuration_constructor: Callable[[Dict], TConfiguration], observation_constructor: Callable[[Dict], TObservation]):
+    def agent(obs, config):
+        index = agent_constructor.__name__ + "::" + str(obs["agentIndex"])
+        if index not in cached_agents :
+            cached_agents[index] = agent_constructor(configuration_constructor(config))
+        return cached_agents[index](observation_constructor(obs))
+    return agent

@@ -20,7 +20,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
-from .agent import Agent
+from .agent import AgentRunner
 from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify
 
@@ -616,7 +616,7 @@ class Environment:
     def __agent_runner(self, agents):
         # Generate the agents.
         agents = [
-            Agent(agent, self)
+            AgentRunner(agent, self)
             if agent is not None
             else None
             for agent in agents

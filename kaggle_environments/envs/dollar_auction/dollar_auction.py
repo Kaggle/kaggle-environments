@@ -1,68 +1,11 @@
 import json
-import kaggle_environments.helpers
 from os import path
-from random import SystemRandom
-from typing import List
 from .agents import agents as all_agents
-
-
-class Configuration(kaggle_environments.helpers.Configuration):
-    """This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/dollar_auction/dollar_auction.json"""
-    @property
-    def auction_reward(self) -> int:
-        """Reward provided by winning an auction."""
-        return self["auctionReward"]
-
-
-class Observation(kaggle_environments.helpers.Observation):
-    """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/dollar_auction/dollar_auction.json"""
-    @property
-    def agent_index(self) -> int:
-        """The index of the current agent."""
-        return self["agentIndex"]
-
-    @property
-    def current_bid(self) -> int:
-        """The index of the current agent."""
-        return self["currentBid"]
-
-    @current_bid.setter
-    def current_bid(self, value: int) -> None:
-        self["currentBid"] = value
-
-    @property
-    def ultimate_bidder_index(self) -> int:
-        """The index of the last agent who bid. This is not passed to agents."""
-        return self["ultimateBidderIndex"]
-
-    @ultimate_bidder_index.setter
-    def ultimate_bidder_index(self, value: int) -> None:
-        self["ultimateBidderIndex"] = value
-
-    @property
-    def penultimate_bidder_index(self) -> int:
-        # REVIEW: I wanted an expressive name for the bidder index fields, but is this too wordy? It's only used in the environment and replays, not agents.
-        """The index of the second-last agent who bid. This is not passed to agents."""
-        return self["penultimateBidderIndex"]
-
-    @penultimate_bidder_index.setter
-    def penultimate_bidder_index(self, value: int) -> None:
-        self["penultimateBidderIndex"] = value
-
-    @property
-    def reward(self) -> int:
-        """The index of the current agent."""
-        return self["reward"]
-
-    @reward.setter
-    def reward(self, value: int) -> None:
-        self["reward"] = value
+from .helpers import *
 
 
 # REVIEW: If an agent passes on a bid should they be knocked out?
 # REVIEW: Should we randomize order of agents between auctions?
-
-
 def interpreter(agents, env):
     configuration = Configuration(env.configuration)
     shared_agent = agents[0]
@@ -90,7 +33,7 @@ def interpreter(agents, env):
                 shared_observation.current_bid = 0
                 shared_observation.penultimate_bidder_index = None
                 shared_observation.ultimate_bidder_index = None
-            elif agent.action and agent.reward > shared_observation.current_bid:
+            if agent.action and agent.reward > shared_observation.current_bid:
                 shared_observation.current_bid += 1
                 shared_observation.penultimate_bidder_index = shared_observation.ultimate_bidder_index
                 shared_observation.ultimate_bidder_index = index

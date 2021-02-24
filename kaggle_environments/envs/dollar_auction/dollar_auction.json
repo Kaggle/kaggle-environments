@@ -12,11 +12,6 @@
       "type": "integer",
       "minimum": 1,
       "default": 10
-    },
-    "agentIndex": {
-      "description": "The index of the current agent.",
-      "type": "integer",
-      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
     }
   },
   "reward": {
@@ -27,6 +22,11 @@
   },
   "observation": {
     "remainingOverageTime": 60,
+    "agentIndex": {
+      "description": "The index of the current agent.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
     "currentBid": {
       "description": "The current auction bid.",
       "type": "integer",

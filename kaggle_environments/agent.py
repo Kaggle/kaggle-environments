@@ -125,7 +125,7 @@ def build_agent(raw, builtin_agents, environment_name):
 
     return callable_agent, False
 
-class Agent:
+class AgentRunner:
     def __init__(self, raw, environment):
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration

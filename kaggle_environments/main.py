@@ -17,7 +17,6 @@ import json
 import traceback
 from typing import *
 from . import errors, utils
-from .agent import Agent
 from .core import environments, evaluate, make
 from logging.config import dictConfig
 
