@@ -41,6 +41,8 @@ const main = async () => {
           detached: true,
           agentOptions: { detached: true },
           bestOf: json.config.episodeSteps - 1,
+          storeReplay: false,
+          storeErrorLogs: false,
         }
       );
     } else if (json.length) {

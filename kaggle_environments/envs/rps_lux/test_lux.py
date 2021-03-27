@@ -53,7 +53,7 @@ def test_threshold_tie():
 
 
 def test_win():
-    env = make("rps", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})
     env.run([paper, rock])
     json = env.toJSON()
     print(json)
@@ -62,7 +62,7 @@ def test_win():
 
 
 def test_loss():
-    env = make("rps", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})
     env.run([rock, paper])
     json = env.toJSON()
     assert json["rewards"] == [-1, 1]
@@ -70,7 +70,7 @@ def test_loss():
 
 
 def test_negative_move():
-    env = make("rps", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
     env.run([negative_move_agent, rock])
     json = env.toJSON()
     assert json["rewards"] == [None, 1]
