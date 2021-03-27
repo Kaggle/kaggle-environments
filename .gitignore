@@ -136,3 +136,6 @@ temp.*
 
 # Git merge artifacts
 *.orig
+
+# node.js files
+node_modules
