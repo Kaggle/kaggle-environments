@@ -36,13 +36,14 @@ def interpreter(state, env):
     ### TODO: CODE ###
     ### 1.1 TODO: Initialize dimensions in the background within the orchestrator if we haven't already ###
     if dimension_process is None:
-        dimension_process = Popen(["ts-node", "-P", path.abspath(path.join(dir_path, "dimensions/tsconfig.json")), path.abspath(path.join(dir_path, "dimensions/run.ts"))], stdin=PIPE, stdout=PIPE)
+        # dimension_process = Popen(["ts-node", "-P", path.abspath(path.join(dir_path, "dimensions/tsconfig.json")), path.abspath(path.join(dir_path, "dimensions/run.ts"))], stdin=PIPE, stdout=PIPE)
+        dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/lib/run.js"))], stdin=PIPE, stdout=PIPE)
         atexit.register(cleanup_dimensions)
 
     ### TODO: check if process is still running, handle failure cases here
 
     ### 1.2 TODO: Initialize a blank state game if new episode is starting ###
-    print("ENV done", env.done)
+    # print("ENV done", env.done)
     if env.done:
         initiate = {
             "type": "start",
@@ -53,7 +54,7 @@ def interpreter(state, env):
         dimension_process.stdin.flush()
         # dimension_process.stdout.flush()
         # time.sleep(1)
-        print((dimension_process.stdout.readline()).decode())
+        # print((dimension_process.stdout.readline()).decode())
         
         
         # dimension_process.stdout.flush()
@@ -63,62 +64,29 @@ def interpreter(state, env):
     ### 2. TODO: Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
     dimension_process.stdin.write((json.dumps(state) + "\n").encode())
     dimension_process.stdin.flush()
-    print((dimension_process.stdout.readline()).decode())
-    # dimension_process.stdin.write((json.dumps(state) + "\n").encode())
-    # dimension_process.stdin.flush()
-    # print((dimension_process.stdout.readline()).decode())
+    
+
+
     ### 3.1 TODO: Receive and parse the observations returned by dimensions via stdout 
-    ### 3.2 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
-    # print("PATH " + path.abspath(path.join(dir_path, "test.js")))
-    # with open(p.stdin) as stdin:
-    # p = Popen(["cat", "README.md"], stdin=PIPE, stdout=PIPE)
-    # p.stdin.write("abc".encode())
-    # p.wait()
-    # print(json.dumps(state).encode())
-    # stdout_data, stderr_data = dimension_process.communicate(input=json.dumps(state).encode(), timeout=5)
-    # p.stdo
-    # print(stdout_data.decode())
+    res = json.loads(dimension_process.stdout.readline())
+    
+    ### 3.2 TODO: handle rewards
+    if res["results"][-1] == 0:
+        score = 1 
+    elif res["results"][-1] == 1:
+        score = -1 
+    else:
+        score = 0
 
-    # p.kill()
-
-
-    def is_valid_action(player, sign_count):
-        return (
-            player.action is not None and
-            isinstance(player.action, int) and
-            0 <= player.action < sign_count
-        )
-
-    # Check for validity of actions
-    is_player1_valid = is_valid_action(player1, env.configuration.signs)
-    is_player2_valid = is_valid_action(player2, env.configuration.signs)
-    if not is_player2_valid:
-        player2.status = "INVALID"
-        player2.reward = 0
-
-        if is_player1_valid:
-            player1.status = "DONE"
-            player1.reward = 1
-            return state
-
-    if not is_player1_valid:
-        player1.status = "INVALID"
-        player1.reward = 0
-
-        if is_player2_valid:
-            player2.status = "DONE"
-            player2.reward = 1
-            return state
-        else:
-            return state
-
-    # send all 
-
-    score = get_score(player1.action, player2.action)
-    player1.observation.lastOpponentAction = player2.action
     player1.reward += score
-    player2.observation.lastOpponentAction = player1.action
     player2.reward -= score
+
+    ### 3.3 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
+
+    player1.observation.lastOpponentAction = player2.action
+    
+    player2.observation.lastOpponentAction = player1.action
+    
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
     remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
@@ -151,13 +119,13 @@ def renderer(state, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "luxai2021.json"))
+json_path = path.abspath(path.join(dir_path, "rps_lux.json"))
 with open(json_path) as json_file:
     specification = json.load(json_file)
 
 
 def html_renderer():
-    js_path = path.abspath(path.join(dir_path, "luxai2021.js"))
+    js_path = path.abspath(path.join(dir_path, "rps_lux.js"))
     with open(js_path, encoding="utf-8") as js_file:
         return js_file.read()
 

@@ -19,15 +19,15 @@ def none_agent(observation, configuration):
 
 
 def test_rps_completes():
-    env = make("rps", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 10, "tieRewardThreshold": 1})
     env.run([rock, rock])
     json = env.toJSON()
-    assert json["name"] == "rps"
+    assert json["name"] == "rps_lux"
     assert json["statuses"] == ["DONE", "DONE"]
 
 
 def test_all_agents():
-    env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
     for agent in agents:
         env.run([agent, agent])
         json = env.toJSON()
@@ -35,7 +35,7 @@ def test_all_agents():
 
 
 def test_tie():
-    env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
+    env = make("rps_lux", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
     env.run([rock, rock])
     assert env.render(mode='ansi') == "Round 1: Rock vs Rock, Score: 0 to 0\nRound 2: Rock vs Rock, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
     json = env.toJSON()
@@ -44,7 +44,7 @@ def test_tie():
 
 
 def test_threshold_tie():
-    env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 4})
+    env = make("rps_lux", configuration={"episodeSteps": 3, "tieRewardThreshold": 4})
     env.run([rock, paper])
     assert env.render(mode='ansi') == "Round 1: Rock vs Paper, Score: -1.0 to 1.0\nRound 2: Rock vs Paper, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
     json = env.toJSON()

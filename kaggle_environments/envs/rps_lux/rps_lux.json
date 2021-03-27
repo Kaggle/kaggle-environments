@@ -1,6 +1,6 @@
 {
-  "name": "luxai2021",
-  "title": "Rock Paper Scissors",
+  "name": "rps_lux",
+  "title": "Rock Paper Scissors using Dimensions Framework",
   "description": "Repeated Rock Paper Scissors",
   "version": "1.0.0",
   "agents": [2],
