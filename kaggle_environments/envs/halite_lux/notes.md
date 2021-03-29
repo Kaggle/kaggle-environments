@@ -12,6 +12,10 @@ Issues:
 
 5. how should kaggle envs initialize js agents
 
+6. for some reason local replays are generated 3 times (lux issue). 
+
+7. is there a way to get the current episode # or just step #
+
 Quite doable, just detached the whole backend and engine part of dimensions and use just the design.
 
 Pros:

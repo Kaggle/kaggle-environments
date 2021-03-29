@@ -17,7 +17,7 @@ if __name__ == "__main__":
         action = 0
         print("=== Episode {} - Step {} === ".format(eps, i + 1))
         obs, reward, done, info = trainer.step(action)
-        print({"reward": reward})
+        print({"reward": reward, "obs_reward": obs["reward"]})
         # print(repr(game_state.game_map.map[0][0]))
         # update the game state for next step
         # game_state._update(obs["updates"])

@@ -90,7 +90,7 @@ def interpreter(state, env):
     player2.observation.player = 1
 
     ### 3.3 TODO: handle rewards
-    # reward here is defined as the sum of city tiles alive
+    # reward here is defined as the sum of number of city tiles
     player1.reward = sum([len(v.citytiles) for k, v in game_state.players[0].cities.items()])
     player2.reward = sum([len(v.citytiles) for k, v in game_state.players[1].cities.items()])
     player1.observation.reward = int(player1.reward)
