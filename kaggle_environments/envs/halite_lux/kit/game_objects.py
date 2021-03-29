@@ -1,8 +1,8 @@
-from game_map import Position
-import constants
+from .game_map import Position
+from .constants import Constants
 from typing import Dict
-from game_constants import GAME_CONSTANTS
-UNIT_TYPES = constants.Constants.UNIT_TYPES
+from .game_constants import GAME_CONSTANTS
+UNIT_TYPES = Constants.UNIT_TYPES
 class Player():
     def __init__(self,team):
         self.team = team

@@ -1,14 +1,19 @@
 import { create, Logger, Match, MatchEngine } from "dimensions-ai";
 import readline from "readline";
 import fs from "fs";
-import { LuxDesign } from "@lux-ai/2020-challenge";
+import {
+  LuxDesign,
+  LuxMatchConfigs,
+  LuxMatchState,
+} from "@lux-ai/2020-challenge";
+import { DeepPartial } from "dimensions-ai/lib/main/utils/DeepPartial";
 let haliteLuxDesign = new LuxDesign("halite lux");
 
 let myDimension = create(haliteLuxDesign, {
   name: "Halite Lux",
   loggingLevel: Logger.LEVEL.NONE,
   activateStation: false,
-  observe: false
+  observe: false,
 });
 
 const rl = readline.createInterface({
@@ -24,6 +29,17 @@ const main = async () => {
 
     // initialize a match
     if (json.type && json.type === "start") {
+      const configs: DeepPartial<LuxMatchConfigs & Match.Configs> = {
+        detached: true,
+        agentOptions: { detached: true },
+        storeReplay: json.config.saveReplays,
+        // storeReplay: false,
+        storeErrorLogs: false,
+        mapType: json.config.mapType,
+        parameters: {
+          MAX_DAYS: json.config.episodeSteps - 2,
+        },
+      };
       match = await myDimension.createMatch(
         [
           {
@@ -35,17 +51,10 @@ const main = async () => {
             name: "bot2",
           },
         ],
-        {
-          detached: true,
-          agentOptions: { detached: true },
-          storeReplay: false,
-          storeErrorLogs: false,
-          mapType: json.config.mapType
-        }
+        configs
       );
       match.agents.forEach((agent, i) => {
-        console.log(JSON.stringify(agent.messages))
-        fs.writeFileSync(`agent${i}.json`,JSON.stringify(agent.messages) + "\n");
+        console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });
     } else if (json.length) {
@@ -55,25 +64,27 @@ const main = async () => {
       let commandsList: Array<MatchEngine.Command> = [];
       agents.forEach((agentID) => {
         let agentCommands = json[agentID].action.map((action: string) => {
-          return {agentID: agentID, command: action }
+          return { agentID: agentID, command: action };
         });
         commandsList.push(...agentCommands);
       });
-      // console.log(JSON.stringify(commandsList));
-      fs.writeFileSync("cmd.log", JSON.stringify(commandsList));
-      await match.step(commandsList);
-      
+      const status = await match.step(commandsList);
+
       // log the match state back to kaggle's interpreter
       match.agents.forEach((agent, i) => {
-        console.log(JSON.stringify(agent.messages))
-        fs.appendFileSync(`agent${i}.json`,JSON.stringify(agent.messages)+ "\n");
+        console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });
-      match.state.game.map
-      fs.writeFileSync("state.json", JSON.stringify(match.state.game.map, (k, v) => {
-        if (k === "configs") return undefined;
-        return v;
-      }));
+
+      // tell kaggle interpreter about match status
+      const state: LuxMatchState = match.state;
+      console.log(
+        JSON.stringify({
+          status: status,
+          turn: state.game.state.turn,
+          max: match.configs.parameters.MAX_DAYS,
+        })
+      );
     }
   }
 };

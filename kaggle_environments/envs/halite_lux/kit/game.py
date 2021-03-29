@@ -1,7 +1,7 @@
-import constants
-from game_map import GameMap
-from game_objects import Player, Unit, City, CityTile
-INPUT_CONSTANTS = constants.Constants.INPUT_CONSTANTS
+from .constants import Constants
+from .game_map import GameMap
+from .game_objects import Player, Unit, City, CityTile
+INPUT_CONSTANTS = Constants.INPUT_CONSTANTS
 
 class Game():
     def __init__(self):
@@ -16,10 +16,8 @@ class Game():
         mapInfo = messages[1].split(" ")
         self.map_width = int(mapInfo[0])
         self.map_height = int(mapInfo[1])
-        self.map = GameMap(map_width, map_height)
+        self.game_map = GameMap(self.map_width, self.map_height)
         self.players = [Player(0), Player(1)]
-        # await this.retrieveUpdates();
-        pass
     def _end_turn(self):
         print("D_FINISH")
     def _update(self, messages):
@@ -45,7 +43,7 @@ class Game():
                 x = int(strs[2])
                 y = int(strs[2])
                 amt = int(strs[2])
-                self.map._setResource(r_type, x, y, amt)
+                self.game_map._setResource(r_type, x, y, amt)
             elif input_identifier == INPUT_CONSTANTS.UNITS:
                 unittype = int(strs[1])
                 team = int(strs[2])
@@ -62,7 +60,7 @@ class Game():
                 cityid = strs[2]
                 fuel = float(strs[3])
                 lightupkeep = float(strs[4])
-                self.players[team].cities[cityid] = City(cityid, City(team, cityid, fuel, lightUpkeep))
+                self.players[team].cities[cityid] = City(team, cityid, fuel, lightupkeep)
             elif input_identifier == INPUT_CONSTANTS.CITY_TILES:
                 team = int(strs[1])
                 cityid = strs[2]
@@ -71,11 +69,11 @@ class Game():
                 cooldown = float(strs[5])
                 city = self.players[team].cities[cityid]
                 citytile = city.add_city_tile(x, y, cooldown)
-                self.map.get_cell(x, y).citytile = citytile
+                self.game_map.get_cell(x, y).citytile = citytile
             elif input_identifier == INPUT_CONSTANTS.CELL_COOLDOWN:
                 x = int(strs[1])
                 y = int(strs[2])
                 cooldown = float(strs[3])
-                self.map.get_cell(x, y).cooldown = cooldown
+                self.game_map.get_cell(x, y).cooldown = cooldown
                 
 

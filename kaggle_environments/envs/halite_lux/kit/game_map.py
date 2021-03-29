@@ -1,9 +1,21 @@
-import constants
+from .constants import Constants
 from typing import List
 import math
-DIRECTIONS = constants.Constants.DIRECTIONS
-RESOURCE_TYPES = constants.Constants.RESOURCE_TYPES
+DIRECTIONS = Constants.DIRECTIONS
+RESOURCE_TYPES = Constants.RESOURCE_TYPES
 
+class Resource:
+    def __init__(self, r_type: str, amount: int):
+        self.type = r_type
+        self.amount = amount
+
+
+class Cell:
+    def __init__(self, x, y):
+        self.pos = Position(x, y)
+        self.resource: Resource = None
+        self.citytile = None
+        self.cooldown = 1
 
 class GameMap:
     def __init__(self, width, height):
@@ -29,20 +41,6 @@ class GameMap:
         cell.resource = Resource(r_type, amount)
 
 
-class Resource:
-    def __init__(self, r_type: str, amount: int):
-        self.type = r_type
-        self.amount = amount
-
-
-class Cell:
-    def __init__(self, x, y):
-        self.pos = Position(x, y)
-        self.resource: Resource = None
-        self.citytile = None
-        self.cooldown = 1
-
-
 class Position:
     def __init__(self, x, y):
         self.x = x
@@ -55,7 +53,7 @@ class Position:
             return false
         return true
 
-    def equals(self, pos: Position):
+    def equals(self, pos):
         return self.x == pos.x and self.y == pos.y
 
     def translate(self, direction, units):
@@ -68,7 +66,7 @@ class Position:
         elif direction == DIRECTIONS.WEST:
             return Position(self.x - units, self.y)
 
-    def distance_to(self, pos: Position):
+    def distance_to(self, pos):
         """
         Returns Euclidiean (L2) distance to pos
         """
@@ -76,7 +74,7 @@ class Position:
         dy = pos.y - self.y
         return math.sqrt(dx * dx + dy * dy)
 
-    def direction_to(self, target_pos: Position):
+    def direction_to(self, target_pos):
         """
         Return closest position to target_pos from this position
         """

@@ -6,18 +6,18 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import sys
 import atexit
-from .kit.game import Game
+from kit.game import Game
 
 
 dimension_process = None
-
+game_state = Game()
 def cleanup_dimensions():
     global dimension_process
     if dimension_process is not None:
         dimension_process.kill()
 
 def interpreter(state, env):
-    global dimension_process
+    global dimension_process, game_state
     player1 = state[0]
     player2 = state[1]
 
@@ -52,8 +52,20 @@ def interpreter(state, env):
         }
         dimension_process.stdin.write((json.dumps(initiate) + "\n").encode())
         dimension_process.stdin.flush()
-        agent0res = json.loads(dimension_process.stdout.readline())
         agent1res = json.loads(dimension_process.stdout.readline())
+        agent2res = json.loads(dimension_process.stdout.readline())
+        
+        player1.observation.player = 0
+        player2.observation.player = 1
+        player1.observation.updates = agent1res
+        player2.observation.updates = agent2res
+
+        game_state = Game()
+        game_state._initialize(agent1res)
+        # player1.observation.game._initialize(agent1res)
+
+        # player2.observation.game = Game()
+        # player2.observation.game._initialize(agent2res)
         return state
     
     ### 2. TODO: Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
@@ -62,31 +74,34 @@ def interpreter(state, env):
 
 
     ### 3.1 TODO: Receive and parse the observations returned by dimensions via stdout 
-    agent0res = json.loads(dimension_process.stdout.readline())
     agent1res = json.loads(dimension_process.stdout.readline())
-    print(agent0res)
-    
-    ### 3.2 TODO: handle rewards
+    agent2res = json.loads(dimension_process.stdout.readline())
+    game_state._update(agent1res)
 
+    match_status = json.loads(dimension_process.stdout.readline())
+    print(match_status)
 
-    ### 3.3 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
+    ### 3.2 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
-    player1.observation.lastOpponentAction = player2.action
-    
-    player2.observation.lastOpponentAction = player1.action
-    
+    player1.observation.updates = agent1res
+    player2.observation.updates = agent2res
+
+    player1.observation.player = 0
+    player2.observation.player = 1
+
+    ### 3.3 TODO: handle rewards
+    # reward here is defined as the sum of city tiles alive
+    player1.reward = sum([len(v.citytiles) for k, v in game_state.players[0].cities.items()])
+    player2.reward = sum([len(v.citytiles) for k, v in game_state.players[1].cities.items()])
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
-    remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
 
-    # This is the last step
-    if remaining_steps <= 1:
+    # remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
+
+    ### 3.4 Handle finished match status
+    if match_status["status"] == "finished":
         player1.status = "DONE"
         player2.status = "DONE"
-        # Player performance too similar, consider the match a tie.
-        if abs(player1.reward) < env.configuration.tieRewardThreshold:
-            player1.reward = 0
-            player2.reward = 0
     return state
 
 
