@@ -10,6 +10,8 @@ Issues:
 
 4. env.render() function, how will this work with our visualizer hosted at https://2021vis.lux-ai.org/. Data url? how is this sent
 
+5. how should kaggle envs initialize js agents
+
 Quite doable, just detached the whole backend and engine part of dimensions and use just the design.
 
 Pros:

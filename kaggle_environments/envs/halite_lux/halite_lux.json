@@ -1,0 +1,47 @@
+{
+  "name": "halite_lux",
+  "title": "Halite: Lux by Two Sigma",
+  "description": "Halite season 5 by Two Sigma, designed by Lux AI",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of steps the environment can run. Total is this number -1.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 1000
+    },
+    "parameters": {
+      "description": "Parameters for Halite: Lux",
+      "type": "object"
+    },
+    "mapType": {
+      "description": "Map type to use",
+      "type": "string",
+      "default": "debug"
+    },
+    "actTimeout": 1
+  },
+  "reward": {
+    "description": "-1 = Lost, 0 = Draw, 1 = Won",
+    "enum": [-1, 0, 1],
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "reward": {
+      "description": "Current reward of the agent.",
+      "type": "integer",
+      "minimum": -999,
+      "maximum": 999,
+      "default": 0
+    }
+  },
+  "action": {
+    "description": "Actions",
+    "type": "array",
+    "items": {
+      "type": "integer"
+    }
+  }
+}

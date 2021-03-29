@@ -9,7 +9,6 @@ let myDimension = create(rpsDesign, {
   loggingLevel: Logger.LEVEL.NONE,
   activateStation: false,
   observe: false,
-  // id: 'oLBptg',
 });
 
 const rl = readline.createInterface({
@@ -25,7 +24,6 @@ const main = async () => {
 
     // initialize a match
     if (json.type && json.type === "start") {
-      fs.writeFileSync("initstate.log", line);
       match = await myDimension.createMatch(
         [
           {
