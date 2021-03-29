@@ -1,6 +1,12 @@
 class Constants:
     class INPUT_CONSTANTS:
         RESEARCH_POINTS = "rp"
+        RESOURCES = "r"
+        UNITS = "u"
+        CITY = "c"
+        CITY_TILES = "ct"
+        CELL_COOLDOWN = "cd"
+        DONE = "D_DONE"
     class DIRECTIONS:
         NORTH = "n"
         WEST = "w"

@@ -1,18 +1,18 @@
 from game_map import Position
 import constants
+from typing import Dict
+from game_constants import GAME_CONSTANTS
 UNIT_TYPES = constants.Constants.UNIT_TYPES
 class Player():
     def __init__(self,team):
         self.team = team
         self.research_points = 0
         self.units = []
-        self.cities = {}
+        self.cities: Dict[str, City] = {}
     def researched_coal(self):
-        # TODO
-        return self.researchPoints >= 40
+        return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
     def researched_uanium(self):
-        # TODO
-        return self.researchPoints >= 60
+        return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["URANIUM"]
 
 class City:
     def __init__(self, teamid, cityid, fuel, light_upkeep):
@@ -85,11 +85,9 @@ class Unit:
         """
         spaceused = self.cargo.wood + self.cargo.coal + self.cargo.uranium;
         if self.type == UNIT_TYPES.WORKER:
-            # TODO
-            return 100 - spaceused;
+            return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"] - spaceused;
         else:
-            # TODO
-            return 200 - spaceused;
+            return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"] - spaceused;
     
     def can_move(self):
         """

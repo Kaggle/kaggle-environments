@@ -15,23 +15,23 @@ class GameMap:
             for x in range(0, self.width):
                 self.map[y][x] = Cell(x, y)
 
-        def get_cell_by_pos(self, pos) -> Cell:
-            return self.map[pos.y][pos.x]
+    def get_cell_by_pos(self, pos) -> Cell:
+        return self.map[pos.y][pos.x]
 
-        def get_cell(x, y) -> Cell:
-            return self.map[y][x]
+    def get_cell(self, x, y) -> Cell:
+        return self.map[y][x]
 
-        def _setResource(self, type, x, y, amount):
-            """
-            do not use this function, this is for internal tracking of state
-            """
-            cell = self.get_cell(x, y)
-            cell.resource = Resource(type, amount)
+    def _setResource(self, r_type, x, y, amount):
+        """
+        do not use this function, this is for internal tracking of state
+        """
+        cell = self.get_cell(x, y)
+        cell.resource = Resource(r_type, amount)
 
 
 class Resource:
-    def __init__(self, type: str, amount: int):
-        self.type = type
+    def __init__(self, r_type: str, amount: int):
+        self.type = r_type
         self.amount = amount
 
 

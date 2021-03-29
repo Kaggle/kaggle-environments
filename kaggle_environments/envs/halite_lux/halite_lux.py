@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import sys
 import atexit
+from .kit.game import Game
 
 
 dimension_process = None
