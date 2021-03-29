@@ -1,5 +1,6 @@
 import constants
-INPUT_CONSTANTS = constants.INPUT_CONSTANTS.RESEARCH_POINTS
+import game_map
+INPUT_CONSTANTS = constants.Constants.INPUT_CONSTANTS
 
 class Game():
     def __init__(self):
@@ -11,7 +12,7 @@ class Game():
         mapInfo = messages[1].split(" ")
         self.map_width = int(mapInfo[0])
         self.map_height = int(mapInfo[1])
-        this.map = GameMap(map_width, map_height);
-        this.players = [new Player(0), new Player(1)];
-        await this.retrieveUpdates();
+        self.map = game_map.GameMap(map_width, map_height)
+        self.players = [Player(0), Player(1)]
+        # await this.retrieveUpdates();
         pass
