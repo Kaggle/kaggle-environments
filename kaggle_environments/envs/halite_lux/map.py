@@ -5,7 +5,6 @@ DIRECTIONS = constants.Constants.DIRECTIONS
 RESOURCE_TYPES = constants.Constants.RESOURCE_TYPES
 
 
-
 class GameMap:
     def __init__(self, width, height):
         self.height = height
@@ -29,10 +28,13 @@ class GameMap:
             cell = self.get_cell(x, y)
             cell.resource = Resource(type, amount)
 
+
 class Resource:
     def __init__(self, type: str, amount: int):
         self.type = type
         self.amount = amount
+
+
 class Cell:
     def __init__(self, x, y):
         self.pos = Position(x, y)
