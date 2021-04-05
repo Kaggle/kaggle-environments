@@ -128,9 +128,11 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
-    js_path = path.abspath(path.join(dir_path, "halite_lux.js"))
-    with open(js_path, encoding="utf-8") as js_file:
-        return js_file.read()
+
+    # TODO: return our own html
+    html_path = path.abspath(path.join(dir_path, "dist/index.html"))
+    with open(html_path, encoding="utf-8") as html_file:
+        return html_file.read()
 
 
 agents = all_agents

@@ -2,7 +2,7 @@ from kaggle_environments import make
 from kit.game import Game
 if __name__ == "__main__":
     print("init")
-    env = make("halite_lux", configuration={"episodeSteps": 201, "saveReplays": True}, debug=True)
+    env = make("halite_lux", configuration={"episodeSteps": 201, "saveReplays": False}, debug=True)
     # env.run([rock, statistical])
     # print(env.toJSON())
 

@@ -4,6 +4,7 @@ from .kit.game import Game
 from .kit.constants import Constants
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
+
 def random_agent(observation, configuration):
     global game_state
 

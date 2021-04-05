@@ -5,11 +5,13 @@
   "main": "test.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc",
+    "clean": "rm -rf lib && rm -rf node_modules"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@lux-ai/2020-challenge": "^1.1.25",
     "dimensions-ai": "^4.7.1"
   }
 }
