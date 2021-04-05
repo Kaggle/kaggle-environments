@@ -20,7 +20,6 @@ def random_agent(observation, configuration):
     ### AI Code goes down here! ### 
     player = game_state.players[observation.player]
     for unit in player.units:
-        print(unit.id)
         dirs = [DIRECTIONS.NORTH, DIRECTIONS.WEST, DIRECTIONS.EAST, DIRECTIONS.SOUTH]
         action = unit.move(random.choice(dirs))
         actions.append(action)

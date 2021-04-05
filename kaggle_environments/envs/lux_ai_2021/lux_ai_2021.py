@@ -122,7 +122,7 @@ def renderer(state, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "halite_lux.json"))
+json_path = path.abspath(path.join(dir_path, "lux_ai_2021.json"))
 with open(json_path) as json_file:
     specification = json.load(json_file)
 
