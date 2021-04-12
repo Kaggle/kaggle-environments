@@ -9,10 +9,10 @@
       "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 1000
+      "default": 201
     },
     "parameters": {
-      "description": "Parameters for Halite: Lux",
+      "description": "Parameters for Lux AI 2021",
       "type": "object"
     },
     "mapType": {
@@ -23,8 +23,8 @@
     "actTimeout": 1
   },
   "reward": {
-    "description": "-1 = Lost, 0 = Draw, 1 = Won",
-    "enum": [-1, 0, 1],
+    "description": "number of cities",
+    "type": "integer",
     "default": 0
   },
   "observation": {
@@ -32,8 +32,8 @@
     "reward": {
       "description": "Current reward of the agent.",
       "type": "integer",
-      "minimum": -999,
-      "maximum": 999,
+      "minimum": -9999,
+      "maximum": 9999,
       "default": 0
     },
     "updates": {
