@@ -16,6 +16,11 @@ Issues:
 
 - see main.py to look at how logs and replays are generated
 
+
+test html:
+
+kaggle-environments run --debug True --environment lux_ai_2021 --agents rock rock --render '{"mode":"html"}' > out.html
+
 5. how should kaggle envs initialize js agents
 
 6. for some reason local replays are generated 3 times (lux issue). 

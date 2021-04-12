@@ -22,8 +22,12 @@ if __name__ == "__main__":
         # update the game state for next step
         # game_state._update(obs["updates"])
         if done:
+            with open("replay.json", "w") as f:
+                f.write(env.render(mode="json"))
             # if episode is done, reset env and get new observations and new game state
             obs = trainer.reset()
             # game_state = Game()
             # game_state._initialize(obs["updates"])
+
             eps += 1
+    

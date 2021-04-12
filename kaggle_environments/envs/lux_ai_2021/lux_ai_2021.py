@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import sys
 import atexit
-from kit.game import Game
+from .kit.game import Game
 
 
 dimension_process = None
@@ -79,7 +79,6 @@ def interpreter(state, env):
     game_state._update(agent1res)
 
     match_status = json.loads(dimension_process.stdout.readline())
-    print(match_status)
 
     ### 3.2 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
@@ -128,11 +127,7 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
-
-    # TODO: return our own html
-    html_path = path.abspath(path.join(dir_path, "dist/index.html"))
-    with open(html_path, encoding="utf-8") as html_file:
-        return html_file.read()
-
+    html_path = path.abspath(path.join(dir_path, "index.html"))
+    return ("html_path", html_path)
 
 agents = all_agents

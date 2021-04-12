@@ -165,6 +165,15 @@ def process_schema(schema, data, use_default=True):
 
 # Player utilities
 def get_player(window_kaggle, renderer):
+    if renderer[0] == "html_path":
+        key = "/*window.kaggle*/"
+        value = f"""
+window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
+        """
+        return read_file(renderer[1]).replace(
+            key, value
+        )
+
     key = "/*window.kaggle*/"
     value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n

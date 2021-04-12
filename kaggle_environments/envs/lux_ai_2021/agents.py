@@ -15,7 +15,7 @@ def random_agent(observation, configuration):
     else:
         game_state._update(observation["updates"])
     
-    actions = []    
+    actions = []
 
     ### AI Code goes down here! ### 
     player = game_state.players[observation.player]
