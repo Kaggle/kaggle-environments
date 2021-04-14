@@ -1,0 +1,38 @@
+{
+  "name": "ssh2-streams",
+  "version": "0.4.10",
+  "author": "Brian White <mscdex@mscdex.net>",
+  "description": "SSH2 and SFTP(v3) client/server protocol streams for node.js",
+  "main": "./index",
+  "engines": {
+    "node": ">=5.2.0"
+  },
+  "dependencies": {
+    "asn1": "~0.2.0",
+    "bcrypt-pbkdf": "^1.0.2",
+    "streamsearch": "~0.1.2"
+  },
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "keywords": [
+    "ssh",
+    "ssh2",
+    "sftp",
+    "secure",
+    "protocol",
+    "streams",
+    "client",
+    "server"
+  ],
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://github.com/mscdex/ssh2-streams/raw/master/LICENSE"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/mscdex/ssh2-streams.git"
+  }
+}

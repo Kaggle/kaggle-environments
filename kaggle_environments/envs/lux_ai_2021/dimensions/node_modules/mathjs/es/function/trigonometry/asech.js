@@ -1,0 +1,59 @@
+import { factory } from '../../utils/factory';
+import { deepMap } from '../../utils/collection';
+import { asechNumber } from '../../plain/number';
+var name = 'asech';
+var dependencies = ['typed', 'config', 'Complex', 'BigNumber'];
+export var createAsech = /* #__PURE__ */factory(name, dependencies, function (_ref) {
+  var typed = _ref.typed,
+      config = _ref.config,
+      Complex = _ref.Complex,
+      _BigNumber = _ref.BigNumber;
+
+  /**
+   * Calculate the hyperbolic arcsecant of a value,
+   * defined as `asech(x) = acosh(1/x) = ln(sqrt(1/x^2 - 1) + 1/x)`.
+   *
+   * For matrices, the function is evaluated element wise.
+   *
+   * Syntax:
+   *
+   *    math.asech(x)
+   *
+   * Examples:
+   *
+   *    math.asech(0.5)       // returns 1.3169578969248166
+   *
+   * See also:
+   *
+   *    acsch, acoth
+   *
+   * @param {number | Complex | Array | Matrix} x  Function input
+   * @return {number | Complex | Array | Matrix} Hyperbolic arcsecant of x
+   */
+  var asech = typed(name, {
+    number: function number(x) {
+      if (x <= 1 && x >= -1 || config.predictable) {
+        var xInv = 1 / x;
+
+        if (xInv > 0 || config.predictable) {
+          return asechNumber(x);
+        }
+
+        var ret = Math.sqrt(xInv * xInv - 1);
+        return new Complex(Math.log(ret - xInv), Math.PI);
+      }
+
+      return new Complex(x, 0).asech();
+    },
+    Complex: function Complex(x) {
+      return x.asech();
+    },
+    BigNumber: function BigNumber(x) {
+      return new _BigNumber(1).div(x).acosh();
+    },
+    'Array | Matrix': function ArrayMatrix(x) {
+      return deepMap(x, asech);
+    }
+  });
+  return asech;
+});
