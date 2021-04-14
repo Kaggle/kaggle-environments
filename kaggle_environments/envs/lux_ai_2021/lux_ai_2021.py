@@ -62,10 +62,7 @@ def interpreter(state, env):
 
         game_state = Game()
         game_state._initialize(agent1res)
-        # player1.observation.game._initialize(agent1res)
 
-        # player2.observation.game = Game()
-        # player2.observation.game._initialize(agent2res)
         return state
     
     ### 2. TODO: Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin

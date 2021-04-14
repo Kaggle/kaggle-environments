@@ -6,6 +6,7 @@ import {
   LuxMatchState,
 } from "@lux-ai/2020-challenge";
 import { DeepPartial } from "dimensions-ai/lib/main/utils/DeepPartial";
+import fs from 'fs';
 let haliteLuxDesign = new LuxDesign("lux_ai_2021");
 
 let myDimension = create(haliteLuxDesign, {
@@ -56,6 +57,7 @@ const main = async () => {
         console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });
+      fs.writeFileSync(`match_${match.id}.log`, ("Initiated"));
     } else if (json.length) {
       // perform a step in the match
       // console.log(JSON.stringify(json));
@@ -68,6 +70,7 @@ const main = async () => {
         commandsList.push(...agentCommands);
       });
       const status = await match.step(commandsList);
+      fs.appendFileSync(`match_${match.id}.log`, `\nstep ${match.state.game.state.turn}`);
 
       // log the match state back to kaggle's interpreter
       match.agents.forEach((agent, i) => {

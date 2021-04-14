@@ -1,7 +1,7 @@
 {
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
-  "description": "Halite season 5 by Two Sigma, designed by Lux AI",
+  "description": "A Novel AI Programming Challenge about Lux",
   "version": "1.0.0",
   "agents": [2],
   "configuration": {

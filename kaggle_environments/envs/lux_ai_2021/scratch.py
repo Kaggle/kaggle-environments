@@ -5,7 +5,7 @@ if __name__ == "__main__":
     env = make("lux_ai_2021", configuration={"episodeSteps": 201, "saveReplays": False}, debug=True)
     # env.run([rock, statistical])
     # print(env.toJSON())
-
+# kaggle-environments run --environment lux_ai_2021 --agents random_agent random_agent --out out.json
     trainer = env.train([None, "random_agent"])
     eps = 1
     # game_state = Game()

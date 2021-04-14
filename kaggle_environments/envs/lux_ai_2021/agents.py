@@ -16,6 +16,7 @@ def random_agent(observation, configuration):
     if observation["step"] == 0:
         game_state = Game()
         game_state._initialize(observation["updates"])
+        game_state._update(observation["updates"][2:])
     else:
         game_state._update(observation["updates"])
     
