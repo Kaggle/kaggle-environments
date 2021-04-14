@@ -1,5 +1,5 @@
 {
-  "name": "halite-lux",
+  "name": "lux-ai-2021-kaggle-env",
   "version": "1.0.0",
   "description": "",
   "main": "test.js",
@@ -13,5 +13,8 @@
   "dependencies": {
     "@lux-ai/2020-challenge": "^1.1.25",
     "dimensions-ai": "^4.7.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.2.4"
   }
 }
