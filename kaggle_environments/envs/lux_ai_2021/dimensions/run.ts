@@ -1,16 +1,15 @@
 import { create, Logger, Match, MatchEngine } from "dimensions-ai";
 import readline from "readline";
-import fs from "fs";
 import {
   LuxDesign,
   LuxMatchConfigs,
   LuxMatchState,
 } from "@lux-ai/2020-challenge";
 import { DeepPartial } from "dimensions-ai/lib/main/utils/DeepPartial";
-let haliteLuxDesign = new LuxDesign("halite lux");
+let haliteLuxDesign = new LuxDesign("lux_ai_2021");
 
 let myDimension = create(haliteLuxDesign, {
-  name: "Halite Lux",
+  name: "Lux AI 2021",
   loggingLevel: Logger.LEVEL.NONE,
   activateStation: false,
   observe: false,
