@@ -20,21 +20,7 @@ def interpreter(state, env):
     player1 = state[0]
     player2 = state[1]
 
-
-    # pass in player1.action and player2.action to lux (using the dimensions framework)
-    # equivalent to commands argument.
-
-    # will need a detached match engine mode, which purely takes in a state representation, actions, and outputs the new observations
-    # new observations should be just the outputs dimensions sends, this python script is effectively the middle man piping output from dimensions to agents
-
-    # question, do we handle agent statuses like active (running) vs inactive (killed / crashed) here or in dimensions?
-    # 1. let dimensions handle it, so we also pass in as much agent information as possible to the dimensions engine, and then the user defined design
-    #    will decide if the game is over etc. the final state etc. rewards etc.
-    # 2. let this python script handle it instead, dimensions will just assume agents are running?
-    # preferring point 1 more, keeps code all in one place.
-
-    ### TODO: CODE ###
-    ### 1.1 TODO: Initialize dimensions in the background within the orchestrator if we haven't already ###
+    ### 1.1: Initialize dimensions in the background within the orchestrator if we haven't already ###
     if dimension_process is None:
         # dimension_process = Popen(["ts-node", "-P", path.abspath(path.join(dir_path, "dimensions/tsconfig.json")), path.abspath(path.join(dir_path, "dimensions/run.ts"))], stdin=PIPE, stdout=PIPE)
         dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/lib/run.js"))], stdin=PIPE, stdout=PIPE)
@@ -42,7 +28,7 @@ def interpreter(state, env):
 
     ### TODO: check if process is still running, handle failure cases here
 
-    ### 1.2 TODO: Initialize a blank state game if new episode is starting ###
+    ### 1.2: Initialize a blank state game if new episode is starting ###
     if env.done:
         initiate = {
             "type": "start",
@@ -64,19 +50,19 @@ def interpreter(state, env):
 
         return state
     
-    ### 2. TODO: Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
+    ### 2. : Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
     dimension_process.stdin.write((json.dumps(state) + "\n").encode())
     dimension_process.stdin.flush()
 
 
-    ### 3.1 TODO: Receive and parse the observations returned by dimensions via stdout
+    ### 3.1 : Receive and parse the observations returned by dimensions via stdout
     agent1res = json.loads(dimension_process.stdout.readline())
     agent2res = json.loads(dimension_process.stdout.readline())
     game_state._update(agent1res)
 
     match_status = json.loads(dimension_process.stdout.readline())
 
-    ### 3.2 TODO: Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
+    ### 3.2 : Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
     player1.observation.updates = agent1res
     player2.observation.updates = agent2res
@@ -84,14 +70,12 @@ def interpreter(state, env):
     player1.observation.player = 0
     player2.observation.player = 1
 
-    ### 3.3 TODO: handle rewards
+    ### 3.3 : handle rewards
     # reward here is defined as the sum of number of city tiles
     player1.reward = sum([len(v.citytiles) for k, v in game_state.players[0].cities.items()])
     player2.reward = sum([len(v.citytiles) for k, v in game_state.players[1].cities.items()])
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
-
-    # remaining_steps = env.configuration.episodeSteps - player1.observation.step - 1
 
     ### 3.4 Handle finished match status
     if match_status["status"] == "finished":

@@ -14,8 +14,6 @@ def cleanup_process():
 def js_agent(observation, configuration):
     """
     a wrapper around a js agent
-
-    Assumes the entry point for the js agent is bot.js
     """
     global agent_processes
 

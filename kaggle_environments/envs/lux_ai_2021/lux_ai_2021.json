@@ -6,7 +6,7 @@
   "agents": [2],
   "configuration": {
     "episodeSteps": {
-      "description": "Maximum number of steps the environment can run. Total is this number -1.",
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 201 steps",
       "type": "integer",
       "minimum": 2,
       "default": 202
@@ -20,10 +20,14 @@
       "type": "string",
       "default": "debug"
     },
+    "seed": {
+      "description": "Seed to use for episodes",
+      "type": "integer"
+    },
     "actTimeout": 1
   },
   "reward": {
-    "description": "number of cities",
+    "description": "number of cities you own on the board",
     "type": "integer",
     "default": 0
   },
@@ -53,7 +57,7 @@
     "description": "Actions",
     "type": "array",
     "items": {
-      "type": "integer"
+      "type": "string"
     }
   }
 }

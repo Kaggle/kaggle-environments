@@ -32,8 +32,7 @@ const main = async () => {
       const configs: DeepPartial<LuxMatchConfigs & Match.Configs> = {
         detached: true,
         agentOptions: { detached: true },
-        storeReplay: json.config.saveReplays,
-        // storeReplay: false,
+        storeReplay: false,
         storeErrorLogs: false,
         mapType: json.config.mapType,
         parameters: {
@@ -58,10 +57,7 @@ const main = async () => {
         agent.messages = [];
       });
       
-      // fs.writeFileSync(`match_${match.id}.log`, ("Initiated"));
     } else if (json.length) {
-      // perform a step in the match
-      // console.log(JSON.stringify(json));
       let agents = [0, 1];
       let commandsList: Array<MatchEngine.Command> = [];
       agents.forEach((agentID) => {
@@ -71,10 +67,9 @@ const main = async () => {
         commandsList.push(...agentCommands);
       });
       const status = await match.step(commandsList);
-      // fs.appendFileSync(`match_${match.id}.log`, `\nstep ${match.state.game.state.turn}`);
 
       // log the match state back to kaggle's interpreter
-      match.agents.forEach((agent, i) => {
+      match.agents.forEach((agent) => {
         console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });

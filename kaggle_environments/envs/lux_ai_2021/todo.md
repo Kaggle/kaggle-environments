@@ -11,4 +11,8 @@
 
 [ ] default turn debug mode off
 
-[ ] add some integration tests
+[ ] add tests for more bots
+
+[ ] allow user to pass in custom configurations
+
+[ ] allow user to specify debug mode level for the dimensions engine
