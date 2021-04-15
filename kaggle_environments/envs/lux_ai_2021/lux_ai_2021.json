@@ -9,7 +9,7 @@
       "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 201
+      "default": 202
     },
     "parameters": {
       "description": "Parameters for Lux AI 2021",

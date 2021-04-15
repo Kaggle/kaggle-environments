@@ -1,3 +1,4 @@
+const fs = require('fs');
 const readline = require('readline');
 
 // Create parser and use ',' as the delimiter between commands being sent by the `Match` and `MatchEngine`

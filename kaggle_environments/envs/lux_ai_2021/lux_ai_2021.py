@@ -1,12 +1,11 @@
 import json
 from os import path
 from .agents import agents as all_agents
-from .utils import get_score
 from subprocess import Popen, PIPE, STDOUT
 import time
 import sys
 import atexit
-from .kit.game import Game
+from .test_agents.python.kit.game import Game
 
 
 dimension_process = None
@@ -70,7 +69,7 @@ def interpreter(state, env):
     dimension_process.stdin.flush()
 
 
-    ### 3.1 TODO: Receive and parse the observations returned by dimensions via stdout 
+    ### 3.1 TODO: Receive and parse the observations returned by dimensions via stdout
     agent1res = json.loads(dimension_process.stdout.readline())
     agent2res = json.loads(dimension_process.stdout.readline())
     game_state._update(agent1res)

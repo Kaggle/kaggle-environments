@@ -57,6 +57,7 @@ const main = async () => {
         console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });
+      
       // fs.writeFileSync(`match_${match.id}.log`, ("Initiated"));
     } else if (json.length) {
       // perform a step in the match

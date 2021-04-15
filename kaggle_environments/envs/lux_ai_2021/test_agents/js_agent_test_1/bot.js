@@ -18,16 +18,15 @@ agent.initialize().then(async () => {
 
     let commands = [];
 
-    // make our units move south
-    if (agent.turn % 10 === 2 || (agent.turn % 10 === 1 && agent.turn !== 1)) {
-      player.units.forEach((unit) => {
-        commands.push(unit.move(DIRECTIONS.SOUTH));
-      });
-    } else if (agent.turn % 10 === 7 || agent.turn % 10 === 8) {
-      player.units.forEach((unit) => {
-        commands.push(unit.move(DIRECTIONS.NORTH));
-      });
-    }
+    player.units.forEach((unit) => {
+      let allDirs = [
+        DIRECTIONS.NORTH,
+        DIRECTIONS.EAST,
+        DIRECTIONS.SOUTH,
+        DIRECTIONS.WEST,
+      ];
+      commands.push(unit.move(allDirs[Math.floor(Math.random() * 4)]));
+    });
 
     /** AI Code ends here */
 
