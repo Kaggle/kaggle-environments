@@ -8,3 +8,7 @@
 [ ] Verify rewards work correctly
 
 [ ] display correct agent names
+
+[ ] default turn debug mode off
+
+[ ] add some integration tests

@@ -22,7 +22,7 @@ def js_agent(observation, configuration):
     agent_process = agent_processes[observation.player]
     ### Do not edit ###
     if agent_process is None:
-        agent_process = Popen(["node", path.abspath(path.join(dir_path, "bot.js"))], stdin=PIPE, stdout=PIPE)
+        agent_process = Popen(["node", path.abspath(path.join(dir_path, "main.js"))], stdin=PIPE, stdout=PIPE)
         agent_processes[observation.player] = agent_process
         atexit.register(cleanup_process)
     agent_process.stdin.write(("\n".join(observation["updates"]) + "\n").encode())
