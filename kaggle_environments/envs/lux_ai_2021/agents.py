@@ -3,6 +3,7 @@ from .utils import get_score
 from .kit.game import Game
 from .kit.game_map import Position
 from .kit.constants import Constants
+from .js_agent.agent import js_agent
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 
@@ -81,5 +82,6 @@ def collector_agent(observation, configuration):
 
 agents = {
     "random_agent": random_agent,
-    "collector_agent": collector_agent
+    "collector_agent": collector_agent,
+    "js_agent": js_agent
 }

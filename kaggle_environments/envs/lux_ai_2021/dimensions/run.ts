@@ -57,7 +57,7 @@ const main = async () => {
         console.log(JSON.stringify(agent.messages));
         agent.messages = [];
       });
-      fs.writeFileSync(`match_${match.id}.log`, ("Initiated"));
+      // fs.writeFileSync(`match_${match.id}.log`, ("Initiated"));
     } else if (json.length) {
       // perform a step in the match
       // console.log(JSON.stringify(json));
@@ -70,7 +70,7 @@ const main = async () => {
         commandsList.push(...agentCommands);
       });
       const status = await match.step(commandsList);
-      fs.appendFileSync(`match_${match.id}.log`, `\nstep ${match.state.game.state.turn}`);
+      // fs.appendFileSync(`match_${match.id}.log`, `\nstep ${match.state.game.state.turn}`);
 
       // log the match state back to kaggle's interpreter
       match.agents.forEach((agent, i) => {
