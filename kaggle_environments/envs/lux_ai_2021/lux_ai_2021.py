@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import sys
 import atexit
-from .test_agents.python.kit.game import Game
+from .test_agents.python.lux.game import Game
 
 
 dimension_process = None

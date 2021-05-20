@@ -1,7 +1,7 @@
 import random
-from .kit.game import Game
-from .kit.game_map import Position
-from .kit.constants import Constants
+from .lux.game import Game
+from .lux.game_map import Position
+from .lux.constants import Constants
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 
