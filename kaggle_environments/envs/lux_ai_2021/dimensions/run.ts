@@ -6,10 +6,10 @@ import {
   LuxMatchState,
 } from "@lux-ai/2020-challenge";
 import { DeepPartial } from "dimensions-ai/lib/main/utils/DeepPartial";
-import fs from 'fs';
-let haliteLuxDesign = new LuxDesign("lux_ai_2021");
 
-let myDimension = create(haliteLuxDesign, {
+let lux2021 = new LuxDesign("lux_ai_2021");
+
+let myDimension = create(lux2021, {
   name: "Lux AI 2021",
   loggingLevel: Logger.LEVEL.NONE,
   activateStation: false,
@@ -85,18 +85,6 @@ const main = async () => {
       );
     }
   }
-};
-
-const mapNumToRPS = (n: number) => {
-  switch (n) {
-    case 0:
-      return "R";
-    case 1:
-      return "P";
-    case 2:
-      return "S";
-  }
-  return "R";
 };
 
 main();
