@@ -61,10 +61,12 @@ const main = async () => {
       let agents = [0, 1];
       let commandsList: Array<MatchEngine.Command> = [];
       agents.forEach((agentID) => {
-        let agentCommands = json[agentID].action.map((action: string) => {
-          return { agentID: agentID, command: action };
-        });
-        commandsList.push(...agentCommands);
+        if (json[agentID].action) {
+          let agentCommands = json[agentID].action.map((action: string) => {
+            return { agentID: agentID, command: action };
+          });
+          commandsList.push(...agentCommands);
+        }
       });
       const status = await match.step(commandsList);
 
