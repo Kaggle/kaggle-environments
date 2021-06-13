@@ -1,3 +1,4 @@
+import sys
 import random
 from .lux.game import Game
 from .lux.game_map import Position
@@ -37,6 +38,7 @@ def collector_agent(observation, configuration):
     if observation["step"] == 0:
         game_state = Game()
         game_state._initialize(observation["updates"])
+        game_state._update(observation["updates"][2:])
     else:
         game_state._update(observation["updates"])
     
@@ -64,15 +66,13 @@ def collector_agent(observation, configuration):
     for y in range(height):
         for x in range(width):
             cell = game_state.game_map.get_cell(x, y)
-            if cell.resource is Constants.RESOURCE_TYPES.WOOD:
+            if cell.resource is not None and cell.resource.type == Constants.RESOURCE_TYPES.WOOD:
                 dist = cell.pos.distance_to(city_center_pos)
                 if dist < closest_resource_pos_dist:
                     closest_resource_pos_dist = dist
                     closest_resource_pos = cell.pos
                 pass
     for unit in player.units:
-        dirs = [DIRECTIONS.NORTH, DIRECTIONS.WEST, DIRECTIONS.EAST, DIRECTIONS.SOUTH]
-        # action = unit.move(random.choice(dirs))
         action = unit.move(unit.pos.direction_to(closest_resource_pos))
         actions.append(action)
     

@@ -50,8 +50,8 @@ class Position:
         dx = self.x - pos.x
         dy = self.y - pos.y
         if abs(dx) + abs(dy) > 1:
-            return false
-        return true
+            return False
+        return True
 
     def equals(self, pos):
         return self.x == pos.x and self.y == pos.y
@@ -78,7 +78,7 @@ class Position:
         """
         Return closest position to target_pos from this position
         """
-        checkDirections = [
+        check_dirs = [
             DIRECTIONS.NORTH,
             DIRECTIONS.EAST,
             DIRECTIONS.SOUTH,
