@@ -16,6 +16,8 @@ class Cell:
         self.resource: Resource = None
         self.citytile = None
         self.cooldown = 1
+    def has_resource(self):
+        return self.resource is not None and self.resource.amount > 0
 
 class GameMap:
     def __init__(self, width, height):
@@ -74,7 +76,7 @@ class Position:
         dy = pos.y - self.y
         return math.sqrt(dx * dx + dy * dy)
 
-    def direction_to(self, target_pos):
+    def direction_to(self, target_pos: 'Position'):
         """
         Return closest position to target_pos from this position
         """
@@ -84,7 +86,7 @@ class Position:
             DIRECTIONS.SOUTH,
             DIRECTIONS.WEST,
         ]
-        closest_dist = 9999999
+        closest_dist = self.distance_to(target_pos)
         closest_dir = None
         for direction in check_dirs:
             newpos = self.translate(direction, 1)
@@ -93,3 +95,5 @@ class Position:
                 closest_dir = direction
                 closest_dist = dist
         return closest_dir
+    def __str__(self) -> str:
+        return f"({self.x}, {self.y})"

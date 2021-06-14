@@ -7,7 +7,7 @@ class Player():
     def __init__(self,team):
         self.team = team
         self.research_points = 0
-        self.units = []
+        self.units: list[Unit] = []
         self.cities: Dict[str, City] = {}
     def researched_coal(self):
         return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
@@ -19,7 +19,7 @@ class City:
         self.cityid = cityid;
         self.team = teamid;
         self.fuel = fuel;
-        self.citytiles = [];
+        self.citytiles: list[CityTile] = [];
         self.light_upkeep = light_upkeep;
     def add_city_tile(self, x, y, cooldown):
         ct = CityTile(self.team, self.cityid, x, y, cooldown)
@@ -61,6 +61,9 @@ class Cargo:
         self.wood = 0
         self.coal = 0
         self.uranium = 0
+    def __str__(self) -> str:
+        return f"Cargo | Wood: {self.wood}, Coal: {self.coal}, Uranium: {self.uranium}"
+
 
 class Unit:
     def __init__(self, teamid, u_type, unitid, x, y, cooldown, wood, coal, uranium):
@@ -79,7 +82,7 @@ class Unit:
     def is_cart(self):
         return self.type == UNIT_TYPES.CART
 
-    def getCargoSpaceLeft(self):
+    def get_cargo_space_left(self):
         """
         get cargo space left in this unit
         """
@@ -89,9 +92,18 @@ class Unit:
         else:
             return GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"] - spaceused;
     
+    def can_build(self, game_map):
+        """
+        whether or not the unit can build where it is right now
+        """
+        cell = game_map.get_cell_by_pos(self.pos)
+        if not cell.has_resource():
+            return True
+        return False
+
     def can_move(self):
         """
-        whether or not the unit can move or not
+        whether or not the unit can move or not. This does not check for potential collisions into other units or enemy cities
         """
         return self.cooldown == 0
 

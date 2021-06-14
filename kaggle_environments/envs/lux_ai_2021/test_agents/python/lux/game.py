@@ -24,6 +24,7 @@ class Game():
         """
         update state
         """
+        self.game_map = GameMap(self.map_width, self.map_height)
         self.turn += 1
         self.players[0].units = []
         self.players[0].cities = {}
@@ -41,8 +42,8 @@ class Game():
             elif input_identifier == INPUT_CONSTANTS.RESOURCES:
                 r_type = strs[1]
                 x = int(strs[2])
-                y = int(strs[2])
-                amt = int(strs[2])
+                y = int(strs[3])
+                amt = int(strs[4])
                 self.game_map._setResource(r_type, x, y, amt)
             elif input_identifier == INPUT_CONSTANTS.UNITS:
                 unittype = int(strs[1])

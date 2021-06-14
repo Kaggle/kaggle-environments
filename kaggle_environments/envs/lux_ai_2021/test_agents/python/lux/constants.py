@@ -14,7 +14,7 @@ class Constants:
         EAST = "e"
     class UNIT_TYPES:
         WORKER = 0
-        CART = 0
+        CART = 1
     class RESOURCE_TYPES:
         WOOD = "wood"
         URANIUM = "uranium"
