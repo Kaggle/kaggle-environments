@@ -7,7 +7,8 @@ from .test_agents.python.organic_agent import organic_agent
 from .test_agents.python.simple_agent import simple_agent
 agents = {
     "random_agent": random_agent,
-    "simple_agent.py": simple_agent,
+    "simple_agent": simple_agent,
+    "organic_agent": organic_agent,
     "js_agent_random": js_agent_random,
     "js_agent_slow_expand": js_agent_slow_expand
 }

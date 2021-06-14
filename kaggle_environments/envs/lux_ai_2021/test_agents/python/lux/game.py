@@ -43,7 +43,7 @@ class Game():
                 r_type = strs[1]
                 x = int(strs[2])
                 y = int(strs[3])
-                amt = int(strs[4])
+                amt = int(float(strs[4]))
                 self.game_map._setResource(r_type, x, y, amt)
             elif input_identifier == INPUT_CONSTANTS.UNITS:
                 unittype = int(strs[1])
@@ -71,6 +71,7 @@ class Game():
                 city = self.players[team].cities[cityid]
                 citytile = city.add_city_tile(x, y, cooldown)
                 self.game_map.get_cell(x, y).citytile = citytile
+                self.players[team].city_tile_count += 1;
             elif input_identifier == INPUT_CONSTANTS.CELL_COOLDOWN:
                 x = int(strs[1])
                 y = int(strs[2])

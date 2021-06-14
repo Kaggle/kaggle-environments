@@ -29,7 +29,7 @@ def simple_agent(observation, configuration):
     for y in range(height):
         for x in range(width):
             cell = game_state.game_map.get_cell(x, y)
-            if cell.resource is not None:
+            if cell.has_resource():
                 resource_tiles.append(cell)
 
 

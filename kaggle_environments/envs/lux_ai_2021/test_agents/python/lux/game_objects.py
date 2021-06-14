@@ -9,6 +9,7 @@ class Player():
         self.research_points = 0
         self.units: list[Unit] = []
         self.cities: Dict[str, City] = {}
+        self.city_tile_count = 0
     def researched_coal(self):
         return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
     def researched_uanium(self):

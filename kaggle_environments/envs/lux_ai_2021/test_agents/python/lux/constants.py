@@ -12,6 +12,7 @@ class Constants:
         WEST = "w"
         SOUTH = "s"
         EAST = "e"
+        CENTER = "c"
     class UNIT_TYPES:
         WORKER = 0
         CART = 1

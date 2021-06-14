@@ -67,6 +67,8 @@ class Position:
             return Position(self.x, self.y + units)
         elif direction == DIRECTIONS.WEST:
             return Position(self.x - units, self.y)
+        elif direction == DIRECTIONS.CENTER:
+            return Position(self.x, self.y)
 
     def distance_to(self, pos):
         """
@@ -87,7 +89,7 @@ class Position:
             DIRECTIONS.WEST,
         ]
         closest_dist = self.distance_to(target_pos)
-        closest_dir = None
+        closest_dir = DIRECTIONS.CENTER
         for direction in check_dirs:
             newpos = self.translate(direction, 1)
             dist = target_pos.distance_to(newpos)
