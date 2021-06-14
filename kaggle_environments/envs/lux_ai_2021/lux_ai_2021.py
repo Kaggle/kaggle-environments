@@ -23,7 +23,7 @@ def interpreter(state, env):
     ### 1.1: Initialize dimensions in the background within the orchestrator if we haven't already ###
     if dimension_process is None:
         # dimension_process = Popen(["ts-node", "-P", path.abspath(path.join(dir_path, "dimensions/tsconfig.json")), path.abspath(path.join(dir_path, "dimensions/run.ts"))], stdin=PIPE, stdout=PIPE)
-        dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/lib/run.js"))], stdin=PIPE, stdout=PIPE)
+        dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/main.js"))], stdin=PIPE, stdout=PIPE)
         atexit.register(cleanup_dimensions)
 
     ### TODO: check if process is still running, handle failure cases here
