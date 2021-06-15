@@ -4,12 +4,6 @@ FROM gcr.io/kaggle-images/python:latest
 
 # NODE
 
-# update the repository sources list
-# and install dependencies
-RUN apt-get update \
-    && apt-get install -y curl \
-    && apt-get -y autoclean
-
 # nvm environment variables
 ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 14.16.0
@@ -31,10 +25,6 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 # confirm installation
 RUN node -v
 RUN npm -v
-
-RUN npm install -g yarn typescript
-
-RUN tsc -v
 
 # END NODE
 
