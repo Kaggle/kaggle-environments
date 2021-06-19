@@ -69,7 +69,7 @@ class Game():
                 y = int(strs[4])
                 cooldown = float(strs[5])
                 city = self.players[team].cities[cityid]
-                citytile = city.add_city_tile(x, y, cooldown)
+                citytile = city._add_city_tile(x, y, cooldown)
                 self.game_map.get_cell(x, y).citytile = citytile
                 self.players[team].city_tile_count += 1;
             elif input_identifier == INPUT_CONSTANTS.CELL_COOLDOWN:

@@ -22,7 +22,7 @@ class City:
         self.fuel = fuel;
         self.citytiles: list[CityTile] = [];
         self.light_upkeep = light_upkeep;
-    def add_city_tile(self, x, y, cooldown):
+    def _add_city_tile(self, x, y, cooldown):
         ct = CityTile(self.team, self.cityid, x, y, cooldown)
         self.citytiles.append(ct)
         return ct;
@@ -39,7 +39,7 @@ class CityTile:
         """
         Whether or not this unit can research or build
         """
-        return self.cooldown == 0
+        return self.cooldown < 1
     def research(self):
         """
         returns command to ask this tile to research this turn
@@ -98,7 +98,7 @@ class Unit:
         whether or not the unit can build where it is right now
         """
         cell = game_map.get_cell_by_pos(self.pos)
-        if not cell.has_resource():
+        if not cell.has_resource() and self.cooldown < 1:
             return True
         return False
 
@@ -106,7 +106,7 @@ class Unit:
         """
         whether or not the unit can move or not. This does not check for potential collisions into other units or enemy cities
         """
-        return self.cooldown == 0
+        return self.cooldown < 1
 
     def move(self, dir):
         """
@@ -114,11 +114,11 @@ class Unit:
         """
         return "m {} {}".format(self.id, dir)
 
-    def transfer(self, src_id, dest_id, resourceType, amount):
+    def transfer(self, dest_id, resourceType, amount):
         """
         return the command to transfer a resource from a source unit to a destination unit as specified by their ids
         """
-        return "t {} {} {} {}".format(src_id, dest_id, resourceType, amount)
+        return "t {} {} {} {}".format(self.id, dest_id, resourceType, amount)
 
     def build_city(self):
         """
