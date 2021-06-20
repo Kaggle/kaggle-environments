@@ -6,10 +6,10 @@
   "agents": [2],
   "configuration": {
     "episodeSteps": {
-      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 201 steps",
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 361 steps",
       "type": "integer",
       "minimum": 2,
-      "default": 202
+      "default": 362
     },
     "parameters": {
       "description": "Parameters for Lux AI 2021",

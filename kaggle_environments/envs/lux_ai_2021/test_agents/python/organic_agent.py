@@ -1,9 +1,7 @@
-import sys
-import random
 from .lux.game import Game
-from .lux.game_map import Cell, Position
+from .lux.game_map import Cell
 from .lux.constants import Constants
-from kaggle_environments.envs.lux_ai_2021.test_agents.python.lux import game_map
+from .lux.game_constants import GAME_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 
@@ -32,16 +30,17 @@ def organic_agent(observation, configuration):
             cell = game_map.get_cell(x, y)
             if cell.has_resource():
                 resource_tiles.append(cell)
-
-    # loop over entire map and find closest resources to city center
     
     cities_to_build = 0
     for k, city in player.cities.items():
-        if (city.get_light_upkeep() < city.fuel + 200):
+        if (city.fuel > city.get_light_upkeep() * GAME_CONSTANTS["PARAMETERS"]["NIGHT_LENGTH"]):
             cities_to_build += 1;
         for city_tile in city.citytiles:
-            if len(player.units) < player.city_tile_count:
-                actions.append(city_tile.build_worker())
+            if city_tile.can_act():
+                if len(player.units) < player.city_tile_count:
+                    actions.append(city_tile.build_worker())
+                else:
+                    actions.append(city_tile.research())
 
     moved_on_tiles = set()
     targeted_resources = set()
@@ -52,6 +51,10 @@ def organic_agent(observation, configuration):
                 closest_dist = 999999999
                 closest_resource_tile = None
                 for resource_tile in resource_tiles:
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal():
+                        continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uanium():
+                        continue
                     if resource_tile not in targeted_resources:
                         dist = resource_tile.pos.distance_to(unit.pos)
                         if dist < closest_dist:

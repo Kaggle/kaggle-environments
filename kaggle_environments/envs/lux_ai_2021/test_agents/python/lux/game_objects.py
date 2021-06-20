@@ -11,9 +11,9 @@ class Player():
         self.cities: Dict[str, City] = {}
         self.city_tile_count = 0
     def researched_coal(self):
-        return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
+        return self.research_points >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["COAL"]
     def researched_uanium(self):
-        return self.researchPoints >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["URANIUM"]
+        return self.research_points >= GAME_CONSTANTS["PARAMETERS"]["RESEARCH_REQUIREMENTS"]["URANIUM"]
 
 class City:
     def __init__(self, teamid, cityid, fuel, light_upkeep):
@@ -98,7 +98,7 @@ class Unit:
         whether or not the unit can build where it is right now
         """
         cell = game_map.get_cell_by_pos(self.pos)
-        if not cell.has_resource() and self.cooldown < 1:
+        if not cell.has_resource() and self.cooldown < 1 and self.cargo.wood >= GAME_CONSTANTS["PARAMETERS"]["CITY_WOOD_COST"]:
             return True
         return False
 
