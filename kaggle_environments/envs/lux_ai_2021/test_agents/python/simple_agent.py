@@ -1,5 +1,5 @@
 from .lux.game import Game
-from .lux.game_map import Cell
+from .lux.game_map import Cell, RESOURCE_TYPES
 from .lux.constants import Constants
 from .lux.game_constants import GAME_CONSTANTS
 DIRECTIONS = Constants.DIRECTIONS
@@ -50,6 +50,8 @@ def simple_agent(observation, configuration):
             if unit.get_cargo_space_left() > 0:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
                 for resource_tile in resource_tiles:
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uanium(): continue
                     dist = resource_tile.pos.distance_to(unit.pos)
                     if dist < closest_dist:
                         closest_dist = dist

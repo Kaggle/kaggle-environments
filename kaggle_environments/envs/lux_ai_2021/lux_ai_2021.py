@@ -1,4 +1,6 @@
 import json
+import math
+import random
 from os import path
 from .agents import agents as all_agents
 from subprocess import Popen, PIPE, STDOUT
@@ -30,6 +32,11 @@ def interpreter(state, env):
 
     ### 1.2: Initialize a blank state game if new episode is starting ###
     if env.done:
+        if "seed" in env.configuration:
+            seed = env.configuration["seed"]
+        else:
+            seed = math.floor(random.random() * 1e9);
+            env.configuration["seed"] = seed
         initiate = {
             "type": "start",
             "agent_names": [], # unsure if this is provided?

@@ -18,7 +18,7 @@
     "mapType": {
       "description": "Map type to use",
       "type": "string",
-      "default": "debug"
+      "default": "random"
     },
     "seed": {
       "description": "Seed to use for episodes",

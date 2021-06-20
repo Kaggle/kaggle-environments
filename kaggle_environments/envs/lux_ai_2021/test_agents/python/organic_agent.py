@@ -51,10 +51,8 @@ def organic_agent(observation, configuration):
                 closest_dist = 999999999
                 closest_resource_tile = None
                 for resource_tile in resource_tiles:
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal():
-                        continue
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uanium():
-                        continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uanium(): continue
                     if resource_tile not in targeted_resources:
                         dist = resource_tile.pos.distance_to(unit.pos)
                         if dist < closest_dist:
