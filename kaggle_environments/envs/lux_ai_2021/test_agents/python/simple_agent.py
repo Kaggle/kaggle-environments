@@ -22,18 +22,15 @@ def simple_agent(observation, configuration):
 
     ### AI Code goes down here! ### 
     player = game_state.players[observation.player]
-    
-    width, height = game_state.game_map.width, game_state.game_map.height
+    opponent = game_state.players[(observation.player + 1) % 2]
+    width, height = game_state.map.width, game_state.map.height
 
     resource_tiles: list[Cell] = []
     for y in range(height):
         for x in range(width):
-            cell = game_state.game_map.get_cell(x, y)
+            cell = game_state.map.get_cell(x, y)
             if cell.has_resource():
                 resource_tiles.append(cell)
-
-
-
 
     # loop over entire map and find closest resources to city center
     
@@ -69,7 +66,7 @@ def simple_agent(observation, configuration):
                         move_dir = unit.pos.direction_to(closest_city_tile.pos)
                         # print(game_state.turn, "Can build", unit.can_build(game_state.game_map))
                         # print(game_state.game_map.get_cell(14, 2).resource.amount)
-                        if cities_to_build > 0 and unit.pos.is_adjacent(closest_city_tile.pos) and unit.can_build(game_state.game_map):
+                        if cities_to_build > 0 and unit.pos.is_adjacent(closest_city_tile.pos) and unit.can_build(game_state.map):
                             actions.append(unit.build_city())        
                         else:
                             actions.append(unit.move(move_dir))

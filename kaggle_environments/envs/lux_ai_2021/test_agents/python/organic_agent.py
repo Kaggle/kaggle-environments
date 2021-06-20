@@ -22,7 +22,8 @@ def organic_agent(observation, configuration):
 
     ### AI Code goes down here! ### 
     player = game_state.players[observation.player]
-    game_map = game_state.game_map
+    opponent = game_state.players[(observation.player + 1) % 2]
+    game_map = game_state.map
     width, height = game_map.width, game_map.height
 
     resource_tiles: list[Cell] = []

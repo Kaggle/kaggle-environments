@@ -15,7 +15,7 @@ class Cell:
         self.pos = Position(x, y)
         self.resource: Resource = None
         self.citytile = None
-        self.cooldown = 1
+        self.cooldown = 0
     def has_resource(self):
         return self.resource is not None and self.resource.amount > 0
 

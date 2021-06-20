@@ -16,20 +16,25 @@ class Game():
         mapInfo = messages[1].split(" ")
         self.map_width = int(mapInfo[0])
         self.map_height = int(mapInfo[1])
-        self.game_map = GameMap(self.map_width, self.map_height)
+        self.map = GameMap(self.map_width, self.map_height)
         self.players = [Player(0), Player(1)]
     def _end_turn(self):
         print("D_FINISH")
+    def _reset_player_states(self):
+        self.players[0].units = []
+        self.players[0].cities = {}
+        self.players[0].city_tile_count = 0
+        self.players[1].units = []
+        self.players[1].cities = {}
+        self.players[1].city_tile_count = 0
     def _update(self, messages):
         """
         update state
         """
-        self.game_map = GameMap(self.map_width, self.map_height)
+        self.map = GameMap(self.map_width, self.map_height)
         self.turn += 1
-        self.players[0].units = []
-        self.players[0].cities = {}
-        self.players[1].units = []
-        self.players[1].cities = {}
+        self._reset_player_states()
+        
 
         for update in messages:
             if update == "D_DONE":
@@ -44,7 +49,7 @@ class Game():
                 x = int(strs[2])
                 y = int(strs[3])
                 amt = int(float(strs[4]))
-                self.game_map._setResource(r_type, x, y, amt)
+                self.map._setResource(r_type, x, y, amt)
             elif input_identifier == INPUT_CONSTANTS.UNITS:
                 unittype = int(strs[1])
                 team = int(strs[2])
@@ -70,12 +75,12 @@ class Game():
                 cooldown = float(strs[5])
                 city = self.players[team].cities[cityid]
                 citytile = city._add_city_tile(x, y, cooldown)
-                self.game_map.get_cell(x, y).citytile = citytile
+                self.map.get_cell(x, y).citytile = citytile
                 self.players[team].city_tile_count += 1;
             elif input_identifier == INPUT_CONSTANTS.CELL_COOLDOWN:
                 x = int(strs[1])
                 y = int(strs[2])
                 cooldown = float(strs[3])
-                self.game_map.get_cell(x, y).cooldown = cooldown
+                self.map.get_cell(x, y).cooldown = cooldown
                 
 
