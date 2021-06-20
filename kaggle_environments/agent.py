@@ -104,8 +104,9 @@ def build_agent(raw, builtin_agents, environment_name):
         return UrlAgent(raw, environment_name), True
 
     # A path exists and attempt to grab the source (fallback to the original string).
+    raw_agent = raw
     if os.path.exists(raw):
-        raw = read_file(raw, raw)
+        raw_agent = read_file(raw, raw)
 
     # Attempt to execute the last callable or just return the string.
     agent = None
@@ -113,8 +114,8 @@ def build_agent(raw, builtin_agents, environment_name):
     def callable_agent(observation, configuration):
         nonlocal agent
         if agent is None:
-            agent = get_last_callable(raw) or raw
-
+            agent = get_last_callable(raw_agent) or raw_agent
+        configuration["__raw_path__"] = raw
         args = [observation, configuration]
         args = args[:agent.__code__.co_argcount]
 
