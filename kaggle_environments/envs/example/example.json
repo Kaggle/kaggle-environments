@@ -1,0 +1,74 @@
+{
+  "name": "example",
+  "title": "Kaggle Example Environment",
+  "description": "Kaggle Example Environment",
+  "version": "1.0.0",
+  "agents": [2, 3, 4, 5, 6, 7, 8],
+  "configuration": {
+    "episodeSteps": 2000,
+    "actTimeout": 0.25,
+    "banditCount": {
+      "description": "Number of bandits available to choose from. Max action is this number -1.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 100
+    },
+    "decayRate": {
+      "description": "Rate that reward chance threshold increases per step that a bandit is chosen by an agent.",
+      "type": "number",
+      "minimum": 0,
+      "default": 0.97
+    },
+    "sampleResolution": {
+      "description": "Maximum value that can be returned by a bandit.",
+      "type": "integer",
+      "minimum": 1,
+      "default": 100
+    }
+  },
+  "reward": {
+    "description": "The total reward each player has accumulated from the bandits across all steps.",
+    "type": "number",
+    "minimum": 0,
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "agentIndex": {
+      "description": "The current agent's index within observation.lastActions.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3, 4, 5, 6, 7]
+    },
+    "reward": {
+      "description": "Current reward of the agent.",
+      "type": "number",
+      "minimum": 0,
+      "default": 0
+    },
+    "lastActions": {
+      "description": "Bandits chosen by each agent on the last step. None on the first step.",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "default": []
+    },
+    "thresholds": {
+      "description": "Probability values for each machine payout on this step. Hidden from agents at runtime.",
+      "type": "array",
+      "shared": true,
+      "hidden": true,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
+    }
+  },
+  "action": {
+    "description": "Choice of bandit for the step (min bandit = 0, max bandit = configuration.banditCount - 1)",
+    "type": "integer",
+    "minimum": 0
+  }
+}

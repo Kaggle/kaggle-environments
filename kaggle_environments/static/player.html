@@ -140,7 +140,6 @@
                 ? Math.min((Date.now() - start) / speed, 1)
                 : 1;
             try {
-              if (debug) console.time("render");
               await renderer({
                 ...context,
                 frame,
@@ -154,8 +153,6 @@
             } catch (error) {
               if (debug) console.error(error);
               console.log({ ...context, frame, error });
-            } finally {
-              if (debug) console.timeEnd("render");
             }
             window.requestAnimationFrame(() => renderFrame(start, step, frame));
           };
@@ -229,17 +226,19 @@
 
         const agentPairs = groupIntoSets(agents.sort((a, b) => a.index - b.index), 2);
 
-        return h`<div className=${props.className}>
-          ${agentPairs.map(agentList =>
-            h`<ul>
-                ${agentList.map(a =>
-                  h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
-                      ${a.image && h`<img src=${a.image} />`}
-                      <span>${a.name}</span>
-                    </li>`
-                )}
-              </ul>`)}
-        </div>`;
+        return agentPairs.length > 0
+            ? h`<div className=${props.className}>
+                  ${agentPairs.map(agentList =>
+                    h`<ul>
+                        ${agentList.map(a =>
+                          h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
+                              ${a.image && h`<img src=${a.image} />`}
+                              <span>${a.name}</span>
+                            </li>`
+                        )}
+                      </ul>`)}
+                </div>`
+            : null;
       })`
         background-color: #000b2a;
         font-family: sans-serif;
@@ -605,10 +604,6 @@
             );
           }, 1);
         }, []);
-
-        if (contextRef.current.debug) {
-          console.log("context", contextRef.current);
-        }
 
         // Ability to update context.
         contextRef.current.update = updateContext;
