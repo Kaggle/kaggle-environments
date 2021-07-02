@@ -2,14 +2,14 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
-      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 361 steps",
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 360 steps",
       "type": "integer",
       "minimum": 2,
-      "default": 362
+      "default": 361
     },
     "parameters": {
       "description": "Parameters for Lux AI 2021",
