@@ -92,19 +92,7 @@ def interpreter(state, env):
 
 
 def renderer(state, env):
-    sign_names = ["Rock", "Paper", "Scissors", "Spock", "Lizard"]
-    rounds_played = len(env.steps)
-    board = ""
-
-    # This line prints results each round, good for debugging
-    for i in range(1, rounds_played):
-        step = env.steps[i]
-        right_move = step[0].observation.lastOpponentAction
-        left_move = step[1].observation.lastOpponentAction
-        board += f"Round {i}: {sign_names[left_move]} vs {sign_names[right_move]}, Score: {step[0].reward} to {step[1].reward}\n"
-
-    board += f"Game ended on round {rounds_played - 1}, final score: {state[0].reward} to {state[0].reward}\n"
-    return board
+    raise NotImplementedError("To render the replay, please set the render mode to json or html")
 
 
 dir_path = path.dirname(__file__)
