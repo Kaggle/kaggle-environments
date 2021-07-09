@@ -3,6 +3,7 @@ const GAME_CONSTANTS = require('./lux/game_constants');
 const DIRECTIONS = GAME_CONSTANTS.DIRECTIONS;
 // create a new agent
 const agent = new kit.Agent();
+const annotate = kit.annotate;
 
 // first initialize the agent, and then proceed to go in a loop waiting for updates and running the AI
 agent.initialize().then(async () => {
@@ -38,8 +39,8 @@ agent.initialize().then(async () => {
       city.citytiles.forEach((citytile) => {
         if (citytile.canAct()) {   
           // you can use the following to get the citytile to research or build a worker
-          // commands.push(citytile.research());
-          // commands.push(citytile.buildWorker());
+          // actions.push(citytile.research());
+          // actions.push(citytile.buildWorker());
         }
       });
     });
@@ -47,7 +48,7 @@ agent.initialize().then(async () => {
     // we iterate over all our units and do something with them
     for (let i = 0; i < player.units.length; i++) {
       const unit = player.units[i];
-      if (unit.isWorker()) {
+      if (unit.isWorker() && unit.canAct()) {
         if (unit.getCargoSpaceLeft() > 0) {
           // if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
           let closestResourceTile = null;
@@ -93,6 +94,10 @@ agent.initialize().then(async () => {
         }
       }
     }
+
+    // you can add debug annotations using the functions in the annotate object
+    // actions.push(annotate.circle(0, 0))
+    
     /** AI Code Goes Above! **/
 
     /** Do not edit! **/

@@ -27,17 +27,15 @@
     "actTimeout": 1
   },
   "reward": {
-    "description": "number of cities you own on the board",
+    "description": "Reward of the agent. Equal to number of city tiles * 1000 + number of units",
     "type": "integer",
     "default": 0
   },
   "observation": {
     "remainingOverageTime": 60,
     "reward": {
-      "description": "Current reward of the agent.",
+      "description": "Current reward of the agent. Equal to number of city tiles * 1000 + number of units",
       "type": "integer",
-      "minimum": -9999,
-      "maximum": 9999,
       "default": 0
     },
     "updates": {

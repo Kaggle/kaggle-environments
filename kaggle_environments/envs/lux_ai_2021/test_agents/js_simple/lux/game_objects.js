@@ -55,7 +55,7 @@ class CityTile {
   }
   /** Whether or not this unit can research or build */
   canAct() {
-    return this.cooldown === 0;
+    return this.cooldown < 1;
   }
   /** returns command to ask this tile to research this turn */
   research() {
@@ -104,15 +104,15 @@ class Unit {
   /** whether or not the unit can build where it is right now */
   canBuild(gameMap) {
     let cell = gameMap.getCellByPos(this.pos);
-    if (!cell.hasResource() && this.cooldown < 1 && this.cargo.wood >= GAME_CONSTANTS.PARAMETERS.CITY_WOOD_COST) {
+    if (!cell.hasResource() && this.canAct() && this.cargo.wood >= GAME_CONSTANTS.PARAMETERS.CITY_WOOD_COST) {
       return true;
     }
     return false;
   }
 
-  /** whether or not the unit can move or not. This does not check for potential collisions into other units or enemy cities */
-  canMove() {
-    return this.cooldown === 0;
+  /** whether or not the unit can act or not. This does not check for potential collisions into other units or enemy cities */
+  canAct() {
+    return this.cooldown < 1;
   }
 
   /** return the command to move unit in the given direction */
@@ -121,16 +121,9 @@ class Unit {
   }
 
   /** return the command to transfer a resource from a source unit to a destination unit as specified by their ids or the units themselves */
-  transfer(srcUnit, destUnit, resourceType, amount) {
-    let srcID = srcUnit;
-    let destID = destUnit;
-    if (typeof srcID !== "string") {
-      srcID = srcID.id;
-    }
-    if (typeof destID !== "string") {
-      destID = destID.id;
-    }
-    return `t ${srcID} ${destID} ${resourceType} ${amount}`;
+  transfer(destUnit, resourceType, amount) {
+    let destID = typeof destUnit === "string" ? destUnit : destUnit.id;
+    return `t ${this.id} ${destID} ${resourceType} ${amount}`;
   }
 
   /** return the command to build a city right under the worker */

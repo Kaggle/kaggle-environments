@@ -79,8 +79,9 @@ def interpreter(state, env):
 
     ### 3.3 : handle rewards
     # reward here is defined as the sum of number of city tiles
-    player1.reward = sum([len(v.citytiles) for k, v in game_state.players[0].cities.items()])
-    player2.reward = sum([len(v.citytiles) for k, v in game_state.players[1].cities.items()])
+    
+    player1.reward = compute_reward(game_state.players[0])
+    player2.reward = compute_reward(game_state.players[1])
     player1.observation.reward = int(player1.reward)
     player2.observation.reward = int(player2.reward)
 
@@ -90,6 +91,11 @@ def interpreter(state, env):
         player2.status = "DONE"
     return state
 
+def compute_reward(player):
+    ct_count = sum([len(v.citytiles) for k, v in player.cities.items()])
+    unit_count = len(game_state.players[0].units)
+    # max board size is 32 x 32 => 1024 max city tiles and units, so this should keep it strictly so we break by city tiles then unit count
+    return ct_count * 1000 + unit_count
 
 def renderer(state, env):
     raise NotImplementedError("To render the replay, please set the render mode to json or html")
