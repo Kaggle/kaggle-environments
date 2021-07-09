@@ -34,15 +34,21 @@ def is_url(url):
         return False
 
 
-def get_last_callable(raw, fallback=None):
+def get_last_callable(raw, fallback=None, path=None):
     orig_out = sys.stdout
     buffer = StringIO()
     sys.stdout = buffer
 
     try:
-        code_object = compile(raw, "<string>", "exec")
+        code_object = compile(raw, path, "exec")
         env = {}
+
+        # append exec_dir so that way python agents can import other files
+        exec_dir = os.path.dirname(path)
+        sys.path.append(exec_dir)
+        
         exec(code_object, env)
+        sys.path.pop()
         sys.stdout = orig_out
         output = buffer.getvalue()
         if output:
@@ -104,8 +110,9 @@ def build_agent(raw, builtin_agents, environment_name):
         return UrlAgent(raw, environment_name), True
 
     # A path exists and attempt to grab the source (fallback to the original string).
+    raw_agent = raw
     if os.path.exists(raw):
-        raw = read_file(raw, raw)
+        raw_agent = read_file(raw, raw)
 
     # Attempt to execute the last callable or just return the string.
     agent = None
@@ -113,11 +120,10 @@ def build_agent(raw, builtin_agents, environment_name):
     def callable_agent(observation, configuration):
         nonlocal agent
         if agent is None:
-            agent = get_last_callable(raw) or raw
-
+            agent = get_last_callable(raw_agent, path=raw) or raw_agent
+        configuration["__raw_path__"] = raw
         args = [observation, configuration]
         args = args[:agent.__code__.co_argcount]
-
         return \
             agent(*args) \
             if callable(agent) \
