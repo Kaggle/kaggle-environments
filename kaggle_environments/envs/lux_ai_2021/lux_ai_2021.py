@@ -30,7 +30,7 @@ def interpreter(state, env):
         except FileNotFoundError:
             import warnings
             warnings.warn("Node not installed")
-            return
+            return state
         atexit.register(cleanup_dimensions)
 
     ### TODO: check if process is still running, handle failure cases here
