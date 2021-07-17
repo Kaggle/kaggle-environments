@@ -59,7 +59,7 @@ def agent(observation, configuration):
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
                 for resource_tile in resource_tiles:
                     if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uanium(): continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
                     dist = resource_tile.pos.distance_to(unit.pos)
                     if dist < closest_dist:
                         closest_dist = dist
