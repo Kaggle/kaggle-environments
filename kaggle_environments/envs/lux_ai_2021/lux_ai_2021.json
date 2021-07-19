@@ -2,7 +2,7 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -34,7 +34,7 @@
   "observation": {
     "remainingOverageTime": 60,
     "reward": {
-      "description": "Current reward of the agent. Equal to number of city tiles * 1000 + number of units",
+      "description": "Current reward of the agent. Equal to number of city tiles * 10000 + number of units",
       "type": "integer",
       "default": 0
     },
