@@ -2,7 +2,7 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -41,6 +41,7 @@
     "updates": {
       "description": "List of update strings for agents to use and generate the observed state",
       "type": "array",
+      "shared": true,
       "items": {
         "type": "string"
       }
