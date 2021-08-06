@@ -33,6 +33,18 @@
   },
   "observation": {
     "remainingOverageTime": 60,
+    "width": {
+      "description": "The height of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 12
+    },
+    "height": {
+      "description": "The width of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 12
+    },
     "reward": {
       "description": "Current reward of the agent. Equal to number of city tiles * 10000 + number of units",
       "type": "integer",
