@@ -2,7 +2,7 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -33,6 +33,18 @@
   },
   "observation": {
     "remainingOverageTime": 60,
+    "width": {
+      "description": "The height of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 12
+    },
+    "height": {
+      "description": "The width of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 12
+    },
     "reward": {
       "description": "Current reward of the agent. Equal to number of city tiles * 10000 + number of units",
       "type": "integer",
@@ -41,9 +53,22 @@
     "updates": {
       "description": "List of update strings for agents to use and generate the observed state",
       "type": "array",
+      "shared": true,
       "items": {
         "type": "string"
       }
+    },
+    "globalUnitIDCount": {
+      "description": "Used purely to ensure state is the exact same including generated IDs",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "globalCityIDCount": {
+      "description": "Used purely to ensure state is the exact same including generated IDs",
+      "type": "integer",
+      "shared": true,
+      "default": 0
     },
     "player": {
       "description": "Current player's index / team id",

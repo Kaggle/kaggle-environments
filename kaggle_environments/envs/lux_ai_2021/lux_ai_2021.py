@@ -51,11 +51,16 @@ def interpreter(state, env):
         dimension_process.stdin.flush()
         agent1res = json.loads(dimension_process.stdout.readline())
         agent2res = json.loads(dimension_process.stdout.readline())
+        match_obs_meta = json.loads(dimension_process.stdout.readline())
         
         player1.observation.player = 0
         player2.observation.player = 1
         player1.observation.updates = agent1res
-        player2.observation.updates = agent2res
+        # player2.observation.updates = agent2res # duplicated and not added
+        player1.observation.globalCityIDCount = match_obs_meta["globalCityIDCount"]
+        player1.observation.globalUnitIDCount = match_obs_meta["globalUnitIDCount"]
+        player1.observation.width = match_obs_meta["width"]
+        player1.observation.height = match_obs_meta["height"]
 
         game_state = Game()
         game_state._initialize(agent1res)
@@ -72,12 +77,19 @@ def interpreter(state, env):
     agent2res = json.loads(dimension_process.stdout.readline())
     game_state._update(agent1res)
 
+    # receive meta info such as global ID and map sizes for purposes of being able to start from specific state
+    match_obs_meta = json.loads(dimension_process.stdout.readline())
     match_status = json.loads(dimension_process.stdout.readline())
 
     ### 3.2 : Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
     player1.observation.updates = agent1res
-    player2.observation.updates = agent2res
+
+    player1.observation.globalCityIDCount = match_obs_meta["globalCityIDCount"]
+    player1.observation.globalUnitIDCount = match_obs_meta["globalUnitIDCount"]
+    player1.observation.width = match_obs_meta["width"]
+    player1.observation.height = match_obs_meta["height"]
+    # player2.observation.updates = agent2res # duplicated and not added
 
     player1.observation.player = 0
     player2.observation.player = 1
