@@ -46,6 +46,18 @@
         "type": "string"
       }
     },
+    "globalUnitIDCount": {
+      "description": "Used purely to ensure state is the exact same including generated IDs",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
+    "globalCityIDCount": {
+      "description": "Used purely to ensure state is the exact same including generated IDs",
+      "type": "integer",
+      "shared": true,
+      "default": 0
+    },
     "player": {
       "description": "Current player's index / team id",
       "type": "integer",

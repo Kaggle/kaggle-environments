@@ -78,6 +78,9 @@ def interpreter(state, env):
     ### 3.2 : Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
     player1.observation.updates = agent1res
+
+    player1.observation.globalCityIDCount = match_status["globalCityIDCount"]
+    player1.observation.globalUnitIDCount = match_status["globalUnitIDCount"]
     # player2.observation.updates = agent2res # duplicated and not added
 
     player1.observation.player = 0
