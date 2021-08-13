@@ -2,7 +2,7 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -24,7 +24,12 @@
       "description": "Seed to use for episodes",
       "type": "integer"
     },
-    "actTimeout": 1
+    "actTimeout": 1,
+    "loglevel": {
+      "description": "Logging level of the game. 2 for warnings (e.g unit collisions, malformed actions), 1 for errors, 0 for none",
+      "type": "integer",
+      "default": 0
+    }
   },
   "reward": {
     "description": "Reward of the agent. Equal to number of city tiles * 1000 + number of units",

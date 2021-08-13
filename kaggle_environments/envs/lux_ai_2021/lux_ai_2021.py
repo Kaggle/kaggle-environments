@@ -1,24 +1,29 @@
 import json
 import math
 import random
+import sys
 from os import path
 from .agents import agents as all_agents
-from subprocess import Popen, PIPE, STDOUT
-import time
-import sys
+from subprocess import Popen, PIPE
 import atexit
 from .test_agents.python.lux.game import Game
+from threading import Thread
+from queue import Queue, Empty
 
-
+t = None
+q = None
 dimension_process = None
 game_state = Game()
 def cleanup_dimensions():
     global dimension_process
     if dimension_process is not None:
         dimension_process.kill()
-
+def enqueue_output(out, queue):
+    for line in iter(out.readline, b''):
+        queue.put(line)
+    out.close()
 def interpreter(state, env):
-    global dimension_process, game_state
+    global dimension_process, game_state, t, q
     player1 = state[0]
     player2 = state[1]
 
@@ -26,11 +31,17 @@ def interpreter(state, env):
     if dimension_process is None:
         # dimension_process = Popen(["ts-node", "-P", path.abspath(path.join(dir_path, "dimensions/tsconfig.json")), path.abspath(path.join(dir_path, "dimensions/run.ts"))], stdin=PIPE, stdout=PIPE)
         try:
-            dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/main.js"))], stdin=PIPE, stdout=PIPE)
+            dimension_process = Popen(["node", path.abspath(path.join(dir_path, "dimensions/main.js"))], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         except FileNotFoundError:
             import warnings
             warnings.warn("Node not installed")
             return state
+
+        # following 4 lines from https://stackoverflow.com/questions/375427/a-non-blocking-read-on-a-subprocess-pipe-in-python
+        q = Queue()
+        t = Thread(target=enqueue_output, args=(dimension_process.stdout, q))
+        t.daemon = True # thread dies with the program
+        t.start()
         atexit.register(cleanup_dimensions)
 
     ### TODO: check if process is still running, handle failure cases here
@@ -42,6 +53,11 @@ def interpreter(state, env):
         else:
             seed = math.floor(random.random() * 1e9);
             env.configuration["seed"] = seed
+        if "loglevel" in env.configuration:
+            loglevel = env.configuration["loglevel"]
+        else:
+            loglevel = 2 # warnings, 1: errors, 0: none
+            env.configuration["loglevel"] = loglevel
         initiate = {
             "type": "start",
             "agent_names": [], # unsure if this is provided?
@@ -49,9 +65,9 @@ def interpreter(state, env):
         }
         dimension_process.stdin.write((json.dumps(initiate) + "\n").encode())
         dimension_process.stdin.flush()
-        agent1res = json.loads(dimension_process.stdout.readline())
-        agent2res = json.loads(dimension_process.stdout.readline())
-        match_obs_meta = json.loads(dimension_process.stdout.readline())
+        agent1res = json.loads(dimension_process.stderr.readline())
+        agent2res = json.loads(dimension_process.stderr.readline())
+        match_obs_meta = json.loads(dimension_process.stderr.readline())
         
         player1.observation.player = 0
         player2.observation.player = 1
@@ -73,13 +89,22 @@ def interpreter(state, env):
 
 
     ### 3.1 : Receive and parse the observations returned by dimensions via stdout
-    agent1res = json.loads(dimension_process.stdout.readline())
-    agent2res = json.loads(dimension_process.stdout.readline())
+    agent1res = json.loads(dimension_process.stderr.readline())
+    agent2res = json.loads(dimension_process.stderr.readline())
     game_state._update(agent1res)
 
     # receive meta info such as global ID and map sizes for purposes of being able to start from specific state
-    match_obs_meta = json.loads(dimension_process.stdout.readline())
-    match_status = json.loads(dimension_process.stdout.readline())
+    match_obs_meta = json.loads(dimension_process.stderr.readline())
+    match_status = json.loads(dimension_process.stderr.readline())
+
+    while True:
+        try:  line = q.get_nowait()
+        except Empty:
+            # no standard error received, break
+            break
+        else:
+            # standard error output received, print it out
+            print(line.decode(), file=sys.stderr, end='')
 
     ### 3.2 : Send observations to each agent through here. Like dimensions, first observation can include initialization stuff, then we do the looping
 
