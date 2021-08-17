@@ -44,8 +44,9 @@ def interpreter(state, env):
         t.start()
         atexit.register(cleanup_dimensions)
 
-    ### TODO: check if process is still running, handle failure cases here
-
+    # filter out actions such as debug annotations so they aren't saved
+    filter_actions(state, env)
+    
     ### 1.2: Initialize a blank state game if new episode is starting ###
     if env.done:
         if "seed" in env.configuration:
@@ -56,8 +57,13 @@ def interpreter(state, env):
         if "loglevel" in env.configuration:
             loglevel = env.configuration["loglevel"]
         else:
-            loglevel = 2 # warnings, 1: errors, 0: none
+            loglevel = 0 # warnings, 1: errors, 0: none
             env.configuration["loglevel"] = loglevel
+        if "annotations" in env.configuration:
+            annotations = env.configuration["annotations"]
+        else:
+            annotations = False # warnings, 1: errors, 0: none
+            env.configuration["annotations"] = annotations
         initiate = {
             "type": "start",
             "agent_names": [], # unsure if this is provided?
@@ -72,6 +78,7 @@ def interpreter(state, env):
         player1.observation.player = 0
         player2.observation.player = 1
         player1.observation.updates = agent1res
+        
         # player2.observation.updates = agent2res # duplicated and not added
         player1.observation.globalCityIDCount = match_obs_meta["globalCityIDCount"]
         player1.observation.globalUnitIDCount = match_obs_meta["globalUnitIDCount"]
@@ -82,6 +89,7 @@ def interpreter(state, env):
         game_state._initialize(agent1res)
 
         return state
+
     
     ### 2. : Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
     dimension_process.stdin.write((json.dumps(state) + "\n").encode())
@@ -131,6 +139,17 @@ def interpreter(state, env):
         player1.status = "DONE"
         player2.status = "DONE"
     return state
+
+def filter_actions(state, env):
+    enable_annotations = env.configuration["annotations"]
+    if not enable_annotations:
+        for team in range(len(state)):
+            filtered = []
+            for l in state[team].action:
+                if len(l) > 0 and l[0] != "d":
+                    filtered.append(l)
+            state[team].action = filtered
+        
 
 def compute_reward(player):
     ct_count = sum([len(v.citytiles) for k, v in player.cities.items()])
