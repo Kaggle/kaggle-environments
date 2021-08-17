@@ -24,6 +24,11 @@
       "description": "Seed to use for episodes",
       "type": "integer"
     },
+    "annotations": {
+      "description": "Whether to enable debug annotations or not.",
+      "type": "boolean",
+      "default": false
+    },
     "actTimeout": 1,
     "loglevel": {
       "description": "Logging level of the game. 2 for warnings (e.g unit collisions, malformed actions), 1 for errors, 0 for none",
