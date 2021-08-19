@@ -26,7 +26,10 @@ def js_agent(observation, configuration):
     agent_process = agent_processes[observation.player]
     ### Do not edit ###
     if agent_process is None:
-        cwd = os.path.dirname(configuration["__raw_path__"])
+        if "__raw_path__" in configuration:
+            cwd = os.path.dirname(configuration["__raw_path__"])
+        else:
+            cwd = os.path.dirname(__file__)
         agent_process = Popen(["node", "main.js"], stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=cwd)
         agent_processes[observation.player] = agent_process
         atexit.register(cleanup_process)
@@ -36,7 +39,11 @@ def js_agent(observation, configuration):
         t = Thread(target=enqueue_output, args=(agent_process.stderr, q))
         t.daemon = True # thread dies with the program
         t.start()
-
+    if observation.step == 0:
+        # fixes bug where updates array is shared, but the first update is agent dependent actually
+        observation["updates"][0] = f"{observation.player}"
+    
+    # print observations to agent
     agent_process.stdin.write(("\n".join(observation["updates"]) + "\n").encode())
     agent_process.stdin.flush()
 
