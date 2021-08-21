@@ -14,6 +14,7 @@ t = None
 q = None
 dimension_process = None
 game_state = Game()
+prev_step = 0
 def cleanup_dimensions():
     global dimension_process
     if dimension_process is not None:
@@ -23,7 +24,7 @@ def enqueue_output(out, queue):
         queue.put(line)
     out.close()
 def interpreter(state, env):
-    global dimension_process, game_state, t, q
+    global dimension_process, game_state, t, q, prev_step
     player1 = state[0]
     player2 = state[1]
 
@@ -49,6 +50,13 @@ def interpreter(state, env):
     
     ### 1.2: Initialize a blank state game if new episode is starting ###
     if env.done:
+        # TODO: allow resetting to a specific state
+        # print("Initialize game", "steps", len(env.steps), "prev_step", prev_step)
+        # last_state = None
+        # if prev_step >= len(env.steps):
+        #     last_state = env.steps[-1]
+        # prev_step = len(env.steps)
+        # print("prev_step now", prev_step)
         if "seed" in env.configuration:
             seed = env.configuration["seed"]
         else:
@@ -81,12 +89,15 @@ def interpreter(state, env):
             "agent_names": [], # unsure if this is provided?
             "config": env.configuration
         }
+        # if last_state is not None:
+        #     initiate["state"] = last_state
         dimension_process.stdin.write((json.dumps(initiate) + "\n").encode())
         dimension_process.stdin.flush()
-        agent1res = json.loads(dimension_process.stderr.readline())
-        agent2res = json.loads(dimension_process.stderr.readline())
-        match_obs_meta = json.loads(dimension_process.stderr.readline())
-        
+
+        agent1res = get_message(dimension_process)
+        agent2res = get_message(dimension_process)
+        match_obs_meta = get_message(dimension_process)
+       
         player1.observation.player = 0
         player2.observation.player = 1
         player1.observation.updates = agent1res
@@ -101,7 +112,8 @@ def interpreter(state, env):
         game_state._initialize(agent1res)
 
         return state
-
+    # print("prev_step", prev_step, "stored steps", len(env.steps))
+    # prev_step += 1
     
     ### 2. : Pass in actions (json representation along with id of who made that action), agent information (id, status) to dimensions via stdin
     dimension_process.stdin.write((json.dumps(state) + "\n").encode())
@@ -151,6 +163,22 @@ def interpreter(state, env):
         player1.status = "DONE"
         player2.status = "DONE"
     return state
+
+def get_message(dimension_process):
+    raw = dimension_process.stderr.readline()
+    try:
+        res = json.loads(raw)
+        return res
+    except Exception as e:
+        print("Engine Exception")
+        err_stack = dimension_process.stderr.readlines(100)
+        # err_stack = [raw, *err_stack]
+        # print(err_stack)
+        for m in err_stack:
+            if len(m) < 1000: 
+                print(m.decode(), file=sys.stderr)
+            else:
+                print("...", file=sys.stderr)
 
 def filter_actions(state, env):
     enable_annotations = env.configuration["annotations"]
