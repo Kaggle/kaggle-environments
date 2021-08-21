@@ -76,7 +76,6 @@ def interpreter(state, env):
             height = -1 # -1 for randomly selected
             env.configuration["height"] = height
         
-        print(env.configuration)
         initiate = {
             "type": "start",
             "agent_names": [], # unsure if this is provided?
