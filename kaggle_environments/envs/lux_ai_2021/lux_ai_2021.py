@@ -64,6 +64,13 @@ def interpreter(state, env):
         else:
             annotations = False # warnings, 1: errors, 0: none
             env.configuration["annotations"] = annotations
+        
+        if "width" in env.configuration:
+            width = env.configuration["width"]
+        else:
+            width = -1 # -1 for randomly selected
+            env.configuration["width"] = width
+
         initiate = {
             "type": "start",
             "agent_names": [], # unsure if this is provided?
