@@ -160,8 +160,10 @@ def interpreter(state, env):
 
     ### 3.4 Handle finished match status
     if match_status["status"] == "finished":
-        player1.status = "DONE"
-        player2.status = "DONE"
+        if player1.status == "ACTIVE":
+            player1.status = "DONE"
+        if player2.status == "ACTIVE":
+            player2.status = "DONE"
     return state
 
 def get_message(dimension_process):
