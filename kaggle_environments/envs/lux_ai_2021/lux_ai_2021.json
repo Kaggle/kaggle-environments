@@ -2,7 +2,7 @@
   "name": "lux_ai_2021",
   "title": "Lux AI Challenge: 2021",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "2.2.2",
+  "version": "3.0.0",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -20,6 +20,10 @@
       "type": "string",
       "default": "random"
     },
+    "width": {
+      "description": "Width of map to generate",
+      "type": "integer"
+    },
     "seed": {
       "description": "Seed to use for episodes",
       "type": "integer"
@@ -29,7 +33,7 @@
       "type": "boolean",
       "default": false
     },
-    "actTimeout": 1,
+    "actTimeout": 3,
     "loglevel": {
       "description": "Logging level of the game. 2 for warnings (e.g unit collisions, malformed actions), 1 for errors, 0 for none",
       "type": "integer",
@@ -44,13 +48,13 @@
   "observation": {
     "remainingOverageTime": 60,
     "width": {
-      "description": "The height of the map",
+      "description": "The width of the map",
       "type": "integer",
       "shared": true,
       "default": 12
     },
     "height": {
-      "description": "The width of the map",
+      "description": "The height of the map",
       "type": "integer",
       "shared": true,
       "default": 12
