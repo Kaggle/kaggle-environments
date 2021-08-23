@@ -48,13 +48,13 @@
   "observation": {
     "remainingOverageTime": 60,
     "width": {
-      "description": "The height of the map",
+      "description": "The width of the map",
       "type": "integer",
       "shared": true,
       "default": 12
     },
     "height": {
-      "description": "The width of the map",
+      "description": "The height of the map",
       "type": "integer",
       "shared": true,
       "default": 12
