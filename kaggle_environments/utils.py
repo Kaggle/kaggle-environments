@@ -25,7 +25,9 @@ envs_path = Path.joinpath(root_path, "envs")
 
 
 # Primitive Utilities.
-def get(o, classinfo=None, default=None, path=[], is_callable=None, fallback=None):
+def get(o, classinfo=None, default=None, path=None, is_callable=None, fallback=None):
+    if path is None:
+        path = []
     if o is None and default is not None:
         o = default
     if has(o, classinfo, default, path, is_callable):
@@ -39,7 +41,9 @@ def get(o, classinfo=None, default=None, path=[], is_callable=None, fallback=Non
         return fallback
 
 
-def has(o, classinfo=None, default=None, path=[], is_callable=None):
+def has(o, classinfo=None, default=None, path=None, is_callable=None):
+    if path is None:
+        path = []
     try:
         cur = o
         for p in path:
@@ -62,7 +66,13 @@ def has(o, classinfo=None, default=None, path=[], is_callable=None):
         return False
 
 
-def call(o, default=None, path=[], args=[], kwargs={}):
+def call(o, default=None, path=None, args=None, kwargs=None):
+    if path is None:
+        path = []
+    if args is None:
+        args = []
+    if kwargs is None:
+        kwargs = {}
     o = get(o, default=False, path=path, is_callable=True)
     if o is not False:
         return o(*args, **kwargs)
