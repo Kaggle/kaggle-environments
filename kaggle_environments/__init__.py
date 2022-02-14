@@ -40,4 +40,5 @@ for name in listdir(utils.envs_path):
             "specification": getattr(env, "specification"),
         })
     except Exception as e:
-        print("Loading environment %s failed: %s" % (name, e))
+        if "football" not in name:
+            print("Loading environment %s failed: %s" % (name, e))
