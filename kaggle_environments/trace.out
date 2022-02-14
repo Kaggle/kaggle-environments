@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File \"/usr/local/google/home/bovard/.local/lib/python3.9/site-packages/kaggle_environments/agent.py\", line 50, in get_last_callable\n    exec(code_object, env)
+  File \"java/Bot.java\", line 1, in <module>\nNameError: name 'java' is not defined
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File \"/usr/local/google/home/bovard/.local/lib/python3.9/site-packages/kaggle_environments/agent.py\", line 157, in act
+    action = self.agent(*args)
+  File \"/usr/local/google/home/bovard/.local/lib/python3.9/site-packages/kaggle_environments/agent.py\", line 123, in callable_agent
+    agent = get_last_callable(raw_agent, path=raw) or raw_agent
+  File \"/usr/local/google/home/bovard/.local/lib/python3.9/site-packages/kaggle_environments/agent.py\", line 64, in get_last_callable
+    raise InvalidArgument(\"Invalid raw Python: \" + repr(e))
+  kaggle_environments.errors.InvalidArgument: Invalid raw Python: NameError(\"name 'java' is not defin"
+
