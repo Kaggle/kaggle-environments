@@ -1,0 +1,21 @@
+{
+  "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^9.1.0",
+    "chai": "^4.3.4",
+    "mocha": "^9.2.0",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.5"
+  },
+  "scripts": {
+    "test": "mocha --require ts-node/register test/**/*.ts",
+    "compile": "tsc",
+    "package": "tsc && tar -czvf submission.tar.gz main.py dist/*",
+    "watch4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
+    "watch2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
+    "watch1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
+    "play4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log --out replay.html",
+    "play2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log --out replay.html",
+    "play1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log --out replay.html"
+  }
+}
