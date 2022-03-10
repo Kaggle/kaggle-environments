@@ -139,3 +139,12 @@ temp.*
 
 # node.js files
 node_modules
+
+# Java class files
+*.class
+
+.vscode
+
+submission.tar.gz
+
+replay.html

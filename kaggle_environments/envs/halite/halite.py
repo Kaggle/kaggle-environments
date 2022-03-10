@@ -223,11 +223,11 @@ def renderer(state, env):
     for index, player in enumerate(obs.players):
         _, shipyards, ships = player
         for shipyard_pos in shipyards.values():
-            board[shipyard_pos][1] = index
+            board[int(shipyard_pos)][1] = index
         for ship in ships.values():
             ship_pos, ship_halite = ship
-            board[ship_pos][2] = index
-            board[ship_pos][3] = ship_halite
+            board[int(ship_pos)][2] = index
+            board[int(ship_pos)][3] = ship_halite
 
     col_divider = "|"
     row_divider = "+" + "+".join(["----"] * size) + "+\n"
