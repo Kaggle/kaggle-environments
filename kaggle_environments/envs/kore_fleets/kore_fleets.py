@@ -107,7 +107,7 @@ def attacker_agent(board):
         if closest_enemy_shipyard and (remaining_kore >= spawn_cost or shipyard.ship_count >= 50):
             if shipyard.ship_count >= 50:
                 flight_plan = get_shortest_flight_path_between(shipyard.position, closest_enemy_shipyard.position, size)
-                shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(50, flight_plan)
+                shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(50, flight_plan)
             elif remaining_kore >= spawn_cost:
                 shipyard.next_action = ShipyardAction.spawn_ships(min(shipyard.max_spawn, int(remaining_kore/spawn_cost)))
         elif shipyard.ship_count >= 21:
@@ -138,10 +138,10 @@ def attacker_agent(board):
                 flight_plan += gap1
             next_dir = (next_dir + 1) % 4
             flight_plan += Direction.list_directions()[next_dir].to_char()
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(21, flight_plan)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(21, flight_plan)
         elif shipyard.ship_count > 0 and len(shipyards) > 1:
             flight_plan = get_shortest_flight_path_between(shipyard.position, shipyards[(idx + 1) % len(shipyards)].position, size)
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(shipyard.ship_count, flight_plan)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(shipyard.ship_count, flight_plan)
 
 
 
@@ -166,7 +166,7 @@ def simp_agent(board):
         if closest_enemy_shipyard and (closest_enemy_shipyard.ship_count < 20 or dist_to_closest_enemy_shipyard < 15) and (remaining_kore >= spawn_cost or shipyard.ship_count >= invading_fleet_size):
             if shipyard.ship_count >= invading_fleet_size:
                 flight_plan = get_shortest_flight_path_between(shipyard.position, closest_enemy_shipyard.position, size)
-                shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(invading_fleet_size, flight_plan)
+                shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(invading_fleet_size, flight_plan)
             elif remaining_kore >= spawn_cost:
                 shipyard.next_action = ShipyardAction.spawn_ships(min(shipyard.max_spawn, int(remaining_kore/spawn_cost)))
 
@@ -194,7 +194,7 @@ def simp_agent(board):
                 flight_plan = Direction.list_directions()[start_dir].to_char() + gap1
                 flight_plan += Direction.list_directions()[next_dir].to_char() + gap2
                 flight_plan += "C"
-                shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(max(convert_cost + 7, int(shipyard.ship_count/2)), flight_plan)
+                shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(max(convert_cost + 7, int(shipyard.ship_count/2)), flight_plan)
             elif remaining_kore >= spawn_cost:
                 shipyard.next_action = ShipyardAction.spawn_ships(min(shipyard.max_spawn, int(remaining_kore/spawn_cost)))
 
@@ -227,7 +227,7 @@ def simp_agent(board):
                 flight_plan += gap1
             next_dir = (next_dir + 1) % 4
             flight_plan += Direction.list_directions()[next_dir].to_char()
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(21, flight_plan)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(21, flight_plan)
         # else spawn if possible
         elif remaining_kore > board.configuration.spawn_cost * shipyard.max_spawn:
             remaining_kore -= board.configuration.spawn_cost
@@ -251,7 +251,7 @@ def random_agent(board):
             dir_str = Direction.random_direction().to_char()
             dir2_str = Direction.random_direction().to_char()
             flight_plan = dir_str + str(randint(1, 10)) + dir2_str
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(min(10, math.floor(shipyard.ship_count / 2)), flight_plan)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(min(10, math.floor(shipyard.ship_count / 2)), flight_plan)
         # else spawn if possible
         elif remaining_kore > board.configuration.spawn_cost * shipyard.max_spawn:
             remaining_kore -= board.configuration.spawn_cost
@@ -259,7 +259,7 @@ def random_agent(board):
         # else launch a small fleet
         elif shipyard.ship_count >= 2:
             dir_str = Direction.random_direction().to_char()
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(2, dir_str)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(2, dir_str)
 
 @board_agent
 def simple_agent(board):
@@ -281,7 +281,7 @@ def simple_agent(board):
                 flight_plan += Direction.list_directions()[next_dir].to_char() + gap2
                 next_dir = (next_dir + 1) % 4
                 flight_plan += "C"
-                shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(max(convert_cost + 10, int(shipyard.ship_count/2)), flight_plan)
+                shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(max(convert_cost + 10, int(shipyard.ship_count/2)), flight_plan)
             elif remaining_kore >= spawn_cost:
                 shipyard.next_action = ShipyardAction.spawn_ships(min(shipyard.max_spawn, int(remaining_kore/spawn_cost)))
 
@@ -298,7 +298,7 @@ def simple_agent(board):
             flight_plan += Direction.list_directions()[next_dir].to_char() + gap1
             next_dir = (next_dir + 1) % 4
             flight_plan += Direction.list_directions()[next_dir].to_char()
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(21, flight_plan)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(21, flight_plan)
         # else spawn if possible
         elif remaining_kore > board.configuration.spawn_cost * shipyard.max_spawn:
             remaining_kore -= board.configuration.spawn_cost
@@ -307,7 +307,7 @@ def simple_agent(board):
         # else launch a small fleet
         elif shipyard.ship_count >= 2:
             dir_str = Direction.random_direction().to_char()
-            shipyard.next_action = ShipyardAction.launch_ships_with_flight_plan(2, dir_str)
+            shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(2, dir_str)
 
         
 agents = {"random": random_agent, "simple": simple_agent, "do_nothing": do_nothing_agent, "simp": simp_agent, "attacker": attacker_agent}
