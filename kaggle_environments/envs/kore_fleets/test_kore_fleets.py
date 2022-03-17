@@ -4,7 +4,7 @@ from .helpers import *
 
 
 def test_shipyard_action_class_serialization():
-    launch = ShipyardAction.launch_ships_in_direction(10, Direction.NORTH)
+    launch = ShipyardAction.launch_fleet_in_direction(10, Direction.NORTH)
     assert str(launch) == "LAUNCH_10_N", "Launch: " + str(launch)
 
     parsed = ShipyardAction.from_str(str(launch))
@@ -38,7 +38,7 @@ def test_kore_helpers():
     def helper_agent(board):
         for shipyard in board.current_player.shipyards:
             if shipyard.ship_count >= 10:
-                shipyard.next_action = ShipyardAction.launch_ships_in_direction(10, Direction.NORTH)
+                shipyard.next_action = ShipyardAction.launch_fleet_in_direction(10, Direction.NORTH)
             else:
                 shipyard.next_action = ShipyardAction.spawn_ships(1)
 
@@ -79,7 +79,7 @@ def test_shipyards_make_ships():
     for shipyard in board.shipyards.values():
         assert shipyard.ship_count == 1, "Should have spawned a ship"
 
-def test_shipyards_launch_fleets():
+def test_shipyards_launch_fleet():
     board = create_board()
     for shipyard in board.shipyards.values():
         shipyard.next_action = ShipyardAction.spawn_ships(1)
@@ -87,7 +87,7 @@ def test_shipyards_launch_fleets():
     board = board.next()
 
     for shipyard in board.shipyards.values():
-        shipyard.next_action = ShipyardAction.launch_ships_in_direction(1, Direction.NORTH)
+        shipyard.next_action = ShipyardAction.launch_fleet_in_direction(1, Direction.NORTH)
 
     board = board.next()
 
@@ -101,7 +101,7 @@ def test_fleets_launched_with_direction():
     board = board.next()
 
     for shipyard in board.shipyards.values():
-        shipyard.next_action = ShipyardAction.launch_ships_in_direction(1, Direction.NORTH)
+        shipyard.next_action = ShipyardAction.launch_fleet_in_direction(1, Direction.NORTH)
 
     board = board.next()
 
@@ -117,7 +117,7 @@ def test_fleets_move_in_direction():
     board = board.next()
 
     for shipyard in board.shipyards.values():
-        shipyard.next_action = ShipyardAction.launch_ships_in_direction(1, Direction.NORTH)
+        shipyard.next_action = ShipyardAction.launch_fleet_in_direction(1, Direction.NORTH)
 
     for fleet in board.fleets.values():
         print(fleet.id, fleet.direction, fleet.position)
