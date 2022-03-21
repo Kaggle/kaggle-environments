@@ -341,6 +341,15 @@ export class Board {
             }
 
             for (let fleets of Array.from(fleetsByLoc.values())) {
+                fleets.sort((a, b) => {
+                    if (a.shipCount != b.shipCount) {
+                        return a.shipCount > b.shipCount ? -1 : 1;
+                    }
+                    if (a.kore != b.kore) {
+                        return a.kore > b.kore ? -1 : 1;
+                    }
+                    return a.direction.toIndex() > a.direction.toIndex() ? 1 : -1;
+                })
                 let fid = fleets[0].id;
                 for (let i = 1; i < fleets.length; i++) {
                     fid = this.combineFleets(board, fid, fleets[1].id);

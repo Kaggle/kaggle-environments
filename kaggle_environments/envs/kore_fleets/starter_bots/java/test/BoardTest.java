@@ -69,7 +69,7 @@ public class BoardTest {
 
         Assert.assertEquals(0, shipyard.shipCount);
         Assert.assertEquals(0, nextShipyard.shipCount);
-        Assert.assertEquals(board.players[0].kore, nextBoard.players[0].kore);
+        Assert.assertEquals(board.players[0].kore, nextBoard.players[0].kore, .01);
     }
 
     @Test
@@ -91,6 +91,25 @@ public class BoardTest {
         Assert.assertTrue("should have launched a fleet", nextBoard.getFleetAtPoint(shipyard.position.add(Direction.NORTH)).isPresent());
         Fleet launchedFleet = nextBoard.getFleetAtPoint(shipyard.position.add(Direction.NORTH)).get();
         Assert.assertEquals(10, launchedFleet.shipCount);
+    }
+
+    @Test
+    public void fleetsCoalescence() throws IOException {
+        Board board = getStarterBoard();
+
+        Point p = new Point(10, 10);
+
+        Fleet f1 = new Fleet("f1", 100, Direction.SOUTH, p.add(Direction.NORTH), 100.0, "", 0, board);
+        board.addFleet(f1);
+        Fleet f2 = new Fleet("f2", 60, Direction.NORTH, p.add(Direction.SOUTH), 100.0, "", 0, board);
+        board.addFleet(f2);
+        Fleet f3 = new Fleet("f3", 60, Direction.EAST, p.add(Direction.WEST), 100.0, "", 0, board);
+        board.addFleet(f3);
+
+        Board nextBoard = board.next();
+
+        Fleet nextFleet = nextBoard.getFleetAtPoint(p).get();
+        Assert.assertTrue(nextFleet.id.equals("f1"));
     }
 
     @Test
@@ -399,7 +418,7 @@ public class BoardTest {
         Assert.assertEquals(0, nextShipyard.playerId);
         Assert.assertEquals(100, s1.turnsControlled);
         Assert.assertEquals(101, nextShipyard.turnsControlled);
-        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100);
+        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100, .01);
     }
 
     @Test
@@ -424,7 +443,7 @@ public class BoardTest {
         Assert.assertEquals(0, nextShipyard.playerId);
         Assert.assertEquals(100, s1.turnsControlled);
         Assert.assertEquals(101, nextShipyard.turnsControlled);
-        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100);
+        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100, .01);
     }
 
     @Test
@@ -449,7 +468,7 @@ public class BoardTest {
         Assert.assertEquals(0, nextShipyard.playerId);
         Assert.assertEquals(100, s1.turnsControlled);
         Assert.assertEquals(101, nextShipyard.turnsControlled);
-        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100);
+        Assert.assertEquals(nextBoard.players[0].kore, board.players[0].kore + 100, .01);
     }
 
     @Test
@@ -474,7 +493,7 @@ public class BoardTest {
         Assert.assertEquals(1, nextShipyard.playerId);
         Assert.assertEquals(100, s1.turnsControlled);
         Assert.assertEquals(1, nextShipyard.turnsControlled);
-        Assert.assertEquals(nextBoard.players[1].kore, board.players[1].kore + 100);
+        Assert.assertEquals(nextBoard.players[1].kore, board.players[1].kore + 100, .01);
     }
 
     private Board getStarterBoard() throws IOException {

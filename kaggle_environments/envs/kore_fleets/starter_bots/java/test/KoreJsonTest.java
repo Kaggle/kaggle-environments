@@ -38,7 +38,7 @@ public class KoreJsonTest {
         Path observation = Paths.get("bin", "test", "observation.json");
         String raw = Files.readString(observation);        
 
-        float[] kore = KoreJson.getDoubleArrFromJson(raw, "kore");
+        double[] kore = KoreJson.getDoubleArrFromJson(raw, "kore");
         Assert.assertEquals(kore[3], 1.372, 0.0001);
     }
 
