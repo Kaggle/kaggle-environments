@@ -135,13 +135,8 @@ class ShipyardAction:
             flight_plan = direction.to_char()
         else:
             flight_plan = flight_plan.upper()
-        assert number_ships > 0, "must be a positive number_ships"
-        assert number_ships == int(number_ships), "must be an integer number_ships"
-        assert flight_plan is not None and len(flight_plan) > 0, "flight_plan must be a str of len > 0"
-        assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", "flight_plan must start with a valid direciton NESW"
-        assert all([c in "NESWC0123456789" for c in flight_plan]), "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
-        return ShipyardAction(ShipyardActionType.LAUNCH, number_ships, flight_plan)
-
+        return ShipyardAction.launch_fleet_with_flight_plan(number_ships, flight_plan)
+        
     @staticmethod
     def launch_fleet_with_flight_plan(number_ships: int, flight_plan: str):
         flight_plan = flight_plan.upper()
@@ -150,12 +145,11 @@ class ShipyardAction:
         assert flight_plan is not None and len(flight_plan) > 0, "flight_plan must be a str of len > 0"
         assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", "flight_plan must start with a valid direciton NESW"
         assert all([c in "NESWC0123456789" for c in flight_plan]), "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
+        assert len(flight_plan) <= Fleet.max_flight_plan_len_for_ship_count(number_ships), "flight plan for " + str(number_ships) + " must be at most " + str(Fleet.max_flight_plan_len_for_ship_count(number_ships))
         return ShipyardAction(ShipyardActionType.LAUNCH, number_ships, flight_plan)
-
 
     @staticmethod
     def spawn_ships(number_ships: int):
-        assert number_ships > 0, "must be a positive number_ships"
         assert number_ships == int(number_ships), "must be an integer number_ships"
         return ShipyardAction(ShipyardActionType.SPAWN, number_ships, None)
 
@@ -728,7 +722,7 @@ class Board:
                     max_flight_plan_len = Fleet.max_flight_plan_len_for_ship_count(shipyard.next_action.num_ships)
                     if len(flight_plan) > max_flight_plan_len:
                         flight_plan = flight_plan[:max_flight_plan_len]
-                    board._add_fleet(Fleet(FleetId(create_uid()), shipyard.next_action.num_ships, direction, shipyard.position, 0, shipyard.next_action.flight_plan, player.id, board))
+                    board._add_fleet(Fleet(FleetId(create_uid()), shipyard.next_action.num_ships, direction, shipyard.position, 0, flight_plan, player.id, board))
                 
             # Clear the shipyard's action so it doesn't repeat the same action automatically
             for shipyard in player.shipyards:
