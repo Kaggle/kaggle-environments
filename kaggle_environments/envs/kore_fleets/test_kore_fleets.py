@@ -2,7 +2,6 @@ from kaggle_environments import make
 from .kore_fleets import random_agent
 from .helpers import *
 
-
 def test_shipyard_action_class_serialization():
     launch = ShipyardAction.launch_fleet_in_direction(10, Direction.NORTH)
     assert str(launch) == "LAUNCH_10_N", "Launch: " + str(launch)
@@ -61,14 +60,6 @@ def test_start_with_one_shipyard_and_no_fleets():
     assert len(players[0][1].items()) == 1
     assert len(players[0][2].items()) == 0
 
-def create_board(size=3, starting_kore=100, agent_count=2, random_seed=0):
-    env = make("kore_fleets", configuration={
-        "size": size,
-        "startingKore": starting_kore,
-        "randomSeed": random_seed
-    })
-    return Board(env.reset(agent_count)[0].observation, env.configuration)
-
 def test_shipyards_make_ships():
     board = create_board()
     for shipyard in board.shipyards.values():
@@ -92,6 +83,22 @@ def test_shipyards_launch_fleet():
     board = board.next()
 
     assert len(board.current_player.fleets) == 1, "should have one fleet"
+
+def test_flight_plan_truncated():
+    board = create_board()
+    for shipyard in board.shipyards.values():
+        shipyard.next_action = ShipyardAction.spawn_ships(1)
+
+    board = board.next()
+
+    for shipyard in board.shipyards.values():
+        shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(1, "NESW")
+
+    board = board.next()
+
+    assert len(board.current_player.fleets) == 1, "should have one fleet"
+    print(board.current_player.fleets[0].flight_plan)
+    assert board.current_player.fleets[0].flight_plan == "", "should have an empty flight plan"
 
 def test_fleets_launched_with_direction():
     board = create_board()
@@ -155,7 +162,7 @@ def test_kore_regenerates():
 
     assert board.get_cell_at_point(p).kore < next_board.get_cell_at_point(p).kore, "should have regenerated kore"
 
-def spawn_zero_has_no_effect():
+def test_spawn_zero_has_no_effect():
     board = create_board(size = 31)
 
     shipyard_id = board.players[0].shipyard_ids[0]
@@ -170,12 +177,12 @@ def spawn_zero_has_no_effect():
     assert next_shipyard.ship_count == 0, 'should not have spawned a ship'
     assert board.players[0].kore == next_board.players[0].kore, 'kore should be the same'
     
-def fleets_pick_up_kore():
+def test_fleets_pick_up_kore():
     board = create_board(size=31)
 
     p = Point(10, 10)
-    board.get_cell_at_point(p).kore = 100;
-    board.get_cell_at_point(p.add(Direction.SOUTH)).kore = 100;
+    board.get_cell_at_point(p)._kore = 100
+    board.get_cell_at_point(p + Direction.SOUTH.to_point())._kore = 100
 
     fleet = Fleet("test", 100, Direction.SOUTH, p, 100, "8N", 0, board)
 
@@ -183,10 +190,10 @@ def fleets_pick_up_kore():
 
     next_board = board.next()
 
-    next_fleet = next_board.get_fleet_at_point(p.add(Direction.SOUTH))
+    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert next_fleet.kore > fleet.kore, "ships should pick up kore"
 
-def updates_flight_plan_decrements():
+def test_updates_flight_plan_decrements():
     board = create_board(size=31)
 
     p = Point(10, 11)
@@ -195,11 +202,11 @@ def updates_flight_plan_decrements():
     board._add_fleet(f)
 
     next_board = board.next()
-    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH)
+    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert Direction.SOUTH.to_char() == next_fleet.direction.to_char(), "should not change direction"
     assert "7N" == next_fleet.flight_plan, "should update flight plan"
 
-def updates_flight_plan_changes_direction():
+def test_updates_flight_plan_changes_direction():
     board = create_board(size=31)
 
     p = Point(10, 11)
@@ -208,11 +215,11 @@ def updates_flight_plan_changes_direction():
     board._add_fleet(f)
 
     next_board = board.next()
-    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH)
+    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert Direction.SOUTH.to_char() == next_fleet.direction.to_char(), "should change direction"
     assert "" == next_fleet.flight_plan, "should update flight plan"
 
-def updates_flight_plan_converts_to_shipyard():
+def test_updates_flight_plan_converts_to_shipyard():
     board = create_board(size=31)
 
     p = Point(10, 11)
@@ -221,12 +228,12 @@ def updates_flight_plan_converts_to_shipyard():
     board._add_fleet(f)
 
     next_board = board.next()
-    shipyard = next_board.get_fleet_at_point(p)
+    shipyard = next_board.get_shipyard_at_point(p)
     assert shipyard is not None, "should have built a shipyard"
     assert shipyard.player_id == f.player_id, "should belong to the player"
     assert shipyard.ship_count == 50, "should have the right number of ships"
 
-def updates_flight_plan_does_not_convert_if_not_enough_ships():
+def test_updates_flight_plan_does_not_convert_if_not_enough_ships():
     board = create_board(size=31)
 
     p = Point(10, 11)
@@ -236,8 +243,16 @@ def updates_flight_plan_does_not_convert_if_not_enough_ships():
 
     next_board = board.next()
     assert board.get_shipyard_at_point(p) is None, "Should not have made a shipyard"
-    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH)
+    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert next_fleet is not None, "should have kept going"
     assert f.id == next_fleet.id, "should have the same id"
     assert "" == next_fleet.flight_plan, "should update flight plan"
+
+def create_board(size=3, starting_kore=100, agent_count=2, random_seed=0):
+    env = make("kore_fleets", configuration={
+        "size": size,
+        "startingKore": starting_kore,
+        "randomSeed": random_seed
+    })
+    return Board(env.reset(agent_count)[0].observation, env.configuration)
 
