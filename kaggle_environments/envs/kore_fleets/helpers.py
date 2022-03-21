@@ -145,8 +145,8 @@ class ShipyardAction:
         assert flight_plan is not None and len(flight_plan) > 0, "flight_plan must be a str of len > 0"
         assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", "flight_plan must start with a valid direciton NESW"
         assert all([c in "NESWC0123456789" for c in flight_plan]), "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
+        assert len(flight_plan) <= Fleet.max_flight_plan_len_for_ship_count(number_ships), "flight plan for " + str(number_ships) + " must be at most " + str(Fleet.max_flight_plan_len_for_ship_count(number_ships))
         return ShipyardAction(ShipyardActionType.LAUNCH, number_ships, flight_plan)
-
 
     @staticmethod
     def spawn_ships(number_ships: int):
@@ -717,9 +717,6 @@ class Board:
                     flight_plan = shipyard.next_action.flight_plan
                     if not flight_plan or not is_valid_flight_plan(flight_plan):
                         continue
-                    max_flight_plan = Fleet.max_flight_plan_len_for_ship_count(shipyard.next_action.num_ships)
-                    if len(flight_plan) > max_flight_plan:
-                        flight_plan = flight_plan[:max_flight_plan]
                     shipyard._ship_count -= shipyard.next_action.num_ships
                     direction = Direction.from_char(flight_plan[0])
                     max_flight_plan_len = Fleet.max_flight_plan_len_for_ship_count(shipyard.next_action.num_ships)

@@ -282,7 +282,7 @@ export class Board {
                     if (flightPlan.length > maxFlightPlanLen) {
                         flightPlan = flightPlan.substring(0, maxFlightPlanLen);
                     }
-                    board.addFleet(new Fleet(this.createUid(), nextAction.shipCount, direction, shipyard.position, 0, nextAction.flightPlan, player.id, board));
+                    board.addFleet(new Fleet(this.createUid(), nextAction.shipCount, direction, shipyard.position, 0, flightPlan, player.id, board));
                 }
                 
             }
