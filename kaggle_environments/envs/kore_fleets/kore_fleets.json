@@ -19,8 +19,8 @@
     },
     "spawnCost": {
       "description": "The amount of kore to spawn a new ship.",
-      "type": "integer",
-      "default": 10,
+      "type": "number",
+      "default": 10.0,
       "minimum": 0
     },
     "convertCost": {
@@ -57,7 +57,7 @@
   },
   "reward": {
     "description": "The amount of player owned kore (equal to players[index][0]) if the player has not been eliminated, else step_eliminated - episode_steps - 1.",
-    "type": "integer",
+    "type": "number",
     "default": 500
   },
   "observation": {
@@ -66,7 +66,7 @@
       "type": "array",
       "shared": true,
       "items": {
-        "type": "integer",
+        "type": "number",
         "minimum": 0
       }
     },
@@ -79,7 +79,7 @@
         "items": [
           {
             "description": "Kore: The amount player owned kore (equal to reward).",
-            "type": "integer",
+            "type": "number",
             "minimum": 0
           },
           {
@@ -122,8 +122,8 @@
                   "minimum": 0
                 },
                 {
-                  "description": "Ship Kore: The amount present in a ship.",
-                  "type": "integer",
+                  "description": "Fleet Kore: The amount present in the fleet.",
+                  "type": "number",
                   "default": 0,
                   "minimum": 0
                 },
@@ -136,6 +136,10 @@
                   "description": "Direction: The direction the fleet is going in",
                   "type": "integer",
                   "minimum": 0
+                },
+                {
+                  "description": "Flight plan: The future directional instructions the fleet should follow",
+                  "type": "string"
                 }
               ]
             }

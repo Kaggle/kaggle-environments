@@ -177,6 +177,23 @@ def test_spawn_zero_has_no_effect():
     assert next_shipyard.ship_count == 0, 'should not have spawned a ship'
     assert board.players[0].kore == next_board.players[0].kore, 'kore should be the same'
     
+def test_fleet_coalescence_works():
+    board = create_board(size=31)
+
+    p = Point(10, 10)
+
+    f1 = Fleet("f1", 100, Direction.SOUTH, p + Direction.NORTH.to_point(), 100, "", 0, board)
+    board._add_fleet(f1)
+    f2 = Fleet("f2", 60, Direction.NORTH, p + Direction.SOUTH.to_point(), 100, "", 0, board)
+    board._add_fleet(f2)
+    f3 = Fleet("f3", 60, Direction.WEST, p + Direction.EAST.to_point(), 100, "", 0, board)
+    board._add_fleet(f3)
+
+    next_board = board.next()
+
+    next_fleet = next_board.get_fleet_at_point(p)
+    assert next_fleet.id == "f1", "biggest fleet should absord others"
+
 def test_fleets_pick_up_kore():
     board = create_board(size=31)
 

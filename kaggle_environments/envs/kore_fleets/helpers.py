@@ -145,7 +145,8 @@ class ShipyardAction:
         assert flight_plan is not None and len(flight_plan) > 0, "flight_plan must be a str of len > 0"
         assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", "flight_plan must start with a valid direciton NESW"
         assert all([c in "NESWC0123456789" for c in flight_plan]), "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
-        assert len(flight_plan) <= Fleet.max_flight_plan_len_for_ship_count(number_ships), "flight plan for " + str(number_ships) + " must be at most " + str(Fleet.max_flight_plan_len_for_ship_count(number_ships))
+        if len(flight_plan) > Fleet.max_flight_plan_len_for_ship_count(number_ships): 
+            print("flight plan will be truncated: flight plan for " + str(number_ships) + " must be at most " + str(Fleet.max_flight_plan_len_for_ship_count(number_ships)))
         return ShipyardAction(ShipyardActionType.LAUNCH, number_ships, flight_plan)
 
     @staticmethod
@@ -779,10 +780,11 @@ class Board:
                 f1._ship_count += f2._ship_count
                 board._delete_fleet(f2)
                 return fid1
-
+            
             # resolve any allied fleets that ended up in the same square
             fleets_by_loc = group_by(player.fleets, lambda fleet: fleet.position.to_index(configuration.size))
             for value in fleets_by_loc.values():
+                value.sort(key=lambda fleet: (fleet.ship_count, fleet.kore, -fleet.direction.to_index()), reverse=True)
                 fid = value[0].id
                 for i in range (1, len(value)):
                     fid = combine_fleets(fid, value[i].id)

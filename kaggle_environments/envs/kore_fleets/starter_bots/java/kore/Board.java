@@ -339,6 +339,15 @@ public class Board {
             }
 
             for (List<Fleet> fleets : fleetsByLoc.values()) {
+                fleets.sort((a, b) -> {
+                    if (a.shipCount != b.shipCount) {
+                        return a.shipCount > b.shipCount ? -1 : 1;
+                    }
+                    if (a.kore != b.kore) {
+                        return a.kore > b.kore ? -1 : 1;
+                    }
+                    return a.direction.toIndex() > a.direction.toIndex() ? 1 : -1;
+                });
                 String fid = fleets.get(0).id;
                 for (int i = 1; i < fleets.size(); i++) {
                     fid = this.combineFleets(board, fid, fleets.get(i).id);
