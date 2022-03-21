@@ -2,7 +2,7 @@
   "name": "kore_fleets",
   "title": "Kore Fleets",
   "description": "Collect. Launch. Conquer.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "agents": [1, 2, 4],
   "configuration": {
     "episodeSteps": 400,
