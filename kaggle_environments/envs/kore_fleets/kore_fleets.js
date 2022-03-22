@@ -36,7 +36,7 @@ async function renderer({
   const colors = {
     bg: "#000B49",
     bgGradient: "#000B2A",
-    players: ["#FEFE60", "#E36FC7", "#1A85FF", "#D41159"],
+    players: ["#FEFE60", "#E36FC7", "#1A85FF", "#A50D45"],
     ships: [
       [
         "#FFFF73",
@@ -57,10 +57,10 @@ async function renderer({
         "#0064EA",
         ],
         [
-        "#EF2C6C",
-        "#D41159",
-        "#BC004C",
-        "#AC0044",
+        "#C02858",
+        "#A50D45",
+        "#8D0038",
+        "#7D0030",
         ],
 
     ],
