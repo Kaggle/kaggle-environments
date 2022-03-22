@@ -542,9 +542,6 @@ async function renderer({
           } else if (enemyShipyardNextSquare) {
             board[toPos].collision = true
           } else if (enemyOrNoShipNextSquare) {
-            console.log(`ship dir is ${directionIdx} and flight path is ${flightPath}`)
-            console.log(`we chose ${dir}`)
-            console.log(`we are ${pos} moving to ${toPos}`)
             board[toPos].collision = true;
           }
         });
