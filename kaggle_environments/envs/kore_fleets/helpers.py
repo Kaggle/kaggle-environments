@@ -825,7 +825,7 @@ class Board:
                     winner._kore += fleet.kore
                 elif winner is None and shipyard and shipyard[0].player:
                     # Desposit the kore into the shipyard
-                    player._kore += fleet.kore
+                    shipyard[0].player._kore += fleet.kore
                 elif winner is None:
                     # Desposit the kore on the square
                     board.cells[position]._kore += fleet.kore
