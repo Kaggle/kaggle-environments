@@ -8,7 +8,7 @@ import {ShipyardAction} from "./ShipyardAction";
 const SPAWN_VALUES = [];
 const upgradeTimes: number[] = [];
 for(let i = 1; i < 10; i++) {
-    upgradeTimes[i-1] = Math.pow(i, 2);
+    upgradeTimes[i-1] = Math.pow(i, 2) + 1;
 }
 let current = 0;
 for(let i = 1; i < 10; i++) {
@@ -24,7 +24,6 @@ export class Shipyard {
     public turnsControlled: number; 
     public readonly board: Board; 
     public nextAction: ShipyardAction | undefined;
-    private readonly SPAWN_VALUES: number[] = [];
     
     public constructor(shipyardId: string, shipCount: number, position: Point, playerId: number, turnsControlled: number, board: Board, nextAction: ShipyardAction | undefined) {
         this.id = shipyardId;
@@ -50,7 +49,7 @@ export class Shipyard {
                 return i + 1;
             }
         }
-        return this.SPAWN_VALUES.length + 1;
+        return SPAWN_VALUES.length + 1;
     }
 
     /**
