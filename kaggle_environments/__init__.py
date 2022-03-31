@@ -21,7 +21,7 @@ from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "1.8.12"
+__version__ = "1.9.5"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
@@ -40,4 +40,5 @@ for name in listdir(utils.envs_path):
             "specification": getattr(env, "specification"),
         })
     except Exception as e:
-        print("Loading environment %s failed: %s" % (name, e))
+        if "football" not in name:
+            print("Loading environment %s failed: %s" % (name, e))

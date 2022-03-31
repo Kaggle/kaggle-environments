@@ -1,5 +1,7 @@
 import operator
-from enum import Enum
+import math
+from enum import Enum, auto
+import random
 from typing import *
 
 
@@ -32,6 +34,14 @@ class Point(tuple):
     def translate(self, offset: 'Point', size: int):
         """Translates the current point by offset and wraps it around a board of width and height size"""
         return (self + offset) % size
+
+    def distance_to(self, other: 'Point', size: int):
+        """Translates the current point by offset and wraps it around a board of width and height size"""
+        abs_x = abs(self.x - other.x)
+        dist_x = abs_x if abs_x < size/2 else size - abs_x
+        abs_y = abs(self.y - other.y)
+        dist_y = abs_y if abs_y < size/2 else size - abs_y
+        return dist_x + dist_y
 
     def to_index(self, size: int):
         """
@@ -81,6 +91,128 @@ class Point(tuple):
 
     def __sub__(self, other: Union[Tuple[int, int], 'Point']) -> 'Point':
         return self.map2(other, operator.sub)
+
+
+class Direction(Enum):
+    NORTH = auto()
+    EAST = auto()
+    SOUTH = auto()
+    WEST = auto()
+
+    def to_point(self) -> Point:
+        """
+        This returns the position offset associated with a particular action 
+        NORTH -> (0, 1)
+        EAST -> (1, 0)
+        SOUTH -> (0, -1)
+        WEST -> (-1, 0)
+        """
+        return (
+            Point(0, 1) if self == Direction.NORTH else
+            Point(1, 0) if self == Direction.EAST else
+            Point(0, -1) if self == Direction.SOUTH else
+            Point(-1, 0) if self == Direction.WEST else
+            None
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+    def to_index(self) -> int:
+        return (
+            0 if self == Direction.NORTH else
+            1 if self == Direction.EAST else
+            2 if self == Direction.SOUTH else
+            3 if self == Direction.WEST else
+            None
+        )
+
+    def to_char(self) -> str:
+        return (
+            "N" if self == Direction.NORTH else
+            "E" if self == Direction.EAST else
+            "S" if self == Direction.SOUTH else
+            "W" if self == Direction.WEST else
+            None
+        )
+
+    def opposite(self) -> 'Direction':
+        return (
+            Direction.SOUTH if self == Direction.NORTH else
+            Direction.WEST if self == Direction.EAST else
+            Direction.NORTH if self == Direction.SOUTH else
+            Direction.EAST if self == Direction.WEST else
+            None
+        )
+
+    def rotate_left(self) -> 'Direction':
+        return (
+            Direction.WEST if self == Direction.NORTH else
+            Direction.NORTH if self == Direction.EAST else
+            Direction.EAST if self == Direction.SOUTH else
+            Direction.SOUTH if self == Direction.WEST else
+            None
+        )
+
+    def rotate_right(self) -> 'Direction':
+        return (
+            Direction.EAST if self == Direction.NORTH else
+            Direction.SOUTH if self == Direction.EAST else
+            Direction.WEST if self == Direction.SOUTH else
+            Direction.NORTH if self == Direction.WEST else
+            None
+        )
+
+    @staticmethod
+    def from_str(str_dir: str):
+        return  (
+            Direction.NORTH if str_dir == "NORTH" else
+            Direction.EAST if str_dir == "EAST" else
+            Direction.SOUTH if str_dir == "SOUTH" else
+            Direction.WEST if str_dir == "WEST" else
+            None
+        )
+
+    @staticmethod
+    def from_char(str_char: str):
+        return  (
+            Direction.NORTH if str_char == "N" else
+            Direction.EAST if str_char == "E" else
+            Direction.SOUTH if str_char == "S" else
+            Direction.WEST if str_char == "W" else
+            None
+        )
+
+    @staticmethod
+    def from_index(idx: int):
+        return (
+            Direction.NORTH if idx == 0 else
+            Direction.EAST if idx == 1 else
+            Direction.SOUTH if idx == 2 else
+            Direction.WEST if idx == 3 else
+            None
+        )
+
+    @staticmethod
+    def random_direction() -> 'Direction':
+        rand = random.random()
+        if rand <= .25:
+            return Direction.NORTH
+        elif rand <= .5:
+            return Direction.EAST
+        elif rand <= .75:
+            return Direction.SOUTH
+        else:
+            return Direction.WEST
+
+    @staticmethod
+    def list_directions() -> List['Direction']:
+        return [
+            Direction.NORTH,
+            Direction.EAST,
+            Direction.SOUTH,
+            Direction.WEST,
+        ]
 
 
 TItem = TypeVar('TItem')
