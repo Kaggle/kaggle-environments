@@ -23,7 +23,7 @@ public class Shipyard {
 
         int[] upgradeTimes = new int[9];
         for(int i = 1; i < 10; i++) {
-            upgradeTimes[i-1] = (int) Math.pow(i, 2);
+            upgradeTimes[i-1] = (int) Math.pow(i, 2) + 1;
         }
         SPAWN_VALUES = new int[9];
         int current = 0;
