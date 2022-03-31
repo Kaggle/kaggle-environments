@@ -7,10 +7,11 @@ import os
 
 env = None
 
-
 # Temporarily disable these tests until we can fix the gfootball env
 """
-def before_each(state=None, configuration=None, info={}):
+def before_each(state=None, configuration=None, info=None):
+    if info is None:
+        info = {}
     global env
     steps = [] if state == None else [state]
     env = make("football", steps=steps,
