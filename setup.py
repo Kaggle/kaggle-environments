@@ -48,9 +48,9 @@ setup(
         'kaggle-environments = kaggle_environments.main:main']},
     install_requires=[
         "jsonschema >= 3.0.1",
-        "flask > 2",
+        "Flask >= 1.1.2",
         "numpy >= 1.19.5",
-        "requests > 2.7"
+        "requests >= 2.25.1"
     ],
     packages=find_packages(),
     include_package_data=True,
