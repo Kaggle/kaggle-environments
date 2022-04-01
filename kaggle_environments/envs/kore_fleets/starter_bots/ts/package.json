@@ -11,6 +11,7 @@
     "test": "mocha --require ts-node/register test/**/*.ts",
     "compile": "tsc",
     "package": "tsc && tar -czvf submission.tar.gz main.py dist/*",
+    "interpreter": "node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker out.log replay.json",
     "watch4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
     "watch2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
     "watch1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
