@@ -1,6 +1,5 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
-const resolve = require('path').resolve;
 
 const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker out.log replay.json';
 
