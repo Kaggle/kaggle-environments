@@ -42,8 +42,6 @@ WORKDIR /usr/src/app/kaggle_environments
 #    pip3 install . && \
 #    cd /tmp && rm -rf football
 
-RUN pip install Flask
-
 ADD ./setup.py ./setup.py
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
