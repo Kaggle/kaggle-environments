@@ -14,8 +14,8 @@
     "watch4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
     "watch2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
     "watch1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log --render '{\"mode\": \"html\"}' --out replay.html && google-chrome replay.html",
-    "play4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log --out replay.html",
-    "play2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log --out replay.html",
-    "play1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log --out replay.html"
+    "play4": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py ./main.py ./main.py --log out.log  --render '{\"mode\": \"html\"}' --out replay.html",
+    "play2": "kaggle-environments run --environment kore_fleets --agents ./main.py ./main.py --log out.log  --render '{\"mode\": \"html\"}' --out replay.html",
+    "play1": "kaggle-environments run --environment kore_fleets --agents ./main.py --log out.log  --render '{\"mode\": \"html\"}' --out replay.html"
   }
 }
