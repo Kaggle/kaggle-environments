@@ -32,7 +32,7 @@ sys.path.append(os.path.join(GetScriptDirectory()))
 from kaggle_environments.envs.kore_fleets.helpers import *
 from random import randint
 
-from lib.utils import get_closest_enemy_shipyard
+from code.utils import get_closest_enemy_shipyard
 
 
 def agent(obs, config):
