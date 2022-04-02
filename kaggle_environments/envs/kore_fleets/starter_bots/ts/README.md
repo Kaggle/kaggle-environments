@@ -26,3 +26,11 @@
 ## Running tests
 
 1. `npm test`
+
+## Interpreter and training
+
+A basic TS interpreter has been created in `interpreter.ts`. You can use or modify this file to train machine learning models in JS/TS.
+
+Currently it supports 4 agents and customizable number of episodes. After each episode, you can access the complete history of the game, including the observation (state), action and reward for each turn.
+
+Sample command to run the interpreter can be found in npm scripts as `npm run interpreter`.

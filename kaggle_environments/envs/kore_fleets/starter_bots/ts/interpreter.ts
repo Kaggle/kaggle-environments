@@ -1,7 +1,10 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 
-const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker out.log replay.json';
+const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker [out.log] [replay.json]';
+
+const DEFAULT_LOG_FILE_NAME = 'out.log';
+const DEFAULT_RESULT_FILE_NAME = 'replay.json';
 
 const MAX_CONCURRENT = 5;
 
@@ -10,7 +13,7 @@ const MAIN_AGENT_INDEX = 0;
 const myArgs = process.argv.slice(2);
 
 // TODO: better handling of arguments, named args.
-if (myArgs.length !== 7) {
+if (myArgs.length < 5) {
   console.log('Please follow the format in the example below:');
   console.log(example);
   process.exit(1);
@@ -31,19 +34,9 @@ if (agentNames.length !== 4) {
   process.exit(1);
 }
 
-const userLogfilename = myArgs[5];
-if (!userLogfilename) {
-  console.log('Please provide a filename for the log. Example:');
-  console.log(example);
-  process.exit(1);
-}
+const userLogfilename = myArgs[5] || DEFAULT_LOG_FILE_NAME;
 
-const userResultfilename = myArgs[6];
-if (!userResultfilename) {
-  console.log('Please provide a filename for the result. Example:');
-  console.log(example);
-  process.exit(1);
-}
+const userResultfilename = myArgs[6] || DEFAULT_RESULT_FILE_NAME;
 
 console.log(`Running ${episodes} episodes with agents: ${agentNames.join(' ')}`);
 
