@@ -1,7 +1,24 @@
+import { Observation } from './kore/Observation';
+
 const { spawn } = require('child_process');
 const fs = require('fs');
 
-const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker [out.log] [replay.json]';
+interface StepPlayerInfoRaw {
+  action: Record<string, string>;
+  observation?: object;
+  reward: number;
+  status: string;
+}
+
+interface StepPlayerInfo {
+  action: Record<string, string>;
+  observation: Observation;
+  reward: number;
+  status: string;
+}
+
+const example =
+  'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker [out.log] [replay.json]';
 
 const DEFAULT_LOG_FILE_NAME = 'out.log';
 const DEFAULT_RESULT_FILE_NAME = 'replay.json';
@@ -92,6 +109,7 @@ async function runAgent(iterations: number, agents: string[], callback: Function
       console.log(`${completed}/${iterations}`);
       running--;
       const result = processResult(resultFilename);
+      processSteps(index, result.steps);
       // ensure consistent result order
       results[index] = result;
       if (completed === iterations) {
@@ -133,24 +151,27 @@ function compileRunResults(agent: string, results: any[]) {
   }
 }
 
-// will be used in the future for evaluate mode
-function compileEvaluateResults(agent: string, results: number[][]) {
-  try {
-    let games = 0;
-    let wins = 0;
-    let seconds = 0;
-    for (let i = 0; i < results.length; i++) {
-      games++;
-      const [p0, p1, p2, p3] = results[i];
-      if (p0 > p1 && p0 > p2 && p0 > p3) {
-        wins++;
-      } else if ((p0 > p1 && p0 > p2) || (p0 > p1 && p0 > p3) || (p0 > p2 && p0 > p3)) {
-        seconds++;
-      }
+// an example of getting the obervation, action, reward and status
+function processSteps(episode: number, steps: StepPlayerInfoRaw[][]) {
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    // only the first agent has complete Observation, based analysis of replay.json
+    const stepPlayerInfoRaw = step[MAIN_AGENT_INDEX];
+    const stepPlayerInfo: StepPlayerInfo = {
+      action: stepPlayerInfoRaw.action,
+      // no other way?
+      observation: new Observation(JSON.stringify(stepPlayerInfoRaw.observation)),
+      reward: stepPlayerInfoRaw.reward,
+      status: stepPlayerInfoRaw.status,
+    };
+    const { action, observation, reward, status } = stepPlayerInfo;
+    if (i % 100 === 0) {
+      console.log(
+        `[epi ${episode}][step ${pad2(i)}] kore 0:${observation.kore[0].toFixed(0)} action 0: ${
+          action[Object.keys(action)[0]]
+        } reward: ${reward.toFixed(0)} status: ${status}`
+      );
     }
-    console.log(`${agent} win: ${pad(wins)}/${pad(games)} top two: ${pad(wins + seconds)}/${pad(games)}`);
-  } catch (e) {
-    console.error(e);
   }
 }
 
@@ -165,6 +186,15 @@ function processResult(filename: string) {
 
 function pad(number) {
   if (number < 10) {
+    return '0' + number;
+  }
+  return number;
+}
+
+function pad2(number) {
+  if (number < 10) {
+    return '00' + number;
+  } else if (number < 100) {
     return '0' + number;
   }
   return number;
