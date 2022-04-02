@@ -496,6 +496,26 @@ public class BoardTest {
         Assert.assertEquals(nextBoard.players[1].kore, board.players[1].kore + 100, .01);
     }
 
+    @Test
+    public void fleetAdjacentBattle_dropsKoreCorrectlyWhenBothDie() throws IOException {
+        Board board = getStarterBoard();
+
+        Point p1 = new Point(10, 11);
+        Fleet f1 = new Fleet("f1", 100, Direction.NORTH, p1, 100.0, "", 0, board);
+        double p1Kore = board.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+        board.addFleet(f1);
+
+        Point p2 = p1.add(Direction.NORTH).add(Direction.NORTH).add(Direction.EAST);
+        Fleet f2 = new Fleet("f2", 100, Direction.SOUTH, p2, 100.0, "", 1, board);
+        board.addFleet(f2);
+
+        Board nextBoard = board.next();
+
+        double p1NextKore = nextBoard.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+        Assert.assertTrue("should have been destroyed", !nextBoard.fleets.containsKey("f1"));
+        Assert.assertTrue("should dump all kore", p1Kore + 100 < p1NextKore);
+    }
+
     private Board getStarterBoard() throws IOException {
         Path configPath = Paths.get("bin", "test", "configuration.json");
         String rawConfig = Files.readString(configPath);        

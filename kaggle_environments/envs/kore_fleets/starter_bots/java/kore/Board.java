@@ -430,27 +430,61 @@ public class Board {
 
         // apply fleet to fleet damage on all orthagonally adjacent cells
         HashMap<String, Integer> incomingDmg = new HashMap<String, Integer>();
+        HashMap<String, ArrayList<Pair<String, Integer>>> incomingFleetDmg = new HashMap<String, ArrayList<Pair<String, Integer>>>();
         for (Fleet fleet : board.fleets.values()) {
             incomingDmg.put(fleet.id, 0);
             for (Direction direction : Direction.listDirections()) {
                 Point currPos = fleet.position.translate(direction, board.configuration.size);
                 Optional<Fleet> optFleet = board.getFleetAtPoint(currPos);
                 if (optFleet.isPresent() && optFleet.get().playerId != fleet.playerId) {
-                    incomingDmg.put(fleet.id, incomingDmg.get(fleet.id) + optFleet.get().shipCount);
+                    Fleet f = optFleet.get();
+                    if (!incomingFleetDmg.containsKey(fleet.id)) {
+                        incomingFleetDmg.put(fleet.id, new ArrayList<Pair<String, Integer>>());
+                    }
+                    incomingFleetDmg.get(fleet.id).add(new Pair<String, Integer>(f.id, f.shipCount));
+                    incomingDmg.put(fleet.id, incomingDmg.get(fleet.id) + f.shipCount);
                 }
             }
         }
 
-        for (Entry<String, Integer> entry : incomingDmg.entrySet()) {
+        // dump 1/2 kore to the cell of killed fleets
+        // mark the other 1/2 kore to go to surrounding fleets proportionally
+        HashMap<String, ArrayList<Pair<Integer, Double>>> toDistribute = new HashMap<String, ArrayList<Pair<Integer, Double>>>();
+        for(Entry<String, ArrayList<Pair<String, Integer>>> entry : incomingFleetDmg.entrySet()) {
             String fleetId = entry.getKey();
-            int damage = entry.getValue();
+            ArrayList<Pair<String, Integer>> attackers = entry.getValue();
+            Integer totalDamage = attackers.stream().map(p -> p.second).reduce(0, Integer::sum);
             Fleet fleet = board.fleets.get(fleetId);
-            if (damage >= fleet.shipCount) {
-                fleet.cell().kore += fleet.kore;
-                board.deleteFleet(fleet);
+            if (totalDamage >= fleet.shipCount) {
+                fleet.cell().kore += fleet.kore / 2;
+                attackers.forEach(p -> {
+                    String attackerId = p.first;
+                    Integer attackerDmg = p.second;
+                    if (!toDistribute.containsKey(attackerId)) {
+                        toDistribute.put(attackerId, new ArrayList<Pair<Integer, Double>>());
+                    }
+                    double toGet = fleet.kore / 2 * (double)attackerDmg / (double)totalDamage;
+                    toDistribute.get(attackerId).add(new Pair<Integer, Double>(fleet.cell().position.toIndex(board.configuration.size), toGet));
+                });
             } else {
-                fleet.shipCount -= damage;
+                fleet.shipCount -= totalDamage;
             }
+        }
+
+        // give kore claimed above to surviving fleets, otherwise add it to the kore of the tile where the fleet died
+        for(Entry<String, ArrayList<Pair<Integer, Double>>> entry : toDistribute.entrySet()) {
+            String fleetId = entry.getKey();
+            ArrayList<Pair<Integer, Double>> resoureFromLocs = entry.getValue();
+            resoureFromLocs.forEach(p -> {
+                int cellIdx = p.first;
+                double kore = p.second;
+                if (!board.fleets.containsKey(fleetId)) {
+                    board.cells[cellIdx].kore += kore;
+                } else {
+                    Fleet fleet = board.fleets.get(fleetId);
+                    fleet.kore += kore;
+                }
+            });
         }
 
         // Collect kore from cells into fleets

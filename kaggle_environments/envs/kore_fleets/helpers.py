@@ -855,21 +855,37 @@ class Board:
                 board._delete_fleet(fleet)
 
         # apply fleet to fleet damage on all orthagonally adjacent cells
-        incoming_dmg = DefaultDict(int)
+        incoming_fleet_dmg = DefaultDict(lambda: DefaultDict(int))
         for fleet in board.fleets.values():
             for direction in Direction.list_directions():
                 curr_pos = fleet.position.translate(direction.to_point(), board.configuration.size)
                 fleet_at_pos = board.get_fleet_at_point(curr_pos)
                 if fleet_at_pos and not fleet_at_pos.player_id == fleet.player_id:
-                    incoming_dmg[fleet_at_pos.id] += fleet.ship_count
+                    incoming_fleet_dmg[fleet_at_pos.id][fleet.id] = fleet.ship_count
 
-        for fleet_id, damage in incoming_dmg.items():
+        # dump 1/2 kore to the cell of killed fleets
+        # mark the other 1/2 kore to go to surrounding fleets proportionally
+        to_distribute = DefaultDict(lambda: DefaultDict(int))
+        for fleet_id, fleet_dmg_dict in incoming_fleet_dmg.items():
             fleet = board.fleets[fleet_id]
+            damage = sum(fleet_dmg_dict.values())
             if damage >= fleet.ship_count:
-                fleet.cell._kore += fleet.kore
+                fleet.cell._kore += fleet.kore / 2
+                to_split = fleet.kore / 2
+                for f_id, dmg in fleet_dmg_dict.items():
+                    to_distribute[f_id][fleet.position.to_index(board.configuration.size)] = to_split * dmg/damage
                 board._delete_fleet(fleet)
             else:
                 fleet._ship_count -= damage
+
+        # give kore claimed above to surviving fleets, otherwise add it to the kore of the tile where the fleet died
+        for fleet_id, loc_kore_dict in to_distribute.items():
+            fleet = board.fleets.get(fleet_id)
+            if fleet:
+                fleet._kore += sum(loc_kore_dict.values())
+            else:
+                for loc_idx, kore in loc_kore_dict.items():
+                    board.cells.get(Point.from_index(loc_idx, board.configuration.size))._kore += kore
 
         # Collect kore from cells into fleets
         for fleet in board.fleets.values():
