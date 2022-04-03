@@ -427,27 +427,57 @@ export class Board {
         }
 
         // apply fleet to fleet damage on all orthagonally adjacent cells
-        const incomingDmg = new Map<string, number>();
+        const incomingFleetDmg = new Map<string, Pair<string, number>[]>();
         for (const fleet of Array.from(board.fleets.values())) {
-            incomingDmg.set(fleet.id, 0);
             for (const direction of Direction.listDirections()) {
                 const currPos = fleet.position.translate(direction, board.configuration.size);
                 const optFleet = board.getFleetAtPoint(currPos);
                 if (optFleet && (optFleet as Fleet).playerId != fleet.playerId) {
-                    incomingDmg.set(fleet.id, incomingDmg.get(fleet.id) + (optFleet as Fleet).shipCount);
+                    const toAttack = optFleet as Fleet;
+                    if (!incomingFleetDmg.has(toAttack.id)) {
+                        incomingFleetDmg.set(toAttack.id, []);
+                    }
+                    incomingFleetDmg.get(toAttack.id).push(new Pair(fleet.id, fleet.shipCount));
                 }
             }
         }
 
-        incomingDmg.forEach((damage, fleetId) => {
-            if (damage === 0) return;
+        // dump 1/2 kore to the cell of killed flets
+        // mark the other 1/2 kore to go to attacking fleet proportionally
+        const toDistrubute = new Map<string, Pair<number, number>[]>();
+        incomingFleetDmg.forEach((attackers, fleetId) => {
+            const totalDamage = attackers.map(pair => pair.second).reduce((a, b) => a + b, 0);
             const fleet = board.fleets.get(fleetId);
-            if (damage >= fleet.shipCount) {
-                fleet.cell.kore += fleet.kore;
+            if (totalDamage >= fleet.shipCount) {
+                fleet.cell.kore += fleet.kore / 2;
+                attackers.forEach(p => {
+                    const attackerId = p.first;
+                    const attackerDmg = p.second;
+                    if (!toDistrubute.has(attackerId)) {
+                        toDistrubute.set(attackerId, []);
+                    }
+                    const toGet = fleet.kore / 2 * attackerDmg / totalDamage;
+                    toDistrubute.get(attackerId).push(new Pair(fleet.cell.position.toIndex(board.configuration.size), toGet));
+                })
                 board.deleteFleet(fleet);
             } else {
-                fleet.shipCount -= damage;
+                fleet.shipCount -= totalDamage;
             }
+
+        });
+
+        // give kore claimed above to surviving fleets, otherwise add it back to the tile where the fleet died.
+        toDistrubute.forEach((resourceFromLocs, fleetId) => {
+            resourceFromLocs.forEach(p => {
+                const cellIdx = p.first;
+                const kore = p.second;
+                if (!board.fleets.has(fleetId)) {
+                    board.cells[cellIdx].kore += kore;
+                } else {
+                    const fleet = board.fleets.get(fleetId);
+                    fleet.kore += kore;
+                }
+            });
         });
 
         // Collect kore from cells into fleets

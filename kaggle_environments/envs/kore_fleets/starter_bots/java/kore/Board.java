@@ -429,20 +429,17 @@ public class Board {
         }
 
         // apply fleet to fleet damage on all orthagonally adjacent cells
-        HashMap<String, Integer> incomingDmg = new HashMap<String, Integer>();
         HashMap<String, ArrayList<Pair<String, Integer>>> incomingFleetDmg = new HashMap<String, ArrayList<Pair<String, Integer>>>();
         for (Fleet fleet : board.fleets.values()) {
-            incomingDmg.put(fleet.id, 0);
             for (Direction direction : Direction.listDirections()) {
                 Point currPos = fleet.position.translate(direction, board.configuration.size);
                 Optional<Fleet> optFleet = board.getFleetAtPoint(currPos);
                 if (optFleet.isPresent() && optFleet.get().playerId != fleet.playerId) {
                     Fleet f = optFleet.get();
-                    if (!incomingFleetDmg.containsKey(fleet.id)) {
-                        incomingFleetDmg.put(fleet.id, new ArrayList<Pair<String, Integer>>());
+                    if (!incomingFleetDmg.containsKey(f.id)) {
+                        incomingFleetDmg.put(f.id, new ArrayList<Pair<String, Integer>>());
                     }
-                    incomingFleetDmg.get(fleet.id).add(new Pair<String, Integer>(f.id, f.shipCount));
-                    incomingDmg.put(fleet.id, incomingDmg.get(fleet.id) + f.shipCount);
+                    incomingFleetDmg.get(f.id).add(new Pair<String, Integer>(fleet.id, fleet.shipCount));
                 }
             }
         }
@@ -466,6 +463,7 @@ public class Board {
                     double toGet = fleet.kore / 2 * (double)attackerDmg / (double)totalDamage;
                     toDistribute.get(attackerId).add(new Pair<Integer, Double>(fleet.cell().position.toIndex(board.configuration.size), toGet));
                 });
+                board.deleteFleet(fleet);
             } else {
                 fleet.shipCount -= totalDamage;
             }

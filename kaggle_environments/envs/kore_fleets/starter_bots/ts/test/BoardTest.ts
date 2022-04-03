@@ -488,4 +488,48 @@ describe('Board', () =>  {
         })
     })
 
+    describe('fleet adjenct damage', () => {
+        it('resolves correctly when both die', () => {
+            const board = getStarterBoard();
+
+            const p1 = new Point(10, 11);
+            const f1 = new Fleet("f1", 100, Direction.NORTH, p1, 100.0, "", 0, board);
+            const p1Kore = board.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+            board.addFleet(f1);
+
+            const p2 = p1.add(Direction.NORTH).add(Direction.NORTH).add(Direction.EAST);
+            const f2 = new Fleet("f2", 100, Direction.SOUTH, p2, 100.0, "", 1, board);
+            board.addFleet(f2);
+
+            const nextBoard = board.next();
+
+            const p1NextKore = nextBoard.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+            expect(!nextBoard.fleets.has("f1")).to.be.true;
+            expect(p1Kore + 100 < p1NextKore).to.be.true;
+        })
+
+        it('resolves correctly when only one dies', () => {
+            const board = getStarterBoard();
+
+            const p1 = new Point(10, 11);
+            const f1 = new Fleet("f1", 50, Direction.NORTH, p1, 100.0, "", 0, board);
+            const p1Kore = board.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+            board.addFleet(f1);
+
+            const p2 = p1.add(Direction.NORTH).add(Direction.NORTH).add(Direction.EAST);
+            const f2 = new Fleet("f2", 100, Direction.SOUTH, p2, 100.0, "", 1, board);
+            board.addFleet(f2);
+
+            const nextBoard = board.next();
+
+            const p1NextKore = nextBoard.getCellAtPosition(p1.add(Direction.NORTH)).kore;
+            expect(!nextBoard.fleets.has("f1")).to.be.true;
+            expect(p1Kore + 50 < p1NextKore && p1Kore + 55 > p1NextKore).to.be.true;
+
+            const f2next = nextBoard.fleets.get("f2");
+            expect(f2.kore + 50 <= f2next.kore && f2.kore + 55 > f2next.kore).to.be.true;
+        });
+    });
+
+
 });
