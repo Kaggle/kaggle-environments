@@ -9,12 +9,12 @@
     "startingKore": {
       "description": "The starting amount of kore available on the board.",
       "type": "integer",
-      "default": 6000
+      "default": 2750 
     },
     "size": {
       "description": "The number of cells vertically and horizontally on the board.",
       "type": "integer",
-      "default": 31,
+      "default": 21,
       "minimum": 2
     },
     "spawnCost": {
