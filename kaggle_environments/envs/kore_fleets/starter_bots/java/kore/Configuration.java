@@ -5,7 +5,7 @@ public class Configuration {
     public final int agentTimeout;
     public final int startingKore;
     public final int size;
-    public final int spawnCost;
+    public final double spawnCost;
     public final int convertCost;
     public final double regenRate;
     public final int maxRegenCellKore;
@@ -15,7 +15,7 @@ public class Configuration {
         this.agentTimeout = KoreJson.getIntFromJson(rawConfiguration, "agentTimeout");
         this.startingKore = KoreJson.getIntFromJson(rawConfiguration, "startingKore");
         this.size = KoreJson.getIntFromJson(rawConfiguration, "size");
-        this.spawnCost = KoreJson.getIntFromJson(rawConfiguration, "spawnCost");
+        this.spawnCost = KoreJson.getDoubleFromJson(rawConfiguration, "spawnCost");
         this.convertCost = KoreJson.getIntFromJson(rawConfiguration, "convertCost");
         this.regenRate = KoreJson.getDoubleFromJson(rawConfiguration, "regenRate");
         this.maxRegenCellKore = KoreJson.getIntFromJson(rawConfiguration, "maxRegenCellKore");
