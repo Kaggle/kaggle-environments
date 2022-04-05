@@ -748,7 +748,8 @@ class Board:
                     board._add_shipyard(Shipyard(ShipyardId(create_uid()), fleet.ship_count - convert_cost, fleet.position, player.id, 0, board))
                     board._delete_fleet(fleet)
                     continue
-                elif fleet.flight_plan and fleet.flight_plan[0] == "C":
+
+                while fleet.flight_plan and fleet.flight_plan[0] == "C":
                     # couldn't build, remove the Convert and continue with flight plan
                     fleet._flight_plan = fleet.flight_plan[1:]
 

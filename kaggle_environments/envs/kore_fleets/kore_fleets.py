@@ -398,8 +398,6 @@ def populate_board(state, env):
     elif num_agents == 2:
         starting_positions[0] = size * (size // 2 - 1) + size // 4
         starting_positions[1] = size * (size // 2 + 1) + math.ceil(3 * size / 4) - 1
-        #starting_positions[0] = size * (size // 2) + size // 4
-        #starting_positions[1] = size * (size // 2) + math.ceil(3 * size / 4)
     elif num_agents == 4:
         starting_positions[0] = size * (size // 4 + 1) + size // 4 - 1
         starting_positions[1] = size * (size // 4 - 1) + 3 * size // 4 - 1
