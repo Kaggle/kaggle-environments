@@ -187,6 +187,22 @@ describe('Board', () =>  {
             expect(nextShipyard.playerId).to.equal(0);
             expect(nextShipyard.shipCount).to.equal(50);
         })
+
+        it('works with multiple converts ', () => {
+            let board = getStarterBoard();
+
+            const p = new Point(10, 11);
+
+            const f = new Fleet("test-fleet", 100, Direction.NORTH, p, 100.0, "CCC", 0, board);
+
+            board.addFleet(f);
+
+            board = board.next();
+            board = board.next();
+            board = board.next();
+
+            expect(true).to.be.true;
+        })
     })
 
     describe('coalescence', () => {

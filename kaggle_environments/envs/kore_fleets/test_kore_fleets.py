@@ -254,16 +254,29 @@ def test_updates_flight_plan_does_not_convert_if_not_enough_ships():
     board = create_board(size=31)
 
     p = Point(10, 11)
-    f = Fleet("test", 10, Direction.NORTH, p, 100, "S", 0, board)
+    f = Fleet("test", 10, Direction.NORTH, p, 100, "C", 0, board)
 
     board._add_fleet(f)
 
     next_board = board.next()
     assert board.get_shipyard_at_point(p) is None, "Should not have made a shipyard"
-    next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
+    next_fleet = next_board.get_fleet_at_point(p + Direction.NORTH.to_point())
     assert next_fleet is not None, "should have kept going"
     assert f.id == next_fleet.id, "should have the same id"
     assert "" == next_fleet.flight_plan, "should update flight plan"
+
+def test_updates_flight_plan_works_with_two_converts():
+    board = create_board(size=31)
+
+    p = Point(10, 11)
+    f = Fleet("test", 10, Direction.NORTH, p, 100, "SCCN", 0, board)
+
+    board._add_fleet(f)
+
+    board = board.next()
+    board = board.next()
+    board = board.next()
+
 
 def create_board(size=3, starting_kore=100, agent_count=2, random_seed=0):
     env = make("kore_fleets", configuration={
