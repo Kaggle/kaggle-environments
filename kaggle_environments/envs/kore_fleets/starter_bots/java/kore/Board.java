@@ -303,7 +303,8 @@ public class Board {
                     board.addShipyard(new Shipyard(this.createUid(), fleet.shipCount - converstCost, fleet.position, player.id, 0, board, Optional.empty()));
                     board.deleteFleet(fleet);
                     continue;
-                } else if (fleet.flightPlan.length() > 0 && fleet.flightPlan.startsWith("C")) {
+                } 
+                while (fleet.flightPlan.length() > 0 && fleet.flightPlan.startsWith("C")) {
                     // couldn't build, remove the Convert and continue with flight plan
                     fleet.flightPlan = fleet.flightPlan.substring(1);
                 }

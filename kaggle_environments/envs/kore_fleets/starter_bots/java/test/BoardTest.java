@@ -202,6 +202,23 @@ public class BoardTest {
     }
 
     @Test
+    public void updatesFlightPlan_worksWithMultipleConverts() throws IOException {
+        Board board = getStarterBoard();
+
+        Point p = new Point(10, 11);
+
+        Fleet f = new Fleet("test-fleet", 10, Direction.SOUTH, p, 100.0, "CCC", 0, board);
+
+        board.addFleet(f);
+
+        board = board.next();
+        board = board.next();
+        board = board.next();
+
+        Assert.assertTrue("should not have crashed", true);
+    }
+
+    @Test
     public void correctlyJoinAlliedFleet() throws IOException {
         Board board = getStarterBoard();
 
