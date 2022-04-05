@@ -116,7 +116,7 @@ def test_fleets_launched_with_direction():
     assert board.current_player.fleets[0].direction == Direction.NORTH, "should go NORTH"
 
 def test_fleets_move_in_direction():
-    board = create_board(size = 10)
+    board = create_board(size=10)
     for shipyard in board.shipyards.values():
         shipyard.next_action = ShipyardAction.spawn_ships(1)
 
@@ -152,7 +152,7 @@ def test_fleets_move_in_direction():
         assert positions.get(key) + Direction.NORTH.to_point() == new_positions.get(key)
 
 def test_kore_regenerates():
-    board = create_board(size = 31)
+    board = create_board(size=31)
 
     p = Point(10, 10)
 
@@ -163,7 +163,7 @@ def test_kore_regenerates():
     assert board.get_cell_at_point(p).kore < next_board.get_cell_at_point(p).kore, "should have regenerated kore"
 
 def test_spawn_zero_has_no_effect():
-    board = create_board(size = 31)
+    board = create_board(size=31)
 
     shipyard_id = board.players[0].shipyard_ids[0]
     shipyard = board.shipyards.get(shipyard_id)
@@ -278,7 +278,7 @@ def test_updates_flight_plan_works_with_two_converts():
     board = board.next()
 
 
-def create_board(size=3, starting_kore=100, agent_count=2, random_seed=0):
+def create_board(size=21, starting_kore=100, agent_count=2, random_seed=0):
     env = make("kore_fleets", configuration={
         "size": size,
         "startingKore": starting_kore,
