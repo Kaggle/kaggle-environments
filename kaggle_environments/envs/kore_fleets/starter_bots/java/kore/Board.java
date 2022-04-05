@@ -228,7 +228,7 @@ public class Board {
             }
             fleetsByShips.get(ships).add(fleet);
         }
-        Integer mostShips = fleetsByShips.keySet().stream().max((a, b) -> a > b ? 1 : -1).get();
+        int mostShips = fleetsByShips.keySet().stream().max((a, b) -> a > b ? 1 : -1).get();
         List<Fleet> largestFleets = fleetsByShips.get(mostShips);
         if (largestFleets.size() == 1) {
             // There was a winner, return it
@@ -331,7 +331,7 @@ public class Board {
 
             HashMap<Integer, List<Fleet>> fleetsByLoc = new HashMap<Integer, List<Fleet>>();
             for (Fleet fleet : player.fleets()) {
-                Integer locIdx = fleet.position.toIndex(configuration.size);
+                int locIdx = fleet.position.toIndex(configuration.size);
                 if (!fleetsByLoc.containsKey(locIdx)) {
                     fleetsByLoc.put(locIdx, new ArrayList<Fleet>());
                 }
@@ -450,13 +450,13 @@ public class Board {
         for(Entry<String, ArrayList<Pair<String, Integer>>> entry : incomingFleetDmg.entrySet()) {
             String fleetId = entry.getKey();
             ArrayList<Pair<String, Integer>> attackers = entry.getValue();
-            Integer totalDamage = attackers.stream().map(p -> p.second).reduce(0, Integer::sum);
+            int totalDamage = attackers.stream().map(p -> p.second).reduce(0, Integer::sum);
             Fleet fleet = board.fleets.get(fleetId);
             if (totalDamage >= fleet.shipCount) {
                 fleet.cell().kore += fleet.kore / 2;
                 attackers.forEach(p -> {
                     String attackerId = p.first;
-                    Integer attackerDmg = p.second;
+                    int attackerDmg = p.second;
                     if (!toDistribute.containsKey(attackerId)) {
                         toDistribute.put(attackerId, new ArrayList<Pair<Integer, Double>>());
                     }
