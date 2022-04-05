@@ -228,7 +228,7 @@ public class Board {
             }
             fleetsByShips.get(ships).add(fleet);
         }
-        Integer mostShips = fleetsByShips.keySet().stream().max((a, b) -> a > b ? 1 : -1).get();
+        int mostShips = fleetsByShips.keySet().stream().max((a, b) -> a > b ? 1 : -1).get();
         List<Fleet> largestFleets = fleetsByShips.get(mostShips);
         if (largestFleets.size() == 1) {
             // There was a winner, return it
@@ -332,7 +332,7 @@ public class Board {
 
             HashMap<Integer, List<Fleet>> fleetsByLoc = new HashMap<Integer, List<Fleet>>();
             for (Fleet fleet : player.fleets()) {
-                Integer locIdx = fleet.position.toIndex(configuration.size);
+                int locIdx = fleet.position.toIndex(configuration.size);
                 if (!fleetsByLoc.containsKey(locIdx)) {
                     fleetsByLoc.put(locIdx, new ArrayList<Fleet>());
                 }
@@ -430,28 +430,60 @@ public class Board {
         }
 
         // apply fleet to fleet damage on all orthagonally adjacent cells
-        HashMap<String, Integer> incomingDmg = new HashMap<String, Integer>();
+        HashMap<String, ArrayList<Pair<String, Integer>>> incomingFleetDmg = new HashMap<String, ArrayList<Pair<String, Integer>>>();
         for (Fleet fleet : board.fleets.values()) {
-            incomingDmg.put(fleet.id, 0);
             for (Direction direction : Direction.listDirections()) {
                 Point currPos = fleet.position.translate(direction, board.configuration.size);
                 Optional<Fleet> optFleet = board.getFleetAtPoint(currPos);
                 if (optFleet.isPresent() && optFleet.get().playerId != fleet.playerId) {
-                    incomingDmg.put(fleet.id, incomingDmg.get(fleet.id) + optFleet.get().shipCount);
+                    Fleet f = optFleet.get();
+                    if (!incomingFleetDmg.containsKey(f.id)) {
+                        incomingFleetDmg.put(f.id, new ArrayList<Pair<String, Integer>>());
+                    }
+                    incomingFleetDmg.get(f.id).add(new Pair<String, Integer>(fleet.id, fleet.shipCount));
                 }
             }
         }
 
-        for (Entry<String, Integer> entry : incomingDmg.entrySet()) {
+        // dump 1/2 kore to the cell of killed fleets
+        // mark the other 1/2 kore to go to surrounding fleets proportionally
+        HashMap<String, ArrayList<Pair<Integer, Double>>> toDistribute = new HashMap<String, ArrayList<Pair<Integer, Double>>>();
+        for(Entry<String, ArrayList<Pair<String, Integer>>> entry : incomingFleetDmg.entrySet()) {
             String fleetId = entry.getKey();
-            int damage = entry.getValue();
+            ArrayList<Pair<String, Integer>> attackers = entry.getValue();
+            int totalDamage = attackers.stream().map(p -> p.second).reduce(0, Integer::sum);
             Fleet fleet = board.fleets.get(fleetId);
-            if (damage >= fleet.shipCount) {
-                fleet.cell().kore += fleet.kore;
+            if (totalDamage >= fleet.shipCount) {
+                fleet.cell().kore += fleet.kore / 2;
+                attackers.forEach(p -> {
+                    String attackerId = p.first;
+                    int attackerDmg = p.second;
+                    if (!toDistribute.containsKey(attackerId)) {
+                        toDistribute.put(attackerId, new ArrayList<Pair<Integer, Double>>());
+                    }
+                    double toGet = fleet.kore / 2 * (double)attackerDmg / (double)totalDamage;
+                    toDistribute.get(attackerId).add(new Pair<Integer, Double>(fleet.cell().position.toIndex(board.configuration.size), toGet));
+                });
                 board.deleteFleet(fleet);
             } else {
-                fleet.shipCount -= damage;
+                fleet.shipCount -= totalDamage;
             }
+        }
+
+        // give kore claimed above to surviving fleets, otherwise add it to the kore of the tile where the fleet died
+        for(Entry<String, ArrayList<Pair<Integer, Double>>> entry : toDistribute.entrySet()) {
+            String fleetId = entry.getKey();
+            ArrayList<Pair<Integer, Double>> resoureFromLocs = entry.getValue();
+            resoureFromLocs.forEach(p -> {
+                int cellIdx = p.first;
+                double kore = p.second;
+                if (!board.fleets.containsKey(fleetId)) {
+                    board.cells[cellIdx].kore += kore;
+                } else {
+                    Fleet fleet = board.fleets.get(fleetId);
+                    fleet.kore += kore;
+                }
+            });
         }
 
         // Collect kore from cells into fleets

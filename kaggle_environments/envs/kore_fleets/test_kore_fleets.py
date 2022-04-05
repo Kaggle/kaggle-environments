@@ -250,6 +250,45 @@ def test_updates_flight_plan_converts_to_shipyard():
     assert shipyard.player_id == f.player_id, "should belong to the player"
     assert shipyard.ship_count == 50, "should have the right number of ships"
 
+def test_adjacent_combat_dumps_all_kore_when_both_die():
+    board = create_board(size=31)
+
+    p1 = Point(10, 11)
+    f1 = Fleet("f1", 100, Direction.NORTH, p1, 100, "", 0, board)
+    p1_kore = board.cells.get(p1 + Direction.NORTH.to_point()).kore
+    board._add_fleet(f1)
+
+    p2 = p1 + Direction.NORTH.to_point() + Direction.NORTH.to_point() + Direction.EAST.to_point()
+    f2 = Fleet("f2", 100, Direction.SOUTH, p2, 100, "", 1, board)
+    board._add_fleet(f2)
+
+    next_board = board.next()
+    f1_next = next_board.fleets.get("f1")
+    p1_kore_next = next_board.cells.get(p1 + Direction.NORTH.to_point()).kore
+    assert f1_next is None, "should have been destroyed"
+    assert p1_kore + 100 < p1_kore_next, "should dump all kore"
+
+def test_adjacent_combat_dumps_half_kore_when_one_dies():
+    board = create_board(size=31)
+
+    p1 = Point(10, 11)
+    f1 = Fleet("f1", 50, Direction.NORTH, p1, 100, "", 0, board)
+    p1_kore = board.cells.get(p1 + Direction.NORTH.to_point()).kore
+    board._add_fleet(f1)
+
+    p2 = p1 + Direction.NORTH.to_point() + Direction.NORTH.to_point() + Direction.EAST.to_point()
+    f2 = Fleet("f2", 100, Direction.SOUTH, p2, 100, "", 1, board)
+    board._add_fleet(f2)
+
+    next_board = board.next()
+    f1_next = next_board.fleets.get("f1")
+    p1_kore_next = next_board.cells.get(p1 + Direction.NORTH.to_point()).kore
+    assert f1_next is None, "should have been destroyed"
+    assert p1_kore + 50 < p1_kore_next and p1_kore + 55 > p1_kore_next, "should dump half kore"
+
+    f2_next = next_board.fleets.get("f2")
+    assert f2.kore + 50 <= f2_next.kore and f2.kore + 55 > f2_next.kore, "Should have picked up half"
+
 def test_updates_flight_plan_does_not_convert_if_not_enough_ships():
     board = create_board(size=31)
 
