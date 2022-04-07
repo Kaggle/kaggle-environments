@@ -36,20 +36,8 @@ async function renderer({
   const colors = {
     bg: "#000B49",
     bgGradient: "#000B2A",
-    players: ["#FEFE60", "#E36FC7", "#1A85FF", "#A50D45"],
+    players: ["#1A85FF", "#A50D45", "#FEFE60", "#E36FC7"],
     ships: [
-      [
-        "#FFFF73",
-        "#FEFE60",
-        "#E6E853",
-        "#D6DD4B",
-        ],
-        [
-          "#FE8ADA",
-          "#E36FC7",
-          "#CB59BA",
-          "#BB4EB2",
-        ],
         [
         "#35A0FF",
         "#1A85FF",
@@ -62,7 +50,18 @@ async function renderer({
         "#8D0038",
         "#7D0030",
         ],
-
+        [
+          "#FFFF73",
+          "#FEFE60",
+          "#E6E853",
+          "#D6DD4B",
+        ],
+        [
+          "#FE8ADA",
+          "#E36FC7",
+          "#CB59BA",
+          "#BB4EB2",
+        ],
     ],
   };
 
