@@ -1,3 +1,4 @@
+import { Board } from './kore/Board';
 import { Observation } from './kore/Observation';
 
 const { spawn } = require('child_process');
@@ -17,8 +18,7 @@ interface StepPlayerInfo {
   status: string;
 }
 
-const example =
-  'node --require ts-node/register interpreter.ts 2 ./main.py simple simple attacker [out.log] [replay.json]';
+const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple [out.log] [replay.json]';
 
 const DEFAULT_LOG_FILE_NAME = 'out.log';
 const DEFAULT_RESULT_FILE_NAME = 'replay.json';
@@ -30,7 +30,7 @@ const MAIN_AGENT_INDEX = 0;
 const myArgs = process.argv.slice(2);
 
 // TODO: better handling of arguments, named args.
-if (myArgs.length < 5) {
+if (myArgs.length < 3) {
   console.log('Please follow the format in the example below:');
   console.log(example);
   process.exit(1);
@@ -43,17 +43,17 @@ if (!episodes) {
   process.exit(1);
 }
 
-const agentNames = myArgs.slice(1, 5);
+const agentNames = myArgs.slice(1, 3);
 // TODO: support other number of agents
-if (agentNames.length !== 4) {
-  console.log('Please provide exactly 4 agents. Example:');
+if (agentNames.length !== 2) {
+  console.log('Please provide exactly 2 agents. Example:');
   console.log(example);
   process.exit(1);
 }
 
-const userLogfilename = myArgs[5] || DEFAULT_LOG_FILE_NAME;
+const userLogfilename = myArgs[3] || DEFAULT_LOG_FILE_NAME;
 
-const userResultfilename = myArgs[6] || DEFAULT_RESULT_FILE_NAME;
+const userResultfilename = myArgs[4] || DEFAULT_RESULT_FILE_NAME;
 
 console.log(`Running ${episodes} episodes with agents: ${agentNames.join(' ')}`);
 
@@ -109,7 +109,7 @@ async function runAgent(iterations: number, agents: string[], callback: Function
       console.log(`${completed}/${iterations}`);
       running--;
       const result = processResult(resultFilename);
-      processSteps(index, result.steps);
+      processSteps(index, result.configuration, result.steps);
       // ensure consistent result order
       results[index] = result;
       if (completed === iterations) {
@@ -128,46 +128,46 @@ function compileRunResults(agent: string, results: any[]) {
   try {
     let games = 0;
     let wins = 0;
-    let seconds = 0;
     for (let i = 0; i < results.length; i++) {
       games++;
       const steps = results[i].steps;
       const lastStep = steps[steps.length - 1];
-      if (lastStep.length !== 4) {
+      if (lastStep.length !== 2) {
         throw new Error(`${agent} ${i} has invalid result`);
       }
       const rewards = lastStep.map((r) => r.reward);
       console.log(`game ${pad(i)} rewards: ${rewards.map((r) => r.toFixed(0)).join(', ')}`);
-      const [p0, p1, p2, p3] = rewards;
-      if (p0 > p1 && p0 > p2 && p0 > p3) {
+      const [p0, p1] = rewards;
+      if (p0 > p1) {
         wins++;
-      } else if ((p0 > p1 && p0 > p2) || (p0 > p1 && p0 > p3) || (p0 > p2 && p0 > p3)) {
-        seconds++;
       }
     }
-    console.log(`agent ${agent} wins: ${pad(wins)}/${pad(games)}, top-twos: ${pad(wins + seconds)}/${pad(games)}`);
+    console.log(`agent ${agent} wins: ${pad(wins)}/${pad(games)}`);
   } catch (e) {
     console.error(e);
   }
 }
 
 // an example of getting the obervation, action, reward and status
-function processSteps(episode: number, steps: StepPlayerInfoRaw[][]) {
+function processSteps(episode: number, configuration: object, steps: StepPlayerInfoRaw[][]) {
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     // only the first agent has complete Observation, based analysis of replay.json
     const stepPlayerInfoRaw = step[MAIN_AGENT_INDEX];
-    const stepPlayerInfo: StepPlayerInfo = {
-      action: stepPlayerInfoRaw.action,
-      // no other way?
-      observation: new Observation(JSON.stringify(stepPlayerInfoRaw.observation)),
-      reward: stepPlayerInfoRaw.reward,
-      status: stepPlayerInfoRaw.status,
-    };
-    const { action, observation, reward, status } = stepPlayerInfo;
-    if (i % 100 === 0) {
+    const obervation = stepPlayerInfoRaw.observation;
+    // TODO: optimize this conversion thing
+    const board = Board.fromRaw(JSON.stringify(obervation), JSON.stringify(configuration));
+
+    const { action, reward, status } = stepPlayerInfoRaw;
+
+    let lastTurn = false;
+    if (status === 'DONE') {
+      lastTurn = true;
+    }
+
+    if (i % 100 === 0 || lastTurn) {
       console.log(
-        `[epi ${episode}][step ${pad2(i)}] kore 0:${observation.kore[0].toFixed(0)} action 0: ${
+        `[epi ${episode}][step ${pad2(i)}] current player kore:${board.currentPlayer.kore} action 0: ${
           action[Object.keys(action)[0]]
         } reward: ${reward.toFixed(0)} status: ${status}`
       );
