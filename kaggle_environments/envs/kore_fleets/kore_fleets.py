@@ -146,17 +146,15 @@ def attacker_agent(board):
 
 
 @board_agent
-def simp_agent(board):
+def balanced_agent(board):
     me = board.current_player
-    if board.step % 100  == 0 and me.id == 0:
-        import json
-        obs = board.observation
     me = board.current_player
     remaining_kore = me.kore
     shipyards = me.shipyards
     convert_cost = board.configuration.convert_cost
     size = board.configuration.size
     spawn_cost = board.configuration.spawn_cost
+
     # randomize shipyard order
     shipyards = sample(shipyards, len(shipyards))
     for shipyard in shipyards:
@@ -262,7 +260,7 @@ def random_agent(board):
             shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(2, dir_str)
 
 @board_agent
-def simple_agent(board):
+def miner_agent(board):
     me = board.current_player
     remaining_kore = me.kore
     shipyards = me.shipyards
@@ -310,7 +308,7 @@ def simple_agent(board):
             shipyard.next_action = ShipyardAction.launch_fleet_with_flight_plan(2, dir_str)
 
         
-agents = {"random": random_agent, "simple": simple_agent, "do_nothing": do_nothing_agent, "simp": simp_agent, "attacker": attacker_agent}
+agents = {"random": random_agent, "miner": miner_agent, "do_nothing": do_nothing_agent, "balanced": balanced_agent, "attacker": attacker_agent}
 
 
 def populate_board(state, env):
