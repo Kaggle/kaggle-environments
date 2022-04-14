@@ -11,14 +11,7 @@ interface StepPlayerInfoRaw {
   status: string;
 }
 
-interface StepPlayerInfo {
-  action: Record<string, string>;
-  observation: Observation;
-  reward: number;
-  status: string;
-}
-
-const example = 'node --require ts-node/register interpreter.ts 2 ./main.py simple [out.log] [replay.json]';
+const example = 'node --require ts-node/register interpreter.ts 2 ./main.py miner [out.log] [replay.json]';
 
 const DEFAULT_LOG_FILE_NAME = 'out.log';
 const DEFAULT_RESULT_FILE_NAME = 'replay.json';
