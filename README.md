@@ -200,6 +200,7 @@ There are two types of configuration: Defaults applying to every environment and
 | agentTimeout | Maximum runtime (seconds) to initialize an agent.               |
 | actTimeout   | Maximum runtime (seconds) to obtain an action from an agent.    |
 | runTimeout   | Maximum runtime (seconds) of an episode (not necessarily DONE). |
+| maxLogLength | Maximum log length (number of characters, `None` -> no limit)   |
 
 ```python
 env = make("connectx", configuration={
