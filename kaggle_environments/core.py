@@ -600,14 +600,20 @@ class Environment:
                     # Reraise e to ensure that the program exits
                     raise e
                 finally:
-                    # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-                    max_log_length = 1024
                     out = out_buffer.getvalue()
                     err = err_buffer.getvalue()
+
+                    # strip if needed
+                    # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
+                    max_log_length = self.configuration.get("maxLogLength", 1024)
+                    if max_log_length is not None:
+                        out = out[0:max_log_length]
+                        err = err[0:max_log_length]
+
                     if out or err:
                         logs.append({
-                            "stdout": out[0:max_log_length],
-                            "stderr": err[0:max_log_length]
+                            "stdout": out,
+                            "stderr": err
                         })
         finally:
             if out:
