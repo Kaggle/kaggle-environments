@@ -271,7 +271,6 @@ def test_max_log_length():
         # here we strip log to length 10
         configuration={"rows": 4, "columns": 5, "inarow": 3, "maxLogLength": 10},
     )
-    board = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0]
     env.run([custom1, custom2])
     last_log = env.logs[-1][0]['stdout']
     assert env.configuration.maxLogLength == 10, "max log length should be set to 10"
