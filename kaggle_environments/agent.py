@@ -141,8 +141,6 @@ class Agent:
         self.environment_name = environment.name
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
-        # Get the maximum log length
-        self.max_log_length = self.configuration.get('maxLogLength', 1024)
 
     def act(self, observation):
         args = [
@@ -165,8 +163,10 @@ class Agent:
 
             out = out_buffer.getvalue()
             err = err_buffer.getvalue()
+            # Get the maximum log length
             # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
-            max_log_length = self.max_log_length
+            max_log_length = self.configuration.get('maxLogLength', 1024)
+
             # truncate if max_log_length is set to None, do not truncate
             if max_log_length is not None:
                 out = out[0:max_log_length]
