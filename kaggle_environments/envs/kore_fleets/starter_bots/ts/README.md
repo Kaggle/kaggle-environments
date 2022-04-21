@@ -34,3 +34,12 @@ A basic TS interpreter has been created in `interpreter.ts`. You can use or modi
 Currently it supports 2 agents and customizable number of episodes. After each episode, you can access the complete history of the game. For each turn, you can access the full observation (state) as a Board object, actions performed and the reward obtained after performing the action.
 
 Sample command to run the interpreter can be found in npm scripts as `npm run interpreter`.
+
+## Miner bot
+
+A sample miner bot `MinerBot.ts` is provided, with Python entrypoint as `miner.py`. It has the same logic as the Python `miner` bot in `kore_fleets.py`.
+
+To run it aginst Python miner bot with TS interpreter for 20 episodes:
+
+1. `npm run compile`
+2. `node --require ts-node/register interpreter.ts 20 ./miner.py miner`

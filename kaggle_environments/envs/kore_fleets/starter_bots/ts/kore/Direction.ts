@@ -153,6 +153,10 @@ export class Direction extends Point {
         throw new Error("invalid direction");
     }
 
+    public static randomDirection(): Direction {
+        return Direction.fromIndex(Math.floor(Math.random() * 4));
+    }
+
     public static listDirections(): Direction[] {
         return [
             Direction.NORTH,
