@@ -16,7 +16,8 @@ export class Point {
     }
 
     public mod(size: number): Point {
-        return new Point(this.x % size, this.y % size);
+        // handle cases where the point is negative due to translation offset being negative
+        return new Point((this.x + size) % size, (this.y + size) % size);
     }
 
     /**

@@ -14,7 +14,7 @@ export class Board {
     public readonly shipyards: Map<string, Shipyard>;
     public readonly fleets: Map<string, Fleet>;
     public readonly players: Player[];
-    public readonly currentPlayerId: number;
+    public currentPlayerId: number;
     public readonly configuration: Configuration;
     public step: number;
     public readonly remainingOverageTime: number;
@@ -354,7 +354,7 @@ export class Board {
                 })
                 let fid = fleets[0].id;
                 for (let i = 1; i < fleets.length; i++) {
-                    fid = this.combineFleets(board, fid, fleets[1].id);
+                    fid = this.combineFleets(board, fid, fleets[i].id);
                 }
 
             }

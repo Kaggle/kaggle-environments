@@ -3,9 +3,7 @@ import { Direction } from "./kore/Direction";
 import { ShipyardAction } from "./kore/ShipyardAction";
 import { KoreIO } from "./kore/KoreIO";
 
-const io = new KoreIO();
-// agent.run takes care of running your code per tick
-io.run((board: Board): Board => {
+export const tick = async (board: Board): Promise<Board> => {
     const me = board.currentPlayer;
     const spawnCost = board.configuration.spawnCost;
     const convertCost = board.configuration.convertCost;
@@ -54,7 +52,10 @@ io.run((board: Board): Board => {
 
     // nextActions will be pulled off of your shipyards
     return board;
-});
+}
+
+const io = new KoreIO();
+io.run(tick);
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;

@@ -31,11 +31,17 @@
 
 A basic TS interpreter has been created in `interpreter.ts`. You can use or modify this file to train machine learning models in JS/TS.
 
-Currently it supports 2 agents and customizable number of episodes. After each episode, you can access the complete history of the game. For each turn, you can access the full observation (state) as a Board object, actions performed and the reward obtained after performing the action.
+Currently it supports 2 agents and customizable number of episodes. 
 
-Sample command to run the interpreter can be found in npm scripts as `npm run interpreter`.
+It has two modes: `run` and `step`.
 
-## Miner bot
+`run` mode: After each episode, you can access the complete history of the game. For each turn, you can access the full observation (state) as a Board object, actions performed and the reward obtained after performing the action. This mode is useful for evaluating an agent.
+
+`step` mode: The interpreter initializes new games and allows stepping through the game interactively. You have complete control over the board and the agent during each step. This mode is useful for training machine learning models.
+
+Sample command to run the interpreter can be found in npm scripts as `npm run interpreter:run` and `npm run interpreter:step`.
+
+## Miner bot and Do nothing bot
 
 A sample miner bot `MinerBot.ts` is provided, with Python entrypoint as `miner.py`. It has the same logic as the Python `miner` bot in `kore_fleets.py`.
 
@@ -43,3 +49,5 @@ To run it aginst Python miner bot with TS interpreter for 20 episodes:
 
 1. `npm run compile`
 2. `node --require ts-node/register interpreter.ts 20 ./miner.py miner`
+
+A sample do nothing bot `DoNothingBot.ts` is also provided.

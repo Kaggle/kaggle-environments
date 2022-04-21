@@ -1,5 +1,7 @@
 import { Board } from './kore/Board';
-import { Observation } from './kore/Observation';
+import { tick as DoNothingTick } from './DoNothingBot';
+import { tick as MinerTick } from './MinerBot';
+import { tick as BotTick } from './Bot';
 
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -11,7 +13,24 @@ interface StepPlayerInfoRaw {
   status: string;
 }
 
-const example = 'node --require ts-node/register interpreter.ts 2 ./main.py miner [out.log] [replay.json]';
+interface Agent {
+  name: string;
+  status: 'ACTIVE' | 'DONE';
+  reward: number;
+  tickFunc: (board:Board) => void; 
+}
+
+const tickFuncMapping = {
+  'miner': MinerTick,
+  'do_nothing': DoNothingTick,
+  'bot': BotTick,
+}
+
+const MODE_STEP = 'step' as const;
+const MODE_RUN = 'run' as const;
+type MODE = typeof MODE_STEP | typeof MODE_RUN;
+
+const example = 'node --require ts-node/register interpreter.ts step 2 ./main.py miner [out.log] [replay.json]';
 
 const DEFAULT_LOG_FILE_NAME = 'out.log';
 const DEFAULT_RESULT_FILE_NAME = 'replay.json';
@@ -20,6 +39,8 @@ const MAX_CONCURRENT = 5;
 
 // agent under test
 const MAIN_AGENT_INDEX = 0;
+// opponent agent
+const OPPONENT_AGENT_INDEX = 1;
 const myArgs = process.argv.slice(2);
 
 // TODO: better handling of arguments, named args.
@@ -29,14 +50,21 @@ if (myArgs.length < 3) {
   process.exit(1);
 }
 
-const episodes = parseInt(myArgs[0], 10);
+const mode = myArgs[0];
+if(mode !== MODE_STEP && mode !== MODE_RUN) {
+  console.log('Mode must be either step or run. Example:');
+  console.log(example);
+  process.exit(1);
+}
+
+const episodes = parseInt(myArgs[1], 10);
 if (!episodes) {
   console.log('Please provide number of episodes to run. Example:');
   console.log(example);
   process.exit(1);
 }
 
-const agentNames = myArgs.slice(1, 3);
+const agentNames = myArgs.slice(2, 4);
 // TODO: support other number of agents
 if (agentNames.length !== 2) {
   console.log('Please provide exactly 2 agents. Example:');
@@ -44,34 +72,214 @@ if (agentNames.length !== 2) {
   process.exit(1);
 }
 
-const userLogfilename = myArgs[3] || DEFAULT_LOG_FILE_NAME;
+// validate agent names for step mode
+if(mode === MODE_STEP) {
+  for (let i = 0; i < agentNames.length; i++) {
+    const agentName = agentNames[i];
+    if(!tickFuncMapping[agentName]) {
+      console.log(`Agent ${agentName} tick function mapping does not exit. Define the mapping in interpreter.js -> tickFuncMapping.`);
+      console.log(example);
+      process.exit(1);
+    }
+  }
+}
 
-const userResultfilename = myArgs[4] || DEFAULT_RESULT_FILE_NAME;
+const userLogfilename = myArgs[4] || DEFAULT_LOG_FILE_NAME;
+
+const userResultfilename = myArgs[5] || DEFAULT_RESULT_FILE_NAME;
 
 console.log(`Running ${episodes} episodes with agents: ${agentNames.join(' ')}`);
 
-runAgent(episodes, agentNames, () => {
-  // post processing
-  console.log('done');
-});
+if(mode === MODE_RUN) {
+  runAgent(episodes, agentNames, () => {
+    // post processing
+    console.log('run done');
+  });
+} else {
+  stepAgent(episodes, agentNames, () => {
+    // post processing
+    console.log('step done');
+  });
+}
 
-async function runAgent(iterations: number, agents: string[], callback: Function = () => {}) {
+function initEnv(agents: Agent[]): Promise<Board> {
+  // get init observation by playing a game between attacker agent and do_nothing agent
+  const resultFilename = `${userResultfilename}_init`;
+
+  const pyArguments = [
+    'run',
+    '--environment',
+    'kore_fleets',
+    '--agents',
+    'attacker',
+    'do_nothing',
+    '--out',
+    resultFilename,
+  ];
+
+  return new Promise<Board>((resolve, reject) => {
+    const kaggle = spawn('kaggle-environments', pyArguments, { cwd: __dirname });
+
+    kaggle.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
+      reject(data);
+    });
+  
+    kaggle.on('close', (code) => {
+      console.log(`init complete`);
+      const result = processResult(resultFilename);
+      const { configuration, steps } = result;
+      const observation = steps[0][0].observation;
+      const board = Board.fromRaw(JSON.stringify(observation), JSON.stringify(configuration));
+      resolve(board);
+    });
+  });
+}
+
+// mimic the interpreter function in kore_fleets.py
+function boardTick(board:Board, agents: Agent[]) {
+  const players = board.players;
+
+  // Remove players with invalid status or insufficient potential.
+  for (let i = 0; i < players.length; i++) {
+    const agent = agents[i];
+    const player = players[i];
+    const playerKore = player.kore;
+    const shipyards = player.shipyards;
+    const fleets = player.fleets;
+    const canSpawn = shipyards.length > 0 && playerKore >= board.configuration.spawnCost;
+
+    if(agent.status === 'ACTIVE' && shipyards.length === 0 && fleets.length === 0) {
+      agent.status = 'DONE';
+      agent.reward = board.step - board.configuration.episodeSteps - 1;
+    }
+    if(agent.status === 'ACTIVE' && playerKore === 0 && fleets.length === 0 && !canSpawn) {
+      agent.status = 'DONE';
+      agent.reward = board.step - board.configuration.episodeSteps - 1;
+    }
+    if(agent.status !== 'ACTIVE' && agent.status !== 'DONE') {
+      // TODO: handle this
+    }
+  }
+
+  // Check if done (< 2 players and num_agents > 1)
+  const activeAgents = agents.filter(agent => agent.status === 'ACTIVE').length;
+  if(agents.length > 1 && activeAgents < 2) {
+    for (let i = 0; i < agents.length; i++) {
+      const agent = agents[i];
+      if(agent.status === 'ACTIVE') {
+        agent.status = 'DONE';
+      }
+    }
+  }
+
+  // Update Rewards
+  for (let i = 0; i < agents.length; i++) {
+    const agent = agents[i];
+    if(agent.status === 'ACTIVE') {
+      agent.reward = players[i].kore;
+    } else if(agent.status !== 'DONE') {
+      agent.reward = 0;
+    }
+  }
+
+  let end = true;
+  if(board.step >= board.configuration.episodeSteps - 1) {
+    return true;
+  }
+  for (let i = 0; i < agents.length; i++) {
+    const agent = agents[i];
+    if(agent.status === 'ACTIVE') {
+      end = false;
+    }
+  }
+  return end;
+}
+
+async function stepAgent(episodes: number, agentsNames: string[], callback: Function = () => {}) {
+  let completed = 0;
+  let wins = 0;
+
+  for (let index = 0; index < episodes; index++) {
+    let agentNamesMutable = agentsNames.slice();
+    let episodeMainAgentIndex = MAIN_AGENT_INDEX;
+    let episodeOpponentAgentIndex = OPPONENT_AGENT_INDEX;
+    // randomize starting position
+    if (Math.random() < 0.5) {
+      const temp = agentNamesMutable[0];
+      agentNamesMutable[0] = agentNamesMutable[1];
+      agentNamesMutable[1] = temp;
+      episodeMainAgentIndex = OPPONENT_AGENT_INDEX;
+      episodeOpponentAgentIndex = MAIN_AGENT_INDEX;
+    }
+
+    const agents: Agent[] = agentNamesMutable.map((name) => {
+      return {
+        name: name,
+        status: 'ACTIVE',
+        reward: 0,
+        tickFunc: tickFuncMapping[name],
+      };
+    });
+
+    let gameBoard = await initEnv(agents);
+    while(!boardTick(gameBoard, agents)) {
+      // console.log(gameBoard.step);
+      for (let i = 0; i < agents.length; i++) {
+        const agent = agents[i];
+        // rotate the board to the agent's perspective
+        // and assign agent action to game board
+        gameBoard.currentPlayerId = i;
+        agent.tickFunc(gameBoard);
+
+        gameBoard.currentPlayer.shipyards.forEach(shipyard => {
+          // console.log(gameBoard.currentPlayerId, shipyard.position.toString(), shipyard.nextAction);
+        })
+      }
+      gameBoard.currentPlayerId = episodeMainAgentIndex;
+      if (gameBoard.step % 100 === 0) {
+        console.log(
+          `[epi ${index}][step ${pad2(gameBoard.step)}] current player kore:${gameBoard.currentPlayer.kore} action 0: ${
+            gameBoard.currentPlayer.shipyards.length ? gameBoard.currentPlayer.shipyards[0].nextAction : 'none'
+          } reward: ${agents[episodeMainAgentIndex].reward.toFixed(0)} status: ${agents[episodeMainAgentIndex].status}`
+        );
+      }
+      gameBoard = gameBoard.next();
+    }
+    console.log(
+      `[epi ${index}][step ${pad2(gameBoard.step)}] current player kore:${gameBoard.currentPlayer.kore} action 0: ${
+        gameBoard.currentPlayer.shipyards.length ? gameBoard.currentPlayer.shipyards[0].nextAction : 'none'
+      } reward: ${agents[episodeMainAgentIndex].reward.toFixed(0)} status: ${agents[episodeMainAgentIndex].status}`
+    );
+    console.log(agents[episodeMainAgentIndex].name, agents[episodeMainAgentIndex].reward);
+    console.log(agents[episodeOpponentAgentIndex].name, agents[episodeOpponentAgentIndex].reward);
+    if(agents[episodeMainAgentIndex].reward > agents[episodeOpponentAgentIndex].reward) {
+      wins++;
+    }
+
+    completed++;
+    console.log(`${completed}/${episodes}`);
+    if (completed === episodes) {
+      const mainAgentName = agentsNames[MAIN_AGENT_INDEX];
+      console.log(`agent ${mainAgentName} wins: ${pad(wins)}/${pad(episodes)}`);
+      callback();
+    }
+  }
+}
+
+async function runAgent(episodes: number, agents: string[], callback: Function = () => {}) {
   let running = 0;
   let completed = 0;
-  const results = new Array(iterations);
+  const results = new Array(episodes);
 
   const agent = agents[MAIN_AGENT_INDEX];
   const cleanAgentName = agent.replace(/\.py$/g, '').replace(/\W/g, '');
 
-  for (let index = 0; index < iterations; index++) {
+  for (let index = 0; index < episodes; index++) {
     const resultFilename = `${userResultfilename}_${index}`;
     const logFilename = `${userLogfilename}_${index}`;
     const pyArguments = [
       'run',
-      // TODO: support evaluate mode
-      // 'evaluate',
-      // '--episodes',
-      // '1',
       '--environment',
       'kore_fleets',
       '--agents',
@@ -99,13 +307,13 @@ async function runAgent(iterations: number, agents: string[], callback: Function
 
     kaggle.on('close', (code) => {
       completed++;
-      console.log(`${completed}/${iterations}`);
+      console.log(`${completed}/${episodes}`);
       running--;
       const result = processResult(resultFilename);
       processSteps(index, result.configuration, result.steps);
       // ensure consistent result order
       results[index] = result;
-      if (completed === iterations) {
+      if (completed === episodes) {
         compileRunResults(cleanAgentName, results);
         callback();
       }

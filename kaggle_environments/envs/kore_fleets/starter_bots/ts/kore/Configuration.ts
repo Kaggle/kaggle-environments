@@ -8,6 +8,7 @@ export class Configuration {
     public readonly regenRate: number;
     public readonly maxRegenCellKore: number;
     public readonly randomSeed: number;
+    public readonly episodeSteps: number;
 
     public constructor(rawConfiguration: string) {
         const config = JSON.parse(rawConfiguration);
@@ -19,5 +20,6 @@ export class Configuration {
         this.regenRate = config.regenRate;
         this.maxRegenCellKore = config.maxRegenCellKore;
         this.randomSeed = config.randomSeed;
+        this.episodeSteps = config.episodeSteps;
     }
 }
