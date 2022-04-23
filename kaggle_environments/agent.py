@@ -46,7 +46,7 @@ def get_last_callable(raw, fallback=None, path=None):
         # append exec_dir so that way python agents can import other files
         exec_dir = os.path.dirname(path)
         sys.path.append(exec_dir)
-        
+
         exec(code_object, env)
         sys.path.pop()
         sys.stdout = orig_out
@@ -160,10 +160,17 @@ class Agent:
             except Exception as e:
                 traceback.print_exc(file=err_buffer)
                 action = e
-            # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-            max_log_length = 1024
-            out = out_buffer.getvalue()[0:max_log_length]
-            err = err_buffer.getvalue()[0:max_log_length]
+
+            out = out_buffer.getvalue()
+            err = err_buffer.getvalue()
+            # Get the maximum log length
+            # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
+            max_log_length = self.configuration.get('maxLogLength', 1024)
+
+            # truncate if max_log_length is set to None, do not truncate
+            if max_log_length is not None:
+                out = out[0:max_log_length]
+                err = err[0:max_log_length]
 
         duration = perf_counter() - start
         log = {
