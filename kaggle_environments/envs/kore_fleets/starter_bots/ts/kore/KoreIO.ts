@@ -1,12 +1,11 @@
-import readline from "readline";
-import { Board } from "./Board";
-import { ShipyardAction } from "./ShipyardAction";
+import readline from 'readline';
+import { Board } from './Board';
+import { ShipyardAction } from './ShipyardAction';
 
 export class KoreIO {
   public getLine: () => Promise<string>;
 
   public _setup(): void {
-
     // Prepare to read input
     const rl = readline.createInterface({
       input: process.stdin,
@@ -28,8 +27,7 @@ export class KoreIO {
       currentPromise = makePromise();
     });
     // The current promise for retrieving the next line
-    currentPromise = makePromise()
-
+    currentPromise = makePromise();
 
     // with await, we pause process until there is input
     this.getLine = async () => {
@@ -52,17 +50,18 @@ export class KoreIO {
     this._setup(); // DO NOT REMOVE
   }
 
-
-  public async run(loop: (board: Board) => Board): Promise<void> {
+  public async run(loop: (board: Board) => Promise<Board>): Promise<void> {
     while (true) {
       const rawObservation = await this.getLine();
       const rawConfiguration = await this.getLine();
       const board = Board.fromRaw(rawObservation, rawConfiguration);
       try {
-        const nextBoard = loop(board);
-        let actions = []
-        board.currentPlayer.nextActions.forEach((action: ShipyardAction, id: string) => actions.push(`${id}:${action.toString()}`));
-        console.log(actions.join(","));
+        const nextBoard = await loop(board);
+        let actions = [];
+        board.currentPlayer.nextActions.forEach((action: ShipyardAction, id: string) =>
+          actions.push(`${id}:${action.toString()}`)
+        );
+        console.log(actions.join(','));
       } catch (err) {
         console.log(err);
       }
