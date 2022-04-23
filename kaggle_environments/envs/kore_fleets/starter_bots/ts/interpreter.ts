@@ -147,13 +147,14 @@ function boardTick(board:Board, agents: Agent[]) {
     const playerKore = player.kore;
     const shipyards = player.shipyards;
     const fleets = player.fleets;
+    const shipsInShipards = shipyards.reduce((acc, shipyard) => acc + shipyard.shipCount, 0);
     const canSpawn = shipyards.length > 0 && playerKore >= board.configuration.spawnCost;
 
     if(agent.status === 'ACTIVE' && shipyards.length === 0 && fleets.length === 0) {
       agent.status = 'DONE';
       agent.reward = board.step - board.configuration.episodeSteps - 1;
     }
-    if(agent.status === 'ACTIVE' && playerKore === 0 && fleets.length === 0 && !canSpawn) {
+    if(agent.status === 'ACTIVE' && shipsInShipards === 0 && fleets.length === 0 && !canSpawn) {
       agent.status = 'DONE';
       agent.reward = board.step - board.configuration.episodeSteps - 1;
     }
@@ -230,7 +231,7 @@ async function stepAgent(episodes: number, agentsNames: string[], callback: Func
         // rotate the board to the agent's perspective
         // and assign agent action to game board
         gameBoard.currentPlayerId = i;
-        agent.tickFunc(gameBoard);
+        await agent.tickFunc(gameBoard);
 
         gameBoard.currentPlayer.shipyards.forEach(shipyard => {
           // console.log(gameBoard.currentPlayerId, shipyard.position.toString(), shipyard.nextAction);
