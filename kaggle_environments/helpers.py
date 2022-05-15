@@ -36,7 +36,7 @@ class Point(tuple):
         return (self + offset) % size
 
     def distance_to(self, other: 'Point', size: int):
-        """Translates the current point by offset and wraps it around a board of width and height size"""
+        """Computes total distance (manhattan) to travel to other Point"""
         abs_x = abs(self.x - other.x)
         dist_x = abs_x if abs_x < size/2 else size - abs_x
         abs_y = abs(self.y - other.y)
