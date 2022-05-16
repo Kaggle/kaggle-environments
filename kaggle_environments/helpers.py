@@ -46,7 +46,7 @@ class Point(tuple):
     def to_index(self, size: int):
         """
         Converts a 2d position in the form (x, y) to an index in the observation.halite list.
-        See index_to_position for the inverse.
+        See staticmethod from_index for the inverse.
         """
         return (size - self.y - 1) * size + self.x
 
@@ -54,7 +54,7 @@ class Point(tuple):
     def from_index(index: int, size: int) -> 'Point':
         """
         Converts an index in the observation.halite list to a 2d position in the form (x, y).
-        See position_to_index for the inverse.
+        See Point method to_index for the inverse.
         """
         y, x = divmod(index, size)
         return Point(x, (size - y - 1))
