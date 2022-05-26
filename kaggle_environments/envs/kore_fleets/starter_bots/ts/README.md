@@ -4,6 +4,8 @@
 
 1. node and npm/npx/yarn
 2. typescript installed
+3. python3 installed
+4. kaggle_environments pip package installed
 
 ## Getting started
 
