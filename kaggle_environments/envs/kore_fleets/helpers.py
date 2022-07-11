@@ -122,10 +122,18 @@ class ShipyardAction:
         if not raw:
             return None
         if raw.startswith(ShipyardActionType.SPAWN.name):
-            return ShipyardAction.spawn_ships(int(raw.split("_")[1]))
+            _, ship_str = raw.split("_")
+            try:
+                num_ships = int(ship_str.split(".")[0])
+            except _:
+                num_ships = 0
+            return ShipyardAction.spawn_ships(num_ships)
         if raw.startswith(ShipyardActionType.LAUNCH.name):
             _, ship_str, plan_str = raw.split("_")
-            num_ships = int(ship_str)
+            try:
+                num_ships = int(ship_str.split(".")[0])
+            except _:
+                num_ships = 0
             return ShipyardAction.launch_fleet_with_flight_plan(num_ships, plan_str)
 
     @staticmethod
