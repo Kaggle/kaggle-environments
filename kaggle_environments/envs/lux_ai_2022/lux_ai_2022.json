@@ -1,0 +1,62 @@
+{
+  "name": "lux_ai_2022",
+  "title": "Lux AI Challenge: 2022",
+  "description": "A Novel AI Programming Challenge about Lux",
+  "version": "0.0.1",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 1000 steps",
+      "type": "integer",
+      "minimum": 2,
+      "default": 1001
+    },
+    "seed": {
+      "description": "Seed to use for episodes",
+      "type": "integer"
+    },
+    "actTimeout": 3,
+    "env_cfg": {
+      "type": "object"
+    }
+  },
+  "reward": {
+    "description": "Reward of the agent. Equal to amount of lichen grown.",
+    "type": "integer",
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "width": {
+      "description": "The width of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 64
+    },
+    "height": {
+      "description": "The height of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 64
+    },
+    "reward": {
+      "description": "Current reward of the agent. Equal to amount of lichen grown.",
+      "type": "integer",
+      "default": 0
+    },
+    "obs": {
+      "description": "String containing the observations",
+      "type": "string",
+      "shared": true
+    },
+    "player": {
+      "description": "Current player's index / team id",
+      "type": "string",
+      "defaults": "player_0"
+    }
+  },
+  "action": {
+    "description": "Actions",
+    "type": "object"
+  }
+}
