@@ -1,3 +1,0 @@
-global-exclude *.pyc *.pyo *.o
-include *.py *.c *.h *.txt MANIFEST.in MANIFEST
-recursive-include examples *.txt *.py *.png *.jpg
