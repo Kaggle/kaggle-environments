@@ -292,7 +292,6 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
             continue
         if valid_action:
             actions_by_type_validated["move"].append((unit, move_action))
-    #TODO self destruct
 
     for unit, self_destruct_action in actions_by_type["self_destruct"]:
         valid_action = True

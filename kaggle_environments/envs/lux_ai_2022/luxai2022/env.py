@@ -423,7 +423,6 @@ class LuxAI2022(ParallelEnv):
                 # add in all the stationary units
                 new_units_map[pos_hash] += units
 
-            # TODO test collisions
             destroyed_units: Set[Unit] = set()
             new_units_map_after_collision: Dict[str, List[Unit]] = defaultdict(list)
             for pos_hash, units in new_units_map.items():
@@ -539,7 +538,6 @@ class LuxAI2022(ParallelEnv):
         dones = {agent: env_done or failed_agents[agent] for agent in self.agents}
 
         # generate observations
-        # TODO add info for bidding here
         obs = self.state.get_obs()
         observations = {}
         for k in self.agents:
