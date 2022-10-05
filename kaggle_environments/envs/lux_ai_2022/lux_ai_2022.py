@@ -8,17 +8,8 @@ from os import path
 from .agents import all_agents
 from sys import path as syspath
 from os import path as osp
-__dir__ = osp.dirname(__file__)
-syspath.append(__dir__)
-syspath.append(osp.join(__dir__, "PettingZoo"))
 
-try:
-    import vec_noise
-except ImportError:
-    import subprocess
-    print("warning: vec_noise not installed, installing now")
-    subprocess.call([sys.executable, "setup.py", "develop"], cwd=osp.join(__dir__, "vec_noise"))
-    import vec_noise
+import vec_noise
 
 from luxai2022.env import LuxAI2022
 import numpy as np
