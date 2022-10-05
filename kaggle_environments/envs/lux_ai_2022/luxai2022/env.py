@@ -378,10 +378,10 @@ class LuxAI2022(ParallelEnv):
                 team = self.state.teams[factory.team.agent]
                 self.add_unit(
                     team=team,
-                    unit_type=UnitType.HEAVY if factory_build_action.unit_type == 1 else UnitType.LIGHT,
+                    unit_type=factory_build_action.unit_type,
                     pos=factory.pos.pos,
                 )
-                if factory_build_action.unit_type == 1:
+                if factory_build_action.unit_type == UnitType.HEAVY:
                     factory.sub_resource(3, self.env_cfg.ROBOTS["HEAVY"].METAL_COST)
                     factory.sub_resource(4, math.ceil(self.env_cfg.ROBOTS["HEAVY"].POWER_COST * weather_cfg["power_loss_factor"]))
                 else:
