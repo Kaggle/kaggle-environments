@@ -79,8 +79,8 @@ class Factory:
         self.cargo.ore -= consumed_ore
 
         # TODO - are we rounding or doing floats or anything?
-        self.cargo.water += consumed_ice / config.ICE_WATER_RATIO
-        self.cargo.metal += consumed_ore / config.ORE_METAL_RATIO
+        self.cargo.water += int(consumed_ice / config.ICE_WATER_RATIO)
+        self.cargo.metal += int(consumed_ore / config.ORE_METAL_RATIO)
 
     def cache_water_info(self, board: Board, env_cfg: EnvConfig):
         # TODO this can easily be a fairly slow function, can we make it much faster?
@@ -101,7 +101,7 @@ class Factory:
         init_arr = np.stack([self.pos.pos + np.array([0, -2]), self.pos.pos + np.array([2, 0]), self.pos.pos + np.array([0, 2]), self.pos.pos + np.array([-2, 0])])
         self.grow_lichen_positions = compute_water_info(init_arr, env_cfg.MIN_LICHEN_TO_SPREAD, board.lichen, board.lichen_strains, self.num_id, forbidden)
     def water_cost(self, config: EnvConfig):
-        return np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR) + 1
+        return int(np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR) + 1)
 
     ### Add and sub resource functions copied over from unit.py code, can we consolidate them somewhere?
     def add_resource(self, resource_id, transfer_amount):
@@ -116,7 +116,7 @@ class Factory:
             self.cargo.metal += transfer_amount
         elif resource_id == 4:
             self.power += transfer_amount
-        return transfer_amount
+        return int(transfer_amount)
     def sub_resource(self, resource_id, amount):
         # subtract/transfer out as much as you min(have, request)
         if amount < 0: amount = 0
@@ -135,7 +135,7 @@ class Factory:
         elif resource_id == 4:
             transfer_amount = min(self.power, amount)
             self.power -= transfer_amount
-        return transfer_amount
+        return int(transfer_amount)
 
 
 

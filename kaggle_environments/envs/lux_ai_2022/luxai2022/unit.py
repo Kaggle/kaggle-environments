@@ -89,7 +89,7 @@ class Unit:
         elif resource_id == 4:
             transfer_amount = min(self.battery_capacity - self.power, amount)
             self.power += transfer_amount
-        return transfer_amount
+        return int(transfer_amount)
     def sub_resource(self, resource_id, amount):
         # subtract/transfer out as much as you min(have, request)
         if amount < 0: amount = 0
@@ -108,7 +108,7 @@ class Unit:
         elif resource_id == 4:
             transfer_amount = min(self.power, amount)
             self.power -= transfer_amount
-        return transfer_amount
+        return int(transfer_amount)
 
 
 if __name__ == "__main__":

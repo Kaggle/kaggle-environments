@@ -17,21 +17,18 @@ class Board:
         self.height =  self.env_cfg.map_size
         self.width =  self.env_cfg.map_size
         self.seed = seed
-        # self.map: GameMap = random_map()
-        map_type = None #args.get("map_type", None)
-        symmetry = None # args.get("symmetry", None)
-        # TODO fix Craters RNG
         rng = np.random.RandomState(seed=seed)
-        self.map = GameMap.random_map(seed=seed, symmetry="horizontal", map_type="Cave", width=self.width, height=self.height)
+        map_type = rng.choice(["Cave", "Mountain"])
+        symmetry = rng.choice(["horizontal", "vertical"])
+        self.map = GameMap.random_map(seed=seed, symmetry=symmetry, map_type=map_type, width=self.width, height=self.height)
         self.factories_per_team = rng.randint(env_cfg.MIN_FACTORIES, env_cfg.MAX_FACTORIES + 1)
 
         # remove bottom once generator is fully ready
         self.map.rubble = self.map.rubble.astype(int)
-        self.map.rubble[self.map.rubble < 10] = 0
-        self.map.ice[self.map.ice != 0] = 1
-        # self.map.ore[self.map.ore > 50] = 1
-        # self.map.ore[self.map.ore <= 50] = 0
-        self.lichen = np.zeros((self.height, self.width))
+        self.map.ore = self.map.ore.astype(int)
+        self.map.ice = self.map.ice.astype(int)
+
+        self.lichen = np.zeros((self.height, self.width), dtype=int)
         # ownership of lichen by factory id, a simple mask
         # -1 = no ownership
         self.lichen_strains = -np.ones((self.height, self.width), dtype=int)

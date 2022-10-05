@@ -1,5 +1,6 @@
 from collections import OrderedDict, defaultdict
 import functools
+import math
 from typing import Dict, List, Set, Tuple, Union
 
 import numpy as np
@@ -362,7 +363,7 @@ class LuxAI2022(ParallelEnv):
                     unit.add_resource(0, unit.unit_cfg.DIG_RESOURCE_GAIN)
                 elif self.state.board.ore[unit.pos.y, unit.pos.x] > 0:
                     unit.add_resource(1, unit.unit_cfg.DIG_RESOURCE_GAIN)
-                unit.power -= self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_COST
+                unit.power -= math.ceil(self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_COST * weather_cfg["power_loss_factor"])
 
             for unit, self_destruct_action in actions_by_type["self_destruct"]:
                 unit: Unit
@@ -382,12 +383,11 @@ class LuxAI2022(ParallelEnv):
                 )
                 if factory_build_action.unit_type == 1:
                     factory.sub_resource(3, self.env_cfg.ROBOTS["HEAVY"].METAL_COST)
-                    factory.sub_resource(4, self.env_cfg.ROBOTS["HEAVY"].POWER_COST * weather_cfg["power_loss_factor"])
+                    factory.sub_resource(4, math.ceil(self.env_cfg.ROBOTS["HEAVY"].POWER_COST * weather_cfg["power_loss_factor"]))
                 else:
                     factory.sub_resource(3, self.env_cfg.ROBOTS["LIGHT"].METAL_COST)
-                    factory.sub_resource(4, self.env_cfg.ROBOTS["LIGHT"].POWER_COST * weather_cfg["power_loss_factor"])
+                    factory.sub_resource(4, math.ceil(self.env_cfg.ROBOTS["LIGHT"].POWER_COST * weather_cfg["power_loss_factor"]))
 
-            # TODO execute movement and recharge/wait actions, then resolve collisions
             new_units_map: Dict[str, List[Unit]] = defaultdict(list)
             heavy_entered_pos: Dict[str, List[Unit]] = defaultdict(list)
             light_entered_pos: Dict[str, List[Unit]] = defaultdict(list)
@@ -401,7 +401,7 @@ class LuxAI2022(ParallelEnv):
                 target_pos = unit.pos + move_action.dist * move_deltas[move_action.move_dir]
                 rubble = self.state.board.rubble[target_pos.y, target_pos.x]
                 power_required = unit.unit_cfg.MOVE_COST + unit.unit_cfg.RUBBLE_MOVEMENT_COST * rubble
-                power_required = power_required * weather_cfg["power_loss_factor"]
+                power_required = math.ceil(power_required * weather_cfg["power_loss_factor"])
                 unit.pos = target_pos
                 new_pos_hash = self.state.board.pos_hash(unit.pos)
 
@@ -514,10 +514,10 @@ class LuxAI2022(ParallelEnv):
             if is_day(self.env_cfg, self.state.real_env_steps):
                 for agent in self.agents:
                     for u in self.state.units[agent].values():
-                        u.power = u.power + self.env_cfg.ROBOTS[u.unit_type.name].CHARGE * weather_cfg["power_gain_factor"]
+                        u.power = u.power + math.ceil(self.env_cfg.ROBOTS[u.unit_type.name].CHARGE * weather_cfg["power_gain_factor"])
             for agent in self.agents:
                 for f in self.state.factories[agent].values():
-                    f.power = f.power + self.env_cfg.FACTORY_CHARGE * weather_cfg["power_gain_factor"]
+                    f.power = f.power + math.ceil(self.env_cfg.FACTORY_CHARGE * weather_cfg["power_gain_factor"])
 
 
         # always set rubble under factories to 0.

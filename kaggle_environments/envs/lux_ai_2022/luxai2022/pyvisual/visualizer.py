@@ -47,7 +47,7 @@ class Visualizer:
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
                 if self.state.board.lichen_strains[y, x] != -1:
-                    c = strain_colors.colors[self.state.board.lichen_strains[y, x]]
+                    c = strain_colors.colors[self.state.board.lichen_strains[y, x] % len(strain_colors.colors)]
                     pygame.draw.rect(
                         self.screen,
                         [int(c[0]*255),int(c[1]*255),int(c[2]*255)],
