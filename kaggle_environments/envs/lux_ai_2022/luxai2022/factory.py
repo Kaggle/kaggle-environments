@@ -22,7 +22,12 @@ def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.n
     seen = set(map(tuple, init))
     grow_lichen_positions = set()
     H, W = lichen.shape
+    ct = 0
     while len(frontier) > 0:
+        ct += 1
+        if ct > 1_000_000:
+            print("Error! Lichen Growth calculation took too long")
+            break
         pos = frontier.popleft()
         if pos[0] < 0 or pos[1] < 0 or pos[0] >= forbidden.shape[1] or pos[1] >= forbidden.shape[0]:
             continue
