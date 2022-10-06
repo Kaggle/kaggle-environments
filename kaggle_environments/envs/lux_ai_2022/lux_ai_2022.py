@@ -109,8 +109,8 @@ def interpreter(state, env):
     player_0.observation.width = luxenv.state.board.width
     player_0.observation.height = luxenv.state.board.height
 
-    player_0.reward = rewards["player_0"]
-    player_1.reward = rewards["player_1"]
+    player_0.reward = int(rewards["player_0"])
+    player_1.reward = int(rewards["player_1"])
     player_0.observation.reward = int(player_0.reward)
     player_1.observation.reward = int(player_1.reward)
 
