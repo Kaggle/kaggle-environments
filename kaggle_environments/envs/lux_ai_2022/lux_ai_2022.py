@@ -9,6 +9,11 @@ from .agents import all_agents
 from sys import path as syspath
 from os import path as osp
 
+# next two lines enables importing local packages e.g. luxai2022
+__dir__ = osp.dirname(__file__)
+syspath.append(__dir__)
+
+
 import vec_noise
 
 from luxai2022.env import LuxAI2022
