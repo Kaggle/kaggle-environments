@@ -43,7 +43,7 @@ def register(name, environment):
     environments[name] = environment
 
 
-def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1, debug=False, state=None):
+def evaluate(environment, agents=None, configuration=None, steps=None, num_episodes=1, debug=False, state=None):
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
@@ -59,15 +59,22 @@ def evaluate(environment, agents=[], configuration={}, steps=[], num_episodes=1,
     Returns:
         list of list of int: List of final rewards for all agents for all episodes.
     """
+    if agents is None:
+        agents = []
+    if configuration is None:
+        configuration = {}
+    if steps is None:
+        steps = []
+
     e = make(environment, configuration, steps, debug=debug, state=state)
-    rewards = [[]] * num_episodes
+    rewards = [[] for i in range(num_episodes)]
     for i in range(num_episodes):
         last_state = e.run(agents)[-1]
         rewards[i] = [state.reward for state in last_state]
     return rewards
 
 
-def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False, state=None):
+def make(environment, configuration=None, info=None, steps=None, logs=None, debug=False, state=None):
     """
     Creates an instance of an Environment.
 
@@ -82,6 +89,16 @@ def make(environment, configuration={}, info={}, steps=[], logs=[], debug=False,
     Returns:
         Environment: Instance of a specific environment.
     """
+    if configuration is None:
+        configuration = {}
+    if info is None:
+        info = {}
+    if steps is None:
+        steps = []
+    if logs is None:
+        logs = []
+
+
     if has(environment, str) and has(environments, dict, path=[environment]):
         return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     elif callable(environment):
@@ -104,18 +121,31 @@ def act_agent(args):
 class Environment:
     def __init__(
         self,
-        specification={},
-        configuration={},
-        info={},
-        steps=[],
-        logs=[],
-        agents={},
+        specification=None,
+        configuration=None,
+        info=None,
+        steps=None,
+        logs=None,
+        agents=None,
         interpreter=None,
         renderer=None,
         html_renderer=None,
         debug=False,
         state=None,
     ):
+        if specification is None:
+            specification = {}
+        if configuration is None:
+            configuration = {}
+        if info is None:
+            info = {}
+        if steps is None:
+            steps = []
+        if logs is None:
+            logs = []
+        if agents is None:
+            agents = {}
+
         self.logs = logs
         self.id = str(uuid.uuid1())
         self.debug = debug
@@ -161,7 +191,7 @@ class Environment:
         else:
             self.reset()
 
-    def step(self, actions, logs=[]):
+    def step(self, actions, logs=None):
         """
         Execute the environment interpreter using the current state and a list of actions.
 
@@ -172,6 +202,9 @@ class Environment:
         Returns:
             list of dict: The agents states after the step.
         """
+        if logs is None:
+            logs = []
+
         if self.done:
             raise FailedPrecondition("Environment done, reset required.")
         if not actions or len(actions) != len(self.state):
@@ -311,7 +344,7 @@ class Environment:
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents=[], **kwargs):
+    def play(self, agents=None, **kwargs):
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -321,12 +354,15 @@ class Environment:
         Returns:
             None: prints directly to an IPython notebook
         """
+        if agents is None:
+            agents = []
+
         env = self.clone()
         trainer = env.train(agents)
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents=[]):
+    def train(self, agents=None):
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -354,6 +390,9 @@ class Environment:
             `dict`.reset: Reset def that reset the environment, then advances until the agents turn.
             `dict`.step: Steps using the agent action, then advance until agents turn again.
         """
+        if agents is None:
+            agents = []
+
         runner = None
         position = None
         for index, agent in enumerate(agents):
@@ -486,7 +525,10 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state=[]):
+    def __set_state(self, state=None):
+        if state is None:
+            state = []
+
         if len(state) not in self.specification.agents:
             raise InvalidArgument(
                 f"{len(state)} is not a valid number of agent(s).")
@@ -558,14 +600,20 @@ class Environment:
                     # Reraise e to ensure that the program exits
                     raise e
                 finally:
-                    # Allow up to 1k log characters per step which is ~1MB per 600 step episode
-                    max_log_length = 1024
                     out = out_buffer.getvalue()
                     err = err_buffer.getvalue()
+
+                    # strip if needed
+                    # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
+                    max_log_length = self.configuration.get("maxLogLength", 1024)
+                    if max_log_length is not None:
+                        out = out[0:max_log_length]
+                        err = err[0:max_log_length]
+
                     if out or err:
                         logs.append({
-                            "stdout": out[0:max_log_length],
-                            "stderr": err[0:max_log_length]
+                            "stdout": out,
+                            "stderr": err
                         })
         finally:
             if out:

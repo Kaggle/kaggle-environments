@@ -4,23 +4,20 @@ FROM gcr.io/kaggle-images/python:latest
 
 # NODE
 
-# nvm environment variables
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 14.16.0
+# install node and npm from nodesource https://github.com/nodesource/distributions
+# use a local mirror of the setup script to avoid `curl | bash`
+ADD docker/nodesource_setup_14.x.sh node_setup.sh
+RUN sh node_setup.sh
+RUN apt-get install -y nodejs
 
-# install nvm
-# https://github.com/creationix/nvm#install-script
-RUN curl --silent -o- https://raw.githubusercontent.com/creationix/nvm/v0.31.2/install.sh | bash
-
-# install node and npm
-RUN . $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
+# link the newly installed versions to /opt/node so we can prioritize these versions over the versions /opt/conda has.
+RUN mkdir /opt/node && \
+    ln -s /usr/bin/node /opt/node/ && \
+    ln -s /usr/bin/npm /opt/node/
 
 # add node and npm to path so the commands are available
-ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV PATH /opt/node:$PATH
+ENV NODE_PATH /usr/lib/node_modules
 
 # confirm installation
 RUN node -v
@@ -31,24 +28,23 @@ RUN npm -v
 WORKDIR /usr/src/app/kaggle_environments
 
 # Conda boost interferes with gfootball
-RUN rm -r /opt/conda/lib/cmake/Boost-1.*
-RUN apt-get update
-RUN apt-get -y install libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev
-RUN cd /tmp && \
-    git clone --single-branch --branch v2.8 https://github.com/google-research/football.git && \
-    cd football && \
-    sed -i 's/copy2/move/g' gfootball/env/observation_processor.py && \
-    sed -i 's/os\.remove/# os.remove/g' gfootball/env/observation_processor.py && \
-    pip3 install . && \
-    cd /tmp && rm -rf football
-
-RUN pip install Flask
+# RUN rm -r /opt/conda/lib/cmake/Boost-1.*
+# RUN apt-get update
+# RUN apt-get -y install libsdl2-gfx-dev libsdl2-ttf-dev libsdl2-image-dev
+# RUN cd /tmp && \
+#    git clone --single-branch --branch v2.8 https://github.com/google-research/football.git && \
+#    cd football && \
+#    sed -i 's/copy2/move/g' gfootball/env/observation_processor.py && \
+#    sed -i 's/os\.remove/# os.remove/g' gfootball/env/observation_processor.py && \
+#    pip3 install . && \
+#    cd /tmp && rm -rf football
 
 ADD ./setup.py ./setup.py
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 RUN pip install .
+RUN pip install vec-noise==1.1.4 PettingZoo==1.21.0
 RUN pytest
 
 CMD kaggle-environments

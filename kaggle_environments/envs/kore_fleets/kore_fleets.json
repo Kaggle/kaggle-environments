@@ -1,0 +1,164 @@
+{
+  "name": "kore_fleets",
+  "title": "Kore Fleets",
+  "description": "Collect. Launch. Conquer.",
+  "version": "1.2.0",
+  "agents": [1, 2, 4],
+  "configuration": {
+    "episodeSteps": 400,
+    "startingKore": {
+      "description": "The starting amount of kore available on the board.",
+      "type": "integer",
+      "default": 2750 
+    },
+    "size": {
+      "description": "The number of cells vertically and horizontally on the board.",
+      "type": "integer",
+      "default": 21,
+      "minimum": 2
+    },
+    "spawnCost": {
+      "description": "The amount of kore to spawn a new ship.",
+      "type": "number",
+      "default": 10.0,
+      "minimum": 0
+    },
+    "convertCost": {
+      "description": "The number of ships required to create a shipyard.",
+      "type": "integer",
+      "default": 50,
+      "minimum": 0
+    },
+    "regenRate": {
+      "description": "The rate kore regenerates on the board.",
+      "type": "number",
+      "default": 0.02,
+      "minimum": 0
+    },
+    "maxRegenCellKore": {
+      "description": "The maximum kore over which a cell won't regenerate.",
+      "type": "integer",
+      "default": 500,
+      "minimum": 0
+    },
+    "randomSeed": {
+      "description": "The seed used to initialize the random number generator.",
+      "type": "integer",
+      "default": null
+    },
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
+    "actTimeout": 3,
+    "runTimeout": 9600
+  },
+  "reward": {
+    "description": "The amount of player owned kore (equal to players[index][0]) if the player has not been eliminated, else step_eliminated - episode_steps - 1.",
+    "type": "number",
+    "default": 500
+  },
+  "observation": {
+    "kore": {
+      "description": "Serialized list of available kore per cell on the board.",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "type": "number",
+        "minimum": 0
+      }
+    },
+    "players": {
+      "description": "List of players and their assets.",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "description": "Kore: The amount player owned kore (equal to reward).",
+            "type": "number",
+            "minimum": 0
+          },
+          {
+            "description": "Shipyards: The list of player owned shipyards.",
+            "type": "object",
+            "additionalProperties": {
+              "description": "Key: uid of the asset (shipyard). Value: position (row * size + column)",
+              "type": "integer",
+              "minimum": 0,
+              "items": [
+                {
+                  "description": "Position: (row * size + column).",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Ship Count: The number of ships in the shipyard.",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Turns Controlled: The number of turns this team has owned this shipyard.",
+                  "type": "integer",
+                  "default": 0,
+                  "minimum": 0
+                }
+              ]
+            }
+          },
+          {
+            "description": "Fleets: The list of player owned fleets.",
+            "type": "object",
+            "additionalProperties": {
+              "description": "Key: uid of the asset (ship).",
+              "type": "array",
+              "items": [
+                {
+                  "description": "Position: (row * size + column).",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Fleet Kore: The amount present in the fleet.",
+                  "type": "number",
+                  "default": 0,
+                  "minimum": 0
+                },
+                {
+                  "description": "Ship Count: The number of ships in the fleet.",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Direction: The direction the fleet is going in",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "description": "Flight plan: The future directional instructions the fleet should follow",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "player": {
+      "description": "The current agent's player index.",
+      "type": "integer",
+      "defaults": [0, 1, 2, 3]
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Actions taken per asset (fleet or shipyard).",
+    "type": "object",
+    "additionalProperties": {
+      "description": "Key: uid of the asset. Value: action. SPAWN for shipyards, remaining for ships."
+    }
+  }
+}

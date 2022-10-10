@@ -1,0 +1,1 @@
+{"episodeSteps": 400, "actTimeout": 3, "runTimeout": 9600, "startingKore": 6000, "size": 31, "spawnCost": 10, "convertCost": 50, "regenRate": 0.02, "maxRegenCellKore": 500, "agentTimeout": 60, "randomSeed": 1464814655, "__raw_path__": "java/main.py"}

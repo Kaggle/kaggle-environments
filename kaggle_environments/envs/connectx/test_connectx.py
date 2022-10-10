@@ -257,3 +257,21 @@ def test_can_evaluate():
     rewards = evaluate("connectx", ["random", "random"], num_episodes=2)
     assert (rewards[0][0] + rewards[0][1] ==
             0) and rewards[1][0] + rewards[1][1] == 0
+
+
+def test_max_log_length():
+    def custom1():
+        # Write 20X to stdtout, we should strip to 10
+        print('X' * 20)
+        return 1
+
+    def custom2():
+        return 2
+    before_each(
+        # here we strip log to length 10
+        configuration={"rows": 4, "columns": 5, "inarow": 3, "maxLogLength": 10},
+    )
+    env.run([custom1, custom2])
+    last_log = env.logs[-1][0]['stdout']
+    assert env.configuration.maxLogLength == 10, "max log length should be set to 10"
+    assert len(last_log.strip()) == 10, "max log length should be 10 (+ newline, which we stripped)"
