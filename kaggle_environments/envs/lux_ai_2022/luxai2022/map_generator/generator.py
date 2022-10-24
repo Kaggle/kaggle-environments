@@ -106,15 +106,19 @@ class Cave(GameMap):
         ice = noise(x, y + 100)
         ice[mask > 1] = 0
         ice[mask == 0] = 0
-        ice[ice < np.percentile(ice, 95)] = 0
+        mid_mask = (ice < np.percentile(ice, 92)) & (ice > np.percentile(ice, 91))
+        ice[ice < np.percentile(ice, 98)] = 0
         ice[ice != 0] = 1
+        ice[mid_mask] = 1
 
         # Make some noisy ore, most ore is outside caves
         ore = noise(x, y - 100)
         ore[mask==1] = 0
         ore[mask==0] = 0
-        ore[ore < np.percentile(ore, 95)] = 0
+        mid_mask = (ore < np.percentile(ore, 92)) & (ore > np.percentile(ore, 91))
+        ore[(ore < np.percentile(ore, 98))] = 0
         ore[ore != 0] = 1
+        ore[mid_mask] = 1
         super().__init__(rubble, ice, ore, symmetry)
 
 class Craters(GameMap):
@@ -316,31 +320,17 @@ class Mountain(GameMap):
 
         rubble = (100*mask).round()
         ice = (100 * mask).round()
-        ice[ice < np.percentile(ice, 95)] = 0
+        mid_mask = (ice < np.percentile(ice, 50)) & (ice > np.percentile(ice, 48)) | (ice < np.percentile(ice, 20)) & (ice > np.percentile(ice, 0))
+        ice[ice < np.percentile(ice, 99)] = 0
         ice[ice != 0] = 1
+        ice[mid_mask] = 1
         
         ore = (100 * mask).round()
-        ore[ore < np.percentile(ore, 80)] = 0
-        ore[ore > np.percentile(ore, 85)] = 0
+        mid_mask = (ore < np.percentile(ore, 62)) & (ore > np.percentile(ore, 60))
+        ore[ore < np.percentile(ore, 83.5)] = 0
+        ore[ore > np.percentile(ore, 84)] = 0
         ore[ore != 0] = 1
-
-        # add ore/ice on patches of flat parts as well.
-        x = np.linspace(0, 1, width)
-        y = np.linspace(0, 1, height)
-        ice_mask2 = noise(x, y + 100)
-        ice_mask2[ice_mask2 == 0] = 0
-        ice_mask2[ice_mask2 > 1] = 0
-        # ice_mask2[ice_mask2 != 0] = 1
-        ice_mask2[ice_mask2 < np.percentile(ice_mask2, 99)] = 0
-        ice[ice_mask2 != 0] = 1
-
-        ore_mask2 = noise(x, y + 100)
-        ore_mask2[ore_mask2 == 0] = 0
-        ore_mask2[ore_mask2 > 1] = 0
-        # ice_mask2[ice_mask2 != 0] = 1
-        # import ipdb;ipdb.set_trace()
-        ore_mask2[ore_mask2 < np.percentile(ore_mask2, 99)] = 0
-        ore[ore_mask2 != 0] = 1
+        ore[mid_mask] = 1
 
         super().__init__(rubble, ice, ore, symmetry)
 
