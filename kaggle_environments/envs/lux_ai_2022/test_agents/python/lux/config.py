@@ -50,7 +50,14 @@ class EnvConfig:
     CYCLE_LENGTH: int = 50
     DAY_LENGTH: int = 30
     UNIT_ACTION_QUEUE_SIZE: int = 10 # when set to 1, then no action queue is used
-    UNITS_CONTROLLED: int = 20 # when set to -1, all units can be controlled at once
+    UNIT_ACTION_QUEUE_POWER_COST: Dict[str, int] = dataclasses.field(default_factory=lambda: dict(
+        LIGHT=1,
+        HEAVY=10
+    ))
+    # DEPRECATED
+    # UNITS_CONTROLLED: int = 20 # when set to -1, all units can be controlled at once
+
+
     MAX_RUBBLE: int = 100
     FACTORY_RUBBLE_AFTER_DESTRUCTION: int = 50
     INIT_WATER_METAL_PER_FACTORY: int = 100 # amount of water and metal units given to each factory
@@ -66,16 +73,15 @@ class EnvConfig:
     BIDDING_SYSTEM: bool = True
 
     #### Factores ####
-    FACTORY_PROCESSING_RATE_WATER: int = 50
-    ICE_WATER_RATIO: int = 2
+    FACTORY_PROCESSING_RATE_WATER: int = 100
+    ICE_WATER_RATIO: int = 5
     FACTORY_PROCESSING_RATE_METAL: int = 50
-    ORE_METAL_RATIO: int = 2
+    ORE_METAL_RATIO: int = 5
     FACTORY_CHARGE: int = 50
     FACTORY_WATER_CONSUMPTION: int = 1
 
 
     #### Units ####
-    # TODO FILL IN POWER COSTS FOR ACTIONS
     ROBOTS: Dict[str, UnitConfig] = dataclasses.field(
         default_factory=lambda: dict(
         LIGHT=UnitConfig(
@@ -89,7 +95,7 @@ class EnvConfig:
         ),
 
         HEAVY=UnitConfig(
-            METAL_COST=100, POWER_COST=500, INIT_POWER=500, CARGO_SPACE=1000, BATTERY_CAPACITY=1500, CHARGE=10, MOVE_COST=20, RUBBLE_MOVEMENT_COST=5,
+            METAL_COST=100, POWER_COST=500, INIT_POWER=500, CARGO_SPACE=1000, BATTERY_CAPACITY=1500, CHARGE=10, MOVE_COST=20, RUBBLE_MOVEMENT_COST=1,
             DIG_COST=100,
             SELF_DESTRUCT_COST=100,
             DIG_RUBBLE_REMOVED=10,

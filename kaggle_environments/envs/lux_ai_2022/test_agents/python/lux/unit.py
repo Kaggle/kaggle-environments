@@ -11,6 +11,7 @@ else:
     from .weather import get_weather_config
     from .cargo import UnitCargo
     from .config import EnvConfig
+
 # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
 move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
 
@@ -25,6 +26,12 @@ class Unit:
     env_cfg: EnvConfig
     unit_cfg: dict
     action_queue: List
+
+    def action_queue_cost(self, game_state):
+        cost = self.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[self.unit_type]
+        current_weather = game_state.weather_schedule[game_state.real_env_steps]
+        weather_cfg = get_weather_config(current_weather, self.env_cfg)
+        return cost * weather_cfg["power_loss_factor"]
 
     def move_cost(self, game_state, direction):
         board = game_state.board

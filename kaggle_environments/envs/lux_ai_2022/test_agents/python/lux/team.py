@@ -1,5 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
+if __package__ == "":
+    from lux.config import EnvConfig
+else:
+    from .config import EnvConfig
 TERM_COLORS = False
 try:
     from termcolor import colored

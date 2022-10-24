@@ -3,16 +3,16 @@ import sys
 from typing import Dict
 if __package__ == "":
     from lux.config import EnvConfig
-    from lux.kit import process_obs, to_json, from_json, process_action, obs_to_game_state
+    from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
 else:
     from .lux.config import EnvConfig
-    from .lux.kit import process_obs, to_json, from_json, process_action, obs_to_game_state
+    from .lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
 import numpy as np
 class Agent():
     def __init__(self, player: str) -> None:
         self.player = player
         self.opp_player = ""
-        self.game_state = None
+        self.game_state: GameState = None
         if self.player == "player_0":
             self.opp_player = "player_1"
         else:
@@ -22,6 +22,7 @@ class Agent():
         self.factories_owned = 0
         self.init_metal_left = 0
         self.init_water_left = 0
+        self.env_cfg: EnvConfig = None
 
     def early_setup(self, step, obs, remainingOverageTime: int):
         """
@@ -136,10 +137,13 @@ class Agent():
         for unit_id, unit in units.items():
             # (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
             move_dir = np.random.randint(0, 5)
-            if unit.can_move(game_state, move_dir):
+            move_cost = unit.move_cost(game_state, move_dir)
+            # we attempt to move if move_cost is not None (valid movement) and we have enough power to submit a new action queue and move
+            if move_cost is not None and unit.power >= move_cost + unit.action_queue_cost(game_state):
                 # by default, any unit action has repeat=True and moves completed actions back to the end of the action queue
-                # You can also queue up to env_cfg.UNIT_ACTION_QUEUE_SIZE actions for each unit.
-                # You can submit action queues for up to env_cfg.UNITS_CONTROLLED units each turn
+                # You can also queue up to env_cfg.UNIT_ACTION_QUEUE_SIZE *actions* for each unit.
+                # You can submit action queues for every unit, but be wary that each *action queue* submission costs an additional
+                # env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type] power
 
                 # here, we tell this unit to move in a direction once and stay still until controlled again
                 actions[unit_id] = [unit.move(move_dir, repeat=False)]

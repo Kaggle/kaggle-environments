@@ -2,7 +2,7 @@
   "name": "lux_ai_2022",
   "title": "Lux AI Challenge: 2022",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
