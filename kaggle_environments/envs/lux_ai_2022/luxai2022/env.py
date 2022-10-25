@@ -483,7 +483,7 @@ class LuxAI2022(ParallelEnv):
                             self.state.factories[agent][unit_id].action_queue.append(format_factory_action(action))
                         elif "unit" in unit_id:
                             unit = self.state.units[agent][unit_id]
-                            # if unit does not have more than 5 power, we skip updating the action queue and print warning
+                            # if unit does not have more than UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] power, we skip updating the action queue and print warning
                             update_power_req = self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] * weather_cfg["power_loss_factor"]
                             if unit.power < update_power_req:
                                 self._log(f"Tried to update action queue for {unit} requiring ({self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name]} x {weather_cfg['power_loss_factor']}) = {update_power_req} power but only had {unit.power} power. Power cost factor is {weather_cfg['power_loss_factor']} ")

@@ -56,8 +56,6 @@ class EnvConfig:
         LIGHT=1,
         HEAVY=10
     ))
-    # DEPRECATED
-    # UNITS_CONTROLLED: int = 20 # when set to -1, all units can be controlled at once
 
 
     MAX_RUBBLE: int = 100
@@ -133,8 +131,8 @@ class EnvConfig:
             TIME_RANGE=[10, 30]
         ),
         DUST_STORM=dict(
-            # power multiplier required per robot action. .5 -> requires .5x as much power to execute the same action
-            POWER_CONSUMPTION=0.5,
+            # power gain multiplier. .5 -> gain .5x as much power per turn
+            POWER_GAIN=0.5,
             TIME_RANGE=[10, 30]
         ),
         SOLAR_FLARE=dict(

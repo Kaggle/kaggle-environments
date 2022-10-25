@@ -39,7 +39,9 @@ class EnvConfig:
     max_episode_length: int = 1000
     map_size: int = 48
     verbose: int = 1
-    #### these can be disabled to improve env FPS
+    
+    # this can be disabled to improve env FPS but assume your actions are well formatted
+    # During online competition this is set to True
     validate_action_space: bool = True
 
     ### Constants ###
@@ -49,13 +51,11 @@ class EnvConfig:
     MAX_FACTORIES: int = 5
     CYCLE_LENGTH: int = 50
     DAY_LENGTH: int = 30
-    UNIT_ACTION_QUEUE_SIZE: int = 10 # when set to 1, then no action queue is used
+    UNIT_ACTION_QUEUE_SIZE: int = 20 # when set to 1, then no action queue is used
     UNIT_ACTION_QUEUE_POWER_COST: Dict[str, int] = dataclasses.field(default_factory=lambda: dict(
         LIGHT=1,
         HEAVY=10
     ))
-    # DEPRECATED
-    # UNITS_CONTROLLED: int = 20 # when set to -1, all units can be controlled at once
 
 
     MAX_RUBBLE: int = 100
@@ -67,16 +67,23 @@ class EnvConfig:
     MIN_LICHEN_TO_SPREAD: int = 1
     LICHEN_LOST_WITHOUT_WATER: int = 1
     LICHEN_GAINED_WITH_WATER: int = 1
+    # cost of watering with a factory is `ceil(# of connected lichen tiles) / (this factor) + 1`
     LICHEN_WATERING_COST_FACTOR: int = 10
 
     #### Bidding System ####
     BIDDING_SYSTEM: bool = True
 
-    #### Factores ####
+    #### Factories ####
     FACTORY_PROCESSING_RATE_WATER: int = 100
     ICE_WATER_RATIO: int = 5
     FACTORY_PROCESSING_RATE_METAL: int = 50
     ORE_METAL_RATIO: int = 5
+    # game design note: Factories close to resource cluster = more resources are refined per turn
+    # Then the high ice:water and ore:metal ratios encourages transfer of refined resources between 
+    # factories dedicated to mining particular clusters which is more possible as it is more compact
+    # 
+
+
     FACTORY_CHARGE: int = 50
     FACTORY_WATER_CONSUMPTION: int = 1
 
@@ -85,7 +92,7 @@ class EnvConfig:
     ROBOTS: Dict[str, UnitConfig] = dataclasses.field(
         default_factory=lambda: dict(
         LIGHT=UnitConfig(
-            METAL_COST=10, POWER_COST=50, INIT_POWER=50, CARGO_SPACE=100, BATTERY_CAPACITY=50, CHARGE=1, MOVE_COST=1, RUBBLE_MOVEMENT_COST=1,
+            METAL_COST=10, POWER_COST=50, INIT_POWER=50, CARGO_SPACE=100, BATTERY_CAPACITY=150, CHARGE=1, MOVE_COST=1, RUBBLE_MOVEMENT_COST=1,
             DIG_COST=5,
             SELF_DESTRUCT_COST=5,
             DIG_RUBBLE_REMOVED=1,
@@ -124,8 +131,8 @@ class EnvConfig:
             TIME_RANGE=[10, 30]
         ),
         DUST_STORM=dict(
-            # power multiplier required per robot action. .5 -> requires .5x as much power to execute the same action
-            POWER_CONSUMPTION=0.5,
+            # power gain multiplier. .5 -> gain .5x as much power per turn
+            POWER_GAIN=0.5,
             TIME_RANGE=[10, 30]
         ),
         SOLAR_FLARE=dict(
