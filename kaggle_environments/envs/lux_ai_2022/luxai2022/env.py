@@ -468,7 +468,7 @@ class LuxAI2022(ParallelEnv):
 
             # 1. Check for malformed actions
             if self.env_cfg.validate_action_space:
-                # This part is not absolutely necessary
+                # This part is not absolutely necessary if you know for sure your actions are well formatted
                 for agent, unit_actions in actions.items():
                     valid_acts, err_reason = self.action_space(agent).contains(unit_actions)
                     if not valid_acts:
@@ -482,12 +482,18 @@ class LuxAI2022(ParallelEnv):
                         if "factory" in unit_id:
                             self.state.factories[agent][unit_id].action_queue.append(format_factory_action(action))
                         elif "unit" in unit_id:
+                            unit = self.state.units[agent][unit_id]
+                            # if unit does not have more than UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] power, we skip updating the action queue and print warning
+                            update_power_req = self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] * weather_cfg["power_loss_factor"]
+                            if unit.power < update_power_req:
+                                self._log(f"Tried to update action queue for {unit} requiring ({self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name]} x {weather_cfg['power_loss_factor']}) = {update_power_req} power but only had {unit.power} power. Power cost factor is {weather_cfg['power_loss_factor']} ")
+                                continue
+                            unit.power -= update_power_req
                             formatted_actions = []
                             if type(action) == list or (type(action) == np.ndarray and len(action.shape) == 2):
                                 trunked_actions = action[: self.env_cfg.UNIT_ACTION_QUEUE_SIZE]
                                 formatted_actions = [format_action_vec(a) for a in trunked_actions]
                             else:
-                                
                                 formatted_actions = [format_action_vec(action)]
                             self.state.units[agent][unit_id].action_queue = formatted_actions
                 except ValueError as e:

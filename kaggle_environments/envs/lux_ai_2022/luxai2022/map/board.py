@@ -65,36 +65,36 @@ class Board:
         xx, yy = np.mgrid[:self.width, :self.height]
         if self.map.symmetry == "vertical":
             if team_id == 0:
-                spawns_mask = xx < (self.width - 1) / 2
+                spawns_mask = xx < (self.width - 2) / 2
             else:
-                spawns_mask = xx > (self.width - 1) / 2
+                spawns_mask = xx > (self.width + 2) / 2
         if self.map.symmetry == "horizontal":
             if team_id == 0:
-                spawns_mask = yy < (self.height - 1) / 2
+                spawns_mask = yy < (self.height - 2) / 2
 
             else:
-                spawns_mask = yy > (self.height - 1) / 2
+                spawns_mask = yy > (self.height + 2) / 2
 
-        if self.map.symmetry == "rotational":
-            if team_id == 0:
-                spawns_mask = xx < (self.width - 1) / 2
+        # if self.map.symmetry == "rotational":
+        #     if team_id == 0:
+        #         spawns_mask = xx < (self.width - 1) / 2
 
-            else:
-                spawns_mask = xx > (self.width - 1) / 2
+        #     else:
+        #         spawns_mask = xx > (self.width - 1) / 2
 
-        if self.map.symmetry == "/":
-            if team_id == 0:
-                spawns_mask = xx - yy < 0
+        # if self.map.symmetry == "/":
+        #     if team_id == 0:
+        #         spawns_mask = xx - yy < 0
 
-            else:
-                spawns_mask = xx - yy > 0
+        #     else:
+        #         spawns_mask = xx - yy > 0
 
-        if self.map.symmetry == "\\":
-            if team_id == 0:
-                spawns_mask = xx + yy < (self.width + self.height) / 2 - 1
+        # if self.map.symmetry == "\\":
+        #     if team_id == 0:
+        #         spawns_mask = xx + yy < (self.width + self.height) / 2 - 1
 
-            else:
-                spawns_mask = xx + yy > (self.width + self.height) / 2 - 1
+        #     else:
+        #         spawns_mask = xx + yy > (self.width + self.height) / 2 - 1
 
         x, y = np.where(spawns_mask)
 

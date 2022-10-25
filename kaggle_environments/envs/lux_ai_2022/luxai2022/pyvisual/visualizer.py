@@ -1,5 +1,6 @@
 try:
     import pygame
+    from pygame import gfxdraw
 except:
     print("No pygame installed, ignoring import")
 from luxai2022.map.board import Board
@@ -18,32 +19,39 @@ class Visualizer:
         self.board = state.board
         self.tile_width = min(self.screen_size[0] // self.board.width, self.screen_size[1] // self.board.height)
         self.screen = pygame.display.set_mode((self.tile_width * self.board.width, self.tile_width * self.board.height))
+        self.screen.fill([239, 120, 79])
         self.state = state
-        pygame.font.init() # you have to call this at the start, 
+        pygame.font.init() # you have to call this at the start
+
+    def rubble_color(self, rubble):
+        opacity = 0.2 + min(rubble / 100, 1) * 0.8
+        return [96, 32, 9, opacity * 255]
+    def ore_color(self, rubble):
+        return [218, 167, 48, 255]
+    def ice_color(self, rubble):
+        return [44, 158, 211, 255]
+
 
     def update_scene(self, state: State):
         self.state = state
+        self.screen.fill([239, 120, 79, 255])
         for x in range(self.board.width):
             for y in range(self.board.height):
-                rubble_color = [255 - self.state.board.rubble[y][x] * 255 / 100] * 3
-                # ice_color = [0, 0, self.board.ice[y][x]*255/100]
-                # ore_color = [self.board.ore[y][x]*255/100, 0, 0]
-                self.screen.fill(
-                    rubble_color, (self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width)
-                )
-                # self.sans_font = pygame.font.SysFont('Open Sans', 14)
-                # self.screen.blit(self.sans_font.render(f"{self.state.board.rubble[y][x]}", False, [51,56,68]), (self.tile_width * x, self.tile_width * y))
+                rubble_amt = self.state.board.rubble[y][x]
+                rubble_color = self.rubble_color(rubble_amt) #[255 - self.state.board.rubble[y][x] * 255 / 100] * 3
+                # import ipdb;ipdb.set_trace()
+                gfxdraw.box(self.screen, (self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width), rubble_color)
                 if self.state.board.ice[y, x] > 0:
                     pygame.draw.rect(
                         self.screen,
-                        [10 + int(self.state.board.ice[y, x]) * 1, 130, 250],
+                        self.ice_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
                 # print(self.state.board.ore[y, x])
                 if self.state.board.ore[y, x] > 0:
                     pygame.draw.rect(
                         self.screen,
-                        [250, int(self.state.board.ore[y, x]) * 1, 100],
+                        self.ore_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
                 if self.state.board.lichen_strains[y, x] != -1:
