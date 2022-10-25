@@ -34,7 +34,7 @@ def apply_weather(state: State, agents: List[str], current_weather):
             for unit in state.units[agent].values():
                 unit: Unit
                 old_rubble = state.board.rubble[unit.pos.y, unit.pos.x]  
-                state.board.rubble[unit.pos.y, unit.pos.x] = min(old_rubble, old_rubble + state.env_cfg.ROBOTS[unit.unit_type.name].RUBBLE_AFTER_DESTRUCTION)
+                state.board.rubble[unit.pos.y, unit.pos.x] = min(state.env_cfg.MAX_RUBBLE, old_rubble + state.env_cfg.ROBOTS[unit.unit_type.name].RUBBLE_AFTER_DESTRUCTION)
         return dict(power_gain_factor=1, power_loss_factor=1)
     elif current_weather == "COLD_SNAP":
         return dict(power_gain_factor=1, power_loss_factor=state.env_cfg.WEATHER["COLD_SNAP"]["POWER_CONSUMPTION"])
