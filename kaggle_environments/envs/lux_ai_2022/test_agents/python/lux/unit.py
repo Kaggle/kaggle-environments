@@ -11,7 +11,6 @@ else:
     from .weather import get_weather_config
     from .cargo import UnitCargo
     from .config import EnvConfig
-
 # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
 move_deltas = np.array([[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]])
 
