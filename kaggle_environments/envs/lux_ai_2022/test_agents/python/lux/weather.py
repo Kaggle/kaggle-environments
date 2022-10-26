@@ -9,7 +9,7 @@ def get_weather_config(current_weather, env_cfg):
     elif current_weather == "COLD_SNAP":
         return dict(power_gain_factor=1, power_loss_factor=env_cfg.WEATHER["COLD_SNAP"]["POWER_CONSUMPTION"])
     elif current_weather == "DUST_STORM":
-        return dict(power_gain_factor=1, power_loss_factor=env_cfg.WEATHER["DUST_STORM"]["POWER_CONSUMPTION"])
+        return dict(power_gain_factor=env_cfg.WEATHER["DUST_STORM"]["POWER_GAIN"], power_loss_factor=1)
     elif current_weather == "SOLAR_FLARE":
         return dict(power_gain_factor=env_cfg.WEATHER["SOLAR_FLARE"]["POWER_GAIN"], power_loss_factor=1)
     return dict(power_gain_factor=1, power_loss_factor=1)
