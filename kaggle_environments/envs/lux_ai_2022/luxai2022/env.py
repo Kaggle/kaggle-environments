@@ -59,7 +59,6 @@ class LuxAI2022(ParallelEnv):
     metadata = {"render.modes": ["human", "html"], "name": "luxai2022_v0"}
 
     def __init__(self, **kwargs):
-        # TODO - allow user to override env configs
         default_config = EnvConfig(**kwargs)
         self.env_cfg = default_config
         self.possible_agents = ["player_" + str(r) for r in range(2)]
@@ -643,9 +642,6 @@ class LuxAI2022(ParallelEnv):
         self.state.board.factory_occupancy_map[factory.pos_slice] = -1
         del self.state.factories[factory.team.agent][factory.unit_id]
         del self.state.board.factory_map[self.state.board.pos_hash(factory.pos)]
-        # TODO - shouldn't rubble under factory always be 0?
-        # TODO remove units on each factory tile
-
 
 def raw_env() -> LuxAI2022:
     """

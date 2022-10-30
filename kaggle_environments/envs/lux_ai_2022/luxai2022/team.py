@@ -35,7 +35,7 @@ class Team:
         return dict(
             team_id=self.team_id,
             faction=self.faction.name,
-            # TODO for optimization, water,metal, factories_to_place doesn't change after the early game.
+            # note for optimization, water,metal, factories_to_place doesn't change after the early game.
             water=self.init_water,
             metal=self.init_metal,
             factories_to_place=self.factories_to_place,
