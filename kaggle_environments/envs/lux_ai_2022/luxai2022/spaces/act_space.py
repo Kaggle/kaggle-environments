@@ -74,6 +74,7 @@ def get_act_space_bid(config: EnvConfig, agent: int = 0):
     act_space = dict()
     act_space["faction"] = FactionString()
     act_space["bid"] = spaces.Discrete(100000)
+    return spaces.Dict(act_space)
 def get_act_space_placement(config: EnvConfig, agent: int = 0):
     # Get action space for turn 0 initialization
     act_space = dict()
