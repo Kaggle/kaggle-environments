@@ -73,13 +73,13 @@ def get_act_space_init(config: EnvConfig, agent: int = 0):
 def get_act_space_bid(config: EnvConfig, agent: int = 0):
     act_space = dict()
     act_space["faction"] = FactionString()
-    act_space["bid"] = spaces.Discrete(0, 100000)
+    act_space["bid"] = spaces.Discrete(100000)
 def get_act_space_placement(config: EnvConfig, agent: int = 0):
     # Get action space for turn 0 initialization
     act_space = dict()
     act_space["spawn"] = spaces.Box(low=0, high=config.map_size, shape=(2,), dtype=int)
-    act_space["water"] = spaces.Discrete(0, 100000)
-    act_space["metal"] = spaces.Discrete(0, 100000)
+    act_space["water"] = spaces.Discrete(100000)
+    act_space["metal"] = spaces.Discrete(100000)
     return spaces.Dict(act_space)
 
 def get_act_space(units: Dict[str, Dict[str, Unit]], factories: Dict[str, Dict[str, Factory]], config: EnvConfig, agent: int = 0):
