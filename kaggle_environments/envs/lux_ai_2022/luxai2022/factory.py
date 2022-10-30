@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import deque
+from itertools import product
 import time
 from typing import List
 import numpy as np
@@ -69,7 +70,7 @@ class Factory:
         self.power = 0
         self.cargo = UnitCargo()
         self.num_id = num_id
-        self.action_queue = [] # TODO can we queue actions or are factories outside of max control limit
+        self.action_queue = []
         self.grow_lichen_positions = None
 
     @property
@@ -77,15 +78,16 @@ class Factory:
         return slice(self.pos.y - 1, self.pos.y + 2), slice(self.pos.x - 1, self.pos.x + 2)
 
     def refine_step(self, config: EnvConfig):
-        consumed_ice = min(self.cargo.ice, config.FACTORY_PROCESSING_RATE_WATER)
-        consumed_ore = min(self.cargo.ore, config.FACTORY_PROCESSING_RATE_METAL)
+        max_consumed_ice = min(self.cargo.ice, config.FACTORY_PROCESSING_RATE_WATER)
+        max_consumed_ore = min(self.cargo.ore, config.FACTORY_PROCESSING_RATE_METAL)
+        # permit refinement of blocks of resources, no floats.
+        produced_water = max_consumed_ice // config.ICE_WATER_RATIO
+        produced_metal = max_consumed_ore // config.ORE_METAL_RATIO
+        self.cargo.ice -= produced_water * config.ICE_WATER_RATIO
+        self.cargo.ore -= produced_metal * config.ORE_METAL_RATIO
 
-        self.cargo.ice -= consumed_ice
-        self.cargo.ore -= consumed_ore
-
-        # TODO - are we rounding or doing floats or anything?
-        self.cargo.water += int(consumed_ice / config.ICE_WATER_RATIO)
-        self.cargo.metal += int(consumed_ore / config.ORE_METAL_RATIO)
+        self.cargo.water += produced_water
+        self.cargo.metal += produced_metal
 
     def cache_water_info(self, board: Board, env_cfg: EnvConfig):
         # TODO this can easily be a fairly slow function, can we make it much faster?

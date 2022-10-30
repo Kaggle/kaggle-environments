@@ -61,8 +61,6 @@ class State:
         return factories
 
     def get_obs(self):
-
-        # TODO: speedups?
         units = State.generate_unit_data(self.units)
         teams = State.generate_team_data(self.teams)
         factories = State.generate_factory_data(self.factories)

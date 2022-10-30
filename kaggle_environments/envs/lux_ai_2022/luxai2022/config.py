@@ -113,9 +113,6 @@ class EnvConfig:
         )
     )
 
-    #### Map Generation ####
-    # TODO
-
     #### Weather ####
     WEATHER_ID_TO_NAME: list = dataclasses.field(default_factory=lambda : ["NONE","MARS_QUAKE","COLD_SNAP","DUST_STORM","SOLAR_FLARE"])
     NUM_WEATHER_EVENTS_RANGE: List[int] = dataclasses.field(default_factory=lambda:[3,5])

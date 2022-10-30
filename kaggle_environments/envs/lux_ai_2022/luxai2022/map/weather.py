@@ -8,7 +8,7 @@ def generate_weather_schedule(rng: np.random.RandomState, cfg: EnvConfig):
     # no event can overlap another
     num_events = rng.randint(cfg.NUM_WEATHER_EVENTS_RANGE[0], cfg.NUM_WEATHER_EVENTS_RANGE[1] + 1)
     last_event_end_step = 0
-    # TODO - make a smarter algorithm 
+    # TODO - make a smarter algorithm to speed up the generation here
     available_times = set(list(range(cfg.max_episode_length - 30)))
     schedule = np.zeros(cfg.max_episode_length, dtype=int)
     for i in range(num_events):

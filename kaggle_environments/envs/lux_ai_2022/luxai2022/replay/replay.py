@@ -13,7 +13,6 @@ def decode_replay_file(replay_file) -> Tuple[State, List]:
         # probably kaggle replay
         with open(replay_file, "r") as f:
             replay = json.load(f)
-        # TODO - check actual key
         init_state = replay["init_state"]
         pass
     elif ext == ".h5":
