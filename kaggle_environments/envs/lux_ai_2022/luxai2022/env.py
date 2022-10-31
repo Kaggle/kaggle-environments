@@ -189,6 +189,10 @@ class LuxAI2022(ParallelEnv):
             if k not in self.agents:
                 raise ValueError(f"Invalid player {k}")
             if "faction" in a and "bid" in a:
+                if a["faction"] not in [e.name for e in FactionTypes]:
+                    self._log(f"{k} initialized with invalid faction name {a['faction']}")
+                    failed_agents[k] = True
+                    continue
                 self.state.teams[k] = Team(
                     team_id=self.agent_name_mapping[k], agent=k, faction=FactionTypes[a["faction"]]
                 )
@@ -495,7 +499,7 @@ class LuxAI2022(ParallelEnv):
                     valid_acts, err_reason = self.action_space(agent).contains(unit_actions)
                     if not valid_acts:
                         failed_agents[agent] = True
-                        raise ValueError(f"{self.state.teams[agent]} Inappropriate action given. {err_reason}")
+                        self._log(f"{self.state.teams[agent]} Inappropriate action given. {err_reason}")
 
             # we should except that actions is always of type dict, if not then erroring here is fine
             for agent, unit_actions in actions.items():
@@ -588,16 +592,26 @@ class LuxAI2022(ParallelEnv):
         # rewards for all agents are placed in the rewards dictionary to be returned
         rewards = {}
         for agent in self.agents:
-            strain_ids = self.state.teams[agent].factory_strains
-            if failed_agents[agent]:
-                rewards[agent] = -1000
+            if agent in self.state.teams:
+                strain_ids = self.state.teams[agent].factory_strains
+                factories_left = len(self.state.factories[agent])
+                if factories_left == 0 and self.state.real_env_steps >= 0:
+                    failed_agents[agent] = True
+                    self._log(f"{agent} lost all factories")
+                if failed_agents[agent]:
+                    rewards[agent] = -1000
+                else:
+                    agent_lichen_mask = np.isin(self.state.board.lichen_strains, strain_ids)
+                    rewards[agent] = self.state.board.lichen[agent_lichen_mask].sum()
             else:
-                agent_lichen_mask = np.isin(self.state.board.lichen_strains, strain_ids)
-                rewards[agent] = self.state.board.lichen[agent_lichen_mask].sum()
+                # if this was not initialize then agent failed in step 0
+                failed_agents[agent] = True
+                rewards[agent] = -1000
 
         self.env_steps += 1
         self.state.env_steps += 1
         env_done = self.state.real_env_steps >= self.state.env_cfg.max_episode_length
+        env_done = failed_agents["player_0"] or failed_agents["player_1"] # env is done if any agent fails.
         dones = {agent: env_done or failed_agents[agent] for agent in self.agents}
 
         # generate observations
