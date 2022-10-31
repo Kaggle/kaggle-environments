@@ -13,7 +13,7 @@ class FactionString(gym.Space):
     def __init__(
                 self,
             ):
-        self.valid_factions = ["None"] + [x.name for x in FactionTypes]
+        self.valid_factions = ["Null"] + [x.name for x in FactionTypes]
 
     def sample(self):
         return random.choice(self.valid_factions)

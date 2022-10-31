@@ -190,7 +190,8 @@ class LuxAI2022(ParallelEnv):
                 raise ValueError(f"Invalid player {k}")
             if "faction" in a and "bid" in a:
                 if a["faction"] not in [e.name for e in FactionTypes]:
-                    failed_agents[k] = False
+                    self._log(f"{k} initialized with invalid faction name {a['faction']}")
+                    failed_agents[k] = True
                     continue
                 self.state.teams[k] = Team(
                     team_id=self.agent_name_mapping[k], agent=k, faction=FactionTypes[a["faction"]]
