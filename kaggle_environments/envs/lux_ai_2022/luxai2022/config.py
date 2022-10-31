@@ -67,6 +67,7 @@ class EnvConfig:
     MIN_LICHEN_TO_SPREAD: int = 1
     LICHEN_LOST_WITHOUT_WATER: int = 1
     LICHEN_GAINED_WITH_WATER: int = 1
+    MAX_LICHEN_PER_TILE: int = 100
     # cost of watering with a factory is `ceil(# of connected lichen tiles) / (this factor) + 1`
     LICHEN_WATERING_COST_FACTOR: int = 10
 
@@ -74,8 +75,8 @@ class EnvConfig:
     BIDDING_SYSTEM: bool = True
 
     #### Factories ####
-    FACTORY_PROCESSING_RATE_WATER: int = 100
-    ICE_WATER_RATIO: int = 5
+    FACTORY_PROCESSING_RATE_WATER: int = 50
+    ICE_WATER_RATIO: int = 2
     FACTORY_PROCESSING_RATE_METAL: int = 50
     ORE_METAL_RATIO: int = 5
     # game design note: Factories close to resource cluster = more resources are refined per turn
@@ -86,13 +87,15 @@ class EnvConfig:
 
     FACTORY_CHARGE: int = 50
     FACTORY_WATER_CONSUMPTION: int = 1
+    # game design note: with a positve water consumption, game becomes quite hard for new competitors.
+    # so we set it to 0
 
 
     #### Units ####
     ROBOTS: Dict[str, UnitConfig] = dataclasses.field(
         default_factory=lambda: dict(
         LIGHT=UnitConfig(
-            METAL_COST=10, POWER_COST=50, INIT_POWER=50, CARGO_SPACE=100, BATTERY_CAPACITY=150, CHARGE=1, MOVE_COST=1, RUBBLE_MOVEMENT_COST=1,
+            METAL_COST=10, POWER_COST=50, INIT_POWER=50, CARGO_SPACE=100, BATTERY_CAPACITY=150, CHARGE=1, MOVE_COST=1, RUBBLE_MOVEMENT_COST=0,
             DIG_COST=5,
             SELF_DESTRUCT_COST=5,
             DIG_RUBBLE_REMOVED=1,
@@ -102,7 +105,7 @@ class EnvConfig:
         ),
 
         HEAVY=UnitConfig(
-            METAL_COST=100, POWER_COST=500, INIT_POWER=500, CARGO_SPACE=1000, BATTERY_CAPACITY=1500, CHARGE=10, MOVE_COST=20, RUBBLE_MOVEMENT_COST=1,
+            METAL_COST=100, POWER_COST=500, INIT_POWER=500, CARGO_SPACE=1000, BATTERY_CAPACITY=3000, CHARGE=10, MOVE_COST=20, RUBBLE_MOVEMENT_COST=1,
             DIG_COST=100,
             SELF_DESTRUCT_COST=100,
             DIG_RUBBLE_REMOVED=10,

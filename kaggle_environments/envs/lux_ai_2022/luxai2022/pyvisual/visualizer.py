@@ -1,3 +1,4 @@
+import numpy as np
 try:
     import pygame
     from pygame import gfxdraw
@@ -18,10 +19,17 @@ class Visualizer:
         self.screen_size = (1000, 1000)
         self.board = state.board
         self.tile_width = min(self.screen_size[0] // self.board.width, self.screen_size[1] // self.board.height)
-        self.screen = pygame.display.set_mode((self.tile_width * self.board.width, self.tile_width * self.board.height))
-        self.screen.fill([239, 120, 79])
+        self.WINDOW_SIZE = (self.tile_width * self.board.width, self.tile_width * self.board.height)
+        self.surf = pygame.Surface(self.WINDOW_SIZE)
+        self.surf.fill([239, 120, 79])
         self.state = state
-        pygame.font.init() # you have to call this at the start
+        pygame.font.init()
+        self.screen = None
+
+    def init_window(self):
+        pygame.init()
+        pygame.display.init()
+        self.screen = pygame.display.set_mode(self.WINDOW_SIZE)
 
     def rubble_color(self, rubble):
         opacity = 0.2 + min(rubble / 100, 1) * 0.8
@@ -34,36 +42,35 @@ class Visualizer:
 
     def update_scene(self, state: State):
         self.state = state
-        self.screen.fill([239, 120, 79, 255])
+        self.surf.fill([239, 120, 79, 255])
         for x in range(self.board.width):
             for y in range(self.board.height):
                 rubble_amt = self.state.board.rubble[y][x]
                 rubble_color = self.rubble_color(rubble_amt) #[255 - self.state.board.rubble[y][x] * 255 / 100] * 3
                 # import ipdb;ipdb.set_trace()
-                gfxdraw.box(self.screen, (self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width), rubble_color)
+                gfxdraw.box(self.surf, (self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width), rubble_color)
                 if self.state.board.ice[y, x] > 0:
                     pygame.draw.rect(
-                        self.screen,
+                        self.surf,
                         self.ice_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
                 # print(self.state.board.ore[y, x])
                 if self.state.board.ore[y, x] > 0:
                     pygame.draw.rect(
-                        self.screen,
+                        self.surf,
                         self.ore_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
                 if self.state.board.lichen_strains[y, x] != -1:
                     c = strain_colors.colors[self.state.board.lichen_strains[y, x] % len(strain_colors.colors)]
                     pygame.draw.rect(
-                        self.screen,
+                        self.surf,
                         [int(c[0]*255),int(c[1]*255),int(c[2]*255)],
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
-                # screen.fill(ice_color, (N*x+N*game_map.width, N*y, N, N))
-                # screen.fill(ore_color, (N*x+2*N*game_map.width, N*y, N, N))
         if len(state.teams) > 0:
+            team_color = dict(player_0=[248,209,95], player_1=[0, 130, 251])
             for agent in state.factories:
                 if agent not in state.teams: continue
                 team = state.teams[agent]
@@ -71,8 +78,9 @@ class Visualizer:
                     x = factory.pos.x
                     y = factory.pos.y
                     pygame.draw.rect(
-                        self.screen,
-                        color_to_rgb[team.faction.value.color],
+                        self.surf,
+                        # color_to_rgb[team.faction.value.color],
+                        team_color[agent],
                         pygame.Rect(
                             self.tile_width * (x - 1),
                             self.tile_width * (y - 1),
@@ -82,7 +90,7 @@ class Visualizer:
                         border_radius=int(self.tile_width / 2)
                     )
                     self.sans_font = pygame.font.SysFont('Open Sans', 30)
-                    self.screen.blit(self.sans_font.render('F', False, [51,56,68]), (self.tile_width * x, self.tile_width * y))
+                    self.surf.blit(self.sans_font.render('F', False, [51,56,68]), (self.tile_width * x, self.tile_width * y))
             for agent in state.units:
                 if agent not in state.teams: continue
                 team = state.teams[agent]
@@ -91,7 +99,7 @@ class Visualizer:
                     y = unit.pos.y
                     h=1
                     pygame.draw.rect(
-                        self.screen,
+                        self.surf,
                         [51,56,68],
                         
                         pygame.Rect(
@@ -102,8 +110,9 @@ class Visualizer:
                         ),
                     )
                     pygame.draw.rect(
-                        self.screen,
-                        color_to_rgb[team.faction.value.color],
+                        self.surf,
+                        # color_to_rgb[team.faction.value.color],
+                        team_color[agent],
                         pygame.Rect(
                             self.tile_width * (x)+h,
                             self.tile_width * (y)+ h,
@@ -116,6 +125,12 @@ class Visualizer:
                     if unit.unit_type == UnitType.LIGHT:
                         label = "L"
                     self.sans_font = pygame.font.SysFont('Open Sans', 20)
-                    self.screen.blit(self.sans_font.render(label, False, [51,56,68]), (self.tile_width * x+2, self.tile_width * y+2))
+                    self.surf.blit(self.sans_font.render(label, False, [51,56,68]), (self.tile_width * x+2, self.tile_width * y+2))
     def render(self):
         pygame.display.update()
+        self.screen.blit(self.surf, (0, 0))
+    def _create_image_array(self, screen, size):
+        scaled_screen = pygame.transform.smoothscale(screen, size)
+        return np.transpose(
+            np.array(pygame.surfarray.pixels3d(scaled_screen)), axes=(1, 0, 2)
+        )
