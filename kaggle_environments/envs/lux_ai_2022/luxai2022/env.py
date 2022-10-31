@@ -498,7 +498,7 @@ class LuxAI2022(ParallelEnv):
                     valid_acts, err_reason = self.action_space(agent).contains(unit_actions)
                     if not valid_acts:
                         failed_agents[agent] = True
-                        raise ValueError(f"{self.state.teams[agent]} Inappropriate action given. {err_reason}")
+                        self._log(f"{self.state.teams[agent]} Inappropriate action given. {err_reason}")
 
             # we should except that actions is always of type dict, if not then erroring here is fine
             for agent, unit_actions in actions.items():
