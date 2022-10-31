@@ -92,17 +92,10 @@ def interpreter(state, env):
         "player_0": player_0.action,
         "player_1": player_1.action
     })
-    # for agent in luxenv.agents:
-    #     for unit in luxenv.state.units[agent].values():
-    #         unit.power = 100
-    #     for factory in luxenv.state.factories[agent].values():
-    #         factory.power = 1000
-    #         factory.cargo.water = 1000
-    #         factory.cargo.metal = 1000
 
     player_0.observation.player = "player_0"
     player_1.observation.player = "player_1"
-    # TODO add observation optimizations here later
+
     player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
     state_obs = new_state_obs["player_0"]
     
@@ -113,7 +106,6 @@ def interpreter(state, env):
     player_1.reward = int(rewards["player_1"])
     player_0.observation.reward = int(player_0.reward)
     player_1.observation.reward = int(player_1.reward)
-
     if np.all([dones[k] for k in dones]):
         if player_0.status == "ACTIVE":
             player_0.status = "DONE"
