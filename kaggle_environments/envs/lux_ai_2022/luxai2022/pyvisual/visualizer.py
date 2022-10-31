@@ -70,6 +70,7 @@ class Visualizer:
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
         if len(state.teams) > 0:
+            team_color = dict(player_0=[248,209,95], player_1=[0, 130, 251])
             for agent in state.factories:
                 if agent not in state.teams: continue
                 team = state.teams[agent]
@@ -78,7 +79,8 @@ class Visualizer:
                     y = factory.pos.y
                     pygame.draw.rect(
                         self.surf,
-                        color_to_rgb[team.faction.value.color],
+                        # color_to_rgb[team.faction.value.color],
+                        team_color[agent],
                         pygame.Rect(
                             self.tile_width * (x - 1),
                             self.tile_width * (y - 1),
@@ -109,7 +111,8 @@ class Visualizer:
                     )
                     pygame.draw.rect(
                         self.surf,
-                        color_to_rgb[team.faction.value.color],
+                        # color_to_rgb[team.faction.value.color],
+                        team_color[agent],
                         pygame.Rect(
                             self.tile_width * (x)+h,
                             self.tile_width * (y)+ h,

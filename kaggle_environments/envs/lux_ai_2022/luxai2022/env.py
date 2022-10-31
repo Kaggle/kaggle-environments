@@ -96,7 +96,7 @@ class LuxAI2022(ParallelEnv):
             self.py_visualizer = Visualizer(self.state)
             return True
         return False
-    def render(self, mode="human"):
+    def render(self, mode="human", **kwargs):
         """
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
@@ -117,6 +117,10 @@ class LuxAI2022(ParallelEnv):
             self.py_visualizer.update_scene(self.state)
             VIDEO_W = 400
             VIDEO_H = 400
+            if "width" in kwargs:
+                VIDEO_W = kwargs["width"]
+            if "height" in kwargs:
+                VIDEO_H = kwargs["height"]
             return self.py_visualizer._create_image_array(self.py_visualizer.surf, (VIDEO_W, VIDEO_H))
 
     def close(self):
@@ -553,7 +557,7 @@ class LuxAI2022(ParallelEnv):
             
             # Update lichen
             self.state.board.lichen -= 1
-            self.state.board.lichen = self.state.board.lichen.clip(0)
+            self.state.board.lichen = self.state.board.lichen.clip(0, self.env_cfg.MAX_LICHEN_PER_TILE)
             self.state.board.lichen_strains[self.state.board.lichen == 0] = -1
 
             # resources refining
