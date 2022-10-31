@@ -85,7 +85,9 @@ class EnvConfig:
 
 
     FACTORY_CHARGE: int = 50
-    FACTORY_WATER_CONSUMPTION: int = 1
+    FACTORY_WATER_CONSUMPTION: int = 0
+    # game design note: with a positve water consumption, game becomes quite hard for new competitors.
+    # so we set it to 0
 
 
     #### Units ####

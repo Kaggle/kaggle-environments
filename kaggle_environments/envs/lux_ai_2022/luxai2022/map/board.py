@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING
 from luxai2022.config import EnvConfig
 if TYPE_CHECKING:
     from luxai2022.factory import Factory
+    from luxai2022.state import State
 from luxai2022.map.position import Position
 from luxai2022.map_generator.generator import GameMap
 from luxai2022.unit import Unit
+
 
 
 class Board:
@@ -56,10 +58,14 @@ class Board:
         if pos_hash in self.units_map:
             return self.units_map[pos_hash]
         return None
-    def get_factory_at(self, pos: Position):
-        pos_hash = self.pos_hash(pos)
-        if pos_hash in self.factory_map:
-            return self.factory_map[pos_hash]
+    def get_factory_at(self, state: State, pos: Position):
+        f_id = self.factory_occupancy_map[pos.y, pos.x]
+        if f_id != -1:
+            unit_id = f"factory_{f_id}"
+            if unit_id in state.factories["player_0"]:
+                return state.factories["player_0"][unit_id]
+            else:
+                return state.factories["player_1"][unit_id]
         return None
     def get_valid_spawns(self, team_id):
         xx, yy = np.mgrid[:self.width, :self.height]
