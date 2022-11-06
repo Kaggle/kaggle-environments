@@ -70,7 +70,7 @@ class Visualizer:
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
         if len(state.teams) > 0:
-            team_color = dict(player_0=[248,209,95], player_1=[0, 130, 251])
+            team_color = dict(player_0=[224,65,40], player_1=[0, 112, 81])
             for agent in state.factories:
                 if agent not in state.teams: continue
                 team = state.teams[agent]

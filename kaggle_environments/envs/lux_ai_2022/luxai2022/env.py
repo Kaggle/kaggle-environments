@@ -512,15 +512,17 @@ class LuxAI2022(ParallelEnv):
                             # if unit does not have more than UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] power, we skip updating the action queue and print warning
                             update_power_req = self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name] * weather_cfg["power_loss_factor"]
                             if unit.power < update_power_req:
-                                self._log(f"Tried to update action queue for {unit} requiring ({self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name]} x {weather_cfg['power_loss_factor']}) = {update_power_req} power but only had {unit.power} power. Power cost factor is {weather_cfg['power_loss_factor']} ")
+                                self._log(f"{agent} Tried to update action queue for {unit} requiring ({self.state.env_cfg.UNIT_ACTION_QUEUE_POWER_COST[unit.unit_type.name]} x {weather_cfg['power_loss_factor']}) = {update_power_req} power but only had {unit.power} power. Power cost factor is {weather_cfg['power_loss_factor']} ")
                                 continue
-                            unit.power -= update_power_req
                             formatted_actions = []
                             if type(action) == list or (type(action) == np.ndarray and len(action.shape) == 2):
                                 trunked_actions = action[: self.env_cfg.UNIT_ACTION_QUEUE_SIZE]
                                 formatted_actions = [format_action_vec(a) for a in trunked_actions]
                             else:
-                                formatted_actions = [format_action_vec(action)]
+                                self._log(f"{agent} Tried to update action queue for {unit} but did not provide an action queue, provided {action}")
+                                failed_agents[agent] = True
+                                continue
+                            unit.power -= update_power_req
                             self.state.units[agent][unit_id].action_queue = formatted_actions
                 except ValueError as e:
                     # catch errors when trying to format unit or factory actions
@@ -580,6 +582,7 @@ class LuxAI2022(ParallelEnv):
                 for agent in self.agents:
                     for u in self.state.units[agent].values():
                         u.power = u.power + math.ceil(self.env_cfg.ROBOTS[u.unit_type.name].CHARGE * weather_cfg["power_gain_factor"])
+                        u.power = min(u.power, u.unit_cfg.BATTERY_CAPACITY)
             for agent in self.agents:
                 for f in self.state.factories[agent].values():
                     # Factories are immune to weather thanks to using nuclear reactors instead
@@ -611,7 +614,7 @@ class LuxAI2022(ParallelEnv):
         self.env_steps += 1
         self.state.env_steps += 1
         env_done = self.state.real_env_steps >= self.state.env_cfg.max_episode_length
-        env_done = failed_agents["player_0"] or failed_agents["player_1"] # env is done if any agent fails.
+        env_done = env_done or failed_agents["player_0"] or failed_agents["player_1"] # env is done if any agent fails.
         dones = {agent: env_done or failed_agents[agent] for agent in self.agents}
 
         # generate observations
@@ -646,7 +649,7 @@ class LuxAI2022(ParallelEnv):
         if not self.state.board.spawn_masks[team.agent][pos[0], pos[1]]:
             self._log(f"{team.agent} cannot place factory at {pos[0]}, {pos[1]} as it is on the other half of map.")
             return None
-        if self.state.board.factory_occupancy_map[factory.pos_slice].sum() >= 0:
+        if self.state.board.factory_occupancy_map[factory.pos_slice].max() >= 0:
             self._log(f"{team.agent} cannot overlap factory placement. Existing factory at {factory.pos} already.")
             return None
         
