@@ -20,7 +20,7 @@ def generate_weather_schedule(rng: np.random.RandomState, cfg: EnvConfig):
         while True:
             start_time = rng.randint(0, cfg.max_episode_length - 20)
             duration = rng.randint(weather_time_range[0], weather_time_range[1] + 1)
-            requested_times = set(list(range(start_time, duration)))
+            requested_times = set(list(range(start_time, start_time + duration)))
             if requested_times.issubset(available_times):
                 available_times.difference_update(requested_times)
                 schedule[start_time: start_time + duration] = weather_id

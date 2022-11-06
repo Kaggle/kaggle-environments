@@ -162,9 +162,20 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
         valid_action = True
         unit: luxai_unit.Unit
         transfer_action: TransferAction
+        transfer_pos: Position = unit.pos + move_deltas[transfer_action.transfer_dir]
         if transfer_action.resource > 4 or transfer_action.resource < 0:
             invalidate_action(
                 f"Invalid Transfer Action for unit {unit}, transferring invalid resource id {transfer_action.resource}"
+            )
+            continue
+        if (
+            transfer_pos.x < 0
+            or transfer_pos.y < 0
+            or transfer_pos.x >= state.board.width
+            or transfer_pos.y >= state.board.height
+        ):
+            invalidate_action(
+                f"Invalid Transfer action for unit {unit} - Tried to transfer to {transfer_pos} which is off the map"
             )
             continue
         # if transfer_action.transfer_amount < 0: do not need to check as action space permits range of [0, max_transfer_amount] anyway
@@ -306,6 +317,7 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
             invalidate_action(
                 f"Invalid self destruct action for unit {unit} - Tried to self destruct requiring ceil({unit.unit_cfg.SELF_DESTRUCT_COST} x {weather_cfg['power_loss_factor']}) power but only had {unit.power} power. Power cost factor is {weather_cfg['power_loss_factor']}"
             )
+            continue
         if valid_action:
             actions_by_type_validated["self_destruct"].append((unit, move_action))
 
