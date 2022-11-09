@@ -21,6 +21,7 @@ class Action:
     def __init__(self, act_type: str) -> None:
         self.act_type = act_type
         self.repeat = False
+        self.power_cost = 0
 
     def state_dict():
         raise NotImplementedError("")
@@ -30,6 +31,7 @@ class FactoryBuildAction(Action):
     def __init__(self, unit_type: luxai_unit.UnitType) -> None:
         super().__init__("factory_build")
         self.unit_type = unit_type
+        self.power_cost = 0
 
     def state_dict(self):
         if self.unit_type == luxai_unit.UnitType.LIGHT:
@@ -41,7 +43,7 @@ class FactoryWaterAction(Action):
     def __init__(self) -> None:
         super().__init__("factory_water")
         self.water_cost = None
-
+        self.power_cost = 0
     def state_dict():
         return 2
 
@@ -53,6 +55,7 @@ class MoveAction(Action):
         self.move_dir = move_dir
         self.dist = dist
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([0, self.move_dir, self.dist, 0, self.repeat])
@@ -66,6 +69,7 @@ class TransferAction(Action):
         self.resource = resource
         self.transfer_amount = transfer_amount
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([1, self.transfer_dir, self.resource, self.transfer_amount, self.repeat])
@@ -78,6 +82,7 @@ class PickupAction(Action):
         self.resource = resource
         self.pickup_amount = pickup_amount
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([2, 0, self.resource, self.pickup_amount, self.repeat])
@@ -87,6 +92,7 @@ class DigAction(Action):
     def __init__(self, repeat=False) -> None:
         super().__init__("dig")
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([3, 0, 0, 0, self.repeat])
@@ -96,6 +102,7 @@ class SelfDestructAction(Action):
     def __init__(self, repeat=False) -> None:
         super().__init__("self_destruct")
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([4, 0, 0, 0, self.repeat])
@@ -106,6 +113,7 @@ class RechargeAction(Action):
         super().__init__("recharge")
         self.power = power
         self.repeat = repeat
+        self.power_cost = 0
 
     def state_dict(self):
         return np.array([5, 0, 0, self.power, self.repeat])
@@ -307,6 +315,7 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
             )
             continue
         if valid_action:
+            move_action.power_cost = power_required
             actions_by_type_validated["move"].append((unit, move_action))
 
     for unit, self_destruct_action in actions_by_type["self_destruct"]:
@@ -319,7 +328,8 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
             )
             continue
         if valid_action:
-            actions_by_type_validated["self_destruct"].append((unit, move_action))
+            self_destruct_action.power_cost = power_required
+            actions_by_type_validated["self_destruct"].append((unit, self_destruct_action))
 
     for factory, build_action in actions_by_type["factory_build"]:
         valid_action = True
@@ -330,10 +340,12 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
         if factory.cargo.metal < unit_cfg.METAL_COST:
             invalidate_action(f"Invalid factory build action for factory {factory} - Insufficient metal, factory has {factory.cargo.metal}, but requires {unit_cfg.METAL_COST} to build {build_action.unit_type}")
             continue
-        if factory.power < math.ceil(unit_cfg.POWER_COST * weather_cfg["power_loss_factor"]):
+        power_required = math.ceil(unit_cfg.POWER_COST * weather_cfg["power_loss_factor"])
+        if factory.power < power_required:
             invalidate_action(f"Invalid factory build action for factory {factory} - Insufficient power, factory has {factory.power}, but requires ceil({unit_cfg.POWER_COST} x {weather_cfg['power_loss_factor']}) to build {build_action.unit_type.name}. Power cost factor is {weather_cfg['power_loss_factor']}")
             continue
         if valid_action:
+            build_action.power_cost = power_required
             actions_by_type_validated["factory_build"].append((factory, build_action))
         pass
 

@@ -73,13 +73,13 @@ class Board:
             if team_id == 0:
                 spawns_mask = xx < (self.width - 2) / 2
             else:
-                spawns_mask = xx > (self.width + 2) / 2
+                spawns_mask = xx >= (self.width + 2) / 2
         if self.map.symmetry == "horizontal":
             if team_id == 0:
                 spawns_mask = yy < (self.height - 2) / 2
 
             else:
-                spawns_mask = yy > (self.height + 2) / 2
+                spawns_mask = yy >= (self.height + 2) / 2
 
         # if self.map.symmetry == "rotational":
         #     if team_id == 0:

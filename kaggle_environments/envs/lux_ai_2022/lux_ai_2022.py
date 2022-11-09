@@ -60,13 +60,13 @@ def interpreter(state, env):
         else:
             seed = math.floor(random.random() * 1e9);
             env.configuration["seed"] = seed
-        if "episodeSteps" in env.configuration:
-            episodeSteps = int(env.configuration["episodeSteps"])
+        if "max_episode_length" in env.configuration:
+            max_episode_length = int(env.configuration["max_episode_length"])
         else:
-            episodeSteps = 1001
+            max_episode_length = 1000
 
         parsed_env_config = copy.deepcopy(env.configuration)
-        parsed_env_config["max_episode_length"] = episodeSteps
+        parsed_env_config["max_episode_length"] = max_episode_length
         delete_keys = ["seed", "episodeSteps", "actTimeout", "runTimeout", "env_cfg"]
         
         for k in delete_keys:
