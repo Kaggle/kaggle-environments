@@ -2,14 +2,20 @@
   "name": "lux_ai_2022",
   "title": "Lux AI Challenge: 2022",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
-      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 1000 steps",
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 1002 + N steps where N is number of factories each player is given. Set this value to normalEpisodeSteps + 10 to ensure Kaggle-environments does not truncate the episode.",
       "type": "integer",
       "minimum": 2,
-      "default": 1001
+      "default": 1010
+    },
+    "max_episode_length": {
+      "description": "Max game steps the environment can run, not including the early phase of the game.",
+      "minimum": 2,
+      "type": "integer",
+      "default": 1000
     },
     "seed": {
       "description": "Seed to use for episodes",
