@@ -20,11 +20,14 @@ import luxai2022.unit as luxai_unit
 class Action:
     def __init__(self, act_type: str) -> None:
         self.act_type = act_type
-        self.repeat = False
+        self.repeat = 0
         self.power_cost = 0
 
-    def state_dict():
+    def state_dict(self):
         raise NotImplementedError("")
+    @property
+    def repeating(self):
+        return self.repeat == -1 or self.repeat > 0
 
 
 class FactoryBuildAction(Action):
@@ -44,12 +47,12 @@ class FactoryWaterAction(Action):
         super().__init__("factory_water")
         self.water_cost = None
         self.power_cost = 0
-    def state_dict():
+    def state_dict(self):
         return 2
 
 
 class MoveAction(Action):
-    def __init__(self, move_dir: int, dist: int = 1, repeat=False) -> None:
+    def __init__(self, move_dir: int, dist: int = 1, repeat=0) -> None:
         super().__init__("move")
         # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
         self.move_dir = move_dir
@@ -62,7 +65,7 @@ class MoveAction(Action):
 
 
 class TransferAction(Action):
-    def __init__(self, transfer_dir: int, resource: int, transfer_amount: int, repeat=False) -> None:
+    def __init__(self, transfer_dir: int, resource: int, transfer_amount: int, repeat=0) -> None:
         super().__init__("transfer")
         # a[2] = R = resource type (0 = ice, 1 = ore, 2 = water, 3 = metal, 4 power)
         self.transfer_dir = transfer_dir
@@ -76,7 +79,7 @@ class TransferAction(Action):
 
 
 class PickupAction(Action):
-    def __init__(self, resource: int, pickup_amount: int, repeat=False) -> None:
+    def __init__(self, resource: int, pickup_amount: int, repeat=0) -> None:
         super().__init__("pickup")
         # a[2] = R = resource type (0 = ice, 1 = ore, 2 = water, 3 = metal, 4 power)
         self.resource = resource
@@ -89,7 +92,7 @@ class PickupAction(Action):
 
 
 class DigAction(Action):
-    def __init__(self, repeat=False) -> None:
+    def __init__(self, repeat=0) -> None:
         super().__init__("dig")
         self.repeat = repeat
         self.power_cost = 0
@@ -99,7 +102,7 @@ class DigAction(Action):
 
 
 class SelfDestructAction(Action):
-    def __init__(self, repeat=False) -> None:
+    def __init__(self, repeat=0) -> None:
         super().__init__("self_destruct")
         self.repeat = repeat
         self.power_cost = 0
@@ -109,7 +112,7 @@ class SelfDestructAction(Action):
 
 
 class RechargeAction(Action):
-    def __init__(self, power: int, repeat=False) -> None:
+    def __init__(self, power: int, repeat=0) -> None:
         super().__init__("recharge")
         self.power = power
         self.repeat = repeat
@@ -132,7 +135,7 @@ def format_factory_action(a: int):
 
 
 def format_action_vec(a: np.ndarray):
-    # (0 = move, 1 = transfer X amount of R, 2 = pickup X amount of R, 3 = dig, 4 = self destruct, 5 = recharge X, 6 = repeat)
+    # (0 = move, 1 = transfer X amount of R, 2 = pickup X amount of R, 3 = dig, 4 = self destruct, 5 = recharge X)
     a_type = a[0]
     if a_type == 0:
         return MoveAction(a[1], dist=1, repeat=a[4])
@@ -189,36 +192,6 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
         # if transfer_action.transfer_amount < 0: do not need to check as action space permits range of [0, max_transfer_amount] anyway
         resource_id = transfer_action.resource
         amount = transfer_action.transfer_amount
-        if resource_id == 0:
-            if unit.cargo.ice < amount:
-                invalidate_action(
-                    f"Invalid Transfer Action for unit {unit} - Tried to transfer {amount} ice but only had {unit.cargo.ice}"
-                )
-                continue
-        elif resource_id == 1:
-            if unit.cargo.ore < amount:
-                invalidate_action(
-                    f"Invalid Transfer Action for unit {unit} - Tried to transfer {amount} ore but only had {unit.cargo.ore}"
-                )
-                continue
-        elif resource_id == 2:
-            if unit.cargo.water < amount:
-                invalidate_action(
-                    f"Invalid Transfer Action for unit {unit} - Tried to transfer {amount} water but only had {unit.cargo.water}"
-                )
-                continue
-        elif resource_id == 3:
-            if unit.cargo.metal < amount:
-                invalidate_action(
-                    f"Invalid Transfer Action for unit {unit} - Tried to transfer {amount} metal but only had {unit.cargo.metal}"
-                )
-                continue
-        elif resource_id == 4:
-            if unit.power < amount:
-                invalidate_action(
-                    f"Invalid Transfer Action for unit {unit} - Tried to transfer {amount} power but only had {unit.power}"
-                )
-                continue
 
         if valid_action:
             actions_by_type_validated["transfer"].append((unit, transfer_action))
@@ -233,7 +206,7 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
             )
             continue
         # verify not digging over a factory which is not allowed
-        if state.board.factory_occupancy_map[unit.pos.y, unit.pos.x] != -1:
+        if state.board.factory_occupancy_map[unit.pos.x, unit.pos.y] != -1:
             invalidate_action(
                 f"Invalid Dig Action for unit {unit} - Tried to dig on top of a factory"
             )
@@ -249,38 +222,6 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
         if factory is None:
             invalidate_action(f"No factory to pickup from for unit {unit}")
             continue
-        resource_id = pickup_action.resource
-        amount = pickup_action.pickup_amount
-        if resource_id == 0:
-            if factory.cargo.ice < amount:
-                invalidate_action(
-                    f"Invalid Pickup Action for unit {unit} - Tried to pickup {amount} ice but factory only had {factory.cargo.ice}"
-                )
-                continue
-        elif resource_id == 1:
-            if factory.cargo.ore < amount:
-                invalidate_action(
-                    f"Invalid Pickup Action for unit {unit} - Tried to pickup {amount} ore but factory only had {factory.cargo.ore}"
-                )
-                continue
-        elif resource_id == 2:
-            if factory.cargo.water < amount:
-                invalidate_action(
-                    f"Invalid Pickup Action for unit {unit} - Tried to pickup {amount} water but factory only had {factory.cargo.water}"
-                )
-                continue
-        elif resource_id == 3:
-            if factory.cargo.metal < amount:
-                invalidate_action(
-                    f"Invalid Pickup Action for unit {unit} - Tried to pickup {amount} metal but factory only had {factory.cargo.metal}"
-                )
-                continue
-        elif resource_id == 4:
-            if factory.power < amount:
-                invalidate_action(
-                    f"Invalid Pickup Action for unit {unit} - Tried to pickup {amount} power but factory only had {factory.power}"
-                )
-                continue
         if valid_action:
             actions_by_type_validated["pickup"].append((unit, pickup_action))
 
@@ -298,16 +239,22 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
                 f"Invalid movement action for unit {unit} - Tried to move to {target_pos} which is off the map"
             )
             continue
-        if state.board.factory_occupancy_map[target_pos.y, target_pos.x] != -1:
-            factory_id = state.board.factory_occupancy_map[target_pos.y, target_pos.x]
+        if state.board.factory_occupancy_map[target_pos.x, target_pos.y] != -1:
+            factory_id = state.board.factory_occupancy_map[target_pos.x, target_pos.y]
             if f"factory_{factory_id}" not in state.factories[unit.team.agent]:
                 # if there is a factory but not same team
                 invalidate_action(
                     f"Invalid movement action for unit {unit} - Tried to move to {target_pos} which is on an opponent factory"
                 )
                 continue
-        rubble = state.board.rubble[target_pos.y, target_pos.x]
-        power_required = math.ceil(unit.move_power_cost(rubble) * weather_cfg["power_loss_factor"])
+        rubble = state.board.rubble[target_pos.x, target_pos.y]
+        power_required = (
+            0
+            if move_action.move_dir == 0
+            else math.ceil(
+                unit.move_power_cost(rubble) * weather_cfg["power_loss_factor"]
+            )
+        )
 
         if power_required > unit.power:
             invalidate_action(
@@ -330,6 +277,9 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
         if valid_action:
             self_destruct_action.power_cost = power_required
             actions_by_type_validated["self_destruct"].append((unit, self_destruct_action))
+
+    for unit, recharge_action in actions_by_type["recharge"]:
+        actions_by_type_validated["recharge"].append((unit, recharge_action))
 
     for factory, build_action in actions_by_type["factory_build"]:
         valid_action = True

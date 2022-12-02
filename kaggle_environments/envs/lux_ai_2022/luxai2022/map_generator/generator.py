@@ -80,9 +80,9 @@ class Cave(GameMap):
            >1 = outside cave
         """
         # Start with mostly zeros
-        mask = noise.random.randint(6, size=(height, width))
+        mask = noise.random.randint(3, size=(height, width))
         mask[mask >= 1] = 1
-        symmetrize(mask, symmetry)
+        # symmetrize(mask, symmetry)
         
         # Build clumps of ones (will be interior of caves)
         for i in range(3):
@@ -92,7 +92,7 @@ class Cave(GameMap):
         # Create cave wall
         mask += maximum_filter(mask, size=4)
         # fix bug where filter will cause it to be not symmetric...
-        symmetrize(mask, symmetry)
+        # symmetrize(mask, symmetry)
 
         # Make some noisy rubble
         x = np.linspace(0, 1, width)
@@ -159,8 +159,8 @@ class Craters(GameMap):
 
         mask.astype(float)
 
-        symmetrize(mask, symmetry)
-        symmetrize(ice_mask, symmetry)
+        # symmetrize(mask, symmetry)
+        # symmetrize(ice_mask, symmetry)
 
         rubble = (np.minimum(mask, 1) * 90 + 10) * noise(x, y+100, frequency=3)
         ice = noise(x, y-100)
@@ -240,11 +240,11 @@ class Mountain(GameMap):
             x, y = noise.random.randint(width), noise.random.randint(height)
             f[y][x] -= 1
 
-        symmetrize(f, symmetry)
+        # symmetrize(f, symmetry)
 
         # mask will be floats in [0, 1], where 0 = no mountain, 1 = tallest peak
         mask = solve_poisson(f)
-        symmetrize(mask, symmetry) # in case of floating point errors
+        # symmetrize(mask, symmetry) # in case of floating point errors
         x = np.linspace(0, 1, width)
         y = np.linspace(0, 1, height)
         mask *= 5 + noise(x, y, frequency=3)
@@ -261,7 +261,7 @@ class Mountain(GameMap):
         cond = Lap * (2 * Lap - np.sqrt(4 * Lap**2 - det)) / det - 0.25 # ratio of eigenvalues
         cond = abs(cond) # should already be real except for floating point errors
         cond = np.maximum(cond, 1/cond)
-        symmetrize(cond, symmetry) # for floating point errors
+        # symmetrize(cond, symmetry) # for floating point errors
 
         def bdry(x, y):
             # Maybe instead of > 20, use some mean and std stuff?
@@ -321,14 +321,14 @@ class Mountain(GameMap):
         rubble = (100*mask).round()
         ice = (100 * mask).round()
         mid_mask = (ice < np.percentile(ice, 50)) & (ice > np.percentile(ice, 48)) | (ice < np.percentile(ice, 20)) & (ice > np.percentile(ice, 0))
-        ice[ice < np.percentile(ice, 99)] = 0
+        ice[ice < np.percentile(ice, 98)] = 0
         ice[ice != 0] = 1
         ice[mid_mask] = 1
         
         ore = (100 * mask).round()
         mid_mask = (ore < np.percentile(ore, 62)) & (ore > np.percentile(ore, 60))
         ore[ore < np.percentile(ore, 83.5)] = 0
-        ore[ore > np.percentile(ore, 84)] = 0
+        ore[ore > np.percentile(ore, 84.5)] = 0
         ore[ore != 0] = 1
         ore[mid_mask] = 1
 
@@ -371,7 +371,7 @@ class Island(GameMap):
 
         mask[yy, xx] = mask[new_yy, new_xx]
 
-        symmetrize(mask, symmetry)
+        # symmetrize(mask, symmetry)
 
         rubble = noise(x, y - 100, frequency=3) * 50 + 50
         rubble[mask==0] //= 20

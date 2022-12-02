@@ -30,12 +30,12 @@ def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.n
             print("Error! Lichen Growth calculation took too long")
             break
         pos = frontier.popleft()
-        if pos[0] < 0 or pos[1] < 0 or pos[0] >= forbidden.shape[1] or pos[1] >= forbidden.shape[0]:
+        if pos[0] < 0 or pos[1] < 0 or pos[0] >= forbidden.shape[0] or pos[1] >= forbidden.shape[1]:
             continue
 
-        if forbidden[pos[1], pos[0]]:
+        if forbidden[pos[0], pos[1]]:
             continue
-        pos_lichen = lichen[pos[1], pos[0]]
+        pos_lichen = lichen[pos[0], pos[1]]
         # check for surrounding tiles with lichen and no incompatible lichen strains, grow on those
         can_grow = True
         for move_delta in move_deltas[1:]:
@@ -43,9 +43,10 @@ def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.n
             if (check_pos[0], check_pos[1]) in seen: continue
             # check surrounding tiles on the map
             if check_pos[0] < 0 or check_pos[1] < 0 or check_pos[0] >= W or check_pos[1] >= H: continue
-            adj_strain = lichen_strains[check_pos[1], check_pos[0]]
+            adj_strain = lichen_strains[check_pos[0], check_pos[1]]
             if adj_strain == -1:
                 if pos_lichen >= MIN_LICHEN_TO_SPREAD:
+                    # adjacent tile is empty and isn't a resource and the current tile has enough lichen to spread
                     seen.add(tuple(check_pos))
                     frontier.append(check_pos)
             elif adj_strain != strain_id:
@@ -75,7 +76,13 @@ class Factory:
 
     @property
     def pos_slice(self):
-        return slice(self.pos.y - 1, self.pos.y + 2), slice(self.pos.x - 1, self.pos.x + 2)
+        return slice(self.pos.x - 1, self.pos.x + 2), slice(self.pos.y - 1, self.pos.y + 2)
+
+    @property
+    def min_dist_slice(self):
+        deltas = np.array([(4, 0), (5, 1), (0, -4), (0, 5), (2, 2), (-4, 1), (-1, -1), (-1, -2), (-2, -1), (-2, -2), (4, 2), (0, -2), (0, -1), (2, 4), (-1, 0), (-2, 0), (-3, 1), (0, 0), (2, -3), (-2, 2), (-1, 2), (3, 1), (5, -1), (-3, 3), (0, 2), (1, 3), (-4, -1), (-1, -5), (-4, -2), (-1, 4), (-2, 4), (3, 3), (5, 0), (-6, 0), (0, -5), (1, -4), (1, 5), (-4, 0), (-1, -3), (-2, -3), (-5, 1), (-3, -1), (0, -3), (-3, -2), (1, -1), (1, -2), (-4, 2), (3, -1), (3, -2), (-3, 0), (1, 0), (3, 0), (-3, 2), (1, 2), (0, 4), (2, 1), (3, 2), (4, 1), (-5, -1), (1, -5), (1, 4), (0, 6), (2, 3), (-1, -4), (-5, 0), (-3, -3), (1, -3), (2, -4), (-1, 1), (-2, 1), (3, -3), (0, 1), (2, -1), (2, -2), (-1, 3), (-2, 3), (4, -1), (4, -2), (0, -6), (1, 1), (0, 3), (2, 0), (6, 0), (-2, -4), (-1, 5)])
+        return self.pos.pos + deltas
+
 
     def refine_step(self, config: EnvConfig):
         max_consumed_ice = min(self.cargo.ice, config.FACTORY_PROCESSING_RATE_WATER)
@@ -94,21 +101,23 @@ class Factory:
         # Caches information about which tiles lichen can grow on for this factory
 
         # perform a BFS from the factory position and look for non rubble, non factory tiles.
-        # find the current frontier from 4 starting positions x marked below
+        # find the current frontier from 12 starting positions x marked below
         """
-             x
+           x x x
            _ _ _
-          |     |
         x |     | x
-          |_ _ _|
-             x
+        x |     | x
+        x |_ _ _| x
+           x x x
 
         """
-        forbidden = (board.rubble > 0) | (board.factory_occupancy_map != -1)
-        init_arr = np.stack([self.pos.pos + np.array([0, -2]), self.pos.pos + np.array([2, 0]), self.pos.pos + np.array([0, 2]), self.pos.pos + np.array([-2, 0])])
+        forbidden = (board.rubble > 0) | (board.factory_occupancy_map != -1) | (board.ice > 0) | (board.ore > 0)
+        deltas = [np.array([0, -2]),  np.array([-1, -2]),  np.array([1, -2]),  np.array([0, 2]),  np.array([-1, 2]),  np.array([1, 2]),
+                    np.array([2, 0]),  np.array([2, -1]),  np.array([2, 1]),  np.array([-2, 0]),  np.array([-2, -1]),  np.array([-2, 1])]
+        init_arr = np.stack(deltas) + self.pos.pos
         self.grow_lichen_positions = compute_water_info(init_arr, env_cfg.MIN_LICHEN_TO_SPREAD, board.lichen, board.lichen_strains, self.num_id, forbidden)
     def water_cost(self, config: EnvConfig):
-        return int(np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR) + 1)
+        return int(np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR))
 
     ### Add and sub resource functions copied over from unit.py code, can we consolidate them somewhere?
     def add_resource(self, resource_id, transfer_amount):

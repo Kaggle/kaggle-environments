@@ -45,25 +45,25 @@ class Visualizer:
         self.surf.fill([239, 120, 79, 255])
         for x in range(self.board.width):
             for y in range(self.board.height):
-                rubble_amt = self.state.board.rubble[y][x]
+                rubble_amt = self.state.board.rubble[x][y]
                 rubble_color = self.rubble_color(rubble_amt) #[255 - self.state.board.rubble[y][x] * 255 / 100] * 3
                 # import ipdb;ipdb.set_trace()
                 gfxdraw.box(self.surf, (self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width), rubble_color)
-                if self.state.board.ice[y, x] > 0:
+                if self.state.board.ice[x, y] > 0:
                     pygame.draw.rect(
                         self.surf,
                         self.ice_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
-                # print(self.state.board.ore[y, x])
-                if self.state.board.ore[y, x] > 0:
+                # if self.state.valid_spawns_mask
+                if self.state.board.ore[x, y] > 0:
                     pygame.draw.rect(
                         self.surf,
                         self.ore_color(rubble_amt),
                         pygame.Rect(self.tile_width * x, self.tile_width * y, self.tile_width, self.tile_width),
                     )
-                if self.state.board.lichen_strains[y, x] != -1:
-                    c = strain_colors.colors[self.state.board.lichen_strains[y, x] % len(strain_colors.colors)]
+                if self.state.board.lichen_strains[x, y] != -1:
+                    c = strain_colors.colors[self.state.board.lichen_strains[x, y] % len(strain_colors.colors)]
                     pygame.draw.rect(
                         self.surf,
                         [int(c[0]*255),int(c[1]*255),int(c[2]*255)],

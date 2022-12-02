@@ -31,6 +31,10 @@ class Team:
         self.init_metal = 0
         self.factories_to_place = 0
         self.factory_strains = []
+
+        # whether this team gets to place factories down first or not. The bid winner has this set to True. 
+        # If tied, player_0's team has this True
+        self.place_first = False
     def state_dict(self):
         return dict(
             team_id=self.team_id,
@@ -39,7 +43,8 @@ class Team:
             water=self.init_water,
             metal=self.init_metal,
             factories_to_place=self.factories_to_place,
-            factory_strains=self.factory_strains
+            factory_strains=self.factory_strains,
+            place_first=self.place_first
         )
     def __str__(self) -> str:
         out = f"[Player {self.team_id}]"

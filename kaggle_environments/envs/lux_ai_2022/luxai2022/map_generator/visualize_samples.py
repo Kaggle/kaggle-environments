@@ -5,7 +5,7 @@ import pygame
 import numpy as np
 if __name__ == "__main__":
     env = LuxAI2022()
-    N = 20
+    N = 100
     Path("./map_samples").mkdir(parents=True, exist_ok=True)
     stats = dict(
         rubble_count=[],
