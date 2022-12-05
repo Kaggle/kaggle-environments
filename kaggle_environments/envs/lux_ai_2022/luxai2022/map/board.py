@@ -12,7 +12,6 @@ from luxai2022.map_generator.generator import GameMap
 from luxai2022.unit import Unit
 
 
-
 class Board:
     def __init__(self, seed=None, env_cfg: EnvConfig = None) -> None:
         self.env_cfg = env_cfg
@@ -45,12 +44,26 @@ class Board:
 
 
         # Valid spawn locations
-        player_0_spawn_info = self.get_valid_spawns(0)
-        player_1_spawn_info = self.get_valid_spawns(1)
-        self.spawns = {"player_0": player_0_spawn_info[0],
-                       "player_1": player_1_spawn_info[0]}
-        self.spawn_masks = {"player_0": player_0_spawn_info[1],
-                       "player_1": player_1_spawn_info[1]}
+        self.valid_spawns_mask = np.ones((self.height, self.width), dtype=bool)
+        resource_mask = (self.map.ice != 0) | (self.map.ore != 0)
+        # generate all 9 shifts of the resource mask. Below is a simple solution to add 1s around any existing 1s in resource_mask
+        init_mask = np.zeros((self.height + 2, self.width + 2), dtype=bool)
+        for delta in np.array([[0,0],[0, 1], [0, -1], [1, 1], [1,0], [1, -1], [-1, -1], [-1, 0], [-1, 1]]):
+            s0 = delta[0] + 1
+            s1 = delta[1] + 1
+            e0 = -1 + delta[0]
+            e1 = -1 + delta[1]
+            if e0 == 0: e0 = None
+            if e1 == 0: e1 = None
+            init_mask[s0:e0, s1:e1] = init_mask[s0:e0, s1:e1] | resource_mask
+        resource_mask = init_mask[1:-1,1:-1]
+        self.valid_spawns_mask[resource_mask] = False
+        self.valid_spawns_mask[0] = False
+        self.valid_spawns_mask[-1] = False
+        self.valid_spawns_mask[:,0] = False
+        self.valid_spawns_mask[:,-1] = False
+        # grow the 0s by 1 radius
+
     def pos_hash(self, pos: Position):
         return f"{pos.x},{pos.y}"
     def get_units_at(self, pos: Position):
@@ -59,7 +72,7 @@ class Board:
             return self.units_map[pos_hash]
         return None
     def get_factory_at(self, state: State, pos: Position):
-        f_id = self.factory_occupancy_map[pos.y, pos.x]
+        f_id = self.factory_occupancy_map[pos.x, pos.y]
         if f_id != -1:
             unit_id = f"factory_{f_id}"
             if unit_id in state.factories["player_0"]:
@@ -67,47 +80,6 @@ class Board:
             else:
                 return state.factories["player_1"][unit_id]
         return None
-    def get_valid_spawns(self, team_id):
-        xx, yy = np.mgrid[:self.width, :self.height]
-        if self.map.symmetry == "vertical":
-            if team_id == 0:
-                spawns_mask = xx < (self.width - 2) / 2
-            else:
-                spawns_mask = xx >= (self.width + 2) / 2
-        if self.map.symmetry == "horizontal":
-            if team_id == 0:
-                spawns_mask = yy < (self.height - 2) / 2
-
-            else:
-                spawns_mask = yy >= (self.height + 2) / 2
-
-        # if self.map.symmetry == "rotational":
-        #     if team_id == 0:
-        #         spawns_mask = xx < (self.width - 1) / 2
-
-        #     else:
-        #         spawns_mask = xx > (self.width - 1) / 2
-
-        # if self.map.symmetry == "/":
-        #     if team_id == 0:
-        #         spawns_mask = xx - yy < 0
-
-        #     else:
-        #         spawns_mask = xx - yy > 0
-
-        # if self.map.symmetry == "\\":
-        #     if team_id == 0:
-        #         spawns_mask = xx + yy < (self.width + self.height) / 2 - 1
-
-        #     else:
-        #         spawns_mask = xx + yy > (self.width + self.height) / 2 - 1
-
-        x, y = np.where(spawns_mask)
-
-        spawns = np.array([*zip(x, y)])
-        spawns = spawns[(spawns[:, 0] > 0) & (spawns[:, 1] > 0)]
-        spawns = spawns[(spawns[:, 0] < self.width - 1) & (spawns[:, 1] < self.height - 1)]
-        return spawns, spawns_mask
 
     @property
     def rubble(self) -> np.ndarray:
@@ -125,6 +97,6 @@ class Board:
             ice=self.ice.copy(),
             lichen=self.lichen.copy(),
             lichen_strains=self.lichen_strains.copy(),
-            spawns=self.spawns.copy(),
+            valid_spawns_mask=self.valid_spawns_mask.copy(),
             factories_per_team=self.factories_per_team,
         )

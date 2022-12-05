@@ -109,8 +109,10 @@ def get_act_space(units: Dict[str, Dict[str, Unit]], factories: Dict[str, Dict[s
         # a[3] = X, amount of resources transferred or picked up if action is transfer or pickup.
         # If action is recharge, it is how much energy to store before executing the next action in queue
 
-        # a[4] = 0,1 - repeat false or repeat true. If true, action is sent to end of queue once consumed
-        act_space[u.unit_id] = ActionsQueue(spaces.MultiDiscrete([6, 5, 5, config.max_transfer_amount, 2]), config.UNIT_ACTION_QUEUE_SIZE)
+        # a[4] = -1,0,1,... - -1 means repeat infinitely after succesful execution. 0 means never repeat again. n > 0 means repeat n times.
+        act_space[u.unit_id] = ActionsQueue(
+            spaces.Box(low=np.array([0,0,0,0,-1]), high=np.array([5,4,4,config.max_transfer_amount, 100000]), shape=(5,), dtype=np.int64),
+        config.UNIT_ACTION_QUEUE_SIZE)
 
     for factory in factories[agent].values():
         # action type (0 = build light robot, 1 = build heavy robot, 2 = water lichen)

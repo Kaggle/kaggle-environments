@@ -27,6 +27,7 @@ class UnitConfig:
     DIG_LICHEN_REMOVED: int = 10
     SELF_DESTRUCT_COST: int = 10
     RUBBLE_AFTER_DESTRUCTION: int = 1
+    ACTION_QUEUE_POWER_COST: int = 1
 
 
 
@@ -52,19 +53,15 @@ class EnvConfig:
     CYCLE_LENGTH: int = 50
     DAY_LENGTH: int = 30
     UNIT_ACTION_QUEUE_SIZE: int = 20 # when set to 1, then no action queue is used
-    UNIT_ACTION_QUEUE_POWER_COST: Dict[str, int] = dataclasses.field(default_factory=lambda: dict(
-        LIGHT=1,
-        HEAVY=10
-    ))
 
 
     MAX_RUBBLE: int = 100
     FACTORY_RUBBLE_AFTER_DESTRUCTION: int = 50
-    INIT_WATER_METAL_PER_FACTORY: int = 100 # amount of water and metal units given to each factory
-    INIT_POWER_PER_FACTORY: int = 100
+    INIT_WATER_METAL_PER_FACTORY: int = 150 # amount of water and metal units given to each factory
+    INIT_POWER_PER_FACTORY: int = 1000
 
     #### LICHEN ####
-    MIN_LICHEN_TO_SPREAD: int = 1
+    MIN_LICHEN_TO_SPREAD: int = 10
     LICHEN_LOST_WITHOUT_WATER: int = 1
     LICHEN_GAINED_WITH_WATER: int = 1
     MAX_LICHEN_PER_TILE: int = 100
@@ -98,20 +95,22 @@ class EnvConfig:
             METAL_COST=10, POWER_COST=50, INIT_POWER=50, CARGO_SPACE=100, BATTERY_CAPACITY=150, CHARGE=1, MOVE_COST=1, RUBBLE_MOVEMENT_COST=0,
             DIG_COST=5,
             SELF_DESTRUCT_COST=5,
-            DIG_RUBBLE_REMOVED=1,
+            DIG_RUBBLE_REMOVED=2,
             DIG_RESOURCE_GAIN=2,
             DIG_LICHEN_REMOVED=10,
             RUBBLE_AFTER_DESTRUCTION=1,
+            ACTION_QUEUE_POWER_COST=1,
         ),
 
         HEAVY=UnitConfig(
             METAL_COST=100, POWER_COST=500, INIT_POWER=500, CARGO_SPACE=1000, BATTERY_CAPACITY=3000, CHARGE=10, MOVE_COST=20, RUBBLE_MOVEMENT_COST=1,
             DIG_COST=100,
             SELF_DESTRUCT_COST=100,
-            DIG_RUBBLE_REMOVED=10,
+            DIG_RUBBLE_REMOVED=20,
             DIG_RESOURCE_GAIN=20,
             DIG_LICHEN_REMOVED=100,
             RUBBLE_AFTER_DESTRUCTION=10,
+            ACTION_QUEUE_POWER_COST=10,
         ),
         )
     )
@@ -121,8 +120,6 @@ class EnvConfig:
     NUM_WEATHER_EVENTS_RANGE: List[int] = dataclasses.field(default_factory=lambda:[3,5])
     WEATHER: dict = dataclasses.field(default_factory=lambda:dict(
         MARS_QUAKE=dict(
-            # amount of rubble generated under each robot per turn
-            RUBBLE=dict(LIGHT=1, HEAVY=10),
             TIME_RANGE=[1, 5]
         ),
         COLD_SNAP=dict(
