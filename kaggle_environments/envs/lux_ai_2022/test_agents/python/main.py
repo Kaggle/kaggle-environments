@@ -3,9 +3,15 @@ from typing import Dict
 import sys
 from argparse import Namespace
 
-from agent import Agent
-from lux.config import EnvConfig
-from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
+if __package__ == "":
+    from agent import Agent
+    from lux.config import EnvConfig
+    from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
+else:
+    from .agent import Agent
+    from .lux.config import EnvConfig
+    from .lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
+
 ### DO NOT REMOVE THE FOLLOWING CODE ###
 agent_dict = dict() # store potentially multiple dictionaries as kaggle imports code directly
 agent_prev_obs = dict()

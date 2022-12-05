@@ -2,9 +2,14 @@ import math
 from sys import stderr
 import numpy as np
 from dataclasses import dataclass
-from lux.weather import get_weather_config
-from lux.cargo import UnitCargo
-from lux.config import EnvConfig
+if __package__ == "":
+    from lux.weather import get_weather_config
+    from lux.cargo import UnitCargo
+    from lux.config import EnvConfig
+else:
+    from .weather import get_weather_config
+    from .cargo import UnitCargo
+    from .config import EnvConfig
 @dataclass
 class Factory:
     team_id: int
