@@ -61,7 +61,7 @@ class MoveAction(Action):
         self.power_cost = 0
 
     def state_dict(self):
-        return np.array([0, self.move_dir, self.dist, 0, self.repeat])
+        return np.array([0, self.move_dir, 0, 0, self.repeat])
 
 
 class TransferAction(Action):

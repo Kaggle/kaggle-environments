@@ -35,6 +35,8 @@ class Team:
         # whether this team gets to place factories down first or not. The bid winner has this set to True. 
         # If tied, player_0's team has this True
         self.place_first = False
+
+        self.bid = 0
     def state_dict(self):
         return dict(
             team_id=self.team_id,

@@ -201,8 +201,9 @@ class LuxAI2022(ParallelEnv):
                 self.state.teams[k].factories_to_place = self.state.board.factories_per_team
                 # verify bid is valid
                 valid_action = True
-                bid = a["bid"]
-                if bid < 0 or bid > self.state.teams[k].init_water:
+                bid = abs(a["bid"])
+                self.state.teams[k].bid = a["bid"]
+                if bid > self.state.teams[k].init_water:
                     valid_action = False
                 if not valid_action:
                     failed_agents[k] = True
@@ -211,7 +212,7 @@ class LuxAI2022(ParallelEnv):
                     highest_bid = bid
                     highest_bid_agent = k
                 elif bid == highest_bid:
-                    # if bids are the same, player 0 defaults to the winner and pays thebid.
+                    # if bids are the same, player 0 defaults to the winner and pays the bid.
                     highest_bid_agent = "player_0"
             else:
                 # team k loses
@@ -220,9 +221,20 @@ class LuxAI2022(ParallelEnv):
             # no valid bids made, all agents failed.
             pass
         else:
+            lowest_bid_agent = "player_1"
+            if highest_bid_agent == "player_1":
+                lowest_bid_agent = "player_0"
             self.state.teams[highest_bid_agent].init_water -= highest_bid
             self.state.teams[highest_bid_agent].init_metal -= highest_bid
-            self.state.teams[highest_bid_agent].place_first = True
+
+            # highest bid agent either won because of a tie, which then player_0 default wins, or because they had a stronger bid
+            # who ever wins will always get their choice
+            if self.state.teams[highest_bid_agent].bid < 0:
+                self.state.teams[highest_bid_agent].place_first = False
+                self.state.teams[lowest_bid_agent].place_first = True
+            else:
+                self.state.teams[highest_bid_agent].place_first = True
+                self.state.teams[lowest_bid_agent].place_first = False
         return failed_agents
     def _handle_factory_placement_step(self, actions):
         # factory placement rounds, which are sequential
@@ -395,27 +407,26 @@ class LuxAI2022(ParallelEnv):
         for unit, move_action in actions_by_type["move"]:
             move_action: MoveAction
             # skip move center
-            if move_action.move_dir == 0:
-                continue
-            old_pos_hash = self.state.board.pos_hash(unit.pos)
-            target_pos = unit.pos + move_action.dist * move_deltas[move_action.move_dir]
-            power_required = move_action.power_cost
-            unit.pos = target_pos
-            new_pos_hash = self.state.board.pos_hash(unit.pos)
+            if move_action.move_dir != 0:
+                old_pos_hash = self.state.board.pos_hash(unit.pos)
+                target_pos = unit.pos + move_action.dist * move_deltas[move_action.move_dir]
+                power_required = move_action.power_cost
+                unit.pos = target_pos
+                new_pos_hash = self.state.board.pos_hash(unit.pos)
 
-            # remove unit from map temporarily
-            if len(self.state.board.units_map[old_pos_hash]) == 1:
-                del self.state.board.units_map[old_pos_hash]
-            else:
-                self.state.board.units_map[old_pos_hash].remove(unit)
+                # remove unit from map temporarily
+                if len(self.state.board.units_map[old_pos_hash]) == 1:
+                    del self.state.board.units_map[old_pos_hash]
+                else:
+                    self.state.board.units_map[old_pos_hash].remove(unit)
 
-            new_units_map[new_pos_hash].append(unit)
-            unit.power -= power_required
+                new_units_map[new_pos_hash].append(unit)
+                unit.power -= power_required
 
-            if unit.unit_type == UnitType.HEAVY:
-                heavy_entered_pos[new_pos_hash].append(unit)
-            else:
-                light_entered_pos[new_pos_hash].append(unit)
+                if unit.unit_type == UnitType.HEAVY:
+                    heavy_entered_pos[new_pos_hash].append(unit)
+                else:
+                    light_entered_pos[new_pos_hash].append(unit)
 
             unit.repeat_action(move_action)
 
