@@ -36,29 +36,30 @@ def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.n
         if forbidden[pos[0], pos[1]]:
             continue
         pos_lichen = lichen[pos[0], pos[1]]
+        pos_strain = lichen_strains[pos[0], pos[1]]
         # check for surrounding tiles with lichen and no incompatible lichen strains, grow on those
         can_grow = True
         for move_delta in move_deltas[1:]:
             check_pos = pos + move_delta
-            if (check_pos[0], check_pos[1]) in seen: continue
             # check surrounding tiles on the map
-            if check_pos[0] < 0 or check_pos[1] < 0 or check_pos[0] >= W or check_pos[1] >= H: continue
+            if check_pos[0] < 0 or check_pos[1] < 0 or check_pos[0] >= H or check_pos[1] >= W: continue
             adj_strain = lichen_strains[check_pos[0], check_pos[1]]
-            if adj_strain == -1:
-                if pos_lichen >= MIN_LICHEN_TO_SPREAD:
-                    # adjacent tile is empty and isn't a resource and the current tile has enough lichen to spread
-                    seen.add(tuple(check_pos))
-                    frontier.append(check_pos)
-            elif adj_strain != strain_id:
-                    # adjacent tile is not empty and is not a strain this factory owns.
-                    can_grow = False
-                    seen.add(tuple(check_pos))
-            else:
-                # adjacent tile has our own strain, we can grow here too
+            if adj_strain != -1 and adj_strain != strain_id:
+                can_grow = False
+
+            # if seen, skip
+            if (check_pos[0], check_pos[1]) in seen:
+                continue
+
+            # we add it to the frontier only in two cases:
+            #  1. it is an empty tile, and current pos has enough lichen to expand.
+            #  2. both current tile and check_pos are of our strain.
+            if (adj_strain == -1 and pos_lichen >= MIN_LICHEN_TO_SPREAD) \
+                or (adj_strain == strain_id and pos_strain == strain_id):
                 seen.add(tuple(check_pos))
                 frontier.append(check_pos)
 
-        if can_grow:
+        if can_grow or (lichen_strains[pos[0], pos[1]] == strain_id):
             grow_lichen_positions.add((pos[0], pos[1]))
     return grow_lichen_positions
 

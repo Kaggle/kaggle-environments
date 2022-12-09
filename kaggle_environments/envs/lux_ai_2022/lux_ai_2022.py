@@ -36,7 +36,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: LuxAI2022 = LuxAI2022(verbose=0, validate_action_space=False)
+luxenv: LuxAI2022 = LuxAI2022(verbose=0, validate_action_space=True, collect_stats=True)
 prev_obs = None
 state_obs = None
 def cleanup_dimensions():
@@ -71,7 +71,7 @@ def interpreter(state, env):
         
         for k in delete_keys:
             if k in parsed_env_config: del parsed_env_config[k]
-        luxenv = LuxAI2022(validate_action_space=True, **parsed_env_config)
+        luxenv = LuxAI2022(validate_action_space=True, collect_stats=True, **parsed_env_config)
         _ = luxenv.reset(seed=seed)
         state_obs = luxenv.state.get_compressed_obs()
 
@@ -111,6 +111,9 @@ def interpreter(state, env):
             player_0.status = "DONE"
         if player_1.status == "ACTIVE":
             player_1.status = "DONE"
+        
+        player_0.observation.stats = to_json(luxenv.state.stats["player_0"])
+        player_1.observation.stats = to_json(luxenv.state.stats["player_1"])
     return state
 
 def renderer(state, env):
