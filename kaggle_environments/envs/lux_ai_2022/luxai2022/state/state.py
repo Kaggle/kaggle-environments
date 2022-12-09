@@ -23,6 +23,7 @@ class State:
     factories: Dict[str, Dict[str, Factory]] = field(default_factory=dict)
     teams: Dict[str, Team] = field(default_factory=dict)
     global_id: int = 0
+    stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
     
     @property
     def real_env_steps(self):

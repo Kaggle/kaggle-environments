@@ -2,7 +2,7 @@
   "name": "lux_ai_2022",
   "title": "Lux AI Challenge: 2022",
   "description": "A Novel AI Programming Challenge about Lux",
-  "version": "1.0.6",
+  "version": "1.1.3",
   "agents": [2],
   "configuration": {
     "episodeSteps": {
@@ -59,6 +59,10 @@
       "description": "Current player's index / team id",
       "type": "string",
       "defaults": "player_0"
+    },
+    "stats": {
+      "description": "Aggregate statistics for an episode",
+      "type": "object"
     }
   },
   "action": {
