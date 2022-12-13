@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import time
-from kaggle_environments import make, evaluate, utils
+from kaggle_environments import make, evaluate, utils, DeadlineExceeded
 
 env = None
 
@@ -217,23 +217,15 @@ def test_agents_can_timeout_on_act():
 
 def test_run_timeout():
     env = make("tictactoe", debug=True, configuration={"actTimeout": 10, "runTimeout": 1})
-    state = env.run([custom1, custom3])[-1]
-    assert state == [
-        {
-            "action": 0,
-            "reward": 0,
-            "info": {},
-            "observation": {"remainingOverageTime": 2, "board": [1, 2, 0, 0, 0, 0, 0, 0, 0], "mark": 1, "step": 2},
-            "status": "ACTIVE",
-        },
-        {
-            "action": 1,
-            "reward": 0,
-            "info": {},
-            "observation": {"remainingOverageTime": 2, "mark": 2},
-            "status": "INACTIVE",
-        },
-    ]
+    try:
+        state = env.run([custom1, custom3])[-1]
+    except DeadlineExceeded:
+        pass
+    except:
+        assert False, "should fail with deadline exceeded"
+    else:
+        assert False, "Should fail when runtimeout is reached"
+    
 
 
 def test_agents_can_error():
