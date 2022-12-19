@@ -22,6 +22,7 @@
       "type": "integer"
     },
     "actTimeout": 3,
+    "runTimeout": 9600,
     "env_cfg": {
       "type": "object"
     }

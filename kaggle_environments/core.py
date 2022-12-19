@@ -266,6 +266,10 @@ class Environment:
         while not self.done and perf_counter() - start < self.configuration.runTimeout:
             actions, logs = runner.act()
             self.step(actions, logs)
+        if not self.done and perf_counter() - start >= self.configuration.runTimeout:
+            raise DeadlineExceeded(
+                f"runtime of {perf_counter() - start} exceeded the runTimeout of {self.configuration.runTimeout}")
+
         return self.steps
 
     def reset(self, num_agents=None):
