@@ -301,10 +301,12 @@ def validate_actions(env_cfg: EnvConfig, state: 'State', actions_by_type, weathe
 
     for factory, water_action in actions_by_type["factory_water"]:
         valid_action = True
-        water_cost = factory.water_cost(env_cfg)
-        if water_cost > factory.cargo.water:
-            invalidate_action(f"Invalid factory water action for factory {factory} - Insufficient water, factory has {factory.cargo.water}, but requires {water_cost} to water lichen")
-            continue
+        # Its hard to compute the correct cost here withut using up a lot of computation time
+        # TODO for now we won't validate watering here.
+        # water_cost = factory.water_cost(env_cfg)
+        # if water_cost > factory.cargo.water:
+        #     invalidate_action(f"Invalid factory water action for factory {factory} - Insufficient water, factory has {factory.cargo.water}, but requires {water_cost} to water lichen")
+        #     continue
         if valid_action:
             actions_by_type_validated["factory_water"].append((factory, water_action))
 

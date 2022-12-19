@@ -17,7 +17,7 @@ except:
     pass
 
 
-def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.ndarray, lichen_strains: np.ndarray, strain_id: int, forbidden: np.ndarray):
+def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.ndarray, lichen_strains: np.ndarray, factory_occupancy_map: np.ndarray, strain_id: int, forbidden: np.ndarray):
     # TODO - improve the performance here with cached solution
     frontier = deque(init)
     seen = set(map(tuple, init))
@@ -43,8 +43,13 @@ def compute_water_info(init: np.ndarray, MIN_LICHEN_TO_SPREAD: int, lichen: np.n
             check_pos = pos + move_delta
             # check surrounding tiles on the map
             if check_pos[0] < 0 or check_pos[1] < 0 or check_pos[0] >= H or check_pos[1] >= W: continue
+
+            # If any neighbor 1. has a different strain, or 2. is a different factory, 
+            # then the current pos cannot grow
             adj_strain = lichen_strains[check_pos[0], check_pos[1]]
-            if adj_strain != -1 and adj_strain != strain_id:
+            adj_factory = factory_occupancy_map[check_pos[0], check_pos[1]]
+            if (adj_strain != -1 and adj_strain != strain_id) \
+                or (adj_factory != -1 and adj_factory != strain_id):
                 can_grow = False
 
             # if seen, skip
@@ -116,7 +121,7 @@ class Factory:
         deltas = [np.array([0, -2]),  np.array([-1, -2]),  np.array([1, -2]),  np.array([0, 2]),  np.array([-1, 2]),  np.array([1, 2]),
                     np.array([2, 0]),  np.array([2, -1]),  np.array([2, 1]),  np.array([-2, 0]),  np.array([-2, -1]),  np.array([-2, 1])]
         init_arr = np.stack(deltas) + self.pos.pos
-        self.grow_lichen_positions = compute_water_info(init_arr, env_cfg.MIN_LICHEN_TO_SPREAD, board.lichen, board.lichen_strains, self.num_id, forbidden)
+        self.grow_lichen_positions = compute_water_info(init_arr, env_cfg.MIN_LICHEN_TO_SPREAD, board.lichen, board.lichen_strains, board.factory_occupancy_map, self.num_id, forbidden)
     def water_cost(self, config: EnvConfig):
         return int(np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR))
 
