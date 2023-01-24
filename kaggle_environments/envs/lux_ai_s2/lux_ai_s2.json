@@ -1,0 +1,73 @@
+{
+  "name": "lux_ai_s2",
+  "title": "Lux AI Challenge Season 2",
+  "description": "A Novel AI Programming Challenge about Lux",
+  "version": "2.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": {
+      "description": "Maximum number of steps the environment can run. Total is this number -1. One complete game is 1002 + N steps where N is number of factories each player is given. Set this value to normalEpisodeSteps + 10 to ensure Kaggle-environments does not truncate the episode.",
+      "type": "integer",
+      "minimum": 2,
+      "default": 1010
+    },
+    "max_episode_length": {
+      "description": "Max game steps the environment can run, not including the early phase of the game.",
+      "minimum": 2,
+      "type": "integer",
+      "default": 1000
+    },
+    "seed": {
+      "description": "Seed to use for episodes",
+      "type": "integer"
+    },
+    "actTimeout": 3,
+    "runTimeout": 9600,
+    "env_cfg": {
+      "type": "object"
+    }
+  },
+  "reward": {
+    "description": "Reward of the agent. Equal to amount of lichen grown.",
+    "type": "integer",
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "width": {
+      "description": "The width of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 48
+    },
+    "height": {
+      "description": "The height of the map",
+      "type": "integer",
+      "shared": true,
+      "default": 48
+    },
+    "reward": {
+      "description": "Current reward of the agent. Equal to amount of lichen grown.",
+      "type": "integer",
+      "default": 0
+    },
+    "obs": {
+      "description": "String containing the observations",
+      "type": "string",
+      "shared": true
+    },
+    "player": {
+      "description": "Current player's index / team id",
+      "type": "string",
+      "defaults": "player_0"
+    },
+    "stats": {
+      "description": "Aggregate statistics for an episode",
+      "type": "object"
+    }
+  },
+  "action": {
+    "description": "Actions",
+    "type": "object"
+  }
+}
