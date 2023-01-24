@@ -1,0 +1,40 @@
+import numpy as np
+
+from luxai_s2.state import ObservationStateDict
+
+
+def place_near_random_ice(player, obs: ObservationStateDict):
+    if obs["teams"][player]["metal"] == 0:
+        return dict()
+    potential_spawns = list(zip(*np.where(obs["board"]["valid_spawns_mask"] == 1)))
+    potential_spawns_set = set(potential_spawns)
+    done_search = False
+    # if player == "player_1":
+    ice_diff = np.diff(obs["board"]["ice"])
+    pot_ice_spots = np.argwhere(ice_diff == 1)
+    if len(pot_ice_spots) == 0:
+        pot_ice_spots = potential_spawns
+    trials = 5
+    while trials > 0:
+        pos_idx = np.random.randint(0, len(pot_ice_spots))
+        pos = pot_ice_spots[pos_idx]
+
+        area = 3
+        for x in range(area):
+            for y in range(area):
+                check_pos = [pos[0] + x - area // 2, pos[1] + y - area // 2]
+                if tuple(check_pos) in potential_spawns_set:
+                    done_search = True
+                    pos = check_pos
+                    break
+            if done_search:
+                break
+        if done_search:
+            break
+        trials -= 1
+    spawn_loc = potential_spawns[np.random.randint(0, len(potential_spawns))]
+    if not done_search:
+        pos = spawn_loc
+
+    metal = obs["teams"][player]["metal"]
+    return dict(spawn=pos, metal=metal, water=metal)
