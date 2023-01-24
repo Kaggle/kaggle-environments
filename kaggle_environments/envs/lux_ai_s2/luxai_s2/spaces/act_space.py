@@ -135,7 +135,7 @@ def get_act_space(
         act_space[u.unit_id] = ActionsQueue(
             spaces.Box(
                 low=np.array([0, 0, 0, 0, 0, 1]),
-                high=np.array([5, 4, 4, config.max_transfer_amount, 1, 9999]),
+                high=np.array([5, 4, 4, config.max_transfer_amount + 1, 1, 9999]),
                 shape=(6,),
                 dtype=np.int64,
             ),

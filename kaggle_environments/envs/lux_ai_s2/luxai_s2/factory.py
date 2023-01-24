@@ -3,9 +3,10 @@ from __future__ import annotations
 import time
 from collections import deque
 from itertools import product
-from typing import List
+from typing import List, TypedDict
 
 import numpy as np
+import numpy.typing as npt
 
 from luxai_s2.actions import move_deltas
 from luxai_s2.config import EnvConfig
@@ -13,7 +14,7 @@ from luxai_s2.globals import TERM_COLORS
 from luxai_s2.map.board import Board
 from luxai_s2.map.position import Position
 from luxai_s2.team import Team
-from luxai_s2.unit import UnitCargo
+from luxai_s2.unit import UnitCargo, UnitCargoStateDict
 
 try:
     from termcolor import colored
@@ -92,6 +93,15 @@ def compute_water_info(
         if can_grow or (lichen_strains[pos[0], pos[1]] == strain_id):
             grow_lichen_positions.add((pos[0], pos[1]))
     return grow_lichen_positions
+
+
+class FactoryStateDict(TypedDict):
+    pos: npt.NDArray[np.int_]
+    power: int
+    cargo: UnitCargoStateDict
+    unit_id: str
+    strain_id: int
+    team_id: int
 
 
 class Factory:
@@ -307,7 +317,7 @@ class Factory:
             self.power -= transfer_amount
         return int(transfer_amount)
 
-    def state_dict(self):
+    def state_dict(self) -> FactoryStateDict:
         return dict(
             pos=self.pos.pos,
             power=self.power,

@@ -39,6 +39,9 @@ class FactoryBuildAction(Action):
             return 0
         return 1
 
+    def __str__(self) -> str:
+        return f"{self.act_type} {self.unit_type.name}"
+
 
 class FactoryWaterAction(Action):
     def __init__(self) -> None:
@@ -48,6 +51,13 @@ class FactoryWaterAction(Action):
 
     def state_dict(self):
         return 2
+
+    def __str__(self) -> str:
+        return f"{self.act_type}: (cost: {self.water_cost}"
+
+
+direction_to_name = ["center", "up", "right", "down", "left"]
+resource_to_name = ["ice", "ore", "water", "metal", "power"]
 
 
 class MoveAction(Action):
@@ -64,6 +74,9 @@ class MoveAction(Action):
 
     def state_dict(self):
         return np.array([0, self.move_dir, 0, 0, self.repeat, self.n])
+
+    def __str__(self) -> str:
+        return f"{self.act_type} {direction_to_name[self.move_dir]} (n: {self.n}, r: {self.repeat})"
 
 
 class TransferAction(Action):
@@ -96,6 +109,9 @@ class TransferAction(Action):
             ]
         )
 
+    def __str__(self) -> str:
+        return f"{self.act_type} {resource_to_name[self.resource]} {direction_to_name[self.transfer_dir]} (n: {self.n}, r: {self.repeat})"
+
 
 class PickupAction(Action):
     def __init__(
@@ -112,6 +128,9 @@ class PickupAction(Action):
     def state_dict(self):
         return np.array([2, 0, self.resource, self.pickup_amount, self.repeat, self.n])
 
+    def __str__(self) -> str:
+        return f"{self.act_type} {self.pickup_amount} {resource_to_name[self.resource]} (n: {self.n}, r: {self.repeat})"
+
 
 class DigAction(Action):
     def __init__(self, repeat: bool = False, n: int = 1) -> None:
@@ -122,6 +141,9 @@ class DigAction(Action):
 
     def state_dict(self):
         return np.array([3, 0, 0, 0, self.repeat, self.n])
+
+    def __str__(self) -> str:
+        return f"{self.act_type} (n: {self.n}, r: {self.repeat})"
 
 
 class SelfDestructAction(Action):
@@ -134,6 +156,9 @@ class SelfDestructAction(Action):
     def state_dict(self):
         return np.array([4, 0, 0, 0, self.repeat, self.n])
 
+    def __str__(self) -> str:
+        return f"{self.act_type} (n: {self.n}, r: {self.repeat})"
+
 
 class RechargeAction(Action):
     def __init__(self, power: int, repeat: bool = False, n: int = 1) -> None:
@@ -145,6 +170,9 @@ class RechargeAction(Action):
 
     def state_dict(self):
         return np.array([5, 0, 0, self.power, self.repeat, self.n])
+
+    def __str__(self) -> str:
+        return f"{self.act_type} {self.power} (n: {self.n}, r: {self.repeat})"
 
 
 def format_factory_action(a: int):

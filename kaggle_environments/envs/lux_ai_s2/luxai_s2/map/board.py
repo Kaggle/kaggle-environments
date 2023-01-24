@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, TypedDict
 
 import numpy as np
+import numpy.typing as npt
 
 from luxai_s2.config import EnvConfig
 
@@ -16,18 +17,33 @@ from luxai_s2.map_generator.generator import GameMap
 from luxai_s2.unit import Unit
 
 
+class BoardStateDict(TypedDict):
+    rubble: npt.NDArray[np.int_]
+    ore: npt.NDArray[np.bool_]
+    ice: npt.NDArray[np.bool_]
+    lichen: npt.NDArray[np.int_]
+    lichen_strains: npt.NDArray[np.int_]
+    valid_spawns_mask: npt.NDArray[np.bool_]
+    factories_per_team: int
+
+
 class Board:
-    def __init__(self, seed=None, env_cfg: EnvConfig = None, existing_map: GameMap = None) -> None:
+    def __init__(
+        self, seed=None, env_cfg: EnvConfig = None, existing_map: GameMap = None
+    ) -> None:
         self.env_cfg = env_cfg
         self.height = self.env_cfg.map_size
         self.width = self.env_cfg.map_size
         self.seed = seed
         rng = np.random.RandomState(seed=seed)
-        if existing_map is None: self.gen_map(seed, rng, env_cfg)
-        else: self.map = existing_map
+        if existing_map is None:
+            self.gen_map(seed, rng, env_cfg)
+        else:
+            self.map = existing_map
         self.post_map_gen(env_cfg, rng)
+
     def gen_map(self, seed, rng, env_cfg):
-        
+
         map_type = rng.choice(["Cave", "Mountain"])
         map_distribution_type = rng.choice(
             [
@@ -50,6 +66,7 @@ class Board:
         self.map.rubble = self.map.rubble.astype(int)
         self.map.ore = self.map.ore.astype(int)
         self.map.ice = self.map.ice.astype(int)
+
     def post_map_gen(self, env_cfg, rng):
         self.factories_per_team = rng.randint(
             env_cfg.MIN_FACTORIES, env_cfg.MAX_FACTORIES + 1
@@ -134,7 +151,7 @@ class Board:
     def ore(self):
         return self.map.ore
 
-    def state_dict(self):
+    def state_dict(self) -> BoardStateDict:
         return dict(
             rubble=self.rubble.copy(),
             ore=self.ore.copy(),
