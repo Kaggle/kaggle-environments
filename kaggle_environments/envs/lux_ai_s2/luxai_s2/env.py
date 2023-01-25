@@ -183,13 +183,13 @@ class LuxAI_S2(ParallelEnv):
 
         Returns the observations for each agent
         """
-        
+
         self.agents = self.possible_agents[:]
         self.env_steps = 0
         if seed is not None:
             self.seed_val = seed
             self.seed_rng = np.random.RandomState(seed=seed)
-        board = Board(seed=self.seed_rng.randint(0, 2**32 - 1), env_cfg=self.env_cfg)
+        board = Board(seed=self.seed_rng.randint(0, 2**32 - 1, dtype=np.int64), env_cfg=self.env_cfg)
         self.state: State = State(
             seed_rng=self.seed_rng,
             seed=self.seed_val,
@@ -460,7 +460,9 @@ class LuxAI_S2(ParallelEnv):
                     0,
                 )
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["destroyed"]["rubble"][unit.unit_type.name] -= (
+                    self.state.stats[unit.team.agent]["destroyed"]["rubble"][
+                        unit.unit_type.name
+                    ] -= (
                         self.state.board.rubble[unit.pos.x, unit.pos.y] - rubble_before
                     )
             elif self.state.board.lichen[unit.pos.x, unit.pos.y] > 0:
@@ -477,17 +479,23 @@ class LuxAI_S2(ParallelEnv):
                         unit.pos.x, unit.pos.y
                     ] = self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_RESOURCE_GAIN
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["destroyed"]["lichen"][unit.unit_type.name] -= (
+                    self.state.stats[unit.team.agent]["destroyed"]["lichen"][
+                        unit.unit_type.name
+                    ] -= (
                         self.state.board.lichen[unit.pos.x, unit.pos.y] - lichen_before
                     )
             elif self.state.board.ice[unit.pos.x, unit.pos.y] > 0:
                 gained = unit.add_resource(0, unit.unit_cfg.DIG_RESOURCE_GAIN)
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["generation"]["ice"][unit.unit_type.name] += gained
+                    self.state.stats[unit.team.agent]["generation"]["ice"][
+                        unit.unit_type.name
+                    ] += gained
             elif self.state.board.ore[unit.pos.x, unit.pos.y] > 0:
                 gained = unit.add_resource(1, unit.unit_cfg.DIG_RESOURCE_GAIN)
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["generation"]["ore"][unit.unit_type.name] += gained
+                    self.state.stats[unit.team.agent]["generation"]["ore"][
+                        unit.unit_type.name
+                    ] += gained
             unit.power -= self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_COST
             unit.repeat_action(dig_action)
 
@@ -553,9 +561,9 @@ class LuxAI_S2(ParallelEnv):
                 self.state.stats[factory.team.agent]["consumption"][
                     "metal"
                 ] += spent_metal
-                self.state.stats[factory.team.agent]["consumption"][
-                    "power"
-                ]["FACTORY"] += spent_power
+                self.state.stats[factory.team.agent]["consumption"]["power"][
+                    "FACTORY"
+                ] += spent_power
 
     def _handle_movement_actions(self, actions_by_type: ActionsByType):
         new_units_map: Dict[str, List[Unit]] = defaultdict(list)

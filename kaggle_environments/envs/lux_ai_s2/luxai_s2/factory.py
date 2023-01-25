@@ -3,7 +3,11 @@ from __future__ import annotations
 import time
 from collections import deque
 from itertools import product
-from typing import List, TypedDict
+from typing import List
+try:
+    from typing import TypedDict    
+except:
+    from typing_extensions import TypedDict
 
 import numpy as np
 import numpy.typing as npt

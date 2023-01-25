@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, TypedDict
+from typing import TYPE_CHECKING, Dict, List
+try:
+    from typing import TypedDict    
+except:
+    from typing_extensions import TypedDict
 
 import numpy as np
 import numpy.typing as npt

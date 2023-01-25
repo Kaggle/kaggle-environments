@@ -1,7 +1,11 @@
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, TypedDict
+from typing import List
+try:
+    from typing import TypedDict    
+except:
+    from typing_extensions import TypedDict
 
 import numpy as np
 import numpy.typing as npt
