@@ -1,9 +1,10 @@
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
+from typing import List, TypedDict
 
 import numpy as np
+import numpy.typing as npt
 
 try:
     from termcolor import colored
@@ -20,6 +21,37 @@ class UnitType(Enum):
     HEAVY = "Heavy"
 
 
+class UnitCargoStateDict(TypedDict):
+    ice: int
+    ore: int
+    water: int
+    metal: int
+
+
+ActionType = npt.NDArray[np.int_]
+
+
+class FactoryPlacementActionType(TypedDict):
+    metal: int
+    water: int
+    spawn: npt.NDArray[np.int_]
+
+
+class BidActionType(TypedDict):
+    faction: str
+    bid: int
+
+
+class UnitStateDict(TypedDict):
+    team_id: int
+    unit_id: str
+    power: int
+    unit_type: str
+    pos: npt.NDArray[np.int_]
+    cargo: UnitCargoStateDict
+    action_queue: List[ActionType]
+
+
 @dataclass
 class UnitCargo:
     ice: int = 0
@@ -27,7 +59,7 @@ class UnitCargo:
     water: int = 0
     metal: int = 0
 
-    def state_dict(self):
+    def state_dict(self) -> UnitCargoStateDict:
         return dict(ice=self.ice, ore=self.ore, water=self.water, metal=self.metal)
 
 
@@ -83,7 +115,7 @@ class Unit:
             + self.unit_cfg.RUBBLE_MOVEMENT_COST * rubble_at_target
         )
 
-    def state_dict(self):
+    def state_dict(self) -> UnitStateDict:
         return dict(
             team_id=self.team_id,
             unit_id=self.unit_id,
