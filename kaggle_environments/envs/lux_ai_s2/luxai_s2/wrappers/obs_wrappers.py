@@ -71,7 +71,7 @@ class SingleUnitObservationWrapper(gym.ObservationWrapper):
                 unit_type = (
                     0 if unit["unit_type"] == "LIGHT" else 1
                 )  # note that build actions use 0 to encode Light
-                
+
                 pos = np.array(unit["pos"]) / self.env.state.env_cfg.map_size
                 unit_vec = np.concatenate(
                     [pos, [unit_type], cargo_vec, [unit["team_id"]]], axis=-1
@@ -79,7 +79,9 @@ class SingleUnitObservationWrapper(gym.ObservationWrapper):
                 # engineered features
 
                 # compute closest ice tile
-                ice_tile_distances = np.mean((ice_tile_locations - np.array(unit["pos"])) ** 2, 1)
+                ice_tile_distances = np.mean(
+                    (ice_tile_locations - np.array(unit["pos"])) ** 2, 1
+                )
                 closest_ice_tile = (
                     ice_tile_locations[np.argmin(ice_tile_distances)]
                     / self.env.state.env_cfg.map_size

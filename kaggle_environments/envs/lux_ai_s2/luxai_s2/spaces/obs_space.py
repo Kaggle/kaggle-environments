@@ -111,7 +111,9 @@ def get_obs_space(config: EnvConfig, agent_names: List[str], agent: int = 0):
         ice=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         ore=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         rubble=spaces.Box(low=0, high=config.MAX_RUBBLE, shape=map_shape, dtype=int),
-        lichen=spaces.Box(low=0, high=99999, shape=map_shape, dtype=int),
+        lichen=spaces.Box(
+            low=0, high=config.MAX_LICHEN_PER_TILE, shape=map_shape, dtype=int
+        ),
         lichen_strains=spaces.Box(low=-1, high=99999, shape=map_shape, dtype=int),
         valid_spawns_mask=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         factories_per_team=spaces.Discrete(config.MAX_FACTORIES),
@@ -140,11 +142,12 @@ def get_obs_space(config: EnvConfig, agent_names: List[str], agent: int = 0):
             # note, action queue space copied over from act_space.py
             obs_dict["action_queue"] = ActionsQueue(
                 spaces.Box(
-                    low=np.array([0, 0, 0, 0, -1]),
-                    high=np.array([5, 4, 4, config.max_transfer_amount, 100000]),
-                    shape=(5,),
+                    low=np.array([0, 0, 0, 0, 0, 1]),
+                    high=np.array([5, 4, 4, config.max_transfer_amount + 1, 1, 9999]),
+                    shape=(6,),
                     dtype=np.int64,
-                )
+                ),
+                config.UNIT_ACTION_QUEUE_SIZE,
             )
         units_obs_space[agent_name] = spaces.Dict(obs_dict)
 
