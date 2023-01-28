@@ -73,7 +73,6 @@ class LuxAI_S2(ParallelEnv):
     def __init__(self, collect_stats: bool = False, **kwargs):
         self.collect_stats = collect_stats  # note: added here instead of in configs since it would break existing bots
         default_config = EnvConfig(**kwargs)
-
         self.env_cfg = default_config
         self.possible_agents = ["player_" + str(r) for r in range(2)]
         self.agent_name_mapping = dict(
@@ -189,6 +188,9 @@ class LuxAI_S2(ParallelEnv):
         if seed is not None:
             self.seed_val = seed
             self.seed_rng = np.random.RandomState(seed=seed)
+        else:
+            self.seed_val = np.random.randint(0, 2**32 - 1)
+            self.seed_rng = np.random.RandomState(seed=self.seed_val)
         board = Board(seed=self.seed_rng.randint(0, 2**32 - 1, dtype=np.int64), env_cfg=self.env_cfg)
         self.state: State = State(
             seed_rng=self.seed_rng,
@@ -611,7 +613,7 @@ class LuxAI_S2(ParallelEnv):
                 continue
             if len(heavy_entered_pos[pos_hash]) > 1:
                 # all units collide, find the top 2 units by power
-                (most_power_unit, next_most_power_unit) = get_top_two_power_units(units)
+                (most_power_unit, next_most_power_unit) = get_top_two_power_units(units, UnitType.HEAVY)
                 if most_power_unit.power == next_most_power_unit.power:
                     # tie, all units break
                     for u in units:
@@ -668,7 +670,7 @@ class LuxAI_S2(ParallelEnv):
                         (
                             most_power_unit,
                             next_most_power_unit,
-                        ) = get_top_two_power_units(units)
+                        ) = get_top_two_power_units(units, UnitType.LIGHT)
                         if most_power_unit.power == next_most_power_unit.power:
                             # tie, all units break
                             for u in units:
@@ -758,7 +760,7 @@ class LuxAI_S2(ParallelEnv):
             raise ValueError("No actions given")
             self.agents = []
             return {}, {}, {}, {}
-
+        
         failed_agents = {agent: False for agent in self.agents}
         # Turn 1 logic, handle
         early_game = False
@@ -808,7 +810,7 @@ class LuxAI_S2(ParallelEnv):
                                 continue
                             formatted_actions = []
                             if type(action) == list or (
-                                type(action) == np.ndarray and len(action.shape) == 2
+                                type(action) == np.ndarray and (len(action.shape) == 2 or len(action) == 0)
                             ):
                                 trunked_actions = action[
                                     : self.env_cfg.UNIT_ACTION_QUEUE_SIZE
@@ -939,7 +941,7 @@ class LuxAI_S2(ParallelEnv):
                     # lichen/plant power
                     f.power = (
                         f.power
-                        + len(f.grow_lichen_positions)
+                        + len(f.connected_lichen_positions)
                         * self.env_cfg.POWER_PER_CONNECTED_LICHEN_TILE
                     )
                     if self.collect_stats:
