@@ -22,7 +22,7 @@ class Action:
         self.act_type = act_type
         self.n = 1  # number of times to execute the action
         self.power_cost = 0
-        self.repeat = False  # whether to put action to the back of the action queue
+        self.repeat = 0  # if 0, no recycling. If > 0, we recycle action and set n equal to this.
 
     def state_dict(self):
         raise NotImplementedError("")
@@ -62,7 +62,7 @@ resource_to_name = ["ice", "ore", "water", "metal", "power"]
 
 class MoveAction(Action):
     def __init__(
-        self, move_dir: int, dist: int = 1, repeat: bool = False, n: int = 1
+        self, move_dir: int, dist: int = 1, repeat: int = 0, n: int = 1
     ) -> None:
         super().__init__("move")
         # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
@@ -85,7 +85,7 @@ class TransferAction(Action):
         transfer_dir: int,
         resource: int,
         transfer_amount: int,
-        repeat: bool = False,
+        repeat: int = 0,
         n: int = 1,
     ) -> None:
         super().__init__("transfer")
@@ -105,7 +105,7 @@ class TransferAction(Action):
                 self.resource,
                 self.transfer_amount,
                 self.repeat,
-                self.n,
+                self.n
             ]
         )
 
@@ -115,7 +115,7 @@ class TransferAction(Action):
 
 class PickupAction(Action):
     def __init__(
-        self, resource: int, pickup_amount: int, repeat: bool = False, n: int = 1
+        self, resource: int, pickup_amount: int, repeat: int = 0, n: int = 1
     ) -> None:
         super().__init__("pickup")
         # a[2] = R = resource type (0 = ice, 1 = ore, 2 = water, 3 = metal, 4 power)
@@ -133,7 +133,7 @@ class PickupAction(Action):
 
 
 class DigAction(Action):
-    def __init__(self, repeat: bool = False, n: int = 1) -> None:
+    def __init__(self, repeat: int = 0, n: int = 1) -> None:
         super().__init__("dig")
         self.repeat = repeat
         self.n = n
@@ -147,7 +147,7 @@ class DigAction(Action):
 
 
 class SelfDestructAction(Action):
-    def __init__(self, repeat: bool = False, n: int = 1) -> None:
+    def __init__(self, repeat: int = 0, n: int = 1) -> None:
         super().__init__("self_destruct")
         self.repeat = repeat
         self.n = n
@@ -161,7 +161,7 @@ class SelfDestructAction(Action):
 
 
 class RechargeAction(Action):
-    def __init__(self, power: int, repeat: bool = False, n: int = 1) -> None:
+    def __init__(self, power: int, repeat: int = 0, n: int = 1) -> None:
         super().__init__("recharge")
         self.power = power
         self.repeat = repeat
@@ -191,19 +191,21 @@ def format_action_vec(a: np.ndarray):
     # (0 = move, 1 = transfer X amount of R, 2 = pickup X amount of R, 3 = dig, 4 = self destruct, 5 = recharge X)
     a_type = a[0]
     if a_type == 0:
-        return MoveAction(a[1], dist=1, repeat=a[4], n=a[5])
+        act = MoveAction(a[1], dist=1, repeat=a[4], n=a[5])
     elif a_type == 1:
-        return TransferAction(a[1], a[2], a[3], repeat=a[4], n=a[5])
+        act = TransferAction(a[1], a[2], a[3], repeat=a[4], n=a[5])
     elif a_type == 2:
-        return PickupAction(a[2], a[3], repeat=a[4], n=a[5])
+        act =  PickupAction(a[2], a[3], repeat=a[4], n=a[5])
     elif a_type == 3:
-        return DigAction(repeat=a[4], n=a[5])
+        act = DigAction(repeat=a[4], n=a[5])
     elif a_type == 4:
-        return SelfDestructAction(repeat=a[4], n=a[5])
+        act = SelfDestructAction(repeat=a[4], n=a[5])
     elif a_type == 5:
-        return RechargeAction(a[3], repeat=a[4], n=a[5])
+        act =  RechargeAction(a[3], repeat=a[4], n=a[5])
     else:
         raise ValueError(f"Action {a} is invalid type, {a[0]} is not valid")
+    return act
+    
 
 
 # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)

@@ -39,6 +39,7 @@ def compute_water_info(
     frontier = deque(init)
     seen = set(map(tuple, init))
     grow_lichen_positions = set()
+    connected_lichen_positions = set()
     H, W = lichen.shape
     ct = 0
     while len(frontier) > 0:
@@ -96,7 +97,9 @@ def compute_water_info(
 
         if can_grow or (lichen_strains[pos[0], pos[1]] == strain_id):
             grow_lichen_positions.add((pos[0], pos[1]))
-    return grow_lichen_positions
+            if lichen_strains[pos[0], pos[1]] == strain_id:
+                connected_lichen_positions.add((pos[0], pos[1]))
+    return grow_lichen_positions, connected_lichen_positions
 
 
 class FactoryStateDict(TypedDict):
@@ -119,6 +122,7 @@ class Factory:
         self.num_id = num_id
         self.action_queue = []
         self.grow_lichen_positions = set()
+        self.connected_lichen_positions = set()
 
     @property
     def pos_slice(self):
@@ -267,7 +271,7 @@ class Factory:
             np.array([-2, 1]),
         ]
         init_arr = np.stack(deltas) + self.pos.pos
-        self.grow_lichen_positions = compute_water_info(
+        self.grow_lichen_positions, self.connected_lichen_positions = compute_water_info(
             init_arr,
             env_cfg.MIN_LICHEN_TO_SPREAD,
             board.lichen,
