@@ -117,7 +117,7 @@ def get_act_space(
 
     # TODO - verify speed of building action spaces like this.
     for u in units[agent].values():
-        # Each action for any mobile unit, (light, heavy) is an array A of shape (max_queue, 5)
+        # Each action for any mobile unit, (light, heavy) is an array A of shape (max_queue, 6)
         # if max_queue is 1, we remove this dimension
         # let a be some element in A
         # Then
