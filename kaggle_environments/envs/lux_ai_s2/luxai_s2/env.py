@@ -189,7 +189,7 @@ class LuxAI_S2(ParallelEnv):
             self.seed_val = seed
             self.seed_rng = np.random.RandomState(seed=seed)
         else:
-            self.seed_val = np.random.randint(0, 2**32 - 1)
+            self.seed_val = np.random.randint(0, 2**32 - 1, dtype=np.int64)
             self.seed_rng = np.random.RandomState(seed=self.seed_val)
         board = Board(seed=self.seed_rng.randint(0, 2**32 - 1, dtype=np.int64), env_cfg=self.env_cfg)
         self.state: State = State(
@@ -250,7 +250,7 @@ class LuxAI_S2(ParallelEnv):
                 ].factories_to_place = self.state.board.factories_per_team
                 # verify bid is valid
                 valid_action = True
-                bid = abs(a["bid"])
+                bid = math.floor(abs(a["bid"]))
                 self.state.teams[k].bid = a["bid"]
                 if bid > self.state.teams[k].init_water:
                     valid_action = False
@@ -340,6 +340,8 @@ class LuxAI_S2(ParallelEnv):
                 factory = self.add_factory(self.state.teams[k], a["spawn"])
                 if factory is None:
                     continue
+                a["water"] = math.floor(a["water"])
+                a["metal"] = math.floor(a["metal"])
                 factory.cargo.water = a["water"]
                 factory.cargo.metal = a["metal"]
                 factory.power = self.env_cfg.INIT_POWER_PER_FACTORY
@@ -1015,7 +1017,7 @@ class LuxAI_S2(ParallelEnv):
             unit_id=f"factory_{self.state.global_id}",
             num_id=self.state.global_id,
         )
-        factory.pos.pos = list(pos)
+        factory.pos.pos = np.array([pos[0], pos[1]]).astype(int)
         factory.cargo.water = self.env_cfg.INIT_WATER_METAL_PER_FACTORY
         factory.cargo.metal = self.env_cfg.INIT_WATER_METAL_PER_FACTORY
         factory.power = self.env_cfg.INIT_POWER_PER_FACTORY
@@ -1097,6 +1099,5 @@ import gym
 
 gym.register(
     id="LuxAI_S2-v0",
-    entry_point="luxai_s2.env:LuxAI_S2",
-    max_episode_steps=1000,
+    entry_point="luxai_s2.env:LuxAI_S2"
 )

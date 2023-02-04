@@ -1,3 +1,2 @@
-from .controllers import SimpleDiscreteController, SimpleSingleUnitDiscreteController
-from .obs_wrappers import ImageObservationWrapper, SingleUnitObservationWrapper
+from .controllers import Controller
 from .sb3 import SB3Wrapper
