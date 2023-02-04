@@ -73,7 +73,6 @@ class LuxAI_S2(ParallelEnv):
     def __init__(self, collect_stats: bool = False, **kwargs):
         self.collect_stats = collect_stats  # note: added here instead of in configs since it would break existing bots
         default_config = EnvConfig(**kwargs)
-
         self.env_cfg = default_config
         self.possible_agents = ["player_" + str(r) for r in range(2)]
         self.agent_name_mapping = dict(
@@ -183,13 +182,16 @@ class LuxAI_S2(ParallelEnv):
 
         Returns the observations for each agent
         """
-        
+
         self.agents = self.possible_agents[:]
         self.env_steps = 0
         if seed is not None:
             self.seed_val = seed
             self.seed_rng = np.random.RandomState(seed=seed)
-        board = Board(seed=self.seed_rng.randint(0, 2**32 - 1), env_cfg=self.env_cfg)
+        else:
+            self.seed_val = np.random.randint(0, 2**32 - 1)
+            self.seed_rng = np.random.RandomState(seed=self.seed_val)
+        board = Board(seed=self.seed_rng.randint(0, 2**32 - 1, dtype=np.int64), env_cfg=self.env_cfg)
         self.state: State = State(
             seed_rng=self.seed_rng,
             seed=self.seed_val,
@@ -460,7 +462,9 @@ class LuxAI_S2(ParallelEnv):
                     0,
                 )
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["destroyed"]["rubble"][unit.unit_type.name] -= (
+                    self.state.stats[unit.team.agent]["destroyed"]["rubble"][
+                        unit.unit_type.name
+                    ] -= (
                         self.state.board.rubble[unit.pos.x, unit.pos.y] - rubble_before
                     )
             elif self.state.board.lichen[unit.pos.x, unit.pos.y] > 0:
@@ -477,17 +481,23 @@ class LuxAI_S2(ParallelEnv):
                         unit.pos.x, unit.pos.y
                     ] = self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_RESOURCE_GAIN
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["destroyed"]["lichen"][unit.unit_type.name] -= (
+                    self.state.stats[unit.team.agent]["destroyed"]["lichen"][
+                        unit.unit_type.name
+                    ] -= (
                         self.state.board.lichen[unit.pos.x, unit.pos.y] - lichen_before
                     )
             elif self.state.board.ice[unit.pos.x, unit.pos.y] > 0:
                 gained = unit.add_resource(0, unit.unit_cfg.DIG_RESOURCE_GAIN)
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["generation"]["ice"][unit.unit_type.name] += gained
+                    self.state.stats[unit.team.agent]["generation"]["ice"][
+                        unit.unit_type.name
+                    ] += gained
             elif self.state.board.ore[unit.pos.x, unit.pos.y] > 0:
                 gained = unit.add_resource(1, unit.unit_cfg.DIG_RESOURCE_GAIN)
                 if self.collect_stats:
-                    self.state.stats[unit.team.agent]["generation"]["ore"][unit.unit_type.name] += gained
+                    self.state.stats[unit.team.agent]["generation"]["ore"][
+                        unit.unit_type.name
+                    ] += gained
             unit.power -= self.state.env_cfg.ROBOTS[unit.unit_type.name].DIG_COST
             unit.repeat_action(dig_action)
 
@@ -553,9 +563,9 @@ class LuxAI_S2(ParallelEnv):
                 self.state.stats[factory.team.agent]["consumption"][
                     "metal"
                 ] += spent_metal
-                self.state.stats[factory.team.agent]["consumption"][
-                    "power"
-                ]["FACTORY"] += spent_power
+                self.state.stats[factory.team.agent]["consumption"]["power"][
+                    "FACTORY"
+                ] += spent_power
 
     def _handle_movement_actions(self, actions_by_type: ActionsByType):
         new_units_map: Dict[str, List[Unit]] = defaultdict(list)
@@ -603,7 +613,7 @@ class LuxAI_S2(ParallelEnv):
                 continue
             if len(heavy_entered_pos[pos_hash]) > 1:
                 # all units collide, find the top 2 units by power
-                (most_power_unit, next_most_power_unit) = get_top_two_power_units(units)
+                (most_power_unit, next_most_power_unit) = get_top_two_power_units(units, UnitType.HEAVY)
                 if most_power_unit.power == next_most_power_unit.power:
                     # tie, all units break
                     for u in units:
@@ -660,7 +670,7 @@ class LuxAI_S2(ParallelEnv):
                         (
                             most_power_unit,
                             next_most_power_unit,
-                        ) = get_top_two_power_units(units)
+                        ) = get_top_two_power_units(units, UnitType.LIGHT)
                         if most_power_unit.power == next_most_power_unit.power:
                             # tie, all units break
                             for u in units:
@@ -750,7 +760,7 @@ class LuxAI_S2(ParallelEnv):
             raise ValueError("No actions given")
             self.agents = []
             return {}, {}, {}, {}
-
+        
         failed_agents = {agent: False for agent in self.agents}
         # Turn 1 logic, handle
         early_game = False
@@ -800,7 +810,7 @@ class LuxAI_S2(ParallelEnv):
                                 continue
                             formatted_actions = []
                             if type(action) == list or (
-                                type(action) == np.ndarray and len(action.shape) == 2
+                                type(action) == np.ndarray and (len(action.shape) == 2 or len(action) == 0)
                             ):
                                 trunked_actions = action[
                                     : self.env_cfg.UNIT_ACTION_QUEUE_SIZE
@@ -931,7 +941,7 @@ class LuxAI_S2(ParallelEnv):
                     # lichen/plant power
                     f.power = (
                         f.power
-                        + len(f.grow_lichen_positions)
+                        + len(f.connected_lichen_positions)
                         * self.env_cfg.POWER_PER_CONNECTED_LICHEN_TILE
                     )
                     if self.collect_stats:

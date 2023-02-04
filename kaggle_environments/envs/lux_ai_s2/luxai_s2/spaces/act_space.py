@@ -58,6 +58,9 @@ class ActionsQueue(spaces.Space):
             isinstance(x, np.ndarray) and len(x.shape) == 2 and len(x) > self.max_length
         ):
             return False
+        elif isinstance(x, np.ndarray) and x.shape[0] == 0:
+            # empty action
+            return True
         elif isinstance(x, np.ndarray) and len(x.shape) == 1:
             x = [x]
         # if (not isinstance(x, list) and not isinstance(x, np.ndarray)) or len(x) > self.max_length:
@@ -129,13 +132,14 @@ def get_act_space(
         # a[3] = X, amount of resources transferred or picked up if action is transfer or pickup.
         # If action is recharge, it is how much energy to store before executing the next action in queue
 
-        # a[4] = 0 or 1 (false or true). If True, then action is placed to the back of the action queue after it has been exhausted
+        # a[4] = repeat. If repeat == 0, then action is not recycled and removed once we have executed it a[5] = n times. 
+        # Otherwise if repeat > 0 we recycle this action to the back of the action queue and set n = repeat.
 
-        # a[5] = X, number of times to execute this action before exhausting it and removing it from the front of the action queue. Minimum is 1.
+        # a[5] = n, number of times to execute this action before exhausting it and removing it from the front of the action queue. Minimum is 1.
         act_space[u.unit_id] = ActionsQueue(
             spaces.Box(
                 low=np.array([0, 0, 0, 0, 0, 1]),
-                high=np.array([5, 4, 4, config.max_transfer_amount + 1, 1, 9999]),
+                high=np.array([5, 4, 4, config.max_transfer_amount + 1, 9999, 9999]),
                 shape=(6,),
                 dtype=np.int64,
             ),

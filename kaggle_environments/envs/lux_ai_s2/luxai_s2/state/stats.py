@@ -1,7 +1,12 @@
 import copy
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, List, TypedDict
+from typing import Dict, List
+
+try:
+    from typing import TypedDict    
+except:
+    from typing_extensions import TypedDict
 
 
 class RobotStatsStateDict(TypedDict):

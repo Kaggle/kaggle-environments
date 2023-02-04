@@ -102,7 +102,7 @@ class EnvConfig:
                 MOVE_COST=1,
                 RUBBLE_MOVEMENT_COST=0.05,
                 DIG_COST=5,
-                SELF_DESTRUCT_COST=5,
+                SELF_DESTRUCT_COST=10,
                 DIG_RUBBLE_REMOVED=2,
                 DIG_RESOURCE_GAIN=2,
                 DIG_LICHEN_REMOVED=10,

@@ -1,7 +1,12 @@
 import copy
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, List, TypedDict
+from typing import Dict, List
+
+try:
+    from typing import TypedDict    
+except:
+    from typing_extensions import TypedDict
 
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +18,8 @@ from luxai_s2.map.board import Board, BoardStateDict
 from luxai_s2.map_generator.generator import GameMap
 from luxai_s2.state.stats import StatsStateDict
 from luxai_s2.team import Team, TeamStateDict
-from luxai_s2.unit import FactionTypes, Unit, UnitCargo, UnitStateDict, UnitType
+from luxai_s2.unit import (FactionTypes, Unit, UnitCargo, UnitStateDict,
+                           UnitType)
 
 
 class SparseBoardStateDict(TypedDict):

@@ -72,9 +72,7 @@ class SimpleSingleUnitDiscreteController(Controller):
         id = id - self.move_dim_high
         transfer_dir = id % 5
         # resource_type = id // 5
-        return np.array(
-            [1, transfer_dir, 0, self.env_cfg.max_transfer_amount, 0, 1]
-        )
+        return np.array([1, transfer_dir, 0, self.env_cfg.max_transfer_amount, 0, 1])
 
     def _is_pickup_action(self, id):
         return id < self.pickup_dim_high
@@ -100,7 +98,7 @@ class SimpleSingleUnitDiscreteController(Controller):
             unit = units[unit_id]
             pos = unit["pos"]
             unit_related_action = action
-            choice = action #unit_related_action.argmax()
+            choice = action  # unit_related_action.argmax()
             action_queue = []
             if self._is_move_action(choice):
                 action_queue = [self._get_move_action(choice)]
