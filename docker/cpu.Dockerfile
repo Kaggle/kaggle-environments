@@ -44,7 +44,7 @@ ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 RUN pip install .
-RUN pip install vec-noise==1.1.4 PettingZoo==1.21.0
+RUN pip install vec-noise==1.1.4 PettingZoo==1.21.0 stable-baselines3==1.7.0
 RUN pytest
 
 CMD kaggle-environments
