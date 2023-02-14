@@ -50,7 +50,9 @@ setup(
         "jsonschema >= 3.0.1",
         "Flask >= 1.1.2",
         "numpy >= 1.19.5",
-        "requests >= 2.25.1"
+        "requests >= 2.25.1",
+        "vec-noise >= 1.1.4",
+        "PettingZoo >= 1.21.0",
     ],
     packages=find_packages(),
     include_package_data=True,
