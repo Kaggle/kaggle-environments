@@ -52,7 +52,9 @@ setup(
         "numpy >= 1.19.5",
         "requests >= 2.25.1",
         "vec-noise >= 1.1.4",
-        "PettingZoo >= 1.21.0",
+        "PettingZoo >= 1.12.0",
+        "gym == 0.21.0",
+        "stable-baselines3 == 1.7.0"
     ],
     packages=find_packages(),
     include_package_data=True,
