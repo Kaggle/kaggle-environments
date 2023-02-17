@@ -208,9 +208,17 @@ class LuxAI_S2(ParallelEnv):
         obs = self.state.get_obs()
         observations = {agent: obs for agent in self.agents}
         return observations
-
-    def _log(self, *m):
+    
+    def log_error(self, *m):
         if self.env_cfg.verbose > 0:
+            print(f"{self.state.real_env_steps}: {' '.join(m)}")
+
+    def log_warning(self, *m):
+        if self.env_cfg.verbose > 1:
+            print(f"{self.state.real_env_steps}: {' '.join(m)}")
+
+    def log_info(self, *m):
+        if self.env_cfg.verbose > 2:
             print(f"{self.state.real_env_steps}: {' '.join(m)}")
 
     def _handle_bid(self, actions):
@@ -223,48 +231,52 @@ class LuxAI_S2(ParallelEnv):
                 continue
             if k not in self.agents:
                 raise ValueError(f"Invalid player {k}")
-            if "faction" in a and "bid" in a:
-                if a["faction"] not in [e.name for e in FactionTypes]:
-                    self._log(
-                        f"{k} initialized with invalid faction name {a['faction']}"
+            try:
+                if "faction" in a and "bid" in a:
+                    if a["faction"] not in [e.name for e in FactionTypes]:
+                        self.log_error(
+                            f"{k} initialized with invalid faction name {a['faction']}"
+                        )
+                        failed_agents[k] = True
+                        continue
+                    self.state.teams[k] = Team(
+                        team_id=self.agent_name_mapping[k],
+                        agent=k,
+                        faction=FactionTypes[a["faction"]],
                     )
+                    self.state.teams[
+                        k
+                    ].init_water = self.env_cfg.INIT_WATER_METAL_PER_FACTORY * (
+                        self.state.board.factories_per_team
+                    )
+                    self.state.teams[
+                        k
+                    ].init_metal = self.env_cfg.INIT_WATER_METAL_PER_FACTORY * (
+                        self.state.board.factories_per_team
+                    )
+                    self.state.teams[
+                        k
+                    ].factories_to_place = self.state.board.factories_per_team
+                    # verify bid is valid
+                    valid_action = True
+                    bid = math.floor(abs(a["bid"]))
+                    self.state.teams[k].bid = a["bid"]
+                    if bid > self.state.teams[k].init_water:
+                        valid_action = False
+                    if not valid_action:
+                        failed_agents[k] = True
+                        continue
+                    if bid > highest_bid:
+                        highest_bid = bid
+                        highest_bid_agent = k
+                    elif bid == highest_bid:
+                        # if bids are the same, player 0 defaults to the winner and pays the bid.
+                        highest_bid_agent = "player_0"
+                else:
+                    # team k loses
                     failed_agents[k] = True
-                    continue
-                self.state.teams[k] = Team(
-                    team_id=self.agent_name_mapping[k],
-                    agent=k,
-                    faction=FactionTypes[a["faction"]],
-                )
-                self.state.teams[
-                    k
-                ].init_water = self.env_cfg.INIT_WATER_METAL_PER_FACTORY * (
-                    self.state.board.factories_per_team
-                )
-                self.state.teams[
-                    k
-                ].init_metal = self.env_cfg.INIT_WATER_METAL_PER_FACTORY * (
-                    self.state.board.factories_per_team
-                )
-                self.state.teams[
-                    k
-                ].factories_to_place = self.state.board.factories_per_team
-                # verify bid is valid
-                valid_action = True
-                bid = math.floor(abs(a["bid"]))
-                self.state.teams[k].bid = a["bid"]
-                if bid > self.state.teams[k].init_water:
-                    valid_action = False
-                if not valid_action:
-                    failed_agents[k] = True
-                    continue
-                if bid > highest_bid:
-                    highest_bid = bid
-                    highest_bid_agent = k
-                elif bid == highest_bid:
-                    # if bids are the same, player 0 defaults to the winner and pays the bid.
-                    highest_bid_agent = "player_0"
-            else:
-                # team k loses
+            except Exception as e:
+                print(traceback.format_exc())
                 failed_agents[k] = True
         for agent in self.agents:
             if failed_agents[agent]:
@@ -311,46 +323,50 @@ class LuxAI_S2(ParallelEnv):
                 continue
             if k not in self.agents:
                 raise ValueError(f"Invalid player {k}")
-            if "spawn" in a and "metal" in a and "water" in a:
-                if k != player_to_place_factory:
-                    self._log(
-                        f"{k} tried to perform an action in the early phase when it is not its turn right now."
-                    )
-                    continue
-                if self.state.teams[k].factories_to_place <= 0:
-                    self._log(
-                        f"{k} cannot place additional factories. Cancelled placement of factory"
-                    )
-                    continue
-                if a["water"] < 0 or a["metal"] < 0:
-                    self._log(
-                        f"{k} tried to place negative water/metal in factory. Cancelled placement of factory"
-                    )
-                    continue
-                if a["water"] > self.state.teams[k].init_water:
-                    a["water"] = self.state.teams[k].init_water
-                    self._log(
-                        f" Warning - {k} does not have enough water. Using {a['water']}"
-                    )
-                if a["metal"] > self.state.teams[k].init_metal:
-                    a["metal"] = self.state.teams[k].init_metal
-                    self._log(
-                        f" Warning - {k} does not have enough metal. Using {a['metal']}"
-                    )
-                factory = self.add_factory(self.state.teams[k], a["spawn"])
-                if factory is None:
-                    continue
-                a["water"] = math.floor(a["water"])
-                a["metal"] = math.floor(a["metal"])
-                factory.cargo.water = a["water"]
-                factory.cargo.metal = a["metal"]
-                factory.power = self.env_cfg.INIT_POWER_PER_FACTORY
-                self.state.teams[k].factories_to_place -= 1
-                self.state.teams[k].init_metal -= a["metal"]
-                self.state.teams[k].init_water -= a["water"]
-            else:
-                # pass, turn is skipped.
-                pass
+            try:
+                if "spawn" in a and "metal" in a and "water" in a:
+                    if k != player_to_place_factory:
+                        self.log_warning(
+                            f"{k} tried to perform an action in the early phase when it is not its turn right now."
+                        )
+                        continue
+                    if self.state.teams[k].factories_to_place <= 0:
+                        self.log_warning(
+                            f"{k} cannot place additional factories. Cancelled placement of factory"
+                        )
+                        continue
+                    if a["water"] < 0 or a["metal"] < 0:
+                        self.log_warning(
+                            f"{k} tried to place negative water/metal in factory. Cancelled placement of factory"
+                        )
+                        continue
+                    if a["water"] > self.state.teams[k].init_water:
+                        a["water"] = self.state.teams[k].init_water
+                        self.log_warning(
+                            f" Warning - {k} does not have enough water. Using {a['water']}"
+                        )
+                    if a["metal"] > self.state.teams[k].init_metal:
+                        a["metal"] = self.state.teams[k].init_metal
+                        self.log_warning(
+                            f" Warning - {k} does not have enough metal. Using {a['metal']}"
+                        )
+                    factory = self.add_factory(self.state.teams[k], a["spawn"])
+                    if factory is None:
+                        continue
+                    a["water"] = math.floor(a["water"])
+                    a["metal"] = math.floor(a["metal"])
+                    factory.cargo.water = a["water"]
+                    factory.cargo.metal = a["metal"]
+                    factory.power = self.env_cfg.INIT_POWER_PER_FACTORY
+                    self.state.teams[k].factories_to_place -= 1
+                    self.state.teams[k].init_metal -= a["metal"]
+                    self.state.teams[k].init_water -= a["water"]
+                else:
+                    # pass, turn is skipped.
+                    pass
+            except Exception as e:
+                print(traceback.format_exc())
+                failed_agents[k] = True
         return failed_agents
 
     def _handle_nobidding_early_game(self, actions):
@@ -368,10 +384,9 @@ class LuxAI_S2(ParallelEnv):
                     faction=FactionTypes[a["faction"]],
                 )
                 if len(a["spawns"]) > self.state.board.factories_per_team:
-                    if self.env_cfg.verbose > 0:
-                        self._log(
-                            f"{k} tried to spawn more factories than allocated in board.factories_per_team. Spawning only the first {self.state.board.factories_per_team} locations"
-                        )
+                    self.log_warning(
+                        f"{k} tried to spawn more factories than allocated in board.factories_per_team. Spawning only the first {self.state.board.factories_per_team} locations"
+                    )
                 for spawn_loc in a["spawns"][: self.state.board.factories_per_team]:
                     self.add_factory(self.state.teams[k], spawn_loc)
             else:
@@ -524,12 +539,12 @@ class LuxAI_S2(ParallelEnv):
 
             if factory_build_action.unit_type == UnitType.HEAVY:
                 if factory.cargo.metal < self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
-                    self._log(
+                    self.log_warning(
                         f"{factory} doesn't have enough metal to build a heavy despite having enough metal at the start of the turn. This is likely because a unit picked up some of the metal."
                     )
                     continue
                 if factory.power < factory_build_action.power_cost:
-                    self._log(
+                    self.log_warning(
                         f"{factory} doesn't have enough power to build a heavy despite having enough power at the start of the turn. This is likely because a unit picked up some of the power."
                     )
                     continue
@@ -539,12 +554,12 @@ class LuxAI_S2(ParallelEnv):
                 spent_power = factory.sub_resource(4, factory_build_action.power_cost)
             else:
                 if factory.cargo.metal < self.env_cfg.ROBOTS["LIGHT"].METAL_COST:
-                    self._log(
+                    self.log_warning(
                         f"{factory} doesn't have enough metal to build a light despite having enough metal at the start of the turn. This is likely because a unit picked up some of the metal."
                     )
                     continue
                 if factory.power < factory_build_action.power_cost:
-                    self._log(
+                    self.log_warning(
                         f"{factory} doesn't have enough power to build a light despite having enough power at the start of the turn. This is likely because a unit picked up some of the power."
                     )
                     continue
@@ -620,7 +635,7 @@ class LuxAI_S2(ParallelEnv):
                     # tie, all units break
                     for u in units:
                         destroyed_units.add(u)
-                    self._log(
+                    self.log_info(
                         f"{len(destroyed_units)} Units: ({', '.join([u.unit_id for u in destroyed_units])}) collided at {pos_hash}"
                     )
                 else:
@@ -632,7 +647,7 @@ class LuxAI_S2(ParallelEnv):
                     for u in units:
                         if u.unit_id != surviving_unit.unit_id:
                             destroyed_units.add(u)
-                    self._log(
+                    self.log_info(
                         f"{len(destroyed_units)} Units: ({', '.join([u.unit_id for u in destroyed_units])}) collided at {pos_hash} with {surviving_unit} surviving with {surviving_unit.power} power"
                     )
                     new_units_map_after_collision[pos_hash].append(surviving_unit)
@@ -643,7 +658,7 @@ class LuxAI_S2(ParallelEnv):
                 for u in units:
                     if u.unit_id != surviving_unit.unit_id:
                         destroyed_units.add(u)
-                self._log(
+                self.log_info(
                     f"{len(destroyed_units)} Units: ({', '.join([u.unit_id for u in destroyed_units])}) collided at {pos_hash} with {surviving_unit} surviving with {surviving_unit.power} power"
                 )
                 new_units_map_after_collision[pos_hash].append(surviving_unit)
@@ -658,7 +673,7 @@ class LuxAI_S2(ParallelEnv):
                             heavy_stationary_unit = None
                             # we found >= 2 heavies stationary in a tile where no heavies are entering.
                             # should only happen when spawning units
-                            self._log(
+                            self.log_info(
                                 f"At {pos_hash}, >= 2 heavies crashed as they were all stationary"
                             )
                             break
@@ -690,7 +705,7 @@ class LuxAI_S2(ParallelEnv):
                 if surviving_unit is None:
                     for u in units:
                         destroyed_units.add(u)
-                    self._log(
+                    self.log_info(
                         f"{len(destroyed_units)} Units: ({', '.join([u.unit_id for u in destroyed_units])}) collided at {pos_hash}"
                     )
                     all_destroyed_units.update(destroyed_units)
@@ -698,7 +713,7 @@ class LuxAI_S2(ParallelEnv):
                     for u in units:
                         if u.unit_id != surviving_unit.unit_id:
                             destroyed_units.add(u)
-                    self._log(
+                    self.log_info(
                         f"{len(destroyed_units)} Units: ({', '.join([u.unit_id for u in destroyed_units])}) collided at {pos_hash} with {surviving_unit} surviving with {surviving_unit.power} power"
                     )
                     new_units_map_after_collision[pos_hash].append(surviving_unit)
@@ -725,7 +740,7 @@ class LuxAI_S2(ParallelEnv):
             factory_water_action: FactoryWaterAction
             water_cost = factory.water_cost(self.env_cfg)
             if water_cost > factory.cargo.water:
-                self._log(
+                self.log_warning(
                     f"{factory} has insufficient water to grow lichen, factory has {factory.cargo.water}, but requires {water_cost} to water lichen. This cost may have changed a little during this turn due to rubble changes and new tiles being grown on"
                 )
                 continue
@@ -783,7 +798,7 @@ class LuxAI_S2(ParallelEnv):
                     )
                     if not valid_acts:
                         failed_agents[agent] = True
-                        self._log(
+                        self.log_error(
                             f"{self.state.teams[agent]} Inappropriate action given. {err_reason}"
                         )
 
@@ -806,8 +821,8 @@ class LuxAI_S2(ParallelEnv):
                                     "action_queue_updates_total"
                                 ] += 1
                             if unit.power < update_power_req:
-                                self._log(
-                                    f"{agent} Tried to update action queue for {unit} requiring {update_power_req}"
+                                self.log_info(
+                                    f"{agent} Tried to update action queue for {unit} requiring {update_power_req} power but only had {unit.power} power"
                                 )
                                 continue
                             formatted_actions = []
@@ -821,7 +836,7 @@ class LuxAI_S2(ParallelEnv):
                                     format_action_vec(a) for a in trunked_actions
                                 ]
                             else:
-                                self._log(
+                                self.log_error(
                                     f"{agent} Tried to update action queue for {unit} but did not provide an action queue, provided {action}"
                                 )
                                 failed_agents[agent] = True
@@ -962,7 +977,7 @@ class LuxAI_S2(ParallelEnv):
                 factories_left = len(self.state.factories[agent])
                 if factories_left == 0 and self.state.real_env_steps >= 0:
                     failed_agents[agent] = True
-                    self._log(f"{agent} lost all factories")
+                    self.log_warning(f"{agent} lost all factories")
                 if failed_agents[agent]:
                     rewards[agent] = -1000
                 else:
@@ -1025,12 +1040,12 @@ class LuxAI_S2(ParallelEnv):
             # Check if any tiles under the factory are invalid spawn tile.
             # TODO - min distance between Factories? stone: I think it's a bad strategy to try and enclose a opponent factory anyway,
             # wastes a few factories and hard to maintain
-            self._log(
+            self.log_warning(
                 f"{team.agent} cannot place factory at {pos[0]}, {pos[1]} as it overlaps an existing factory or is on top of a resource"
             )
             return None
         if self.state.board.factory_occupancy_map[factory.pos_slice].max() >= 0:
-            self._log(
+            self.log_warning(
                 f"{team.agent} cannot overlap factory placement. Existing factory at {factory.pos} already."
             )
             return None
