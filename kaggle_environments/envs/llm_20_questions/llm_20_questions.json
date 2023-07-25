@@ -5,13 +5,13 @@
     "version": "1.0.0",
     "agents": [2],
     "configuration": {
-      "episodeSteps": 40,
+      "episodeSteps": 61,
       "actTimeout": 60,
       "agentTimeout": {
         "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
         "type": "number",
         "minimum": 0,
-        "default": 2400
+        "default": 3600
       }
     },
     "reward": {
@@ -22,12 +22,17 @@
     "observation": {
       "questions": {
         "description": "Questions the guessing agent has asked.",
-        "type": "list",
+        "type": "array",
+        "default": []
+      },
+      "guesses": {
+        "description": "Guesses the guessing agent has made.",
+        "type": "array",
         "default": []
       },
       "answers": {
         "description": "Answers the answering agent has given.",
-        "type": "list",
+        "type": "array",
         "default": []
       },
       "role": {
@@ -35,8 +40,19 @@
         "enum": ["guesser", "answerer"],
         "defaults": ["guesser", "answerer"]
       },
+      "turnType": {
+        "description": "The type of action that should be taken this turn.",
+        "enum": ["ask", "guess", "answer"],
+        "defaults": ["ask", "answer"]
+      },
       "keyword": {
         "description": "The keyword to win the game",
+        "type": "string",
+        "shared": "false",
+        "default": ""
+      },
+      "category": {
+        "description": "The catagory of the keyword.",
         "type": "string",
         "shared": "false",
         "default": ""
