@@ -100,13 +100,10 @@ def make(environment, configuration=None, info=None, steps=None, logs=None, debu
 
 
     if has(environment, str) and has(environments, dict, path=[environment]):
-        print("1")
         return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     elif callable(environment):
-        print("2")
         return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     elif has(environment, path=["interpreter"], is_callable=True):
-        print("3")
         return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
     raise InvalidArgument("Unknown Environment Specification")
 

@@ -1,9 +1,11 @@
 import json
 import pandas as pd
+import random
 import string
 import torch
 import warnings
 
+from .keywords import KEYWORDS_JSON
 from os import path
 from pathlib import Path
 from random import choice
@@ -15,15 +17,18 @@ warnings.simplefilter("ignore")
 
 # change to download path
 # possibly upgrade to bigger model if performance is bad
-llm = "/kaggle/input/flan-t5/pytorch/base/2"
+llm = "/usr/src/app/kaggle_environments/kaggle_environments/envs/llm_20_questions/t5_model"
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 model = T5ForConditionalGeneration.from_pretrained(llm).to(device)
 tokenizer = T5Tokenizer.from_pretrained(llm)
 
-keyword = "paris"
-category = "city"
-alts = []
+keywords_list = json.loads(KEYWORDS_JSON)
+keyword_cat = random.choice(keywords_list)
+category = keyword_cat["category"]
+keyword_obj = random.choice(keyword_cat["words"])
+keyword = keyword_obj["keyword"]
+alts = keyword_obj["alts"]
 
 
 def guesser_agent(obs):
@@ -54,6 +59,7 @@ def guesser_agent(obs):
         return ""
     
     return call_llm(prompt)
+
     
 
 def answerer_agent(obs):
@@ -78,91 +84,157 @@ def interpreter(state, env):
         return state
 
     # Isolate the active and inactive agents.
-    active = state[0] if state[0].status == "ACTIVE" else state[1]
-    inactive = state[0] if state[0].status == "INACTIVE" else state[1]
-    if active.status != "ACTIVE" or inactive.status != "INACTIVE":
-        active.status = "DONE" if active.status == "ACTIVE" else active.status
-        inactive.status = "DONE" if inactive.status == "INACTIVE" else inactive.status
+    active1 = state[0] if state[0].status == "ACTIVE" else state[1]
+    inactive1 = state[0] if state[0].status == "INACTIVE" else state[1]
+    active2 = state[2] if state[2].status == "ACTIVE" else state[3]
+    inactive2 = state[2] if state[2].status == "INACTIVE" else state[3]
+    if active1.status == "DONE" and inactive1.status == "DONE":
+        active1 = None
+        inactive1 = None
+    if active2.status == "DONE" or inactive2.status == "DONE":
+        active2 = None
+        inactive2 = None
+    if active1 is None and inactive1 is None and active2 is None and inactive2 is None:
         return state
-    
-    if active.observation.role == "guesser":
-        if active.observation.turnType == "ask":
-            active.observation.questions.append(active.action)
-            inactive.observation.questions.append(active.action)
-        elif active.observation.turnType == "guess":
-            active.observation.guesses.append(active.action)
-            inactive.observation.guesses.append(active.action)
-        if keyword_guessed(active.action):
-            active.reward = (61 - active.observation.step) / 2
-            inactive.reward = (61 - active.observation.step) / 2
-            active.status = "DONE"
-            inactive.status = "DONE"
-            active.observation.keyword = keyword
-            active.observation.category = category
-            return state
-    else:
-        active.observation.keyword = keyword
-        active.observation.category = category
-        response = active.action
-        if response.lower().__contains__("yes"):
-            response = "yes"
-        elif response.lower().__contains__("no"):
-            response = "no"
+
+    step = state[0].observation.step
+
+    if active1 is not None:
+        guessed = False
+        if active1.observation.role == "guesser":
+            if active1.observation.turnType == "ask":
+                active1.observation.questions.append(active1.action)
+                inactive1.observation.questions.append(active1.action)
+            elif active1.observation.turnType == "guess":
+                active1.observation.guesses.append(active1.action)
+                inactive1.observation.guesses.append(active1.action)
+            if keyword_guessed(active1.action):
+                guessed = True
+                score = 20 - int(step / 3)
+                active1.reward = score
+                inactive1.reward = score
+                active1.status = "DONE"
+                inactive1.status = "DONE"
+                active1.observation.keyword = keyword
+                active1.observation.category = category
+            inactive1.observation.keyword = keyword
+            inactive1.observation.category = category
         else:
-            response = "maybe"
-        active.observation.answers.append(response)
-        inactive.observation.answers.append(response)
+            active1.observation.keyword = keyword
+            active1.observation.category = category
+            response = active1.action
+            if response.lower().__contains__("yes"):
+                response = "yes"
+            elif response.lower().__contains__("no"):
+                response = "no"
+            else:
+                response = "maybe"
+            active1.observation.answers.append(response)
+            inactive1.observation.answers.append(response)
 
-    if active.observation.role == "guesser":
-        if active.observation.step == 59:
-            active.observation.keyword = keyword
-            active.observation.category = category
-            active.reward = -1
-            inactive.reward = -1
-    else:
-        if inactive.observation.step == 59:
-            inactive.observation.keyword = keyword
-            inactive.observation.category = category
-            active.reward = -1
-            inactive.reward = -1
+        if step == 59 and not guessed:
+            active1.observation.keyword = keyword
+            active1.observation.category = category
+            inactive1.observation.keyword = keyword
+            inactive1.observation.category = category
+            active1.reward = -1
+            inactive1.reward = -1
 
-    # Swap active and inactive agents to switch turns if guesser has gotten to both ask a question and guess the answer or the answerer has answered.
-    if active.observation.turnType == "guess":
-        active.observation.turnType = "ask"
-        return state
+        if active1.observation.turnType == "guess":
+            active1.observation.turnType = "ask"
+        elif active1.observation.turnType == "ask":
+            active1.observation.turnType = "guess"
+            active1.status = "INACTIVE"
+            inactive1.status = "ACTIVE"
+        else:
+            active1.status = "INACTIVE"
+            inactive1.status = "ACTIVE"
     
-    if active.observation.turnType == "ask":
-        active.observation.turnType = "guess"
-    
-    active.status = "INACTIVE"
-    inactive.status = "ACTIVE"
+    if active2 is not None:
+        guessed = False
+        if active2.observation.role == "guesser":
+            if active2.observation.turnType == "ask":
+                active2.observation.questions.append(active2.action)
+                inactive2.observation.questions.append(active2.action)
+            elif active2.observation.turnType == "guess":
+                active2.observation.guesses.append(active2.action)
+                inactive2.observation.guesses.append(active2.action)
+            if keyword_guessed(active2.action):
+                guessed = True
+                score = 20 - int(step / 3)
+                active2.reward = score
+                inactive2.reward = score
+                active2.status = "DONE"
+                inactive2.status = "DONE"
+                active2.observation.keyword = keyword
+                active2.observation.category = category
+            inactive2.observation.keyword = keyword
+            inactive2.observation.category = category
+        else:
+            active2.observation.keyword = keyword
+            active2.observation.category = category
+            response = active2.action
+            if response.lower().__contains__("yes"):
+                response = "yes"
+            elif response.lower().__contains__("no"):
+                response = "no"
+            else:
+                response = "maybe"
+            active2.observation.answers.append(response)
+            inactive2.observation.answers.append(response)
+
+        if step == 59 and not guessed:
+            active2.observation.keyword = keyword
+            active2.observation.category = category
+            inactive2.observation.keyword = keyword
+            inactive2.observation.category = category
+            active2.reward = -1
+            inactive2.reward = -1
+
+        if active2.observation.turnType == "guess":
+            active2.observation.turnType = "ask"
+        elif active2.observation.turnType == "ask":
+            active2.observation.turnType = "guess"
+            active2.status = "INACTIVE"
+            inactive2.status = "ACTIVE"
+        else:
+            active2.status = "INACTIVE"
+            inactive2.status = "ACTIVE"
 
     return state
 
 
 def renderer(state, env):
-    transcript = ""
 
     for s in state:
+        print("role: ", s.observation.role)
         if s.observation.role == "guesser":
+            transcript = ""
             for i in range(0, len(s.observation.guesses)):
                 transcript = "{}Q: {} A: {}\nG: {}\n".format(
                     transcript, s.observation.questions[i],
                     s.observation.answers[i],
                     s.observation.guesses[i]
                 )
+            print(transcript)
 
-    print(transcript)
-    return transcript
+        print("keyword: ", s.observation.keyword)
+        print("score: ", s.reward)
+        print("")
+        print("")
+        print("")
+
+    return ""
 
 
 jsonpath = path.abspath(path.join(path.dirname(__file__), "llm_20_questions.json"))
 with open(jsonpath) as f:
     specification = json.load(f)
 
-
 def html_renderer():
-    return
+    jspath = path.abspath(path.join(path.dirname(__file__), "llm_20_questions.js"))
+    with open(jspath) as f:
+        return f.read()
 
 
 def keyword_guessed(guess: str) -> bool:
