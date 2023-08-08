@@ -3,7 +3,6 @@ import pandas as pd
 import random
 import string
 import torch
-import warnings
 
 from .keywords import KEYWORDS_JSON
 from os import path
@@ -13,10 +12,6 @@ from string import Template
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 
-warnings.simplefilter("ignore")
-
-# change to download path
-# possibly upgrade to bigger model if performance is bad
 llm = "/usr/src/app/kaggle_environments/kaggle_environments/envs/llm_20_questions/t5_model"
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -139,8 +134,9 @@ def interpreter(state, env):
             inactive1.observation.category = category
             active1.reward = -1
             inactive1.reward = -1
-
-        if active1.observation.turnType == "guess":
+            active1.status = "DONE"
+            inactive1.status = "DONE"
+        elif active1.observation.turnType == "guess":
             active1.observation.turnType = "ask"
         elif active1.observation.turnType == "ask":
             active1.observation.turnType = "guess"
@@ -190,8 +186,9 @@ def interpreter(state, env):
             inactive2.observation.category = category
             active2.reward = -1
             inactive2.reward = -1
-
-        if active2.observation.turnType == "guess":
+            active2.status = "DONE"
+            inactive2.status = "DONE"
+        elif active2.observation.turnType == "guess":
             active2.observation.turnType = "ask"
         elif active2.observation.turnType == "ask":
             active2.observation.turnType = "guess"
