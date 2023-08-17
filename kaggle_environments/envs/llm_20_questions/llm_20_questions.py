@@ -1,4 +1,5 @@
 import json
+import os
 import pandas as pd
 import random
 import string
@@ -12,11 +13,12 @@ from string import Template
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 
-llm = "/usr/src/app/kaggle_environments/kaggle_environments/envs/llm_20_questions/t5_model"
+llm_parent_dir = "/kaggle/input/flan-t5/pytorch/large"
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-model = T5ForConditionalGeneration.from_pretrained(llm).to(device)
-tokenizer = T5Tokenizer.from_pretrained(llm)
+device = None
+model = None
+tokenizer = None
+model_initialized = False
 
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = random.choice(keywords_list)
@@ -71,7 +73,7 @@ def answerer_agent(obs):
         return ""
 
 
-agents = {"random": guesser_agent, "reaction": answerer_agent}
+agents = {"guesser": guesser_agent, "answerer": answerer_agent}
 
 
 def interpreter(state, env):
@@ -249,6 +251,23 @@ def keyword_guessed(guess: str) -> bool:
 
 
 def call_llm(prompt: str) -> str:
+    global model_initialized
+    global device
+    global model
+    global tokenizer
+
+    if not model_initialized:
+        if os.path.exists(llm_parent_dir) and len(os.listdir(llm_parent_dir)) > 0:
+            dirs = os.listdir(llm_parent_dir)
+            llm_dir = "{}/{}".format(llm_parent_dir, dirs[0])
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            model = T5ForConditionalGeneration.from_pretrained(llm).to(device)
+            tokenizer = T5Tokenizer.from_pretrained(llm)
+            model_initialized = True
+        else:
+            print("t5-flan model required to use default agents. Add any version of the large model to the notebook.")
+            return "error loading model"
+            
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model.generate(**inputs)
     answer = tokenizer.batch_decode(outputs, skip_special_tokens=True)
