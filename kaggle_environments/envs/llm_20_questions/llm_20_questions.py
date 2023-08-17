@@ -261,13 +261,13 @@ def call_llm(prompt: str) -> str:
             dirs = os.listdir(llm_parent_dir)
             llm_dir = "{}/{}".format(llm_parent_dir, dirs[0])
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
-            model = T5ForConditionalGeneration.from_pretrained(llm).to(device)
-            tokenizer = T5Tokenizer.from_pretrained(llm)
+            model = T5ForConditionalGeneration.from_pretrained(llm_dir).to(device)
+            tokenizer = T5Tokenizer.from_pretrained(llm_dir)
             model_initialized = True
         else:
             print("t5-flan model required to use default agents. Add any version of the large model to the notebook.")
             return "error loading model"
-            
+
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model.generate(**inputs)
     answer = tokenizer.batch_decode(outputs, skip_special_tokens=True)
