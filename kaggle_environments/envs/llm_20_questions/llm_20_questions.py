@@ -265,7 +265,8 @@ def call_llm(prompt: str) -> str:
             tokenizer = T5Tokenizer.from_pretrained(llm_dir)
             model_initialized = True
         else:
-            print("t5-flan model required to use default agents. Add any version of the large model using the link https://www.kaggle.com/models/google/flan-t5/frameworks/pyTorch/variations/large.")
+            print("t5-flan model required to use default agents. Add any version of the large model.")
+            print("https://www.kaggle.com/models/google/flan-t5/frameworks/pyTorch/variations/large.")
             raise Exception("t5-flan model required to use default agents.")
 
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
