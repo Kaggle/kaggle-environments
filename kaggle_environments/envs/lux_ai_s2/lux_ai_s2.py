@@ -72,7 +72,7 @@ def interpreter(state, env):
         for k in delete_keys:
             if k in parsed_env_config: del parsed_env_config[k]
         luxenv = LuxAI_S2(validate_action_space=True, collect_stats=True, **parsed_env_config)
-        _ = luxenv.reset(seed=seed)
+        _, _ = luxenv.reset(seed=seed)
         state_obs = luxenv.state.get_compressed_obs()
 
         env_cfg_json = dataclasses.asdict(luxenv.env_cfg)
@@ -88,10 +88,13 @@ def interpreter(state, env):
         player_0.observation.height = luxenv.state.board.height
         return state
 
-    new_state_obs, rewards, dones, infos = luxenv.step({
+    new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
         "player_0": player_0.action,
         "player_1": player_1.action
     })
+    dones = dict()
+    for k in terminations:
+        dones[k] = terminations[k] | truncations[k]
 
     player_0.observation.player = "player_0"
     player_1.observation.player = "player_1"

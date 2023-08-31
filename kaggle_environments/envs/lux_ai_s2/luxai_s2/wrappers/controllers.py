@@ -1,7 +1,7 @@
 from typing import Dict, Any
 
 import numpy.typing as npt
-from gym import spaces
+from gymnasium import spaces
 
 class Controller:
     def __init__(self, action_space: spaces.Space) -> None:

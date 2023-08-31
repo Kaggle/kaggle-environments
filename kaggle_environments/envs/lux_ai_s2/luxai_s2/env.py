@@ -207,7 +207,7 @@ class LuxAI_S2(ParallelEnv):
                 self.state.stats[agent] = create_empty_stats()
         obs = self.state.get_obs()
         observations = {agent: obs for agent in self.agents}
-        return observations
+        return observations, {}
     
     def log_error(self, *m):
         if self.env_cfg.verbose > 0:
@@ -762,7 +762,8 @@ class LuxAI_S2(ParallelEnv):
         Dict[str, ObservationStateDict],
         Dict[str, float],
         Dict[str, bool],
-        Dict[str, Any],
+        Dict[str, bool],
+        Dict[str, dict],
     ]:
         """
         step(action) takes in an action for each agent and should return the
@@ -996,8 +997,8 @@ class LuxAI_S2(ParallelEnv):
         env_done = (
             env_done or failed_agents["player_0"] or failed_agents["player_1"]
         )  # env is done if any agent fails.
-        dones = {agent: env_done or failed_agents[agent] for agent in self.agents}
-
+        terminations = {agent: env_done or failed_agents[agent] for agent in self.agents}
+        truncations = {agent: False or failed_agents[agent] for agent in self.agents}
         # generate observations
         obs = self.state.get_obs()
         observations = {}
@@ -1010,7 +1011,7 @@ class LuxAI_S2(ParallelEnv):
         if env_done:
             self.agents = []
 
-        return observations, rewards, dones, infos
+        return observations, rewards, terminations, truncations, infos
 
     ### Game Logic ###
     def add_unit(self, team: Team, unit_type, pos: np.ndarray):
@@ -1110,7 +1111,7 @@ def raw_env() -> LuxAI_S2:
     return env
 
 
-import gym
+import gymnasium as gym
 
 gym.register(
     id="LuxAI_S2-v0",

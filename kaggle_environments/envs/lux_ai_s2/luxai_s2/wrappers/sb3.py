@@ -1,9 +1,9 @@
 from typing import Callable, Dict
 
-import gym
+import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from gym import spaces
+from gymnasium import spaces
 
 import luxai_s2.env
 from luxai_s2.env import LuxAI_S2
@@ -92,21 +92,21 @@ class SB3Wrapper(gym.Wrapper):
                 lux_action[agent] = dict()
         
         # lux_action is now a dict mapping agent name to an action
-        obs, reward, done, info = self.env.step(lux_action)
+        obs, reward, terminated, truncated, info = self.env.step(lux_action)
         self.prev_obs = obs
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def reset(self, **kwargs):
         # we upgrade the reset function here
         
         # we call the original reset function first
-        obs = self.env.reset(**kwargs)
+        obs, _ = self.env.reset(**kwargs)
         
         # then use the bid policy to go through the bidding phase
         action = dict()
         for agent in self.env.agents:
             action[agent] = self.bid_policy(agent, obs[agent])
-        obs, _, _, _ = self.env.step(action)
+        obs, _, _, _, _ = self.env.step(action)
         
         # while real_env_steps < 0, we are in the factory placement phase
         # so we use the factory placement policy to step through this
@@ -120,7 +120,7 @@ class SB3Wrapper(gym.Wrapper):
                     action[agent] = self.factory_placement_policy(agent, obs[agent])
                 else:
                     action[agent] = dict()
-            obs, _, _, _ = self.env.step(action)
+            obs, _, _, _, _ = self.env.step(action)
         self.prev_obs = obs
         
-        return obs
+        return obs, {}
