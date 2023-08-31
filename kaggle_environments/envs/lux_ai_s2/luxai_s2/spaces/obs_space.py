@@ -2,7 +2,7 @@ import random
 from typing import Any, List
 
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 
 from luxai_s2.config import EnvConfig
 from luxai_s2.spaces.act_space import ActionsQueue, FactionString

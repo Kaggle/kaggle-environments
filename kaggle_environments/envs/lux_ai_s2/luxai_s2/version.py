@@ -1,2 +1,1 @@
-import pkg_resources
-__version__ = ""
+__version__ = "2.1.9"

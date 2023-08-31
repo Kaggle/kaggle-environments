@@ -1,9 +1,9 @@
 import random
 from typing import Any, Dict, List
 
-import gym
+import gymnasium as gym
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 
 from luxai_s2.config import EnvConfig
 from luxai_s2.factory import Factory
