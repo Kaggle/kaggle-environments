@@ -1,0 +1,71 @@
+{
+    "name": "llm_20_questions",
+    "title": "20 Questions",
+    "description": "20 Questions played between two LLM agents",
+    "version": "1.0.0",
+    "agents": [4],
+    "configuration": {
+      "episodeSteps": 61,
+      "actTimeout": 60,
+      "agentTimeout": {
+        "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+        "type": "number",
+        "minimum": 0,
+        "default": 3600
+      }
+    },
+    "reward": {
+      "description": "1-20 = Won, -1 = Lost",
+      "enum": [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+      "defaults": [0, 0, 0, 0]
+    },
+    "observation": {
+      "questions": {
+        "description": "Questions the guessing agent has asked.",
+        "type": "array",
+        "default": []
+      },
+      "guesses": {
+        "description": "Guesses the guessing agent has made.",
+        "type": "array",
+        "default": []
+      },
+      "answers": {
+        "description": "Answers the answering agent has given.",
+        "type": "array",
+        "default": []
+      },
+      "role": {
+        "description": "The role of the agent for this episode.",
+        "enum": ["guesser", "answerer"],
+        "defaults": ["guesser", "answerer", "guesser", "answerer"]
+      },
+      "turnType": {
+        "description": "The type of action that should be taken this turn.",
+        "enum": ["ask", "guess", "answer"],
+        "defaults": ["ask", "answer", "ask", "answer"]
+      },
+      "keyword": {
+        "description": "The keyword to win the game",
+        "type": "string",
+        "shared": "false",
+        "default": ""
+      },
+      "category": {
+        "description": "The catagory of the keyword.",
+        "type": "string",
+        "shared": "false",
+        "default": ""
+      },
+      "remainingOverageTime": 300
+    },
+    "action": {
+      "description": "LLM agent response.",
+      "type": "string",
+      "default": ""
+    },
+    "status": {
+      "defaults": ["ACTIVE", "INACTIVE", "ACTIVE", "INACTIVE"]
+    }
+  }
+  
