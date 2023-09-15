@@ -57,6 +57,7 @@ setup(
         "stable-baselines3 == 2.1.0",
         "transformers >= 4.33.1",
         "scipy >= 1.11.2",
+        "shimmy >= 1.2.1",
     ],
     packages=find_packages(),
     include_package_data=True,
