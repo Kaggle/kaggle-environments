@@ -39,16 +39,13 @@ prev_step = 0
 luxenv: LuxAI_S2 = LuxAI_S2(verbose=0, validate_action_space=True, collect_stats=True)
 prev_obs = None
 state_obs = None
-def cleanup_dimensions():
-    global dimension_process
-    if dimension_process is not None:
-        dimension_process.kill()
+default_env_cfg = None
 def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
         queue.put(line)
     out.close()
 def interpreter(state, env):
-    global luxenv, prev_obs, state_obs
+    global luxenv, prev_obs, state_obs, default_env_cfg
     player_0 = state[0]
     player_1 = state[1]
     # filter out actions such as debug annotations so they aren't saved
@@ -65,18 +62,27 @@ def interpreter(state, env):
         else:
             max_episode_length = 1000
 
-        parsed_env_config = copy.deepcopy(env.configuration)
-        parsed_env_config["max_episode_length"] = max_episode_length
-        delete_keys = ["seed", "episodeSteps", "actTimeout", "runTimeout", "env_cfg"]
         
-        for k in delete_keys:
-            if k in parsed_env_config: del parsed_env_config[k]
+        if default_env_cfg is None:
+            # if this is the first time creating the environment, env.configuration contains the kaggle competition configurations used to override 
+            # the default env config in LuxAI_S2. env.configuration is later populated by the merge of the kaggle competition configs with the 
+            # env config in LuxAI_S2 so we only run this branch once and save the result.
+            parsed_env_config = copy.deepcopy(env.configuration)
+            parsed_env_config["max_episode_length"] = max_episode_length
+            delete_keys = ["seed", "episodeSteps", "actTimeout", "runTimeout", "env_cfg"]
+            env_cfg_override = copy.deepcopy(parsed_env_config["env_cfg"])
+            for k in delete_keys:
+                if k in parsed_env_config: del parsed_env_config[k]
+            parsed_env_config = {**parsed_env_config, **env_cfg_override}
+            default_env_cfg = parsed_env_config
+        else:
+            parsed_env_config = default_env_cfg
         luxenv = LuxAI_S2(validate_action_space=True, collect_stats=True, **parsed_env_config)
         _, _ = luxenv.reset(seed=seed)
         state_obs = luxenv.state.get_compressed_obs()
 
         env_cfg_json = dataclasses.asdict(luxenv.env_cfg)
-        # del env_cfg_json["WEATHER_ID_TO_NAME"]
+
         env.configuration.env_cfg = env_cfg_json
         
         player_0.observation.player = "player_0"
