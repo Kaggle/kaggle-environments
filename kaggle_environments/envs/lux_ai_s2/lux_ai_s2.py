@@ -70,7 +70,9 @@ def interpreter(state, env):
             parsed_env_config = copy.deepcopy(env.configuration)
             parsed_env_config["max_episode_length"] = max_episode_length
             delete_keys = ["seed", "episodeSteps", "actTimeout", "runTimeout", "env_cfg"]
-            env_cfg_override = copy.deepcopy(parsed_env_config["env_cfg"])
+            env_cfg_override = dict()
+            if "env_cfg" in parsed_env_config:
+                env_cfg_override = copy.deepcopy(parsed_env_config["env_cfg"])
             for k in delete_keys:
                 if k in parsed_env_config: del parsed_env_config[k]
             parsed_env_config = {**parsed_env_config, **env_cfg_override}
