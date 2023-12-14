@@ -99,13 +99,15 @@ def interpreter(state, env):
     if active1 is not None:
         guessed = False
         if active1.observation.role == "guesser":
-            if active1.observation.turnType == "ask":
+            if not active1.action:
+                active1.status = "ERROR"
+            elif active1.observation.turnType == "ask":
                 active1.observation.questions.append(active1.action)
                 inactive1.observation.questions.append(active1.action)
             elif active1.observation.turnType == "guess":
                 active1.observation.guesses.append(active1.action)
                 inactive1.observation.guesses.append(active1.action)
-            if keyword_guessed(active1.action):
+            if active1.action and keyword_guessed(active1.action):
                 guessed = True
                 score = 20 - int(step / 3)
                 active1.reward = score
@@ -120,12 +122,14 @@ def interpreter(state, env):
             active1.observation.keyword = keyword
             active1.observation.category = category
             response = active1.action
-            if response.lower().__contains__("yes"):
+            if not response:
+                active1.status = "ERROR"
+            elif response and response.lower().__contains__("yes"):
                 response = "yes"
-            elif response.lower().__contains__("no"):
+            elif response and response.lower().__contains__("no"):
                 response = "no"
             else:
-                response = "maybe"
+                active1.status = "ERROR"
             active1.observation.answers.append(response)
             inactive1.observation.answers.append(response)
 
@@ -151,13 +155,15 @@ def interpreter(state, env):
     if active2 is not None:
         guessed = False
         if active2.observation.role == "guesser":
-            if active2.observation.turnType == "ask":
+            if not active2.action:
+                active2.status = "ERROR"
+            elif active2.observation.turnType == "ask":
                 active2.observation.questions.append(active2.action)
                 inactive2.observation.questions.append(active2.action)
             elif active2.observation.turnType == "guess":
                 active2.observation.guesses.append(active2.action)
                 inactive2.observation.guesses.append(active2.action)
-            if keyword_guessed(active2.action):
+            if active2.action and keyword_guessed(active2.action):
                 guessed = True
                 score = 20 - int(step / 3)
                 active2.reward = score
@@ -172,12 +178,14 @@ def interpreter(state, env):
             active2.observation.keyword = keyword
             active2.observation.category = category
             response = active2.action
-            if response.lower().__contains__("yes"):
+            if not response:
+                active2.status = "ERROR"
+            elif response.lower().__contains__("yes"):
                 response = "yes"
             elif response.lower().__contains__("no"):
                 response = "no"
             else:
-                response = "maybe"
+                active2.status = "ERROR"
             active2.observation.answers.append(response)
             inactive2.observation.answers.append(response)
 
