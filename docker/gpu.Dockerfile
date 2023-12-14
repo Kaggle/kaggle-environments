@@ -27,7 +27,7 @@ RUN npm -v
 
 WORKDIR /usr/src/app/kaggle_environments
 
-RUN pip install Flask
+RUN pip install Flask bitsandbytes accelerate
 
 ADD ./setup.py ./setup.py
 ADD ./README.md ./README.md
