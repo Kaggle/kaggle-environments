@@ -124,9 +124,9 @@ def interpreter(state, env):
             response = active1.action
             if not response:
                 active1.status = "ERROR"
-            elif response and response.lower().__contains__("yes"):
+            elif response.lower().__contains__("yes"):
                 response = "yes"
-            elif response and response.lower().__contains__("no"):
+            elif response.lower().__contains__("no"):
                 response = "no"
             else:
                 active1.status = "ERROR"
