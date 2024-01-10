@@ -123,12 +123,14 @@ def interpreter(state, env):
             active1.observation.category = category
             response = active1.action
             if not response:
+                response = "none"
                 active1.status = "ERROR"
             elif response.lower().__contains__("yes"):
                 response = "yes"
             elif response.lower().__contains__("no"):
                 response = "no"
             else:
+                response = "maybe"
                 active1.status = "ERROR"
             active1.observation.answers.append(response)
             inactive1.observation.answers.append(response)
@@ -179,12 +181,14 @@ def interpreter(state, env):
             active2.observation.category = category
             response = active2.action
             if not response:
+                reponse = "none"
                 active2.status = "ERROR"
             elif response.lower().__contains__("yes"):
                 response = "yes"
             elif response.lower().__contains__("no"):
                 response = "no"
             else:
+                reponse = "maybe"
                 active2.status = "ERROR"
             active2.observation.answers.append(response)
             inactive2.observation.answers.append(response)
