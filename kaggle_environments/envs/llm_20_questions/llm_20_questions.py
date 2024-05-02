@@ -98,15 +98,19 @@ def guesser_action(active, inactive, step):
     if active.action and keyword_guessed(active.action):
         guessed = True
         score = 20 - int(step / 3)
-        active.reward = score
-        inactive.reward = score
-        active.status = DONE
-        inactive.status = DONE
-        active.observation.keyword = keyword
-        active.observation.category = category
+        end_game(active, inactive, score, DONE, DONE)
+    return guessed
+
+def end_game(active, inactive, reward, status, inactive_status):
+    active.observation.keyword = keyword
+    active.observation.category = category
     inactive.observation.keyword = keyword
     inactive.observation.category = category
-    return guessed
+    active.reward = reward
+    inactive.reward = reward
+    active.status = status
+    inactive.status = inactive_status
+
 
 def answerer_action(active, inactive):
     active.observation.keyword = keyword
@@ -114,27 +118,20 @@ def answerer_action(active, inactive):
     response = active.action
     if not response:
         response = "none"
-        active.status = ERROR
+        end_game(active, inactive, -1, ERROR, DONE)
     elif "yes" in response.lower():
         response = "yes"
     elif "no" in response.lower():
         response = "no"
     else:
         response = "maybe"
-        active.status = ERROR
+        end_game(active, inactive, -1, ERROR, DONE)
     active.observation.answers.append(response)
     inactive.observation.answers.append(response)
 
 def increment_turn(active, inactive, step, guessed):
     if step == 59 and not guessed:
-        active.observation.keyword = keyword
-        active.observation.category = category
-        inactive.observation.keyword = keyword
-        inactive.observation.category = category
-        active.reward = -1
-        inactive.reward = -1
-        active.status = DONE
-        inactive.status = DONE
+        end_game(active, inactive, -1, DONE, DONE)
     elif active.observation.turnType == "guess":
         active.observation.turnType = "ask"
     elif active.observation.turnType == "ask":
