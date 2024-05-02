@@ -171,7 +171,7 @@ def interpreter(state, env):
             guessed = guesser_action(active2, inactive2, step)
         else:
             answerer_action(active2, inactive2)
-        increment_turn(active2, inactive1, step, guessed)
+        increment_turn(active2, inactive2, step, guessed)
 
     return state
 
