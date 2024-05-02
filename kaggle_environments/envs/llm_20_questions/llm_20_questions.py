@@ -20,6 +20,16 @@ model = None
 tokenizer = None
 model_initialized = False
 
+ERROR = "ERROR"
+DONE = "DONE"
+INACTIVE = "INACTIVE"
+ACTIVE = "ACTIVE"
+
+GUESS = "guess"
+ASK = "ask"
+GUESSER = "guesser"
+ANSWERER = "guesser"
+
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = random.choice(keywords_list)
 category = keyword_cat["category"]
@@ -42,12 +52,12 @@ def guesser_agent(obs):
         )
 
     prompt = ""
-    if obs.turnType == "ask":
+    if obs.turnType == ASK:
         prompt = "{}{}".format(
             info_prompt.format(q_a_thread=q_a_thread),
             questions_prompt
         )
-    elif obs.turnType == "guess":
+    elif obs.turnType == GUESS:
         prompt = "{}{}".format(
             info_prompt.format(q_a_thread=q_a_thread),
             guess_prompt
@@ -73,16 +83,16 @@ def answerer_agent(obs):
         return ""
 
 
-agents = {"guesser": guesser_agent, "answerer": answerer_agent}
+agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
 
 def guesser_action(active, inactive, step):
     guessed = False
     if not active.action:
-        active.status = "ERROR"
-    elif active.observation.turnType == "ask":
+        active.status = ERROR
+    elif active.observation.turnType == ASK:
         active.observation.questions.append(active.action)
         inactive.observation.questions.append(active.action)
-    elif active.observation.turnType == "guess":
+    elif active.observation.turnType == GUESS:
         active.observation.guesses.append(active.action)
         inactive.observation.guesses.append(active.action)
     if active.action and keyword_guessed(active.action):
@@ -90,8 +100,8 @@ def guesser_action(active, inactive, step):
         score = 20 - int(step / 3)
         active.reward = score
         inactive.reward = score
-        active.status = "DONE"
-        inactive.status = "DONE"
+        active.status = DONE
+        inactive.status = DONE
         active.observation.keyword = keyword
         active.observation.category = category
     inactive.observation.keyword = keyword
@@ -104,14 +114,14 @@ def answerer_action(active, inactive):
     response = active.action
     if not response:
         response = "none"
-        active.status = "ERROR"
-    elif response.lower().__contains__("yes"):
+        active.status = ERROR
+    elif "yes" in response.lower():
         response = "yes"
-    elif response.lower().__contains__("no"):
+    elif "no" in response.lower():
         response = "no"
     else:
         response = "maybe"
-        active.status = "ERROR"
+        active.status = ERROR
     active.observation.answers.append(response)
     inactive.observation.answers.append(response)
 
@@ -123,17 +133,17 @@ def increment_turn(active, inactive, step, guessed):
         inactive.observation.category = category
         active.reward = -1
         inactive.reward = -1
-        active.status = "DONE"
-        inactive.status = "DONE"
+        active.status = DONE
+        inactive.status = DONE
     elif active.observation.turnType == "guess":
         active.observation.turnType = "ask"
     elif active.observation.turnType == "ask":
         active.observation.turnType = "guess"
-        active.status = "INACTIVE"
-        inactive.status = "ACTIVE"
+        active.status = INACTIVE
+        inactive.status = ACTIVE
     else:
-        active.status = "INACTIVE"
-        inactive.status = "ACTIVE"
+        active.status = INACTIVE
+        inactive.status = ACTIVE
 
 
 def interpreter(state, env):
@@ -141,14 +151,14 @@ def interpreter(state, env):
         return state
 
     # Isolate the active and inactive agents.
-    active1 = state[0] if state[0].status == "ACTIVE" else state[1]
-    inactive1 = state[0] if state[0].status == "INACTIVE" else state[1]
-    active2 = state[2] if state[2].status == "ACTIVE" else state[3]
-    inactive2 = state[2] if state[2].status == "INACTIVE" else state[3]
-    if active1.status == "DONE" and inactive1.status == "DONE":
+    active1 = state[0] if state[0].status == ACTIVE else state[1]
+    inactive1 = state[0] if state[0].status == INACTIVE else state[1]
+    active2 = state[2] if state[2].status == ACTIVE else state[3]
+    inactive2 = state[2] if state[2].status == INACTIVE else state[3]
+    if active1.status == DONE and inactive1.status == DONE:
         active1 = None
         inactive1 = None
-    if active2.status == "DONE" or inactive2.status == "DONE":
+    if active2.status == DONE or inactive2.status == DONE:
         active2 = None
         inactive2 = None
     if active1 is None and inactive1 is None and active2 is None and inactive2 is None:
@@ -158,7 +168,7 @@ def interpreter(state, env):
 
     if active1 is not None:
         guessed = False
-        if active1.observation.role == "guesser":
+        if active1.observation.role == GUESSER:
             guessed = guesser_action(active1, inactive1, step)
         else:
             answerer_action(active1, inactive1)
@@ -166,8 +176,7 @@ def interpreter(state, env):
     
     if active2 is not None:
         guessed = False
-        guessed = False
-        if active2.observation.role == "guesser":
+        if active2.observation.role == GUESSER:
             guessed = guesser_action(active2, inactive2, step)
         else:
             answerer_action(active2, inactive2)
@@ -180,7 +189,7 @@ def renderer(state, env):
 
     for s in state:
         print("role: ", s.observation.role)
-        if s.observation.role == "guesser":
+        if s.observation.role == GUESSER:
             transcript = ""
             for i in range(0, len(s.observation.guesses)):
                 transcript = "{}Q: {} A: {}\nG: {}\n".format(
