@@ -24,6 +24,7 @@ ERROR = "ERROR"
 DONE = "DONE"
 INACTIVE = "INACTIVE"
 ACTIVE = "ACTIVE"
+TIMEOUT = "TIMEOUT"
 
 GUESS = "guess"
 ASK = "ask"
@@ -163,13 +164,20 @@ def interpreter(state, env):
 
     step = state[0].observation.step
 
+    end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
+
     if active1 is not None:
         guessed = False
         if active1.observation.role == GUESSER:
             guessed = guesser_action(active1, inactive1, step)
         else:
             answerer_action(active1, inactive1)
-        increment_turn(active1, inactive1, step, guessed)
+        if active1.status in (TIMEOUT, ERROR):
+            end_game(active1, inactive1, -1, active1.status, DONE)
+        elif end_early:
+            end_game(active1, inactive1, 0, DONE, DONE)
+        else:
+            increment_turn(active1, inactive1, step, guessed)
     
     if active2 is not None:
         guessed = False
@@ -177,7 +185,12 @@ def interpreter(state, env):
             guessed = guesser_action(active2, inactive2, step)
         else:
             answerer_action(active2, inactive2)
-        increment_turn(active2, inactive2, step, guessed)
+        if active2.status in (TIMEOUT, ERROR):
+            end_game(active2, inactive2, -1, active2.status, DONE)
+        elif end_early:
+            end_game(active2, inactive2, 0, DONE, DONE)
+        else:
+            increment_turn(active2, inactive2, step, guessed)
 
     return state
 
