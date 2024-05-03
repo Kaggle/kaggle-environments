@@ -86,19 +86,16 @@ def answerer_agent(obs):
 
 agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
 
-def limit_length(input, size):
-    return input[:size] if len(input) > size else input
-
 def guesser_action(active, inactive, step):
     guessed = False
     if not active.action:
         active.status = ERROR
     elif active.observation.turnType == ASK:
-        question = limit_length(active.action, 2000)
+        question = active.action[:2000]
         active.observation.questions.append(question)
         inactive.observation.questions.append(question)
     elif active.observation.turnType == GUESS:
-        guess = limit_length(active.action, 100)
+        guess = active.action[:100]
         active.observation.guesses.append(guess)
         inactive.observation.guesses.append(guess)
     if active.action and keyword_guessed(active.action):
