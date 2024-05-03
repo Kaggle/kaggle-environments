@@ -6,7 +6,7 @@
     "agents": [4],
     "configuration": {
       "episodeSteps": 61,
-      "actTimeout": 60,
+      "actTimeout": 1,
       "runTimeout": 9600,
       "agentTimeout": {
         "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
@@ -58,7 +58,7 @@
         "shared": "false",
         "default": ""
       },
-      "remainingOverageTime": 300
+      "remainingOverageTime": 3 
     },
     "action": {
       "description": "LLM agent response.",

@@ -86,16 +86,21 @@ def answerer_agent(obs):
 
 agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
 
+def limit_length(input, size):
+    return input[:size] if len(input) > size else input
+
 def guesser_action(active, inactive, step):
     guessed = False
     if not active.action:
         active.status = ERROR
     elif active.observation.turnType == ASK:
-        active.observation.questions.append(active.action)
-        inactive.observation.questions.append(active.action)
+        question = limit_length(active.action, 2000)
+        active.observation.questions.append(question)
+        inactive.observation.questions.append(question)
     elif active.observation.turnType == GUESS:
-        active.observation.guesses.append(active.action)
-        inactive.observation.guesses.append(active.action)
+        guess = limit_length(active.action, 100)
+        active.observation.guesses.append(guess)
+        inactive.observation.guesses.append(guess)
     if active.action and keyword_guessed(active.action):
         guessed = True
         score = 20 - int(step / 3)
@@ -165,15 +170,17 @@ def interpreter(state, env):
     step = state[0].observation.step
 
     end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
+    either_guessed = False
 
     if active1 is not None:
         guessed = False
         if active1.observation.role == GUESSER:
             guessed = guesser_action(active1, inactive1, step)
+            either_guessed = guessed
         else:
             answerer_action(active1, inactive1)
         if active1.status in (TIMEOUT, ERROR):
-            end_game(active1, inactive1, -1, active1.status, DONE)
+            end_game(active1, inactive1, 0, active1.status, DONE)
         elif end_early:
             end_game(active1, inactive1, 0, DONE, DONE)
         else:
@@ -183,15 +190,16 @@ def interpreter(state, env):
         guessed = False
         if active2.observation.role == GUESSER:
             guessed = guesser_action(active2, inactive2, step)
+            either_guessed = either_guessed or guessed
         else:
             answerer_action(active2, inactive2)
         if active2.status in (TIMEOUT, ERROR):
-            end_game(active2, inactive2, -1, active2.status, DONE)
+            end_game(active2, inactive2, 0, active2.status, DONE)
         elif end_early:
             end_game(active2, inactive2, 0, DONE, DONE)
         else:
             increment_turn(active2, inactive2, step, guessed)
-
+    
     return state
 
 
