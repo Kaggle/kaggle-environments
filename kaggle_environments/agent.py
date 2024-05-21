@@ -113,7 +113,7 @@ def build_agent(raw, builtin_agents, environment_name):
     raw_agent = raw
     if os.path.exists(raw):
         raw_agent = read_file(raw, raw)
-    elif (len(raw) < 100 and ("/" in raw or "\\" in raw)) or raw < 20:
+    elif (len(raw) < 100 and ("/" in raw or "\\" in raw)) or len(raw) < 20:
         raise FileNotFoundError("Could not find : " + raw)
 
     # Attempt to execute the last callable or just return the string.
