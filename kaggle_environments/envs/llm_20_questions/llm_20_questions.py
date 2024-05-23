@@ -167,15 +167,17 @@ def interpreter(state, env):
     step = state[0].observation.step
 
     end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
-    either_guessed = False
+    one_guessed = False
+    two_guessed = False
 
     if active1 is not None:
         guessed = False
         if active1.observation.role == GUESSER:
             guessed = guesser_action(active1, inactive1, step)
-            either_guessed = guessed
+            one_guessed = guessed
         else:
             answerer_action(active1, inactive1)
+
         if active1.status in (TIMEOUT, ERROR):
             end_game(active1, inactive1, 0, active1.status, DONE)
         elif end_early:
@@ -187,15 +189,23 @@ def interpreter(state, env):
         guessed = False
         if active2.observation.role == GUESSER:
             guessed = guesser_action(active2, inactive2, step)
-            either_guessed = either_guessed or guessed
+            two_guessed = guessed
         else:
             answerer_action(active2, inactive2)
+
         if active2.status in (TIMEOUT, ERROR):
             end_game(active2, inactive2, 0, active2.status, DONE)
         elif end_early:
             end_game(active2, inactive2, 0, DONE, DONE)
         else:
             increment_turn(active2, inactive2, step, guessed)
+    
+    # make sure to end the game if either team guessed
+    if one_guessed or two_guessed:
+        if one_guessed and not two_guessed:
+            end_game(active2, inactive2, 0, DONE, DONE)
+        elif two_guessed and not one_guessed:
+            end_game(active1, inactive1, 0, DONE, DONE)
     
     return state
 
