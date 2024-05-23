@@ -90,7 +90,7 @@ async function renderer(context) {
 
     const info = environment.info;
     const team1_text = info?.TeamNames?.[0] || "Team 1";
-    const team2_text = info?.TeamNames?.[1] || "Team 2";
+    const team2_text = info?.TeamNames?.[2] || "Team 2";
 
     const ctx = canvas.getContext("2d");
     const padding = 20;
@@ -112,12 +112,13 @@ async function renderer(context) {
 
     // Keyword Row
     ctx.fillText("Keyword: " + state[1].observation.keyword, label_x, line_height * line);
+    ctx.fillText("Round: " + Math.floor(step / 3 + 1), team2_x, line_height * line);
 
     line += 2;
 
     // Team Row
     ctx.fillText(team1_text, team1_x, line_height * line);
-    ctx.fillText(team2_text, team2_x, line_height *line);
+    ctx.fillText(team2_text, team2_x, line_height * line);
 
     line++;
 
