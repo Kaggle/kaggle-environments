@@ -200,12 +200,11 @@ def interpreter(state, env):
         else:
             increment_turn(active2, inactive2, step, guessed)
     
-    # make sure to end the game if either team guessed
-    if one_guessed or two_guessed:
-        if one_guessed and not two_guessed:
-            end_game(active2, inactive2, 0, DONE, DONE)
-        elif two_guessed and not one_guessed:
-            end_game(active1, inactive1, 0, DONE, DONE)
+    # make sure to end the game if only one team guessed correctly this round
+    if one_guessed and not two_guessed:
+        end_game(active2, inactive2, 0, DONE, DONE)
+    elif two_guessed and not one_guessed:
+        end_game(active1, inactive1, 0, DONE, DONE)
     
     return state
 
