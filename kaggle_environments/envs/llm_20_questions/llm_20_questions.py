@@ -42,7 +42,7 @@ alts = keyword_obj["alts"]
 def guesser_agent(obs):
     info_prompt = """You are playing a game of 20 questions where you ask the questions and try to figure out the keyword, which will be a real or fictional person, place, or thing. \nHere is what you know so far:\n{q_a_thread}"""
     questions_prompt = """Ask one yes or no question."""
-    guess_prompt = """Guess the keyword. Only respond with the exact word/phrase. For example, if you think the keyword is [paris], don't respond with [I think the keyword is paris] or [Is the kewyord Paris?]. Respond only with the word [paris]."""
+    guess_prompt = """Guess the keyword. Only respond with the exact word/phrase. For example, if you think the keyword is [paris], don't respond with [I think the keyword is paris] or [Is the keyword Paris?]. Respond only with the word [paris]."""
 
     q_a_thread = ""
     for i in range(0, len(obs.answers)):
