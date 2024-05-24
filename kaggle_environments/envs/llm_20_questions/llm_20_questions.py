@@ -29,7 +29,7 @@ TIMEOUT = "TIMEOUT"
 GUESS = "guess"
 ASK = "ask"
 GUESSER = "guesser"
-ANSWERER = "guesser"
+ANSWERER = "answerer"
 
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = random.choice(keywords_list)
