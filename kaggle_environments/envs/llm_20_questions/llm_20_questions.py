@@ -87,6 +87,8 @@ def answerer_agent(obs):
 agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
 
 def guesser_action(active, inactive, step):
+    inactive.observation.keyword = keyword
+    inactive.observation.category = category
     guessed = False
     if not active.action:
         active.status = ERROR
