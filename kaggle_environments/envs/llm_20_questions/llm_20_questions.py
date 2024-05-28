@@ -8,7 +8,7 @@ import torch
 from .keywords import KEYWORDS_JSON
 from os import path
 from pathlib import Path
-from random import choice
+from random import choice, random
 from string import Template
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
@@ -29,7 +29,9 @@ TIMEOUT = "TIMEOUT"
 GUESS = "guess"
 ASK = "ask"
 GUESSER = "guesser"
+RANDOM_GUESSER = "random_guesser"
 ANSWERER = "answerer"
+RANDOM_ANSWERER = "random_answerer"
 
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = random.choice(keywords_list)
@@ -68,6 +70,19 @@ def guesser_agent(obs):
     
     return call_llm(prompt)
 
+def random_guesser(obs):
+    if obs.turnType == GUESS:
+        return "banana"
+    if random() < .5:
+        return "Is is a person?"
+    if random() < .5:
+        return "Is it a place?"
+    return "Is it a thing?"
+
+def random_answerer():
+    if random() > .5:
+        return "yes"
+    return "no"
     
 
 def answerer_agent(obs):
@@ -84,7 +99,7 @@ def answerer_agent(obs):
         return ""
 
 
-agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
+agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent, RANDOM_ANSWERER: random_answerer, RANDOM_GUESSER: random_guesser}
 
 def guesser_action(active, inactive, step):
     inactive.observation.keyword = keyword
