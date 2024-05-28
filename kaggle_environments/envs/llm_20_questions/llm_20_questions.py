@@ -70,7 +70,9 @@ def guesser_agent(obs):
     
     return call_llm(prompt)
 
-def random_guesser():
+def random_guesser(obs):
+    if obs.turnType == GUESS:
+        return "banana"
     if random() < .5:
         return "Is is a person?"
     if random() < .5:
