@@ -103,40 +103,43 @@ def guesser_action(active, inactive, step):
     if active.action and keyword_guessed(active.action):
         guessed = True
         score = 20 - int(step / 3)
-        end_game(active, inactive, score, DONE, DONE)
+        end_game(active, score, DONE)
+        end_game(inactive, score, DONE)
     return guessed
 
-def end_game(active, inactive, reward, status, inactive_status):
-    active.observation.keyword = keyword
-    active.observation.category = category
-    inactive.observation.keyword = keyword
-    inactive.observation.category = category
-    active.reward = reward
-    inactive.reward = reward
-    active.status = status
-    inactive.status = inactive_status
-
+def end_game(agent, reward, status):
+    agent.observation.keyword = keyword
+    agent.observation.category = category
+    agent.reward = reward
+    agent.status = status
 
 def answerer_action(active, inactive):
     active.observation.keyword = keyword
     active.observation.category = category
     response = active.action
+    bad_response = False
     if not response:
         response = "none"
-        end_game(active, inactive, -1, ERROR, DONE)
+        end_game(active, -1, ERROR)
+        end_game(inactive, 1, DONE)
+        bad_response = True
     elif "yes" in response.lower():
         response = "yes"
     elif "no" in response.lower():
         response = "no"
     else:
         response = "maybe"
-        end_game(active, inactive, -1, ERROR, DONE)
+        end_game(active, -1, ERROR)
+        end_game(inactive, 1, DONE)
+        bad_response = True
     active.observation.answers.append(response)
     inactive.observation.answers.append(response)
+    return bad_response
 
 def increment_turn(active, inactive, step, guessed):
     if step == 59 and not guessed:
-        end_game(active, inactive, -1, DONE, DONE)
+        end_game(active, -1, DONE)
+        end_game(inactive, -1, DONE)
     elif active.observation.turnType == "guess":
         active.observation.turnType = "ask"
     elif active.observation.turnType == "ask":
@@ -171,42 +174,47 @@ def interpreter(state, env):
     end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
     one_guessed = False
     two_guessed = False
+    one_bad_response = False
+    two_bad_response = False
 
-    if active1 is not None:
-        guessed = False
-        if active1.observation.role == GUESSER:
-            guessed = guesser_action(active1, inactive1, step)
-            one_guessed = guessed
-        else:
-            answerer_action(active1, inactive1)
+    if active1 is None or active2 is None:
+        raise ValueError
 
-        if active1.status in (TIMEOUT, ERROR):
-            end_game(active1, inactive1, 0, active1.status, DONE)
-        elif end_early:
-            end_game(active1, inactive1, 0, DONE, DONE)
-        else:
-            increment_turn(active1, inactive1, step, guessed)
+    if active1.observation.role == GUESSER:
+        one_guessed = guesser_action(active1, inactive1, step)
+    else:
+        one_bad_response = answerer_action(active1, inactive1)
+
+    if active2.observation.role == GUESSER:
+        two_guessed = guesser_action(active2, inactive2, step)
+    else:
+        two_bad_response = answerer_action(active2, inactive2)
+
+    if active1.status in (TIMEOUT, ERROR) or one_bad_response:
+        end_game(active1, -1, active1.status)
+        end_game(inactive1, 1, DONE)
+    elif end_early or two_bad_response:
+        end_game(active1, 1, DONE)
+        end_game(inactive1, 1, DONE)
+    else:
+        increment_turn(active1, inactive1, step, one_guessed)
     
-    if active2 is not None:
-        guessed = False
-        if active2.observation.role == GUESSER:
-            guessed = guesser_action(active2, inactive2, step)
-            two_guessed = guessed
-        else:
-            answerer_action(active2, inactive2)
-
-        if active2.status in (TIMEOUT, ERROR):
-            end_game(active2, inactive2, 0, active2.status, DONE)
-        elif end_early:
-            end_game(active2, inactive2, 0, DONE, DONE)
-        else:
-            increment_turn(active2, inactive2, step, guessed)
+    if active2.status in (TIMEOUT, ERROR) or two_bad_response:
+        end_game(active2, -1, active2.status)
+        end_game(inactive2, 1, DONE)
+    elif end_early or one_bad_response:
+        end_game(active2, 1, DONE)
+        end_game(inactive2, 1, DONE)
+    else:
+        increment_turn(active2, inactive2, step, two_guessed)
     
     # make sure to end the game if only one team guessed correctly this round
     if one_guessed and not two_guessed:
-        end_game(active2, inactive2, 0, DONE, DONE)
+        end_game(active2, 0, DONE)
+        end_game(inactive2, 0, DONE)
     elif two_guessed and not one_guessed:
-        end_game(active1, inactive1, 0, DONE, DONE)
+        end_game(active1, 0, DONE)
+        end_game(inactive1, 0, DONE)
     
     return state
 
