@@ -31,12 +31,30 @@ ASK = "ask"
 GUESSER = "guesser"
 ANSWERER = "answerer"
 
+RANDOM_GUESSER = "random_guesser"
+RANDOM_ANSWERER = "random_answerer"
+
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = random.choice(keywords_list)
 category = keyword_cat["category"]
 keyword_obj = random.choice(keyword_cat["words"])
 keyword = keyword_obj["keyword"]
 alts = keyword_obj["alts"]
+
+
+def random_guesser(obs):
+    if obs.turnType == GUESS:
+        return "banana"
+    if random.random() < .5:
+        return "Is is a person?"
+    if random.random() < .5:
+        return "Is it a place?"
+    return "Is it a thing?"
+
+def random_answerer():
+    if random.random() > .5:
+        return "yes"
+    return "no"
 
 
 def guesser_agent(obs):
@@ -84,7 +102,7 @@ def answerer_agent(obs):
         return ""
 
 
-agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent}
+agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent, RANDOM_ANSWERER: random_answerer, RANDOM_GUESSER: random_guesser}
 
 def guesser_action(active, inactive, step):
     inactive.observation.keyword = keyword
