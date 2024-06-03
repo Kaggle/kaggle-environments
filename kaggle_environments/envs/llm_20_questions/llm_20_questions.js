@@ -89,10 +89,10 @@ async function renderer(context) {
     }
 
     const info = environment.info;
-    const team1_text = info?.TeamNames?.[0] || "Team 1";
-    const team1_text_two = info?.TeamNames?.[1] || "Team 1";
-    const team2_text = info?.TeamNames?.[2] || "Team 2";
-    const team2_text_two = info?.TeamNames?.[3] || "Team 2";
+    const team1_text = info?.TeamNames?.[0] || "Team 1 Agent 1";
+    const team1_text_two = info?.TeamNames?.[1] || "Team 1 Agent 2";
+    const team2_text = info?.TeamNames?.[2] || "Team 2 Agent 1";
+    const team2_text_two = info?.TeamNames?.[3] || "Team 2 Agent 2";
 
     const ctx = canvas.getContext("2d");
     const padding = 20;
