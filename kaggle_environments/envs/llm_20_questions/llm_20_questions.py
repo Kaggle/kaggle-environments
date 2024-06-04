@@ -108,8 +108,10 @@ def guesser_action(active, inactive, step):
     inactive.observation.keyword = keyword
     inactive.observation.category = category
     guessed = False
+    bad_guess = False
     if not active.action:
         active.status = ERROR
+        bad_guess = True
     elif active.observation.turnType == ASK:
         question = active.action[:2000]
         active.observation.questions.append(question)
@@ -123,7 +125,7 @@ def guesser_action(active, inactive, step):
         score = 20 - int(step / 3)
         end_game(active, score, DONE)
         end_game(inactive, score, DONE)
-    return guessed
+    return [guessed, bad_guess]
 
 def end_game(agent, reward, status):
     agent.observation.keyword = keyword
@@ -192,6 +194,8 @@ def interpreter(state, env):
     end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
     one_guessed = False
     two_guessed = False
+    one_bad_guess = False
+    two_bad_guess = False
     one_bad_response = False
     two_bad_response = False
 
@@ -199,28 +203,28 @@ def interpreter(state, env):
         raise ValueError
 
     if active1.observation.role == GUESSER:
-        one_guessed = guesser_action(active1, inactive1, step)
+        [one_guessed, one_bad_guess] = guesser_action(active1, inactive1, step)
     else:
         one_bad_response = answerer_action(active1, inactive1)
 
     if active2.observation.role == GUESSER:
-        two_guessed = guesser_action(active2, inactive2, step)
+        [two_guessed, two_bad_guess] = guesser_action(active2, inactive2, step)
     else:
         two_bad_response = answerer_action(active2, inactive2)
 
-    if active1.status in (TIMEOUT, ERROR) or one_bad_response:
+    if active1.status in (TIMEOUT, ERROR) or one_bad_response or one_bad_guess:
         end_game(active1, -1, active1.status)
         end_game(inactive1, 1, DONE)
-    elif end_early or two_bad_response:
+    elif end_early or two_bad_response or two_bad_guess:
         end_game(active1, 1, DONE)
         end_game(inactive1, 1, DONE)
     else:
         increment_turn(active1, inactive1, step, one_guessed)
     
-    if active2.status in (TIMEOUT, ERROR) or two_bad_response:
+    if active2.status in (TIMEOUT, ERROR) or two_bad_response or two_bad_guess:
         end_game(active2, -1, active2.status)
         end_game(inactive2, 1, DONE)
-    elif end_early or one_bad_response:
+    elif end_early or one_bad_response or one_bad_guess:
         end_game(active2, 1, DONE)
         end_game(inactive2, 1, DONE)
     else:

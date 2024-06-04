@@ -6,6 +6,15 @@ def custom_questioner(obs):
         return "banana"
     return "Is it a banana?"
 
+def last_round_guesser_error(obs):
+    if obs.turnType == "guess" and len(obs.questions) == 20:
+         a = 1
+         b = 0
+         return a / b
+    if obs.turnType == "guess":
+        return "banana"
+    return "Is it a banana?"
+
 def custom_answerer():
     return "no"
 
@@ -39,7 +48,6 @@ def test_llm_20_q_errors_on_error_answer():
     assert json["name"] == "llm_20_questions"
     assert json["rewards"] == [1, 1, 1, None]
     assert json["statuses"] == ["DONE", "DONE", "DONE", "ERROR"]
-    print(len(json["steps"]))
     assert len(json["steps"]) == 3
 
 def test_llm_20_q_errors_on_error_question():
@@ -49,5 +57,12 @@ def test_llm_20_q_errors_on_error_question():
     assert json["name"] == "llm_20_questions"
     assert json["rewards"] == [1, 1, None, 1]
     assert json["statuses"] == ["DONE", "DONE", "ERROR", "DONE"]
-    print(len(json["steps"]))
     assert len(json["steps"]) == 2
+
+def test_llm_20_q_errors_on_error_last_guess():
+    env = make("llm_20_questions", debug=True)
+    env.run([custom_questioner, custom_answerer, last_round_guesser_error, custom_answerer])
+    json = env.toJSON()
+    assert json["name"] == "llm_20_questions"
+    assert json["rewards"] == [1, 1, None, 1]
+    assert json["statuses"] == ["DONE", "DONE", "ERROR", "DONE"]
