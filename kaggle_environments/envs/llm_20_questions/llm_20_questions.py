@@ -194,6 +194,8 @@ def interpreter(state, env):
     end_early = (active1 and active1.status) in (TIMEOUT, ERROR) or (active2 and active2.status in (TIMEOUT, ERROR))
     one_guessed = False
     two_guessed = False
+    one_bad_guess = False
+    two_bad_guess = False
     one_bad_response = False
     two_bad_response = False
 
