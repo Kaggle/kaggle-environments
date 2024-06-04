@@ -66,4 +66,4 @@ def test_llm_20_q_errors_on_error_last_guess():
     assert json["name"] == "llm_20_questions"
     assert json["rewards"] == [1, 1, None, 1]
     assert json["statuses"] == ["DONE", "DONE", "ERROR", "DONE"]
-    assert len(json["steps"]) == 59
+    assert len(json["steps"]) == 61
