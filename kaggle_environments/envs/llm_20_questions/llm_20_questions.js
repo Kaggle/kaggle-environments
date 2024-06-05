@@ -116,7 +116,7 @@ async function renderer(context) {
     ctx.fillText("Keyword: " + state[1].observation.keyword, label_x, line_height * line);
     ctx.fillText("Round: " + Math.floor(step / 3 + 1), team2_x, line_height * line);
 
-    line += 2;
+    line++;
 
     // Team Row
     ctx.fillText(team1_text, team1_x, line_height * line);
