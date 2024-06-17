@@ -274,17 +274,32 @@ def html_renderer():
         return f.read()
 
 
-def keyword_guessed(guess: str) -> bool:
-    def normalize(s: str) -> str:
-      t = str.maketrans("", "", string.punctuation)
-      return s.lower().replace("the", "").replace(" ", "").translate(t)
+def normalize(s: str) -> str:
+    t = str.maketrans("", "", string.punctuation)
+    return s.lower().replace("the", "").replace(" ", "").translate(t)
 
-    if normalize(guess) == normalize(keyword):
+def compare_words(a, b) -> bool:
+    a = normalize(a)
+    b = normalize(b)
+    if a == b:
+        return True
+    # accept common plurals
+    if a[-1] == "s" and a[:-1] == b:
+        return True
+    if b[-1] == "s" and a == b[:-1]:
+        return True
+    if a[-2:] == "es" and a[:-2] == b:
+        return True
+    if b[-2:] == "es" and a == b[:-2]:
+        return True
+    return False
+
+def keyword_guessed(guess: str) -> bool:
+    if compare_words(guess, keyword):
       return True
     for s in alts:
-      if normalize(s) == normalize(guess):
+      if compare_words(s, guess):
         return True
-
     return False
 
 
