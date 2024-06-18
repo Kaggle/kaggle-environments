@@ -283,6 +283,9 @@ def compare_words(a, b) -> bool:
     b = normalize(b)
     if a == b:
         return True
+    # don't check for plurals if string is too short
+    if len(a) < 3 or len(b) < 3:
+        return False
     # accept common plurals
     if a[-1] == "s" and a[:-1] == b:
         return True
