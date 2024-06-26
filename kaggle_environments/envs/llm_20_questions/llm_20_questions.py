@@ -4,7 +4,6 @@ import pandas as pd
 import random
 import string
 import torch
-import math
 
 from .keywords import KEYWORDS_JSON
 from os import path
