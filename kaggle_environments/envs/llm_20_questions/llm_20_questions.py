@@ -36,10 +36,9 @@ RANDOM_GUESSER = "random_guesser"
 RANDOM_ANSWERER = "random_answerer"
 
 def weighted_random_category(keywords_list):
-    try:   
-        return random.choice(keywords_list, weights=[len(entry["words"]) for entry in keywords_list], k=1)[0]
+    try:
+        return random.choices(population=keywords_list, weights=[len(entry["words"]) for entry in keywords_list], k=1)[0]
     except:
-        print("FAIL")
         pass
     return random.choice(keywords_list)
 
