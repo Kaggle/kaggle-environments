@@ -36,14 +36,11 @@ RANDOM_GUESSER = "random_guesser"
 RANDOM_ANSWERER = "random_answerer"
 
 def weighted_random_category(keywords_list):
-    cat_words = [[cat_entry, len(cat_entry["words"])] for cat_entry in keywords_list]
-    total_weight = sum([entry[1] for entry in cat_words])
-    cat = math.floor(random.random() * total_weight)
-    total = 0
-    for entry in cat_words:
-        total = total + entry[1]
-        if total >= cat:
-            return entry[0]
+    try:   
+        return random.choice(keywords_list, weights=[len(entry["words"]) for entry in keywords_list], k=1)[0]
+    except:
+        print("FAIL")
+        pass
     return random.choice(keywords_list)
 
 keywords_list = json.loads(KEYWORDS_JSON)
