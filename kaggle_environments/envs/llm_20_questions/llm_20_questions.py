@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import string
 import torch
+import math
 
 from .keywords import KEYWORDS_JSON
 from os import path
@@ -34,8 +35,20 @@ ANSWERER = "answerer"
 RANDOM_GUESSER = "random_guesser"
 RANDOM_ANSWERER = "random_answerer"
 
+def weighted_random_category(keywords_list):
+    cat_words = [[cat_entry, len(cat_entry["words"])] for cat_entry in keywords_list]
+    total_weight = sum([entry[1] for entry in cat_words])
+    cat = math.floor(random.random() * total_weight)
+    print("TOTAL WEIGHT", total_weight)
+    total = 0
+    for entry in cat_words:
+        total = total + entry[1]
+        if total >= cat:
+            return entry[0]
+    return random.choice(keywords_list)
+
 keywords_list = json.loads(KEYWORDS_JSON)
-keyword_cat = random.choice(keywords_list)
+keyword_cat = weighted_random_category(keywords_list)
 category = keyword_cat["category"]
 keyword_obj = random.choice(keyword_cat["words"])
 keyword = keyword_obj["keyword"]
@@ -45,7 +58,7 @@ try:
     with open("/data.json") as f:
         json_content = f.read()
         d_keywords_list = json.loads(json_content)
-        d_keyword_cat = random.choice(d_keywords_list)
+        d_keyword_cat = weighted_random_category(d_keywords_list)
         d_category = d_keyword_cat["category"]
         d_keyword_obj = random.choice(d_keyword_cat["words"])
         d_keyword = d_keyword_obj["keyword"]
