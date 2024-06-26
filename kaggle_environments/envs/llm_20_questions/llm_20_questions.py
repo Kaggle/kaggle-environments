@@ -49,7 +49,7 @@ keyword = keyword_obj["keyword"]
 alts = keyword_obj["alts"]
 
 try:
-    with open("/data.json") as f:
+    with open("/kaggle_simulations/data.json") as f:
         json_content = f.read()
         d_keywords_list = json.loads(json_content)
         d_keyword_cat = weighted_random_category(d_keywords_list)
