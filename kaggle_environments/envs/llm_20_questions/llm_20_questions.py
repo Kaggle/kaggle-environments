@@ -41,6 +41,22 @@ keyword_obj = random.choice(keyword_cat["words"])
 keyword = keyword_obj["keyword"]
 alts = keyword_obj["alts"]
 
+try:
+    with open("/data.json") as f:
+        json_content = f.read()
+        d_keywords_list = json.loads(json_content)
+        d_keyword_cat = random.choice(d_keywords_list)
+        d_category = d_keyword_cat["category"]
+        d_keyword_obj = random.choice(d_keyword_cat["words"])
+        d_keyword = d_keyword_obj["keyword"]
+        d_alts = d_keyword_obj["alts"]
+        # re-assign
+        category = d_category
+        keyword = d_keyword
+        alts = d_alts
+except:
+    pass
+
 
 def random_guesser(obs):
     if obs.turnType == GUESS:
