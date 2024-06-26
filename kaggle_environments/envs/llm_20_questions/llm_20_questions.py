@@ -39,7 +39,6 @@ def weighted_random_category(keywords_list):
     cat_words = [[cat_entry, len(cat_entry["words"])] for cat_entry in keywords_list]
     total_weight = sum([entry[1] for entry in cat_words])
     cat = math.floor(random.random() * total_weight)
-    print("TOTAL WEIGHT", total_weight)
     total = 0
     for entry in cat_words:
         total = total + entry[1]
