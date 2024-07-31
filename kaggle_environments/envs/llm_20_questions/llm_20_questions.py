@@ -136,7 +136,7 @@ def guesser_action(active, inactive, step):
         active.status = ERROR
         bad_guess = True
     elif active.observation.turnType == ASK:
-        question = active.action[:2000]
+        question = active.action[:750]
         active.observation.questions.append(question)
         inactive.observation.questions.append(question)
     elif active.observation.turnType == GUESS:
