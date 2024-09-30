@@ -14,9 +14,9 @@ __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
 
 
-import vec_noise
+# import vec_noise
 
-from luxai_s2.env import LuxAI_S2
+from luxai_s3.wrappers import LuxAIS3GymEnv
 import numpy as np
 
 import copy
@@ -36,7 +36,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: LuxAI_S2 = LuxAI_S2(verbose=0, validate_action_space=True, collect_stats=True)
+luxenv: LuxAIS3GymEnv = LuxAIS3GymEnv(numpy_output=True)
 prev_obs = None
 state_obs = None
 default_env_cfg = None
@@ -60,7 +60,7 @@ def interpreter(state, env):
         if "max_episode_length" in env.configuration:
             max_episode_length = int(env.configuration["max_episode_length"])
         else:
-            max_episode_length = 1000
+            max_episode_length = 500
 
         
         if default_env_cfg is None:
@@ -79,9 +79,11 @@ def interpreter(state, env):
             default_env_cfg = parsed_env_config
         else:
             parsed_env_config = default_env_cfg
-        luxenv = LuxAI_S2(validate_action_space=True, collect_stats=True, **parsed_env_config)
-        _, _ = luxenv.reset(seed=seed)
-        state_obs = luxenv.state.get_compressed_obs()
+        # luxenv = LuxAIS3GymEnv(numpy_output=True, **parsed_env_config)
+        luxenv = LuxAIS3GymEnv(numpy_output=True)
+        obs, _ = luxenv.reset(seed=seed)
+        # state_obs = luxenv.state.get_compressed_obs()
+        import ipdb; ipdb.set_trace()
 
         env_cfg_json = dataclasses.asdict(luxenv.env_cfg)
 
@@ -90,10 +92,11 @@ def interpreter(state, env):
         player_0.observation.player = "player_0"
         player_1.observation.player = "player_1"
         # TODO add observation optimizations here later
-        player_0.observation.obs = json.dumps(to_json(state_obs))
+        player_0.observation.obs = json.dumps(to_json(obs["player_0"]))
+        player_1.observation.obs = json.dumps(to_json(obs["player_1"]))
         
-        player_0.observation.width = luxenv.state.board.width
-        player_0.observation.height = luxenv.state.board.height
+        # player_0.observation.width = luxenv.state.board.width
+        # player_0.observation.height = luxenv.state.board.height
         return state
 
     new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
@@ -107,11 +110,13 @@ def interpreter(state, env):
     player_0.observation.player = "player_0"
     player_1.observation.player = "player_1"
 
-    player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
-    state_obs = new_state_obs["player_0"]
+    # player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
+    # state_obs = new_state_obs["player_0"]
+    player_0.observation.obs = json.dumps(to_json(new_state_obs["player_0"]))
+    player_1.observation.obs = json.dumps(to_json(new_state_obs["player_1"]))
     
-    player_0.observation.width = luxenv.state.board.width
-    player_0.observation.height = luxenv.state.board.height
+    # player_0.observation.width = luxenv.state.board.width
+    # player_0.observation.height = luxenv.state.board.height
 
     player_0.reward = int(rewards["player_0"])
     player_1.reward = int(rewards["player_1"])
@@ -123,8 +128,8 @@ def interpreter(state, env):
         if player_1.status == "ACTIVE":
             player_1.status = "DONE"
         
-        player_0.observation.stats = to_json(luxenv.state.stats["player_0"])
-        player_1.observation.stats = to_json(luxenv.state.stats["player_1"])
+        # player_0.observation.stats = to_json(luxenv.state.stats["player_0"])
+        # player_1.observation.stats = to_json(luxenv.state.stats["player_1"])
     return state
 
 def renderer(state, env):
@@ -132,7 +137,7 @@ def renderer(state, env):
 
 
 dir_path = path.dirname(__file__)
-json_path = path.abspath(path.join(dir_path, "lux_ai_s2.json"))
+json_path = path.abspath(path.join(dir_path, "lux_ai_s3.json"))
 with open(json_path) as json_file:
     specification = json.load(json_file)
 
