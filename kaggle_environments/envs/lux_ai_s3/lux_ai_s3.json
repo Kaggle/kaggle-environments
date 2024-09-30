@@ -9,7 +9,7 @@
       "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 500
+      "default": 10
     },
     "seed": {
       "description": "Seed to use for episodes",

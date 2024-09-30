@@ -36,7 +36,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: LuxAIS3GymEnv = LuxAIS3GymEnv(numpy_output=True)
+luxenv: LuxAIS3GymEnv = None # LuxAIS3GymEnv(numpy_output=True)
 prev_obs = None
 state_obs = None
 default_env_cfg = None
@@ -82,27 +82,27 @@ def interpreter(state, env):
         # luxenv = LuxAIS3GymEnv(numpy_output=True, **parsed_env_config)
         luxenv = LuxAIS3GymEnv(numpy_output=True)
         obs, _ = luxenv.reset(seed=seed)
-        # state_obs = luxenv.state.get_compressed_obs()
-        import ipdb; ipdb.set_trace()
 
-        env_cfg_json = dataclasses.asdict(luxenv.env_cfg)
+        env_cfg_json = dataclasses.asdict(luxenv.env_params)
 
         env.configuration.env_cfg = env_cfg_json
         
         player_0.observation.player = "player_0"
         player_1.observation.player = "player_1"
-        # TODO add observation optimizations here later
-        player_0.observation.obs = json.dumps(to_json(obs["player_0"]))
-        player_1.observation.obs = json.dumps(to_json(obs["player_1"]))
+        player_0.observation.obs = ""#json.dumps(to_json(obs["player_0"]))
+        player_1.observation.obs = ""#json.dumps(to_json(obs["player_1"]))
         
         # player_0.observation.width = luxenv.state.board.width
         # player_0.observation.height = luxenv.state.board.height
         return state
-
     new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
-        "player_0": player_0.action,
-        "player_1": player_1.action
+        "player_0": np.array(player_0.action["action"]),
+        "player_1": np.array(player_1.action["action"])
     })
+    # cannot store np arrays in replay jsons so must convert to list
+    player_0.action = player_0.action["action"].tolist()
+    player_1.action = player_1.action["action"].tolist()
+    
     dones = dict()
     for k in terminations:
         dones[k] = terminations[k] | truncations[k]
@@ -112,8 +112,8 @@ def interpreter(state, env):
 
     # player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
     # state_obs = new_state_obs["player_0"]
-    player_0.observation.obs = json.dumps(to_json(new_state_obs["player_0"]))
-    player_1.observation.obs = json.dumps(to_json(new_state_obs["player_1"]))
+    player_0.observation.obs = ""#json.dumps(to_json(new_state_obs["player_0"]))
+    player_1.observation.obs = ""#json.dumps(to_json(new_state_obs["player_1"]))
     
     # player_0.observation.width = luxenv.state.board.width
     # player_0.observation.height = luxenv.state.board.height
@@ -127,9 +127,6 @@ def interpreter(state, env):
             player_0.status = "DONE"
         if player_1.status == "ACTIVE":
             player_1.status = "DONE"
-        
-        # player_0.observation.stats = to_json(luxenv.state.stats["player_0"])
-        # player_1.observation.stats = to_json(luxenv.state.stats["player_1"])
     return state
 
 def renderer(state, env):
