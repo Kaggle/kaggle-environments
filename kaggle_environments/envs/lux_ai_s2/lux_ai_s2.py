@@ -14,8 +14,6 @@ __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
 
 
-import vec_noise
-
 from luxai_s2.env import LuxAI_S2
 import numpy as np
 
