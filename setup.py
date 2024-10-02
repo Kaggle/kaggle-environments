@@ -51,7 +51,6 @@ setup(
         "Flask >= 1.1.2",
         "numpy >= 1.19.5",
         "requests >= 2.25.1",
-        "vec-noise >= 1.1.4",
         "pettingzoo == 1.24.0",
         "gymnasium == 0.29.0",
         "stable-baselines3 == 2.1.0",

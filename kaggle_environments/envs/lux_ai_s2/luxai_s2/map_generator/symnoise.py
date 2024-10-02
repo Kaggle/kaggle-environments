@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 
 import numpy as np
-from vec_noise import snoise2
 
 
 def symmetrize(x, symmetry="vertical"):
@@ -91,6 +90,8 @@ class SymmetricNoise(object):
         x = x + self.noise_shift
 
         x, y = np.meshgrid(x, y)
+        # importing here because vec_noise causes import issues in cloud functions
+        from vec_noise import snoise2
         total = snoise2(x, y, octaves=self.octaves)
         symmetrize(total, self.symmetry)
         # Normalize between [0, 1]
