@@ -18,9 +18,9 @@ from .agent import Agent
 from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
 from .core import *
 from .main import http_request
-from . import errorshttps://github.com/Kaggle/kaggleazure/pull/31690
+from . import errors
 
-__version__ = "1.14.16"
+__version__ = "1.14.17"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
