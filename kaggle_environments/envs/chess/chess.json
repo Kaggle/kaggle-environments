@@ -1,0 +1,71 @@
+{
+    "name": "chess",
+    "title": "Chess",
+    "description": "Classic Chess with full ruleset",
+    "version": "1.0.0",
+    "agents": [2],
+    "configuration": {
+      "episodeSteps": 1000,
+      "actTimeout": 1,
+      "agentTimeout": {
+        "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+        "type": "number",
+        "minimum": 0,
+        "default": 60
+      }
+    },
+    "reward": {
+      "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
+      "enum": [-1, 0, 1],
+      "default": 0
+    },
+    "observation": {
+      "board": {
+        "description": "FEN string representation of the board",
+        "type": "string",
+        "shared": true,
+        "default": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+      },
+      "legal_moves": {
+        "description": "Array of legal moves in UCI notation",
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": ["g1h3",
+        "g1f3",
+        "b1c3",
+        "b1a3",
+        "h2h3",
+        "g2g3",
+        "f2f3",
+        "e2e3",
+        "d2d3",
+        "c2c3",
+        "b2b3",
+        "a2a3",
+        "h2h4",
+        "g2g4",
+        "f2f4",
+        "e2e4",
+        "d2d4",
+        "c2c4",
+        "b2b4",
+        "a2a4"]
+      },
+      "mark": {
+        "description": "Player color, white or black",
+        "defaults": ["white", "black"],
+        "enum": ["white", "black"]
+      },
+      "remainingOverageTime": 60 
+    },
+    "action": {
+      "description": "Move in UCI notation (e.g., e2e4)",
+      "type": "string",
+      "default": "e4"
+    },
+    "status": {
+      "defaults": ["ACTIVE", "INACTIVE"]
+    }
+  }
