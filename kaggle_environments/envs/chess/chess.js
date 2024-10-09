@@ -19,7 +19,6 @@ async function renderer(context) {
     if (!canvas) {
       canvas = document.createElement("canvas");
       parent.appendChild(canvas);   
-  
     }
   
     // Canvas setup and reset.
@@ -27,7 +26,6 @@ async function renderer(context) {
     canvas.width = canvasSize;
     canvas.height = canvasSize;
     c.clearRect(0, 0, canvas.width, canvas.height);   
-  
   
     // Draw the Chessboard
     for (let row = 0; row < 8; row++) {
@@ -47,21 +45,19 @@ async function renderer(context) {
     const boardObj = chess.board();
 
     for (let row = 0; row < 8; row++) {
-    for (let col = 0; col < 8; col++) {
-        const piece = boardObj[row][col]
-        if (piece) {
-        const x = col * squareSize + offset;
-        const y = row * squareSize + offset;
-        drawPiece(c, piece.type, piece.color, x, y, squareSize);
+        for (let col = 0; col < 8; col++) {
+            const piece = boardObj[row][col]
+            if (piece) {
+                const x = col * squareSize + offset;
+                const y = row * squareSize + offset;
+                drawPiece(c, piece.type, piece.color, x, y, squareSize);
+            }
         }
     }
-    }
-    
   }
   
   // Helper function to draw individual pieces (replace with your own images/logic)
   function drawPiece(c, type, color, x, y, size) {
-    console.log(type, color, x, y, size);
     const pieceCode = color === 'w' ? type.toUpperCase() : type.toLowerCase();
     // Unicode characters for chess pieces
     const pieceSymbols = {

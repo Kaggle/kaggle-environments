@@ -3,13 +3,14 @@ import random
 import json
 from os import path
 
+ERROR = "ERROR"
+DONE = "DONE"
+INACTIVE = "INACTIVE"
+ACTIVE = "ACTIVE"
+
 def random_agent(obs):
   """
   Selects a random legal move from the board.
-
-  Args:
-    obs: The observation provided by the environment, including the `legal_moves` list.
-
   Returns:
     A string representing the chosen move in UCI notation (e.g., "e2e4").
   """
@@ -25,16 +26,15 @@ def interpreter(state, env):
         return state
 
     # Isolate the active and inactive agents.
-    active = state[0] if state[0].status == "ACTIVE" else state[1]
-    inactive = state[0] if state[0].status == "INACTIVE" else state[1]
-    if active.status != "ACTIVE" or inactive.status != "INACTIVE":
-        active.status = "DONE" if active.status == "ACTIVE" else active.status
-        inactive.status = "DONE" if inactive.status == "INACTIVE" else inactive.status
+    active = state[0] if state[0].status == ACTIVE else state[1]
+    inactive = state[0] if state[0].status == INACTIVE else state[1]
+    if active.status != ACTIVE or inactive.status != INACTIVE:
+        active.status = DONE if active.status == ACTIVE else active.status
+        inactive.status = DONE if inactive.status == INACTIVE else inactive.status
         return state
 
     # The board is shared, only update the first state.
     board = state[0].observation.board
- 
 
     # Create a chess board object from the FEN string
     board_obj = chess.Board(board)
@@ -47,9 +47,10 @@ def interpreter(state, env):
         move = chess.Move.from_uci(action)
         if move not in board_obj.legal_moves:
             raise ValueError("Illegal move") 
-    except ValueError:
-        active.status = f"Invalid move: {action}"
-        inactive.status = "DONE"
+    except:
+        active.status = ERROR
+        active.reward = -1
+        inactive.status = DONE
         return state
 
     # Make the move
@@ -62,22 +63,22 @@ def interpreter(state, env):
     # Check for game end conditions
     if board_obj.is_checkmate():
         active.reward = 1
-        active.status = "DONE"
+        active.status = DONE
         inactive.reward = -1
-        inactive.status = "DONE"
+        inactive.status = DONE
     elif board_obj.is_stalemate() or board_obj.is_insufficient_material() or board_obj.is_game_over():
-        active.status = "DONE"
-        inactive.status = "DONE"
+        active.status = DONE
+        inactive.status = DONE
     else:
         # Switch turns
-        active.status = "INACTIVE"
-        inactive.status = "ACTIVE"
+        active.status = INACTIVE
+        inactive.status = ACTIVE
 
     return state
 
 def renderer(state, env):
-  board_str = state[0].observation.board  # Get the FEN string
-  board_obj = chess.Board(board_str)  # Create a chess.Board object
+  board_str = state[0].observation.board
+  board_obj = chess.Board(board_str)
 
   # Unicode characters for chess pieces
   piece_symbols = {

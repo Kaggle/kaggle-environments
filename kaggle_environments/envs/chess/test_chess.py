@@ -1,4 +1,3 @@
-
 from kaggle_environments import make
 from .agents import random_agent
 
