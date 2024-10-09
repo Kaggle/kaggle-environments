@@ -5,7 +5,7 @@ from os import path
 
 def random_agent(obs):
   """
-  Selects a random legal move from the observation.
+  Selects a random legal move from the board.
 
   Args:
     obs: The observation provided by the environment, including the `legal_moves` list.
@@ -13,7 +13,10 @@ def random_agent(obs):
   Returns:
     A string representing the chosen move in UCI notation (e.g., "e2e4").
   """
-  return random.choice(obs.legal_moves)
+  board = obs.board
+  board_obj = chess.Board(board)
+  moves = list(board_obj.legal_moves)
+  return random.choice(moves).uci()
 
 agents = {"random": random_agent}
 
@@ -55,10 +58,6 @@ def interpreter(state, env):
     # Update the board in the observation
     state[0].observation.board = board_obj.fen() 
     state[1].observation.board = board_obj.fen()
-
-    # Update legal moves for both players
-    state[0].observation.legal_moves = [move.uci() for move in board_obj.legal_moves]
-    state[1].observation.legal_moves = [move.uci() for move in board_obj.legal_moves]
 
     # Check for game end conditions
     if board_obj.is_checkmate():

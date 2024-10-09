@@ -10,7 +10,7 @@ async function renderer(context) {
   
     // Common Dimensions.
     const canvasSize = Math.min(height, width);
-    const boardSize = canvasSize * 0.8; // Slightly smaller than the canvas
+    const boardSize = canvasSize * 0.8;
     const squareSize = boardSize / 8;
     const offset = (canvasSize - boardSize) / 2;
   
@@ -43,15 +43,12 @@ async function renderer(context) {
   
     // Draw the Pieces
     const board = environment.steps[step][0].observation.board;
-    const chess = new Chess();
-    chess.load(board);
+    const chess = new Chess(board);
+    const boardObj = chess.board();
 
-    const aCharCode = "a".charCodeAt(0);
     for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-        const square = String.fromCharCode(aCharCode + col).toString() + (row + 1).toString();
-        const piece = chess.get(square)
-        console.log("PIECE", piece)
+        const piece = boardObj[row][col]
         if (piece) {
         const x = col * squareSize + offset;
         const y = row * squareSize + offset;
@@ -72,9 +69,9 @@ async function renderer(context) {
         'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
     };
   
-    c.font = `${size * .8}px Arial`; // Adjust font size as needed
+    c.font = `${size * .8}px Arial`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillStyle = color === 'w' ? 'black' : 'white'; // Example colors
+    c.fillStyle = color === 'w' ? 'white' : 'black';
     c.fillText(pieceSymbols[pieceCode], x + size / 2, y + size / 2);
   }
