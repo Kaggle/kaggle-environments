@@ -2,13 +2,15 @@ async function renderer(context) {
     const {
       environment,
       frame,
-      height = 400,
+      height = 800,
       parent,
       step,
-      width = 400,
+      width = 1200,
     } = context;
   
     // Common Dimensions.
+    const maxWidth = 1200;
+    const maxHeight = 800;
     const canvasSize = Math.min(height, width);
     const boardSize = canvasSize * 0.8;
     const squareSize = boardSize / 8;
@@ -23,8 +25,8 @@ async function renderer(context) {
   
     // Canvas setup and reset.
     let c = canvas.getContext("2d");
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
+    canvas.width = Math.min(maxWidth, width);
+    canvas.height = Math.min(maxHeight, height);
     c.clearRect(0, 0, canvas.width, canvas.height);   
   
     // Draw the Chessboard
@@ -61,8 +63,8 @@ async function renderer(context) {
     const pieceCode = color === 'w' ? type.toUpperCase() : type.toLowerCase();
     // Unicode characters for chess pieces
     const pieceSymbols = {
-        'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔',
-        'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+        'P': 'P', 'R': 'R', 'N': 'N', 'B': 'B', 'Q': 'Q', 'K': 'K',
+        'p': 'p', 'r': 'r', 'n': 'n', 'b': 'b', 'q': 'q', 'k': 'k',
     };
   
     c.font = `${size * .8}px Arial`;
