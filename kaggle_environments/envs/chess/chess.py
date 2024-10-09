@@ -45,7 +45,7 @@ def interpreter(state, env):
     # Check if the move is legal
     try:
         move = chess.Move.from_uci(action)
-        if move not in board_obj.legal_moves:
+        if not board_obj.is_legal(move):
             raise ValueError("Illegal move") 
     except:
         active.status = ERROR
