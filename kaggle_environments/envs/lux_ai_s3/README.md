@@ -9,7 +9,7 @@ kaggle-environments run --environment lux_ai_s3 --agents path/to/bot/main.py pat
 ```
 
 ```
-kaggle-environments run --environment lux_ai_s3 --agents ../Lux-Design-2022/kits/js/main.py ../Lux-Design-2022/kits/js/main.py --render '{"mode": "json"}' --out out.json --debug=True
+kaggle-environments run --environment lux_ai_s3 --agents ../LuxAI/Lux-Design-S3/kits/python/main.py ../LuxAI/Lux-Design-S3/kits/python/main.py --render '{"mode": "json"}' --out out.json --debug=True
 ```
 <!-- 
 ## Packaging external packages locally

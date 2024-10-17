@@ -9,5 +9,5 @@ try:
     )
 except:
     TERM_COLORS = False
-    print("termcolor not installed, skipping dependency")
+    # print("termcolor not installed, skipping dependency")
     pass

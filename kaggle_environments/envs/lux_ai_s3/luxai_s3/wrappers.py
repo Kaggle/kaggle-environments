@@ -9,7 +9,7 @@ import gymnax
 import gymnax.environments.spaces
 import jax
 import numpy as np
-
+import dataclasses
 from luxai_s3.env import LuxAIS3Env
 from luxai_s3.params import EnvParams, env_params_ranges
 from luxai_s3.state import serialize_env_actions, serialize_env_states
@@ -26,7 +26,7 @@ class LuxAIS3GymEnv(gym.Env):
         # print("Running compilation steps")
         key = jax.random.key(0)
         # Reset the environment
-        dummy_env_params = EnvParams(map_type=0)
+        dummy_env_params = EnvParams(map_type=1)
         key, reset_key = jax.random.split(key)
         obs, state = self.jax_env.reset(reset_key, params=dummy_env_params)
         # Take a random action
@@ -39,9 +39,13 @@ class LuxAIS3GymEnv(gym.Env):
                 subkey, state, action, params=dummy_env_params
             )
         # print("Finish compilation steps")
+        low = np.zeros((self.env_params.max_units, 3))
+        low[:, 1:] = -self.env_params.unit_sap_range
+        high = np.ones((self.env_params.max_units, 3)) * 6
+        high[:, 1:] = self.env_params.unit_sap_range
         self.action_space = gym.spaces.Dict(dict(
-            player_0=gym.spaces.MultiDiscrete(np.ones(self.env_params.max_units) * 5),
-            player_1=gym.spaces.MultiDiscrete(np.ones(self.env_params.max_units) * 5)
+            player_0=gym.spaces.Box(low=low, high=high, dtype=np.int16),
+            player_1=gym.spaces.Box(low=low, high=high, dtype=np.int16)
         ))
     
     def render(self):
@@ -54,7 +58,11 @@ class LuxAIS3GymEnv(gym.Env):
         self.rng_key, reset_key = jax.random.split(self.rng_key)
         # generate random game parameters
         # TODO (stao): check why this keeps recompiling when marking structs as static args
-        params = EnvParams(max_steps_in_match=50)
+        randomized_game_params = dict()
+        for k, v in env_params_ranges.items():
+            self.rng_key, subkey = jax.random.split(self.rng_key)
+            randomized_game_params[k] = jax.random.choice(subkey, jax.numpy.array(v)).item()
+        params = EnvParams(**randomized_game_params)
         if options is not None and "params" in options:
             params = options["params"]
         
@@ -62,13 +70,18 @@ class LuxAIS3GymEnv(gym.Env):
         obs, self.state = self.jax_env.reset(reset_key, params=params)
         if self.numpy_output:
             obs = to_numpy(flax.serialization.to_state_dict(obs))
-        return obs, dict(params=params, state=self.state)
+            
+        # only keep the following game parameters available to the agent
+        params_dict = dataclasses.asdict(params)
+        params_dict_kept = dict()
+        for k in ["max_units", "match_count_per_episode", "max_steps_in_match", "map_height", "map_width", "num_teams", "unit_move_cost", "unit_sap_cost", "unit_sap_range", "unit_sensor_range"]:
+            params_dict_kept[k] = params_dict[k]
+        return obs, dict(params=params_dict_kept, full_params=params_dict, state=self.state)
     
     def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         self.rng_key, step_key = jax.random.split(self.rng_key)
         obs, self.state, reward, terminated, truncated, info = self.jax_env.step(step_key, self.state, action, self.env_params)
         if self.numpy_output:
-            # obs = to_numpy(obs)
             obs = to_numpy(flax.serialization.to_state_dict(obs))
             reward = to_numpy(reward)
             terminated = to_numpy(terminated)
@@ -97,7 +110,7 @@ class RecordEpisode(gym.Wrapper):
         obs, info = self.env.reset(seed=seed, options=options)
         
         self.episode["metadata"]["seed"] = seed
-        self.episode["params"] = flax.serialization.to_state_dict(info["params"])
+        self.episode["params"] = flax.serialization.to_state_dict(info["full_params"])
         self.episode["states"].append(info["state"])
         return obs, info
     def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:

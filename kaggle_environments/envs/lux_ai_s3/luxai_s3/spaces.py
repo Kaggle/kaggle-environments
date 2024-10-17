@@ -8,15 +8,17 @@ from gymnax.environments.spaces import Space
 class MultiDiscrete(Space):
     """Minimal jittable class for multi discrete gymnax spaces."""
 
-    def __init__(self, nvec: np.ndarray):
-        self.nvec = nvec
-        self.n = nvec.shape[0]
-        self.shape = nvec
+    def __init__(self, low: np.ndarray, high: np.ndarray):
+        self.low = low
+        self.high = high
+        self.dist = self.high - self.low
+        assert low.shape == high.shape
+        self.shape = low.shape
         self.dtype = jnp.int16
 
     def sample(self, rng: chex.PRNGKey) -> chex.Array:
         return (
-            jax.random.uniform(rng, shape=(self.n,), minval=0, maxval=1) * self.nvec
+            jax.random.uniform(rng, shape=self.shape, minval=0, maxval=1) * self.dist + self.low
         ).astype(self.dtype)
 
     def contains(self, x) -> jnp.ndarray:

@@ -89,8 +89,8 @@ def interpreter(state, env):
         
         player_0.observation.player = "player_0"
         player_1.observation.player = "player_1"
-        player_0.observation.obs = ""#json.dumps(to_json(obs["player_0"]))
-        player_1.observation.obs = ""#json.dumps(to_json(obs["player_1"]))
+        player_0.observation.obs = json.dumps(to_json(obs["player_0"]))
+        player_1.observation.obs = json.dumps(to_json(obs["player_1"]))
         
         # player_0.observation.width = luxenv.state.board.width
         # player_0.observation.height = luxenv.state.board.height
@@ -112,8 +112,8 @@ def interpreter(state, env):
 
     # player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
     # state_obs = new_state_obs["player_0"]
-    player_0.observation.obs = ""#json.dumps(to_json(new_state_obs["player_0"]))
-    player_1.observation.obs = ""#json.dumps(to_json(new_state_obs["player_1"]))
+    player_0.observation.obs = json.dumps(to_json(new_state_obs["player_0"]))
+    player_1.observation.obs = json.dumps(to_json(new_state_obs["player_1"]))
     
     # player_0.observation.width = luxenv.state.board.width
     # player_0.observation.height = luxenv.state.board.height
