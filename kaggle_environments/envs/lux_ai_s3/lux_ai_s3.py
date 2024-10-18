@@ -130,7 +130,7 @@ def interpreter(state, env):
     player_0.observation.reward = int(player_0.reward)
     player_1.observation.reward = int(player_1.reward)
     replay_frame = luxenv.serialize_episode_data(dict(
-        states=[luxenv.episode["states"][-2]],
+        states=[luxenv.episode["states"][-1]],
         actions=[luxenv.episode["actions"][-1]],
         metadata=luxenv.episode["metadata"],
         params=luxenv.episode["params"]
