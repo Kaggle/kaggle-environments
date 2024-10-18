@@ -28,18 +28,6 @@
   },
   "observation": {
     "remainingOverageTime": 60,
-    "width": {
-      "description": "The width of the map",
-      "type": "integer",
-      "shared": true,
-      "default": 24
-    },
-    "height": {
-      "description": "The height of the map",
-      "type": "integer",
-      "shared": true,
-      "default": 24
-    },
     "reward": {
       "description": "Current reward of the agent. Equal to amount of lichen grown.",
       "type": "integer",
