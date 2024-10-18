@@ -29,6 +29,6 @@ ADD ./setup.py ./setup.py
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
-RUN pip install Flask bitsandbytes accelerate && pip install . && pytest
+RUN pip install Flask bitsandbytes accelerate jax gymnax==0.0.8 && pip install . && pytest
 
 CMD kaggle-environments
