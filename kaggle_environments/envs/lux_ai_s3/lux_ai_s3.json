@@ -9,20 +9,20 @@
       "description": "Maximum number of steps the environment can run. Total is this number -1.",
       "type": "integer",
       "minimum": 2,
-      "default": 10
+      "default": 506
     },
     "seed": {
       "description": "Seed to use for episodes",
       "type": "integer"
     },
     "actTimeout": 3,
-    "runTimeout": 9600,
+    "runTimeout": 60,
     "env_cfg": {
       "type": "object"
     }
   },
   "reward": {
-    "description": "Reward of the agent. Equal to amount of lichen grown.",
+    "description": "Reward of the agent. Equal to number of games won.",
     "type": "integer",
     "default": 0
   },

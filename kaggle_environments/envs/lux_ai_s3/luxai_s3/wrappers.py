@@ -120,13 +120,16 @@ class RecordEpisode(gym.Wrapper):
         self.episode["actions"].append(action)
         return obs, reward, terminated, truncated, info
         
-    def serialize_episode_data(self):
-        episode = dict()
-        episode["observations"] = serialize_env_states(self.episode["states"])
-        episode["actions"] = serialize_env_actions(self.episode["actions"])
-        episode["metadata"] = self.episode["metadata"]
-        episode["params"] = self.episode["params"]
-        return episode
+    def serialize_episode_data(self, episode=None):
+        if episode is None:
+            episode = self.episode
+        ret = dict()
+        ret["observations"] = serialize_env_states(episode["states"])
+        if "actions" in episode:
+            ret["actions"] = serialize_env_actions(episode["actions"])
+        ret["metadata"] = episode["metadata"]
+        ret["params"] = episode["params"]
+        return ret
     
     def save_episode(self, save_path: str):
         episode = self.serialize_episode_data()

@@ -16,7 +16,8 @@ syspath.append(__dir__)
 
 # import vec_noise
 
-from luxai_s3.wrappers import LuxAIS3GymEnv
+from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+from luxai_s3.state import serialize_env_actions, serialize_env_states
 import numpy as np
 
 import copy
@@ -36,7 +37,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: LuxAIS3GymEnv = None # LuxAIS3GymEnv(numpy_output=True)
+luxenv: RecordEpisode = None # LuxAIS3GymEnv(numpy_output=True)
 prev_obs = None
 state_obs = None
 default_env_cfg = None
@@ -44,6 +45,7 @@ def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
         queue.put(line)
     out.close()
+    
 def interpreter(state, env):
     global luxenv, prev_obs, state_obs, default_env_cfg
     player_0 = state[0]
@@ -60,7 +62,7 @@ def interpreter(state, env):
         if "max_episode_length" in env.configuration:
             max_episode_length = int(env.configuration["max_episode_length"])
         else:
-            max_episode_length = 500
+            max_episode_length = 505
 
         
         if default_env_cfg is None:
@@ -81,9 +83,10 @@ def interpreter(state, env):
             parsed_env_config = default_env_cfg
         # luxenv = LuxAIS3GymEnv(numpy_output=True, **parsed_env_config)
         luxenv = LuxAIS3GymEnv(numpy_output=True)
-        obs, _ = luxenv.reset(seed=seed)
+        luxenv = RecordEpisode(luxenv, save_on_close=False, save_on_reset=False)
+        obs, info = luxenv.reset(seed=seed)
 
-        env_cfg_json = dataclasses.asdict(luxenv.env_params)
+        env_cfg_json = info["params"]
 
         env.configuration.env_cfg = env_cfg_json
         
@@ -92,16 +95,23 @@ def interpreter(state, env):
         player_0.observation.obs = json.dumps(to_json(obs["player_0"]))
         player_1.observation.obs = json.dumps(to_json(obs["player_1"]))
         
-        # player_0.observation.width = luxenv.state.board.width
-        # player_0.observation.height = luxenv.state.board.height
+        replay_frame = luxenv.serialize_episode_data(dict(
+            states=[luxenv.episode["states"][-1]],
+            metadata=luxenv.episode["metadata"],
+            params=luxenv.episode["params"]
+        ))
+        # don't need to keep metadata/params beyond first step
+        player_0.info = dict(replay=replay_frame)
         return state
+    
     new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
         "player_0": np.array(player_0.action["action"]),
         "player_1": np.array(player_1.action["action"])
     })
+    
     # cannot store np arrays in replay jsons so must convert to list
-    player_0.action = player_0.action["action"].tolist()
-    player_1.action = player_1.action["action"].tolist()
+    player_0.action = player_0.action["action"]
+    player_1.action = player_1.action["action"]
     
     dones = dict()
     for k in terminations:
@@ -110,18 +120,26 @@ def interpreter(state, env):
     player_0.observation.player = "player_0"
     player_1.observation.player = "player_1"
 
-    # player_0.observation.obs = json.dumps(to_json(luxenv.state.get_change_obs(state_obs)))
-    # state_obs = new_state_obs["player_0"]
     player_0.observation.obs = json.dumps(to_json(new_state_obs["player_0"]))
     player_1.observation.obs = json.dumps(to_json(new_state_obs["player_1"]))
     
-    # player_0.observation.width = luxenv.state.board.width
-    # player_0.observation.height = luxenv.state.board.height
 
     player_0.reward = int(rewards["player_0"])
     player_1.reward = int(rewards["player_1"])
+
     player_0.observation.reward = int(player_0.reward)
     player_1.observation.reward = int(player_1.reward)
+    replay_frame = luxenv.serialize_episode_data(dict(
+        states=[luxenv.episode["states"][-2]],
+        actions=[luxenv.episode["actions"][-1]],
+        metadata=luxenv.episode["metadata"],
+        params=luxenv.episode["params"]
+    ))
+    # don't need to keep metadata/params beyond first step
+    del replay_frame["metadata"]
+    del replay_frame["params"]
+    player_0.info = dict(replay=replay_frame)
+
     if np.all([dones[k] for k in dones]):
         if player_0.status == "ACTIVE":
             player_0.status = "DONE"
