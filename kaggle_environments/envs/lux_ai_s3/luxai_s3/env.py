@@ -45,7 +45,7 @@ class LuxAIS3Env(environment.Environment):
             return jnp.where(mask, lax.switch(fn_i.astype(jnp.int16), ENERGY_NODE_FNS, distances_to_node, x, y, z), jnp.zeros_like(distances_to_node))
         energy_field = jax.vmap(compute_energy_field)(state.energy_node_fns, distances_to_nodes, state.energy_nodes_mask)
         energy_field = jnp.where(energy_field.mean() < .25, energy_field + (.25 - energy_field.mean()), energy_field)
-        energy_field = jnp.round(energy_field.sum(0))
+        energy_field = jnp.round(energy_field.sum(0)).astype(jnp.int16)
         energy_field = jnp.clip(energy_field, params.min_energy_per_tile, params.max_energy_per_tile)
         state = state.replace(map_features=state.map_features.replace(energy=energy_field))
         return state
@@ -340,7 +340,7 @@ class LuxAIS3Env(environment.Environment):
         
         # Compute relic scores
         def team_relic_score(unit_counts_map):
-            scores = (unit_counts_map > 0) & state.relic_nodes_map_weights
+            scores = (unit_counts_map > 0) & (state.relic_nodes_map_weights > 0)
             return jnp.sum(scores, dtype=jnp.int32)
         
         # note we need to recompue unit counts since units can get removed due to collisions
