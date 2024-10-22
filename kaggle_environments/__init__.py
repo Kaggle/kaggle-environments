@@ -19,9 +19,8 @@ from .api import get_episode_replay, list_episodes, list_episodes_for_team, list
 from .core import *
 from .main import http_request
 from . import errors
-from . import utils
 
-__version__ = "1.14.15"
+__version__ = "1.15.3"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
