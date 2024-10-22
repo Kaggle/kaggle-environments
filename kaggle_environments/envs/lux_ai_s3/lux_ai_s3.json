@@ -5,12 +5,7 @@
   "version": "0.0.1",
   "agents": [2],
   "configuration": {
-    "episodeSteps": {
-      "description": "Maximum number of steps the environment can run. Total is this number -1.",
-      "type": "integer",
-      "minimum": 2,
-      "default": 506
-    },
+    "episodeSteps": 506,
     "seed": {
       "description": "Seed to use for episodes",
       "type": "integer"
@@ -18,6 +13,7 @@
     "actTimeout": 3,
     "runTimeout": 60,
     "env_cfg": {
+      "description": "Environment configuration. Not to be filled out by user as it is randomly generated.",
       "type": "object"
     }
   },

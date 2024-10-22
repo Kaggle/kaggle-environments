@@ -9,15 +9,11 @@ from .agents import all_agents
 from sys import path as syspath
 from os import path as osp
 
-# next two lines enables importing local packages e.g. luxai_s2
+# next two lines enables importing local packages e.g. luxai_s3
 __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
 
-
-# import vec_noise
-
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
-from luxai_s3.state import serialize_env_actions, serialize_env_states
 import numpy as np
 
 import copy
@@ -37,7 +33,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: RecordEpisode = None # LuxAIS3GymEnv(numpy_output=True)
+luxenv: RecordEpisode = None
 prev_obs = None
 state_obs = None
 default_env_cfg = None
@@ -52,36 +48,14 @@ def interpreter(state, env):
     player_1 = state[1]
     # filter out actions such as debug annotations so they aren't saved
     # filter_actions(state, env)
-    ### 1.2: Initialize a blank state game if new episode is starting ###
+
     if env.done:
         if "seed" in env.configuration:
             seed = int(env.configuration["seed"])
         else:
             seed = math.floor(random.random() * 1e9);
             env.configuration["seed"] = seed
-        if "max_episode_length" in env.configuration:
-            max_episode_length = int(env.configuration["max_episode_length"])
-        else:
-            max_episode_length = 505
 
-        
-        if default_env_cfg is None:
-            # if this is the first time creating the environment, env.configuration contains the kaggle competition configurations used to override 
-            # the default env config in LuxAI_S2. env.configuration is later populated by the merge of the kaggle competition configs with the 
-            # env config in LuxAI_S2 so we only run this branch once and save the result.
-            parsed_env_config = copy.deepcopy(env.configuration)
-            parsed_env_config["max_episode_length"] = max_episode_length
-            delete_keys = ["seed", "episodeSteps", "actTimeout", "runTimeout", "env_cfg"]
-            env_cfg_override = dict()
-            if "env_cfg" in parsed_env_config:
-                env_cfg_override = copy.deepcopy(parsed_env_config["env_cfg"])
-            for k in delete_keys:
-                if k in parsed_env_config: del parsed_env_config[k]
-            parsed_env_config = {**parsed_env_config, **env_cfg_override}
-            default_env_cfg = parsed_env_config
-        else:
-            parsed_env_config = default_env_cfg
-        # luxenv = LuxAIS3GymEnv(numpy_output=True, **parsed_env_config)
         luxenv = LuxAIS3GymEnv(numpy_output=True)
         luxenv = RecordEpisode(luxenv, save_on_close=False, save_on_reset=False)
         obs, info = luxenv.reset(seed=seed)
