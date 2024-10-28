@@ -42,7 +42,8 @@ def sufficient_material(pieces):
     if pieces['n'] + pieces['b'] >= 3:
         return True
     # TODO: they have to be opposite color bishops 
-    if pieces['b'] >= 2:
+    # b/b or n/b can checkmate, n/n cannot
+    if pieces['n'] < 2:
         return True
     
     return False
