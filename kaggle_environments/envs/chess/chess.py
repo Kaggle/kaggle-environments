@@ -156,7 +156,7 @@ def interpreter(state, env):
 def renderer(state, env):
   board_fen = state[0].observation.board
   game = Game(board_fen)
-  return game.board #chessnut's simple board string representation.
+  return game.board
   
 jsonpath = path.abspath(path.join(path.dirname(__file__), "chess.json"))
 with open(jsonpath) as f:
