@@ -5,4 +5,12 @@ def test_chess_inits():
     env.run(["random", "random"])
     json = env.toJSON()
     assert json["name"] == "chess"
-    assert json["statuses"] == ["ERROR", "DONE"]
+    assert json["statuses"] == ["DONE", "DONE"]
+
+def test_chess_three_fold():
+    env = make("chess", debug=True)
+    env.run(["king_shuffle", "king_shuffle"])
+    json = env.toJSON()
+    assert json["name"] == "chess"
+    assert json["statuses"] == ["DONE", "DONE"]
+    assert json["rewards"] == [0, 0]
