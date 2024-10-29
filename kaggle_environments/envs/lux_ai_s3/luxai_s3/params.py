@@ -21,7 +21,7 @@ class EnvParams:
     min_unit_energy: int = 0
     max_unit_energy: int = 400
     unit_move_cost: int = 2
-    spawn_rate: int = 5
+    spawn_rate: int = 3
 
     unit_sap_cost: int = 10
     """
@@ -89,7 +89,7 @@ env_params_ranges = dict(
     unit_move_cost=list(range(1, 6)),
     unit_sensor_range=list(range(2, 5)),
     nebula_tile_vision_reduction=list(range(0, 4)),
-    nebula_tile_energy_reduction=[0, 10, 100],
+    nebula_tile_energy_reduction=[0, 0, 10, 25],
     unit_sap_cost=list(range(30, 51)),
     unit_sap_range=list(range(3, 8)),
     unit_sap_dropoff_factor=[0.25, 0.5, 1],
