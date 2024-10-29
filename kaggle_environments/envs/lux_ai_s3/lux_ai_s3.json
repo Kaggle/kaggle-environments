@@ -1,0 +1,47 @@
+{
+  "name": "lux_ai_s3",
+  "title": "Lux AI Challenge Season 3",
+  "description": "A Novel AI Programming Challenge about Lux",
+  "version": "0.0.1",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": 506,
+    "seed": {
+      "description": "Seed to use for episodes",
+      "type": "integer"
+    },
+    "actTimeout": 3,
+    "runTimeout": 60,
+    "env_cfg": {
+      "description": "Environment configuration. Not to be filled out by user as it is randomly generated.",
+      "type": "object"
+    }
+  },
+  "reward": {
+    "description": "Reward of the agent. Equal to number of games won.",
+    "type": "integer",
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 60,
+    "reward": {
+      "description": "Current reward of the agent. Equal to amount of lichen grown.",
+      "type": "integer",
+      "default": 0
+    },
+    "obs": {
+      "description": "String containing the observations",
+      "type": "string",
+      "shared": false
+    },
+    "player": {
+      "description": "Current player's index / team id",
+      "type": "string",
+      "defaults": "player_0"
+    }
+  },
+  "action": {
+    "description": "Actions",
+    "type": "object"
+  }
+}
