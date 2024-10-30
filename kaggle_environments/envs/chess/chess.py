@@ -1,13 +1,15 @@
-from Chessnut import Game
 import random
 import json
 from os import path
 from collections import defaultdict
 
+from Chessnut import Game
+
 ERROR = "ERROR"
 DONE = "DONE"
 INACTIVE = "INACTIVE"
 ACTIVE = "ACTIVE"
+
 
 def random_agent(obs):
     """
@@ -15,9 +17,10 @@ def random_agent(obs):
     Returns:
     A string representing the chosen move in UCI notation (e.g., "e2e4").
     """
-    board = Game(obs.board)
-    moves = list(board.get_moves())
+    game = Game(obs.board)
+    moves = list(game.get_moves())
     return random.choice(moves)
+
 
 def king_shuffle_agent(obs):
     """Moves the king pawn and then shuffles the king."""
@@ -35,17 +38,18 @@ def king_shuffle_agent(obs):
 
 agents = {"random": random_agent, "king_shuffle": king_shuffle_agent}
 
+
 def sufficient_material(pieces):
     """Checks if the given pieces are sufficient for checkmate."""
     if pieces['q'] > 0 or pieces['r'] > 0 or pieces['p'] > 0:
         return True
     if pieces['n'] + pieces['b'] >= 3:
         return True
-    # TODO: they have to be opposite color bishops 
+    # TODO: they have to be opposite color bishops
     # b/b or n/b can checkmate, n/n cannot
     if pieces['n'] < 2:
         return True
-    
+
     return False
 
 
@@ -61,7 +65,8 @@ def is_insufficient_material(board):
             else:
                 black_pieces[piece.lower()] += 1
 
-    if not sufficient_material(white_pieces) and not sufficient_material(black_pieces):
+    if not sufficient_material(
+            white_pieces) and not sufficient_material(black_pieces):
         return True
 
     return False
@@ -69,12 +74,14 @@ def is_insufficient_material(board):
 
 def square_str_to_int(square_str):
     """Converts a square string (e.g., "a2") to an integer index (0-63)."""
-    if len(square_str) != 2 or not ('a' <= square_str[0] <= 'h' and '1' <= square_str[1] <= '8'):
+    if len(square_str) != 2 or not (
+            'a' <= square_str[0] <= 'h' and '1' <= square_str[1] <= '8'):
         raise ValueError("Invalid square string")
 
     col = ord(square_str[0]) - ord('a')  # Get column index (0-7)
     row = int(square_str[1]) - 1        # Get row index (0-7)
     return row * 8 + col
+
 
 def is_pawn_move_or_capture(board, move):
     move = move.lower()
@@ -85,9 +92,9 @@ def is_pawn_move_or_capture(board, move):
     return False
 
 
-
 seen_positions = defaultdict(int)
 pawn_or_capture_move_count = 0
+
 
 def interpreter(state, env):
     global seen_positions
@@ -122,12 +129,12 @@ def interpreter(state, env):
     # Check if the move is legal
     try:
         game.apply_move(action)
-    except:
+    except BaseException:
         active.status = ERROR
         active.reward = -1
         inactive.status = DONE
         return state
-    board_str = game.get_fen().split(" ")[0]
+    board_str = game.get_fen().split(" ", maxsplit=1)[0]
     seen_positions[board_str] += 1
 
     # Update the board in the observation
@@ -135,7 +142,8 @@ def interpreter(state, env):
     state[1].observation.board = game.get_fen()
 
     # Check for game end conditions
-    if pawn_or_capture_move_count == 100 or is_insufficient_material(game.board):
+    if pawn_or_capture_move_count == 100 or is_insufficient_material(
+            game.board):
         active.status = DONE
         inactive.status = DONE
     elif seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
@@ -154,16 +162,19 @@ def interpreter(state, env):
 
     return state
 
+
 def renderer(state, env):
-  board_fen = state[0].observation.board
-  game = Game(board_fen)
-  return game.board
-  
+    board_fen = state[0].observation.board
+    game = Game(board_fen)
+    return game.board
+
+
 jsonpath = path.abspath(path.join(path.dirname(__file__), "chess.json"))
 with open(jsonpath) as f:
     specification = json.load(f)
 
+
 def html_renderer():
     jspath = path.abspath(path.join(path.dirname(__file__), "chess.js"))
-    with open(jspath) as f:
-        return f.read()
+    with open(jspath) as g:
+        return g.read()
