@@ -1,6 +1,7 @@
 from luxai_s3.params import EnvParams
 from luxai_s3.state import ASTEROID_TILE, NEBULA_TILE, EnvState
 import numpy as np
+
 try:
     import pygame
 except:
@@ -173,14 +174,28 @@ class LuxAIPygameRenderer:
                     if energy_field_value > 0:
                         draw_rect_alpha(
                             self.surface,
-                            (0, 255, 0, 255 * energy_field_value / params.max_energy_per_tile),
-                            pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
+                            (
+                                0,
+                                255,
+                                0,
+                                255 * energy_field_value / params.max_energy_per_tile,
+                            ),
+                            pygame.Rect(
+                                x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE
+                            ),
                         )
                     else:
                         draw_rect_alpha(
                             self.surface,
-                            (255, 0, 0, 255 * energy_field_value / params.min_energy_per_tile),
-                            pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
+                            (
+                                255,
+                                0,
+                                0,
+                                255 * energy_field_value / params.min_energy_per_tile,
+                            ),
+                            pygame.Rect(
+                                x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE
+                            ),
                         )
         # if self.display_options["show_vision_power_map"]:
         #     print(state.vision_power_map.shape)

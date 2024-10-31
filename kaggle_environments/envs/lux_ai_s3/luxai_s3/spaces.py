@@ -18,7 +18,8 @@ class MultiDiscrete(Space):
 
     def sample(self, rng: chex.PRNGKey) -> chex.Array:
         return (
-            jax.random.uniform(rng, shape=self.shape, minval=0, maxval=1) * self.dist + self.low
+            jax.random.uniform(rng, shape=self.shape, minval=0, maxval=1) * self.dist
+            + self.low
         ).astype(self.dtype)
 
     def contains(self, x) -> jnp.ndarray:
