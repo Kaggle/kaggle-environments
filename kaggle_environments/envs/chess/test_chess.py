@@ -1,6 +1,4 @@
 from kaggle_environments import make
-from Chessnut import Game
-from chess import is_insufficient_material
 
 def test_chess_inits():
     env = make("chess", debug=True)
