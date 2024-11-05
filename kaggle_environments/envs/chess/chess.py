@@ -103,7 +103,7 @@ def sufficient_material(pieces):
         return True
     # TODO: they have to be opposite color bishops
     # b/b or n/b can checkmate, n/n cannot
-    if pieces['n'] < 2:
+    if pieces['b'] >= 2:
         return True
 
     return False
@@ -115,12 +115,14 @@ def is_insufficient_material(board):
 
     for square in range(64):
         piece = board.get_piece(square)
-        if piece:
+        if piece and piece != " ":
             if piece.isupper():
                 white_pieces[piece.lower()] += 1
             else:
                 black_pieces[piece.lower()] += 1
 
+    print(white_pieces, sufficient_material(white_pieces))
+    print(black_pieces, sufficient_material(black_pieces))
     if not sufficient_material(
             white_pieces) and not sufficient_material(black_pieces):
         return True
