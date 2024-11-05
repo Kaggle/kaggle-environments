@@ -36,7 +36,63 @@ def king_shuffle_agent(obs):
     return random.choice(moves) if moves else None
 
 
-agents = {"random": random_agent, "king_shuffle": king_shuffle_agent}
+def board_shuffle_agent(obs):
+    """Moves the king panw and then shuffles pieces."""
+    game = Game(obs.board)
+    moves = list(game.get_moves())
+
+    to_move = ["e7e5", "e2e4", "e8e7", "e7e6", "e1e2", "e2e3"]
+    for move in to_move:
+        if move in moves:
+            return move
+
+    # add shuffle moves for knights and bishop
+    to_shuffle = [
+        "b1c3",
+        "c3b1",
+        "g1f3",
+        "f3g1",
+        "b8c6",
+        "c6b8",
+        "g8f6",
+        "f6g8",
+        "f1e2",
+        "e2f1",
+        "f8e7",
+        "e7f8",
+    ]
+    # filter to only shuffle king moves
+    for move in moves:
+        f1 = move[0]
+        f2 = move[2]
+        r1 = int(move[1])
+        r2 = int(move[3])
+        df = abs(ord(f1) - ord(f2))
+        dr = abs(r2 - r1)
+        if r1 < 3 or r1 > 6:
+            continue
+        if r2 < 3 or r2 > 6:
+            continue
+        if dr > 1 or df > 1:
+            continue
+        if move[2:4] == "e5":
+            continue
+        if move[2:4] == "e4":
+            continue
+        to_shuffle.append(move)
+    random.shuffle(to_shuffle)
+    for move in to_shuffle:
+        if move in moves:
+            return move
+
+    # If no other moves are possible, pick a random legal move (or return None)
+    return random.choice(moves) if moves else None
+
+
+agents = {
+    "random": random_agent,
+    "king_shuffle": king_shuffle_agent,
+    "board_shuffle": board_shuffle_agent}
 
 
 def sufficient_material(pieces):
@@ -83,25 +139,13 @@ def square_str_to_int(square_str):
     return row * 8 + col
 
 
-def is_pawn_move_or_capture(board, move):
-    move = move.lower()
-    if board.get_piece(square_str_to_int(move[2:4])).lower() == "p":
-        return True
-    if board.get_piece(square_str_to_int(move[:2])) != " ":
-        return True
-    return False
-
-
 seen_positions = defaultdict(int)
-pawn_or_capture_move_count = 0
 
 
 def interpreter(state, env):
     global seen_positions
-    global pawn_or_capture_move_count
     if env.done:
         seen_positions = defaultdict(int)
-        pawn_or_capture_move_count = 0
         return state
 
     # Isolate the active and inactive agents.
@@ -121,11 +165,6 @@ def interpreter(state, env):
     # Get the action (move) from the agent
     action = active.action
 
-    if action and is_pawn_move_or_capture(game.board, action):
-        pawn_or_capture_move_count = 0
-    else:
-        pawn_or_capture_move_count += 1
-
     # Check if the move is legal
     try:
         game.apply_move(action)
@@ -134,13 +173,16 @@ def interpreter(state, env):
         active.reward = -1
         inactive.status = DONE
         return state
-    board_str = game.get_fen().split(" ", maxsplit=1)[0]
+    fen = game.get_fen()
+    board_str = fen.split(" ", maxsplit=1)[0]
     seen_positions[board_str] += 1
 
     # Update the board in the observation
-    state[0].observation.board = game.get_fen()
-    state[1].observation.board = game.get_fen()
+    state[0].observation.board = fen
+    state[1].observation.board = fen
 
+    pawn_or_capture_move_count = int(
+        fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
     if pawn_or_capture_move_count == 100 or is_insufficient_material(
             game.board):
