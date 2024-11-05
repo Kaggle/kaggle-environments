@@ -100,11 +100,11 @@ def sufficient_material(pieces):
     """Checks if the given pieces are sufficient for checkmate."""
     if pieces['q'] > 0 or pieces['r'] > 0 or pieces['p'] > 0:
         return True
-    # we only have knights and bishops left on this team
-    knight_bishop_count = pieces['n'] + pieces['b']
-    if knight_bishop_count >= 3:
+    if pieces['n'] + pieces['b'] >= 3:
         return True
-    if knight_bishop_count == 2 and pieces['b'] >= 1:
+    # TODO: they have to be opposite color bishops
+    # b/b or n/b can checkmate, n/n cannot
+    if pieces['n'] < 2:
         return True
 
     return False
@@ -142,7 +142,6 @@ def square_str_to_int(square_str):
 
 seen_positions = defaultdict(int)
 game_one_complete = False
-
 
 def interpreter(state, env):
     global seen_positions
@@ -204,7 +203,7 @@ def interpreter(state, env):
         inactive.status = terminal_state
         game_one_complete = True
     elif seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
-        active.status = terminal_state
+        active.status = terminal_state 
         inactive.status = terminal_state
         game_one_complete = True
     elif game.status == Game.CHECKMATE:
