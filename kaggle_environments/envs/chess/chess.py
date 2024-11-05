@@ -67,13 +67,13 @@ def board_shuffle_agent(obs):
         f2 = move[2]
         r1 = int(move[1])
         r2 = int(move[3])
-        df = abs( ord(f1) - ord(f2))
+        df = abs(ord(f1) - ord(f2))
         dr = abs(r2 - r1)
         if r1 < 3 or r1 > 6:
             continue
         if r2 < 3 or r2 > 6:
             continue
-        if dr > 1 or  df > 1: 
+        if dr > 1 or df > 1:
             continue
         if move[2:4] == "e5":
             continue
@@ -181,7 +181,8 @@ def interpreter(state, env):
     state[0].observation.board = fen
     state[1].observation.board = fen
 
-    pawn_or_capture_move_count = int(fen.split(" ")[4])  # fen keeps track of this
+    pawn_or_capture_move_count = int(
+        fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
     if pawn_or_capture_move_count == 100 or is_insufficient_material(
             game.board):
