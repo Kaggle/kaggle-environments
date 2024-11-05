@@ -99,11 +99,11 @@ def sufficient_material(pieces):
     """Checks if the given pieces are sufficient for checkmate."""
     if pieces['q'] > 0 or pieces['r'] > 0 or pieces['p'] > 0:
         return True
-    if pieces['n'] + pieces['b'] >= 3:
+    # we only have knights and bishops left on this team
+    knight_bishop_count = pieces['n'] + pieces['b']
+    if knight_bishop_count >= 3:
         return True
-    # TODO: they have to be opposite color bishops
-    # b/b or n/b can checkmate, n/n cannot
-    if pieces['b'] >= 2:
+    if knight_bishop_count == 2 and pieces['b'] >= 1:
         return True
 
     return False
