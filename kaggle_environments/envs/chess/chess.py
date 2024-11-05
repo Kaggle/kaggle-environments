@@ -9,6 +9,7 @@ ERROR = "ERROR"
 DONE = "DONE"
 INACTIVE = "INACTIVE"
 ACTIVE = "ACTIVE"
+WHITE = "white"
 
 
 def random_agent(obs):
@@ -140,12 +141,24 @@ def square_str_to_int(square_str):
 
 
 seen_positions = defaultdict(int)
+game_one_complete = False
 
 
 def interpreter(state, env):
     global seen_positions
+    global game_one_complete
     if env.done:
+        game_one_complete = False
         seen_positions = defaultdict(int)
+        return state
+
+    if state[0].status == ACTIVE and state[1].status == ACTIVE:
+        # set up new game
+        state[0].observation.mark, state[1].observation.mark = state[1].observation.mark, state[0].observation.mark
+        state[0].observation.board = Game().get_fen()
+        state[1].observation.board = Game().get_fen()
+        state[0].status = ACTIVE if state[0].observation.mark == WHITE else INACTIVE
+        state[0].status = ACTIVE if state[0].observation.mark == WHITE else INACTIVE
         return state
 
     # Isolate the active and inactive agents.
@@ -181,22 +194,24 @@ def interpreter(state, env):
     state[0].observation.board = fen
     state[1].observation.board = fen
 
+    terminal_state = DONE if game_one_complete else ACTIVE
     pawn_or_capture_move_count = int(
         fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
     if pawn_or_capture_move_count == 100 or is_insufficient_material(
             game.board):
-        active.status = DONE
-        inactive.status = DONE
+        active.status = terminal_state
+        inactive.status = terminal_state
+        game_one_complete = True
     elif seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
-        active.status = DONE
-        inactive.status = DONE
+        active.status = terminal_state
+        inactive.status = terminal_state
+        game_one_complete = True
     elif game.status == Game.CHECKMATE:
-        active.reward = 1
-        active.status = DONE
-        inactive.reward = -1
-        inactive.status = DONE
-
+        active.reward += 1
+        active.status = terminal_state
+        inactive.status = terminal_state
+        game_one_complete = True
     else:
         # Switch turns
         active.status = INACTIVE
