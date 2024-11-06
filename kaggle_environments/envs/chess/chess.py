@@ -168,7 +168,6 @@ seen_positions = defaultdict(int)
 game_one_complete = False
 game_start_position = math.floor(random.random() * len(OPENINGS))
 
-
 def interpreter(state, env):
     global seen_positions
     global game_one_complete
@@ -176,6 +175,7 @@ def interpreter(state, env):
     if env.done:
         game_one_complete = False
         seen_positions = defaultdict(int)
+        game_start_position = math.floor(random.random() * len(OPENINGS))
         state[0].observation.board = OPENINGS[game_start_position]
         state[1].observation.board = OPENINGS[game_start_position]
         return state
