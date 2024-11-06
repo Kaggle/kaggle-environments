@@ -121,8 +121,6 @@ def is_insufficient_material(board):
             else:
                 black_pieces[piece.lower()] += 1
 
-    print(white_pieces, sufficient_material(white_pieces))
-    print(black_pieces, sufficient_material(black_pieces))
     if not sufficient_material(
             white_pieces) and not sufficient_material(black_pieces):
         return True
