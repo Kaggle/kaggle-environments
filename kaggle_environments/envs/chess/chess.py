@@ -177,9 +177,7 @@ def interpreter(state, env):
         seen_positions = defaultdict(int)
         game_start_position = math.floor(random.random() * len(OPENINGS))
         state[0].observation.board = OPENINGS[game_start_position]
-        state[0].observation.remainingOverageTime = 10
         state[1].observation.board = OPENINGS[game_start_position]
-        state[1].observation.remainingOverageTime = 10
         return state
 
     if state[0].status == ACTIVE and state[1].status == ACTIVE:
