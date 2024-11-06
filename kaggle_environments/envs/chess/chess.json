@@ -6,12 +6,12 @@
     "agents": [2],
     "configuration": {
       "episodeSteps": 1000,
-      "actTimeout": 1,
+      "actTimeout": 0.1,
       "agentTimeout": {
         "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
         "type": "number",
         "minimum": 0,
-        "default": 60
+        "default": 10
       }
     },
     "reward": {
@@ -31,7 +31,7 @@
         "defaults": ["white", "black"],
         "enum": ["white", "black"]
       },
-      "remainingOverageTime": 60 
+      "remainingOverageTime": 10
     },
     "action": {
       "description": "Move in UCI notation (e.g., e2e4)",
