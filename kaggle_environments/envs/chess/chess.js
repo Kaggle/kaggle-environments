@@ -37,6 +37,21 @@ async function renderer(context) {
       c.fillRect(x, y, squareSize, squareSize);
     }
   }
+  // Draw the team names and game status
+  const info = environment.info;
+  const agent1 = info?.TeamNames?.[0] || "Agent 1";
+  const agent2 = info?.TeamNames?.[1] || "Agent 2";
+  const firstGame = environment.steps[step][0].observation.mark == "white"
+  const white = firstGame ? agent1 : agent2
+  const black = firstGame ? agent2 : agent1
+  const fontSize = Math.round(.33 * offset)
+  c.font = `${fontSize}px sans-serif`;
+  c.fillStyle = "#FFFFFF";
+  const agent1Reward = environment.steps[step][0].reward;
+  const agent2Reward = environment.steps[step][1].reward;
+  const charCount = agent1.length + agent2.length + 12;
+  const title = `${firstGame ? "\u25A0" : "\u25A1"}${agent1} (${agent1Reward}) vs ${firstGame ? "\u25A1" : "\u25A0"}${agent2} (${agent2Reward})`
+  c.fillText(title, offset + 4 * squareSize - Math.floor(charCount * fontSize / 4), 40)
 
   // Draw the Pieces
   const board = environment.steps[step][0].observation.board;
