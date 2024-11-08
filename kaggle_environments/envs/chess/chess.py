@@ -168,6 +168,7 @@ seen_positions = defaultdict(int)
 game_one_complete = False
 game_start_position = math.floor(random.random() * len(OPENINGS))
 
+
 def interpreter(state, env):
     global seen_positions
     global game_one_complete
@@ -227,11 +228,9 @@ def interpreter(state, env):
         fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
     if pawn_or_capture_move_count == 100 or is_insufficient_material(
-            game.board):
-        active.status = terminal_state
-        inactive.status = terminal_state
-        game_one_complete = True
-    elif seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
+            game.board) or seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
+        active.reward += .5
+        inactive.reward += .5
         active.status = terminal_state
         inactive.status = terminal_state
         game_one_complete = True
