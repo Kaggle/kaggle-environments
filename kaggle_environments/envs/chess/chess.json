@@ -7,6 +7,7 @@
     "configuration": {
       "episodeSteps": 1000,
       "actTimeout": 0.1,
+      "runTimeout": 600,
       "agentTimeout": {
         "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
         "type": "number",
