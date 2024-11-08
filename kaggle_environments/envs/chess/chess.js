@@ -37,7 +37,7 @@ async function renderer(context) {
       c.fillRect(x, y, squareSize, squareSize);
     }
   }
-  // Draw the team names
+  // Draw the team names and game status
   const info = environment.info;
   const agent1 = info?.TeamNames?.[0] || "Agent 1";
   const agent2 = info?.TeamNames?.[1] || "Agent 2";
