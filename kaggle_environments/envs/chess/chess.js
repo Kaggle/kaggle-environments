@@ -42,8 +42,6 @@ async function renderer(context) {
   const agent1 = info?.TeamNames?.[0] || "Agent 1";
   const agent2 = info?.TeamNames?.[1] || "Agent 2";
   const firstGame = environment.steps[step][0].observation.mark == "white"
-  const white = firstGame ? agent1 : agent2
-  const black = firstGame ? agent2 : agent1
   const fontSize = Math.round(.33 * offset)
   c.font = `${fontSize}px sans-serif`;
   c.fillStyle = "#FFFFFF";
