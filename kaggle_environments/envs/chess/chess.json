@@ -32,7 +32,8 @@
         "defaults": ["white", "black"],
         "enum": ["white", "black"]
       },
-      "remainingOverageTime": 20
+      "remainingOverageTime": 20,
+      "opponentRemainingOverageTime": 20
     },
     "action": {
       "description": "Move in UCI notation (e.g., e2e4)",

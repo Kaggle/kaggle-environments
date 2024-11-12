@@ -223,6 +223,10 @@ def interpreter(state, env):
     state[0].observation.board = fen
     state[1].observation.board = fen
 
+    # Update the opponentRemainingOverageTime
+    state[0].observation.opponentRemainingOverageTime = state[1].observation.remainingOverageTime
+    state[1].observation.opponentRemainingOverageTime = state[0].observation.remainingOverageTime
+
     terminal_state = DONE if game_one_complete else ACTIVE
     pawn_or_capture_move_count = int(
         fen.split(" ")[4])  # fen keeps track of this
