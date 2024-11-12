@@ -33,7 +33,7 @@ async function renderer(context) {
       const y = row * squareSize + offset;
 
       // Alternate colors for squares
-      c.fillStyle = (row + col) % 2 === 0 ? "#D18B47" : "#FFCE9E";
+      c.fillStyle = (row + col) % 2 === 0 ? "#FFCE9E" : "#D18B47";
       c.fillRect(x, y, squareSize, squareSize);
     }
   }
