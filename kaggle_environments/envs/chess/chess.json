@@ -33,7 +33,11 @@
         "enum": ["white", "black"]
       },
       "remainingOverageTime": 20,
-      "opponentRemainingOverageTime": 20
+      "opponentRemainingOverageTime": {
+        "description": "Amount of overage time remaining for the opponent.",
+        "type": "number",
+        "default": 20
+      }
     },
     "action": {
       "description": "Move in UCI notation (e.g., e2e4)",
