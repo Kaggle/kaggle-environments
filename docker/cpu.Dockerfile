@@ -41,6 +41,6 @@ RUN cp -r ./kaggle_environments/* ./kaggle_environments_chess/
 # remove other runtimes
 RUN find ./kaggle_environments_chess/envs -mindepth 1 -maxdepth 1 ! -name "chess" -type d -exec rm -rf {} +
 # install kaggle-environments-chess
-RUN pip install . && pytest
+RUN pip install .
 
 CMD kaggle-environments
