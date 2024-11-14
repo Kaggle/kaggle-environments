@@ -15,7 +15,7 @@ def test_chess_three_fold():
     json = env.toJSON()
     assert json["name"] == "chess"
     assert json["statuses"] == ["DONE", "DONE"]
-    assert json["rewards"] == [1.0, 1.0]
+    assert json["rewards"] == [0.5, 0.5]
 
 def test_chess_100_move_rule():
     env = make("chess", debug=True)
@@ -23,7 +23,7 @@ def test_chess_100_move_rule():
     json = env.toJSON()
     assert json["name"] == "chess"
     assert json["statuses"] == ["DONE", "DONE"]
-    assert json["rewards"] == [1.0, 1.0]
+    assert json["rewards"] == [0.5, 0.5]
 
 def test_sufficient_material():
     game = Game()
