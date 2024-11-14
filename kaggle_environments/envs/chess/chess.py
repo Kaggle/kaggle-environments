@@ -165,29 +165,17 @@ def square_str_to_int(square_str):
 
 
 seen_positions = defaultdict(int)
-game_one_complete = False
-game_start_position = math.floor(random.random() * len(OPENINGS))
-
 
 def interpreter(state, env):
     global seen_positions
-    global game_one_complete
-    global game_start_position
     if env.done:
-        game_one_complete = False
         seen_positions = defaultdict(int)
         game_start_position = math.floor(random.random() * len(OPENINGS))
+        if "seed" in env.configuration:
+            seed = int(env.configuration["seed"]) % OPENINGS[game_start_position]
+            game_start_position = seed & len(OPENINGS)
         state[0].observation.board = OPENINGS[game_start_position]
         state[1].observation.board = OPENINGS[game_start_position]
-        return state
-
-    if state[0].status == ACTIVE and state[1].status == ACTIVE:
-        # set up new game
-        state[0].observation.mark, state[1].observation.mark = state[1].observation.mark, state[0].observation.mark
-        state[0].observation.board = OPENINGS[game_start_position]
-        state[1].observation.board = OPENINGS[game_start_position]
-        state[0].status = ACTIVE if state[0].observation.mark == WHITE else INACTIVE
-        state[0].status = ACTIVE if state[0].observation.mark == WHITE else INACTIVE
         return state
 
     # Isolate the active and inactive agents.
@@ -201,7 +189,7 @@ def interpreter(state, env):
     # The board is shared, only update the first state.
     board = state[0].observation.board
 
-   # Create a chessnut game object from the FEN string
+   # Create a Chessnut game object from the FEN string
     game = Game(board)
 
     # Get the action (move) from the agent
@@ -227,7 +215,6 @@ def interpreter(state, env):
     state[0].observation.opponentRemainingOverageTime = state[1].observation.remainingOverageTime
     state[1].observation.opponentRemainingOverageTime = state[0].observation.remainingOverageTime
 
-    terminal_state = DONE if game_one_complete else ACTIVE
     pawn_or_capture_move_count = int(
         fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
@@ -235,14 +222,12 @@ def interpreter(state, env):
             game.board) or seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
         active.reward += .5
         inactive.reward += .5
-        active.status = terminal_state
-        inactive.status = terminal_state
-        game_one_complete = True
+        active.status = DONE
+        inactive.status = DONE 
     elif game.status == Game.CHECKMATE:
         active.reward += 1
-        active.status = terminal_state
-        inactive.status = terminal_state
-        game_one_complete = True
+        active.status = DONE
+        inactive.status = DONE
     else:
         # Switch turns
         active.status = INACTIVE
