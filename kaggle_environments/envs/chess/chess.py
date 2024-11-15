@@ -172,7 +172,7 @@ def interpreter(state, env):
         seen_positions = defaultdict(int)
         game_start_position = math.floor(random.random() * len(OPENINGS))
         if "seed" in env.configuration:
-            seed = int(env.configuration["seed"]) % OPENINGS[game_start_position]
+            seed = int(env.configuration["seed"]) % len(OPENINGS)
             game_start_position = seed & len(OPENINGS)
         state[0].observation.board = OPENINGS[game_start_position]
         state[1].observation.board = OPENINGS[game_start_position]
