@@ -1,7 +1,7 @@
 {
     "name": "chess",
     "title": "Chess",
-    "description": "Classic Chess with full ruleset",
+    "description": "Classic Chess with full rule set",
     "version": "1.0.0",
     "agents": [2],
     "configuration": {
