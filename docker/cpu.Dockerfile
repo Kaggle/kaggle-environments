@@ -48,6 +48,7 @@ RUN find ./kaggle_environments_chess/ -name "*.pyc" -exec rm -f {} \;
 # rename pip package
 RUN sed -i 's/kaggle-environments/kaggle-environments-chess/g' ./setup.py
 RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./setup.py
+RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./MANIFEST.in
 
 # install kaggle-environments-chess
 RUN pip install . && pytest
