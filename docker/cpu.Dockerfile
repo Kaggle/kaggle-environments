@@ -38,17 +38,17 @@ RUN pip install Flask bitsandbytes accelerate vec-noise jax gymnax==0.0.8 && pip
 # minimal package to reduce memory footprint
 RUN mkdir ./kaggle_environments_chess
 RUN cp -r ./kaggle_environments/* ./kaggle_environments_chess/
+RUN rm -rf ./kaggle_environments
 # remove other runtimes
 RUN find ./kaggle_environments_chess/envs -mindepth 1 -maxdepth 1 ! -name "chess" -type d -exec rm -rf {} +
 # pyclean
-RUN rm -rf ./kaggle_environments_chess/__pycache__ & rm -rf ./kaggle_environments_chess/envs/__pycache__ & rm -rf ./kaggle_environments_chess/envs/chess/__pycache__
+RUN rm -rf ./kaggle_environments_chess/__pycache__; rm -rf ./kaggle_environments_chess/envs/__pycache__; rm -rf ./kaggle_environments_chess/envs/chess/__pycache__; true
 RUN find ./kaggle_environments_chess/ -name "*.pyc" -exec rm -f {} \;
 
 # rename pip package
 RUN sed -i 's/kaggle-environments/kaggle-environments-chess/g' ./setup.py
 RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./setup.py
-RUN rm -rf ./kaggle_environments
-RUN ls ./kaggle_environments_chess
+
 # install kaggle-environments-chess
 RUN pip install . && pytest
 
