@@ -20,6 +20,7 @@ import sys
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+from requests.exceptions import Timeout
 from time import perf_counter
 from urllib.parse import urlparse
 from .errors import DeadlineExceeded, InvalidArgument
@@ -78,16 +79,25 @@ class UrlAgent:
                 "observation": observation,
             },
         }
-        response = requests.post(url=self.raw, data=json.dumps(data))
-        response_json = response.json()
-        action = response_json["action"]
-        if action == "DeadlineExceeded":
-            action = DeadlineExceeded()
-        elif isinstance(action, str) and action.startswith("BaseException::"):
-            # Deserialize the exception message
-            parts = action.split("::", 1)
-            action = BaseException(parts[1])
-        return action
+        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 10
+        try:
+            response = requests.post(url=self.raw, data=json.dumps(data), timeout=timeout)
+            response.raise_for_status()
+            response_json = response.json()
+            action = response_json["action"]
+            if action == "DeadlineExceeded":
+                action = DeadlineExceeded()
+            elif isinstance(action, str) and action.startswith("BaseException::"):
+                # Deserialize the exception message
+                parts = action.split("::", 1)
+                action = BaseException(parts[1])
+            return action
+        except Timeout:
+            print(f"Request timed out after {timeout} seconds")
+            return DeadlineExceeded()
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {e}")
+            return None
 
 
 def build_agent(raw, builtin_agents, environment_name):
