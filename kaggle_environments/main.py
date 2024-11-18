@@ -120,6 +120,40 @@ def action_evaluate(args):
 
 cached_agent = None
 
+class EnvironmentShim:
+    builtin_agents = []
+    def __init__(self, configuration, debug, name):
+        self.configuration = configuration
+        self.debug = debug
+        self.name = name
+
+def action_simple_act(args):
+    global cached_agent
+
+    if len(args.agents) != 1:
+        return {"error": "One agent must be provided."}
+    raw = args.agents[0]
+
+    env = EnvironmentShim(args.configuration, args.debug, args.environment)
+
+    is_first_run = cached_agent is None or cached_agent.raw != raw
+    if is_first_run:
+        cached_agent = Agent(raw, env)
+    observation = utils.get(args.state, dict, {}, ["observation"])
+    action, log = cached_agent.act(observation)
+    if isinstance(action, errors.DeadlineExceeded):
+        action = "DeadlineExceeded"
+    elif isinstance(action, BaseException):
+        action = "BaseException::" + str(action)
+
+    if args.log_path is not None:
+        with open(args.log_path, mode="a") as log_file:
+            if not is_first_run:
+                log_file.write(",\n ")
+            json.dump([log], log_file)
+
+    return {"action": action}
+
 
 def action_act(args):
     global cached_agent
@@ -237,7 +271,7 @@ def action_handler(args):
         if args.action == "http-server":
             return {"error": "Already running a http server."}
         if args.action == "act":
-            return action_act(args)
+            return action_simple_act(args)
         if args.action == "dispose":
             return action_dispose(args)
         if args.action == "load":
