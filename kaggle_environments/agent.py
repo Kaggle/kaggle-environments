@@ -79,8 +79,8 @@ class UrlAgent:
                 "observation": observation,
             },
         }
+        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 10
         try:
-            timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 10
             response = requests.post(url=self.raw, data=json.dumps(data), timeout=timeout)
             response.raise_for_status()
             response_json = response.json()
@@ -93,7 +93,7 @@ class UrlAgent:
                 action = BaseException(parts[1])
             return action
         except Timeout:
-            print(f"Request timed out after {self.timeout} seconds")
+            print(f"Request timed out after {timeout} seconds")
             return DeadlineExceeded()
         except requests.exceptions.RequestException as e:
             print(f"Request error: {e}")
