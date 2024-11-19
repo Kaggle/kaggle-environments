@@ -12,8 +12,6 @@ from os import path as osp
 # next two lines enables importing local packages e.g. luxai_s3
 __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
-
-from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 import numpy as np
 
 import copy
@@ -33,7 +31,7 @@ def to_json(state):
     else:
         return state
 prev_step = 0
-luxenv: RecordEpisode = None
+luxenv = None
 prev_obs = None
 state_obs = None
 default_env_cfg = None
@@ -43,6 +41,7 @@ def enqueue_output(out, queue):
     out.close()
     
 def interpreter(state, env):
+    from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
     global luxenv, prev_obs, state_obs, default_env_cfg
     player_0 = state[0]
     player_1 = state[1]
