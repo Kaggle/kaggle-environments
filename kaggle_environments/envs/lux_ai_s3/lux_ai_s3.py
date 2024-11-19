@@ -12,8 +12,12 @@ from os import path as osp
 # next two lines enables importing local packages e.g. luxai_s3
 __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
-
-from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+try: 
+    from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+except:
+    # for the replay server some env dependencies are not installed
+    # so we need to skip the import
+    pass
 import numpy as np
 
 import copy
