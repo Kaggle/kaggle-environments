@@ -39,7 +39,7 @@ export class Fleet {
     }
 
     public get collectionRate(): number {
-        return Math.min(Math.log(this.shipCount) / 10, .99);
+        return Math.min(Math.log(this.shipCount) / 20, .99);
     }
 
     /**
