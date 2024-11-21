@@ -121,7 +121,7 @@ def action_evaluate(args):
 cached_agent = None
 
 class EnvironmentShim:
-    builtin_agents = []
+    agents = []
     def __init__(self, configuration, debug, name):
         self.configuration = configuration
         self.debug = debug
