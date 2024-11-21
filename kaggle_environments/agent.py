@@ -79,7 +79,7 @@ class UrlAgent:
                 "observation": observation,
             },
         }
-        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 10
+        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 1
         try:
             response = requests.post(url=self.raw, data=json.dumps(data), timeout=timeout)
             response.raise_for_status()
