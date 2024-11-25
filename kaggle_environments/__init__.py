@@ -20,7 +20,7 @@ from .core import *
 from .main import http_request
 from . import errors
 
-__version__ = "1.16.8"
+__version__ = "1.16.9"
 
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
