@@ -47,11 +47,11 @@ async function renderer(context) {
   let downloadButton = parent.querySelector("#copy-pgn");
   if (!downloadButton) {
     try {
-      const board = environment.steps[step][0].observation.board;
+      const board = environment.steps[0][0].observation.board;
       const info = environment.info;
       const agent1 = info?.TeamNames?.[0] || "Agent 1";
       const agent2 = info?.TeamNames?.[1] || "Agent 2";
-      const game = new Chess(board);
+      const game = new Chess();
       let result = environment.rewards;
       if (result.some((r) => r === undefined || r === null)) {
         result = result.map((r) => (r === undefined || r === null ? 0 : 1));
