@@ -117,7 +117,7 @@ async function renderer(context) {
           pgnDiv.style.position = "absolute";
           pgnDiv.style.top = "8px";
           pgnDiv.style.left = "8px";
-          pgnDiv.style.zIndex = 1;
+          pgnDiv.style.zIndex = 2;
           pgnDiv.style.border = "1px solid black";
           pgnDiv.style.padding = "8px";
           pgnDiv.style.background = "#FFFFFF";
