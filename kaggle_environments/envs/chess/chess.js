@@ -8,6 +8,28 @@ async function renderer(context) {
     width = 400,
   } = context;
 
+  const OPENINGS = [
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    "rnbqkbnr/1p2pp1p/p2p2p1/8/2PNP3/8/PP3PPP/RNBQKB1R w KQkq - 0 6",
+    "r1b1kb1r/ppppq1pp/2n2n2/1B2p3/4N3/5N2/PPPPQPPP/R1B1K2R w KQkq - 3 7",
+    "rnbqkb1r/p2ppppp/5n2/2pP4/2p5/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 5",
+    "rnbqk1nr/p1p1bppp/1p2p3/3pP3/3P4/2N5/PPP2PPP/R1BQKBNR w KQkq - 0 5",
+    "r2qk1nr/ppp2pp1/2np3p/2b1p3/2B1P1b1/2PP1N2/PP3PPP/RNBQ1RK1 w kq - 0 7",
+    "rn1qk1nr/pp2ppbp/3p2p1/2p5/2PP2b1/2N1PN2/PP3PPP/R1BQKB1R w KQkq c6 0 6",
+    "rnbqkbnr/1p2pp1p/p2p2p1/8/2PNP3/8/PP3PPP/RNBQKB1R w KQkq - 0 6",
+  ];
+
+  const MOVES = [
+    "",
+    "e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 a7a6 c2c4 g7g6",
+    "e2e4 e7e5 g1f3 b8c6 f1b5 f7f5 b1c3 f5e4 c3e4 g8f6 d1e2 d8e7",
+    "d2d4 g8f6 c2c4 c7c5 d4d5 b7b5 b1c3 b5c4",
+    "e2e4 e7e6 d2d4 d7d5 b1c3 f8e7 e4e5 b7b6",
+    "e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 e1g1 d7d6 c2c3 c8g4 d2d3 h7h6",
+    "d2d4 g7g6 c2c4 f8g7 b1c3 d7d6 g1f3 c8g4 e2e3 c7c5",
+    "e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 a7a6 c2c4 g7g6",
+  ];
+
   // Common Dimensions.
   const canvasSize = Math.min(height, width);
   const boardSize = canvasSize * 0.8;
@@ -19,6 +41,71 @@ async function renderer(context) {
   if (!canvas) {
     canvas = document.createElement("canvas");
     parent.appendChild(canvas);
+  }
+
+  // Create the Download PGN button
+  let downloadButton = parent.querySelector("#copy-pgn");
+  if (!downloadButton) {
+    downloadButton = document.createElement("button");
+    downloadButton.id = "copy-pgn";
+    downloadButton.textContent = "Copy PGN";
+    downloadButton.style.position = "absolute";
+    downloadButton.style.top = "10px";
+    downloadButton.style.left = "10px";
+    downloadButton.style.zIndex = 1;
+    parent.appendChild(downloadButton);
+
+    const board = environment.steps[step][0].observation.board;
+    const info = environment.info;
+    const agent1 = info?.TeamNames?.[0] || "Agent 1";
+    const agent2 = info?.TeamNames?.[1] || "Agent 2";
+    const game = new Chess(board);
+    let result = environment.rewards;
+    if (result.some(r => r === undefined || r === null)) {
+      result = result.map(r => r === undefined || r === null ? 0 : 1)
+    }
+
+    game.header(
+      "Event",
+      "FIDE & Google Efficient Chess AI Challenge (https://www.kaggle.com/competitions/fide-google-efficiency-chess-ai-challenge)",
+      "White",
+      agent1,
+      "Black",
+      agent2,
+      "Result",
+      result.join(" - ")
+    );
+
+    const openingIdx = OPENINGS.indexOf(board);
+    const moves = MOVES[openingIdx];
+
+    for (let i = 0; i < moves.length; i++) {
+      const move = moves[i];
+      game.move({ from: move.slice(0, 2), to: move.slice(2, 4) });
+    }
+
+    for (let i = 1; i < environment.steps.length; i++) {
+      const move = environment.steps[i][(i - 1) % 2].action;
+      if (move.length === 4) {
+        game.move({ from: move.slice(0, 2), to: move.slice(2, 4) });
+      } else if (move.length === 5) {
+        game.move({
+          from: move.slice(0, 2),
+          to: move.slice(2, 4),
+          promotion: move.slice(4, 5),
+        });
+      }
+    }
+
+    downloadButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(game.pgn());
+        alert("PGN Copied");
+      } catch (err) {
+        console.error("Failed to copy: ", err);
+        alert("Failed to copy PGN");
+      }
+    });
   }
 
   // Canvas setup and reset.
@@ -41,15 +128,23 @@ async function renderer(context) {
   const info = environment.info;
   const agent1 = info?.TeamNames?.[0] || "Agent 1";
   const agent2 = info?.TeamNames?.[1] || "Agent 2";
-  const firstGame = environment.steps[step][0].observation.mark == "white"
-  const fontSize = Math.round(.33 * offset)
+  const firstGame = environment.steps[step][0].observation.mark == "white";
+  const fontSize = Math.round(0.33 * offset);
   c.font = `${fontSize}px sans-serif`;
   c.fillStyle = "#FFFFFF";
   const agent1Reward = environment.steps[step][0].reward;
   const agent2Reward = environment.steps[step][1].reward;
   const charCount = agent1.length + agent2.length + 12;
-  const title = `${firstGame ? "\u25A0" : "\u25A1"}${agent1} (${agent1Reward}) vs ${firstGame ? "\u25A1" : "\u25A0"}${agent2} (${agent2Reward})`
-  c.fillText(title, offset + 4 * squareSize - Math.floor(charCount * fontSize / 4), 40)
+  const title = `${
+    firstGame ? "\u25A0" : "\u25A1"
+  }${agent1} (${agent1Reward}) vs ${
+    firstGame ? "\u25A1" : "\u25A0"
+  }${agent2} (${agent2Reward})`;
+  c.fillText(
+    title,
+    offset + 4 * squareSize - Math.floor((charCount * fontSize) / 4),
+    40
+  );
 
   // Draw the Pieces
   const board = environment.steps[step][0].observation.board;
