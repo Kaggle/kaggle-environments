@@ -62,8 +62,8 @@ async function renderer(context) {
       const agent2 = info?.TeamNames?.[1] || "Agent 2";
       const game = new Chess(board);
       let result = environment.rewards;
-      if (result.some(r => r === undefined || r === null)) {
-        result = result.map(r => r === undefined || r === null ? 0 : 1)
+      if (result.some((r) => r === undefined || r === null)) {
+        result = result.map((r) => (r === undefined || r === null ? 0 : 1));
       }
 
       game.header(
@@ -74,7 +74,7 @@ async function renderer(context) {
         "Black",
         agent2,
         "Result",
-        result.join(" - ")
+        result.join("-")
       );
 
       const openingIdx = OPENINGS.indexOf(board);
@@ -98,17 +98,52 @@ async function renderer(context) {
         }
       }
 
+      const pgn = game.pgn();
+
       downloadButton.addEventListener("click", async () => {
         try {
-          await navigator.clipboard.writeText(game.pgn());
+          await navigator.clipboard.writeText(pgn);
           alert("PGN Copied");
         } catch (err) {
-          console.error("Failed to copy: ", err);
-          alert("Failed to copy PGN");
+          console.info(
+            "Clipboard access failed. PGN displayed for manual copy."
+          );
+          const pgnDiv = document.createElement("div");
+          pgnDiv.style.position = "absolute";
+          pgnDiv.style.top = "10px";
+          pgnDiv.style.left = "10px";
+          pgnDiv.style.zIndex = 1;
+          pgnDiv.style.border = "1px solid black";
+          pgnDiv.style.padding = "10px";
+          pgnDiv.style.background = "#FFFFFF";
+          pgnDiv.style.fontFamily = "monospace";
+          pgnDiv.style.whiteSpace = "pre-wrap";
+
+          // Split the PGN into lines and add each to a span for better formatting
+          const pgnLines = pgn.split("\n");
+          pgnLines.forEach((line) => {
+            const lineSpan = document.createElement("span");
+            lineSpan.textContent = line + "\n";
+            pgnDiv.appendChild(lineSpan);
+          });
+          parent.appendChild(pgnDiv);
+          const closeButton = document.createElement("span");
+          closeButton.textContent = "×";
+          closeButton.style.position = "absolute";
+          closeButton.style.top = "5px";
+          closeButton.style.right = "5px";
+          closeButton.style.cursor = "pointer";
+          closeButton.style.float = "right";
+          closeButton.style.fontSize = "16px";
+          closeButton.style.marginLeft = "5px";
+          closeButton.addEventListener("click", () => {
+            parent.removeChild(pgnDiv);
+          });
+          pgnDiv.appendChild(closeButton);
         }
       });
     } catch (e) {
-      console.error('Cannot create game pgn')
+      console.error("Cannot create game pgn");
       console.error(e);
     }
   }
