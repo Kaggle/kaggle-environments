@@ -46,66 +46,71 @@ async function renderer(context) {
   // Create the Download PGN button
   let downloadButton = parent.querySelector("#copy-pgn");
   if (!downloadButton) {
-    downloadButton = document.createElement("button");
-    downloadButton.id = "copy-pgn";
-    downloadButton.textContent = "Copy PGN";
-    downloadButton.style.position = "absolute";
-    downloadButton.style.top = "10px";
-    downloadButton.style.left = "10px";
-    downloadButton.style.zIndex = 1;
-    parent.appendChild(downloadButton);
+    try {
+      downloadButton = document.createElement("button");
+      downloadButton.id = "copy-pgn";
+      downloadButton.textContent = "Copy PGN";
+      downloadButton.style.position = "absolute";
+      downloadButton.style.top = "10px";
+      downloadButton.style.left = "10px";
+      downloadButton.style.zIndex = 1;
+      parent.appendChild(downloadButton);
 
-    const board = environment.steps[step][0].observation.board;
-    const info = environment.info;
-    const agent1 = info?.TeamNames?.[0] || "Agent 1";
-    const agent2 = info?.TeamNames?.[1] || "Agent 2";
-    const game = new Chess(board);
-    let result = environment.rewards;
-    if (result.some(r => r === undefined || r === null)) {
-      result = result.map(r => r === undefined || r === null ? 0 : 1)
-    }
+      const board = environment.steps[step][0].observation.board;
+      const info = environment.info;
+      const agent1 = info?.TeamNames?.[0] || "Agent 1";
+      const agent2 = info?.TeamNames?.[1] || "Agent 2";
+      const game = new Chess(board);
+      let result = environment.rewards;
+      if (result.some(r => r === undefined || r === null)) {
+        result = result.map(r => r === undefined || r === null ? 0 : 1)
+      }
 
-    game.header(
-      "Event",
-      "FIDE & Google Efficient Chess AI Challenge (https://www.kaggle.com/competitions/fide-google-efficiency-chess-ai-challenge)",
-      "White",
-      agent1,
-      "Black",
-      agent2,
-      "Result",
-      result.join(" - ")
-    );
+      game.header(
+        "Event",
+        "FIDE & Google Efficient Chess AI Challenge (https://www.kaggle.com/competitions/fide-google-efficiency-chess-ai-challenge)",
+        "White",
+        agent1,
+        "Black",
+        agent2,
+        "Result",
+        result.join(" - ")
+      );
 
-    const openingIdx = OPENINGS.indexOf(board);
-    const moves = MOVES[openingIdx];
+      const openingIdx = OPENINGS.indexOf(board);
+      const moves = MOVES[openingIdx];
 
-    for (let i = 0; i < moves.length; i++) {
-      const move = moves[i];
-      game.move({ from: move.slice(0, 2), to: move.slice(2, 4) });
-    }
-
-    for (let i = 1; i < environment.steps.length; i++) {
-      const move = environment.steps[i][(i - 1) % 2].action;
-      if (move.length === 4) {
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i];
         game.move({ from: move.slice(0, 2), to: move.slice(2, 4) });
-      } else if (move.length === 5) {
-        game.move({
-          from: move.slice(0, 2),
-          to: move.slice(2, 4),
-          promotion: move.slice(4, 5),
-        });
       }
-    }
 
-    downloadButton.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(game.pgn());
-        alert("PGN Copied");
-      } catch (err) {
-        console.error("Failed to copy: ", err);
-        alert("Failed to copy PGN");
+      for (let i = 1; i < environment.steps.length; i++) {
+        const move = environment.steps[i][(i - 1) % 2].action;
+        if (move.length === 4) {
+          game.move({ from: move.slice(0, 2), to: move.slice(2, 4) });
+        } else if (move.length === 5) {
+          game.move({
+            from: move.slice(0, 2),
+            to: move.slice(2, 4),
+            promotion: move.slice(4, 5),
+          });
+        }
       }
-    });
+
+      downloadButton.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(game.pgn());
+          alert("PGN Copied");
+        } catch (err) {
+          console.error("Failed to copy: ", err);
+          alert("Failed to copy PGN");
+        }
+      });
+    } catch (e) {
+      console.error('Cannot create game pgn')
+      console.error(e);
+    }
   }
 
   // Canvas setup and reset.
