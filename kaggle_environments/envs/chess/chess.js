@@ -104,10 +104,14 @@ async function renderer(context) {
         try {
           await navigator.clipboard.writeText(pgn);
           alert("PGN Copied");
+          return;
         } catch (err) {
           console.info(
-            "Clipboard access failed. PGN displayed for manual copy."
+            "Clipboard access failed. Fall back to display for manual copy."
           );
+        }
+
+        try {
           const pgnDiv = document.createElement("div");
           pgnDiv.style.position = "absolute";
           pgnDiv.style.top = "8px";
@@ -140,11 +144,15 @@ async function renderer(context) {
             parent.removeChild(pgnDiv);
           });
           pgnDiv.appendChild(closeButton);
+        } catch (e) {
+          console.error("Cannot display div");
+          alert("PGN cannot be generated");
         }
       });
     } catch (e) {
       console.error("Cannot create game pgn");
       console.error(e);
+      alert("PGN cannot be generated");
     }
   }
 
