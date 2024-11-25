@@ -78,7 +78,7 @@ async function renderer(context) {
       );
 
       const openingIdx = OPENINGS.indexOf(board);
-      const moves = MOVES[openingIdx];
+      const moves = MOVES[openingIdx].split(" ");
 
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
