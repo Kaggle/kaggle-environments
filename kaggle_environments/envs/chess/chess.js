@@ -110,11 +110,11 @@ async function renderer(context) {
           );
           const pgnDiv = document.createElement("div");
           pgnDiv.style.position = "absolute";
-          pgnDiv.style.top = "10px";
-          pgnDiv.style.left = "10px";
+          pgnDiv.style.top = "8px";
+          pgnDiv.style.left = "8px";
           pgnDiv.style.zIndex = 1;
           pgnDiv.style.border = "1px solid black";
-          pgnDiv.style.padding = "10px";
+          pgnDiv.style.padding = "8px";
           pgnDiv.style.background = "#FFFFFF";
           pgnDiv.style.fontFamily = "monospace";
           pgnDiv.style.whiteSpace = "pre-wrap";
