@@ -47,15 +47,6 @@ async function renderer(context) {
   let downloadButton = parent.querySelector("#copy-pgn");
   if (!downloadButton) {
     try {
-      downloadButton = document.createElement("button");
-      downloadButton.id = "copy-pgn";
-      downloadButton.textContent = "Copy PGN";
-      downloadButton.style.position = "absolute";
-      downloadButton.style.top = "10px";
-      downloadButton.style.left = "10px";
-      downloadButton.style.zIndex = 1;
-      parent.appendChild(downloadButton);
-
       const board = environment.steps[step][0].observation.board;
       const info = environment.info;
       const agent1 = info?.TeamNames?.[0] || "Agent 1";
@@ -100,6 +91,15 @@ async function renderer(context) {
 
       const pgn = game.pgn();
 
+      downloadButton = document.createElement("button");
+      downloadButton.id = "copy-pgn";
+      downloadButton.textContent = "Copy PGN";
+      downloadButton.style.position = "absolute";
+      downloadButton.style.top = "10px";
+      downloadButton.style.left = "10px";
+      downloadButton.style.zIndex = 1;
+      parent.appendChild(downloadButton);
+
       downloadButton.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(pgn);
@@ -113,6 +113,7 @@ async function renderer(context) {
 
         try {
           const pgnDiv = document.createElement("div");
+          downloadButton.textContent = "";
           pgnDiv.style.position = "absolute";
           pgnDiv.style.top = "8px";
           pgnDiv.style.left = "8px";
@@ -141,6 +142,7 @@ async function renderer(context) {
           closeButton.style.fontSize = "16px";
           closeButton.style.marginLeft = "5px";
           closeButton.addEventListener("click", () => {
+            downloadButton.textContent = "Copy PGN";
             parent.removeChild(pgnDiv);
           });
           pgnDiv.appendChild(closeButton);
@@ -152,7 +154,6 @@ async function renderer(context) {
     } catch (e) {
       console.error("Cannot create game pgn");
       console.error(e);
-      alert("PGN cannot be generated");
     }
   }
 
