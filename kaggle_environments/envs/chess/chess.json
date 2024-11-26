@@ -21,8 +21,8 @@
       }
     },
     "reward": {
-      "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
-      "enum": [-1, 0, 1],
+      "description": "0 = Lost/Ongoing, 0.5 = Draw, 1 = Won",
+      "enum": [0, 0.5, 1],
       "default": 0
     },
     "observation": {
