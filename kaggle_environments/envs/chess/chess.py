@@ -204,8 +204,9 @@ def interpreter(state, env):
         inactive.status = DONE
         return state
     fen = game.get_fen()
-    board_str = fen.split(" ", maxsplit=1)[0]
-    seen_positions[board_str] += 1
+    # board, player turn, en passant, and castling status form board status for 3-fold draws
+    board_position = ' '.join(fen.split()[:-2]) 
+    seen_positions[board_position] += 1
 
     # Update the board in the observation
     state[0].observation.board = fen
