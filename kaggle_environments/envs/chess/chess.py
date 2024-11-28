@@ -166,6 +166,7 @@ def square_str_to_int(square_str):
 
 seen_positions = defaultdict(int)
 
+
 def interpreter(state, env):
     global seen_positions
     if env.done:
@@ -204,8 +205,9 @@ def interpreter(state, env):
         inactive.status = DONE
         return state
     fen = game.get_fen()
-    # board, player turn, en passant, and castling status form board status for 3-fold draws
-    board_position = ' '.join(fen.split()[:-2]) 
+    # board, player turn, en passant, and castling status form board status
+    # for 3-fold draws
+    board_position = ' '.join(fen.split()[:4])
     seen_positions[board_position] += 1
 
     # Update the board in the observation
@@ -220,11 +222,11 @@ def interpreter(state, env):
         fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
     if pawn_or_capture_move_count == 100 or is_insufficient_material(
-            game.board) or seen_positions[board_str] >= 3 or game.status == Game.STALEMATE:
+            game.board) or seen_positions[board_position] >= 3 or game.status == Game.STALEMATE:
         active.reward += .5
         inactive.reward += .5
         active.status = DONE
-        inactive.status = DONE 
+        inactive.status = DONE
     elif game.status == Game.CHECKMATE:
         active.reward += 1
         active.status = DONE
