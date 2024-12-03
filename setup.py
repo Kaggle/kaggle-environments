@@ -57,7 +57,7 @@ setup(
         "transformers >= 4.33.1",
         "scipy >= 1.11.2",
         "shimmy >= 1.2.1",
-        "Chessnut >= 0.3.1",
+        "Chessnut >= 0.4.1",
     ],
     packages=find_packages(),
     include_package_data=True,
