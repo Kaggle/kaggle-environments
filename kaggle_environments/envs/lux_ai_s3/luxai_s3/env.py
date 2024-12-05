@@ -40,23 +40,27 @@ class LuxAIS3Env(environment.Environment):
         params = jax.tree_map(jax.numpy.array, params)
         return params
 
-    def compute_unit_counts_map(self, state: EnvState, params: EnvParams):
+    def compute_unit_counts_map(self, state: EnvState, params: EnvParams, exclude_negative_energy_units: bool = False):
         # map of total units per team on each tile, shape (num_teams, map_width, map_height)
         unit_counts_map = jnp.zeros(
             (self.fixed_env_params.num_teams, self.fixed_env_params.map_width, self.fixed_env_params.map_height), dtype=jnp.int16
         )
 
-        def update_unit_counts_map(unit_position, unit_mask, unit_counts_map):
+        def update_unit_counts_map(unit_position, unit_mask, unit_energy_nonnegative, unit_counts_map):
+            if exclude_negative_energy_units:
+                mask = unit_mask & unit_energy_nonnegative
+            else:
+                mask = unit_mask
             unit_counts_map = unit_counts_map.at[
                 unit_position[0], unit_position[1]
-            ].add(unit_mask.astype(jnp.int16))
+            ].add(mask.astype(jnp.int16))
             return unit_counts_map
 
         for t in range(self.fixed_env_params.num_teams):
             unit_counts_map = unit_counts_map.at[t].add(
                 jnp.sum(
-                    jax.vmap(update_unit_counts_map, in_axes=(0, 0, None), out_axes=0)(
-                        state.units.position[t], state.units_mask[t], unit_counts_map[t]
+                    jax.vmap(update_unit_counts_map, in_axes=(0, 0, 0, None), out_axes=0)(
+                        state.units.position[t], state.units_mask[t], state.units.energy[t, :, 0] >= 0, unit_counts_map[t]
                     ),
                     axis=0,
                     dtype=jnp.int16
@@ -378,7 +382,7 @@ class LuxAIS3Env(environment.Environment):
                             & (other_units_adjacent_sapped_count[:, :, None] > 0),
                             all_units.energy[other_team_ids]
                             - jnp.array(
-                                params.unit_sap_cost.astype(jnp.float32)
+                                jnp.array(params.unit_sap_cost, dtype=jnp.float32)
                                 * params.unit_sap_dropoff_factor
                                 * other_units_adjacent_sapped_count[:, :, None].astype(jnp.float32),
                                 dtype=jnp.int16,
@@ -667,7 +671,10 @@ class LuxAIS3Env(environment.Environment):
         new_energy_nodes = jnp.clip(
             state.energy_nodes + energy_node_deltas,
             min=jnp.array([0, 0], dtype=jnp.int16),
-            max=jnp.array([self.fixed_env_params.map_width, self.fixed_env_params.map_height], dtype=jnp.int16),
+            max=jnp.array(
+                [self.fixed_env_params.map_width - 1, self.fixed_env_params.map_height - 1],
+                dtype=jnp.int16
+            ),
         )
         new_energy_nodes = jnp.where(
             state.steps * params.energy_node_drift_speed % 1 == 0,
@@ -686,7 +693,7 @@ class LuxAIS3Env(environment.Environment):
 
         # note we need to recompue unit counts since units can get removed due to collisions
         team_scores = jax.vmap(team_relic_score)(
-            self.compute_unit_counts_map(state, params)
+            self.compute_unit_counts_map(state, params, exclude_negative_energy_units=True)
         )
         # Update team points
         state = state.replace(team_points=state.team_points + team_scores)
