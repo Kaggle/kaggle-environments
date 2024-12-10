@@ -219,8 +219,8 @@ def interpreter(state, env):
     state[1].observation.opponentRemainingOverageTime = state[0].observation.remainingOverageTime
 
     # Update last move
-    state[0].observation.lastMove = active.action
-    state[1].observation.lastMove = active.action
+    state[0].observation.lastMove = action
+    state[1].observation.lastMove = action
 
     pawn_or_capture_move_count = int(
         fen.split(" ")[4])  # fen keeps track of this
