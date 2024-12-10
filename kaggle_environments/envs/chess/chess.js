@@ -91,6 +91,7 @@ async function renderer(context) {
 
       // for some reason the pgn doesn't calculate the result correctly
       // until we can fix this bug, remove it.
+      // b/383366972
       if (pgn.contains(" 0-0")) {
         pgn = pgn.split(" 0-0")[0]
       }
