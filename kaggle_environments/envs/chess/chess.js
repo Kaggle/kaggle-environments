@@ -64,8 +64,6 @@ async function renderer(context) {
         agent1,
         "Black",
         agent2,
-        "Result",
-        result.join("-")
       );
 
       const openingIdx = OPENINGS.indexOf(board);
@@ -89,7 +87,14 @@ async function renderer(context) {
         }
       }
 
-      const pgn = game.pgn();
+      let pgn = game.pgn();
+
+      // for some reason the pgn doesn't calculate the result correctly
+      // until we can fix this bug, remove it.
+      // b/383366972
+      if (pgn.indexOf(" 0-0") !== -1) {
+        pgn = pgn.split(" 0-0")[0]
+      }
 
       downloadButton = document.createElement("button");
       downloadButton.id = "copy-pgn";
