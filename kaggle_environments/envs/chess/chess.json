@@ -42,6 +42,11 @@
         "type": "number",
         "default": 10
       },
+      "lastMove": {
+        "description": "Previous move to get to this position.",
+        "type": "string",
+        "default": ""
+      },
       "remainingOverageTime": 10
     },
     "action": {
