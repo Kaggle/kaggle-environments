@@ -36,7 +36,7 @@ class Point(tuple):
         return (self + offset) % size
 
     def distance_to(self, other: 'Point', size: int):
-        """Translates the current point by offset and wraps it around a board of width and height size"""
+        """Computes total distance (manhattan) to travel to other Point"""
         abs_x = abs(self.x - other.x)
         dist_x = abs_x if abs_x < size/2 else size - abs_x
         abs_y = abs(self.y - other.y)
@@ -46,7 +46,7 @@ class Point(tuple):
     def to_index(self, size: int):
         """
         Converts a 2d position in the form (x, y) to an index in the observation.halite list.
-        See index_to_position for the inverse.
+        See staticmethod from_index for the inverse.
         """
         return (size - self.y - 1) * size + self.x
 
@@ -54,7 +54,7 @@ class Point(tuple):
     def from_index(index: int, size: int) -> 'Point':
         """
         Converts an index in the observation.halite list to a 2d position in the form (x, y).
-        See position_to_index for the inverse.
+        See Point method to_index for the inverse.
         """
         y, x = divmod(index, size)
         return Point(x, (size - y - 1))
