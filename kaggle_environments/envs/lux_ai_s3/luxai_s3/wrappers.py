@@ -23,23 +23,6 @@ class LuxAIS3GymEnv(gym.Env):
         self.jax_env = LuxAIS3Env(auto_reset=False)
         self.env_params: EnvParams = EnvParams()
 
-        # auto run compiling steps here:
-        # print("Running compilation steps")
-        key = jax.random.key(0)
-        # Reset the environment
-        dummy_env_params = EnvParams(map_type=1)
-        key, reset_key = jax.random.split(key)
-        obs, state = self.jax_env.reset(reset_key, params=dummy_env_params)
-        # Take a random action
-        key, subkey = jax.random.split(key)
-        action = self.jax_env.action_space(dummy_env_params).sample(subkey)
-        # Step the environment and compile. Not sure why 2 steps? are needed
-        for _ in range(2):
-            key, subkey = jax.random.split(key)
-            obs, state, reward, terminated, truncated, info = self.jax_env.step(
-                subkey, state, action, params=dummy_env_params
-            )
-        # print("Finish compilation steps")
         low = np.zeros((self.env_params.max_units, 3))
         low[:, 1:] = -self.env_params.unit_sap_range
         high = np.ones((self.env_params.max_units, 3)) * 6
