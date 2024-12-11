@@ -256,5 +256,5 @@ with open(jsonpath) as f:
 
 def html_renderer():
     jspath = path.abspath(path.join(path.dirname(__file__), "chess.js"))
-    with open(jspath) as g:
+    with open(jspath, encoding="utf-8") as g:
         return g.read()
