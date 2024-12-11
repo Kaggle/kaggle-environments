@@ -90,35 +90,12 @@ class LuxAIPygameRenderer:
             surface.blit(shape_surf, rect)
 
         if self.display_options["show_relic_spots"]:
-            for i in range(params.max_relic_nodes):
-                if state.relic_nodes_mask[i]:
-                    x, y = state.relic_nodes[i, :2]
-                    config_size = params.relic_config_size
-                    half_size = config_size // 2
-                    for dx in range(-half_size, half_size + 1):
-                        for dy in range(-half_size, half_size + 1):
-                            config_x = x + dx
-                            config_y = y + dy
-
-                            if (
-                                0 <= config_x < params.map_width
-                                and 0 <= config_y < params.map_height
-                            ):
-
-                                config_value = state.relic_node_configs[
-                                    i, dy + half_size, dx + half_size
-                                ]
-
-                                if config_value > 0:
-                                    rect = pygame.Rect(
-                                        config_x * TILE_SIZE,
-                                        config_y * TILE_SIZE,
-                                        TILE_SIZE,
-                                        TILE_SIZE,
-                                    )
-                                    draw_rect_alpha(
-                                        self.surface, (255, 215, 0, 50), rect
-                                    )  # Semi-transparent gold
+            mask = state.relic_nodes_map_weights
+            for x in range(params.map_width):
+                for y in range(params.map_height):
+                    if mask[x, y] > 0:
+                        rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                        draw_rect_alpha(self.surface, (255, 215, 0, 50), rect)
 
         # Draw energy nodes
         for i in range(params.max_energy_nodes):
