@@ -11,7 +11,7 @@
       "type": "integer"
     },
     "actTimeout": 3,
-    "runTimeout": 60,
+    "runTimeout": 1600,
     "env_cfg": {
       "description": "Environment configuration. Not to be filled out by user as it is randomly generated.",
       "type": "object"
