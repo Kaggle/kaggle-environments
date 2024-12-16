@@ -496,7 +496,7 @@ export class Board {
         for (let cell of board.cells) {
             if (cell.fleetId === "" && cell.shipyardId === "") {
                 if (cell.kore < configuration.maxRegenCellKore) {
-                    const nextKore = Board.roundToThreePlaces(cell.kore * (1 + configuration.regenRate) * 1000.0) / 1000.0;
+                    const nextKore = Board.roundToThreePlaces(cell.kore * (1 + configuration.regenRate));
                     cell.kore = nextKore;
                 }
             }
