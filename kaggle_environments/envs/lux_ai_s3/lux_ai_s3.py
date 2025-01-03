@@ -78,14 +78,27 @@ def interpreter(state, env):
             player_0.info = dict(replay=replay_frame)
             return state
         
+        player_0_valid_action = True
+        player_1_valid_action = True
+        if player_0.action is not None:
+            player_0_action = np.array(player_0.action["action"])
+        else:
+            player_0_action = luxenv.action_space.sample()["player_0"]
+            player_0_valid_action = False
+        if player_1.action is not None:
+            player_1_action = np.array(player_1.action["action"])
+        else:
+            player_1_action = luxenv.action_space.sample()["player_1"]
+            player_1_valid_action = False
+            
         new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
-            "player_0": np.array(player_0.action["action"]),
-            "player_1": np.array(player_1.action["action"])
+            "player_0": player_0_action,
+            "player_1": player_1_action
         })
         
         # cannot store np arrays in replay jsons so must convert to list
-        player_0.action = player_0.action["action"]
-        player_1.action = player_1.action["action"]
+        player_0.action = player_0_action.tolist()
+        player_1.action = player_1_action.tolist()
         
         dones = dict()
         for k in terminations:
@@ -119,8 +132,14 @@ def interpreter(state, env):
                 player_0.status = "DONE"
             if player_1.status == "ACTIVE":
                 player_1.status = "DONE"
+        # if player submits invalid action we need to mark the game as failed.
+        if not player_0_valid_action:
+            player_0.status = "ERROR"
+        if not player_1_valid_action:
+            player_1.status = "ERROR"
         return state
     except ModuleNotFoundError as e:
+        print(e)
         print("Lux AI S3 Dependencies are missing, interpreter will not work")
     return state
 
