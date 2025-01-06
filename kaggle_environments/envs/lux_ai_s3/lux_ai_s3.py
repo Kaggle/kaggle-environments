@@ -78,18 +78,27 @@ def interpreter(state, env):
             player_0.info = dict(replay=replay_frame)
             return state
         
+        # validate actions
         player_0_valid_action = True
         player_1_valid_action = True
-        if player_0.action is not None:
+        def validate_action(action):
+            valid = True
+            if action.shape != (luxenv.action_space["player_0"].shape):
+                valid = False
+            return valid
+        try:
             player_0_action = np.array(player_0.action["action"])
-        else:
-            player_0_action = luxenv.action_space.sample()["player_0"]
+            assert validate_action(player_0_action)
+        except:
             player_0_valid_action = False
-        if player_1.action is not None:
+            player_0_action = luxenv.action_space.sample()["player_0"] * 0
+        
+        try:
             player_1_action = np.array(player_1.action["action"])
-        else:
-            player_1_action = luxenv.action_space.sample()["player_1"]
+            assert validate_action(player_1_action)
+        except:
             player_1_valid_action = False
+            player_1_action = luxenv.action_space.sample()["player_1"] * 0
             
         new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
             "player_0": player_0_action,
