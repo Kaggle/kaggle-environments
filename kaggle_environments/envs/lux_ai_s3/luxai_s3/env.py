@@ -655,7 +655,7 @@ class LuxAIS3Env(environment.Environment):
             axis=(0, 1),
         )
         new_tile_types_map = jnp.where(
-            (state.steps * (params.nebula_tile_drift_speed * 1000).astype(int) % 1000) == 0,
+            (state.steps - 1) * params.nebula_tile_drift_speed % 1 > state.steps * params.nebula_tile_drift_speed % 1,
             new_tile_types_map,
             state.map_features.tile_type,
         )
@@ -683,7 +683,7 @@ class LuxAIS3Env(environment.Environment):
             ),
         )
         new_energy_nodes = jnp.where(
-            (state.steps * (params.energy_node_drift_speed * 1000).astype(int) % 1000) == 0,
+            (state.steps - 1) * params.energy_node_drift_speed % 1 > state.steps * params.energy_node_drift_speed % 1,
             new_energy_nodes,
             state.energy_nodes,
         )
