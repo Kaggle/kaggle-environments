@@ -66,7 +66,10 @@ class EnvState:
     relic_nodes_mask: chex.Array
     """Mask of relic nodes in the environment with shape (N, ) for N max relic nodes"""
     relic_nodes_map_weights: chex.Array
-    """Map of relic nodes in the environment with shape (H, W) for H height, W width. True if a relic node is present, False otherwise. This is generated from other state"""
+    """Map of relic nodes in the environment with shape (H, W) for H height, W width. Each element is equal to the 1-indexed id of the relic node. This is generated from other state"""
+    
+    relic_spawn_schedule: chex.Array
+    """Relic spawn schedule in the environment with shape (N, ) for N max relic nodes. Elements are the game timestep at which the relic node spawns"""
 
     map_features: MapTile
     """Map features in the environment with shape (W, H, 2) for W width, H height
@@ -121,7 +124,7 @@ class EnvObs:
 
 def serialize_env_states(env_states: list[EnvState]):
     def serialize_array(root: EnvState, arr, key_path: str = ""):
-        if key_path in ["sensor_mask", "relic_nodes_mask", "energy_nodes_mask", "energy_node_fns", "relic_nodes_map_weights"]:
+        if key_path in ["sensor_mask", "relic_nodes_mask", "energy_nodes_mask", "energy_node_fns", "relic_nodes_map_weights", "relic_spawn_schedule"]:
             return None
         if key_path == "relic_nodes":
             return root.relic_nodes[root.relic_nodes_mask].tolist()
@@ -186,7 +189,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
 
     # TODO (this could be optimized better)
     def update_relic_node(relic_nodes_map_weights, relic_data):
-        relic_node, relic_node_config, mask = relic_data
+        relic_node, relic_node_config, mask, relic_node_id = relic_data
         start_y = relic_node[1] - relic_config_size // 2
         start_x = relic_node[0] - relic_config_size // 2
         for dy in range(relic_config_size):
@@ -198,7 +201,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
                 )
                 relic_nodes_map_weights = jnp.where(
                     valid_pos & mask,
-                    relic_nodes_map_weights.at[x, y].add(relic_node_config[dx, dy].astype(jnp.int16)),
+                    relic_nodes_map_weights.at[x, y].set(relic_node_config[dx, dy].astype(jnp.int16) * (relic_node_id + 1)),
                     relic_nodes_map_weights,
                 )
         return relic_nodes_map_weights, None
@@ -211,6 +214,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
             generated["relic_nodes"],
             generated["relic_node_configs"],
             generated["relic_nodes_mask"],
+            jnp.arange(max_relic_nodes, dtype=jnp.int16) % (max_relic_nodes // 2),
         ),
     )
     state = EnvState(
@@ -225,9 +229,10 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
         energy_nodes_mask=generated["energy_nodes_mask"],
         # energy_field=jnp.zeros(shape=(params.map_height, params.map_width), dtype=jnp.int16),
         relic_nodes=generated["relic_nodes"],
-        relic_nodes_mask=generated["relic_nodes_mask"],
+        relic_nodes_mask=jnp.zeros(shape=(max_relic_nodes), dtype=jnp.bool), # as relic nodes are spawn in, we start with them all invisible.
         relic_node_configs=generated["relic_node_configs"],
         relic_nodes_map_weights=relic_nodes_map_weights,
+        relic_spawn_schedule=generated["relic_spawn_schedule"],
         sensor_mask=jnp.zeros(
             shape=(num_teams, map_height, map_width),
             dtype=jnp.bool,
@@ -276,7 +281,7 @@ def gen_map(key: chex.PRNGKey, params: EnvParams, map_type: int, map_height: int
         flat_indices = jnp.argsort(noise.ravel())[-max_relic_nodes // 2:]  # Get indices of two highest values
         highest_positions = jnp.column_stack(jnp.unravel_index(flat_indices, noise.shape))
 
-        # relic nodes have a fixed density of 25% nearby tiles can yield points
+        # relic nodes have a fixed density of 20% nearby tiles can yield points
         relic_node_configs = (
             jax.random.randint(
                 key,
@@ -291,18 +296,15 @@ def gen_map(key: chex.PRNGKey, params: EnvParams, map_type: int, map_height: int
             >= 7.5
         )
         highest_positions = highest_positions.astype(jnp.int16)
-        relic_nodes_mask = relic_nodes_mask.at[0].set(True)
-        relic_nodes_mask = relic_nodes_mask.at[1].set(True)
         mirrored_positions = jnp.stack([map_width - highest_positions[:, 1] - 1, map_height - highest_positions[:, 0] - 1], dtype=jnp.int16, axis=-1)
         relic_nodes = jnp.concat([highest_positions, mirrored_positions], axis=0)
         
         key, subkey = jax.random.split(key)
-        relic_nodes_mask_half = jax.random.randint(key, (max_relic_nodes // 2, ), minval=0, maxval=2).astype(jnp.bool)
-        relic_nodes_mask_half = relic_nodes_mask_half.at[0].set(True)
-        relic_nodes_mask = relic_nodes_mask.at[:max_relic_nodes // 2].set(relic_nodes_mask_half)
-        relic_nodes_mask = relic_nodes_mask.at[max_relic_nodes // 2:].set(relic_nodes_mask_half)
-        # import ipdb;ipdb.set_trace()
+        num_spawned_relic_nodes = jax.random.randint(key, (1, ), minval=1, maxval=(max_relic_nodes // 2) + 1)
+        relic_nodes_mask_half = jnp.arange(max_relic_nodes // 2) < num_spawned_relic_nodes
+        relic_nodes_mask = jnp.concat([relic_nodes_mask_half, relic_nodes_mask_half], axis=0)
         relic_node_configs = relic_node_configs.at[max_relic_nodes // 2:].set(relic_node_configs[:max_relic_nodes // 2].transpose(0, 2, 1)[:, ::-1, ::-1])
+        # note that relic nodes mask is always increasing.
         
         ### Generate energy nodes ###
         key, subkey = jax.random.split(key)
@@ -318,7 +320,6 @@ def gen_map(key: chex.PRNGKey, params: EnvParams, map_type: int, map_height: int
         energy_nodes_mask = energy_nodes_mask.at[:max_energy_nodes // 2].set(energy_nodes_mask_half)
         energy_nodes_mask = energy_nodes_mask.at[max_energy_nodes // 2:].set(energy_nodes_mask_half)
         
-        # TODO (stao): provide more randomization options for energy node functions.
         energy_node_fns = jnp.array(
             [
                 [0, 1.2, 1, 4],
@@ -331,8 +332,14 @@ def gen_map(key: chex.PRNGKey, params: EnvParams, map_type: int, map_height: int
                 # [1, 4, 0, 0]
             ]
         )
-        # import ipdb; ipdb.set_trace()
-        # energy_node_fns = jnp.concat([energy_node_fns, jnp.zeros((params.max_energy_nodes - 2, 4), dtype=jnp.float32)], axis=0)
+        
+        # generate a random relic spawn schedule
+        # if number is -1, then relic node is never spawned, otherwise spawn at that game timestep
+        assert max_relic_nodes == 6, "random map generation is hardcoded to use 6 relic nodes at most per map"
+        key, subkey = jax.random.split(key)
+        relic_spawn_schedule_half = jax.random.randint(key, (max_relic_nodes //2, ), minval=0, maxval=params.max_steps_in_match // 2) + jnp.arange(3) * (params.max_steps_in_match + 1)
+        relic_spawn_schedule = jnp.concat([relic_spawn_schedule_half, relic_spawn_schedule_half], axis=0)
+        relic_spawn_schedule = jnp.where(relic_nodes_mask, relic_spawn_schedule, -1)
         
         
     return dict(
@@ -343,6 +350,7 @@ def gen_map(key: chex.PRNGKey, params: EnvParams, map_type: int, map_height: int
         energy_nodes_mask=energy_nodes_mask,
         relic_nodes_mask=relic_nodes_mask,
         relic_node_configs=relic_node_configs,
+        relic_spawn_schedule=relic_spawn_schedule,
     )
 def interpolant(t):
     return t*t*t*(t*(t*6 - 15) + 10)

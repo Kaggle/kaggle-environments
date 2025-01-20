@@ -148,6 +148,11 @@ class LuxAIS3Env(environment.Environment):
                     i : max_sensor_range * 2 + 1 - i,
                     i : max_sensor_range * 2 + 1 - i,
                 ].set(val)
+            # vision of position at center of update has an extra 10
+            update = update.at[
+                max_sensor_range,
+                max_sensor_range,
+            ].add(10)
             vision_power_map = jax.lax.dynamic_update_slice(
                 vision_power_map,
                 update=update + existing_vision_power,
@@ -227,6 +232,10 @@ class LuxAIS3Env(environment.Environment):
         state = state.replace(
             units_mask=(state.units.energy[..., 0] >= 0) & state.units_mask
         )
+        
+        """spawn relic nodes based on schedule"""
+        relic_nodes_mask = (state.steps >= state.relic_spawn_schedule) & (state.relic_spawn_schedule != -1)
+        state = state.replace(relic_nodes_mask=relic_nodes_mask)
 
         """ process unit movement """
         # 0 is do nothing, 1 is move up, 2 is move right, 3 is move down, 4 is move left, 5 is sap
@@ -646,11 +655,10 @@ class LuxAIS3Env(environment.Environment):
             axis=(0, 1),
         )
         new_tile_types_map = jnp.where(
-            state.steps * params.nebula_tile_drift_speed % 1 == 0,
+            (state.steps * (params.nebula_tile_drift_speed * 1000).astype(int) % 1000) == 0,
             new_tile_types_map,
             state.map_features.tile_type,
         )
-        # new_energy_nodes = state.energy_nodes + jnp.array([1 * jnp.sign(params.energy_node_drift_speed), -1 * jnp.sign(params.energy_node_drift_speed)])
 
         energy_node_deltas = jnp.round(
             jax.random.uniform(
@@ -663,8 +671,6 @@ class LuxAIS3Env(environment.Environment):
         energy_node_deltas_symmetric = jnp.stack(
             [-energy_node_deltas[:, 1], -energy_node_deltas[:, 0]], axis=-1
         )
-        # TODO symmetric movement
-        # energy_node_deltas = jnp.round(jax.random.uniform(key=key, shape=(params.max_energy_nodes // 2, 2), minval=-params.energy_node_drift_magnitude, maxval=params.energy_node_drift_magnitude)).astype(jnp.int16)
         energy_node_deltas = jnp.concatenate(
             (energy_node_deltas, energy_node_deltas_symmetric)
         )
@@ -677,7 +683,7 @@ class LuxAIS3Env(environment.Environment):
             ),
         )
         new_energy_nodes = jnp.where(
-            state.steps * params.energy_node_drift_speed % 1 == 0,
+            (state.steps * (params.energy_node_drift_speed * 1000).astype(int) % 1000) == 0,
             new_energy_nodes,
             state.energy_nodes,
         )
@@ -688,7 +694,9 @@ class LuxAIS3Env(environment.Environment):
 
         # Compute relic scores
         def team_relic_score(unit_counts_map):
-            scores = (unit_counts_map > 0) & (state.relic_nodes_map_weights > 0)
+            # not all relic nodes are spawned in yet, but relic nodes map ids are precomputed for all to be spawned relic nodes
+            # for efficiency. So we check if the relic node (by id) is spawned in yet. relic nodes mask is always increasing so we can do a simple trick below
+            scores = (unit_counts_map > 0) & (state.relic_nodes_map_weights <= state.relic_nodes_mask.sum() // 2) & (state.relic_nodes_map_weights > 0)
             return jnp.sum(scores, dtype=jnp.int32)
 
         # note we need to recompue unit counts since units can get removed due to collisions
@@ -771,7 +779,6 @@ class LuxAIS3Env(environment.Environment):
         )
         state = self.compute_energy_features(state, params)
         state = self.compute_sensor_masks(state, params)
-
         return self.get_obs(state, params=params, key=key), state
 
     @functools.partial(jax.jit, static_argnums=(0,))
