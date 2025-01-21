@@ -192,6 +192,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
         relic_node, relic_node_config, mask, relic_node_id = relic_data
         start_y = relic_node[1] - relic_config_size // 2
         start_x = relic_node[0] - relic_config_size // 2
+        
         for dy in range(relic_config_size):
             for dx in range(relic_config_size):
                 y, x = start_y + dy, start_x + dx
@@ -199,14 +200,20 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
                     jnp.logical_and(y >= 0, x >= 0),
                     jnp.logical_and(y < map_height, x < map_width),
                 )
+                # ensure we don't override previous spawns
+                has_points = jnp.logical_and(
+                    relic_nodes_map_weights > 0,
+                    relic_nodes_map_weights <= relic_node_id + 1
+                )
                 relic_nodes_map_weights = jnp.where(
-                    valid_pos & mask,
+                    valid_pos & mask & jnp.logical_not(has_points),
                     relic_nodes_map_weights.at[x, y].set(relic_node_config[dx, dy].astype(jnp.int16) * (relic_node_id + 1)),
                     relic_nodes_map_weights,
                 )
         return relic_nodes_map_weights, None
 
     # this is really slow...
+    
     relic_nodes_map_weights, _ = jax.lax.scan(
         update_relic_node,
         relic_nodes_map_weights,
@@ -217,6 +224,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
             jnp.arange(max_relic_nodes, dtype=jnp.int16) % (max_relic_nodes // 2),
         ),
     )
+    
     state = EnvState(
         units=UnitState(position=jnp.zeros(shape=(num_teams, max_units, 2), dtype=jnp.int16), energy=jnp.zeros(shape=(num_teams, max_units, 1), dtype=jnp.int16)),
         units_mask=jnp.zeros(
