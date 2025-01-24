@@ -206,7 +206,7 @@ def gen_state(key: chex.PRNGKey, env_params: EnvParams, max_units: int, num_team
                     relic_nodes_map_weights <= relic_node_id + 1
                 )
                 relic_nodes_map_weights = jnp.where(
-                    valid_pos & mask & jnp.logical_not(has_points),
+                    valid_pos & mask & jnp.logical_not(has_points) & relic_node_config[dx, dy],
                     relic_nodes_map_weights.at[x, y].set(relic_node_config[dx, dy].astype(jnp.int16) * (relic_node_id + 1)),
                     relic_nodes_map_weights,
                 )
