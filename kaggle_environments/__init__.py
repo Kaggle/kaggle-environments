@@ -31,13 +31,23 @@ __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
 for name in listdir(utils.envs_path):
     try:
         env = import_module(f".envs.{name}.{name}", __name__)
-        register(name, {
-            "agents": getattr(env, "agents", []),
-            "html_renderer": getattr(env, "html_renderer", None),
-            "interpreter": getattr(env, "interpreter"),
-            "renderer": getattr(env, "renderer"),
-            "specification": getattr(env, "specification"),
-        })
+        if name == "open_spiel":
+            for env_name, env_dict in env.registered_open_spiel_envs.items():
+                register(env_name, {
+                    "agents": env_dict.get("agents"),
+                    "html_renderer": env_dict.get("html_renderer"),
+                    "interpreter": env_dict.get("interpreter"),
+                    "renderer": env_dict.get("renderer"),
+                    "specification": env_dict.get("specification"),
+                })
+        else:
+          register(name, {
+              "agents": getattr(env, "agents", []),
+              "html_renderer": getattr(env, "html_renderer", None),
+              "interpreter": getattr(env, "interpreter"),
+              "renderer": getattr(env, "renderer"),
+              "specification": getattr(env, "specification"),
+          })
     except Exception as e:
         if "football" not in name:
             print("Loading environment %s failed: %s" % (name, e))
