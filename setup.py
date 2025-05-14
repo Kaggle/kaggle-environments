@@ -58,6 +58,7 @@ setup(
         "scipy >= 1.11.2",
         "shimmy >= 1.2.1",
         "Chessnut >= 0.4.1",
+        "open_spiel >= 1.5.0",
     ],
     packages=find_packages(),
     include_package_data=True,
