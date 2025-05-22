@@ -1,0 +1,138 @@
+{
+    "name": "werewolf",
+    "title": "werewolf",
+    "description": "A social deduction game.",
+    "version": "0.1.0",
+    "agents": [
+        7,
+        15
+    ],
+    "configuration": {
+        "num_doctors": {
+            "description": "Number of Doctor roles in the game. If not specified, defaults to 1.",
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+        },
+        "num_seers": {
+            "description": "Number of Seer roles in the game. If not specified, defaults to 1.",
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+        },
+        "max_episode_length": {
+            "description": "Max game steps the environment can run, not including the early phase of the game.",
+            "minimum": 2,
+            "type": "integer",
+            "default": 1000
+        },
+        "seed": {
+            "description": "Seed to use for episodes",
+            "type": "integer"
+        },
+        "actTimeout": 3,
+        "runTimeout": 9600,
+        "env_cfg": {
+            "type": "object"
+        }
+    },
+    "reward": {
+        "description": "Reward is only given at the end of the episode. +1 is the winning team while -1 is the losing team.",
+        "type": "integer",
+        "default": 0
+    },
+    "observation": {
+        "role": {
+            "description": "The role of the agent (e.g., Villager, Werewolf). Enum mapping defined in environment.",
+            "type": "integer"
+        },
+        "phase": {
+            "description": "The current game phase (e.g., Night, Day Discussion). Enum mapping defined in environment.",
+            "type": "integer"
+        },
+        "alive_players": {
+            "description": "A list indicating which players are alive (1 for alive, 0 for dead), indexed by player ID.",
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "known_werewolves": {
+            "description": "A list indicating known werewolves (1 if known werewolf, 0 otherwise), indexed by player ID. Only populated for werewolf agents.",
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "seer_last_inspection": {
+            "description": "Tuple of (inspected_player_idx, inspected_player_role_enum). Populated for Seer agents after inspection. Index can be num_players if invalid, role 0 if unknown.",
+            "type": "array",
+            "items": {
+                "type": "integer"
+            },
+            "minItems": 0,
+            "maxItems": 2
+        },
+        "doctor_last_save_attempt": {
+            "description": "Tuple of (saved_player_idx, was_targeted_by_werewolves_flag). Populated for Doctor agents after save attempt. Index can be num_players if invalid.",
+            "type": "array",
+            "items": {
+                "type": "integer"
+            },
+            "minItems": 0,
+            "maxItems": 2
+        },
+        "can_act": {
+            "description": "Flag indicating if it's this agent's turn to act (1 if yes, 0 if no).",
+            "type": "integer"
+        },
+        "discussion_log": {
+            "description": "JSON string representing the discussion log for the current day (list of {'speaker': agent_id, 'message': text}).",
+            "type": "string"
+        },
+        "last_lynched": {
+            "description": "Index of the player last lynched. Special value (e.g., num_players) if no one or tie.",
+            "type": "integer"
+        },
+        "last_lynched_player_role": {
+            "description": "Role enum value of the player last lynched. Special value (e.g., 0) if no one, tie, or role unknown.",
+            "type": "integer"
+        },
+        "last_killed_by_werewolf": {
+            "description": "Index of the player last killed by werewolves. Special value (e.g., num_players) if no one or saved.",
+            "type": "integer"
+        },
+        "last_killed_by_werewolf_role": {
+            "description": "Role enum value of the player last killed by werewolves. Special value (e.g., 0) if no one, saved, or role unknown.",
+            "type": "integer"
+        },
+        "my_unique_name": {
+            "description": "The unique string identifier for this agent (e.g., 'player_0').",
+            "type": "string"
+        },
+        "all_player_unique_names": {
+            "description": "JSON string array of all player unique names in the game, ordered by index.",
+            "type": "string"
+        },
+        "last_day_vote_details": {
+            "description": "JSON string dictionary of votes from the last day's lynch voting phase (voter_agent_id: target_player_idx).",
+            "type": "string"
+        },
+        "current_day_vote_details": {
+            "description": "JSON string dictionary of votes so far in the current day's lynch voting phase (voter_agent_id: target_player_idx). Only populated during DAY_VOTING.",
+            "type": "string"
+        },
+        "current_night_werewolf_votes": {
+            "description": "JSON string dictionary of votes so far in the current night's werewolf kill phase (voter_agent_id: target_player_idx). Only populated for werewolves during NIGHT_WEREWOLF_VOTE.",
+            "type": "string"
+        },
+        "last_action_feedback": {
+            "description": "A message providing feedback on the agent's last submitted action (e.g., success, error details).",
+            "type": "string"
+        }
+    },
+    "action": {
+        "description": "Actions",
+        "type": "object"
+    }
+}
