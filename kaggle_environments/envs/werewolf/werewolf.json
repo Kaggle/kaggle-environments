@@ -73,19 +73,6 @@
             "minItems": 0,
             "maxItems": 2
         },
-        "doctor_last_save_attempt": {
-            "description": "Tuple of (saved_player_idx, was_targeted_by_werewolves_flag). Populated for Doctor agents after save attempt. Index can be num_players if invalid.",
-            "type": "array",
-            "items": {
-                "type": "integer"
-            },
-            "minItems": 0,
-            "maxItems": 2
-        },
-        "can_act": {
-            "description": "Flag indicating if it's this agent's turn to act (1 if yes, 0 if no).",
-            "type": "integer"
-        },
         "discussion_log": {
             "description": "JSON string representing the discussion log for the current day (list of {'speaker': agent_id, 'message': text}).",
             "type": "string"

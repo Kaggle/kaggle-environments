@@ -1,15 +1,96 @@
 from os import path
-from random import choice
 import json
+import random # Added for random.choice
 
 # my_kaggle_env.py
 # Import your AECEnv game class
-from .env import WerewolfEnv
+from .env import WerewolfEnv, ActionType, Role, Phase, WerewolfObservationModel # Added ActionType, Role, Phase
 
 
 def random_agent(obs):
-    raise Exception(f"obs: {obs}")
-    return
+    raw_aec_obs = obs.get('raw_aec_observation')
+
+    # Default to NO_OP if observation is missing or agent cannot act
+    if not raw_aec_obs:
+        return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
+
+    current_phase = Phase(raw_aec_obs['phase'])
+    my_role = Role(raw_aec_obs['role'])
+
+    all_player_names = json.loads(raw_aec_obs['all_player_unique_names'])
+    my_unique_name = raw_aec_obs['my_unique_name']
+
+    my_idx = all_player_names.index(my_unique_name)
+
+    alive_player_indices = [i for i, status in enumerate(raw_aec_obs['alive_players']) if status == 1]
+
+    action_to_take = {"action_type": ActionType.NO_OP.value} # Default action
+
+    if current_phase == Phase.NIGHT_WEREWOLF_VOTE:
+        if my_role == Role.WEREWOLF:
+            known_ww_status = raw_aec_obs['known_werewolves']
+            # Werewolves target alive non-werewolf players
+            potential_targets = [
+                idx for idx in alive_player_indices
+                if idx < len(known_ww_status) and known_ww_status[idx] == 0
+            ]
+            if potential_targets:
+                target_idx = random.choice(potential_targets)
+                action_to_take = {"action_type": ActionType.NIGHT_KILL_VOTE.value, "target_idx": target_idx}
+    
+    elif current_phase == Phase.NIGHT_DOCTOR_SAVE:
+        if my_role == Role.DOCTOR:
+            # Doctors can save any alive player (including themselves)
+            if alive_player_indices:
+                target_idx = random.choice(alive_player_indices)
+                action_to_take = {"action_type": ActionType.NIGHT_SAVE_TARGET.value, "target_idx": target_idx}
+
+    elif current_phase == Phase.NIGHT_SEER_INSPECT:
+        if my_role == Role.SEER:
+            # Seers can inspect any alive player
+            if alive_player_indices:
+                target_idx = random.choice(alive_player_indices)
+                action_to_take = {"action_type": ActionType.NIGHT_INSPECT_TARGET.value, "target_idx": target_idx}
+
+    elif current_phase == Phase.DAY_DISCUSSION:
+        if my_idx in alive_player_indices: # Only alive players can discuss
+            messages = [
+                "Hello everyone!", 
+                "I have a strong feeling about someone.", 
+                "Any information to share?", 
+                "I am a simple Villager just trying to survive.", 
+                "Let's think carefully before voting."
+            ]
+            
+            if len(alive_player_indices) > 0:
+                rand_player_for_msg_idx = random.choice(alive_player_indices)
+                messages[1] = f"I think {all_player_names[rand_player_for_msg_idx]} is acting suspiciously."
+                
+                votable_for_message = [p_idx for p_idx in alive_player_indices if p_idx != rand_player_for_msg_idx]
+                if votable_for_message:
+                    rand_player_for_vote_msg_idx = random.choice(votable_for_message)
+                    messages[4] = f"We should consider voting for {all_player_names[rand_player_for_vote_msg_idx]} today."
+                elif len(alive_player_indices) == 1: 
+                     messages[4] = "It seems I'm the only one left to talk to."
+
+            action_to_take = {"action_type": ActionType.DAY_DISCUSS.value, "message": random.choice(messages)}
+
+    elif current_phase == Phase.DAY_VOTING:
+        if my_idx in alive_player_indices: # Only alive players can vote
+            votable_targets = [p_idx for p_idx in alive_player_indices if p_idx != my_idx]
+            if votable_targets:
+                target_idx = random.choice(votable_targets)
+                action_to_take = {"action_type": ActionType.DAY_LYNCH_VOTE.value, "target_idx": target_idx}
+    
+    elif current_phase == Phase.GAME_OVER:
+        action_to_take = {"action_type": ActionType.NO_OP.value}
+        
+    if "target_idx" not in action_to_take:
+        action_to_take["target_idx"] = None
+    if "message" not in action_to_take:
+        action_to_take["message"] = None
+        
+    return action_to_take
 
 
 agents = {"random": random_agent}
@@ -51,6 +132,9 @@ def interpreter(state, env):
         #     aec_params["render_mode"] = env.configuration.render_mode
         env.my_aec_game_instance = WerewolfEnv(**aec_params)
         
+        # Assign to 'game' here so it's available within the loop below
+        game = env.my_aec_game_instance
+        
         # Pass num_players to reset via options
         reset_options = {"num_players": num_players_for_aec}
         env.my_aec_game_instance.reset(options=reset_options) # Initialize the AEC game state
@@ -62,6 +146,9 @@ def interpreter(state, env):
             # For other agents, observe() might be needed or they wait their turn.
             # This initial population might also be partly handled by an on_reset hook
             # in your environment's JSON if you define one.
+            # Initialize info for each agent in the Kaggle state
+            initial_aec_info = game.infos.get(env.my_aec_game_instance.agents[i], {})
+            state[i].info = initial_aec_info
             if state[i].status == "ACTIVE": # or INACTIVE if waiting for first turn
                 # This mapping assumes Kaggle agent index maps to PettingZoo agent index
                 raw_obs = env.my_aec_game_instance.observe(agent_id_str)
@@ -91,8 +178,8 @@ def interpreter(state, env):
         # Get the corresponding PettingZoo agent_id string (e.g., "player_0", "player_1")
         # This assumes your Kaggle environment's JSON configures two agents,
         # and they correspond to game.possible_agents in order.
-        if i < len(game.possible_agents):
-            aec_agent_id_str = game.possible_agents[i]
+        if i < len(game.agent_ids):
+            aec_agent_id_str = game.agent_ids[i]
             
             raw_obs = game.observe(aec_agent_id_str)
             agent_state.observation.raw_aec_observation = raw_obs
@@ -100,6 +187,9 @@ def interpreter(state, env):
             # Rewards in AECEnv are typically for the action just taken by an agent.
             # Kaggle's `state[i].reward` is the reward attributed to agent `i` at this step.
             agent_state.reward = game.rewards.get(aec_agent_id_str, 0)
+            
+            # Update info for the agent in the Kaggle state
+            agent_state.info = game.infos.get(aec_agent_id_str, {})
             
             if game.terminations.get(aec_agent_id_str, False) or game.truncations.get(aec_agent_id_str, False):
                 agent_state.status = "DONE"
@@ -122,28 +212,74 @@ def interpreter(state, env):
             state[i].reward = state[i].reward if isinstance(state[i].reward, (int, float)) else 0
         if hasattr(env, 'my_aec_game_instance'):
              env.my_aec_game_instance.close() # Clean up AECEnv
-             delattr(env, 'my_aec_game_instance') # Remove from env to allow re-init on next episode
+            #  delattr(env, 'my_aec_game_instance') # Remove from env to allow re-init on next episode
 
     return state
 
 
-
 def renderer(state, env):
-    # This is your JS renderer. For the Python side, you might just pass
-    # a JSON-serializable representation of the game state.
-    # If you have a render method in your AECEnv that produces a string or serializable output:
-    # if hasattr(env, 'my_aec_game_instance'):
-    #     return env.my_aec_game_instance.render(mode="ansi_string_or_json") 
-    # else:
-    #     return "Game not initialized."
-    # For Kaggle's default HTML/JS rendering, this function usually returns
-    # content that the associated .js file can understand.
-    # The core.py passes this to a to_json helper.
+    if not hasattr(env, 'my_aec_game_instance'):
+        return "Werewolf game instance not initialized yet."
+
+    game = env.my_aec_game_instance
+    output_lines = []
+
+    current_kaggle_step_index = env.render_step_ind
+
+    if current_kaggle_step_index == 0:
+        return "*** Werewolf Game Initialized ***"
+
+    # acting_agent_kaggle_idx is the Kaggle index of the agent that took an action
+    # which resulted in the state env.steps[current_kaggle_step_index].
+    acting_agent_kaggle_idx = game.active_player_indices_history[current_kaggle_step_index]
+
+    if acting_agent_kaggle_idx is None:
+        return f"Error: No acting agent found in history for step index {current_kaggle_step_index}."
+
+    acting_agent_id_str = game.agent_ids[acting_agent_kaggle_idx]
+
+    # current_k_step_state_list is env.steps[current_kaggle_step_index] (passed as 'state' to renderer)
+    # This is the state *after* the acting_agent_kaggle_idx took their action.
+    current_k_step_state_list = state 
+    action_agent_took = current_k_step_state_list[acting_agent_kaggle_idx].action
     
-    # A common pattern is to ensure the observation (which should be serializable)
-    # contains enough info for the JS renderer.
-    # For this example, we'll just return the raw first agent's observation for simplicity.
-    return state[0].observation.get("raw_aec_observation", {})
+    # previous_k_step_state_list is env.steps[current_kaggle_step_index - 1]
+    # This contains the observation the agent received *before* acting.
+    previous_k_step_state_list = env.steps[current_kaggle_step_index - 1]
+    
+    # Observation the agent received to make its decision
+    obs_agent_received_full = previous_k_step_state_list[acting_agent_kaggle_idx].observation
+    obs_agent_received_raw_aec = obs_agent_received_full.get("raw_aec_observation")
+
+    # The status of the agent *when it was called to make the action*
+    status_when_acting = previous_k_step_state_list[acting_agent_kaggle_idx].status
+
+    output_lines.append(f"--- Werewolf Game State ---")
+    
+    current_phase_val = obs_agent_received_raw_aec.get('phase') if obs_agent_received_raw_aec else None
+    current_phase_str = Phase(current_phase_val).name if current_phase_val is not None else 'N/A'
+    output_lines.append(f"Current Phase (when agent acted): {current_phase_str}")
+    
+    output_lines.append(f"Active Agent ID: {acting_agent_id_str}")    
+    output_lines.append(f"  Kaggle Agent Index: {acting_agent_kaggle_idx}")
+    output_lines.append(f"  Kaggle Agent Status (when agent acted): {status_when_acting}")
+
+    if obs_agent_received_raw_aec:
+        role_val = obs_agent_received_raw_aec.get('role')
+        role_str = Role(role_val).name if role_val is not None else 'N/A'
+        output_lines.append(f"  Observation for {acting_agent_id_str} (Role: {role_str}):")
+        obs = WerewolfObservationModel(**obs_agent_received_raw_aec)
+        for key, value in obs.get_human_readable().items():
+            output_lines.append(f"    {key}: {value}")
+    else:
+        output_lines.append(f"  No raw_aec_observation found for {acting_agent_id_str}.")
+
+    # Use action_description_for_log from the agent's info in the *current* step's state
+    agent_info_after_action = current_k_step_state_list[acting_agent_kaggle_idx].info
+    action_description = agent_info_after_action.get("action_description_for_log", str(action_agent_took))
+    output_lines.append(f"Action Processed by Env: {action_description}")
+
+    return "\n".join(output_lines)
 
 
 def html_renderer():
