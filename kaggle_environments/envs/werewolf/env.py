@@ -1,7 +1,7 @@
 import random
 from enum import Enum, auto
-import math # Added for math.ceil
-from typing import Dict, List, Any, Optional, Tuple
+import math  # Added for math.ceil
+from typing import Dict, List, Any, Optional, Tuple, Union
 import json
 
 from pydantic import BaseModel, ValidationError, field_validator
@@ -13,25 +13,7 @@ from pettingzoo.utils import AgentSelector
 from gymnasium import spaces  # type: ignore
 
 
-class WerewolfObservationModel(BaseModel):
-    role: int 
-    phase: int 
-    alive_players: List[int]
-    known_werewolves: List[int]
-    seer_last_inspection: Tuple[int, int]
-    doctor_last_save_attempt: Tuple[int, int]
-    can_act: int 
-    discussion_log: str 
-    last_lynched: int
-    last_lynched_player_role: int
-    last_killed_by_werewolf: int
-    last_killed_by_werewolf_role: int
-    my_unique_name: str
-    all_player_unique_names: str 
-    last_day_vote_details: str 
-    current_day_vote_details: str 
-    current_night_werewolf_votes: str 
-    last_action_feedback: str
+
 
 
 # Define Roles
@@ -84,6 +66,110 @@ class ActionModel(BaseModel):
         return v_action_type
 
 
+class WerewolfObservationModel(BaseModel):
+    role: int  # The agent's own role (e.g., Villager, Werewolf), as an enum value.
+    phase: int  # The current game phase (e.g., NIGHT_WEREWOLF_VOTE, DAY_DISCUSSION), as an enum value.
+    alive_players: List[int]  # A list indicating the status of each player (1 if alive, 0 if dead), indexed by player_idx.
+    known_werewolves: List[int]  # For Werewolves: a list indicating other Werewolves (1 if Werewolf, 0 otherwise), indexed by player_idx. For others: all zeros.
+    seer_last_inspection: Tuple[int, int]  # For Seers: (target_player_idx, target_player_role_value) from their last inspection. Defaults to (num_players, 0) if no inspection or invalid.
+    discussion_log: str  # A JSON string representing a list of discussion messages from the current day phase. Each message is a dict: {"speaker": "player_X", "message": "text"}.
+    last_lynched: int  # The player_idx of the player most recently lynched. Defaults to num_players if no one was lynched.
+    last_lynched_player_role: int # The role enum value of the player most recently lynched. Defaults to 0 if no one was lynched or role not revealed.
+    last_killed_by_werewolf: int  # The player_idx of the player most recently killed by werewolves. Defaults to num_players if no one was killed.
+    last_killed_by_werewolf_role: int # The role enum value of the player most recently killed by werewolves. Defaults to 0 if no one was killed or role not revealed.
+    my_unique_name: str  # The unique string identifier for this agent (e.g., "player_0").
+    all_player_unique_names: str  # A JSON string representing a list of all player unique names, in order of their player_idx.
+    last_day_vote_details: str # A JSON string detailing votes from the *previous* day's lynch voting phase. Format: {"voter_agent_id_str": target_idx_int}.
+    current_day_vote_details: str # A JSON string detailing votes cast *so far* in the *current* day's lynch voting phase. Format: {"voter_agent_id_str": target_idx_int}.
+    current_night_werewolf_votes: str # For Werewolves: A JSON string detailing votes cast *so far* by werewolves in the *current* night's kill vote. Format: {"voter_agent_id_str": target_idx_int}.
+    last_action_feedback: str # A message from the environment indicating the status/validity of the agent's last submitted action.
+
+    def get_human_readable(self) -> Dict[str, Any]:
+        """
+        Returns a more human-readable version of the observation.
+        Enum values are converted to names, JSON strings are parsed,
+        and player indices are mapped to names where appropriate.
+        """
+        player_names = json.loads(self.all_player_unique_names)
+        num_players_from_names = len(player_names)
+
+        def get_player_name_or_special(idx: int, special_val_str: str = "N/A") -> str:
+            if 0 <= idx < num_players_from_names:
+                return player_names[idx]
+            # The convention in the environment is to use num_players as an index for "no one" or "invalid".
+            elif idx == num_players_from_names:
+                return special_val_str
+            return f"Invalid_Index_{idx}"
+
+        def get_role_name_or_special(role_val: int, special_val_str: str = "Unknown/None") -> str:
+            try:
+                if role_val == 0: # Convention for invalid/unknown role in observation
+                    return special_val_str
+                return Role(role_val).name
+            except ValueError: # If role_val is not a valid Role enum member
+                return f"Invalid_Role_Value_{role_val}"
+
+        readable_obs = {}
+
+        readable_obs["role"] = Role(self.role).name
+        readable_obs["phase"] = Phase(self.phase).name
+
+        readable_obs["alive_players"] = [
+            player_names[i] for i, status in enumerate(self.alive_players) if status == 1 and i < num_players_from_names
+        ]
+        readable_obs["known_werewolves"] = [
+            player_names[i] for i, status in enumerate(self.known_werewolves) if status == 1 and i < num_players_from_names
+        ]
+
+        seer_target_idx, seer_role_val = self.seer_last_inspection
+        readable_obs["seer_last_inspection"] = (
+            get_player_name_or_special(seer_target_idx, "No Inspection/Invalid Target"),
+            get_role_name_or_special(seer_role_val, "Role Not Revealed/Invalid")
+        )
+
+        try:
+            readable_obs["discussion_log"] = json.loads(self.discussion_log)
+        except json.JSONDecodeError:
+            readable_obs["discussion_log"] = f"Error: Could not parse discussion log: '{self.discussion_log}'"
+
+        readable_obs["last_lynched"] = get_player_name_or_special(self.last_lynched, "No One Lynched")
+        readable_obs["last_lynched_player_role"] = get_role_name_or_special(self.last_lynched_player_role)
+
+        readable_obs["last_killed_by_werewolf"] = get_player_name_or_special(self.last_killed_by_werewolf, "No One Killed by WW")
+        readable_obs["last_killed_by_werewolf_role"] = get_role_name_or_special(self.last_killed_by_werewolf_role)
+
+        readable_obs["my_unique_name"] = self.my_unique_name
+        readable_obs["all_player_unique_names"] = player_names # Use the parsed list
+
+        readable_obs["last_day_vote_details"] = self._parse_vote_details_human_readable(self.last_day_vote_details, player_names, num_players_from_names)
+        readable_obs["current_day_vote_details"] = self._parse_vote_details_human_readable(self.current_day_vote_details, player_names, num_players_from_names)
+        readable_obs["current_night_werewolf_votes"] = self._parse_vote_details_human_readable(self.current_night_werewolf_votes, player_names, num_players_from_names)
+
+        readable_obs["last_action_feedback"] = self.last_action_feedback
+        return readable_obs
+
+    def _parse_vote_details_human_readable(self, vote_json_str: str, player_names_list: List[str], num_actual_players: int) -> Union[Dict[str, str], str]:
+        """Helper to parse vote JSON strings into human-readable dicts."""
+        try:
+            # The environment stores votes as {voter_agent_id_str: target_idx_int}
+            votes_dict_idx = json.loads(vote_json_str)
+            readable_votes = {}
+            for voter_name, target_idx_int in votes_dict_idx.items():
+                # voter_name is already the player's unique name (agent_id)
+                if 0 <= target_idx_int < num_actual_players:
+                    target_name = player_names_list[target_idx_int]
+                elif target_idx_int == num_actual_players: # Convention for "No one" or "Invalid"
+                    target_name = "Invalid Vote Target/No Vote"
+                else:
+                    target_name = f"Invalid_Target_Index_{target_idx_int}"
+                readable_votes[voter_name] = target_name
+            return readable_votes
+        except json.JSONDecodeError:
+            return f"Error: Could not parse vote details: '{vote_json_str}'"
+        except Exception as e:
+            return f"Error processing vote details: {str(e)}"
+
+
 class WerewolfEnv(AECEnv):
     metadata = {
         "name": "werewolf_v1.2",  # Updated version to reflect role reveal on lynch
@@ -91,7 +177,7 @@ class WerewolfEnv(AECEnv):
         "render_modes": ["human"],
     }
 
-    def __init__(self, 
+    def __init__(self,
                  num_doctors: int = 1, num_seers: int = 1, render_mode: Optional[str] = None,
                  ):
         super().__init__()
@@ -99,17 +185,15 @@ class WerewolfEnv(AECEnv):
         # num_players and related attributes will be initialized in reset()
         self.num_players: int = 0
         self.num_werewolves: int = 0
-        self._possible_agents_list: List[str] = []
+        self._agent_ids: List[str] = []
         self.index_to_agent_id: Dict[int, str] = {}
         self.agent_id_to_index: Dict[str, int] = {}
 
         self.action_spaces: Dict[str, spaces.Space] = {}
         self.observation_spaces: Dict[str, spaces.Space] = {}
 
-        if not isinstance(num_doctors, int) or num_doctors < 0:
-            raise ValueError(f"Number of doctors cannot be negative, got {num_doctors}.")
-        if not isinstance(num_seers, int) or num_seers < 0:
-            raise ValueError(f"Number of seers cannot be negative, got {num_seers}.")
+        assert num_doctors >= 0, f"Number of doctors cannot be negative, got {num_doctors}."
+        assert num_seers >= 0, f"Number of seers cannot be negative, got {num_seers}."
 
         self.num_doctors = num_doctors
         self.num_seers = num_seers
@@ -133,11 +217,13 @@ class WerewolfEnv(AECEnv):
 
         self._last_lynched_player_idx: Optional[int] = None
         self._last_killed_by_werewolf_idx: Optional[int] = None
-        self._last_lynched_player_role_val: Optional[int] = None # Store the role value of the lynched player
-        self._last_killed_by_werewolf_role_val: Optional[int] = None # Store the role value of the player killed by WW
+        # Store the role value of the lynched player
+        self._last_lynched_player_role_val: Optional[int] = None
+        # Store the role value of the player killed by WW
+        self._last_killed_by_werewolf_role_val: Optional[int] = None
         self._last_day_vote_details: str = json.dumps({})
         self.game_winner_team: Optional[str] = None
-        
+
         # These will be properly initialized in reset() once possible_agents is known
         self.rewards: Dict[str, float] = {}
         self._cumulative_rewards: Dict[str, float] = {}
@@ -150,14 +236,17 @@ class WerewolfEnv(AECEnv):
                 "initial_unique_name": agent_id,
                 "last_action_feedback": "No action taken yet in this episode."
             }
-            for agent_id in self.possible_agents
+            for agent_id in self.agent_ids
         }
         # _agent_selector is initialized by AECEnv's __init__ based on possible_agents.
         # It will be re-initialized in reset with phase-specific actors.
 
+        self.active_player_indices_history: List[Union[int, None]] = [None] # start with one None to align with kaggle environment step parsing
+        self.render_step_ind = -1
+
     @property
-    def possible_agents(self) -> List[str]:
-        return self._possible_agents_list
+    def agent_ids(self) -> List[str]:
+        return self._agent_ids
 
     def _assign_roles(self):
         roles_list = ([Role.WEREWOLF] * self.num_werewolves +
@@ -167,7 +256,7 @@ class WerewolfEnv(AECEnv):
         roles_list.extend([Role.VILLAGER] * num_villagers)
         random.shuffle(roles_list)
         self.player_roles = {agent_id: role for agent_id,
-                             role in zip(self.possible_agents, roles_list)}
+                             role in zip(self.agent_ids, roles_list)}
 
     def _get_agents_by_role(self, role: Role, only_alive: bool = True) -> List[str]:
         agents_with_role = [
@@ -230,7 +319,8 @@ class WerewolfEnv(AECEnv):
                     inspect_idx, inspected_role_val)
             else:
                 # Use 0 for invalid/unknown role consistently
-                self._seer_inspection_results_for_obs[seer_id] = (self.num_players, 0)
+                self._seer_inspection_results_for_obs[seer_id] = (
+                    self.num_players, 0)
 
         victim_agent_id_for_message: Optional[str] = None
         if player_killed_this_night_idx is not None:
@@ -241,13 +331,12 @@ class WerewolfEnv(AECEnv):
                 self.alive_agents.remove(killed_agent_id)
                 self.terminations[killed_agent_id] = True
                 self._last_killed_by_werewolf_role_val = self.player_roles[killed_agent_id].value
-                if killed_agent_id in self.agents:
-                    self.agents.remove(killed_agent_id)
 
         if self.render_mode == "human":
             if victim_agent_id_for_message:
                 killed_role_name = self.player_roles[victim_agent_id_for_message].name
-                print(f"Night victim: {victim_agent_id_for_message} (Role: {killed_role_name})")
+                print(
+                    f"Night victim: {victim_agent_id_for_message} (Role: {killed_role_name})")
             elif ww_target_idx is not None:
                 saved_player_name = self.index_to_agent_id.get(
                     ww_target_idx, f"player_{ww_target_idx}")
@@ -262,7 +351,7 @@ class WerewolfEnv(AECEnv):
 
     def _resolve_day_vote(self):
         self._last_lynched_player_idx = None
-        self._last_lynched_player_role_val = None # Reset for this resolution attempt
+        self._last_lynched_player_role_val = None  # Reset for this resolution attempt
         self._last_day_vote_details = json.dumps(self._day_lynch_votes)
         if self._day_lynch_votes:
             counts = {}
@@ -284,13 +373,12 @@ class WerewolfEnv(AECEnv):
                     if lynched_agent_id and lynched_agent_id in self.alive_agents:
                         self.alive_agents.remove(lynched_agent_id)
                         self.terminations[lynched_agent_id] = True
-                        if lynched_agent_id in self.agents:
-                            self.agents.remove(lynched_agent_id)
                         # Store the role of the lynched player
                         self._last_lynched_player_role_val = self.player_roles[lynched_agent_id].value
                         if self.render_mode == "human":
                             lynched_role_name = self.player_roles[lynched_agent_id].name
-                            print(f"Day lynch: {lynched_agent_id} (Role: {lynched_role_name})")
+                            print(
+                                f"Day lynch: {lynched_agent_id} (Role: {lynched_role_name})")
                 elif self.render_mode == "human" and candidates:
                     print(
                         f"No one lynched due to a tie in votes (candidates: {[self.index_to_agent_id.get(c,c) for c in candidates]}).")
@@ -315,7 +403,7 @@ class WerewolfEnv(AECEnv):
             if self.render_mode == "human":
                 print(f"Termination Condition: {win_reason}")
 
-            for agent_id in self.possible_agents:
+            for agent_id in self.agent_ids:
                 self.terminations[agent_id] = True
                 player_role_type = self.player_roles[agent_id]
                 is_werewolf = player_role_type == Role.WEREWOLF
@@ -328,7 +416,7 @@ class WerewolfEnv(AECEnv):
                 self.rewards[agent_id] = final_reward_value
                 self._cumulative_rewards[agent_id] += final_reward_value
 
-            self.agents = list(self.possible_agents)
+            self.agents = list(self.agent_ids)
             self._agent_selector.reinit(self.agents)
             if self.agents:
                 self.agent_selection = self._agent_selector.reset()
@@ -395,21 +483,17 @@ class WerewolfEnv(AECEnv):
             source_alive_list = self.alive_agents_at_night_start
 
         alive_arr_for_obs = [
-            1 if p_id in source_alive_list else 0 for p_id in self.possible_agents]
+            1 if p_id in source_alive_list else 0 for p_id in self.agent_ids]
 
         known_ww_arr = [0] * self.num_players
         if self.player_roles[agent_id] == Role.WEREWOLF:
-            for i, p_id_possible in enumerate(self.possible_agents):
+            for i, p_id_possible in enumerate(self.agent_ids):
                 # Check current alive agents
                 if self.player_roles.get(p_id_possible) == Role.WEREWOLF and p_id_possible in self.alive_agents:
                     known_ww_arr[i] = 1
 
         seer_obs = self._seer_inspection_results_for_obs.get(
-            agent_id, (self.num_players, 0)) # Default to (invalid_player_idx, invalid_role_value=0)
-        doctor_obs = self._doctor_save_outcomes_for_obs.get(
-            agent_id, (self.num_players, 0)) # Default to (invalid_player_idx, not_targeted=0)
-        can_act_flag = 1 if agent_id == self.agent_selection and not (
-            self.terminations[agent_id] or self.truncations[agent_id]) else 0
+            agent_id, (self.num_players, 0))  # Default to (invalid_player_idx, invalid_role_value=0)
         discussion_log_str = json.dumps(self._discussion_log_this_round)
 
         current_ww_votes_str = json.dumps({})
@@ -428,14 +512,12 @@ class WerewolfEnv(AECEnv):
             "alive_players": alive_arr_for_obs,
             "known_werewolves": known_ww_arr,
             "seer_last_inspection": seer_obs,
-            "doctor_last_save_attempt": doctor_obs,
-            "can_act": can_act_flag,
             "discussion_log": discussion_log_str,
             "last_lynched": self._last_lynched_player_idx if self._last_lynched_player_idx is not None else self.num_players,
             "last_killed_by_werewolf": self._last_killed_by_werewolf_idx if self._last_killed_by_werewolf_idx is not None else self.num_players,
             "last_killed_by_werewolf_role": self._last_killed_by_werewolf_role_val if self._last_killed_by_werewolf_role_val is not None else 0,
             "my_unique_name": agent_id,
-            "all_player_unique_names": json.dumps(self.possible_agents),
+            "all_player_unique_names": json.dumps(self.agent_ids),
             "last_day_vote_details": self._last_day_vote_details,
             "current_day_vote_details": current_day_votes_str,
             "current_night_werewolf_votes": current_ww_votes_str,
@@ -448,6 +530,12 @@ class WerewolfEnv(AECEnv):
 
     def step(self, action: Dict[str, Any]):
         acting_agent_id = self.agent_selection
+        if acting_agent_id is not None and acting_agent_id in self.agent_id_to_index:
+            self.active_player_indices_history.append(
+                self.agent_id_to_index[acting_agent_id])
+        else:
+            self.active_player_indices_history.append(None)
+
         self.rewards[acting_agent_id] = 0.0
         parsed_action_data: TypingOptional[ActionModel] = None
         # Default, will be updated
@@ -608,7 +696,7 @@ class WerewolfEnv(AECEnv):
                 self._transition_phase()
             else:  # Game is over
                 if not all(self.terminations.values()):
-                    self.agents = list(self.possible_agents)
+                    self.agents = list(self.agent_ids)
                     self._agent_selector.reinit(self.agents)
                     self.agent_selection = self._agent_selector.next()
                 elif self.agent_selection is not None and not self._agent_selector.is_last():
@@ -617,16 +705,19 @@ class WerewolfEnv(AECEnv):
             self.agent_selection = self._agent_selector.next()
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        self.render_step_ind = -1
         if seed is not None:
             random.seed(seed)
 
         if options and "num_players" in options:
             num_players = options["num_players"]
         else:
-            raise ValueError("WerewolfEnv.reset() called without num_players in options.")
+            raise ValueError(
+                "WerewolfEnv.reset() called without num_players in options.")
 
         if not isinstance(num_players, int) or num_players < 3:
-            raise ValueError(f"Werewolf game requires at least 3 players, got {num_players}.")
+            raise ValueError(
+                f"Werewolf game requires at least 3 players, got {num_players}.")
         self.num_players = num_players
 
         # Initialize num_players-dependent attributes
@@ -637,9 +728,12 @@ class WerewolfEnv(AECEnv):
             raise ValueError(
                 f"Too many special roles ({self.num_werewolves} WW, {self.num_doctors} Dr, {self.num_seers} Seer) for {self.num_players} players.")
 
-        self._possible_agents_list = [f"player_{i}" for i in range(self.num_players)]
-        self.index_to_agent_id = {i: agent_id for i, agent_id in enumerate(self.possible_agents)}
-        self.agent_id_to_index = {agent_id: i for i, agent_id in enumerate(self.possible_agents)}
+        self._agent_ids = [
+            f"player_{i}" for i in range(self.num_players)]
+        self.index_to_agent_id = {i: agent_id for i,
+                                  agent_id in enumerate(self.agent_ids)}
+        self.agent_id_to_index = {agent_id: i for i,
+                                  agent_id in enumerate(self.agent_ids)}
 
         # Initialize action and observation spaces
         self.action_spaces = {
@@ -647,7 +741,7 @@ class WerewolfEnv(AECEnv):
                 "action_type": spaces.Discrete(len(ActionType)),
                 "target_idx": spaces.Discrete(self.num_players),
                 "message": spaces.Text(max_length=256)
-            }) for agent_id in self.possible_agents
+            }) for agent_id in self.agent_ids
         }
 
         max_name_len = 128
@@ -659,12 +753,9 @@ class WerewolfEnv(AECEnv):
                 "alive_players": spaces.MultiBinary(self.num_players),
                 "known_werewolves": spaces.MultiBinary(self.num_players),
                 "seer_last_inspection": spaces.Tuple((
-                    spaces.Discrete(self.num_players + 1), spaces.Discrete(len(Role) + 1)
+                    spaces.Discrete(self.num_players +
+                                    1), spaces.Discrete(len(Role) + 1)
                 )),
-                "doctor_last_save_attempt": spaces.Tuple((
-                    spaces.Discrete(self.num_players + 1), spaces.Discrete(2)
-                )),
-                "can_act": spaces.Discrete(2),
                 "discussion_log": spaces.Text(max_length=4096),
                 "last_lynched": spaces.Discrete(self.num_players + 1),
                 "last_lynched_player_role": spaces.Discrete(len(Role) + 1),
@@ -676,31 +767,32 @@ class WerewolfEnv(AECEnv):
                 "current_day_vote_details": spaces.Text(max_length=1024),
                 "current_night_werewolf_votes": spaces.Text(max_length=1024),
                 "last_action_feedback": spaces.Text(max_length=512),
-            }) for agent_id in self.possible_agents
+            }) for agent_id in self.agent_ids
         }
 
         # Initialize PettingZoo specific agent-keyed dictionaries
         self._assign_roles()
-        self.rewards = {agent_id: 0.0 for agent_id in self.possible_agents}
+        self.rewards = {agent_id: 0.0 for agent_id in self.agent_ids}
         self._cumulative_rewards = {
-            agent_id: 0.0 for agent_id in self.possible_agents}
+            agent_id: 0.0 for agent_id in self.agent_ids}
         self.terminations = {
-            agent_id: False for agent_id in self.possible_agents}
+            agent_id: False for agent_id in self.agent_ids}
         self.truncations = {
-            agent_id: False for agent_id in self.possible_agents}
+            agent_id: False for agent_id in self.agent_ids}
         self.infos = {
             agent_id: {
                 "role": self.player_roles[agent_id].name,
                 "initial_unique_name": agent_id,
                 "last_action_feedback": "No action taken yet in this episode."
             }
-            for agent_id in self.possible_agents
+            for agent_id in self.agent_ids
         }
 
         # Initialize game state
-        self.agents = list(self.possible_agents) # Start with all agents for role assignment etc.
-        self.alive_agents = list(self.possible_agents)
-        self.alive_agents_at_night_start = list(self.possible_agents)
+        # Start with all agents for role assignment etc.
+        self.agents = list(self.agent_ids)
+        self.alive_agents = list(self.agent_ids)
+        self.alive_agents_at_night_start = list(self.agent_ids)
         self.current_phase = Phase.NIGHT_WEREWOLF_VOTE
         self._werewolf_kill_votes.clear()
         self._doctor_save_choices.clear()
@@ -715,6 +807,7 @@ class WerewolfEnv(AECEnv):
         self._last_killed_by_werewolf_role_val = None
         self._last_day_vote_details = json.dumps({})
         self.game_winner_team = None
+        self.active_player_indices_history = [None]
 
         # Set up agent selector for turn management.
         # The AECEnv's self._agent_selector is already created in super().__init__
@@ -733,7 +826,7 @@ class WerewolfEnv(AECEnv):
             print("\n--- New Werewolf Game Reset ---")
             print(
                 f"Player Count: {self.num_players}, WW: {self.num_werewolves}, Doc: {self.num_doctors}, Seer: {self.num_seers}")
-            print(f"Player Unique IDs: {self.possible_agents}")
+            print(f"Player Unique IDs: {self.agent_ids}")
             # print(f"Roles: {{p: r.name for p, r in self.player_roles.items()}}") # For debugging
             print(f"Initial Phase: {self.current_phase.name}")
             if self.agent_selection:
@@ -751,13 +844,17 @@ class WerewolfEnv(AECEnv):
             if self._last_killed_by_werewolf_idx is not None and self._last_killed_by_werewolf_role_val is not None and self._last_killed_by_werewolf_role_val > 0:
                 killed_name = self.index_to_agent_id.get(
                     self._last_killed_by_werewolf_idx, f"player_{self._last_killed_by_werewolf_idx}")
-                killed_role_name = Role(self._last_killed_by_werewolf_role_val).name
-                print(f"Last night kill: {killed_name} (Role: {killed_role_name})")
+                killed_role_name = Role(
+                    self._last_killed_by_werewolf_role_val).name
+                print(
+                    f"Last night kill: {killed_name} (Role: {killed_role_name})")
             if self._last_lynched_player_idx is not None and self._last_lynched_player_role_val is not None and self._last_lynched_player_role_val > 0:
                 lynched_name = self.index_to_agent_id.get(
                     self._last_lynched_player_idx, f"player_{self._last_lynched_player_idx}")
-                lynched_role_name = Role(self._last_lynched_player_role_val).name
-                print(f"Last day lynch: {lynched_name} (Role: {lynched_role_name})")
+                lynched_role_name = Role(
+                    self._last_lynched_player_role_val).name
+                print(
+                    f"Last day lynch: {lynched_name} (Role: {lynched_role_name})")
 
             if self.current_phase == Phase.GAME_OVER:
                 print(f"GAME OVER! Winner Team: {self.game_winner_team}")
