@@ -545,22 +545,16 @@ class WerewolfEnv(AECEnv):
             self._was_dead_step(action)
             return
         else:
-            # Keep for fallback logging
-            action_type_val = action.get("action_type")
-            # Keep for fallback logging
-            target_idx = action.get("target_idx")
-            message_text = action.get("message")   # Keep for fallback logging
             is_valid_action = True
             feedback_message = "Action processed."
             current_role = self.player_roles[acting_agent_id]
             action_description_for_log = f"Attempted: {str(action)[:100]}"
-
             try:
                 if not isinstance(action, dict):
                     raise ValidationError.from_exception_data(
                         title="ActionFormatError",
-                        line_errors=[{"type": "dictionary_expected", "loc": (
-                            "action",), "msg": "Action must be a dictionary.", "input": action}]
+                        line_errors=[{"type": "dict_type", "loc": ( # Changed error type
+                            "action",), "msg": "Input should be a valid dictionary", "input": action}], # Removed ctx
                     )
                 parsed_action_data = ActionModel.model_validate(action)
                 action_type_val = parsed_action_data.action_type
@@ -578,9 +572,9 @@ class WerewolfEnv(AECEnv):
                 feedback_message = "Error: Invalid action structure. Details: " + \
                     "; ".join(error_details)
                 # Use original for logging if parse failed
-                action_type_val = action.get("action_type", "N/A_STRUCT_ERROR")
-                target_idx = action.get("target_idx", "N/A_STRUCT_ERROR")
-                message_text = action.get("message", "N/A_STRUCT_ERROR")
+                action_type_val = action.get("action_type", "N/A_STRUCT_ERROR") if isinstance(action, dict) else "N/A_ACTION_NOT_DICT"
+                target_idx = action.get("target_idx", "N/A_STRUCT_ERROR") if isinstance(action, dict) else "N/A_ACTION_NOT_DICT"
+                message_text = action.get("message", "N/A_STRUCT_ERROR") if isinstance(action, dict) else "N/A_ACTION_NOT_DICT"
 
             if is_valid_action and parsed_action_data:
                 current_action_enum = ActionType(action_type_val)
