@@ -11,3 +11,10 @@ def test_load_env():
         env.render_step_ind = i
         out = env.renderer(state, env)
         print(out)
+
+
+def test_html_render():
+    env = make('werewolf', debug=True)
+    agents = ['random'] * 7
+    env.run(agents)
+    env.render(mode='html')

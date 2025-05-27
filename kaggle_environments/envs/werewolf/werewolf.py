@@ -157,62 +157,79 @@ def interpreter(state, env):
                 # state[i].status will be updated by Kaggle core based on AECEnv's termination
 
     game = env.my_aec_game_instance
+    processed_actor_idx_for_this_step = None
 
     # --- Process actions for the current agent in AECEnv ---
-    # The `state` passed to the interpreter contains the actions chosen by Kaggle agents
-    # We need to find which agent's turn it is in AEC and apply its action.
-    
-    if not game.terminations[game.agent_selection] and not game.truncations[game.agent_selection]:
+    if game.agent_selection and not game.terminations.get(game.agent_selection, False) and not game.truncations.get(game.agent_selection, False):
         current_aec_agent_id = game.agent_selection
         kaggle_agent_idx = game.agent_id_to_index[current_aec_agent_id]
 
         if state[kaggle_agent_idx].status == "ACTIVE":
             action_from_kaggle_agent = state[kaggle_agent_idx].action
-            
-            # Validate/convert action_from_kaggle_agent if necessary to fit AECEnv's action space
-            # For example, Kaggle might give a single integer, AEC might expect a more complex action.
             game.step(action_from_kaggle_agent) # AECEnv processes the action
-    
+            # After game.step(), game.active_player_indices_history is updated.
+            # The last element is the index of the agent who just acted.
+            if game.active_player_indices_history and game.active_player_indices_history[-1] is not None:
+                processed_actor_idx_for_this_step = game.active_player_indices_history[-1]
+    elif game.agent_selection and (game.terminations.get(game.agent_selection, False) or game.truncations.get(game.agent_selection, False)):
+        # If the selected agent is already done, env.step might just advance the selector
+        # We still need to record who was supposed to act if it's relevant for history
+        # However, game.step() for a dead agent usually just cycles.
+        # The important actor is the one whose action changes state.
+        # If no one acts, processed_actor_idx_for_this_step remains None or reflects last actor.
+        # Let's ensure it's set if an action was processed.
+        # If game.step() is called for a dead agent, it might not update active_player_indices_history meaningfully for *this* step.
+        # This case might need refinement based on how game.step() handles dead agent turns.
+        # For now, we assume active_player_indices_history[-1] is the key after a state-changing step.
+        pass
+
+
     # --- Update Kaggle state from AECEnv ---
     for i, agent_state in enumerate(state):
-        # Get the corresponding PettingZoo agent_id string (e.g., "player_0", "player_1")
-        # This assumes your Kaggle environment's JSON configures two agents,
-        # and they correspond to game.possible_agents in order.
+        # Get the corresponding PettingZoo agent_id string
         if i < len(game.agent_ids):
             aec_agent_id_str = game.agent_ids[i]
-            
+
             raw_obs = game.observe(aec_agent_id_str)
-            agent_state.observation.raw_aec_observation = raw_obs
-            
-            # Rewards in AECEnv are typically for the action just taken by an agent.
-            # Kaggle's `state[i].reward` is the reward attributed to agent `i` at this step.
+            # Ensure observation is a dict, not the Pydantic model instance
+            agent_state.observation["raw_aec_observation"] = raw_obs
+
             agent_state.reward = game.rewards.get(aec_agent_id_str, 0)
-            
-            # Update info for the agent in the Kaggle state
-            agent_state.info = game.infos.get(aec_agent_id_str, {})
-            
+            current_info = game.infos.get(aec_agent_id_str, {})
+            agent_state.info = current_info # game.infos contains last_action_feedback etc.
+
+            # Add extra info for the JS renderer
+            agent_state.info["actor_for_this_kaggle_step"] = processed_actor_idx_for_this_step
+
+            if game.current_phase == Phase.GAME_OVER and game.game_winner_team:
+                agent_state.info["game_winner_team"] = game.game_winner_team
+
             if game.terminations.get(aec_agent_id_str, False) or game.truncations.get(aec_agent_id_str, False):
                 agent_state.status = "DONE"
-            elif game.agent_selection == aec_agent_id_str: # If it's this agent's turn next
+            elif game.agent_selection == aec_agent_id_str:
                 agent_state.status = "ACTIVE"
-            else: # Other agents are waiting
+            else:
                 agent_state.status = "INACTIVE"
-        else: # Should not happen if agent numbers match
+        else:
             agent_state.status = "DONE"
             agent_state.reward = agent_state.reward if agent_state.reward is not None else 0
 
 
-    # Check if all agents in AEC are done
-    all_aec_done = all(game.terminations.get(ag, False) or game.truncations.get(ag, False) for ag in game.agents if ag in game.terminations) # ensure agent is in dicts
-    if not game.agents or all_aec_done : # if no agents left or all are done
+    all_aec_done = all(game.terminations.get(ag, False) or game.truncations.get(ag, False) for ag in game.agents if ag in game.terminations)
+    if not game.agents or all_aec_done :
         print("Interpreter: All AEC agents are done. Marking Kaggle episode as DONE.")
-        for i in range(len(state)):
-            state[i].status = "DONE"
-            # Ensure rewards are numbers before returning
-            state[i].reward = state[i].reward if isinstance(state[i].reward, (int, float)) else 0
+        for i_done in range(len(state)):
+            state[i_done].status = "DONE"
+            state[i_done].reward = state[i_done].reward if isinstance(state[i_done].reward, (int, float)) else 0
+            # Ensure winner team info is in the final state for JS
+            if hasattr(game, 'game_winner_team') and game.game_winner_team:
+                 state[i_done].info["game_winner_team"] = game.game_winner_team
+            # Ensure actor info is present even if it was None for the last phase transition
+            if "actor_for_this_kaggle_step" not in state[i_done].info:
+                state[i_done].info["actor_for_this_kaggle_step"] = processed_actor_idx_for_this_step
+
         if hasattr(env, 'my_aec_game_instance'):
-             env.my_aec_game_instance.close() # Clean up AECEnv
-            #  delattr(env, 'my_aec_game_instance') # Remove from env to allow re-init on next episode
+             env.my_aec_game_instance.close()
 
     return state
 
@@ -283,7 +300,9 @@ def renderer(state, env):
 
 
 def html_renderer():
-    pass
+    jspath = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
+    with open(jspath, encoding="utf-8") as f:
+        return f.read()
 
 
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
