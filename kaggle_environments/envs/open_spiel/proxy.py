@@ -47,6 +47,9 @@ class State(pyspiel.State):
   def __str__(self) -> str:
     return self.__wrapped__.__str__()
 
+  def to_string(self) -> str:
+    return self.__wrapped__.to_string()
+
   def __getattr__(self, name: str) -> Any:
     # Escape hatch when proxying Python implementations that have attributes
     # that need to be accessed, e.g. TicTacToeState.board from its observer.
@@ -77,6 +80,9 @@ class Game(pyspiel.Game):
   def new_initial_state(self, from_string: str | None = None) -> State:
     args = () if from_string is None else (from_string)
     return State(wrapped=self.__wrapped__.new_initial_state(*args), game=self)
+
+  def max_chance_nodes_in_history(self) -> int:
+    return self.__wrapped__.max_chance_nodes_in_history()
 
   def make_py_observer(
       self,
