@@ -13,6 +13,12 @@ def test_load_env():
         print(out)
 
 
+def test_run_dummy_llm():
+    env = make('werewolf', debug=True)
+    agents = ['dummy_llm'] * 7
+    env.run(agents)
+
+
 def test_html_render():
     env = make('werewolf', debug=True)
     agents = ['random'] * 7
