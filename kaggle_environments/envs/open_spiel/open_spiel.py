@@ -1,16 +1,14 @@
 """Kaggle environment wrapper for OpenSpiel games."""
 
 import copy
-import os
-import pathlib
 import random
-from typing import Any, Callable
+from typing import Any
 
 from kaggle_environments import core
 from kaggle_environments import utils
 import numpy as np
 import pyspiel
-from .games.connect_four import connect_four_proxy
+
 
 DEFAULT_ACT_TIMEOUT = 5
 DEFAULT_RUN_TIMEOUT = 1200
@@ -305,83 +303,42 @@ def renderer(state: list[utils.Struct], env: core.Environment) -> str:
     print(f"Error rendering {env.name} at state: {state}.")
     raise e
 
-# --- HTML Renderer Logic ---
 
-def _default_html_renderer() -> str:
-  """Provides the JavaScript string for the default HTML renderer."""
+def html_renderer():
+  """Provides the simplest possible HTML/JS renderer for OpenSpiel text observations."""
   return """
 function renderer(context) {
     const { parent, environment, step } = context;
     parent.innerHTML = ''; // Clear previous rendering
 
+    // Get the current step's data
     const currentStepData = environment.steps[step];
-    if (!currentStepData) {
-        parent.textContent = "Waiting for step data...";
-        return;
-    }
-    const numAgents = currentStepData.length;
-    const gameMasterIndex = numAgents - 1;
+    const numAgents = currentStepData.length
+    const gameMasterIndex = numAgents - 1
     let obsString = "Observation not available for this step.";
-    let title = `Step: ${step}`;
 
-    if (environment.configuration && environment.configuration.openSpielGameName) {
-        title = `${environment.configuration.openSpielGameName} - Step: ${step}`;
-    }
-
-    // Try to get obs_string from game_master of current step
-    if (currentStepData[gameMasterIndex] && 
-        currentStepData[gameMasterIndex].observation && 
-        typeof currentStepData[gameMasterIndex].observation.observation_string === 'string') {
+    // Try to get the raw observation string from the game master agent.
+    if (currentStepData && currentStepData[gameMasterIndex] && currentStepData[gameMasterIndex].observation && currentStepData[gameMasterIndex].observation.observation_string !== undefined) {
         obsString = currentStepData[gameMasterIndex].observation.observation_string;
-    } 
-    // Fallback to initial step if current is unavailable (e.g. very first render call)
-    else if (step === 0 && environment.steps[0] && environment.steps[0][gameMasterIndex] && 
-             environment.steps[0][gameMasterIndex].observation &&
-             typeof environment.steps[0][gameMasterIndex].observation.observation_string === 'string') {
+    } else if (step === 0 && environment.steps[0] && environment.steps[0][gameMasterIndex] && environment.steps[0][gameMasterIndex].observation && environment.steps[0][gameMasterIndex].observation.observation_string !== undefined) {
+        // Fallback for initial state if current step data is missing
         obsString = environment.steps[0][gameMasterIndex].observation.observation_string;
     }
 
+    // Create a <pre> element to preserve formatting
     const pre = document.createElement("pre");
-    pre.style.fontFamily = "monospace";
-    pre.style.margin = "10px";
+    pre.style.fontFamily = "monospace"; // Ensure monospace font
+    pre.style.margin = "10px";        // Add some padding
     pre.style.border = "1px solid #ccc";
-    pre.style.padding = "10px";
-    pre.style.backgroundColor = "#f9f9f9";
-    pre.style.whiteSpace = "pre-wrap";
-    pre.style.wordBreak = "break-all";
+    pre.style.padding = "5px";
+    pre.style.backgroundColor = "#f0f0f0";
 
-    pre.textContent = `${title}\\n\\n${obsString}`;
+    // Set the text content (safer than innerHTML for plain text)
+    pre.textContent = `Step: ${step}\\n\\n${obsString}`; // Add step number for context
+
     parent.appendChild(pre);
 }
 """
-
-def _get_html_renderer_content(
-    open_spiel_short_name: str,
-    base_path_for_custom_renderers: pathlib.Path,
-    default_renderer_func: Callable[[], str]
-) -> str:
-  """
-  Tries to load a custom JS renderer for the game.
-  Falls back to the default renderer if not found or on error.
-  """
-  if "proxy" not in open_spiel_short_name:
-    return default_renderer_func()
-  sanitized_game_name = open_spiel_short_name.replace('-', '_').replace('.', '_')
-  sanitized_game_name = sanitized_game_name.removesuffix("_proxy")
-  custom_renderer_js_path = (
-      base_path_for_custom_renderers /
-      sanitized_game_name /
-      f"{sanitized_game_name}.js"
-  )
-  if custom_renderer_js_path.is_file():
-    try:
-      with open(custom_renderer_js_path, "r", encoding="utf-8") as f:
-        content = f.read()
-      print(f"INFO: Using custom HTML renderer for {open_spiel_short_name} from {custom_renderer_js_path}")
-      return content
-    except Exception as e_render:
-      pass
-  return default_renderer_func()
 
 
 # --- Agents ---
@@ -425,8 +382,6 @@ def _register_open_spiel_envs(
   successfully_loaded_games = []
   skipped_games = []
   registered_envs = {}
-  current_file_dir = pathlib.Path(__file__).parent.resolve()
-  custom_renderers_base = current_file_dir / "games"
   if games_list is None:
     games_list = pyspiel.registered_names()
   for short_name in games_list:
@@ -459,24 +414,16 @@ https://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games
       game_spec["observation"]["properties"]["openSpielGameName"][
           "default"] = short_name
 
-      js_string_content = _get_html_renderer_content(
-          open_spiel_short_name=short_name,
-          base_path_for_custom_renderers=custom_renderers_base,
-          default_renderer_func=_default_html_renderer,
-      )
-      def html_renderer_callable():
-        return js_string_content
-
       registered_envs[env_name] = {
           "specification": game_spec,
           "interpreter": interpreter,
           "renderer": renderer,
-          "html_renderer": html_renderer_callable,
+          "html_renderer": html_renderer,
           "agents": agents,
       }
       successfully_loaded_games.append(short_name)
 
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except Exception:  # pylint: disable=broad-exception-caught
       skipped_games.append(short_name)
       continue
 
