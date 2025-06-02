@@ -170,15 +170,18 @@ class WerewolfObservationModel(BaseModel):
             return f"Error processing vote details: {str(e)}"
 
 
+DEFAULT_MAX_DAYS = 5
+
 class WerewolfEnv(AECEnv):
     metadata = {
-        "name": "werewolf_v1.2",  # Updated version to reflect role reveal on lynch
+        "name": "werewolf_v1.3",  # Added max_days parameter
         "is_parallelizable": False,
         "render_modes": ["human"],
     }
 
     def __init__(self,
                  num_doctors: int = 1, num_seers: int = 1, render_mode: Optional[str] = None,
+                 max_days: Optional[int] = DEFAULT_MAX_DAYS
                  ):
         super().__init__()
 
@@ -198,6 +201,9 @@ class WerewolfEnv(AECEnv):
         self.num_doctors = num_doctors
         self.num_seers = num_seers
         self.render_mode = render_mode
+        # max_days will be properly set from options in reset or use default
+        self.max_days = max_days # Default, can be overridden by options in reset
+        self.current_day_count = 0
         self.agents: List[str] = []
 
         self.player_roles: Dict[str, Role] = {}
@@ -391,14 +397,14 @@ class WerewolfEnv(AECEnv):
     def _transition_phase(self):
         if self.current_phase == Phase.GAME_OVER:
             return
-
+    
         if self._check_win_conditions():
             self.current_phase = Phase.GAME_OVER
             win_reason = "Unknown win condition."
             if self.game_winner_team == "VILLAGE":
                 win_reason = "All werewolves eliminated."
             elif self.game_winner_team == "WEREWOLF":
-                win_reason = "Werewolves equal or outnumber non-werewolves."
+                win_reason = "Werewolves equal or outnumber Villagers."
 
             if self.render_mode == "human":
                 print(f"Termination Condition: {win_reason}")
@@ -422,10 +428,39 @@ class WerewolfEnv(AECEnv):
                 self.agent_selection = self._agent_selector.reset()
             else:
                 self.agent_selection = None
-            if self.render_mode == "human":
-                print(f"GAME OVER! Winners: {self.game_winner_team}")
+            if self.render_mode == "human" and self.game_winner_team:
+                print(f"GAME OVER! Winners: {self.game_winner_team} ({win_reason})")
             return
-
+    
+        # Increment day count when transitioning from the last night phase to the first day phase
+        if self.current_phase == Phase.NIGHT_SEER_INSPECT:
+            self.current_day_count += 1
+            if self.render_mode == "human":
+                print(f"--- Starting Day {self.current_day_count} (Max Days: {self.max_days}) ---")
+    
+        # Check max_days limit
+        if self.current_day_count > self.max_days:
+            self.current_phase = Phase.GAME_OVER
+            self.game_winner_team = "TIME_LIMIT_DRAW" # Game ends in a draw due to time limit
+            timeout_reason = f"Maximum days ({self.max_days}) reached."
+            if self.render_mode == "human":
+                print(f"Termination Condition: {timeout_reason} Game is a draw.")
+    
+            for agent_id in self.agent_ids:
+                self.terminations[agent_id] = True
+                self.rewards[agent_id] = 0.0  # Reward for a draw
+                self._cumulative_rewards[agent_id] += 0.0
+    
+            self.agents = list(self.agent_ids) # All agents are 'done'
+            self._agent_selector.reinit(self.agents)
+            if self.agents:
+                self.agent_selection = self._agent_selector.reset()
+            else:
+                self.agent_selection = None
+            if self.render_mode == "human" and self.game_winner_team:
+                 print(f"GAME OVER! Result: {self.game_winner_team} ({timeout_reason})")
+            return
+        
         next_actors = []
         if self.current_phase == Phase.NIGHT_WEREWOLF_VOTE:
             self.current_phase = Phase.NIGHT_DOCTOR_SAVE
@@ -439,8 +474,8 @@ class WerewolfEnv(AECEnv):
                 print("Transitioning to NIGHT_SEER_INSPECT.")
         elif self.current_phase == Phase.NIGHT_SEER_INSPECT:
             self._resolve_night_actions()
-            if self._check_win_conditions():
-                self._transition_phase()
+            if self._check_win_conditions(): # Re-check after night actions
+                self._transition_phase() # Will handle game over if conditions met
                 return
             self.current_phase = Phase.DAY_DISCUSSION
             self._discussion_log_this_round.clear()
@@ -456,8 +491,8 @@ class WerewolfEnv(AECEnv):
                 print("Transitioning to DAY_VOTING.")
         elif self.current_phase == Phase.DAY_VOTING:
             self._resolve_day_vote()
-            if self._check_win_conditions():
-                self._transition_phase()
+            if self._check_win_conditions(): # Re-check after day vote
+                self._transition_phase() # Will handle game over if conditions met
                 return
             self.current_phase = Phase.NIGHT_WEREWOLF_VOTE
             self.alive_agents_at_night_start = list(
@@ -465,7 +500,7 @@ class WerewolfEnv(AECEnv):
             next_actors = self._get_agents_by_role(Role.WEREWOLF)
             if self.render_mode == "human":
                 print("Transitioning to NIGHT_WEREWOLF_VOTE.")
-
+    
         self.agents = list(next_actors)
         self._agent_selector.reinit(self.agents)
         if self.agents:
@@ -706,6 +741,10 @@ class WerewolfEnv(AECEnv):
         if options and "num_players" in options:
             num_players = options["num_players"]
         else:
+            # Fallback if not in options, but it's better if Kaggle runner provides it.
+            # For direct instantiation, this might be an issue if options is None or empty.
+            # However, the original code raised ValueError if not in options, so we maintain that.
+            # num_players = self.num_players if self.num_players > 0 else 5 # Example fallback
             raise ValueError(
                 "WerewolfEnv.reset() called without num_players in options.")
 
@@ -713,6 +752,11 @@ class WerewolfEnv(AECEnv):
             raise ValueError(
                 f"Werewolf game requires at least 3 players, got {num_players}.")
         self.num_players = num_players
+
+        if options and "max_days" in options and isinstance(options["max_days"], int) and options["max_days"] > 0:
+            self.max_days = options["max_days"]
+        else:
+            self.max_days = DEFAULT_MAX_DAYS # Use default if not provided or invalid
 
         # Initialize num_players-dependent attributes
         self.num_werewolves = int(math.ceil(self.num_players / 4.0))
@@ -801,6 +845,7 @@ class WerewolfEnv(AECEnv):
         self._last_killed_by_werewolf_role_val = None
         self._last_day_vote_details = json.dumps({})
         self.game_winner_team = None
+        self.current_day_count = 0 # Day 1 will be current_day_count = 1
         self.active_player_indices_history = [None]
 
         # Set up agent selector for turn management.
@@ -819,7 +864,7 @@ class WerewolfEnv(AECEnv):
         if self.render_mode == "human":
             print("\n--- New Werewolf Game Reset ---")
             print(
-                f"Player Count: {self.num_players}, WW: {self.num_werewolves}, Doc: {self.num_doctors}, Seer: {self.num_seers}")
+                f"Player Count: {self.num_players}, WW: {self.num_werewolves}, Doc: {self.num_doctors}, Seer: {self.num_seers}, Max Days: {self.max_days}")
             print(f"Player Unique IDs: {self.agent_ids}")
             # print(f"Roles: {{p: r.name for p, r in self.player_roles.items()}}") # For debugging
             print(f"Initial Phase: {self.current_phase.name}")
@@ -851,7 +896,10 @@ class WerewolfEnv(AECEnv):
                     f"Last day lynch: {lynched_name} (Role: {lynched_role_name})")
 
             if self.current_phase == Phase.GAME_OVER:
-                print(f"GAME OVER! Winner Team: {self.game_winner_team}")
+                if self.game_winner_team == "TIME_LIMIT_DRAW":
+                    print(f"GAME OVER! Result: Draw due to maximum days ({self.max_days}) reached.")
+                else:
+                    print(f"GAME OVER! Winner Team: {self.game_winner_team}")
                 final_roles_str = {p_id: r.name for p_id,
                                    r in self.player_roles.items()}
                 print(f"Final Roles: {final_roles_str}")
