@@ -93,7 +93,93 @@ def random_agent(obs):
     return action_to_take
 
 
-agents = {"random": random_agent}
+# This function is part of the skeleton and retained as a placeholder.
+def dummy_inference_endpoint(prompt):
+    # In a real scenario, this would query an LLM.
+    # For testing, we can make it return a valid JSON action string.
+    # Example: return '{"action_type": "NO_OP"}'
+    return '{"action_type": "NO_OP", "message": "dummy action"}'
+
+
+endpoints = {'dummy_llm': dummy_inference_endpoint}
+
+
+class LLMAgent:
+    def __init__(self, model_name="dummy_llm", system_prompt="You are a helpful assistant playing Werewolf."):
+        """
+        Initializes the LLMAgent.
+        Args:
+            model_name (str): Identifier for the LLM model (currently conceptual).
+            system_prompt (str): A system prompt to guide the LLM's behavior.
+        """
+        self.model_name = model_name
+        self.system_prompt = system_prompt
+        self.memory = [] # Stores a history of observations or processed information
+        self.inferencer = endpoints[model_name]
+    
+    def parse_llm_response_to_action(self, llm_response_str: str) -> dict:
+        """
+        Parses a JSON string from an LLM into a valid game action dictionary.
+
+        Args:
+            llm_response_str: The JSON string response from the LLM.
+                            Expected format: {"action_type": "ACTION_NAME_STR", "target_idx": int_or_null, "message": "str_or_null"}
+
+        Returns:
+            A dictionary representing the game action, or a NO_OP action if parsing fails.
+        """
+        try:
+            action_data = json.loads(llm_response_str)
+            if not isinstance(action_data, dict):
+                raise ValueError("LLM response is not a JSON object.")
+
+            action_type_str = action_data.get("action_type")
+            if not action_type_str or not hasattr(ActionType, action_type_str):
+                raise ValueError(f"Invalid or missing 'action_type': {action_type_str}")
+
+            action_type_enum_val = ActionType[action_type_str].value
+            target_idx = action_data.get("target_idx") # Can be None
+            message = action_data.get("message")     # Can be None
+
+            # Basic type check for target_idx if present
+            if target_idx is not None and not isinstance(target_idx, int):
+                target_idx = None # Or raise error, but defaulting to None is safer for NO_OP fallback
+
+            return {"action_type": action_type_enum_val, "target_idx": target_idx, "message": message}
+
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            print(f"Error parsing LLM response '{llm_response_str}': {e}. Defaulting to NO_OP.")
+            return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
+    
+    def __call__(self, obs):
+        """
+        Processes an observation, updates memory, and decides on an action.
+        Currently, it only stores the observation and returns a NO_OP action.
+        """
+        raw_aec_obs = obs.get('raw_aec_observation')
+
+        if not raw_aec_obs:
+            # Default action if no observation is available
+            return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
+
+        # Convert raw observation to a more readable format.
+        # If WerewolfObservationModel instantiation or get_human_readable fails,
+        # the error will propagate as per the "no try-except" constraint.
+        pydantic_obs = WerewolfObservationModel(**raw_aec_obs)
+        human_readable_obs = pydantic_obs.get_human_readable()
+        
+        # Update memory
+        self.memory.append(human_readable_obs)
+
+        # --- Placeholder for actual LLM interaction (conceptual) ---
+        current_prompt = f"{self.system_prompt}\n\nObservation History:\n{json.dumps(self.memory, indent=2)}\n\nWhat is your action?"
+        llm_response_action_str = self.inferencer(current_prompt)
+        action_to_take = self.parse_llm_response_to_action(llm_response_action_str)
+        
+        return action_to_take
+    
+
+agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
 
 def interpreter(state, env):
@@ -127,6 +213,9 @@ def interpreter(state, env):
             aec_params["num_doctors"] = env.configuration.num_doctors
         if hasattr(env.configuration, "num_seers"):
             aec_params["num_seers"] = env.configuration.num_seers
+        if hasattr(env.configuration, "max_days"):
+            aec_params["max_days"] = env.configuration.max_days
+
         # render_mode is part of WerewolfEnv's signature but usually handled differently by Kaggle
         # if hasattr(env.configuration, "render_mode"):
         #     aec_params["render_mode"] = env.configuration.render_mode
