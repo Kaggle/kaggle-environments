@@ -111,55 +111,6 @@ def _get_open_spiel_game(env_config: utils.Struct) -> pyspiel.Game:
   return _OS_GLOBAL_GAME
 
 
-# Currently we make the assumption that there will always be an extra "game
-# master" agent in the final agent position. This agent corresponds to the
-# OpenSpiel chance player, and is responsible for handling chance actions, as
-# well as acting as an observer with full access to the game state. These are
-# the observations used to create the game replay.
-def _os_player_to_kaggle_agent(player: int, num_players: int) -> int:
-  if player == pyspiel.PlayerId.CHANCE:
-    return num_players
-  return player
-
-
-# Unused but potentially helpful.
-def _reconstruct_os_state(
-    game: pyspiel.Game,
-    kaggle_history: list,
-    num_expected_agents: int,
-) -> pyspiel.State:
-  os_state = game.new_initial_state()
-  for i, kaggle_state in enumerate(kaggle_history):
-    if i == 0:
-      continue  # kaggle_history[0] is the initial dummy state from core.py
-    os_current_player = os_state.current_player()
-    current_agent = _os_player_to_kaggle_agent(os_current_player,
-                                               game.num_players())
-    if 0 <= current_agent < num_expected_agents:
-      action = kaggle_state[current_agent].info.get("action_applied")
-      if action is not None:
-        legal_actions = list(os_state.legal_actions())
-        if action in legal_actions:
-          os_state.apply_action(action)
-        else:
-          raise ValueError(
-              f"_reconstruct_os_state failed to find action {action} "
-              f"in legal actions: {legal_actions}"
-          )
-      else:
-        raise ValueError(
-            "_reconstruct_os_state found None action for "
-            f"current player {os_current_player} in state: {os_state}"
-        )
-    elif os_current_player == pyspiel.PlayerId.SIMULTANEOUS:
-      raise NotImplementedError
-    elif os_current_player == pyspiel.PlayerId.TERMINAL:
-      continue
-    else:
-      raise ValueError(f"Invalid player: {os_current_player}")
-  return os_state
-
-
 def interpreter(
   state: list[utils.Struct],
   env: core.Environment,
@@ -174,17 +125,10 @@ def interpreter(
 
   # --- Get Game Info ---
   game = _get_open_spiel_game(env.configuration)
-  num_players = game.num_players()  # Actual number of players
-  num_agents = len(kaggle_state)
-  if num_agents != num_players + 1:
-    raise ValueError(
-        f"Invalid num_agents: {num_agents}. Open Spiel must always include a "
-        "game master in the final agent position."
-    )
-
+  num_players = game.num_players()
   statuses = [
       kaggle_state[os_current_player].status
-      for os_current_player in range(num_agents)
+      for os_current_player in range(num_players)
   ]
   if not any(status == "ACTIVE" for status in statuses):
     raise ValueError("Environment not done and no active agents.")
@@ -194,40 +138,45 @@ def interpreter(
   is_initial_step = len(env.steps) == 1
   if _OS_GLOBAL_STATE is None or (not is_initial_step and env.done):
     _OS_GLOBAL_STATE = game.new_initial_state()
-  # Alternatively can reconstruct the state
-  # os_state = _reconstruct_os_state(game, env.steps, num_agents)
 
   # --- Maybe apply agent action ---
   os_current_player = _OS_GLOBAL_STATE.current_player()
-  current_agent = _os_player_to_kaggle_agent(os_current_player, num_players)
   action_applied = None
   if is_initial_step:
     pass
-  elif kaggle_state[current_agent].status != "ACTIVE":
-    pass
-  elif 0 <= current_agent < num_agents:
-    action_submitted = kaggle_state[current_agent].action
-    legal = _OS_GLOBAL_STATE.legal_actions()
-    if action_submitted in legal:
-      try:
-        _OS_GLOBAL_STATE.apply_action(action_submitted)
-        action_applied = action_submitted
-      except Exception:  # pylint: disable=broad-exception-caught
-        kaggle_state[current_agent].status = "ERROR"
+  elif 0 <= os_current_player < num_players:
+    if kaggle_state[os_current_player].status != "ACTIVE":
+      pass
     else:
-      kaggle_state[current_agent].status = "INVALID"
+      action_submitted = kaggle_state[os_current_player].action
+      legal = _OS_GLOBAL_STATE.legal_actions()
+      if action_submitted in legal:
+        try:
+          _OS_GLOBAL_STATE.apply_action(action_submitted)
+          action_applied = action_submitted
+        except Exception:  # pylint: disable=broad-exception-caught
+          kaggle_state[os_current_player].status = "ERROR"
+      else:
+        kaggle_state[os_current_player].status = "INVALID"
   elif os_current_player == pyspiel.PlayerId.SIMULTANEOUS:
     raise NotImplementedError
   elif os_current_player == pyspiel.PlayerId.TERMINAL:
     pass
+  elif os_current_player == pyspiel.PlayerId.CHANCE:
+    raise ValueError("Interpreter should not be called at chance nodes.")
   else:
     raise ValueError(f"Unknown OpenSpiel player ID: {os_current_player}")
 
   # --- Update state info ---
+  while _OS_GLOBAL_STATE.is_chance_node():
+    chance_outcomes = _OS_GLOBAL_STATE.chance_outcomes
+    outcomes = _OS_GLOBAL_STATE.chance_outcomes()
+    legal_actions, chance_outcome_probs = zip(*outcomes)
+    action = np.random.choice(legal_actions, p=chance_outcome_probs)
+    _OS_GLOBAL_STATE.apply_action(action)
   is_terminal = _OS_GLOBAL_STATE.is_terminal()
   agent_returns = _OS_GLOBAL_STATE.returns() + [None]
-  os_next_player = _OS_GLOBAL_STATE.current_player()
-  next_agent = _os_player_to_kaggle_agent(os_next_player, num_players)
+  next_agent = _OS_GLOBAL_STATE.current_player()
 
   for i, agent_state in enumerate(kaggle_state):
     input_status = agent_state.status
@@ -249,27 +198,12 @@ def interpreter(
 
     info_dict = {}
     # Store the applied action in info for potential debugging/analysis
-    if current_agent == i and action_applied is not None:
+    if os_current_player == i and action_applied is not None:
       info_dict["action_applied"] = action_applied
 
-    legal_actions = []
-    chance_outcome_probs = []
-    if i == num_agents - 1:  # Game master agent
-      obs_str = str(_OS_GLOBAL_STATE)
-      if _OS_GLOBAL_STATE.is_chance_node():
-        outcomes = _OS_GLOBAL_STATE.chance_outcomes()
-        legal_actions, chance_outcome_probs = zip(*outcomes)
-    else:
-      game_type = _OS_GLOBAL_GAME.get_type()
-      if game_type.provides_information_state_string:
-        obs_str = _OS_GLOBAL_STATE.information_state_string(i)
-      elif game_type.provides_observation_string:
-        obs_str = _OS_GLOBAL_STATE.observation_string(i)
-      else:
-        raise ValueError(
-          "Must provide either information state or observation string"
-        )
-      legal_actions = _OS_GLOBAL_STATE.legal_actions(i)
+    game_type = _OS_GLOBAL_GAME.get_type()
+    obs_str = str(_OS_GLOBAL_STATE)
+    legal_actions = _OS_GLOBAL_STATE.legal_actions(i)
 
     if status == "ACTIVE" and not legal_actions:
       raise ValueError(
@@ -280,8 +214,7 @@ def interpreter(
     obs_update_dict = {
       "observation_string": obs_str,
       "legal_actions": legal_actions,
-      "chance_outcome_probs": chance_outcome_probs,
-      "current_player": os_next_player,
+      "current_player": next_agent,
       "is_terminal": is_terminal,
       "player_id": i,
     }
@@ -355,26 +288,10 @@ def random_agent(
   return int(action)
 
 
-def game_master_agent(
-  observation: dict[str, Any],
-  configuration: dict[str, Any],
-) -> int:
-  """Agent for handling chance nodes and recording full game state."""
-  del configuration
-  legal_actions = observation.get("legal_actions")
-  chance_outcome_probs = observation.get("chance_outcome_probs")
-  if not legal_actions:
-    return None
-  if not chance_outcome_probs:
-    raise ValueError("Game master received legal actions without probs.")
-  action = np.random.choice(legal_actions, p=chance_outcome_probs)
-  return int(action)
-
-
 agents = {
-  "game_master": game_master_agent,
   "random": random_agent,
 }
+
 
 def _register_open_spiel_envs(
   games_list: list[str] | None = None,
@@ -402,8 +319,7 @@ Kaggle environment wrapper for OpenSpiel games.
 For game implementation details see:
 https://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games
 """.strip()
-      # Extra game master agent for handling chance nodes.
-      game_spec["agents"] = [game.num_players() + 1]
+      game_spec["agents"] = [game.num_players()]
       game_spec["configuration"]["episodeSteps"] = (
           game.max_history_length() + DEFAULT_EPISODE_STEP_BUFFER
       )
