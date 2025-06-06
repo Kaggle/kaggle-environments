@@ -1,6 +1,6 @@
 import sys
 from kaggle_environments import make
-import open_spiel as open_spiel_env
+from . import open_spiel as open_spiel_env
 
 
 def test_envs_load():
