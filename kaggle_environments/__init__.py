@@ -32,7 +32,7 @@ for name in listdir(utils.envs_path):
     try:
         env = import_module(f".envs.{name}.{name}", __name__)
         if name == "open_spiel":
-            for env_name, env_dict in env.registered_open_spiel_envs.items():
+            for env_name, env_dict in env.ENV_REGISTRY.items():
                 register(env_name, {
                     "agents": env_dict.get("agents"),
                     "html_renderer": env_dict.get("html_renderer"),
