@@ -5,22 +5,22 @@ dump_chess_positions.py
 
 Generate a corpus of *partial* Chess positions using Stockfish.
 
-Each output line is a FEN string representing a chess position.
+Each output line is a JSON object with FEN string and PGN of the game.
 
 Usage examples
 --------------
 # 1 000 positions to default path with Stockfish in $PATH
 python dump_chess_positions.py --n 1000
 
-# 20 000 positions, depth-2 search, custom Stockfish binary, write to .txt
+# 20 000 positions, depth-2 search, custom Stockfish binary, write to .jsonl
 python dump_chess_positions.py -n 20000 --depth 2 \
     --stockfish ~/engines/stockfish15/stockfish \
-    --out data/chess_positions.txt
+    --out data/chess_positions.jsonl
 """
-import argparse, random, sys
+import argparse, random, sys, json
 from pathlib import Path
 
-import chess, chess.engine              # python-chess
+import chess, chess.engine, chess.pgn   # python-chess
 
 # ---------------------------------------------------------------------
 # helpers
@@ -42,8 +42,8 @@ def stockfish_selfplay(board: chess.Board, engine_path: str,
 
 def sample_partial_position(engine_path: str, depth: int,
                            max_moves: int,
-                           frac_range=(0.05, 0.95)) -> str:
-    """Return a random cut-off of a Stockfish self-play game as FEN."""
+                           frac_range=(0.05, 0.95)) -> dict:
+    """Return a random cut-off of a Stockfish self-play game as FEN and PGN."""
     board = chess.Board()
     full = stockfish_selfplay(board, engine_path, depth, max_moves)
     cut = int(len(full) * random.uniform(*frac_range))
@@ -54,7 +54,20 @@ def sample_partial_position(engine_path: str, depth: int,
     for m in partial_moves:
         board_copy.push(m)
     
-    return board_copy.fen()
+    # Generate move sequence string
+    game = chess.pgn.Game()
+    node = game
+    for move in partial_moves:
+        node = node.add_variation(move)
+    
+    # Get just the moves without headers
+    exporter = chess.pgn.StringExporter(headers=False, variations=False, comments=False)
+    moves_only = game.accept(exporter).strip()
+    
+    return {
+        "fen": board_copy.fen(),
+        "pgn": moves_only
+    }
 
 # ---------------------------------------------------------------------
 # main
@@ -63,8 +76,8 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="Dump random Chess positions")
     p.add_argument("-n", "--num", type=int, required=True,
                    help="number of positions to generate")
-    p.add_argument("-o", "--out", default=str(Path(__file__).parent / "chess_positions.txt"),
-                   help="output file (one line per position)")
+    p.add_argument("-o", "--out", default=str(Path(__file__).parent / "chess_positions.jsonl"),
+                   help="output file (one line per position in JSONL format)")
     p.add_argument("--stockfish", default="stockfish",
                    help="path to Stockfish binary (must speak UCI)")
     p.add_argument("--depth", type=int, default=1,
@@ -86,9 +99,9 @@ def main(argv=None):
 
     with out_path.open("w") as f:
         for i in range(args.num):
-            fen = sample_partial_position(args.stockfish, args.depth,
-                                         args.max_moves, rng)
-            f.write(fen + "\n")
+            position_data = sample_partial_position(args.stockfish, args.depth,
+                                                   args.max_moves, rng)
+            f.write(json.dumps(position_data) + "\n")
             if (i + 1) % 100 == 0:
                 print(f"{i + 1}/{args.num}...", file=sys.stderr)
 
