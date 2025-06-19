@@ -1,0 +1,9 @@
+# LLM client dependencies for chess prompt evaluation
+# Install with: pip install -r requirements.txt
+
+anthropic>=0.40.0
+openai>=1.0.0
+google-generativeai>=0.8.0
+
+# Optional: For better environment variable management
+python-dotenv>=1.0.0
