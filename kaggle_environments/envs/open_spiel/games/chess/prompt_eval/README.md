@@ -12,8 +12,8 @@ Different ways of representing chess game state (FEN, PGN, JSON, etc.) and diffe
 2. **Move Quality**: Stockfish evaluation of move strength using Win/Draw/Loss (WDL) expectation changes
 
 ### Evaluation Approach
-- Test prompts on ~500 chess positions from partial games
-- Focus primarily on Gemini models (cost-effective via Google credits)
+- Test prompts on ~200 chess positions from partial games
+- Focus primarily on Gemini models
 - Compare different prompt formats rather than head-to-head model comparisons
 - Measure both move legality and move strength
 
@@ -41,16 +41,24 @@ Different ways of representing chess game state (FEN, PGN, JSON, etc.) and diffe
 - Comprehensive test suite covering 20+ response patterns
 
 #### 4. Prompt Generation (`prompts.py`)
-- **Current**: Single FEN-based prompt template
-- **Planned**: Multiple prompt strategies (JSON board state, different instruction styles, etc.)
+- **FEN-based prompts**: Traditional chess notation with move history
+- **JSON board representation**: Structured board state with detailed game information
+- **No-PGN variants**: Testing impact of move history on performance
+- Extensible framework for adding new prompt strategies
 
 #### 5. Position Generation (`dump_chess_positions.py`)
 - Generates diverse chess positions from Stockfish self-play
 - Creates partial games (5-95% complete) for realistic evaluation scenarios
 - Outputs JSONL format with FEN position and move history
-- **Current corpus**: `chess_positions.jsonl` with sample positions
+- **Filtered corpus**: `filtered_chess_positions.jsonl` with balanced positions (~300cp evaluation)
 
-#### 6. Utilities
+#### 6. Evaluation Infrastructure
+- **`run_evaluation.py`**: Main batch evaluation runner with parallel processing
+- **`result_writer.py`**: Structured JSONL output with comprehensive evaluation data
+- **`single_eval.py`**: Single position evaluation for testing
+- **`results/`**: Directory containing completed evaluation runs
+
+#### 7. Utilities
 - **`config.py`**: API key management with .env support
 - **`logger.py`**: Structured logging for evaluation runs
 - **`test_*.py`**: Unit tests for core components
@@ -58,24 +66,22 @@ Different ways of representing chess game state (FEN, PGN, JSON, etc.) and diffe
 ## Current Status
 
 ### ✅ What's Built
-- [x] Multi-provider LLM client infrastructure
-- [x] Chess move validation and quality evaluation  
-- [x] Robust response parsing with comprehensive test coverage
-- [x] Position generation from Stockfish games
-- [x] Basic prompt template system
+- [x] Multi-provider LLM client infrastructure (Anthropic, OpenAI, Gemini)
+- [x] Chess move validation and quality evaluation using Stockfish
+- [x] Robust response parsing with comprehensive test coverage (20+ patterns)
+- [x] Position generation from Stockfish games (filtered to ~300cp balanced positions)
+- [x] **Multiple prompt strategies**: FEN-based, JSON board representation, with/without PGN
+- [x] **Batch processing system**: Parallel evaluation with `run_evaluation.py`
+- [x] **Results storage format**: Structured JSONL output with full evaluation data
+- [x] **End-to-end evaluation pipeline**: From positions to analyzed results
 - [x] Unit tests for core components
 
-### 🚧 What's Being Built
-- [ ] **Batch Processing System**: Parallel evaluation across multiple positions
-- [ ] **Results Storage Format**: Structured output for analysis
-- [ ] **Multiple Prompt Strategies**: JSON board representation, different instruction formats
-- [ ] **Evaluation Pipeline**: End-to-end automation from positions → results
-
-### 📋 Future Plans
-- [ ] **Analysis Tools**: Statistical analysis of prompt performance
-- [ ] **Position Categorization**: Opening/middlegame/endgame performance analysis
-- [ ] **Visualization**: Charts and reports for experiment results
-- [ ] **Cost Tracking**: Monitor API usage across experiments
+### 📊 **System Ready for Production Use**
+The evaluation system is now **fully operational** and has been used to run actual experiments. Recent evaluation runs demonstrate:
+- **Legal move rates**: Tracking how often LLMs generate valid chess moves
+- **Move quality analysis**: WDL expectation changes using Stockfish evaluation
+- **Prompt strategy comparison**: Testing FEN vs JSON board representations
+- **Performance data**: Response times, token usage, error handling
 
 ## Setup
 
@@ -98,11 +104,25 @@ GEMINI_API_KEY=your_key_here
 ### Generate Test Positions
 
 ```bash
-# Generate 1000 positions for evaluation
-python dump_chess_positions.py --num 1000 --out chess_positions.jsonl
+# Generate 1000 positions for evaluation (creates balanced positions ~300cp)
+python dump_chess_positions.py --num 1000 --out filtered_chess_positions.jsonl
 ```
 
-## Basic Usage
+## Usage
+
+### Running Batch Evaluations
+
+```bash
+# Run evaluation on 50 positions using Gemini with JSON board format
+python run_evaluation.py \
+    --model gemini \
+    --strategy board_json_no_pgn \
+    --positions filtered_chess_positions.jsonl \
+    --max-positions 50 \
+    --max-workers 5
+
+# Results saved to results/eval_results_[id]_[timestamp].jsonl
+```
 
 ### Single Position Evaluation
 
@@ -140,6 +160,22 @@ if response.is_success:
         print(f"Could not parse move: {parse_result.error_message}")
 ```
 
+### Available Prompt Strategies
+
+- **`fen`**: Traditional FEN notation with PGN move history
+- **`board_json`**: Structured JSON board representation with PGN history
+- **`board_json_no_pgn`**: JSON board representation without move history
+
+### Analyzing Results
+
+```bash
+# View evaluation results
+head -n 5 results/eval_results_*.jsonl | jq .
+
+# Check legal move rate and quality statistics
+grep '"is_legal": true' results/eval_results_*.jsonl | wc -l
+```
+
 ### Run Tests
 
 ```bash
@@ -147,14 +183,8 @@ if response.is_success:
 python test_response_parser.py
 python test_move_evaluator.py
 
-# Test LLM integration (requires API keys)
-python -c "
-from kaggle_environments.envs.open_spiel.games.chess.prompt_eval.clients import GeminiClient
-from kaggle_environments.envs.open_spiel.games.chess.prompt_eval import get_logger
-client = GeminiClient(get_logger())
-response = client.send_message('Say hello')
-print('✓ Gemini client working' if response.is_success else f'✗ Error: {response.error}')
-"
+# Test single evaluation end-to-end
+python single_eval.py
 ```
 
 ## Key Design Decisions
@@ -192,23 +222,32 @@ Stockfish provides consistent, high-quality move evaluation for benchmarking LLM
 
 ```
 prompt_eval/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── config.py                # API key management
-├── logger.py                # Logging utilities
-├── prompts.py               # Prompt generation (expandable)
-├── response_parser.py       # LLM response → chess move
-├── move_evaluator.py        # Move legality + quality evaluation
-├── dump_chess_positions.py  # Position corpus generation
-├── chess_positions.jsonl    # Generated position corpus
-├── test_*.py               # Unit tests
-└── clients/                # LLM provider integrations
-    ├── __init__.py
-    ├── base_client.py      # Abstract base class
-    ├── llm_response.py     # Response data structure
-    ├── anthropic_client.py # Claude integration
-    ├── openai_client.py    # GPT/o3 integration
-    └── gemini_client.py    # Gemini integration
+├── README.md                    # This file
+├── requirements.txt             # Python dependencies
+├── config.py                   # API key management
+├── logger.py                   # Logging utilities
+├── prompts.py                  # Multiple prompt strategies
+├── response_parser.py          # LLM response → chess move
+├── move_evaluator.py           # Move legality + quality evaluation
+├── dump_chess_positions.py     # Position corpus generation
+├── run_evaluation.py           # Main batch evaluation runner
+├── result_writer.py            # Structured results output
+├── single_eval.py              # Single position testing
+├── chess_positions.jsonl       # Original position corpus
+├── filtered_chess_positions.jsonl # Balanced positions (~300cp)
+├── test_*.py                   # Unit tests
+├── clients/                    # LLM provider integrations
+│   ├── __init__.py
+│   ├── base_client.py          # Abstract base class
+│   ├── llm_response.py         # Response data structure
+│   ├── anthropic_client.py     # Claude integration
+│   ├── openai_client.py        # GPT/o3 integration
+│   └── gemini_client.py        # Gemini integration
+├── docs/                       # Planning and design documents
+│   ├── TODO.md
+│   ├── board_format.md
+│   ├── output_format_design.md
+│   └── runner_plan.md
+└── results/                    # Completed evaluation runs
+    └── eval_results_*.jsonl    # JSONL files with evaluation data
 ```
-
-This system provides a solid foundation for empirically testing different prompt strategies for LLM chess performance. The modular design allows easy extension of prompts, evaluation metrics, and analysis capabilities.
