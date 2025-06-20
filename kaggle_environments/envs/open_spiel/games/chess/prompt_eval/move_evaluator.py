@@ -82,17 +82,21 @@ def evaluate_move(fen: str, move: str, stockfish_path: str = "stockfish") -> Mov
             score_before = info_before["score"]
             score_after = info_after["score"]
             
-            if score_before.is_mate() or score_after.is_mate():
+            # Handle mate scores - need to access relative scores properly
+            score_before_relative = score_before.white() if player_is_white else score_before.black()
+            score_after_relative = score_after.white() if player_is_white else score_after.black()
+            
+            if score_before_relative.is_mate() or score_after_relative.is_mate():
                 # Simplified mate handling
-                if score_before.is_mate() and score_after.is_mate():
+                if score_before_relative.is_mate() and score_after_relative.is_mate():
                     expectation_change = 0.0
                     cp_change = 0.0
-                elif score_after.is_mate():
-                    mate_in = score_after.mate()
-                    if (player_is_white and mate_in > 0) or (not player_is_white and mate_in < 0):
+                elif score_after_relative.is_mate():
+                    mate_in = score_after_relative.mate()
+                    if mate_in > 0:  # Mate for current player
                         expectation_change = 0.5
                         cp_change = 1000.0
-                    else:
+                    else:  # Mate against current player
                         expectation_change = -0.5
                         cp_change = -1000.0
                 else:
