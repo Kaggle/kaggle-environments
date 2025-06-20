@@ -155,3 +155,6 @@ node_modules
 submission.tar.gz
 
 replay.html
+
+# Chess prompt evaluation results
+kaggle_environments/envs/open_spiel/games/chess/prompt_eval/results/
