@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from logger import get_logger
 from clients import GeminiClient, AnthropicClient, OpenAIClient
-from prompts import generate_fen_prompt
+from prompts import generate_fen_prompt, generate_board_json_prompt
 from response_parser import parse_chess_response, ParseResult
 from move_evaluator import evaluate_move, MoveEvaluation
 from result_writer import ResultWriter, EvaluationResult, generate_run_id, generate_output_filename
@@ -58,6 +58,11 @@ def process_single_position(position, position_index, model_id, strategy,
         fen_parts = position['fen'].split()
         player = 'white' if fen_parts[1] == 'w' else 'black'
         prompt = generate_fen_prompt(position['fen'], position['pgn'], player)
+    elif strategy == 'board_json':
+        # Extract player to move from FEN
+        fen_parts = position['fen'].split()
+        player = 'white' if fen_parts[1] == 'w' else 'black'
+        prompt = generate_board_json_prompt(position['fen'], position['pgn'], player)
     else:
         raise ValueError(f"Unknown strategy: {strategy}")
     
@@ -183,7 +188,7 @@ def main():
     parser.add_argument('--model', default='gemini',
                        help='Model provider (gemini, claude, or o3) - default: gemini')
     parser.add_argument('--strategy', default='fen_basic',
-                       help='Prompt strategy (default: fen_basic)')
+                       help='Prompt strategy: fen_basic or board_json (default: fen_basic)')
     parser.add_argument('--output-dir', default='./results',
                        help='Output directory (default: ./results)')
     parser.add_argument('--max-positions', type=int,
@@ -198,8 +203,9 @@ def main():
         print(f"Error: Positions file not found: {args.positions}")
         sys.exit(1)
     
-    if args.strategy not in ['fen_basic']:
+    if args.strategy not in ['fen_basic', 'board_json']:
         print(f"Error: Unknown strategy: {args.strategy}")
+        print("Available strategies: fen_basic, board_json")
         sys.exit(1)
     
     try:
