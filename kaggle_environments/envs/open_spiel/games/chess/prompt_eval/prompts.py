@@ -148,3 +148,24 @@ You are playing as player {color}.
 It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in Algebraic Notation."""
 
 
+def generate_board_json_no_pgn_prompt(fen_state: str, move_history: str, color: str) -> str:
+    """
+    Generate a chess prompt using structured JSON board representation without PGN history.
+    
+    Args:
+        fen_state: FEN string representing the current position
+        move_history: String of moves played so far (ignored)
+        color: Player color ("white" or "black")
+    
+    Returns:
+        Formatted prompt string with JSON board representation, no move history
+    """
+    board_json = fen_to_board_json(fen_state)
+    board_json_str = json.dumps(board_json, indent=2)
+    
+    return f"""Let's play chess. The current game state is:
+{board_json_str}
+You are playing as player {color}.
+It is now your turn. Play your strongest move. The move MUST be legal. Reason step by step to come up with your move, then output your final answer in the format "Final Answer: X" where X is your chosen move in Algebraic Notation."""
+
+
