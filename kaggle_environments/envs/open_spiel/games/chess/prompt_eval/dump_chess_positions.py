@@ -12,8 +12,8 @@ Usage examples
 # 1 000 positions to default path with Stockfish in $PATH
 python dump_chess_positions.py --n 1000
 
-# 20 000 positions, depth-2 search, custom Stockfish binary, write to .jsonl
-python dump_chess_positions.py -n 20000 --depth 2 \
+# 20 000 positions, 50ms per move, custom Stockfish binary, write to .jsonl
+python dump_chess_positions.py -n 20000 --time 0.05 \
     --stockfish ~/engines/stockfish15/stockfish \
     --out data/chess_positions.jsonl
 """
@@ -27,25 +27,32 @@ import chess, chess.engine, chess.pgn   # python-chess
 # ---------------------------------------------------------------------
 
 def stockfish_selfplay(board: chess.Board, engine_path: str,
-                       depth: int, max_moves: int) -> list[chess.Move]:
+                       time_limit: float, max_moves: int) -> list[chess.Move]:
     """Play a full game (until mate/stalemate or max_moves)."""
     eng = chess.engine.SimpleEngine.popen_uci(engine_path)
     moves: list[chess.Move] = []
     try:
         while not board.is_game_over() and len(moves) < max_moves:
-            res = eng.play(board, chess.engine.Limit(depth=depth))
-            board.push(res.move)
-            moves.append(res.move)
+            # Analyze to get multiple moves, then pick one
+            info = eng.analyse(board, chess.engine.Limit(time=time_limit), multipv=8)
+            if not info:  # Should not happen if game is not over
+                break
+            # Get the move from each PV line and pick one randomly
+            top_moves = [item["pv"][0] for item in info]
+            chosen_move = random.choice(top_moves)
+            
+            board.push(chosen_move)
+            moves.append(chosen_move)
     finally:
         eng.quit()
     return moves
 
-def sample_partial_position(engine_path: str, depth: int,
+def sample_partial_position(engine_path: str, time_limit: float,
                            max_moves: int,
                            frac_range=(0.05, 0.95)) -> dict:
     """Return a random cut-off of a Stockfish self-play game as FEN and PGN."""
     board = chess.Board()
-    full = stockfish_selfplay(board, engine_path, depth, max_moves)
+    full = stockfish_selfplay(board, engine_path, time_limit, max_moves)
     cut = int(len(full) * random.uniform(*frac_range))
     partial_moves = full[:max(1, cut)]            # at least one move
 
@@ -80,8 +87,8 @@ def main(argv=None):
                    help="output file (one line per position in JSONL format)")
     p.add_argument("--stockfish", default="stockfish",
                    help="path to Stockfish binary (must speak UCI)")
-    p.add_argument("--depth", type=int, default=1,
-                   help="search depth per move (Stockfish)")
+    p.add_argument("--time", type=float, default=0.02,
+                   help="time limit per move in seconds (Stockfish)")
     p.add_argument("--max-moves", type=int, default=120,
                    help="stop a self-play game after this many plies")
     p.add_argument("--min-frac", type=float, default=0.05,
@@ -99,7 +106,7 @@ def main(argv=None):
 
     with out_path.open("w") as f:
         for i in range(args.num):
-            position_data = sample_partial_position(args.stockfish, args.depth,
+            position_data = sample_partial_position(args.stockfish, args.time,
                                                    args.max_moves, rng)
             f.write(json.dumps(position_data) + "\n")
             if (i + 1) % 100 == 0:
