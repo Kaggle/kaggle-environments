@@ -32,7 +32,7 @@ ADD ./kaggle_environments ./kaggle_environments
 
 
 # install kaggle-environments
-RUN pip install Flask bitsandbytes accelerate vec-noise jax gymnax==0.0.8 && pip install . && pytest
+RUN pip install Flask bitsandbytes accelerate vec-noise jax gymnax==0.0.8 litellm && pip install . && pytest
 
 # SET UP KAGGLE-ENVIRONMENTS CHESS
 # minimal package to reduce memory footprint
