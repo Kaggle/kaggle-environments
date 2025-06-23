@@ -247,8 +247,8 @@ function renderer(options) {
         // --- Observation Extraction & Merging ---
         let obsP0 = null, obsP1 = null;
         try {
-            obsP0 = JSON.parse(currentStepAgents[0].observation.observation_string);
-            obsP1 = JSON.parse(currentStepAgents[1].observation.observation_string);
+            obsP0 = JSON.parse(currentStepAgents[0].observation.observationString);
+            obsP1 = JSON.parse(currentStepAgents[1].observation.observationString);
         } catch (e) {
             defaultUIData.gameMessage = "Error parsing observation JSON.";
             return defaultUIData;

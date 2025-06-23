@@ -283,9 +283,9 @@ function renderer(options) {
         let boardArray = null;
         let currentPlayerForState = null;
 
-        if (typeof observationForBoardState.observation_string === 'string' && observationForBoardState.observation_string.trim().startsWith('{')) {
+        if (typeof observationForBoardState.observationString === 'string' && observationForBoardState.observationString.trim().startsWith('{')) {
             try {
-                const parsedState = JSON.parse(observationForBoardState.observation_string);
+                const parsedState = JSON.parse(observationForBoardState.observationString);
                 if (parsedState && Array.isArray(parsedState.board)) {
                     boardArray = parsedState.board;
                 }
@@ -294,7 +294,7 @@ function renderer(options) {
                 }
             } catch (e) {
                 _showMessage("Error parsing game state from observation string.", 'error');
-                console.error("Failed to parse observation_string JSON:", e);
+                console.error("Failed to parse observation string JSON:", e);
             }
         }
 
@@ -306,8 +306,8 @@ function renderer(options) {
         }
 
         if (!currentPlayerForState) {
-             if (observationForBoardState.current_player === 0) { currentPlayerForState = 'x'; }
-             else if (observationForBoardState.current_player === 1) { currentPlayerForState = 'o'; }
+             if (observationForBoardState.currentPlayer === 0) { currentPlayerForState = 'x'; }
+             else if (observationForBoardState.currentPlayer === 1) { currentPlayerForState = 'o'; }
         }
 
         const isTerminal = !!observationForBoardState.is_terminal;
@@ -320,7 +320,7 @@ function renderer(options) {
                 else if (finalRewards[1] === 1.0) winnerForState = 'o';
                 else if (finalRewards[0] === 0.0 && finalRewards[1] === 0.0) winnerForState = 'draw';
             }
-            if (observationForBoardState.current_player === -2 && winnerForState === null) {
+            if (observationForBoardState.currentPlayer === -2 && winnerForState === null) {
                 winnerForState = 'draw';
             }
         }
