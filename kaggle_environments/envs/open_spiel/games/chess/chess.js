@@ -273,15 +273,15 @@ function renderer(options) {
 
     let gameSpecificState = null;
 
-    if (observationForRenderer && typeof observationForRenderer.observation_string === 'string' && observationForRenderer.observation_string.trim() !== '') {
+    if (observationForRenderer && typeof observationForRenderer.observationString === 'string' && observationForRenderer.observationString.trim() !== '') {
         try {
-            const fen = observationForRenderer.observation_string;
+            const fen = observationForRenderer.observationString;
             const parsedFen = _parseFen(fen);
             if (parsedFen) {
                 // Assuming `is_terminal` and `winner` are provided in the top-level observation
                 gameSpecificState = { 
                     ...parsedFen,
-                    is_terminal: observationForRenderer.is_terminal,
+                    is_terminal: observationForRenderer.isTerminal,
                     winner: observationForRenderer.winner
                 };
             }

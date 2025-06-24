@@ -264,9 +264,9 @@ function renderer(options) {
 
     let gameSpecificState = null;
 
-    if (observationForRenderer && typeof observationForRenderer.observation_string === 'string' && observationForRenderer.observation_string.trim() !== '') {
+    if (observationForRenderer && typeof observationForRenderer.observationString === 'string' && observationForRenderer.observationString.trim() !== '') {
         try {
-            gameSpecificState = JSON.parse(observationForRenderer.observation_string);
+            gameSpecificState = JSON.parse(observationForRenderer.observationString);
         } catch (e) {
             _showMessage("Error: Corrupted game state (obs_string).", 'error');
         }
@@ -277,18 +277,6 @@ function renderer(options) {
             gameSpecificState = JSON.parse(observationForRenderer.json);
         } catch (e) {
             _showMessage("Error: Corrupted game state (json).", 'error');
-        }
-    }
-    
-    if (!gameSpecificState && observationForRenderer && 
-        Array.isArray(observationForRenderer.board) && 
-        typeof observationForRenderer.current_player !== 'undefined'
-       ) {
-        if( (observationForRenderer.board.length === DEFAULT_NUM_ROWS &&
-             (observationForRenderer.board.length === 0 || 
-              (Array.isArray(observationForRenderer.board[0]) && observationForRenderer.board[0].length === DEFAULT_NUM_COLS)))
-          ){
-            gameSpecificState = observationForRenderer;
         }
     }
     

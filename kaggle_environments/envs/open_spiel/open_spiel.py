@@ -77,35 +77,33 @@ OBSERVATION_SPEC_TEMPLATE = {
             "description": "Short name of the OpenSpiel game.",
             "type": "string"
         },
-        "observation_string": {
+        "observationString": {
             "description": "String representation of state.",
             "type": "string"
         },
-        # TODO(jhtschultz): Use camel case for consistency with spec, or snake
-        # case for consistency with pyspiel?
-        "legal_actions": {
+        "legalActions": {
             "description": "List of OpenSpiel legal action integers.",
             "type": "array",
             "items": {
                 "type": "integer"
             }
         },
-        "legal_action_strings": {
+        "legalActionStrings": {
             "description": "List of OpenSpiel legal actions strings.",
             "type": "array",
             "items": {
                 "type": "string"
             }
         },
-        "current_player": {
+        "currentPlayer": {
             "description": "ID of player whose turn it is.",
             "type": "integer"
         },
-        "player_id": {
+        "playerId": {
             "description": "ID of the agent receiving this observation.",
             "type": "integer"
         },
-        "is_terminal": {
+        "isTerminal": {
             "description": "Boolean indicating game end.",
             "type": "boolean"
         },
@@ -115,6 +113,11 @@ OBSERVATION_SPEC_TEMPLATE = {
     "default": {}
 }
 
+ACTION_SPEC_TEMPLATE = {
+    "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+    "type": "object",
+    "default": {"submission": -1}
+}
 
 ENV_SPEC_TEMPLATE = {
     "name": "PLACEHOLDER_NAME",
@@ -124,11 +127,7 @@ ENV_SPEC_TEMPLATE = {
     "agents": ["PLACEHOLDER_NUM_AGENTS"],
     "configuration": CONFIGURATION_SPEC_TEMPLATE,
     "observation": OBSERVATION_SPEC_TEMPLATE,
-    "action": {
-        "type": ["integer"],
-        "minimum": -1,
-        "default": -1
-    },
+    "action": ACTION_SPEC_TEMPLATE,
     "reward": {
         "type": ["number"],
         "default": 0.0
@@ -141,6 +140,7 @@ ENV_SPEC_TEMPLATE = {
 def interpreter(
   state: list[utils.Struct],
   env: core.Environment,
+  logs: list[dict[str, Any]],
 ) -> list[utils.Struct]:
   """Updates environment using player responses and returns new observations."""
   kaggle_state = state  # Not to be confused with OpenSpiel state.
@@ -157,9 +157,10 @@ def interpreter(
     env.os_game = pyspiel.load_game(game_string)
   if not hasattr(env, 'os_state'):
     env.os_state = env.os_game.new_initial_state()
-  if "state_history" not in env.info:
-    env.info['state_history'] = [str(env.os_state)]
-    env.info['action_history'] = []
+  if "stateHistory" not in env.info:
+    env.info['stateHistory'] = [str(env.os_state)]
+    env.info['actionHistory'] = []
+    env.info['moveDurations'] = []
   
   os_game = env.os_game
   os_state = env.os_state
@@ -186,18 +187,23 @@ def interpreter(
     if kaggle_state[acting_agent].status != "ACTIVE":
       pass
     else:
-      action_submitted = kaggle_state[acting_agent].action
+      action_submitted = kaggle_state[acting_agent].action["submission"]
       if action_submitted in os_state.legal_actions():
         try:
           os_state.apply_action(action_submitted)
           action_applied = action_submitted
-          env.info['action_history'].append(str(action_applied))
-          env.info['state_history'].append(str(os_state))
+          env.info['actionHistory'].append(str(action_applied))
+          env.info['stateHistory'].append(str(os_state))
         except Exception as e:  # pylint: disable=broad-exception-caught
           _log.debug(e)
           kaggle_state[acting_agent].status = "ERROR"
       else:
         kaggle_state[acting_agent].status = "INVALID"
+      if "duration" in logs[acting_agent]:
+        move_duration = round(logs[acting_agent]["duration"], 3)
+        env.info["moveDurations"].append(move_duration)
+      else:
+        env.info["moveDurations"].append(None)
   elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
     raise NotImplementedError
   elif acting_agent == pyspiel.PlayerId.TERMINAL:
@@ -212,8 +218,8 @@ def interpreter(
     outcomes, probs = zip(*os_state.chance_outcomes())
     chance_action = np.random.choice(outcomes, p=probs)
     os_state.apply_action(chance_action)
-    env.info['action_history'].append(str(chance_action))
-    env.info['state_history'].append(str(os_state))
+    env.info['actionHistory'].append(str(chance_action))
+    env.info['stateHistory'].append(str(os_state))
 
   # --- Update agent states ---
   for player_id, agent_state in enumerate(kaggle_state):
@@ -234,19 +240,19 @@ def interpreter(
 
     info_dict = {}
     if acting_agent == player_id:
-      info_dict["action_submitted"] = action_submitted
-      info_dict["action_applied"] = action_applied
+      info_dict["actionSubmitted"] = action_submitted
+      info_dict["actionApplied"] = action_applied
 
     obs_update_dict = {
-      "observation_string": os_state.observation_string(player_id),
-      "legal_actions": os_state.legal_actions(player_id),
-      "legal_action_strings": [
+      "observationString": os_state.observation_string(player_id),
+      "legalActions": os_state.legal_actions(player_id),
+      "legalActionStrings": [
           os_state.action_to_string(action) for action
           in os_state.legal_actions(player_id)
       ],
-      "current_player": os_state.current_player(),
-      "is_terminal": os_state.is_terminal(),
-      "player_id": player_id,
+      "currentPlayer": os_state.current_player(),
+      "playerId": player_id,
+      "isTerminal": os_state.is_terminal(),
     }
 
     # Apply updates
@@ -295,14 +301,14 @@ function renderer(context) {
     // Try to get obs_string from game_master of current step
     if (currentStepData[agentObsIndex] && 
         currentStepData[agentObsIndex].observation && 
-        typeof currentStepData[agentObsIndex].observation.observation_string === 'string') {
-        obsString = currentStepData[agentObsIndex].observation.observation_string;
+        typeof currentStepData[agentObsIndex].observation.observationString === 'string') {
+        obsString = currentStepData[agentObsIndex].observation.observationString;
     } 
     // Fallback to initial step if current is unavailable (e.g. very first render call)
     else if (step === 0 && environment.steps[0] && environment.steps[0][agentObsIndex] && 
              environment.steps[0][agentObsIndex].observation &&
-             typeof environment.steps[0][agentObsIndex].observation.observation_string === 'string') {
-        obsString = environment.steps[0][agentObsIndex].observation.observation_string;
+             typeof environment.steps[0][agentObsIndex].observation.observationString === 'string') {
+        obsString = environment.steps[0][agentObsIndex].observation.observationString;
     }
 
     const pre = document.createElement("pre");
@@ -349,11 +355,11 @@ def random_agent(
 ) -> int:
   """A built-in random agent specifically for OpenSpiel environments."""
   del configuration
-  legal_actions = observation.get("legal_actions")
+  legal_actions = observation.get("legalActions")
   if not legal_actions:
     return None
   action = random.choice(legal_actions)
-  return int(action)
+  return {"submission": int(action)}
 
 
 AGENT_REGISTRY = {

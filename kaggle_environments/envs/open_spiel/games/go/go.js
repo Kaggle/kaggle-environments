@@ -410,9 +410,9 @@ function renderer(options) {
                 let gameState = null;
                 
                 // Try to parse game state from observation
-                if (gameMasterAgent.observation.observation_string) {
+                if (gameMasterAgent.observation.observationString) {
                     try {
-                        gameState = JSON.parse(gameMasterAgent.observation.observation_string);
+                        gameState = JSON.parse(gameMasterAgent.observation.observationString);
                     } catch (e) {}
                 }
                 
@@ -461,9 +461,9 @@ function renderer(options) {
     const observationForRenderer = gameMasterAgent.observation;
     let gameSpecificState = null;
 
-    if (observationForRenderer && typeof observationForRenderer.observation_string === 'string' && observationForRenderer.observation_string.trim() !== '') {
+    if (observationForRenderer && typeof observationForRenderer.observationString === 'string' && observationForRenderer.observationString.trim() !== '') {
         try {
-            gameSpecificState = JSON.parse(observationForRenderer.observation_string);
+            gameSpecificState = JSON.parse(observationForRenderer.observationString);
         } catch (e) {
             _showMessage("Error: Corrupted game state (obs_string).", 'error');
         }
