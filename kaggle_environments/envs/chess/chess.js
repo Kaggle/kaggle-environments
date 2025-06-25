@@ -4045,7 +4045,7 @@ async function renderer(context) {
 
   // Create the Download PGN button
   let downloadButton = parent.querySelector("#copy-pgn");
-  if (!downloadButton) {
+  if (!downloadButton && environment.steps.length) {
     try {
       const board = environment.steps[0][0].observation.board;
       const info = environment.info;
