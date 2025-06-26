@@ -35,7 +35,7 @@ for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
 
 
 # --- Constants ---
-DEFAULT_ACT_TIMEOUT = 5
+DEFAULT_ACT_TIMEOUT = 120
 DEFAULT_RUN_TIMEOUT = 1200
 # Buffer in addition to max game length to account for timeouts, retrys, etc.
 DEFAULT_STEP_BUFFER = 100
