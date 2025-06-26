@@ -4045,14 +4045,14 @@ async function renderer(context) {
 
   // Create the Download PGN button
   let downloadButton = parent.querySelector("#copy-pgn");
-  if (!downloadButton) {
+  if (!downloadButton && environment.steps.length) {
     try {
       const board = environment.steps[0][0].observation.board;
       const info = environment.info;
       const agent1 = info?.TeamNames?.[0] || "Agent 1";
       const agent2 = info?.TeamNames?.[1] || "Agent 2";
       const game = new Chess();
-      let result = environment.rewards;
+      let result = environment.rewards ?? [];
       if (result.some((r) => r === undefined || r === null)) {
         result = result.map((r) => (r === undefined || r === null ? 0 : 1));
       }
@@ -4103,7 +4103,9 @@ async function renderer(context) {
       downloadButton.style.top = "10px";
       downloadButton.style.left = "10px";
       downloadButton.style.zIndex = 1;
-      parent.appendChild(downloadButton);
+      if(!environment.viewer) {
+        parent.appendChild(downloadButton);
+      }
 
       downloadButton.addEventListener("click", async () => {
         try {
@@ -4179,26 +4181,28 @@ async function renderer(context) {
     }
   }
   // Draw the team names and game status
-  const info = environment.info;
-  const agent1 = info?.TeamNames?.[0] || "Agent 1";
-  const agent2 = info?.TeamNames?.[1] || "Agent 2";
-  const firstGame = environment.steps[step][0].observation.mark == "white";
-  const fontSize = Math.round(0.33 * offset);
-  c.font = `${fontSize}px sans-serif`;
-  c.fillStyle = "#FFFFFF";
-  const agent1Reward = environment.steps[step][0].reward;
-  const agent2Reward = environment.steps[step][1].reward;
-  const charCount = agent1.length + agent2.length + 12;
-  const title = `${
-    firstGame ? "\u25A0" : "\u25A1"
-  }${agent1} (${agent1Reward}) vs ${
-    firstGame ? "\u25A1" : "\u25A0"
-  }${agent2} (${agent2Reward})`;
-  c.fillText(
-    title,
-    offset + 4 * squareSize - Math.floor((charCount * fontSize) / 4),
-    40
-  );
+  if (!environment.viewer) {
+    const info = environment.info;
+    const agent1 = info?.TeamNames?.[0] || "Agent 1";
+    const agent2 = info?.TeamNames?.[1] || "Agent 2";
+    const firstGame = environment.steps[step][0].observation.mark == "white";
+    const fontSize = Math.round(0.33 * offset);
+    c.font = `${fontSize}px sans-serif`;
+    c.fillStyle = "#FFFFFF";
+    const agent1Reward = environment.steps[step][0].reward;
+    const agent2Reward = environment.steps[step][1].reward;
+    const charCount = agent1.length + agent2.length + 12;
+    const title = `${
+      firstGame ? "\u25A0" : "\u25A1"
+    }${agent1} (${agent1Reward}) vs ${
+      firstGame ? "\u25A1" : "\u25A0"
+    }${agent2} (${agent2Reward})`;
+    c.fillText(
+      title,
+      offset + 4 * squareSize - Math.floor((charCount * fontSize) / 4),
+      40
+    );
+  }
 
   // Draw the Pieces
   const board = environment.steps[step][0].observation.board;
