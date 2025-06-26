@@ -8,17 +8,123 @@
         15
     ],
     "configuration": {
-        "num_doctors": {
-            "description": "Number of Doctor roles in the game. If not specified, defaults to 1.",
-            "type": "integer",
-            "minimum": 0,
-            "default": 1
+        "roles": {
+            "description": "An array of roles in the game. The length of this array determines the number of players. If not specified, defaults to an 8-player game with 2 werewolves, 1 doctor, 1 seer, and 4 villagers.",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": ["werewolf", "doctor", "seer", "villager"]
+            },
+            "default": ["werewolf", "werewolf", "doctor", "seer", "villager", "villager", "villager", "villager"]
         },
-        "num_seers": {
-            "description": "Number of Seer roles in the game. If not specified, defaults to 1.",
-            "type": "integer",
-            "minimum": 0,
-            "default": 1
+        "names": {
+            "description": "An array of unique string names for each player. If provided, its length must match the number of players defined by the 'roles' array. If not provided, players will be named 'player_0', 'player_1', etc.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "default": ["player_0", "player_1", "player_2", "player_3", "player_4", "player_5", "player_6", "player_7"]
+        },
+        "discussion_protocol": {
+            "description": "Configuration for the daytime discussion protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the discussion protocol to use.",
+                    "type": "string",
+                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion"],
+                    "default": "RoundRobinDiscussion"
+                },
+                "params": {
+                    "description": "Parameters for the selected discussion protocol.",
+                    "type": "object",
+                    "default": {}
+                }
+            },
+            "default": {
+                "name": "RoundRobinDiscussion",
+                "params": { "max_rounds": 1 }
+            },
+            "oneOf": [
+                {
+                    "if": { "properties": { "name": { "const": "RoundRobinDiscussion" } } },
+                    "then": {
+                        "properties": {
+                            "params": {
+                                "type": "object",
+                                "properties": {
+                                    "max_rounds": {
+                                        "description": "Number of full rounds of discussion.",
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "default": 1
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                {
+                    "if": { "properties": { "name": { "const": "ParallelDiscussion" } } },
+                    "then": {
+                        "properties": {
+                            "params": {
+                                "type": "object",
+                                "properties": {
+                                    "ticks": {
+                                        "description": "Number of ticks where all players can speak simultaneously.",
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "default": 3
+                                    }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "day_voting_protocol": {
+            "description": "Configuration for the daytime voting protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the voting protocol to use for daytime lynch votes.",
+                    "type": "string",
+                    "enum": ["SimultaneousMajority", "SequentialVoting"],
+                    "default": "SimultaneousMajority"
+                },
+                "params": {
+                    "description": "Parameters for the selected voting protocol. Currently, none of these protocols take parameters.",
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                    "default": {}
+                }
+            },
+            "default": { "name": "SimultaneousMajority", "params": {} }
+        },
+        "werewolf_night_vote_protocol": {
+            "description": "Configuration for the werewolf night voting protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the voting protocol for werewolves to choose a victim at night.",
+                    "type": "string",
+                    "enum": ["SimultaneousMajority", "SequentialVoting"],
+                    "default": "SimultaneousMajority"
+                },
+                "params": {
+                    "description": "Parameters for the selected voting protocol. Currently, none of these protocols take parameters.",
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false,
+                    "default": {}
+                }
+            },
+            "default": { "name": "SimultaneousMajority", "params": {} }
         },
         "max_episode_length": {
             "description": "Max game steps the environment can run, not including the early phase of the game.",
@@ -30,10 +136,15 @@
             "description": "Seed to use for episodes",
             "type": "integer"
         },
-        "actTimeout": 3,
-        "runTimeout": 9600,
-        "env_cfg": {
-            "type": "object"
+        "actTimeout": {
+            "description": "The maximum amount of time (in seconds) an agent has to return an action.",
+            "type": "number",
+            "default": 3
+        },
+        "runTimeout": {
+            "description": "The maximum amount of time (in seconds) for the entire episode.",
+            "type": "number",
+            "default": 9600
         }
     },
     "reward": {
