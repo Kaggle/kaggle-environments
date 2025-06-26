@@ -1,10 +1,90 @@
-from os import path
 import json
-import random # Added for random.choice
+import random  # Added for random.choice
+from enum import Enum
+from os import path
+from typing import Dict, Optional, List, Any, Union, Tuple
+
+from pydantic import BaseModel
+
+from .game.actions import Action, VoteAction, HealAction, InspectAction, ChatAction, NoOpAction
+# Game engine components for the new interpreter
+from .game.engine import Moderator, DetailedPhase
+from .game.protocols import (
+    DiscussionProtocol, VotingProtocol,
+    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
+)
+from .game.roles import Player, Werewolf, Villager, Seer, Doctor, RoleConst
+from .game.states import GameState, HistoryEntryType
+
 
 # my_kaggle_env.py
-# Import your AECEnv game class
-from .env import WerewolfEnv, ActionType, Role, Phase, WerewolfObservationModel # Added ActionType, Role, Phase
+# Enums used by agents and action parser
+
+
+class ActionType(str, Enum):
+    NO_OP = "NO_OP"
+    NIGHT_KILL_VOTE = "NIGHT_KILL_VOTE"
+    NIGHT_SAVE_TARGET = "NIGHT_SAVE_TARGET"
+    NIGHT_INSPECT_TARGET = "NIGHT_INSPECT_TARGET"
+    DAY_DISCUSS = "DAY_DISCUSS"
+    DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
+
+
+class WerewolfObservationModel(BaseModel):
+    my_unique_name: str
+    role: str
+    team: str
+    is_alive: bool
+    day: int
+    phase: str
+    all_player_unique_names: str  # JSON string
+    alive_players: List[bool]
+    visible_history: Tuple[str, ...]
+    action_prompt: str
+    game_state_phase: str
+    my_player_idx: int
+
+    def get_human_readable(self) -> str:
+        # This is a placeholder implementation. A real implementation would format this nicely.
+        return json.dumps(self.model_dump(), indent=2)
+
+MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in agent observation
+
+# --- Protocol Factory ---
+PROTOCOL_REGISTRY = {
+    "discussion": {
+        "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
+        "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
+        # Add other discussion protocols here if needed
+    },
+    "voting": {
+        "SimultaneousMajority": {"class": SimultaneousMajority, "default_params": {}},
+        "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
+        # Add other voting protocols here if needed
+    }
+}
+
+DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
+DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
+
+def create_protocol_from_config(
+    config: Any, # env.configuration
+    protocol_config_key: str, # e.g., "discussion_protocol"
+    protocol_type: str, # "discussion" or "voting"
+    default_protocol_name: str
+) -> Union[DiscussionProtocol, VotingProtocol]:
+    protocol_config = getattr(config, protocol_config_key, {})
+    protocol_name = protocol_config.get("name", default_protocol_name)
+    user_params = protocol_config.get("params", {})
+
+    registry_for_type = PROTOCOL_REGISTRY[protocol_type]
+    protocol_info = registry_for_type.get(protocol_name)
+    if not protocol_info:
+        print(f"Warning: Protocol '{protocol_name}' not found in {protocol_type} registry. Using default '{default_protocol_name}'.")
+        protocol_info = registry_for_type[default_protocol_name]
+    protocol_class, default_params_dict = protocol_info["class"], protocol_info["default_params"]
+    final_params = {**default_params_dict, **user_params}
+    return protocol_class(**final_params)
 
 
 def random_agent(obs):
@@ -14,8 +94,8 @@ def random_agent(obs):
     if not raw_aec_obs:
         return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
 
-    current_phase = Phase(raw_aec_obs['phase'])
-    my_role = Role(raw_aec_obs['role'])
+    current_phase = DetailedPhase(raw_aec_obs['phase'])
+    my_role = RoleConst(raw_aec_obs['role'])
 
     all_player_names = json.loads(raw_aec_obs['all_player_unique_names'])
     my_unique_name = raw_aec_obs['my_unique_name']
@@ -26,33 +106,27 @@ def random_agent(obs):
 
     action_to_take = {"action_type": ActionType.NO_OP.value} # Default action
 
-    if current_phase == Phase.NIGHT_WEREWOLF_VOTE:
-        if my_role == Role.WEREWOLF:
-            known_ww_status = raw_aec_obs['known_werewolves']
-            # Werewolves target alive non-werewolf players
-            potential_targets = [
-                idx for idx in alive_player_indices
-                if idx < len(known_ww_status) and known_ww_status[idx] == 0
-            ]
+    if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
+        if my_role == RoleConst.WEREWOLF:
+            # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
+            potential_targets = [idx for idx in alive_player_indices if idx != my_idx]
             if potential_targets:
                 target_idx = random.choice(potential_targets)
                 action_to_take = {"action_type": ActionType.NIGHT_KILL_VOTE.value, "target_idx": target_idx}
-    
-    elif current_phase == Phase.NIGHT_DOCTOR_SAVE:
-        if my_role == Role.DOCTOR:
+
+        elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
             if alive_player_indices:
                 target_idx = random.choice(alive_player_indices)
                 action_to_take = {"action_type": ActionType.NIGHT_SAVE_TARGET.value, "target_idx": target_idx}
 
-    elif current_phase == Phase.NIGHT_SEER_INSPECT:
-        if my_role == Role.SEER:
+        elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
             if alive_player_indices:
                 target_idx = random.choice(alive_player_indices)
                 action_to_take = {"action_type": ActionType.NIGHT_INSPECT_TARGET.value, "target_idx": target_idx}
 
-    elif current_phase == Phase.DAY_DISCUSSION:
+    elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
         if my_idx in alive_player_indices: # Only alive players can discuss
             messages = [
                 "Hello everyone!", 
@@ -75,14 +149,14 @@ def random_agent(obs):
 
             action_to_take = {"action_type": ActionType.DAY_DISCUSS.value, "message": random.choice(messages)}
 
-    elif current_phase == Phase.DAY_VOTING:
+    elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
         if my_idx in alive_player_indices: # Only alive players can vote
             votable_targets = [p_idx for p_idx in alive_player_indices if p_idx != my_idx]
             if votable_targets:
                 target_idx = random.choice(votable_targets)
                 action_to_take = {"action_type": ActionType.DAY_LYNCH_VOTE.value, "target_idx": target_idx}
     
-    elif current_phase == Phase.GAME_OVER:
+    elif current_phase == DetailedPhase.GAME_OVER:
         action_to_take = {"action_type": ActionType.NO_OP.value}
         
     if "target_idx" not in action_to_take:
@@ -91,6 +165,58 @@ def random_agent(obs):
         action_to_take["message"] = None
         
     return action_to_take
+
+# Helper function to parse agent's dict action to engine.Action
+def _parse_agent_action_to_engine_action(
+    actor_id_str: str,
+    raw_agent_action: dict,
+    all_player_id_strs: list[str],
+    current_detailed_phase: DetailedPhase,
+    actor_role_name: RoleConst
+) -> Optional[Action]:
+
+    if not raw_agent_action or not isinstance(raw_agent_action, dict):
+        return NoOpAction(actor_id=actor_id_str, reasoning="No action provided by agent")
+
+    action_type_val = raw_agent_action.get("action_type") # This is ActionType.value (a string)
+    target_idx = raw_agent_action.get("target_idx")
+    message = raw_agent_action.get("message")
+
+    target_id_str = None
+    if target_idx is not None:
+        if target_idx == -1: # Abstain or no target convention
+            target_id_str = "-1"
+        elif 0 <= target_idx < len(all_player_id_strs):
+            target_id_str = all_player_id_strs[target_idx]
+        else: # Invalid index
+            return NoOpAction(actor_id=actor_id_str, reason=f"Invalid target_idx: {target_idx}")
+
+    # Phase-aware and Role-aware parsing
+    if current_detailed_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
+        if actor_role_name == RoleConst.DOCTOR:
+            if action_type_val == ActionType.NIGHT_SAVE_TARGET.value and target_id_str and target_id_str != "-1":
+                return HealAction(actor_id=actor_id_str, target_id=target_id_str)
+        elif actor_role_name == RoleConst.SEER:
+            if action_type_val == ActionType.NIGHT_INSPECT_TARGET.value and target_id_str and target_id_str != "-1":
+                return InspectAction(actor_id=actor_id_str, target_id=target_id_str)
+        elif actor_role_name == RoleConst.WEREWOLF:
+            # Werewolf night vote action is VoteAction
+            if action_type_val == ActionType.NIGHT_KILL_VOTE.value and target_id_str:
+                return VoteAction(actor_id=actor_id_str, target_id=target_id_str)
+
+    elif current_detailed_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
+        if action_type_val == ActionType.DAY_DISCUSS.value and message:
+            return ChatAction(actor_id=actor_id_str, message=str(message))
+
+    elif current_detailed_phase == DetailedPhase.DAY_VOTING_AWAIT:
+        if action_type_val == ActionType.DAY_LYNCH_VOTE.value and target_id_str:
+            return VoteAction(actor_id=actor_id_str, target_id=target_id_str)
+
+    if action_type_val == ActionType.NO_OP.value:
+        return NoOpAction(actor_id=actor_id_str)
+
+    # Fallback if action_type_val didn't match any valid action for the current phase/role
+    return NoOpAction(actor_id=actor_id_str, reason=f"Action '{action_type_val}' not applicable or invalid for phase '{current_detailed_phase.value}' and role '{actor_role_name.value}'")
 
 
 # This function is part of the skeleton and retained as a placeholder.
@@ -187,205 +313,215 @@ def interpreter(state, env):
     state: list of dictionaries, one for each agent.
            Each dict has: {observation, action, reward, status, info}
     env:   the kaggle_environments.Environment object itself.
-           We can use this to store our AECEnv instance across steps.
     """
+
+    # --- Initialize Moderator and GameState if it's the start of an episode ---
+    if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
+        num_players = len(state)
+        env.player_ids_map = {i: str(i) for i in range(num_players)} # map kaggle index to player ID string
+        env.player_id_str_list = [str(i) for i in range(num_players)]
+
+        # Simplified role assignment (can be made more complex like in WerewolfEnv.reset)
+        # Ensure roles are from .game.roles
+        roles_to_assign = []
+        # Example: 1 WW, 1 Seer, 1 Doctor, rest Villagers
+        if num_players >= 1: roles_to_assign.append(Werewolf())
+        if num_players >= 2: roles_to_assign.append(Seer())
+        if num_players >= 3: roles_to_assign.append(Doctor())
+        while len(roles_to_assign) < num_players:
+            roles_to_assign.append(Villager())
+        
+        if len(roles_to_assign) > num_players: # Should not happen with above logic
+            roles_to_assign = roles_to_assign[:num_players]
+
+        random.shuffle(roles_to_assign)
+
+        players = [Player(id=env.player_id_str_list[i], role=roles_to_assign[i]) for i in range(num_players)]
+        env.game_state = GameState(players=players, history={})
+
+        # Initialize protocols from configuration or defaults
+        discussion_protocol = create_protocol_from_config(
+            env.configuration,
+            "discussion_protocol",
+            "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
+        )
+        day_voting_protocol = create_protocol_from_config(
+            env.configuration,
+            "day_voting_protocol",
+            "voting", DEFAULT_VOTING_PROTOCOL_NAME
+        )
+        # Night voting for werewolves often uses a simpler majority rule,
+        # but can also be configured.
+        night_voting_protocol = create_protocol_from_config(
+            env.configuration,
+            "werewolf_night_vote_protocol",
+            "voting", DEFAULT_VOTING_PROTOCOL_NAME # Default to same as day voting if not specified
+        )
+
+        print(f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
+
+        env.moderator = Moderator(
+            state=env.game_state,
+            discussion=discussion_protocol,
+            day_voting=day_voting_protocol,
+            night_voting=night_voting_protocol
+        )
+
+        env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
+        # Moderator initializes its own _player_history_cursors
+
+        # Initial advance to set up the first phase (e.g., NIGHT_START -> NIGHT_AWAIT_ACTIONS)
+        env.moderator.advance({}) # Empty actions for the first transition
+
+        for i in range(num_players):
+            state[i].reward = 0
+            state[i].info = {}
+            # Initial observation and status will be set in the main update loop below
+
+    moderator: Moderator = env.moderator
+    game_state: GameState = env.game_state
+
+    # 1. Collect and parse actions from Kaggle agents
+    parsed_player_actions: Dict[str, Action] = {}
+    active_player_ids_from_moderator = moderator.get_active_player_ids()
+
+    for sub_state, player in zip(state, game_state.players):
+        player_id_str = player.id
+        if player_id_str in active_player_ids_from_moderator and sub_state.status == "ACTIVE":
+            raw_action_from_agent = sub_state.action
+            actor_role = game_state.get_player_by_id(player_id_str).role.name
+            parsed_action = _parse_agent_action_to_engine_action(
+                player_id_str, raw_action_from_agent, env.player_id_str_list,
+                moderator.detailed_phase, actor_role
+            )
+            if parsed_action:
+                parsed_player_actions[player_id_str] = parsed_action
+
+    # 2. Advance the Moderator
+    moderator.advance(parsed_player_actions)
+
+    # 3. Update Kaggle state (observations, rewards, statuses)
+    is_game_done = moderator.is_game_over()
     
-    # --- Initialize AECEnv instance if it's the start of an episode ---
-    # `env.steps` is a list of (state, actions) tuples from previous steps.
-    # `len(env.steps) == 1` indicates the first time interpreter is called for actions in an episode,
-    # as `env.steps` initially contains just the reset state.
-    # Or, if using `env.run()`, the state list might be empty on the very first internal call.
-    # A more robust check is if our specific game instance attribute is not set on `env`.
+    agent_rewards_this_step: Dict[str, float] = {}
+    if is_game_done:
+        # Determine winner based on game_state.history's GAME_END entry
+        # The moderator._determine_and_log_winner() handles logging this.
+        game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
+        winning_team_str = None
+        if game_end_entry and game_end_entry.data:
+            winning_team_str = game_end_entry.data.get("winner_team")
 
-    is_new_episode = not hasattr(env, 'my_aec_game_instance') or env.done
-    if is_new_episode:
-        print("Interpreter: Initializing new AECEnv game instance.")
-        
-        # Prepare parameters for WerewolfEnv constructor (excluding num_players)
-        aec_params = {}
-        num_players_for_aec = len(state) # Number of players from Kaggle's state
-
-        # Copy other relevant params from env.configuration if they exist
-        # and are expected by WerewolfEnv (e.g., num_doctors, num_seers).
-        # These should be defined in the werewolf.json or specification dict
-        # if they are to be configurable via make(configuration={...}).
-        if hasattr(env.configuration, "num_doctors"):
-            aec_params["num_doctors"] = env.configuration.num_doctors
-        if hasattr(env.configuration, "num_seers"):
-            aec_params["num_seers"] = env.configuration.num_seers
-        if hasattr(env.configuration, "max_days"):
-            aec_params["max_days"] = env.configuration.max_days
-
-        # render_mode is part of WerewolfEnv's signature but usually handled differently by Kaggle
-        # if hasattr(env.configuration, "render_mode"):
-        #     aec_params["render_mode"] = env.configuration.render_mode
-        env.my_aec_game_instance = WerewolfEnv(**aec_params)
-        
-        # Assign to 'game' here so it's available within the loop below
-        game = env.my_aec_game_instance
-        
-        # Pass num_players to reset via options
-        reset_options = {"num_players": num_players_for_aec}
-        env.my_aec_game_instance.reset(options=reset_options) # Initialize the AEC game state
-        
-        # Set initial observations for all Kaggle agents from the AECEnv
-        for i, agent_id_str in enumerate(env.my_aec_game_instance.agents):
-            # The 'state' here is the Kaggle state object we need to populate
-            # The first agent in AEC might have an observation ready after reset
-            # For other agents, observe() might be needed or they wait their turn.
-            # This initial population might also be partly handled by an on_reset hook
-            # in your environment's JSON if you define one.
-            # Initialize info for each agent in the Kaggle state
-            initial_aec_info = game.infos.get(env.my_aec_game_instance.agents[i], {})
-            state[i].info = initial_aec_info
-            if state[i].status == "ACTIVE": # or INACTIVE if waiting for first turn
-                # This mapping assumes Kaggle agent index maps to PettingZoo agent index
-                raw_obs = env.my_aec_game_instance.observe(agent_id_str)
-                state[i].observation = {"raw_aec_observation": raw_obs} # Structure as needed
-                state[i].reward = 0 # Initial reward
-                # state[i].status will be updated by Kaggle core based on AECEnv's termination
-
-    game = env.my_aec_game_instance
-    processed_actor_idx_for_this_step = None
-
-    # --- Process actions for the current agent in AECEnv ---
-    if game.agent_selection and not game.terminations.get(game.agent_selection, False) and not game.truncations.get(game.agent_selection, False):
-        current_aec_agent_id = game.agent_selection
-        kaggle_agent_idx = game.agent_id_to_index[current_aec_agent_id]
-
-        if state[kaggle_agent_idx].status == "ACTIVE":
-            action_from_kaggle_agent = state[kaggle_agent_idx].action
-            game.step(action_from_kaggle_agent) # AECEnv processes the action
-            # After game.step(), game.active_player_indices_history is updated.
-            # The last element is the index of the agent who just acted.
-            if game.active_player_indices_history and game.active_player_indices_history[-1] is not None:
-                processed_actor_idx_for_this_step = game.active_player_indices_history[-1]
-    elif game.agent_selection and (game.terminations.get(game.agent_selection, False) or game.truncations.get(game.agent_selection, False)):
-        # If the selected agent is already done, env.step might just advance the selector
-        # We still need to record who was supposed to act if it's relevant for history
-        # However, game.step() for a dead agent usually just cycles.
-        # The important actor is the one whose action changes state.
-        # If no one acts, processed_actor_idx_for_this_step remains None or reflects last actor.
-        # Let's ensure it's set if an action was processed.
-        # If game.step() is called for a dead agent, it might not update active_player_indices_history meaningfully for *this* step.
-        # This case might need refinement based on how game.step() handles dead agent turns.
-        # For now, we assume active_player_indices_history[-1] is the key after a state-changing step.
-        pass
-
-
-    # --- Update Kaggle state from AECEnv ---
-    for i, agent_state in enumerate(state):
-        # Get the corresponding PettingZoo agent_id string
-        if i < len(game.agent_ids):
-            aec_agent_id_str = game.agent_ids[i]
-
-            raw_obs = game.observe(aec_agent_id_str)
-            # Ensure observation is a dict, not the Pydantic model instance
-            agent_state.observation["raw_aec_observation"] = raw_obs
-
-            agent_state.reward = game.rewards.get(aec_agent_id_str, 0)
-            current_info = game.infos.get(aec_agent_id_str, {})
-            agent_state.info = current_info # game.infos contains last_action_feedback etc.
-
-            # Add extra info for the JS renderer
-            agent_state.info["actor_for_this_kaggle_step"] = processed_actor_idx_for_this_step
-
-            if game.current_phase == Phase.GAME_OVER and game.game_winner_team:
-                agent_state.info["game_winner_team"] = game.game_winner_team
-
-            if game.terminations.get(aec_agent_id_str, False) or game.truncations.get(aec_agent_id_str, False):
-                agent_state.status = "DONE"
-            elif game.agent_selection == aec_agent_id_str:
-                agent_state.status = "ACTIVE"
+        for p in game_state.players:
+            if winning_team_str == "Draw":
+                 agent_rewards_this_step[p.id] = 0.0
+            elif p.role.team.value == winning_team_str:
+                 agent_rewards_this_step[p.id] = 1.0
             else:
-                agent_state.status = "INACTIVE"
+                 agent_rewards_this_step[p.id] = -1.0
+    
+    active_player_ids_after_advance = moderator.get_active_player_ids()
+
+    for i in range(len(state)):
+        player_id_str = env.player_ids_map[i]
+        player_obj = game_state.get_player_by_id(player_id_str)
+
+        # Observation processing
+        new_history_entries, new_cursor_pos = moderator.get_observation(player_id_str)
+        env.player_full_visible_history_cache.setdefault(player_id_str, []).extend(new_history_entries)
+        moderator.update_player_cursor(player_id_str, new_cursor_pos)
+
+        current_player_full_log = env.player_full_visible_history_cache[player_id_str]
+        visible_history_descs = [entry.description for entry in current_player_full_log[-MAX_VISIBLE_HISTORY_ITEMS:]]
+        visible_history_descs.extend([""] * (MAX_VISIBLE_HISTORY_ITEMS - len(visible_history_descs)))
+
+        latest_prompt = "No specific prompt. It's your turn to act if active."
+        for entry in reversed(current_player_full_log): # Search in player's own cached history
+            if entry.entry_type == HistoryEntryType.MODERATOR_ANNOUNCEMENT and player_id_str in entry.visible_to:
+                latest_prompt = entry.description
+                break
+
+        obs_data = {
+            "my_unique_name": player_id_str,
+            "role": player_obj.role.name, # RoleConst enum value (string)
+            "team": player_obj.role.team.value, # Team enum value (string)
+            "is_alive": player_obj.alive,
+            "day": game_state.day_count,
+            "phase": moderator.detailed_phase.value, # DetailedPhase enum value (string)
+            "all_player_unique_names": json.dumps(env.player_id_str_list), # JSON string list of player IDs
+            "alive_players": [p.alive for p in game_state.players], # List of booleans
+            "visible_history": tuple(visible_history_descs),
+            "action_prompt": latest_prompt,
+            "game_state_phase": game_state.phase.value, # Overall Day/Night from GameState
+            "my_player_idx": i,
+        }
+        state[i].observation = {"raw_aec_observation": obs_data} # Nest to match agent access pattern
+
+        # Reward
+        state[i].reward = agent_rewards_this_step.get(player_id_str, 0.0)
+
+        # Status
+        if is_game_done:
+            state[i].status = "DONE"
+        elif player_id_str in active_player_ids_after_advance:
+            state[i].status = "ACTIVE"
         else:
-            agent_state.status = "DONE"
-            agent_state.reward = agent_state.reward if agent_state.reward is not None else 0
-
-
-    all_aec_done = all(game.terminations.get(ag, False) or game.truncations.get(ag, False) for ag in game.agents if ag in game.terminations)
-    if not game.agents or all_aec_done :
-        print("Interpreter: All AEC agents are done. Marking Kaggle episode as DONE.")
-        for i_done in range(len(state)):
-            state[i_done].status = "DONE"
-            state[i_done].reward = state[i_done].reward if isinstance(state[i_done].reward, (int, float)) else 0
-            # Ensure winner team info is in the final state for JS
-            if hasattr(game, 'game_winner_team') and game.game_winner_team:
-                 state[i_done].info["game_winner_team"] = game.game_winner_team
-            # Ensure actor info is present even if it was None for the last phase transition
-            if "actor_for_this_kaggle_step" not in state[i_done].info:
-                state[i_done].info["actor_for_this_kaggle_step"] = processed_actor_idx_for_this_step
-
-        if hasattr(env, 'my_aec_game_instance'):
-             env.my_aec_game_instance.close()
+            state[i].status = "INACTIVE"
+        
+        # Info
+        current_info = {}
+        if is_game_done:
+            game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
+            if game_end_entry and game_end_entry.data:
+                current_info["winner_team"] = game_end_entry.data.get("winner_team")
+                current_info["win_reason"] = game_end_entry.data.get("reason")
+        state[i].info = current_info
 
     return state
 
 
 def renderer(state, env):
-    if not hasattr(env, 'my_aec_game_instance'):
-        return "Werewolf game instance not initialized yet."
+    if not hasattr(env, 'moderator') or not hasattr(env, 'game_state'):
+        return "Game not initialized by interpreter yet."
 
-    game = env.my_aec_game_instance
-    output_lines = []
-
-    current_kaggle_step_index = env.render_step_ind
-
-    if current_kaggle_step_index == 0:
-        return "*** Werewolf Game Initialized ***"
-
-    # acting_agent_kaggle_idx is the Kaggle index of the agent that took an action
-    # which resulted in the state env.steps[current_kaggle_step_index].
-    acting_agent_kaggle_idx = game.active_player_indices_history[current_kaggle_step_index]
-
-    if acting_agent_kaggle_idx is None:
-        return f"Error: No acting agent found in history for step index {current_kaggle_step_index}."
-
-    acting_agent_id_str = game.agent_ids[acting_agent_kaggle_idx]
-
-    # current_k_step_state_list is env.steps[current_kaggle_step_index] (passed as 'state' to renderer)
-    # This is the state *after* the acting_agent_kaggle_idx took their action.
-    current_k_step_state_list = state 
-    action_agent_took = current_k_step_state_list[acting_agent_kaggle_idx].action
+    moderator: Moderator = env.moderator
+    game_state: GameState = env.game_state
     
-    # previous_k_step_state_list is env.steps[current_kaggle_step_index - 1]
-    # This contains the observation the agent received *before* acting.
-    previous_k_step_state_list = env.steps[current_kaggle_step_index - 1]
+    lines = []
+    lines.append(f"--- Werewolf Game ---")
+    lines.append(f"Day: {game_state.day_count}, Game Phase: {game_state.phase.value} (Detailed: {moderator.detailed_phase.value})")
+    lines.append("Players:")
+    for p_obj in game_state.players:
+        status = "Alive" if p_obj.alive else "Dead"
+        # For debugging, show roles. In a real game, this might be hidden or player-specific.
+        lines.append(f"  Player {p_obj.id} ({p_obj.role.name}, Team: {p_obj.role.team.value}): {status}")
+
+    lines.append("\nRecent Public History (last 10):")
+    public_history_entries = []
+    for day_num in sorted(game_state.history.keys()):
+        for entry in game_state.history[day_num]:
+            if entry.public:
+                public_history_entries.append(
+                    f"  Day {entry.day} [{entry.phase.value}] ({entry.entry_type.value}): {entry.description}"
+                )
     
-    # Observation the agent received to make its decision
-    obs_agent_received_full = previous_k_step_state_list[acting_agent_kaggle_idx].observation
-    obs_agent_received_raw_aec = obs_agent_received_full.get("raw_aec_observation")
+    for entry_line in public_history_entries[-10:]: # Display last 10 public entries
+        lines.append(entry_line)
 
-    # The status of the agent *when it was called to make the action*
-    status_when_acting = previous_k_step_state_list[acting_agent_kaggle_idx].status
-
-    output_lines.append(f"--- Werewolf Game State ---")
+    if not public_history_entries:
+        lines.append("  No public history events yet.")
     
-    current_phase_val = obs_agent_received_raw_aec.get('phase') if obs_agent_received_raw_aec else None
-    current_phase_str = Phase(current_phase_val).name if current_phase_val is not None else 'N/A'
-    output_lines.append(f"Current Phase (when agent acted): {current_phase_str}")
-    
-    output_lines.append(f"Active Agent ID: {acting_agent_id_str}")    
-    output_lines.append(f"  Kaggle Agent Index: {acting_agent_kaggle_idx}")
-    output_lines.append(f"  Kaggle Agent Status (when agent acted): {status_when_acting}")
+    if moderator.is_game_over():
+        lines.append("\n--- GAME OVER ---")
+        game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
+        if game_end_entry:
+            lines.append(f"  {game_end_entry.description}")
+            if game_end_entry.data:
+                lines.append(f"  Reason: {game_end_entry.data.get('reason')}")
+        else:
+            lines.append("  Winner determination pending or not logged in history.")
 
-    if obs_agent_received_raw_aec:
-        role_val = obs_agent_received_raw_aec.get('role')
-        role_str = Role(role_val).name if role_val is not None else 'N/A'
-        output_lines.append(f"  Observation for {acting_agent_id_str} (Role: {role_str}):")
-        obs = WerewolfObservationModel(**obs_agent_received_raw_aec)
-        for key, value in obs.get_human_readable().items():
-            output_lines.append(f"    {key}: {value}")
-    else:
-        output_lines.append(f"  No raw_aec_observation found for {acting_agent_id_str}.")
-
-    # Use action_description_for_log from the agent's info in the *current* step's state
-    agent_info_after_action = current_k_step_state_list[acting_agent_kaggle_idx].info
-    action_description = agent_info_after_action.get("action_description_for_log", str(action_agent_took))
-    output_lines.append(f"Action Processed by Env: {action_description}")
-
-    return "\n".join(output_lines)
+    return "\n".join(lines)
 
 
 def html_renderer():
