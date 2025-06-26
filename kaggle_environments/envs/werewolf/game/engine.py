@@ -1,29 +1,23 @@
-import random
 from enum import Enum
-from typing import List, Dict, Optional, Any, Tuple
-
-import gymnasium as gym
-from gymnasium import spaces
+from typing import List, Dict, Tuple
 
 from .actions import (
     Action, VoteAction,
     HealAction, InspectAction, ChatAction
 )
 from .protocols import (
-    DiscussionProtocol, VotingProtocol,
-    RoundRobinDiscussion, SimultaneousMajority
+    DiscussionProtocol, VotingProtocol
 )
-from .roles import Player, Team, Phase, RoleConst # Added HistoryEntry
+from .roles import Player, Team, Phase, RoleConst
 from .states import GameState, HistoryEntry, HistoryEntryType
 
 
-# NEW Enums for detailed phase management
 class DetailedPhase(Enum):
     # Night Phases
     NIGHT_START = "NIGHT_START"
     NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
     # Day Phases
-    DAY_START = "DAY_START" # Transition state to setup day discussion/bidding
+    DAY_START = "DAY_START"
     DAY_DISCUSSION_AWAIT_CHAT = "DAY_DISCUSSION_AWAIT_CHAT"
     DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
     GAME_OVER = "GAME_OVER"
@@ -111,7 +105,7 @@ class Moderator:
         """
         Updates the history cursor for a given player.
         """
-        self._player_history_cursors[player_id] = (updated_cursor_day, updated_cursor_idx_in_day)
+        self._player_history_cursors[player_id] = new_cursor
 
     def advance(self, player_actions: Dict[str, Action]):
         if self.is_game_over() and self.detailed_phase != DetailedPhase.GAME_OVER:
@@ -253,17 +247,31 @@ class Moderator:
                 if werewolf_target_player: 
                     if werewolf_target_id in self._night_save_queue:
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!",
+                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!", # Keep description for human readability
                             entry_type=HistoryEntryType.ACTION_RESULT,
-                            public=True
+                            public=True,
+                            data={
+                                "action_type": "heal_outcome",
+                                "saved_player_id": werewolf_target_id,
+                                "saved_player_role_name": werewolf_target_player.role.name,
+                                "saved_by_role": RoleConst.DOCTOR.value,
+                                "attacked_by_team": Team.WEREWOLVES.value,
+                                "outcome": "saved"
+                            }
                         )
                     else: 
                         original_role_name = werewolf_target_player.role.name 
                         self.state.eliminate_player(werewolf_target_id)
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.",
+                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.", # Keep description
                             entry_type=HistoryEntryType.ELIMINATION,
-                            public=True
+                            public=True,
+                            data={
+                                "eliminated_player_id": werewolf_target_id,
+                                "eliminated_player_role_name": original_role_name,
+                                "elimination_reason": "werewolves",
+                                "saved_by_doctor": False
+                            }
                         )
                 else: 
                     self.state.add_history_entry(
@@ -274,14 +282,16 @@ class Moderator:
             else: 
                 self.state.add_history_entry(
                     description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, # This could also be a VOTE_RESULT type
+                    data={
+                        "outcome": "no_elimination",
+                        "reason": "no_consensus_werewolves"
+                    },
                     public=True
                 )
 
-            self._night_save_queue = [] 
-            if self.is_game_over():
-                self.detailed_phase = DetailedPhase.GAME_OVER
-            else:
+            self._night_save_queue = []
+            if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.DAY_START
             # _action_queue is already clear, DAY_START will populate it.
 
@@ -357,23 +367,30 @@ class Moderator:
         if any(entry.entry_type == HistoryEntryType.GAME_END for entry in day_history):
             return # Winner already logged for this day count
 
+        winner_message = "Game Over: Undetermined."
+        winner_data = {"winner_team": "Undetermined", "reason": "unknown"}
+
         wolves = [p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]
         villagers = [p for p in self.state.alive_players() if p.role.team == Team.VILLAGERS]
 
-        winner_message = "Game Over: Undetermined."
         if not wolves and villagers: 
             winner_message = "Game Over: Villagers Win!"
+            winner_data = {"winner_team": Team.VILLAGERS.value, "reason": "no_werewolves_left"}
         elif wolves and not villagers: 
             winner_message = "Game Over: Werewolves Win!"
+            winner_data = {"winner_team": Team.WEREWOLVES.value, "reason": "no_villagers_left"}
         elif wolves and len(wolves) >= len(villagers): 
             winner_message = "Game Over: Werewolves Win!"
+            winner_data = {"winner_team": Team.WEREWOLVES.value, "reason": "werewolves_majority"}
         elif not wolves and not villagers: 
             winner_message = "Game Over: Draw! No one is left."
+            winner_data = {"winner_team": "Draw", "reason": "no_one_left"}
         
         self.state.add_history_entry(
             description=winner_message,
             entry_type=HistoryEntryType.GAME_END,
-            public=True
+            public=True,
+            data=winner_data
         )
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
@@ -395,22 +412,31 @@ class Moderator:
                     original_role_name = exiled_player.role.name
                     self.state.eliminate_player(exiled_player_id)
                     self.state.add_history_entry(
-                        description=f"P{exiled_player_id} ({original_role_name}) was exiled by vote. They were a {original_role_name}.",
+                        description=f"P{exiled_player_id} ({original_role_name}) was exiled by vote. They were a {original_role_name}.", # Keep description
                         entry_type=HistoryEntryType.ELIMINATION,
-                        public=True
+                        public=True,
+                        data={
+                            "eliminated_player_id": exiled_player_id,
+                            "eliminated_player_role_name": original_role_name,
+                            "elimination_reason": "vote",
+                            "saved_by_doctor": None # Not applicable for day eliminations
+                        }
                     )
             else:
                 self.state.add_history_entry(
                     description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",
                     entry_type=HistoryEntryType.VOTE_RESULT,
-                    public=True
+                    public=True,
+                    data={
+                        "vote_type": "day_exile",
+                        "outcome": "no_exile",
+                        "reason": "tie_or_no_majority"
+                    }
                 )
 
-            if self.is_game_over():
-                self.detailed_phase = DetailedPhase.GAME_OVER
-            else:
+            if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.NIGHT_START
-                self.state.phase = Phase.NIGHT 
+                self.state.phase = Phase.NIGHT
             # _action_queue is clear; NIGHT_START will populate it.
         else:
             # Voting is not done, prompt next voters
@@ -477,17 +503,31 @@ class Moderator:
                 if werewolf_target_player: # Player exists
                     if werewolf_target_id in self._night_save_queue:
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!",
+                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!", # Keep description
                             entry_type=HistoryEntryType.ACTION_RESULT,
-                            public=True
+                            public=True,
+                            data={
+                                "action_type": "heal_outcome",
+                                "saved_player_id": werewolf_target_id,
+                                "saved_player_role_name": werewolf_target_player.role.name,
+                                "saved_by_role": RoleConst.DOCTOR.value,
+                                "attacked_by_team": Team.WEREWOLVES.value,
+                                "outcome": "saved"
+                            }
                         )
                     else: # Not saved
                         original_role_name = werewolf_target_player.role.name 
                         self.state.eliminate_player(werewolf_target_id)
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.",
+                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.", # Keep description
                             entry_type=HistoryEntryType.ELIMINATION,
-                            public=True
+                            public=True,
+                            data={
+                                "eliminated_player_id": werewolf_target_id,
+                                "eliminated_player_role_name": original_role_name,
+                                "elimination_reason": "werewolves",
+                                "saved_by_doctor": False
+                            }
                         )
                 else: # Target ID from vote, but player not found
                     self.state.add_history_entry(
@@ -498,7 +538,11 @@ class Moderator:
             else: # No one elected by werewolves
                 self.state.add_history_entry(
                     description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, # This could also be a VOTE_RESULT type
+                    data={
+                        "outcome": "no_elimination",
+                        "reason": "no_consensus_werewolves"
+                    },
                     public=True
                 )
 
@@ -510,214 +554,3 @@ class Moderator:
                 self.detailed_phase = DetailedPhase.DAY_START
             
             self._night_save_queue = [] # Reset for the next night
-
-
-class WerewolfEnv(gym.Env):
-    metadata = {"render.modes": ["human"]}
-    MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in observation
-
-    def __init__(self, num_players=8, role_distribution=None, seed=None):
-        self.rng = random.Random(seed)
-        self.num_players = num_players
-        # self.player_ids = [str(i) for i in range(num_players)] # Store player IDs
-        # self.role_distribution = role_distribution or [WerewolfRole(), VillagerRole()] # Simplified
-        self._setup_spaces()
-        self.state: Optional[GameState] = None # type: ignore
-        self._player_full_visible_history_cache: Dict[str, List[HistoryEntry]] = {}
-        self.moderator: Optional[Moderator] = None
-
-    def _setup_spaces(self):
-        # All agents share same action space: select player or noop (-1)
-        # This action space might need to be more complex if actions are structured dicts
-        self.action_space = spaces.Discrete(self.num_players + 1)
-
-        # Define the observation space for a single active player
-        player_status_item_space = spaces.Dict({
-            "id": spaces.Text(max_length=32),
-            "is_alive": spaces.Discrete(2),
-            # "role_revealed_to_me": spaces.Text(max_length=32) # Future enhancement
-        })
-
-        # Create a tuple space for all_players_status, assuming num_players is fixed at init
-        # If num_players can change, this needs to be a Sequence, or handle padding.
-        all_players_status_tuple = tuple(player_status_item_space for _ in range(self.num_players))
-
-        single_player_observation_space = spaces.Dict({
-            "player_id": spaces.Text(max_length=32),
-            "role": spaces.Text(max_length=32),
-            "team": spaces.Text(max_length=32),
-            "is_alive": spaces.Discrete(2),
-            "day_count": spaces.Box(low=0, high=100, shape=(), dtype=int),
-            "game_phase": spaces.Text(max_length=16),
-            "detailed_game_phase": spaces.Text(max_length=32),
-            "all_players_status": spaces.Tuple(all_players_status_tuple),
-            "visible_history_log": spaces.Tuple(tuple(spaces.Text(max_length=512) for _ in range(self.MAX_VISIBLE_HISTORY_ITEMS))),
-            "action_prompt": spaces.Text(max_length=512)
-        })
-
-        self.observation_space = spaces.Dict({
-            str(i): single_player_observation_space for i in range(self.num_players)
-        })
-
-    # Gymnasium API -------------------------------------------------------- #
-    def reset(self, *, seed=None, options=None):
-        if seed is not None:
-            self.rng.seed(seed)
-
-        # Simplified role distribution for example purposes
-        from .roles import Werewolf as WerewolfRole, Villager as VillagerRole, Seer as SeerRole, \
-            Doctor as DoctorRole  # Avoid name clash
-        available_roles = [WerewolfRole(), VillagerRole(), SeerRole(), DoctorRole(), VillagerRole(), VillagerRole(),
-                           WerewolfRole(), VillagerRole()]
-
-        players = [
-            Player(id=str(i), role=self.rng.choice(available_roles[:self.num_players] or [VillagerRole()]))
-            # Ensure enough roles
-            for i in range(self.num_players)
-        ]
-        # Ensure at least one werewolf if possible for a typical game
-        if self.num_players > 2 and not any(p.role.name == "Werewolf" for p in players):
-            if players:  # Ensure players list is not empty
-                players[0].role = WerewolfRole(descriptions="A werewolf.")  # Ensure at least one werewolf
-
-        self.state = GameState(players=players, history=[])
-
-
-        self._player_full_visible_history_cache.clear()
-        # Setup protocols for the Moderator
-        discussion_protocol = RoundRobinDiscussion()
-        day_voting_protocol = SimultaneousMajority()
-        # Night voting (werewolf elimination) also needs a VotingProtocol instance.
-        # For simplicity, let's assume werewolves also use a SimultaneousMajority for their internal decision for now.
-        # This would typically be a NightTeamActionProtocol like WerewolfEliminationProtocol.
-        # The Moderator's night_voting parameter expects a VotingProtocol.
-        night_voting_protocol_for_werewolves = SimultaneousMajority() # Placeholder
-        self.moderator = Moderator(self.state, discussion=discussion_protocol, day_voting=day_voting_protocol, night_voting=night_voting_protocol_for_werewolves) # type: ignore
-        obs = self._get_observations()
-        info = {}
-        return obs, info
-
-    def step(self, actions: Dict[str, Any]):  # Agent ID (str) to their action choice (Any, to be parsed into Action)
-        # Convert Dict[str, Any] to List[Action] - This needs proper mapping based on current phase
-        # For now, assuming actions are already List[Action] or Moderator.advance is adapted
-        # This is a placeholder for proper action conversion. `actions` keys are now str.
-        
-        # --- Placeholder for Action Parsing ---
-        # This section needs to convert raw agent outputs (from `actions: Dict[str, Any]`)
-        # into structured `Action` objects (e.g., VoteAction, ChatAction)
-        # based on the current game phase and what the moderator expects.
-        # For now, we'll assume `actions` is already `Dict[str, Action]` for the demo.
-        # In a real scenario, this parsing is non-trivial.
-        parsed_player_actions: Dict[str, Action] = {}
-        if self.moderator and self.state:
-            active_ids = self.moderator.get_active_player_ids()
-            for agent_id, raw_action in actions.items():
-                if agent_id in active_ids:
-                    # TODO: Implement robust parsing of `raw_action` into an `Action` object
-                    # This is highly dependent on how raw actions are structured and game phase.
-                    # Example: if raw_action is an int for voting, convert to VoteAction(target_id=str(raw_action))
-                    # For now, if it's already an Action object, use it.
-                    if isinstance(raw_action, Action):
-                        parsed_player_actions[agent_id] = raw_action
-        # --- End Placeholder ---
-
-        if self.moderator:
-            self.moderator.advance(parsed_player_actions)
-        terminated = self.moderator.is_game_over() if self.moderator else True
-        obs = self._get_observations()
-        rewards = self._compute_rewards(terminated)
-        truncated = False  # no max steps yet
-        info = {}
-        return obs, rewards, terminated, truncated, info
-
-    # --------------------------------------------------------------------- #
-    def _get_observations(self) -> Dict[str, Optional[Dict[str, Any]]]:
-        """Return per-agent observations. Active players get a dict, others None."""
-        if not self.moderator or not self.state:
-            return {str(i): None for i in range(self.num_players)}
-
-        observations: Dict[str, Optional[Dict[str, Any]]] = {p.id: None for p in self.state.players}
-        active_player_ids = self.moderator.get_active_player_ids()
-
-        for player in self.state.players:
-            if player.id in active_player_ids: # Only generate full obs for active players
-                new_history_entries, new_cursor_pos = self.moderator.get_observation(player.id)
-                self._player_full_visible_history_cache.setdefault(player.id, []).extend(new_history_entries)
-                # Update the moderator's cursor for this player *after* processing the observations
-                self.moderator.update_player_cursor(player.id, new_cursor_pos)
-
-                current_player_full_log = self._player_full_visible_history_cache[player.id]
-                
-                # Get descriptions for the observation, limited to MAX_VISIBLE_HISTORY_ITEMS
-                visible_history_descriptions = [
-                    entry.description for entry in current_player_full_log[-self.MAX_VISIBLE_HISTORY_ITEMS:]
-                ]
-                # Pad history if less than MAX_VISIBLE_HISTORY_ITEMS
-                visible_history_descriptions.extend([""] * (self.MAX_VISIBLE_HISTORY_ITEMS - len(visible_history_descriptions)))
-
-                latest_prompt = "No specific prompt. It's your turn to act."
-
-                # Find the latest prompt for this player
-                for entry in reversed(current_player_full_log): # Search in the player's own cached history
-                    if entry.entry_type == HistoryEntryType.MODERATOR_ANNOUNCEMENT and player.id in entry.visible_to:
-                        latest_prompt = entry.description
-                        break
-                    # Consider other prompt-like entries, e.g., public bidding announcements
-                    elif entry.entry_type == HistoryEntryType.BIDDING_INFO and self.moderator.detailed_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT and self.discussion.discussion_rule.startswith("Bidding phase"): # type: ignore
-                         latest_prompt = entry.description # Generic bidding prompt
-                         break
-
-                obs_data = {
-                    "player_id": player.id,
-                    "role": player.role.name,
-                    "team": player.role.team.value,
-                    "is_alive": player.alive,
-                    "day_count": self.state.day_count,
-                    "game_phase": self.state.phase.value,
-                    "detailed_game_phase": self.moderator.detailed_phase.value,
-                    "all_players_status": [{"id": p_other.id, "is_alive": p_other.alive} for p_other in self.state.players],
-                    "visible_history_log": tuple(visible_history_descriptions), # Ensure it's a tuple
-                    "action_prompt": latest_prompt
-                }
-                # Pad all_players_status if num_players is fixed and space expects fixed tuple
-                if len(obs_data["all_players_status"]) < self.num_players:
-                    obs_data["all_players_status"].extend(
-                        [{"id": "-1", "is_alive": False}] * (self.num_players - len(obs_data["all_players_status"]))
-                    )
-                obs_data["all_players_status"] = tuple(obs_data["all_players_status"])
-
-                observations[player.id] = obs_data
-        return observations
-
-    def _compute_rewards(self, terminated):
-        if not terminated:
-            return {str(p.id): 0.0 for p in self.state.players} if self.state else {}
-
-        wolves_win = any(p.alive and p.role.team == Team.WEREWOLVES for p in self.state.players) and \
-                     len([p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]) >= \
-                     len([p for p in self.state.alive_players() if p.role.team == Team.VILLAGERS])
-        villagers_win = not any(p.alive and p.role.team == Team.WEREWOLVES for p in self.state.players) and \
-                        any(p.alive and p.role.team == Team.VILLAGERS for p in self.state.players)
-
-        rewards = {}
-        for p in self.state.players:
-            if (p.role.team == Team.VILLAGERS and villagers_win) or \
-                    (p.role.team == Team.WEREWOLVES and wolves_win):
-                rewards[str(p.id)] = 1.0
-            elif terminated:  # If game is over and player's team didn't win
-                rewards[str(p.id)] = -1.0
-            else:  # Game not over or player's team status unclear (e.g. tie, not explicitly handled)
-                rewards[str(p.id)] = 0.0
-        return rewards
-
-    def render(self, mode="human"):
-        if self.state:
-            print(
-                f"Day {self.state.day_count} — Phase: {self.state.phase.value} (Detailed: {self.moderator.detailed_phase.value if self.moderator else 'N/A'})")
-            for p in self.state.players:
-                status = "alive" if p.alive else "dead"
-                print(f" P{p.id}: {p.role.name} ({p.role.team.value}) [{status}]")
-            # print("History:", self.state.history) # Print last 5 history events - history is a dict
-            print("-" * 20)
-        else:
-            print("Game state not initialized.")
