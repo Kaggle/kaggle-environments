@@ -1,28 +1,13 @@
-from typing import Literal, List, Any, Tuple, Optional
-from enum import Enum, auto
+from typing import List, Deque
 import logging
+from collections import deque
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
+from .consts import Team, RoleConst
+from .records import HistoryEntry
 
 logger = logging.getLogger(__name__)
-
-
-class Phase(str, Enum):
-    DAY = "Day"
-    NIGHT = "Night"
-
-
-class Team(str, Enum):
-    VILLAGERS = "Villagers"
-    WEREWOLVES = "Werewolves"
-
-
-class RoleConst(str, Enum):
-    VILLAGER = "Villager"
-    WEREWOLF = "Werewolf"
-    DOCTOR = "Doctor"
-    SEER = "Seer"
 
 
 class Role(BaseModel):
@@ -42,6 +27,7 @@ class Werewolf(Role):
     name: str = RoleConst.WEREWOLF
     team: Team = Team.WEREWOLVES
     night_priority: int = 2
+    descriptions: str = "A member of the Werewolf team. At night, works with other werewolves to vote on eliminating one player."
 
     def night_action(self, actor, target, state):
         state.queue_eliminate_vote(target) # Assuming queue_eliminate_vote will be the new name or similar
@@ -50,11 +36,13 @@ class Werewolf(Role):
 class Villager(Role):
     name: str = RoleConst.VILLAGER
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Has no special abilities other than their vote during the day."
 
 
 class Doctor(Role):
     name: str = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
 
     def night_action(self, actor, target, state):
         state.queue_save_vote(target)
@@ -63,6 +51,7 @@ class Doctor(Role):
 class Seer(Role):
     name: str = RoleConst.SEER
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
 
     def night_action(self, actor, target, state):
         state.queue_seer_action(actor, target)
@@ -72,3 +61,52 @@ class Player(BaseModel):
     id: str
     role: Role
     alive: bool = True
+    _message_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+
+    def update(self, entry: HistoryEntry):
+        self._message_queue.append(entry)
+    
+    def consume_messages(self) -> List[HistoryEntry]:
+        messages = list(self._message_queue)
+        self._message_queue.clear()
+        return messages
+
+
+def create_players_from_roles_and_ids(role_strings: List[str], player_ids: List[str]) -> List[Player]:
+    """
+    Initializes a list of Player instances given a list of role strings and player IDs.
+
+    Args:
+        role_strings: A list of strings representing player roles (e.g., "Werewolf", "Doctor").
+                      These strings should match the values in RoleConst enum.
+        player_ids: A list of unique strings representing player IDs.
+
+    Returns:
+        A list of Player instances.
+
+    Raises:
+        ValueError: If the lengths of role_strings and player_ids do not match,
+                    or if an unknown role string is encountered.
+    """
+    if len(role_strings) != len(player_ids):
+        raise ValueError("The number of roles must match the number of player IDs.")
+    
+    assert len(player_ids) == len(set(player_ids)), "Player IDs must be unique."
+
+    # Mapping from RoleConst string value to the actual Role class constructor
+    role_class_map = {
+        RoleConst.WEREWOLF.value: Werewolf,
+        RoleConst.DOCTOR.value: Doctor,
+        RoleConst.SEER.value: Seer,
+        RoleConst.VILLAGER.value: Villager,
+    }
+
+    players: List[Player] = []
+    for role_str, player_id in zip(role_strings, player_ids):
+        role_class: type[Role] = role_class_map.get(role_str)
+        if role_class is None:
+            raise ValueError(f"Unknown role string: '{role_str}'. Must be one of {list(role_class_map.keys())}")
+        
+        players.append(Player(id=player_id, role=role_class()))
+
+    return players

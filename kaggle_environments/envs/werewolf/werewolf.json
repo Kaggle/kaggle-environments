@@ -1,125 +1,167 @@
 {
     "name": "werewolf",
-    "title": "werewolf",
+    "version": "1.0.0",
+    "title": "Werewolf",
     "description": "A social deduction game.",
-    "version": "0.1.0",
-    "agents": [
-        7,
-        15
-    ],
+    "agents": [7, 15],
     "configuration": {
-        "num_doctors": {
-            "description": "Number of Doctor roles in the game. If not specified, defaults to 1.",
-            "type": "integer",
-            "minimum": 0,
-            "default": 1
+        "episodeSteps": { "type": "integer", "default": 1000 },
+        "actTimeout": { "type": "number", "default": 3 },
+        "runTimeout": { "type": "number", "default": 1200 },
+        "seed": { "type": "integer", "description": "Seed to use for episodes" },
+        "roles": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "enum": ["Werewolf", "Doctor", "Seer", "Villager"]
+            },
+            "default": ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
         },
-        "num_seers": {
-            "description": "Number of Seer roles in the game. If not specified, defaults to 1.",
-            "type": "integer",
-            "minimum": 0,
-            "default": 1
+        "names": {
+            "description": "An array of unique string names for each player. If provided, its length must match the number of players defined by the 'roles' array. If not provided, players will be named 'player_0', 'player_1', etc.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "default": ["player_0", "player_1", "player_2", "player_3", "player_4", "player_5", "player_6", "player_7"]
         },
-        "max_episode_length": {
-            "description": "Max game steps the environment can run, not including the early phase of the game.",
-            "minimum": 2,
-            "type": "integer",
-            "default": 1000
+        "discussion_protocol": {
+            "description": "Configuration for the daytime discussion protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the discussion protocol to use.",
+                    "type": "string",
+                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion"],
+                    "default": "RoundRobinDiscussion"
+                },
+                "params": {
+                    "description": "Parameters for the selected discussion protocol.",
+                    "type": "object",
+                    "default": {},
+                    "properties": {}
+                }
+            },
+            "default": { "name": "RoundRobinDiscussion", "params": { "max_rounds": 1 } },
+            "oneOf": [
+                {
+                    "if": { "properties": { "name": { "const": "RoundRobinDiscussion" } } },
+                    "then": {
+                        "properties": {
+                            "params": {
+                                "type": "object",
+                                "properties": {
+                                    "max_rounds": { "description": "Number of full rounds of discussion.", "type": "integer", "minimum": 1, "default": 1 }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "else": false
+                },
+                {
+                    "if": { "properties": { "name": { "const": "ParallelDiscussion" } } },
+                    "then": {
+                        "properties": {
+                            "params": {
+                                "type": "object",
+                                "properties": {
+                                    "ticks": { "description": "Number of ticks where all players can speak simultaneously.", "type": "integer", "minimum": 1, "default": 3 }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "else": false
+                }
+            ]
         },
-        "seed": {
-            "description": "Seed to use for episodes",
-            "type": "integer"
+        "day_voting_protocol": {
+            "description": "Configuration for the daytime voting protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the voting protocol to use.",
+                    "type": "string",
+                    "enum": ["SimultaneousMajority", "SequentialVoting"],
+                    "default": "SimultaneousMajority"
+                },
+                "params": {
+                    "description": "Parameters for the selected voting protocol.",
+                    "type": "object",
+                    "default": {},
+                    "properties": {}
+                }
+            },
+            "default": { "name": "SimultaneousMajority", "params": {} },
+            "oneOf": [
+                {
+                    "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
+                    "then": {
+                        "properties": {
+                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                        }
+                    },
+                    "else": false
+                },
+                {
+                    "if": { "properties": { "name": { "const": "SequentialVoting" } } },
+                    "then": {
+                        "properties": {
+                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                        }
+                    },
+                    "else": false
+                }
+            ]
         },
-        "actTimeout": 3,
-        "runTimeout": 9600,
-        "env_cfg": {
-            "type": "object"
+        "werewolf_night_vote_protocol": {
+            "description": "Configuration for the werewolf night voting protocol.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of the voting protocol to use.",
+                    "type": "string",
+                    "enum": ["SimultaneousMajority", "SequentialVoting"],
+                    "default": "SimultaneousMajority"
+                },
+                "params": {
+                    "description": "Parameters for the selected voting protocol.",
+                    "type": "object",
+                    "default": {},
+                    "properties": {}
+                }
+            },
+            "default": { "name": "SimultaneousMajority", "params": {} },
+            "oneOf": [
+                {
+                    "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
+                    "then": {
+                        "properties": {
+                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                        }
+                    },
+                    "else": false
+                },
+                {
+                    "if": { "properties": { "name": { "const": "SequentialVoting" } } },
+                    "then": {
+                        "properties": {
+                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                        }
+                    },
+                    "else": false
+                }
+            ]
         }
-    },
-    "reward": {
-        "description": "Reward is only given at the end of the episode. +1 is the winning team while -1 is the losing team.",
-        "type": "integer",
-        "default": 0
     },
     "observation": {
-        "role": {
-            "description": "The role of the agent (e.g., Villager, Werewolf). Enum mapping defined in environment.",
-            "type": "integer"
-        },
-        "phase": {
-            "description": "The current game phase (e.g., Night, Day Discussion). Enum mapping defined in environment.",
-            "type": "integer"
-        },
-        "alive_players": {
-            "description": "A list indicating which players are alive (1 for alive, 0 for dead), indexed by player ID.",
-            "type": "array",
-            "items": {
-                "type": "integer"
-            }
-        },
-        "known_werewolves": {
-            "description": "A list indicating known werewolves (1 if known werewolf, 0 otherwise), indexed by player ID. Only populated for werewolf agents.",
-            "type": "array",
-            "items": {
-                "type": "integer"
-            }
-        },
-        "seer_last_inspection": {
-            "description": "Tuple of (inspected_player_idx, inspected_player_role_enum). Populated for Seer agents after inspection. Index can be num_players if invalid, role 0 if unknown.",
-            "type": "array",
-            "items": {
-                "type": "integer"
-            },
-            "minItems": 0,
-            "maxItems": 2
-        },
-        "discussion_log": {
-            "description": "JSON string representing the discussion log for the current day (list of {'speaker': agent_id, 'message': text}).",
-            "type": "string"
-        },
-        "last_lynched": {
-            "description": "Index of the player last lynched. Special value (e.g., num_players) if no one or tie.",
-            "type": "integer"
-        },
-        "last_lynched_player_role": {
-            "description": "Role enum value of the player last lynched. Special value (e.g., 0) if no one, tie, or role unknown.",
-            "type": "integer"
-        },
-        "last_killed_by_werewolf": {
-            "description": "Index of the player last killed by werewolves. Special value (e.g., num_players) if no one or saved.",
-            "type": "integer"
-        },
-        "last_killed_by_werewolf_role": {
-            "description": "Role enum value of the player last killed by werewolves. Special value (e.g., 0) if no one, saved, or role unknown.",
-            "type": "integer"
-        },
-        "my_unique_name": {
-            "description": "The unique string identifier for this agent (e.g., 'player_0').",
-            "type": "string"
-        },
-        "all_player_unique_names": {
-            "description": "JSON string array of all player unique names in the game, ordered by index.",
-            "type": "string"
-        },
-        "last_day_vote_details": {
-            "description": "JSON string dictionary of votes from the last day's lynch voting phase (voter_agent_id: target_player_idx).",
-            "type": "string"
-        },
-        "current_day_vote_details": {
-            "description": "JSON string dictionary of votes so far in the current day's lynch voting phase (voter_agent_id: target_player_idx). Only populated during DAY_VOTING.",
-            "type": "string"
-        },
-        "current_night_werewolf_votes": {
-            "description": "JSON string dictionary of votes so far in the current night's werewolf kill phase (voter_agent_id: target_player_idx). Only populated for werewolves during NIGHT_WEREWOLF_VOTE.",
-            "type": "string"
-        },
-        "last_action_feedback": {
-            "description": "A message providing feedback on the agent's last submitted action (e.g., success, error details).",
-            "type": "string"
-        }
+      "remainingOverageTime": 2
     },
-    "action": {
-        "description": "Actions",
-        "type": "object"
+    "action": { "type": "object", "additionalProperties": true },
+    "reward": {
+        "type": "number",
+        "minimum": -1,
+        "maximum": 1
     }
 }

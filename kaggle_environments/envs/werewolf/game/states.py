@@ -1,33 +1,12 @@
-from enum import Enum
-from typing import List, Dict, Optional, Any, Set
+from typing import List, Dict, Optional, Any, Union, Deque
+from collections import defaultdict, deque
+from functools import cached_property
 
-from pydantic import BaseModel, PrivateAttr, Field
+from pydantic import BaseModel, PrivateAttr, Field, computed_field
 
-# Renamed to avoid clash
-from .roles import Player, Phase, RoleConst, Team
-
-
-class HistoryEntryType(str, Enum):
-    GAME_START = "game_start"
-    PHASE_CHANGE = "phase_change"
-    ACTION_RESULT = "action_result"
-    ELIMINATION = "elimination"
-    VOTE_RESULT = "vote_result"
-    DISCUSSION = "discussion"
-    BIDDING_INFO = "bidding_info"
-    GAME_END = "game_end"
-    MODERATOR_ANNOUNCEMENT = "moderator_announcement"
-    ERROR = "error"
-
-
-class HistoryEntry(BaseModel):
-    day: int  # Day number, 0 for initial night
-    phase: Phase
-    entry_type: HistoryEntryType
-    description: str
-    public: bool = False
-    visible_to: Set[str] = Field(default_factory=set)
-    data: Optional[Dict[str, Any]]
+from .records import HistoryEntryType, DataEntry, HistoryEntry
+from .roles import Player
+from .consts import Phase, Team, RoleConst, MODERATOR_ID
 
 
 class GameState(BaseModel):
@@ -37,6 +16,14 @@ class GameState(BaseModel):
     history: Dict[int, List[HistoryEntry]] = Field(default_factory=dict)
     wallet: dict[str, int] = Field(default_factory=dict)
     _id_to_player: Dict[str, Player] = PrivateAttr(default_factory=dict)
+    _history_entry_by_type: Dict[HistoryEntryType, List[HistoryEntry]] = PrivateAttr(
+        default_factory=lambda: defaultdict(list))
+    _history_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+
+    @computed_field
+    @cached_property
+    def all_player_ids(self) -> List[str]:
+        return [player.id for player in self.players]
 
     def model_post_init(self, context: Any, /) -> None:
         self._id_to_player = {p.id: p for p in self.players}
@@ -44,14 +31,24 @@ class GameState(BaseModel):
     def get_player_by_id(self, pid: str):
         return self._id_to_player.get(pid)
 
+    def get_players_by_team(self, team: Team):
+        return [p for p in self.players if p.role.team == team]
+
     def alive_players(self):
         return [p for p in self.players if p.alive]
 
     def alive_players_by_role(self, role: RoleConst):
         return [p for p in self.alive_players() if p.role.name == role]
-    
+
     def alive_players_by_team(self, team: Team):
         return [p for p in self.alive_players() if p.role.team == team]
+
+    def alive_player_counts_per_role(self):
+        counts = {role: len(self.alive_players_by_role(role)) for role in RoleConst}
+        return counts
+
+    def alive_player_counts_per_team(self):
+        return {team: len(self.alive_players_by_team(team)) for team in Team}
 
     _night_eliminate_queue: List[str] = PrivateAttr(default_factory=list)
 
@@ -66,18 +63,40 @@ class GameState(BaseModel):
     def queue_doctor_save(self, target: Player):
         self._night_doctor_save_queue.append(target.id)
 
+    def get_history_by_type(self, entry_type: HistoryEntryType) -> List[HistoryEntry]:
+        return self._history_entry_by_type[entry_type]
+
     def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
-                          visible_to: Optional[List[str]] = None, data: Optional[Dict[str, Any]] = None):
+                          visible_to: Optional[List[str]] = None, data: Optional[Union[
+                DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
         entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
                              description=description, public=public,
-                             visible_to=set(visible_to) if visible_to is not None else set(),
-                             data=data)
+                             visible_to=visible_to or [],
+                             data=data,
+                             source=source)
         self.history[day_key].append(entry)
+        self._history_entry_by_type[entry_type].append(entry)
+        self._history_queue.append(entry)
+
+        # observers message pushing below
+        if public:
+            for player in self.players:
+                player.update(entry)
+        else:
+            for player_id in visible_to:
+                player = self.get_player_by_id(player_id)
+                if player:
+                    player.update(entry)
 
     def eliminate_player(self, pid: str):
         player = self.get_player_by_id(pid)
         if player:
             player.alive = False
+
+    def consume_messages(self) -> List[HistoryEntry]:
+        messages = list(self._history_queue)
+        self._history_queue.clear()
+        return messages
