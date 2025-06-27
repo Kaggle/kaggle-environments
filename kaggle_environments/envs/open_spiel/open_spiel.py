@@ -14,6 +14,12 @@ from kaggle_environments import utils
 import numpy as np
 import pyspiel
 
+ERROR = "ERROR"
+DONE = "DONE"
+INACTIVE = "INACTIVE"
+ACTIVE = "ACTIVE"
+TIMEOUT = "TIMEOUT"
+
 _log = logging.getLogger(__name__) 
 _log.setLevel(logging.INFO) 
 _handler = logging.StreamHandler(sys.stdout) 
@@ -168,8 +174,16 @@ def interpreter(
   statuses = [
       kaggle_state[player_id].status for player_id in range(num_players)
   ]
-  if not any(status == "ACTIVE" for status in statuses):
-    raise ValueError("Environment not done and no active agents.")
+  if not any(status == ACTIVE for status in statuses):
+    for player_id in range(num_players):
+      p = kaggle_state[player_id]
+      if p.status in [ERROR, TIMEOUT]:
+        # TODO: properly set the reward per game
+        p.reward = -1
+      elif p.status in [INACTIVE]:
+        p.reward = 1
+        p.status = DONE
+    return;
 
   # TODO(jhtschultz): Test reset behavior.
   is_initial_step = len(env.steps) == 1
