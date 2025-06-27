@@ -42,6 +42,7 @@ class Werewolf(Role):
     name: str = RoleConst.WEREWOLF
     team: Team = Team.WEREWOLVES
     night_priority: int = 2
+    descriptions: str = "A member of the Werewolf team. At night, works with other werewolves to vote on eliminating one player."
 
     def night_action(self, actor, target, state):
         state.queue_eliminate_vote(target) # Assuming queue_eliminate_vote will be the new name or similar
@@ -50,11 +51,13 @@ class Werewolf(Role):
 class Villager(Role):
     name: str = RoleConst.VILLAGER
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Has no special abilities other than their vote during the day."
 
 
 class Doctor(Role):
     name: str = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
 
     def night_action(self, actor, target, state):
         state.queue_save_vote(target)
@@ -63,6 +66,7 @@ class Doctor(Role):
 class Seer(Role):
     name: str = RoleConst.SEER
     team: Team = Team.VILLAGERS
+    descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
 
     def night_action(self, actor, target, state):
         state.queue_seer_action(actor, target)
@@ -92,6 +96,8 @@ def create_players_from_roles_and_ids(role_strings: List[str], player_ids: List[
     """
     if len(role_strings) != len(player_ids):
         raise ValueError("The number of roles must match the number of player IDs.")
+    
+    assert len(player_ids) == len(set(player_ids)), "Player IDs must be unique."
 
     # Mapping from RoleConst string value to the actual Role class constructor
     role_class_map = {
