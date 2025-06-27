@@ -183,7 +183,7 @@ def interpreter(
       elif p.status in [INACTIVE]:
         p.reward = 1
         p.status = DONE
-    return;
+    return kaggle_state
 
   # TODO(jhtschultz): Test reset behavior.
   is_initial_step = len(env.steps) == 1
