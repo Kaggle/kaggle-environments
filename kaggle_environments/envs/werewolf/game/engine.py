@@ -5,9 +5,7 @@ from .actions import (
     Action, VoteAction,
     HealAction, InspectAction, ChatAction
 )
-from .protocols import (
-    DiscussionProtocol, VotingProtocol
-)
+from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player, Team, Phase, RoleConst
 from .states import GameState, HistoryEntry, HistoryEntryType
 
@@ -226,11 +224,8 @@ class Moderator:
             # Re-prompt only the werewolves whose turn it is now
             alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if p.id in self._action_queue]
             if alive_werewolves_still_to_vote:
-                potential_targets_str = ", ".join([f"P{p.id}({p.role.name})" for p in self.night_voting.get_valid_targets()])
-                current_tally_str = str(self.night_voting.get_current_tally_info(self.state))
                 for ww_voter in alive_werewolves_still_to_vote:
                     prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id) # Use protocol's prompt
-                    # prompt = f"P{ww_voter.id}, it's your turn to vote for elimination. Tally: {current_tally_str}. Options: {potential_targets_str}"
                     self.state.add_history_entry(
                         description=prompt,
                         entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
