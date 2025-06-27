@@ -178,6 +178,7 @@ def interpreter(
     for player_id in range(num_players):
       p = kaggle_state[player_id]
       if p.status in [ERROR, TIMEOUT]:
+        # TODO: properly set the reward per game
         p.reward = -1
       elif p.status in [INACTIVE]:
         p.reward = 1
