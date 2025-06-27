@@ -13,7 +13,7 @@ from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
-from .game.roles import Player, Werewolf, Villager, Seer, Doctor, RoleConst
+from .game.roles import RoleConst, create_players_from_roles_and_ids
 from .game.states import GameState, HistoryEntryType
 
 
@@ -318,26 +318,12 @@ def interpreter(state, env):
     # --- Initialize Moderator and GameState if it's the start of an episode ---
     if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
         num_players = len(state)
-        env.player_ids_map = {i: str(i) for i in range(num_players)} # map kaggle index to player ID string
-        env.player_id_str_list = [str(i) for i in range(num_players)]
 
-        # Simplified role assignment (can be made more complex like in WerewolfEnv.reset)
-        # Ensure roles are from .game.roles
-        roles_to_assign = []
-        # Example: 1 WW, 1 Seer, 1 Doctor, rest Villagers
-        if num_players >= 1: roles_to_assign.append(Werewolf())
-        if num_players >= 2: roles_to_assign.append(Seer())
-        if num_players >= 3: roles_to_assign.append(Doctor())
-        while len(roles_to_assign) < num_players:
-            roles_to_assign.append(Villager())
-        
-        if len(roles_to_assign) > num_players: # Should not happen with above logic
-            roles_to_assign = roles_to_assign[:num_players]
-
-        random.shuffle(roles_to_assign)
-
-        players = [Player(id=env.player_id_str_list[i], role=roles_to_assign[i]) for i in range(num_players)]
+        players = create_players_from_roles_and_ids(role_strings=env.configuration.roles, player_ids=env.configuration.names)
         env.game_state = GameState(players=players, history={})
+
+        env.player_ids_map = {i: p.id for i, p in enumerate(players)}
+        env.player_id_str_list = [p.id for p in players]
 
         # Initialize protocols from configuration or defaults
         discussion_protocol = create_protocol_from_config(
@@ -455,7 +441,7 @@ def interpreter(state, env):
             "game_state_phase": game_state.phase.value, # Overall Day/Night from GameState
             "my_player_idx": i,
         }
-        state[i].observation = {"raw_aec_observation": obs_data} # Nest to match agent access pattern
+        state[i].observation["raw_aec_observation"] = obs_data
 
         # Reward
         state[i].reward = agent_rewards_this_step.get(player_id_str, 0.0)
