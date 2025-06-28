@@ -213,7 +213,7 @@ def interpreter(
           kaggle_state[acting_agent].status = "ERROR"
       else:
         kaggle_state[acting_agent].status = "INVALID"
-      if "duration" in logs[acting_agent]:
+      if logs and "duration" in logs[acting_agent]:
         move_duration = round(logs[acting_agent]["duration"], 3)
         env.info["moveDurations"].append(move_duration)
       else:

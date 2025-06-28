@@ -579,7 +579,7 @@ class Environment:
         try:
             with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
                 try:
-                    args = [structify(state), self, logs]
+                    args = [structify(state), self]
                     new_state = structify(self.interpreter(
                         *args[:self.interpreter.__code__.co_argcount]))
                     new_state[0].observation.step = (
