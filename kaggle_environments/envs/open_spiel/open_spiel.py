@@ -71,6 +71,11 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "object",
         "default": {}
     },
+    "metadata": {
+        "description": "Arbitrary metadata.",
+        "type": "object",
+        "default": {}
+    },
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
