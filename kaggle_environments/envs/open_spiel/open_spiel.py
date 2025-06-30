@@ -195,6 +195,7 @@ def interpreter(
   acting_agent = os_state.current_player()
   action_submitted = None
   action_applied = None
+  move_duration = None
   if is_initial_step:
     pass
   elif 0 <= acting_agent < num_players:
@@ -256,6 +257,7 @@ def interpreter(
     if acting_agent == player_id:
       info_dict["actionSubmitted"] = action_submitted
       info_dict["actionApplied"] = action_applied
+      info_dict["timeTaken"] = move_duration
 
     obs_update_dict = {
       "observationString": os_state.observation_string(player_id),
