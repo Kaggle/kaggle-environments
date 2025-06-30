@@ -199,12 +199,7 @@
           ${processing && h`<${Processing} />`}
         </div>`;
       })`
-        background-color: #000b2a;
-        background-image: radial-gradient(
-          circle closest-side,
-          #000b49,
-          #000b2a
-        );
+        background-color: #1C1D20;
         display: flex;
         flex: 1;
         overflow: hidden;
@@ -242,7 +237,7 @@
               </ul>`)}
         </div>`;
       })`
-        background-color: #000b2a;
+        background-color: #1C1D20;
         font-family: sans-serif;
         font-size: 14px;
         height: 48px;
@@ -442,7 +437,6 @@
       })`
         align-items: center;
         background: #212121;
-        border: 4px solid #212121;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
@@ -450,6 +444,10 @@
         justify-content: center;
         position: relative;
         width: 100%;
+
+        &:not(.no-border) {
+          border: 4px solid #212121;
+        }
       `;
 
       const App = () => {
@@ -545,7 +543,7 @@
             // Initialize context with window.kaggle.
             updateContext(window.kaggle || {});
 
-            if (window.kaggle.playing) {
+            if (window.kaggle?.playing) {
                 play(true);
             }
 
@@ -556,10 +554,49 @@
                 // Ensure the environment names match before updating.
                 try {
                   if (
-                    event.data.environment.name ==
-                    contextRef.current.environment.name
+                    event.data.environment?.name == contextRef.current.environment.name ||
+                    event.data.environment?.name && !contextRef.current.environment.name ||
+                    event.data.environment?.loading !== contextRef.current.environment.loading
                   ) {
-                    updateContext(event.data);
+                    const nextContext = {
+                      ...event.data,
+                      environment: {
+                        ...event.data.environment,
+                        steps: event.data.environment?.steps ?? []
+                      }
+                    };
+                    window.kaggle = nextContext;
+                    if (!window.kaggle.renderer) {
+                      window.kaggle.renderer = window.renderer;
+                    }
+                    updateContext(nextContext);
+                  }
+                  if (event.data.setSteps) {
+                    const nextContext = {
+                      ...(window.kaggle ?? {}),
+                      environment: {
+                        ...(window.kaggle?.environment ?? {}),
+                        steps: event.data.setSteps
+                      }
+                    }
+                    window.kaggle = nextContext;
+                    if (!window.kaggle.renderer) {
+                      window.kaggle.renderer = window.renderer;
+                    }
+                    updateContext(nextContext)
+                  }
+
+                  // Side load the renderer script if it is specified by the post message event and not already loaded.
+                  const renderScriptId = 'rendererScript'
+                  if (event.data.environment?.rendererUrl && !document.querySelector(`#${renderScriptId}`)) {
+                    window.rendererUrl = event.data.environment?.rendererUrl;
+                    const script = document.createElement('script');
+                    script.id = renderScriptId;
+                    script.onload = () => {
+                      window.kaggle.renderer = window.renderer;
+                    };
+                    script.src = window.rendererUrl;
+                    document.body.appendChild(script);
                   }
                 } catch {}
               },
@@ -674,7 +711,7 @@
 
         return h`
           <${Context.Provider} value=${contextRef.current}>
-            <${Player} />
+            <${Player} className="${contextRef.current.environment.viewer ? 'no-border' : ''}" />
           <//>`;
       };
 
