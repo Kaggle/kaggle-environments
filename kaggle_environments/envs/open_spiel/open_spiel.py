@@ -407,14 +407,13 @@ def _build_env(game_string: str) -> dict[str, Any]:
   env_spec["title"] = f"Open Spiel: {short_name}"
   env_spec["agents"] = [game.num_players()]
 
-  env_config = copy.deepcopy(CONFIGURATION_SPEC_TEMPLATE)
-  env_spec["configuration"] = env_config
+  env_config = env_spec["configuration"]
   env_config["episodeSteps"] = game.max_history_length() + DEFAULT_STEP_BUFFER
   env_config["openSpielGameString"]["default"] = str(game)
   env_config["openSpielGameName"]["default"] = short_name
+  env_config["openSpielGameParameters"]["default"] = game.get_parameters()
 
-  env_obs = copy.deepcopy(OBSERVATION_SPEC_TEMPLATE)
-  env_spec["observation"] = env_obs
+  env_obs = env_spec["observation"]
   env_obs["properties"]["openSpielGameString"]["default"] = str(game)
   env_obs["properties"]["openSpielGameName"]["default"] = short_name
 
