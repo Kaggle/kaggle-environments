@@ -1,5 +1,5 @@
 function renderer(options) {
-    const { environment, step, parent, interactive, isInteractive } = options;
+    const { environment, step, parent } = options;
 
     // Chess-specific constants
     const DEFAULT_NUM_ROWS = 8;
@@ -28,6 +28,7 @@ function renderer(options) {
     let currentMessageBoxElement = typeof document !== 'undefined' ? document.getElementById('messageBox') : null;
     let currentRendererContainer = null;
     let currentTitleElement = null;
+    let squareSize = 50;
 
     function _showMessage(message, type = 'info', duration = 3000) {
         if (typeof document === 'undefined' || !document.body) return;
@@ -74,25 +75,30 @@ function renderer(options) {
             fontFamily: "'Inter', sans-serif"
         });
 
-        currentTitleElement = document.createElement('h1');
-        currentTitleElement.textContent = 'Chess';
-        // Identical styling to the Connect Four renderer's title
-        Object.assign(currentTitleElement.style, {
+        if (!environment.viewer) {
+          currentTitleElement = document.createElement('h1');
+          currentTitleElement.textContent = 'Chess';
+          // Identical styling to the Connect Four renderer's title
+          Object.assign(currentTitleElement.style, {
             fontSize: '1.875rem',
             fontWeight: 'bold',
             marginBottom: '1rem',
             textAlign: 'center',
             color: '#2563eb'
-        });
-        currentRendererContainer.appendChild(currentTitleElement);
+          });
+          currentRendererContainer.appendChild(currentTitleElement);
+        }
+        parentElementToClear.appendChild(currentRendererContainer);
 
+        const smallestParentEdge = Math.min(currentRendererContainer.offsetWidth, currentRendererContainer.offsetHeight);
+        squareSize = Math.floor(smallestParentEdge / DEFAULT_NUM_COLS);
         currentBoardElement = document.createElement('div');
         Object.assign(currentBoardElement.style, {
             display: 'grid',
-            gridTemplateColumns: `repeat(${cols}, 50px)`,
-            gridTemplateRows: `repeat(${rows}, 50px)`,
-            width: `${cols * 50}px`,
-            height: `${rows * 50}px`,
+            gridTemplateColumns: `repeat(${cols}, ${squareSize}px)`,
+            gridTemplateRows: `repeat(${rows}, ${squareSize}px)`,
+            width: `${cols * squareSize}px`,
+            height: `${rows * squareSize}px`,
             border: '2px solid #333'
         });
 
@@ -101,8 +107,8 @@ function renderer(options) {
                 const square = document.createElement('div');
                 square.id = `cell-${r}-${c}`;
                 Object.assign(square.style, {
-                    width: '50px',
-                    height: '50px',
+                    width: `${squareSize}px`,
+                    height: `${squareSize}px`,
                     backgroundColor: (r + c) % 2 === 0 ? LIGHT_SQUARE_COLOR : DARK_SQUARE_COLOR,
                     display: 'flex',
                     alignItems: 'center',
@@ -126,7 +132,9 @@ function renderer(options) {
             maxWidth: '90vw',
             marginTop: '20px'
         });
-        currentRendererContainer.appendChild(statusContainer);
+        if (!environment.viewer) {
+          currentRendererContainer.appendChild(statusContainer);
+        }
 
         currentStatusTextElement = document.createElement('p');
         Object.assign(currentStatusTextElement.style, {
@@ -143,8 +151,6 @@ function renderer(options) {
             margin: '5px 0 0 0'
         });
         statusContainer.appendChild(currentWinnerTextElement);
-
-        parentElementToClear.appendChild(currentRendererContainer);
 
         if (typeof document !== 'undefined' && !document.body.hasAttribute('data-renderer-initialized')) {
             document.body.setAttribute('data-renderer-initialized', 'true');
@@ -204,8 +210,9 @@ function renderer(options) {
         }
 
 
-        const { board, activeColor, is_terminal, winner } = gameStateToDisplay;
+        const { board, activeColor, isTerminal, winner } = gameStateToDisplay;
 
+        const pieceSize = Math.floor(squareSize * 0.9);
         for (let r_data = 0; r_data < displayRows; r_data++) {
             for (let c_data = 0; c_data < displayCols; c_data++) {
                 const piece = board[r_data][c_data];
@@ -213,8 +220,8 @@ function renderer(options) {
                 if (squareElement && piece) {
                     const pieceImg = document.createElement('img');
                     pieceImg.src = PIECE_SVG_URLS[piece];
-                    pieceImg.style.width = '45px';
-                    pieceImg.style.height = '45px';
+                    pieceImg.style.width = `${pieceSize}px`;
+                    pieceImg.style.height = `${pieceSize}px`;
                     squareElement.appendChild(pieceImg);
                 }
             }
@@ -222,7 +229,7 @@ function renderer(options) {
 
         currentStatusTextElement.innerHTML = '';
         currentWinnerTextElement.innerHTML = '';
-        if (is_terminal) {
+        if (isTerminal) {
             currentStatusTextElement.textContent = "Game Over!";
             if (winner) {
                  if (String(winner).toLowerCase() === 'draw') {
@@ -235,8 +242,8 @@ function renderer(options) {
                  currentWinnerTextElement.textContent = "Game ended.";
             }
         } else {
-            const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
-            currentStatusTextElement.innerHTML = `Current Player: <span style="font-weight: bold;">${playerColor}</span>`;
+          const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
+          currentStatusTextElement.innerHTML = `Current Player: <span style="font-weight: bold;">${playerColor}</span>`;
         }
     }
 
@@ -278,10 +285,10 @@ function renderer(options) {
             const fen = observationForRenderer.observationString;
             const parsedFen = _parseFen(fen);
             if (parsedFen) {
-                // Assuming `is_terminal` and `winner` are provided in the top-level observation
+                // Assuming `isTerminal` and `winner` are provided in the top-level observation
                 gameSpecificState = { 
                     ...parsedFen,
-                    is_terminal: observationForRenderer.isTerminal,
+                    isTerminal: observationForRenderer.isTerminal,
                     winner: observationForRenderer.winner
                 };
             }
