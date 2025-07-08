@@ -1,5 +1,8 @@
+
+from abc import ABC
 from enum import Enum
 from typing import List, Dict, Optional, Any, Set
+
 
 from pydantic import BaseModel, PrivateAttr, Field
 
@@ -12,12 +15,17 @@ class HistoryEntryType(str, Enum):
     PHASE_CHANGE = "phase_change"
     ACTION_RESULT = "action_result"
     ELIMINATION = "elimination"
+    VOTE_ACTION = "vote_action"
     VOTE_RESULT = "vote_result"
     DISCUSSION = "discussion"
     BIDDING_INFO = "bidding_info"
     GAME_END = "game_end"
     MODERATOR_ANNOUNCEMENT = "moderator_announcement"
     ERROR = "error"
+
+
+class DataEntry(BaseModel, ABC):
+    pass
 
 
 class HistoryEntry(BaseModel):
@@ -27,7 +35,58 @@ class HistoryEntry(BaseModel):
     description: str
     public: bool = False
     visible_to: Set[str] = Field(default_factory=set)
-    data: Optional[Dict[str, Any]]
+    data: Optional[DataEntry]
+
+
+class GameStartDataEntry(DataEntry):
+    player_ids: List[str]
+    number_of_players: int
+    role_counts: Dict[str, int]
+    team_member_counts: Dict[str, int]
+    day_discussion_protocol_name: str
+    day_discussion_protocol_rule: str
+    night_werewolf_discussion_protocol_name: str
+    night_werewolf_discussion_protocol_rule: str
+    day_voting_protocol_name: str
+    day_voting_protocol_rule: str
+
+
+class GameStartRoleDataEntry(DataEntry):
+    player_id: str
+    team: str
+    role: str
+    rule_of_role: str
+
+
+class AskDoctorSaveDataEntry(DataEntry):
+    valid_candidates: List[str]
+    action_json_schema: str
+
+
+class AskSeerRevealDataEntry(DataEntry):
+    valid_candidates: List[str]
+    action_json_schema: str
+
+
+class AskWerewolfVotingDataEntry(DataEntry):
+    valid_targets: List[str]
+    alive_werewolve_player_ids: List[str]
+    voting_protocol_name: str
+    voting_protocol_rule: str
+    action_json_schema: str
+
+
+class SeerInspectResultDataEntry(DataEntry):
+    actor_id: str
+    target_id: str
+    role: str
+    team: str
+
+
+class WerewolfNightVoteDataEntry(DataEntry):
+    actor_id: str
+    target_id: str
+    reasoning: Optional[str]
 
 
 class GameState(BaseModel):
@@ -52,6 +111,13 @@ class GameState(BaseModel):
     
     def alive_players_by_team(self, team: Team):
         return [p for p in self.alive_players() if p.role.team == team]
+    
+    def alive_player_counts_per_role(self):
+        counts = {role: len(self.alive_players_by_role(role)) for role in RoleConst}
+        return counts
+    
+    def alive_player_counts_per_team(self):
+        return {team: len(self.alive_players_by_team(team)) for team in Team}
 
     _night_eliminate_queue: List[str] = PrivateAttr(default_factory=list)
 
