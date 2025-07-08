@@ -14,7 +14,7 @@ from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
 from .game.roles import RoleConst, create_players_from_roles_and_ids
-from .game.states import GameState, HistoryEntryType
+from .game.states import GameState, HistoryEntryType, DataEntry
 
 
 # my_kaggle_env.py
@@ -30,6 +30,16 @@ class ActionType(str, Enum):
     DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
 
 
+class VisibleRawData(BaseModel):
+    data_type: str
+    json_str: str
+    """json dump"""
+
+    @classmethod
+    def from_entry(cls, entry: DataEntry):
+        return cls(data_type=entry.data.__class__.__name__, json_str=entry.data.model_dump_json())
+
+
 class WerewolfObservationModel(BaseModel):
     my_unique_name: str
     role: str
@@ -37,18 +47,19 @@ class WerewolfObservationModel(BaseModel):
     is_alive: bool
     day: int
     phase: str
-    all_player_unique_names: str  # JSON string
-    alive_players: List[bool]
-    visible_history: Tuple[str, ...]
-    action_prompt: str
+    all_player_ids: List[str]
+    alive_players: List[str]
+    new_visible_announcements: List[str]
+    new_visible_raw_data: List[VisibleRawData]
     game_state_phase: str
-    my_player_idx: int
 
     def get_human_readable(self) -> str:
         # This is a placeholder implementation. A real implementation would format this nicely.
         return json.dumps(self.model_dump(), indent=2)
 
+
 MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in agent observation
+
 
 # --- Protocol Factory ---
 PROTOCOL_REGISTRY = {
@@ -66,6 +77,7 @@ PROTOCOL_REGISTRY = {
 
 DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
 DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
+
 
 def create_protocol_from_config(
     config: Any, # env.configuration
@@ -88,74 +100,86 @@ def create_protocol_from_config(
 
 
 def random_agent(obs):
-    raw_aec_obs = obs.get('raw_aec_observation')
+    raw_obs = obs.get('raw_observation')
 
     # Default to NO_OP if observation is missing or agent cannot act
-    if not raw_aec_obs:
+    if not raw_obs:
         return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
 
-    current_phase = DetailedPhase(raw_aec_obs['phase'])
-    my_role = RoleConst(raw_aec_obs['role'])
+    current_phase = DetailedPhase(raw_obs['phase'])
+    my_role = RoleConst(raw_obs['role'])
 
-    all_player_names = json.loads(raw_aec_obs['all_player_unique_names'])
-    my_unique_name = raw_aec_obs['my_unique_name']
+    all_player_names = json.loads(raw_obs['all_player_unique_names'])
+    my_unique_name = raw_obs['my_unique_name']
 
     my_idx = all_player_names.index(my_unique_name)
 
-    alive_player_indices = [i for i, status in enumerate(raw_aec_obs['alive_players']) if status == 1]
+    alive_player_indices = [i for i, status in enumerate(raw_obs['alive_players']) if status == 1]
 
     action_to_take = {"action_type": ActionType.NO_OP.value} # Default action
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
             # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
-            potential_targets = [idx for idx in alive_player_indices if idx != my_idx]
-            if potential_targets:
-                target_idx = random.choice(potential_targets)
-                action_to_take = {"action_type": ActionType.NIGHT_KILL_VOTE.value, "target_idx": target_idx}
+            # ActionType.NIGHT_KILL_VOTE
+            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
+                                  if "action_json_schema" in entry), None)
+
+            if history_entry:
+                valid_targets = json.loads(history_entry)["valid_targets"]
+                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
+                if potential_targets_idx:
+                    target_idx = random.choice(potential_targets_idx)
+                    action_to_take = {"action_type": ActionType.NIGHT_KILL_VOTE.value, "target_idx": target_idx}
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
-            if alive_player_indices:
-                target_idx = random.choice(alive_player_indices)
-                action_to_take = {"action_type": ActionType.NIGHT_SAVE_TARGET.value, "target_idx": target_idx}
+            # ActionType.NIGHT_SAVE_TARGET
+            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
+                                  if "action_json_schema" in entry), None)
+
+            if history_entry:
+                valid_targets = json.loads(history_entry)["valid_candidates"]
+                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
+                if potential_targets_idx:
+                    target_idx = random.choice(potential_targets_idx)
+                    action_to_take = {"action_type": ActionType.NIGHT_SAVE_TARGET.value, "target_idx": target_idx}
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
-            if alive_player_indices:
-                target_idx = random.choice(alive_player_indices)
-                action_to_take = {"action_type": ActionType.NIGHT_INSPECT_TARGET.value, "target_idx": target_idx}
+            # ActionType.NIGHT_INSPECT_TARGET
+            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
+                                  if "action_json_schema" in entry), None)
+
+            if history_entry:
+                valid_targets = json.loads(history_entry)["valid_candidates"]
+                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
+                if potential_targets_idx:
+                    target_idx = random.choice(potential_targets_idx)
+                    action_to_take = {"action_type": ActionType.NIGHT_INSPECT_TARGET.value, "target_idx": target_idx}
 
     elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
-        if my_idx in alive_player_indices: # Only alive players can discuss
-            messages = [
-                "Hello everyone!", 
-                "I have a strong feeling about someone.", 
-                "Any information to share?", 
-                "I am a simple Villager just trying to survive.", 
-                "Let's think carefully before voting."
-            ]
-            
-            if len(alive_player_indices) > 0:
-                rand_player_for_msg_idx = random.choice(alive_player_indices)
-                messages[1] = f"I think {all_player_names[rand_player_for_msg_idx]} is acting suspiciously."
-                
-                votable_for_message = [p_idx for p_idx in alive_player_indices if p_idx != rand_player_for_msg_idx]
-                if votable_for_message:
-                    rand_player_for_vote_msg_idx = random.choice(votable_for_message)
-                    messages[4] = f"We should consider voting for {all_player_names[rand_player_for_vote_msg_idx]} today."
-                elif len(alive_player_indices) == 1: 
-                     messages[4] = "It seems I'm the only one left to talk to."
-
-            action_to_take = {"action_type": ActionType.DAY_DISCUSS.value, "message": random.choice(messages)}
+        # Only alive players can discuss
+        if my_idx in alive_player_indices:
+            action_to_take = {"action_type": ActionType.DAY_DISCUSS.value,
+                              "message": random.choice([
+                                  "Hello everyone!",
+                                  "I have a strong feeling about someone.",
+                                  "Any information to share?",
+                                  "I am a simple Villager just trying to survive.",
+                                  "Let's think carefully before voting."
+                              ])}
+            # TODO: a better agent would choose a message related to history
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
-        if my_idx in alive_player_indices: # Only alive players can vote
-            votable_targets = [p_idx for p_idx in alive_player_indices if p_idx != my_idx]
-            if votable_targets:
-                target_idx = random.choice(votable_targets)
+        # Only alive players can vote
+        if my_idx in alive_player_indices:
+            # ActionType.DAY_LYNCH_VOTE
+            valid_targets_idx = [idx for idx in alive_player_indices if idx != my_idx]
+            if valid_targets_idx:
+                target_idx = random.choice(valid_targets_idx)
                 action_to_take = {"action_type": ActionType.DAY_LYNCH_VOTE.value, "target_idx": target_idx}
-    
+
     elif current_phase == DetailedPhase.GAME_OVER:
         action_to_take = {"action_type": ActionType.NO_OP.value}
         
@@ -282,7 +306,7 @@ class LLMAgent:
         Processes an observation, updates memory, and decides on an action.
         Currently, it only stores the observation and returns a NO_OP action.
         """
-        raw_aec_obs = obs.get('raw_aec_observation')
+        raw_aec_obs = obs.get('raw_observation')
 
         if not raw_aec_obs:
             # Default action if no observation is available
@@ -336,8 +360,7 @@ def interpreter(state, env):
             "day_voting_protocol",
             "voting", DEFAULT_VOTING_PROTOCOL_NAME
         )
-        # Night voting for werewolves often uses a simpler majority rule,
-        # but can also be configured.
+        # Night voting can be configured.
         night_voting_protocol = create_protocol_from_config(
             env.configuration,
             "werewolf_night_vote_protocol",
@@ -354,15 +377,6 @@ def interpreter(state, env):
         )
 
         env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
-        # Moderator initializes its own _player_history_cursors
-
-        # Initial advance to set up the first phase (e.g., NIGHT_START -> NIGHT_AWAIT_ACTIONS)
-        env.moderator.advance({}) # Empty actions for the first transition
-
-        for i in range(num_players):
-            state[i].reward = 0
-            state[i].info = {}
-            # Initial observation and status will be set in the main update loop below
 
     moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
@@ -410,6 +424,14 @@ def interpreter(state, env):
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
+
+        # skip if player not active
+        if player_id_str not in active_player_ids_after_advance:
+            continue
+        
+        # set the status of active player to ACTIVE
+        state[i]['status'] = 'ACTIVE'
+
         player_obj = game_state.get_player_by_id(player_id_str)
 
         # Observation processing
@@ -417,31 +439,23 @@ def interpreter(state, env):
         env.player_full_visible_history_cache.setdefault(player_id_str, []).extend(new_history_entries)
         moderator.update_player_cursor(player_id_str, new_cursor_pos)
 
-        current_player_full_log = env.player_full_visible_history_cache[player_id_str]
-        visible_history_descs = [entry.description for entry in current_player_full_log[-MAX_VISIBLE_HISTORY_ITEMS:]]
-        visible_history_descs.extend([""] * (MAX_VISIBLE_HISTORY_ITEMS - len(visible_history_descs)))
+        state[i]['observation']['new_history_entries'] = new_history_entries
 
-        latest_prompt = "No specific prompt. It's your turn to act if active."
-        for entry in reversed(current_player_full_log): # Search in player's own cached history
-            if entry.entry_type == HistoryEntryType.MODERATOR_ANNOUNCEMENT and player_id_str in entry.visible_to:
-                latest_prompt = entry.description
-                break
+        obs = WerewolfObservationModel(
+            my_unique_name=player_id_str,
+            role=player_obj.role.name,
+            team=player_obj.role.team.value,
+            is_alive=player_obj.alive,
+            day=game_state.day_count,
+            phase=moderator.detailed_phase.value,
+            all_player_ids=env.player_id_str_list,
+            alive_players=[p.id for p in game_state.alive_players()],
+            new_visible_announcements=[entry.description for entry in new_history_entries],
+            new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
+            game_state_phase=game_state.phase.value
+        )
 
-        obs_data = {
-            "my_unique_name": player_id_str,
-            "role": player_obj.role.name, # RoleConst enum value (string)
-            "team": player_obj.role.team.value, # Team enum value (string)
-            "is_alive": player_obj.alive,
-            "day": game_state.day_count,
-            "phase": moderator.detailed_phase.value, # DetailedPhase enum value (string)
-            "all_player_unique_names": json.dumps(env.player_id_str_list), # JSON string list of player IDs
-            "alive_players": [p.alive for p in game_state.players], # List of booleans
-            "visible_history": tuple(visible_history_descs),
-            "action_prompt": latest_prompt,
-            "game_state_phase": game_state.phase.value, # Overall Day/Night from GameState
-            "my_player_idx": i,
-        }
-        state[i].observation["raw_aec_observation"] = obs_data
+        state[i].observation["raw_observation"] = obs.model_dump()
 
         # Reward
         state[i].reward = agent_rewards_this_step.get(player_id_str, 0.0)

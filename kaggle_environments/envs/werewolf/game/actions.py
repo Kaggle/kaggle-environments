@@ -4,21 +4,10 @@ from typing import Literal, Annotated, Optional
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
-class ActionKind(str, Enum):
-    VOTE = "vote"
-    ELIMINATE = "eliminate"
-    HEAL = "heal"
-    INSPECT = "inspect"
-    CHAT = "chat"
-    NOOP = "noop"
-
-
 # ------------------------------------------------------------------ #
 class Action(BaseModel):
     """Root of the discriminated-union tree."""
-    model_config = ConfigDict(extra="forbid", frozen=True, use_enum_values=True)
     actor_id: str
-    kind: ActionKind
     reasoning: Optional[str] = Field(default=None, max_length=4096)
 
 
@@ -26,17 +15,10 @@ class Action(BaseModel):
 class TargetedAction(Action):
     target_id: str
 
-    @model_validator(mode="after")
-    def check_target(self):
-        if self.target_id == self.actor_id:
-            raise ValueError("target_id cannot be the actor himself")
-        return self
-
 
 # ——— Concrete leaf classes --------------------------------------- #
 class EliminateAction(TargetedAction):
-    kind: Literal[ActionKind.ELIMINATE] = Field(default=ActionKind.ELIMINATE,
-                                                serialization_alias="type")
+    pass
 
 
 class EliminateProposalAction(TargetedAction):
@@ -44,29 +26,27 @@ class EliminateProposalAction(TargetedAction):
     A werewolf's *suggestion* for tonight’s victim to be eliminated.
     These actions never reach the public log.
     """
-    kind: Literal["eliminate_proposal"] = "eliminate_proposal"
+    pass
 
 
 class HealAction(TargetedAction):
-    kind: Literal[ActionKind.HEAL] = ActionKind.HEAL
+    pass
 
 
 class InspectAction(TargetedAction):
-    kind: Literal[ActionKind.INSPECT] = ActionKind.INSPECT
+    pass
 
 
 class VoteAction(TargetedAction):
-    kind: Literal[ActionKind.VOTE] = ActionKind.VOTE
-    # -1 can represent “abstain”; validation in VotingProtocol for exile votes
+    pass
 
 
 class ChatAction(Action):
-    kind: Literal[ActionKind.CHAT] = ActionKind.CHAT
-    message: str = Field(min_length=1, max_length=280)
+    message: str = Field(default="", max_length=4096)
 
 
 class NoOpAction(Action):
-    kind: Literal[ActionKind.NOOP] = ActionKind.NOOP
+    pass
 
 
 # ------------------------------------------------------------ #
@@ -75,7 +55,6 @@ class BidAction(Action):
     An amount the actor is willing to pay this round.
     Currency unit can be generic 'chips' or role-specific.
     """
-    kind: Literal["bid"] = "bid"  # type: ignore
     amount: int = Field(ge=0)
 
 
