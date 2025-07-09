@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator
 # ------------------------------------------------------------------ #
 class Action(BaseModel):
     """Root of the discriminated-union tree."""
-    actor_id: str
     reasoning: Optional[str] = Field(default=None, max_length=4096)
+
+    def serialize(self):
+        return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
 
 
 # ——— Mix-in for actions that need a target ------------------------ #
@@ -17,15 +19,7 @@ class TargetedAction(Action):
 
 
 # ——— Concrete leaf classes --------------------------------------- #
-class EliminateAction(TargetedAction):
-    pass
-
-
 class EliminateProposalAction(TargetedAction):
-    """
-    A werewolf's *suggestion* for tonight’s victim to be eliminated.
-    These actions never reach the public log.
-    """
     pass
 
 
@@ -58,15 +52,19 @@ class BidAction(Action):
     amount: int = Field(ge=0)
 
 
+ACTIONS = [
+    EliminateProposalAction,
+    HealAction,
+    InspectAction,
+    VoteAction,
+    ChatAction,
+    BidAction,
+    NoOpAction
+]
+
 ACTION_REGISTRY = {
-    ActionKind.ELIMINATE: EliminateAction,
-    ActionKind.HEAL: HealAction,
-    ActionKind.INSPECT: InspectAction,
-    ActionKind.VOTE: VoteAction,
-    ActionKind.CHAT: ChatAction,
-    ActionKind.NOOP: NoOpAction,
+    action.__name__: action for action in ACTIONS
 }
 
-
-def create_action(kind: ActionKind, **kwargs) -> Action:
-    return ACTION_REGISTRY[kind](**kwargs)
+def create_action(serialized):
+    return ACTION_REGISTRY[serialized['action_type']](**serialized.get('kwargs', {}))

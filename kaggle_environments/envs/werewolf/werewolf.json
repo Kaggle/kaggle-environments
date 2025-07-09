@@ -155,12 +155,13 @@
             ]
         }
     },
-    "observation": {},
-    "action": {},
+    "observation": {
+      "remainingOverageTime": 2
+    },
+    "action": { "type": "object", "additionalProperties": true },
     "reward": {
         "type": "number",
         "minimum": -1,
         "maximum": 1
     }
 }
-
