@@ -1,7 +1,7 @@
 
 from abc import ABC
 from enum import Enum
-from typing import List, Dict, Optional, Any, Set
+from typing import List, Dict, Optional, Any, Set, Union
 
 
 from pydantic import BaseModel, PrivateAttr, Field
@@ -133,7 +133,7 @@ class GameState(BaseModel):
         self._night_doctor_save_queue.append(target.id)
 
     def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
-                          visible_to: Optional[List[str]] = None, data: Optional[Dict[str, Any]] = None):
+                          visible_to: Optional[List[str]] = None, data: Optional[Union[DataEntry,Dict[str, Any]]] = None):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
