@@ -40,7 +40,7 @@ class VisibleRawData(BaseModel):
 
 
 class WerewolfObservationModel(BaseModel):
-    my_unique_name: str
+    player_id: str
     role: str
     team: str
     is_alive: bool
@@ -110,13 +110,10 @@ def random_agent(obs):
     my_role = RoleConst(raw_obs['role'])
 
     all_player_names = raw_obs['all_player_ids']
-    my_unique_name = raw_obs['my_unique_name']
+    my_id = raw_obs['player_id']
+    alive_players = raw_obs['alive_players']
 
-    my_idx = all_player_names.index(my_unique_name)
-
-    alive_player_indices = [i for i, status in enumerate(raw_obs['alive_players']) if status == 1]
-
-    action = NoOpAction(reasoning="There's nothing to be done.") # Default action
+    action = NoOpAction(actor_id=my_id, reasoning="There's nothing to be done.") # Default action
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
@@ -127,7 +124,7 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data.valid_targets
                 target_id = random.choice(valid_targets)
-                action = EliminateProposalAction(target_id=target_id, reasoning="I randomly chose one.")
+                action = EliminateProposalAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one.")
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
@@ -137,7 +134,7 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data.valid_candidates
                 target_id = random.choice(valid_targets)
-                action = HealAction(target_id=target_id, reasoning="I randomly chose one to heal.")
+                action = HealAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to heal.")
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
@@ -147,12 +144,13 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data.valid_candidates
                 target_id = random.choice(valid_targets)
-                action = InspectAction(target_id=target_id, reasoning="I randomly chose one to inspect.")
+                action = InspectAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to inspect.")
 
     elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
         # Only alive players can discuss
-        if my_idx in alive_player_indices:
+        if my_id in alive_players:
             action = ChatAction(
+                actor_id=my_id,
                 message=random.choice([
                     "Hello everyone!",
                     "I have a strong feeling about someone.",
@@ -165,71 +163,17 @@ def random_agent(obs):
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
         # Only alive players can vote
-        if my_idx in alive_player_indices:
-            # ActionType.DAY_LYNCH_VOTE
-            valid_targets_idx = [idx for idx in alive_player_indices if idx != my_idx]
-            if valid_targets_idx:
-                action = VoteAction(
-                    target_id=random.choice(all_player_names),
-                    reasoning="I randomly chose one."
-                )
+        if my_id in alive_players:
+            action = VoteAction(
+                actor_id=my_id,
+                target_id=random.choice(all_player_names),
+                reasoning="I randomly chose one."
+            )
 
     elif current_phase == DetailedPhase.GAME_OVER:
         action = {"action_type": ActionType.NO_OP.value}
 
     return action.serialize()
-
-# Helper function to parse agent's dict action to engine.Action
-def _parse_agent_action_to_engine_action(
-    actor_id_str: str,
-    raw_agent_action: dict,
-    all_player_id_strs: list[str],
-    current_detailed_phase: DetailedPhase,
-    actor_role_name: RoleConst
-) -> Optional[Action]:
-
-    if not raw_agent_action or not isinstance(raw_agent_action, dict):
-        return NoOpAction(actor_id=actor_id_str, reasoning="No action provided by agent")
-
-    action_type_val = raw_agent_action.get("action_type") # This is ActionType.value (a string)
-    target_idx = raw_agent_action.get("target_idx")
-    message = raw_agent_action.get("message")
-
-    target_id_str = None
-    if target_idx is not None:
-        if target_idx == -1: # Abstain or no target convention
-            target_id_str = "-1"
-        elif 0 <= target_idx < len(all_player_id_strs):
-            target_id_str = all_player_id_strs[target_idx]
-        else: # Invalid index
-            return NoOpAction(actor_id=actor_id_str, reason=f"Invalid target_idx: {target_idx}")
-
-    # Phase-aware and Role-aware parsing
-    if current_detailed_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
-        if actor_role_name == RoleConst.DOCTOR:
-            if action_type_val == ActionType.NIGHT_SAVE_TARGET.value and target_id_str and target_id_str != "-1":
-                return HealAction(actor_id=actor_id_str, target_id=target_id_str)
-        elif actor_role_name == RoleConst.SEER:
-            if action_type_val == ActionType.NIGHT_INSPECT_TARGET.value and target_id_str and target_id_str != "-1":
-                return InspectAction(actor_id=actor_id_str, target_id=target_id_str)
-        elif actor_role_name == RoleConst.WEREWOLF:
-            # Werewolf night vote action is VoteAction
-            if action_type_val == ActionType.NIGHT_KILL_VOTE.value and target_id_str:
-                return VoteAction(actor_id=actor_id_str, target_id=target_id_str)
-
-    elif current_detailed_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
-        if action_type_val == ActionType.DAY_DISCUSS.value and message:
-            return ChatAction(actor_id=actor_id_str, message=str(message))
-
-    elif current_detailed_phase == DetailedPhase.DAY_VOTING_AWAIT:
-        if action_type_val == ActionType.DAY_LYNCH_VOTE.value and target_id_str:
-            return VoteAction(actor_id=actor_id_str, target_id=target_id_str)
-
-    if action_type_val == ActionType.NO_OP.value:
-        return NoOpAction(actor_id=actor_id_str)
-
-    # Fallback if action_type_val didn't match any valid action for the current phase/role
-    return NoOpAction(actor_id=actor_id_str, reason=f"Action '{action_type_val}' not applicable or invalid for phase '{current_detailed_phase.value}' and role '{actor_role_name.value}'")
 
 
 # This function is part of the skeleton and retained as a placeholder.
@@ -428,7 +372,7 @@ def interpreter(state, env):
         state[i]['observation']['new_history_entries'] = new_history_entries
 
         obs = WerewolfObservationModel(
-            my_unique_name=player_id_str,
+            player_id=player_id_str,
             role=player_obj.role.name,
             team=player_obj.role.team.value,
             is_alive=player_obj.alive,

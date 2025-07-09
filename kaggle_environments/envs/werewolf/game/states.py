@@ -89,6 +89,17 @@ class WerewolfNightVoteDataEntry(DataEntry):
     reasoning: Optional[str]
 
 
+class WerewolfNightEliminationElectedDataEntry(DataEntry):
+    """This record the elected elimination target by werewolves."""
+    elected_target_player_id: str
+
+
+class WerewolfNightEliminationDataEntry(DataEntry):
+    """This record the one eventually got eliminated by werewolves without doctor safe."""
+    eliminated_player_id: str
+    eliminated_player_role_name: str
+
+
 class GameState(BaseModel):
     players: List[Player]
     phase: Phase = Phase.NIGHT
