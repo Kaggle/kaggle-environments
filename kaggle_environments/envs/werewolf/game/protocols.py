@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Sequence, Optional  # Added Optional
 import random
 from collections import Counter
+import heapq
 
 from .states import GameState, HistoryEntryType
 from .roles import Player, Team
@@ -76,7 +77,7 @@ class VotingProtocol(ABC):
         """Collect an individual vote."""
 
     @abstractmethod
-    def tally_votes(self, state: GameState) -> str | None:
+    def _tally_votes(self, state: GameState) -> str | None:
         """
         Return exiled `player_id`, or None if no one is exiled
         (e.g. no majority rule / tied vote behaviour).
@@ -101,8 +102,8 @@ class VotingProtocol(ABC):
         """get a list of targets"""
 
     @abstractmethod
-    def get_elected(self) -> str:
-        """get the final elected individual"""
+    def get_elected(self) -> Optional[str]:
+        """get the final elected individual, or None if no one was elected."""
 
 
 class TeamDecisionProtocol(ABC):
@@ -509,102 +510,85 @@ class SimultaneousMajority(VotingProtocol):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._expected_voters: List[str] = []
         self._potential_targets: List[str] = []
-        self._current_game_state: Optional[GameState] = None # To store state from begin_voting
+        self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
+        self._elected = None
+        self._done_tallying = False
 
     @property
     def voting_rule(self) -> str:
-        return "Simultaneous majority vote. Player with the most votes is exiled. Ties result in no exile."
+        return "Simultaneous majority vote. Player with the most votes is exiled. Ties result in random selection amongst the top ties."
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         self._ballots = {}
         # Ensure voters and targets are alive at the start of voting
         self._expected_voters = [p.id for p in alive_voters if p.alive]
         self._potential_targets = [p.id for p in potential_targets if p.alive]
-        self._current_game_state = state # Store the game state reference
+        self._current_game_state = state  # Store the game state reference
 
     def collect_vote(self, vote_action: Action, state: GameState):
-        if not isinstance(vote_action, VoteAction):
-            return
-        
         actor_player = state.get_player_by_id(vote_action.actor_id)
-        
+
         # Voter must be expected and alive at the moment of casting vote
         if actor_player and actor_player.alive and vote_action.actor_id in self._expected_voters:
-            if vote_action.target_id == "-1":  # Abstain
+            # Prevent re-voting
+            if vote_action.actor_id in self._ballots:
+                return
+            if vote_action.target_id in self._potential_targets:
                 self._ballots[vote_action.actor_id] = vote_action.target_id
-            elif vote_action.target_id in self._potential_targets:
-                # Target was valid at the start of voting.
-                # Optionally, check if target is still alive using current 'state'.
-                # If target died mid-round, this vote might become an abstain.
-                target_player_current = state.get_player_by_id(vote_action.target_id)
-                if target_player_current and target_player_current.alive:
-                    self._ballots[vote_action.actor_id] = vote_action.target_id
-                else: # Target is no longer alive, treat as abstain
-                    self._ballots[vote_action.actor_id] = "-1"
-            else: # Invalid target (not abstain, not in original potential_targets)
-                self._ballots[vote_action.actor_id] = "-1" # Treat as abstain
+            else:
+                self._ballots[vote_action.actor_id] = None
+                state.add_history_entry(
+                    description=f"Invalid vote attempt by P{vote_action.actor_id}.",
+                    entry_type=HistoryEntryType.ERROR,
+                    visible_to=[vote_action.actor_id],
+                    data={'vote_action': vote_action.serialize()}
+                )
         else:
             state.add_history_entry(
                 description=f"Invalid vote attempt by P{vote_action.actor_id}.",
                 entry_type=HistoryEntryType.ERROR,
-                visible_to=[vote_action.actor_id]
+                visible_to=[vote_action.actor_id],
+                data={'vote_action': vote_action.serialize()}
             )
 
-    def tally_votes(self, state_at_begin_voting: GameState) -> str | None:
-        """
-        Tallies votes from self._ballots.
-        Uses state_at_begin_voting to confirm validity of voters/targets if necessary,
-        though primary validation happens in begin_voting and collect_vote.
-        """
-        from collections import Counter
+    def _tally_votes(self, state: GameState) -> str | None:
+        if self._done_tallying:
+            return self._elected
+        self._done_tallying = True
+        counts = Counter(v for v in self._ballots.values() if v is not None).most_common()
+        if not counts:
+            self._elected = None
+        else:
+            _, top_votes = counts[0]
+            self._elected = random.choice([v for v, c in counts if c == top_votes])
+        return self._elected
 
-        # Consider votes only from expected voters and for initially valid targets (or abstain).
-        # Aliveness of voter at casting time was handled by collect_vote.
-        final_votes_to_consider = [
-            target_id for voter_id, target_id in self._ballots.items()
-            if voter_id in self._expected_voters and \
-               (target_id == "-1" or target_id in self._potential_targets)
-        ]
-        
-        non_abstain_votes = [tgt for tgt in final_votes_to_consider if tgt != "-1"]
-
-        if not non_abstain_votes:
-            return None
-        
-        counts = Counter(non_abstain_votes).most_common()
-        if not counts: return None
-        
-        top, top_votes = counts[0]
-        if len(counts) > 1 and counts[1][1] == top_votes:
-            return None
-        return top
     def get_voting_prompt(self, state: GameState, player_id: str) -> str:
-        target_options = [f"P{p_id}" for p_id in self._potential_targets if state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive]
+        target_options = [f"P{p_id}" for p_id in self._potential_targets if
+                          state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive]
         options_str = ", ".join(target_options) if target_options else "No valid targets"
         return f"P{player_id}, please cast your vote. Options: {options_str} or Abstain ('-1')."
 
     def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
-        return Counter(
-            tgt for tgt in self._ballots.values() 
-            if tgt != "-1" and tgt in self._potential_targets
-        )
+        return Counter(self._ballots.values())
 
     def get_next_voters(self) -> List[str]:
-        # For simultaneous, all expected voters vote at once.
-        return [v_id for v_id in self._expected_voters if v_id not in self._ballots]
+        # For simultaneous, all expected voters vote at once, and only once.
+        return [voter for voter in self._expected_voters if voter not in self._ballots]
 
     def done(self) -> bool:
-        return len(self._ballots) >= len(self._expected_voters)
+        # The voting is considered "done" after one tick where voters were requested.
+        # The moderator will then call tally_votes.
+        return all(voter in self._ballots for voter in self._expected_voters)
 
     def get_valid_targets(self) -> List[str]:
         # Return a copy of targets that were valid (alive) at the start of voting.
         return list(self._potential_targets)
 
-    def get_elected(self) -> str | None: # Return type matches tally_votes
-        if self._current_game_state is None:
-            # This should not happen if begin_voting was called. Log error or raise.
-            return None
-        return self.tally_votes(self._current_game_state)
+    def get_elected(self) -> str | None:  # Return type matches tally_votes
+        if not self.done():
+            raise Exception("Voting is not done yet.")
+        return self._tally_votes(self._current_game_state)
 
 
 class SequentialFirstToK(VotingProtocol):
@@ -638,7 +622,7 @@ class SequentialFirstToK(VotingProtocol):
         # Simplified: if tally_votes finds a winner, it's "collected" for resolution.
         return len(self._ballots) >= len(self._expected_voters)  # Or some other condition
 
-    def tally_votes(self, state: GameState) -> str | None:
+    def _tally_votes(self, state: GameState) -> str | None:
         from collections import Counter
         tally = Counter(self._ballots.values())  # Using internally stored ballots
         for candidate, votes in tally.items():
@@ -670,7 +654,7 @@ class SequentialFirstToK(VotingProtocol):
 
     def done(self) -> bool:
         # Done if someone reached threshold or all expected voters have voted.
-        return self.tally_votes(state) is not None or len(self._ballots) >= len(self._expected_voters)
+        return self._tally_votes(state) is not None or len(self._ballots) >= len(self._expected_voters)
 
 
 # ----------------- decision protocols --------------------------------------- #
@@ -890,7 +874,7 @@ class SequentialVoting(VotingProtocol):
             if vote_action.actor_id == expected_voter_id:  # Implies actor_player was found but not actor_player.alive
                 self._current_voter_index += 1
 
-    def tally_votes(self, state: GameState) -> Optional[str]:
+    def _tally_votes(self, state: GameState) -> Optional[str]:
         if not self.done():
             # Voting is not yet complete for this protocol.
             return None
@@ -943,4 +927,4 @@ class SequentialVoting(VotingProtocol):
         if self._current_game_state is None:
             # This implies begin_voting was not called or state was not set.
             return None # Or raise an error
-        return self.tally_votes(self._current_game_state)
+        return self._tally_votes(self._current_game_state)

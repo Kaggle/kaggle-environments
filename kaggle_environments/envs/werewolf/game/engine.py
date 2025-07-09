@@ -4,14 +4,15 @@ import json
 
 from .actions import (
     Action, VoteAction,
-    HealAction, InspectAction, ChatAction
+    HealAction, InspectAction, ChatAction, EliminateProposalAction
 )
 from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player, Team, Phase, RoleConst
 from .states import (
     GameState, HistoryEntry, HistoryEntryType, GameStartDataEntry, GameStartRoleDataEntry, 
     AskDoctorSaveDataEntry, AskSeerRevealDataEntry, AskWerewolfVotingDataEntry,
-    SeerInspectResultDataEntry, WerewolfNightVoteDataEntry
+    SeerInspectResultDataEntry, WerewolfNightVoteDataEntry,
+    WerewolfNightEliminationDataEntry, WerewolfNightEliminationElectedDataEntry
 )
 
 
@@ -301,7 +302,7 @@ class Moderator:
         # Process werewolf votes from any received actions
         for actor_id, action in player_actions.items():
             player = self.state.get_player_by_id(actor_id)
-            if player and player.alive and player.role.name == RoleConst.WEREWOLF and isinstance(action, VoteAction):
+            if player and player.alive and player.role.name == RoleConst.WEREWOLF and isinstance(action, EliminateProposalAction):
                 self.night_voting.collect_vote(action, self.state)
                 data = WerewolfNightVoteDataEntry(
                     actor_id=actor_id,
@@ -312,7 +313,7 @@ class Moderator:
                     description=f'{actor_id} has voted to eliminate {action.target_id}.' + f"Reasoning: {action.reasoning}" if action.reasoning else "",
                     entry_type=HistoryEntryType.VOTE_ACTION,
                     public=False,
-                    visible_to=self.state.alive_players_by_team(Team.WEREWOLVES),
+                    visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
                     data=data
                 )
 
@@ -326,7 +327,7 @@ class Moderator:
             next_ww_voters = self.night_voting.get_next_voters()
             for voter_id in next_ww_voters:
                 if voter_id not in self._action_queue: self._action_queue.append(voter_id)
-            
+
             # Re-prompt only the werewolves whose turn it is now
             alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if p.id in self._action_queue]
             if alive_werewolves_still_to_vote:
@@ -341,38 +342,38 @@ class Moderator:
             # Stay in NIGHT_AWAIT_ACTIONS
         else: 
             # All werewolf votes are in, or voting is otherwise complete
-            werewolf_target_id = self.night_voting.get_elected() 
-            
+            werewolf_target_id = self.night_voting.get_elected()
+
+            data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
+            self.state.add_history_entry(
+                description=f'Werewolves elected to eliminate "{data.elected_target_player_id}".',
+                entry_type=HistoryEntryType.ACTION_RESULT,
+                public=False,
+                visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
+                data=data
+            )
+
             if werewolf_target_id:
                 werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
-                if werewolf_target_player: 
+                if werewolf_target_player:
                     if werewolf_target_id in self._night_save_queue:
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!", # Keep description for human readability
+                            description=f"Last night, no one was eliminated by werewolves.",
                             entry_type=HistoryEntryType.ACTION_RESULT,
-                            public=True,
-                            data={
-                                "action_type": "heal_outcome",
-                                "saved_player_id": werewolf_target_id,
-                                "saved_player_role_name": werewolf_target_player.role.name,
-                                "saved_by_role": RoleConst.DOCTOR.value,
-                                "attacked_by_team": Team.WEREWOLVES.value,
-                                "outcome": "saved"
-                            }
+                            public=True
                         )
                     else: 
                         original_role_name = werewolf_target_player.role.name 
                         self.state.eliminate_player(werewolf_target_id)
+                        data = WerewolfNightEliminationDataEntry(
+                            eliminated_player_id=werewolf_target_id,
+                            eliminated_player_role_name=original_role_name,
+                        )
                         self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.", # Keep description
+                            description=f"Last night, {werewolf_target_id} was eliminated by werewolves. Their role was a {original_role_name}.",
                             entry_type=HistoryEntryType.ELIMINATION,
                             public=True,
-                            data={
-                                "eliminated_player_id": werewolf_target_id,
-                                "eliminated_player_role_name": original_role_name,
-                                "elimination_reason": "werewolves",
-                                "saved_by_doctor": False
-                            }
+                            data=data
                         )
                 else: 
                     self.state.add_history_entry(
@@ -380,7 +381,8 @@ class Moderator:
                         entry_type=HistoryEntryType.ERROR,
                         public=True
                     )
-            else: 
+            else:
+                # TODO: add fail over if no consensus can be reached (all werewolf action failed) for several voting rounds.
                 self.state.add_history_entry(
                     description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
                     entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, # This could also be a VOTE_RESULT type
@@ -394,7 +396,6 @@ class Moderator:
             self._night_save_queue = []
             if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.DAY_START
-            # _action_queue is already clear, DAY_START will populate it.
 
     def _handle_day_start(self, player_actions: Dict[str, Action]):
         self._action_queue.clear()
