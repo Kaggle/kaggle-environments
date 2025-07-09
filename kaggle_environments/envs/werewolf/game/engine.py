@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import List, Dict, Tuple
+import json
 
 from .actions import (
     Action, VoteAction,
@@ -190,7 +191,7 @@ class Moderator:
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
             data_entry = AskDoctorSaveDataEntry(
                 valid_candidates=self.valid_doctor_save_ids[doctor.id],
-                action_json_schema=HealAction.model_json_schema()
+                action_json_schema=json.dumps(HealAction.model_json_schema())
             )
             self.state.add_history_entry(
                 description=f"Wake up Doctor. Who would you like to save? The options are {data_entry.valid_candidates}.",
@@ -205,7 +206,7 @@ class Moderator:
             if seer.id not in self._action_queue: self._action_queue.append(seer.id)
             data_entry = AskSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
-                action_json_schema=InspectAction.model_json_schema()
+                action_json_schema=json.dumps(InspectAction.model_json_schema())
             )
             self.state.add_history_entry(
                 description=f"Wake up Seer. Who would you like to see their true role? The options are {data_entry.valid_candidates}.",
@@ -226,7 +227,7 @@ class Moderator:
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
                 voting_protocol_rule=self.night_voting.voting_rule,
-                action_json_schema=VoteAction.model_json_schema()
+                action_json_schema=json.dumps(VoteAction.model_json_schema())
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
@@ -254,8 +255,6 @@ class Moderator:
     def _handle_night_await_actions(self, player_actions: Dict[str, Action]):
         # Process actions from Doctor, Seer (if it's the first step of night actions)
         # and Werewolves (always processed if they send votes)
-
-        assert 0
 
         if self.night_step == 1:
             for actor_id, action in player_actions.items():

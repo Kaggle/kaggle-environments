@@ -5,7 +5,7 @@ from collections import Counter
 
 from .states import GameState, HistoryEntryType
 from .roles import Player, Team
-from .actions import EliminateProposalAction, EliminateAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
+from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
 
 
 class DiscussionProtocol(ABC):
@@ -115,7 +115,7 @@ class TeamDecisionProtocol(ABC):
             self,
             team_players: Sequence[Player],
             proposals: Sequence[EliminateProposalAction],
-    ) -> EliminateAction | None:
+    ) -> EliminateProposalAction | None:
         """"""
 
 
@@ -188,7 +188,7 @@ class WerewolfEliminationProtocol(NightTeamActionProtocol):
         # For simplicity, Moderator will decide when to call resolve. Can be enhanced.
         return True
 
-    def resolve_action(self, state: GameState, team_players: Sequence[Player]) -> Optional[EliminateAction]:
+    def resolve_action(self, state: GameState, team_players: Sequence[Player]) -> Optional[EliminateProposalAction]:
         alive_team_players = [p for p in team_players if p.alive]
         if not alive_team_players:
             return None
@@ -686,7 +686,7 @@ class MajorityEliminateResolver(TeamDecisionProtocol):
         victim = random.choice(top_targets)
         # "alpha" wolf = lowest id
         alpha_id = min(p.id for p in team_players)
-        return EliminateAction(actor_id=alpha_id, target_id=victim)
+        return EliminateProposalAction(actor_id=alpha_id, target_id=victim)
 
 
 class AlphaFirstEliminateResolver(TeamDecisionProtocol):
@@ -696,7 +696,7 @@ class AlphaFirstEliminateResolver(TeamDecisionProtocol):
         alpha_vote = next(
             (p for p in proposals if p.actor_id == alpha.id), None)
         if alpha_vote:
-            return EliminateAction(actor_id=alpha.id, target_id=alpha_vote.target_id)
+            return EliminateProposalAction(actor_id=alpha.id, target_id=alpha_vote.target_id)
         # fall back to majority if alpha forgot
         return MajorityEliminateResolver().resolve(team_players, proposals)
 

@@ -5,16 +5,15 @@ from os import path
 from typing import Dict, Optional, List, Any, Union, Tuple
 
 from pydantic import BaseModel
-
-from .game.actions import Action, VoteAction, HealAction, InspectAction, ChatAction, NoOpAction
-# Game engine components for the new interpreter
+from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
+    NoOpAction, create_action
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
 from .game.roles import RoleConst, create_players_from_roles_and_ids
-from .game.states import GameState, HistoryEntryType, DataEntry
+from .game.states import *
 
 
 # my_kaggle_env.py
@@ -101,75 +100,68 @@ def create_protocol_from_config(
 
 def random_agent(obs):
     raw_obs = obs.get('raw_observation')
+    entries = obs.get('new_history_entries')
 
     # Default to NO_OP if observation is missing or agent cannot act
-    if not raw_obs:
+    if not raw_obs or not entries:
         return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
 
     current_phase = DetailedPhase(raw_obs['phase'])
     my_role = RoleConst(raw_obs['role'])
 
-    all_player_names = json.loads(raw_obs['all_player_unique_names'])
+    all_player_names = raw_obs['all_player_ids']
     my_unique_name = raw_obs['my_unique_name']
 
     my_idx = all_player_names.index(my_unique_name)
 
     alive_player_indices = [i for i, status in enumerate(raw_obs['alive_players']) if status == 1]
 
-    action_to_take = {"action_type": ActionType.NO_OP.value} # Default action
+    action = NoOpAction(reasoning="There's nothing to be done.") # Default action
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
             # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
             # ActionType.NIGHT_KILL_VOTE
-            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
-                                  if "action_json_schema" in entry), None)
-
+            history_entry = next((entry for entry in entries
+                                  if isinstance(entry.data, AskWerewolfVotingDataEntry)), None)
             if history_entry:
-                valid_targets = json.loads(history_entry)["valid_targets"]
-                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
-                if potential_targets_idx:
-                    target_idx = random.choice(potential_targets_idx)
-                    action_to_take = {"action_type": ActionType.NIGHT_KILL_VOTE.value, "target_idx": target_idx}
+                valid_targets = history_entry.data.valid_targets
+                target_id = random.choice(valid_targets)
+                action = EliminateProposalAction(target_id=target_id, reasoning="I randomly chose one.")
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
             # ActionType.NIGHT_SAVE_TARGET
-            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
-                                  if "action_json_schema" in entry), None)
+            history_entry = next((entry for entry in entries if isinstance(entry.data, AskDoctorSaveDataEntry)), None)
 
             if history_entry:
-                valid_targets = json.loads(history_entry)["valid_candidates"]
-                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
-                if potential_targets_idx:
-                    target_idx = random.choice(potential_targets_idx)
-                    action_to_take = {"action_type": ActionType.NIGHT_SAVE_TARGET.value, "target_idx": target_idx}
+                valid_targets = history_entry.data.valid_candidates
+                target_id = random.choice(valid_targets)
+                action = HealAction(target_id=target_id, reasoning="I randomly chose one to heal.")
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
             # ActionType.NIGHT_INSPECT_TARGET
-            history_entry = next((entry for entry in json.loads(raw_obs['new_visible_announcements'])
-                                  if "action_json_schema" in entry), None)
+            history_entry = next((entry for entry in entries if isinstance(entry.data, AskSeerRevealDataEntry)), None)
 
             if history_entry:
-                valid_targets = json.loads(history_entry)["valid_candidates"]
-                potential_targets_idx = [all_player_names.index(name) for name in valid_targets]
-                if potential_targets_idx:
-                    target_idx = random.choice(potential_targets_idx)
-                    action_to_take = {"action_type": ActionType.NIGHT_INSPECT_TARGET.value, "target_idx": target_idx}
+                valid_targets = history_entry.data.valid_candidates
+                target_id = random.choice(valid_targets)
+                action = InspectAction(target_id=target_id, reasoning="I randomly chose one to inspect.")
 
     elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
         # Only alive players can discuss
         if my_idx in alive_player_indices:
-            action_to_take = {"action_type": ActionType.DAY_DISCUSS.value,
-                              "message": random.choice([
-                                  "Hello everyone!",
-                                  "I have a strong feeling about someone.",
-                                  "Any information to share?",
-                                  "I am a simple Villager just trying to survive.",
-                                  "Let's think carefully before voting."
-                              ])}
-            # TODO: a better agent would choose a message related to history
+            action = ChatAction(
+                message=random.choice([
+                    "Hello everyone!",
+                    "I have a strong feeling about someone.",
+                    "Any information to share?",
+                    "I am a simple Villager just trying to survive.",
+                    "Let's think carefully before voting."
+                ]),
+                reasoning="I randomly chose one message."
+            )
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
         # Only alive players can vote
@@ -177,18 +169,15 @@ def random_agent(obs):
             # ActionType.DAY_LYNCH_VOTE
             valid_targets_idx = [idx for idx in alive_player_indices if idx != my_idx]
             if valid_targets_idx:
-                target_idx = random.choice(valid_targets_idx)
-                action_to_take = {"action_type": ActionType.DAY_LYNCH_VOTE.value, "target_idx": target_idx}
+                action = VoteAction(
+                    target_id=random.choice(all_player_names),
+                    reasoning="I randomly chose one."
+                )
 
     elif current_phase == DetailedPhase.GAME_OVER:
-        action_to_take = {"action_type": ActionType.NO_OP.value}
-        
-    if "target_idx" not in action_to_take:
-        action_to_take["target_idx"] = None
-    if "message" not in action_to_take:
-        action_to_take["message"] = None
-        
-    return action_to_take
+        action = {"action_type": ActionType.NO_OP.value}
+
+    return action.serialize()
 
 # Helper function to parse agent's dict action to engine.Action
 def _parse_agent_action_to_engine_action(
@@ -388,14 +377,9 @@ def interpreter(state, env):
     for sub_state, player in zip(state, game_state.players):
         player_id_str = player.id
         if player_id_str in active_player_ids_from_moderator and sub_state.status == "ACTIVE":
-            raw_action_from_agent = sub_state.action
-            actor_role = game_state.get_player_by_id(player_id_str).role.name
-            parsed_action = _parse_agent_action_to_engine_action(
-                player_id_str, raw_action_from_agent, env.player_id_str_list,
-                moderator.detailed_phase, actor_role
-            )
-            if parsed_action:
-                parsed_player_actions[player_id_str] = parsed_action
+            serialized_action = sub_state.action
+            if serialized_action:
+                parsed_player_actions[player_id_str] = create_action(serialized_action)
 
     # 2. Advance the Moderator
     moderator.advance(parsed_player_actions)
@@ -426,11 +410,13 @@ def interpreter(state, env):
         player_id_str = env.player_ids_map[i]
 
         # skip if player not active
-        if player_id_str not in active_player_ids_after_advance:
-            continue
+        #if player_id_str not in active_player_ids_after_advance:
+        #    continue
         
         # set the status of active player to ACTIVE
-        state[i]['status'] = 'ACTIVE'
+        #state[i]['status'] = 'ACTIVE'
+        print(f"Player {player_id_str} status after advance: {state[i]['status']}")
+
 
         player_obj = game_state.get_player_by_id(player_id_str)
 
