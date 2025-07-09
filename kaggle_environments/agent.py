@@ -164,12 +164,16 @@ class Agent:
         # Start the timer.
 
         with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
-            try:
+            if self.debug:
                 start = perf_counter()
                 action = self.agent(*args)
-            except Exception as e:
-                traceback.print_exc(file=err_buffer)
-                action = e
+            else:
+                try:
+                    start = perf_counter()
+                    action = self.agent(*args)
+                except Exception as e:
+                    traceback.print_exc(file=err_buffer)
+                    action = e
 
             out = out_buffer.getvalue()
             err = err_buffer.getvalue()
