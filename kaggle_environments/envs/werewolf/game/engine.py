@@ -10,10 +10,11 @@ from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player
 from .consts import Phase, Team, RoleConst
 from .states import GameState
-from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, AskDoctorSaveDataEntry, \
-    AskSeerRevealDataEntry, AskWerewolfVotingDataEntry, SeerInspectResultDataEntry, WerewolfNightVoteDataEntry, \
+from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry, \
+    RequestDoctorSaveDataEntry, \
+    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, WerewolfNightVoteDataEntry, \
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry, \
-    GameEndResultsDataEntry
+    GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
 
 
 class DetailedPhase(Enum):
@@ -198,7 +199,7 @@ class Moderator:
             if doctor.id not in self._action_queue: self._action_queue.append(doctor.id)
             self.valid_doctor_save_ids[doctor.id] = [f"{p.id}" for p in self.state.alive_players()] \
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
-            data_entry = AskDoctorSaveDataEntry(
+            data_entry = RequestDoctorSaveDataEntry(
                 valid_candidates=self.valid_doctor_save_ids[doctor.id],
                 action_json_schema=json.dumps(HealAction.model_json_schema())
             )
@@ -213,7 +214,7 @@ class Moderator:
         # announce await action to seer
         for seer in self.state.alive_players_by_role(RoleConst.SEER):
             if seer.id not in self._action_queue: self._action_queue.append(seer.id)
-            data_entry = AskSeerRevealDataEntry(
+            data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
                 action_json_schema=json.dumps(InspectAction.model_json_schema())
             )
@@ -231,7 +232,7 @@ class Moderator:
         potential_targets = self.state.alive_players_by_team(Team.VILLAGERS)  # Target non-werewolves
 
         if alive_werewolves:
-            data = AskWerewolfVotingDataEntry(
+            data = RequestWerewolfVotingDataEntry(
                 valid_targets=[f"{p.id}" for p in potential_targets],
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
@@ -282,8 +283,31 @@ class Moderator:
                             )
                             # skip since doctor can't self save
                             continue
+                    data = DoctorHealActionDataEntry(
+                        actor_id=actor_id,
+                        target_id=action.target_id
+                    )
+                    self.state.add_history_entry(
+                        description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
+                        entry_type=HistoryEntryType.HEAL_ACTION,
+                        public=False,
+                        visible_to=[actor_id],
+                        data=data
+                    )
                     self._night_save_queue.append(action.target_id)
                 elif player.role.name == RoleConst.SEER and isinstance(action, InspectAction):
+
+                    action_data = SeerInspectActionDataEntry(
+                        actor_id=actor_id,
+                        target_id=action.target_id
+                    )
+                    self.state.add_history_entry(
+                        description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
+                        entry_type=HistoryEntryType.ACTION_RESULT,
+                        public=False,
+                        visible_to=[actor_id],
+                        data=action_data
+                    )
                     target_player = self.state.get_player_by_id(action.target_id)
                     if target_player:  # Ensure target exists
                         data = SeerInspectResultDataEntry(
@@ -357,9 +381,19 @@ class Moderator:
                 werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
                 if werewolf_target_player:
                     if werewolf_target_id in self._night_save_queue:
+                        save_data = DoctorSaveDataEntry(saved_player_id=werewolf_target_id)
                         self.state.add_history_entry(
-                            description=f"Last night, no one was eliminated by werewolves.",
+                            description=f"Last night, player \"{werewolf_target_id}\" was attacked but was saved "
+                                        f"by a Doctor! No one was eliminated.",
                             entry_type=HistoryEntryType.ACTION_RESULT,
+                            public=False,
+                            data=save_data,
+                            visible_to=[]
+                        )
+                        # public info cannot reveal who's attacked and who's saved
+                        self.state.add_history_entry(
+                            description=f"Last night, No one was eliminated.",
+                            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                             public=True
                         )
                     else:
