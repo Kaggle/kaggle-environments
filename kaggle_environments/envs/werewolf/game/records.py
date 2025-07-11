@@ -34,6 +34,7 @@ class HistoryEntry(BaseModel):
     public: bool = False
     visible_to: Set[str] = Field(default_factory=set)
     data: Optional[DataEntry]
+    source: str
 
 
 class GameStartDataEntry(DataEntry):

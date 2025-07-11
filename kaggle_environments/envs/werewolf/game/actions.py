@@ -20,10 +20,6 @@ class TargetedAction(Action):
 
 
 # ——— Concrete leaf classes --------------------------------------- #
-class EliminateProposalAction(TargetedAction):
-    pass
-
-
 class HealAction(TargetedAction):
     pass
 
@@ -33,6 +29,10 @@ class InspectAction(TargetedAction):
 
 
 class VoteAction(TargetedAction):
+    pass
+
+
+class EliminateProposalAction(VoteAction):
     pass
 
 

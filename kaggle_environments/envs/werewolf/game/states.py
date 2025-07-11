@@ -1,12 +1,12 @@
-from typing import List, Dict, Optional, Any, Union
-from collections import defaultdict
+from typing import List, Dict, Optional, Any, Union, Deque
+from collections import defaultdict, deque
 from functools import cached_property
 
 from pydantic import BaseModel, PrivateAttr, Field, computed_field
 
 from .records import HistoryEntryType, DataEntry, HistoryEntry
 from .roles import Player
-from .consts import Phase, Team, RoleConst
+from .consts import Phase, Team, RoleConst, MODERATOR_ID
 
 
 class GameState(BaseModel):
@@ -18,6 +18,7 @@ class GameState(BaseModel):
     _id_to_player: Dict[str, Player] = PrivateAttr(default_factory=dict)
     _history_entry_by_type: Dict[HistoryEntryType, List[HistoryEntry]] = PrivateAttr(
         default_factory=lambda: defaultdict(list))
+    _history_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
 
     @computed_field
     @cached_property
@@ -67,16 +68,18 @@ class GameState(BaseModel):
 
     def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
                           visible_to: Optional[List[str]] = None, data: Optional[Union[
-                DataEntry, Dict[str, Any]]] = None):
+                DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
         entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
                              description=description, public=public,
                              visible_to=set(visible_to) if visible_to is not None else set(),
-                             data=data)
+                             data=data,
+                             source=source)
         self.history[day_key].append(entry)
         self._history_entry_by_type[entry_type].append(entry)
+        self._history_queue.append(entry)
 
         # observers message pushing below
         if public:
@@ -92,3 +95,8 @@ class GameState(BaseModel):
         player = self.get_player_by_id(pid)
         if player:
             player.alive = False
+
+    def consume_messages(self) -> List[HistoryEntry]:
+        messages = list(self._history_queue)
+        self._history_queue.clear()
+        return messages
