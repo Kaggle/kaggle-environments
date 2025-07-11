@@ -6,135 +6,165 @@ function renderer({
     height = 600, // Default height
     width = 800   // Default width
 }) {
-    const Role = {
-        1: "VILLAGER",
-        2: "WEREWOLF",
-        3: "DOCTOR",
-        4: "SEER",
-        0: "Unknown/None" // For default/invalid role values in observation
-    };
-
-    const Phase = {
-        1: "NIGHT_WEREWOLF_VOTE",
-        2: "NIGHT_DOCTOR_SAVE",
-        3: "NIGHT_SEER_INSPECT",
-        4: "DAY_DISCUSSION",
-        5: "DAY_VOTING",
-        6: "GAME_OVER"
-    };
-
     // Helper to get player name or a special string if index is out of bounds
-    function getPlayerNameOrSpecial(idx, playerNamesList, numActualPlayers, specialValStr = "N/A") {
-        if (idx >= 0 && idx < numActualPlayers) {
-            return playerNamesList[idx];
-        } else if (idx === numActualPlayers) { // Convention for "no one" or "invalid"
-            return specialValStr;
+    function formatVotes(votesObject) {
+        if (!votesObject || Object.keys(votesObject).length === 0) {
+            return "No votes cast yet.";
         }
-        return `Invalid_Index_${idx}`;
+        let readableVotes = "";
+        for (const voterName in votesObject) {
+            const targetName = votesObject[voterName];
+            readableVotes += `  ${voterName} -> ${targetName}\n`;
+        }
+        return readableVotes.trim();
     }
 
-    // Helper to get role name or a special string
-    function getRoleNameOrSpecial(roleVal, specialValStr = "Unknown/None") {
-        if (roleVal === 0) return specialValStr;
-        return Role[roleVal] || `Invalid_Role_Value_${roleVal}`;
-    }
-
-    // Helper to parse vote details JSON into a readable string
-    function parseVoteDetailsReadable(voteJsonStr, playerNamesList, numActualPlayers) {
-        if (!voteJsonStr || voteJsonStr === "{}") return "No votes yet or none cast.";
+    // Helper to parse discussion log into a readable string
+    function formatDiscussion(discussionLog) {
+        if (!discussionLog || discussionLog.length === 0) {
+            return "No discussion yet this day.";
+        }
         try {
-            const votesDictIdx = JSON.parse(voteJsonStr);
-            if (Object.keys(votesDictIdx).length === 0) return "No votes cast.";
-            let readableVotes = "";
-            for (const voterName in votesDictIdx) {
-                const targetIdxInt = votesDictIdx[voterName];
-                let targetName = getPlayerNameOrSpecial(targetIdxInt, playerNamesList, numActualPlayers, "Invalid Vote Target/No Vote");
-                readableVotes += `  ${voterName} -> ${targetName}\n`;
-            }
-            return readableVotes.trim() || "No votes recorded.";
+            return discussionLog.map(d => `${d.speaker}: ${d.message}`).join('\n');
         } catch (e) {
-            return `Error parsing vote details: '${voteJsonStr}'`;
+            return "Error parsing discussion log.";
         }
     }
 
     parent.innerHTML = ''; // Clear previous rendering
 
     const container = document.createElement("div");
-    container.style.fontFamily = "Arial, sans-serif";
-    container.style.padding = "15px";
-    container.style.backgroundColor = "#f4f4f9";
-    container.style.border = "1px solid #ccc";
-    container.style.borderRadius = "8px";
-    container.style.width = `${width - 30}px`; // Adjust for padding
-    container.style.height = `${height - 30}px`;
-    container.style.overflowY = "auto";
-
+    Object.assign(container.style, {
+        fontFamily: "Arial, sans-serif",
+        padding: "15px",
+        backgroundColor: "#f4f4f9",
+        border: "1px solid #ccc",
+        borderRadius: "8px",
+        width: `${width - 32}px`,
+        height: `${height - 32}px`,
+        overflowY: "auto",
+    });
 
     if (!environment || !environment.steps || environment.steps.length === 0 || step >= environment.steps.length) {
         container.textContent = "Waiting for game data or invalid step...";
         parent.appendChild(container);
         return;
     }
+    
+    // --- State Reconstruction ---
+    // The new observation model is event-based, so we must reconstruct state by processing history.
+    let gameState = {
+        players: [],
+        day: 0,
+        phase: 'GAME_SETUP',
+        gameWinner: null,
+        lastLynched: null,
+        lastKilledByWW: null,
+        seerInspections: [],
+        discussionLog: [],
+        dayVotes: {},
+        nightVotes: {},
+    };
 
-    const currentKaggleStepStateList = environment.steps[step];
-    if (!currentKaggleStepStateList || !currentKaggleStepStateList[0] || !currentKaggleStepStateList[0].observation || !currentKaggleStepStateList[0].observation.raw_aec_observation) {
-        if (step === 0 && environment.steps[0] && environment.steps[0][0] && environment.steps[0][0].status === "ACTIVE") {
-             // Initial step, might not have raw_aec_observation fully populated in the way later steps do for player 0
-             // or interpreter hasn't run yet for the first agent.
-             container.textContent = "Initial game state. Waiting for first action.";
-        } else {
-            container.textContent = "Error: Observation data is missing for this step.";
-        }
+    const processedEvents = new Set();
+
+    const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
+    if (!firstObs) {
+        container.textContent = "Waiting for game data...";
         parent.appendChild(container);
         return;
     }
-    
-    // Use player 0's observation for global state, assuming it's consistent for shared fields.
-    // If player 0 is dead, find first alive player. If all dead, use player 0 still.
-    let agentWithObs = currentKaggleStepStateList[0];
-    if (agentWithObs.observation.raw_aec_observation.alive_players && 
-        agentWithObs.observation.raw_aec_observation.alive_players[0] === 0) {
-        const firstAliveAgent = currentKaggleStepStateList.find(
-            ag => ag.observation.raw_aec_observation.alive_players && 
-                  ag.observation.raw_aec_observation.alive_players[currentKaggleStepStateList.indexOf(ag)] === 1
-        );
-        if (firstAliveAgent) agentWithObs = firstAliveAgent;
+
+    const allPlayerNamesList = firstObs.all_player_ids;
+    gameState.players = allPlayerNamesList.map(name => ({ name: name, is_alive: true, role: 'Unknown' }));
+    const playerMap = new Map(gameState.players.map(p => [p.name, p]));
+
+    for (let s = 0; s <= step; s++) {
+        const stepStateList = environment.steps[s];
+        if (!stepStateList) continue;
+
+        const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
+        if (currentObsForStep) {
+            gameState.day = currentObsForStep.day;
+            gameState.phase = currentObsForStep.phase;
+            // Update alive status based on the latest step's observation
+            const alivePlayerIds = new Set(currentObsForStep.alive_players);
+            for (const player of gameState.players) {
+                player.is_alive = alivePlayerIds.has(player.name);
+            }
+        }
+
+        for (const agentState of stepStateList) {
+            if (!agentState.observation?.raw_observation?.new_visible_raw_data) continue;
+
+            for (const dataEntry of agentState.observation.raw_observation.new_visible_raw_data) {
+                const eventKey = JSON.stringify(dataEntry);
+                if (processedEvents.has(eventKey)) continue;
+                processedEvents.add(eventKey);
+
+                // The json_str in the current Python implementation contains the entire HistoryEntry object.
+                // The actual event payload is in the 'data' property of that object.
+                const historyEvent = JSON.parse(dataEntry.json_str);
+                if (!historyEvent.data) continue; // Safety check for events without a data payload
+                const data = historyEvent.data;
+
+                switch (dataEntry.data_type) {
+                    case 'GameStartRoleDataEntry':
+                        playerMap.get(data.player_id).role = data.role;
+                        break;
+                    case 'DayExileElectedDataEntry':
+                        gameState.lastLynched = { name: data.elected_player_id, role: data.elected_player_role_name };
+                        if (playerMap.has(data.elected_player_id)) {
+                            playerMap.get(data.elected_player_id).is_alive = false;
+                        }
+                        gameState.discussionLog = []; // Reset for next day
+                        break;
+                    case 'WerewolfNightEliminationDataEntry':
+                        gameState.lastKilledByWW = { name: data.eliminated_player_id, role: data.eliminated_player_role_name };
+                        if (playerMap.has(data.eliminated_player_id)) {
+                            playerMap.get(data.eliminated_player_id).is_alive = false;
+                        }
+                        break;
+                    case 'SeerInspectResultDataEntry':
+                        gameState.seerInspections.push({ seer: data.actor_id, target: data.target_id, role: data.role, day: gameState.day });
+                        break;
+                    case 'ChatDataEntry':
+                        gameState.discussionLog.push({ speaker: data.speaker_id, message: data.message });
+                        break;
+                    case 'DayExileVoteDataEntry':
+                        if (!gameState.dayVotes[gameState.day]) gameState.dayVotes[gameState.day] = {};
+                        gameState.dayVotes[gameState.day][data.actor_id] = data.target_id;
+                        break;
+                    case 'WerewolfNightVoteDataEntry':
+                        if (!gameState.nightVotes[gameState.day]) gameState.nightVotes[gameState.day] = {};
+                        gameState.nightVotes[gameState.day][data.actor_id] = data.target_id;
+                        break;
+                    case 'GameEndResultsDataEntry':
+                        gameState.gameWinner = data.winner_team;
+                        Object.entries(data.all_players_and_role).forEach(([p_id, p_role]) => {
+                            playerMap.get(p_id).role = p_role;
+                        });
+                        break;
+                }
+            }
+        }
     }
-    const globalRawObs = agentWithObs.observation.raw_aec_observation;
 
-
-    const allPlayerNamesList = JSON.parse(globalRawObs.all_player_unique_names);
-    const numPlayers = allPlayerNamesList.length;
-
-    // Actor info from the 'info' field (should be consistent across agents for this step)
-    const actorInfoSource = currentKaggleStepStateList[0].info || {};
-    const actingPlayerKaggleIndex = actorInfoSource.actor_for_this_kaggle_step;
-    
-    let actingPlayerName = "N/A";
-    let actionDescription = "N/A";
-    let lastActionFeedback = "N/A";
-
-    if (actingPlayerKaggleIndex !== null && actingPlayerKaggleIndex !== undefined && actingPlayerKaggleIndex < numPlayers) {
-        actingPlayerName = allPlayerNamesList[actingPlayerKaggleIndex];
-        const actingPlayerStateInfo = currentKaggleStepStateList[actingPlayerKaggleIndex].info || {};
-        actionDescription = actingPlayerStateInfo.action_description_for_log || "No action description.";
-        lastActionFeedback = actingPlayerStateInfo.last_action_feedback || "No feedback.";
-    } else if (step === 0) {
-        actionDescription = "Initial game setup.";
-    }
-
+    // --- Actor Info ---
+    const lastStepStateList = environment.steps[step];
+    const actingPlayerIndex = lastStepStateList.findIndex(s => s.status === 'ACTIVE');
+    const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N/A";
 
     // --- Game Info Section ---
     const gameInfoDiv = document.createElement("div");
     gameInfoDiv.innerHTML = `
         <h2 style="color: #333; border-bottom: 2px solid #666; padding-bottom: 5px;">Werewolf Game Viewer</h2>
         <p><strong>Kaggle Step:</strong> ${step}</p>
-        <p><strong>Game Phase:</strong> ${Phase[globalRawObs.phase] || 'Unknown'}</p>
-        ${step > 0 && actingPlayerName !== "N/A" ? `
-            <p><strong>Agent Acted:</strong> ${actingPlayerName} (Index: ${actingPlayerKaggleIndex})</p>
-            <p><strong>Action Processed:</strong> ${actionDescription}</p>
-            <p><strong>Feedback to Agent:</strong> ${lastActionFeedback}</p>
-        ` : '<p><strong>Action:</strong> Initial State</p>'}
+        <p><strong>Day:</strong> ${gameState.day}</p>
+        <p><strong>Game Phase:</strong> ${gameState.phase.replace(/_/g, ' ')}</p>
+        ${actingPlayerName !== "N/A" ? `
+            <p><strong>Awaiting Action From:</strong> ${actingPlayerName}</p>
+        ` : '<p><strong>Action:</strong> Game is processing...</p>'}
     `;
     container.appendChild(gameInfoDiv);
 
@@ -142,47 +172,26 @@ function renderer({
     const playerStatusDiv = document.createElement("div");
     playerStatusDiv.innerHTML = `<h3 style="color: #555;">Player Status</h3>`;
     const playerListUl = document.createElement("ul");
-    playerListUl.style.listStyleType = "none";
-    playerListUl.style.paddingLeft = "0";
+    Object.assign(playerListUl.style, { listStyleType: "none", paddingLeft: "0" });
 
-    for (let i = 0; i < numPlayers; i++) {
+    for (const player of gameState.players) {
         const li = document.createElement("li");
-        li.style.padding = "5px 0";
-        li.style.borderBottom = "1px dashed #ddd";
+        Object.assign(li.style, { padding: "5px 0", borderBottom: "1px dashed #ddd" });
 
-        const playerName = allPlayerNamesList[i];
-        const isAlive = globalRawObs.alive_players[i] === 1;
         let roleDisplay = "Role: Unknown";
-
-        if (!isAlive) { // If dead, check if role was revealed
-            if (i === globalRawObs.last_lynched && globalRawObs.last_lynched_player_role !== 0) {
-                roleDisplay = `Role: ${getRoleNameOrSpecial(globalRawObs.last_lynched_player_role)} (Lynched)`;
-            } else if (i === globalRawObs.last_killed_by_werewolf && globalRawObs.last_killed_by_werewolf_role !== 0) {
-                roleDisplay = `Role: ${getRoleNameOrSpecial(globalRawObs.last_killed_by_werewolf_role)} (Killed by WW)`;
-            } else {
-                 roleDisplay = `Role: Unknown (Eliminated)`;
-            }
+        if (gameState.gameWinner) {
+            roleDisplay = `Role: ${player.role} (${player.is_alive ? 'Survived' : 'Eliminated'})`;
+        } else if (!player.is_alive) {
+            roleDisplay = `Role: ${player.role} (Eliminated)`;
         } else {
-             // For a general replay, we don't show roles of alive players unless it's the current agent's own role
-             // or a WW seeing other WWs, or Seer seeing their result.
-             // This part can be enhanced if rendering for a specific agent's perspective.
-             // For now, just "Role: Alive" or if it's the acting agent, their role.
-             if (i === actingPlayerKaggleIndex && step > 0 && environment.steps[step-1][i].observation.raw_aec_observation) {
-                 const actingPlayerPrevObs = environment.steps[step-1][i].observation.raw_aec_observation;
-                 roleDisplay = `Role: ${getRoleNameOrSpecial(actingPlayerPrevObs.role)} (Alive)`;
-             } else if (i === 0 && step === 0) { // Initial role for player 0
-                 roleDisplay = `Role: ${getRoleNameOrSpecial(globalRawObs.role)} (Alive)`;
-             }
-             else {
-                 roleDisplay = `Role: (Alive)`;
-             }
+            roleDisplay = `Role: (Alive)`;
         }
-        
+
         li.innerHTML = `
-            <strong style="color: ${isAlive ? 'green' : 'red'};">${playerName}</strong>
-            (Status: ${isAlive ? 'Alive' : 'Dead'}) - ${roleDisplay}
+            <strong style="color: ${player.is_alive ? 'green' : 'red'};">${player.name}</strong>
+            (Status: ${player.is_alive ? 'Alive' : 'Dead'}) - ${roleDisplay}
         `;
-        if (i === actingPlayerKaggleIndex) {
+        if (player.name === actingPlayerName) {
             li.style.backgroundColor = "#e0e0ff"; // Highlight acting player
         }
         playerListUl.appendChild(li);
@@ -190,81 +199,66 @@ function renderer({
     playerStatusDiv.appendChild(playerListUl);
     container.appendChild(playerStatusDiv);
 
-    // --- Event Log Section ---
+    // --- Events & Details Section ---
     const eventLogDiv = document.createElement("div");
     eventLogDiv.innerHTML = `<h3 style="color: #555;">Events & Details</h3>`;
 
-    const lastLynchedName = getPlayerNameOrSpecial(globalRawObs.last_lynched, allPlayerNamesList, numPlayers, "No One Lynched");
-    const lastLynchedRole = getRoleNameOrSpecial(globalRawObs.last_lynched_player_role);
-    eventLogDiv.innerHTML += `<p><strong>Last Lynched:</strong> ${lastLynchedName} (Role: ${lastLynchedRole})</p>`;
+    if (gameState.lastLynched) {
+        eventLogDiv.innerHTML += `<p><strong>Last Lynched:</strong> ${gameState.lastLynched.name} (Role: ${gameState.lastLynched.role})</p>`;
+    }
+    if (gameState.lastKilledByWW) {
+        eventLogDiv.innerHTML += `<p><strong>Last Killed by Werewolf:</strong> ${gameState.lastKilledByWW.name} (Role: ${gameState.lastKilledByWW.role})</p>`;
+    }
 
-    const lastKilledName = getPlayerNameOrSpecial(globalRawObs.last_killed_by_werewolf, allPlayerNamesList, numPlayers, "No One Killed by WW");
-    const lastKilledRole = getRoleNameOrSpecial(globalRawObs.last_killed_by_werewolf_role);
-    eventLogDiv.innerHTML += `<p><strong>Last Killed by Werewolf:</strong> ${lastKilledName} (Role: ${lastKilledRole})</p>`;
-    
     // Discussion Log
     const discussionDiv = document.createElement("div");
     discussionDiv.innerHTML = `<h4>Discussion Log (Current Day)</h4>`;
     const discussionPre = document.createElement("pre");
-    discussionPre.style.backgroundColor = "#fff";
-    discussionPre.style.border = "1px solid #eee";
-    discussionPre.style.padding = "10px";
-    discussionPre.style.maxHeight = "150px";
-    discussionPre.style.overflowY = "auto";
-    try {
-        const discussion = JSON.parse(globalRawObs.discussion_log);
-        if (discussion.length > 0) {
-            discussionPre.textContent = discussion.map(d => `${d.speaker}: ${d.message}`).join('\n');
-        } else {
-            discussionPre.textContent = "No discussion yet this day.";
-        }
-    } catch (e) {
-        discussionPre.textContent = "Error parsing discussion log.";
-    }
+    Object.assign(discussionPre.style, {
+        backgroundColor: "#fff", border: "1px solid #eee", padding: "10px",
+        maxHeight: "150px", overflowY: "auto", whiteSpace: "pre-wrap"
+    });
+    discussionPre.textContent = formatDiscussion(gameState.discussionLog);
     discussionDiv.appendChild(discussionPre);
     eventLogDiv.appendChild(discussionDiv);
 
     // Vote Details
     const voteDetailsDiv = document.createElement("div");
     voteDetailsDiv.innerHTML = `<h4>Vote Details</h4>`;
-    const lastDayVotesPre = document.createElement("pre");
-    lastDayVotesPre.textContent = `Last Day Lynch Votes:\n${parseVoteDetailsReadable(globalRawObs.last_day_vote_details, allPlayerNamesList, numPlayers)}`;
-    voteDetailsDiv.appendChild(lastDayVotesPre);
 
-    if (Phase[globalRawObs.phase] === "DAY_VOTING") {
-        const currentDayVotesPre = document.createElement("pre");
-        currentDayVotesPre.textContent = `Current Day Lynch Votes (So Far):\n${parseVoteDetailsReadable(globalRawObs.current_day_vote_details, allPlayerNamesList, numPlayers)}`;
-        voteDetailsDiv.appendChild(currentDayVotesPre);
+    const currentDayVotes = gameState.dayVotes[gameState.day] || {};
+    const dayVotesPre = document.createElement("pre");
+    dayVotesPre.textContent = `Day ${gameState.day} Lynch Votes:\n${formatVotes(currentDayVotes)}`;
+    voteDetailsDiv.appendChild(dayVotesPre);
+
+    const currentNightVotes = gameState.nightVotes[gameState.day] || {};
+    if (Object.keys(currentNightVotes).length > 0) {
+        const nightVotesPre = document.createElement("pre");
+        nightVotesPre.textContent = `Night ${gameState.day} Werewolf Votes:\n${formatVotes(currentNightVotes)}`;
+        voteDetailsDiv.appendChild(nightVotesPre);
     }
-    if (Phase[globalRawObs.phase] === "NIGHT_WEREWOLF_VOTE" && globalRawObs.current_night_werewolf_votes && globalRawObs.current_night_werewolf_votes !== "{}") {
-         const currentNightWWVotesPre = document.createElement("pre");
-         currentNightWWVotesPre.textContent = `Current Night Werewolf Votes (So Far):\n${parseVoteDetailsReadable(globalRawObs.current_night_werewolf_votes, allPlayerNamesList, numPlayers)}`;
-         voteDetailsDiv.appendChild(currentNightWWVotesPre);
-    }
+
     eventLogDiv.appendChild(voteDetailsDiv);
-    
-    // Seer Inspection (Display if available in global obs - typically only for the seer themselves)
-    // For replay, this means if the *last acting agent* was a seer and their obs was captured.
-    if (globalRawObs.seer_last_inspection && globalRawObs.seer_last_inspection[0] !== numPlayers) {
+
+    // Seer Inspections
+    const seerInspectionsForDay = gameState.seerInspections.filter(insp => insp.day === gameState.day);
+    if (seerInspectionsForDay.length > 0) {
         const seerInspectionDiv = document.createElement("div");
-        const targetIdx = globalRawObs.seer_last_inspection[0];
-        const targetRoleVal = globalRawObs.seer_last_inspection[1];
-        const targetName = getPlayerNameOrSpecial(targetIdx, allPlayerNamesList, numPlayers, "No Inspection/Invalid Target");
-        const targetRoleName = getRoleNameOrSpecial(targetRoleVal, "Role Not Revealed/Invalid");
-        seerInspectionDiv.innerHTML = `<h4>Seer's Last Inspection Result</h4><p>Target: ${targetName}, Role Seen: ${targetRoleName}</p>`;
+        seerInspectionDiv.innerHTML = `<h4>Seer Inspections (Night ${gameState.day})</h4>`;
+        seerInspectionsForDay.forEach(insp => {
+            seerInspectionDiv.innerHTML += `<p>${insp.seer} inspected ${insp.target} and saw role: ${insp.role}</p>`;
+        });
         eventLogDiv.appendChild(seerInspectionDiv);
     }
-
 
     container.appendChild(eventLogDiv);
 
     // --- Game Outcome Section ---
-    if (Phase[globalRawObs.phase] === "GAME_OVER") {
+    if (gameState.gameWinner) {
         const outcomeDiv = document.createElement("div");
-        const winnerTeam = actorInfoSource.game_winner_team || "Unknown";
         outcomeDiv.innerHTML = `
             <h2 style="color: #800000; margin-top: 20px;">GAME OVER!</h2>
-            <p style="font-size: 1.2em;"><strong>Winner Team:</strong> ${winnerTeam}</p>
+            <p style="font-size: 1.2em;"><strong>Winner Team:</strong> ${gameState.gameWinner}</p>
         `;
         container.appendChild(outcomeDiv);
     }
