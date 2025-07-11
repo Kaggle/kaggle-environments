@@ -1,28 +1,13 @@
-from typing import Literal, List, Any, Tuple, Optional
-from enum import Enum, auto
+from typing import List, Deque
 import logging
+from collections import deque
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
+from .consts import Team, RoleConst
+from .records import HistoryEntry
 
 logger = logging.getLogger(__name__)
-
-
-class Phase(str, Enum):
-    DAY = "Day"
-    NIGHT = "Night"
-
-
-class Team(str, Enum):
-    VILLAGERS = "Villagers"
-    WEREWOLVES = "Werewolves"
-
-
-class RoleConst(str, Enum):
-    VILLAGER = "Villager"
-    WEREWOLF = "Werewolf"
-    DOCTOR = "Doctor"
-    SEER = "Seer"
 
 
 class Role(BaseModel):
@@ -76,6 +61,15 @@ class Player(BaseModel):
     id: str
     role: Role
     alive: bool = True
+    _message_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+
+    def update(self, entry: HistoryEntry):
+        self._message_queue.append(entry)
+    
+    def consume_messages(self) -> List[HistoryEntry]:
+        messages = list(self._message_queue)
+        self._message_queue.clear()
+        return messages
 
 
 def create_players_from_roles_and_ids(role_strings: List[str], player_ids: List[str]) -> List[Player]:
