@@ -2,9 +2,7 @@ import json
 import random  # Added for random.choice
 from enum import Enum
 from os import path
-from typing import Dict, Optional, List, Any, Union, Tuple
 
-from pydantic import BaseModel
 from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
     NoOpAction, create_action
 from .game.engine import Moderator, DetailedPhase
@@ -12,7 +10,9 @@ from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
-from .game.roles import RoleConst, create_players_from_roles_and_ids
+from .game.records import AskDoctorSaveDataEntry, AskSeerRevealDataEntry, \
+    AskWerewolfVotingDataEntry
+from .game.roles import create_players_from_roles_and_ids
 from .game.states import *
 
 
@@ -265,6 +265,25 @@ class LLMAgent:
 agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
 
+def _prepare_observation(sub_state, player_obj, game_state, detailed_phase):
+    new_history_entries = player_obj.consume_messages()
+    sub_state['observation']['new_history_entries'] = new_history_entries
+    obs = WerewolfObservationModel(
+        player_id=player_obj.id,
+        role=player_obj.role.name,
+        team=player_obj.role.team.value,
+        is_alive=player_obj.alive,
+        day=game_state.day_count,
+        phase=detailed_phase.value,
+        all_player_ids=game_state.all_player_ids,
+        alive_players=[p.id for p in game_state.alive_players()],
+        new_visible_announcements=[entry.description for entry in new_history_entries],
+        new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
+        game_state_phase=game_state.phase.value
+    )
+    sub_state.observation["raw_observation"] = obs.model_dump()
+
+
 def interpreter(state, env):
     """
     state: list of dictionaries, one for each agent.
@@ -276,7 +295,16 @@ def interpreter(state, env):
     if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
         num_players = len(state)
 
-        players = create_players_from_roles_and_ids(role_strings=env.configuration.roles, player_ids=env.configuration.names)
+        roles_from_config = env.configuration.roles
+        names_from_config = env.configuration.names
+
+        # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
+        if len(roles_from_config) < num_players:
+            raise ValueError(f"Configuration has {len(roles_from_config)} roles, but {num_players} agents are present.")
+        if len(names_from_config) < num_players:
+            raise ValueError(f"Configuration has {len(names_from_config)} names, but {num_players} agents are present.")
+
+        players = create_players_from_roles_and_ids(role_strings=roles_from_config[:num_players], player_ids=names_from_config[:num_players])
         env.game_state = GameState(players=players, history={})
 
         env.player_ids_map = {i: p.id for i, p in enumerate(players)}
@@ -331,54 +359,44 @@ def interpreter(state, env):
     # 3. Update Kaggle state (observations, rewards, statuses)
     is_game_done = moderator.is_game_over()
     
-    agent_rewards_this_step: Dict[str, float] = {}
     if is_game_done:
         # Determine winner based on game_state.history's GAME_END entry
-        # The moderator._determine_and_log_winner() handles logging this.
-        game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
-        winning_team_str = None
-        if game_end_entry and game_end_entry.data:
-            winning_team_str = game_end_entry.data.get("winner_team")
+        end_entry = game_state.get_history_by_type(entry_type=HistoryEntryType.GAME_END)[0]
+        scores = end_entry.data.scores
 
-        for p in game_state.players:
-            if winning_team_str == "Draw":
-                 agent_rewards_this_step[p.id] = 0.0
-            elif p.role.team.value == winning_team_str:
-                 agent_rewards_this_step[p.id] = 1.0
-            else:
-                 agent_rewards_this_step[p.id] = -1.0
-    
-    active_player_ids_after_advance = moderator.get_active_player_ids()
+        for i, player_id in enumerate(env.player_id_str_list):
+            state[i].reward = scores[player_id]
+
+    active_player_ids_after_advance = set(moderator.get_active_player_ids())
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
 
         # skip if player not active
-        #if player_id_str not in active_player_ids_after_advance:
-        #    continue
+        if player_id_str not in active_player_ids_after_advance:
+           state[i].status = 'INACTIVE'
+           continue
         
         # set the status of active player to ACTIVE
-        #state[i]['status'] = 'ACTIVE'
-        print(f"Player {player_id_str} status after advance: {state[i]['status']}")
+        state[i].status = 'ACTIVE'
+        print(f"Player {player_id_str} status after advance: {state[i].status}")
 
 
         player_obj = game_state.get_player_by_id(player_id_str)
 
         # Observation processing
-        new_history_entries, new_cursor_pos = moderator.get_observation(player_id_str)
-        env.player_full_visible_history_cache.setdefault(player_id_str, []).extend(new_history_entries)
-        moderator.update_player_cursor(player_id_str, new_cursor_pos)
+        new_history_entries = player_obj.consume_messages()
 
         state[i]['observation']['new_history_entries'] = new_history_entries
 
         obs = WerewolfObservationModel(
-            player_id=player_id_str,
+            player_id=player_obj.id,
             role=player_obj.role.name,
             team=player_obj.role.team.value,
             is_alive=player_obj.alive,
             day=game_state.day_count,
             phase=moderator.detailed_phase.value,
-            all_player_ids=env.player_id_str_list,
+            all_player_ids=game_state.all_player_ids,
             alive_players=[p.id for p in game_state.alive_players()],
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
@@ -386,9 +404,6 @@ def interpreter(state, env):
         )
 
         state[i].observation["raw_observation"] = obs.model_dump()
-
-        # Reward
-        state[i].reward = agent_rewards_this_step.get(player_id_str, 0.0)
 
         # Status
         if is_game_done:
@@ -401,12 +416,13 @@ def interpreter(state, env):
         # Info
         current_info = {}
         if is_game_done:
-            game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
+            game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
             if game_end_entry and game_end_entry.data:
-                current_info["winner_team"] = game_end_entry.data.get("winner_team")
-                current_info["win_reason"] = game_end_entry.data.get("reason")
+                current_info["winner_team"] = game_end_entry.data.winner_team
+                current_info["win_reason"] = game_end_entry.data.reason
+                current_info["scores"] = game_end_entry.data.scores
+                current_info["survivors_until_last_round_and_role"] = game_end_entry.data.survivors_until_last_round_and_role
         state[i].info = current_info
-
     return state
 
 
