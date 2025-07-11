@@ -35,8 +35,11 @@ class VisibleRawData(BaseModel):
     """json dump"""
 
     @classmethod
-    def from_entry(cls, entry: DataEntry):
-        return cls(data_type=entry.data.__class__.__name__, json_str=entry.data.model_dump_json())
+    def from_entry(cls, entry: dict | DataEntry):
+        if not entry: return
+        if isinstance(entry, dict):
+            return cls(data_type=entry.__class__.__name__, json_str=json.dumps(entry))
+        return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
 
 
 class WerewolfObservationModel(BaseModel):
@@ -99,8 +102,10 @@ def create_protocol_from_config(
 
 
 def random_agent(obs):
+
+    # TODO: pydantic cannot handle class inversion in subfield correctly
     raw_obs = obs.get('raw_observation')
-    entries = obs.get('new_history_entries')
+    entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json')]
 
     # Default to NO_OP if observation is missing or agent cannot act
     if not raw_obs or not entries:
@@ -120,29 +125,29 @@ def random_agent(obs):
             # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
             # ActionType.NIGHT_KILL_VOTE
             history_entry = next((entry for entry in entries
-                                  if isinstance(entry.data, AskWerewolfVotingDataEntry)), None)
+                                  if entry.data and entry.data.get('valid_targets')), None)
             if history_entry:
-                valid_targets = history_entry.data.valid_targets
+                valid_targets = history_entry.data.get('valid_targets')
                 target_id = random.choice(valid_targets)
                 action = EliminateProposalAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one.")
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
             # ActionType.NIGHT_SAVE_TARGET
-            history_entry = next((entry for entry in entries if isinstance(entry.data, AskDoctorSaveDataEntry)), None)
+            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')), None)
 
             if history_entry:
-                valid_targets = history_entry.data.valid_candidates
+                valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
                 action = HealAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to heal.")
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
             # ActionType.NIGHT_INSPECT_TARGET
-            history_entry = next((entry for entry in entries if isinstance(entry.data, AskSeerRevealDataEntry)), None)
+            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')), None)
 
             if history_entry:
-                valid_targets = history_entry.data.valid_candidates
+                valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
                 action = InspectAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to inspect.")
 
@@ -267,7 +272,7 @@ agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
 def _prepare_observation(sub_state, player_obj, game_state, detailed_phase):
     new_history_entries = player_obj.consume_messages()
-    sub_state['observation']['new_history_entries'] = new_history_entries
+    sub_state['observation']['new_history_entries_json'] = new_history_entries
     obs = WerewolfObservationModel(
         player_id=player_obj.id,
         role=player_obj.role.name,
@@ -278,7 +283,7 @@ def _prepare_observation(sub_state, player_obj, game_state, detailed_phase):
         all_player_ids=game_state.all_player_ids,
         alive_players=[p.id for p in game_state.alive_players()],
         new_visible_announcements=[entry.description for entry in new_history_entries],
-        new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
+        new_visible_raw_data=[VisibleRawData.from_entry(entry.data) for entry in new_history_entries if entry.data],
         game_state_phase=game_state.phase.value
     )
     sub_state.observation["raw_observation"] = obs.model_dump()
@@ -384,7 +389,7 @@ def interpreter(state, env):
         # Observation processing
         new_history_entries = player_obj.consume_messages()
 
-        state[i]['observation']['new_history_entries'] = new_history_entries
+        state[i].observation['new_history_entries_json'] = [msg.model_dump() for msg in new_history_entries]
 
         obs = WerewolfObservationModel(
             player_id=player_obj.id,

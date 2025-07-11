@@ -313,22 +313,8 @@ class Moderator:
         # Process werewolf votes from any received actions
         for actor_id, action in player_actions.items():
             player = self.state.get_player_by_id(actor_id)
-            if player and player.alive and player.role.name == RoleConst.WEREWOLF and isinstance(action,
-                                                                                                 EliminateProposalAction):
+            if player and player.alive and player.role.name == RoleConst.WEREWOLF:
                 self.night_voting.collect_vote(action, self.state)
-                data = WerewolfNightVoteDataEntry(
-                    actor_id=actor_id,
-                    target_id=action.target_id,
-                    reasoning=action.reasoning
-                )
-                self.state.add_history_entry(
-                    description=f'{actor_id} has voted to eliminate {action.target_id}. ' \
-                                + f"Reasoning: {action.reasoning}" if action.reasoning else "",
-                    entry_type=HistoryEntryType.VOTE_ACTION,
-                    public=False,
-                    visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
-                    data=data
-                )
 
         if self.night_step == 1:
             self.night_step += 1  # Increment so Doctor/Seer actions aren't re-processed if WW voting is sequential
@@ -511,7 +497,7 @@ class Moderator:
                         elected_player_team_name=exiled_player.role.team.value
                     )
                     self.state.add_history_entry(
-                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} was exiled by vote. They was a {original_role_name}.',
+                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
                         # Keep description
                         entry_type=HistoryEntryType.ELIMINATION,
                         public=True,
