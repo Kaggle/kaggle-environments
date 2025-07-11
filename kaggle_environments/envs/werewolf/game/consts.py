@@ -1,6 +1,9 @@
 from enum import Enum
 
 
+MODERATOR_ID = "MODERATOR"
+
+
 class Phase(str, Enum):
     DAY = "Day"
     NIGHT = "Night"

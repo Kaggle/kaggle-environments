@@ -259,15 +259,17 @@ class RoundRobinDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
                     state.add_history_entry(
-                        description=f"P{act.actor_id} (chat): {act.message}",  # Make public for general discussion
+                        description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
                         entry_type=HistoryEntryType.DISCUSSION,
-                        public=True
+                        public=True,
+                        source=act.actor_id
                     )
                 else:
                     state.add_history_entry(
-                        description=f"P{act.actor_id} (chat, out of turn): {act.message}",
+                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
-                        visible_to=[act.actor_id]
+                        visible_to=[act.actor_id],
+                        source=act.actor_id
                     )
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
@@ -275,7 +277,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
             for speaker_id in speakers:
                 data = AskVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
                 state.add_history_entry(
-                    description=f'"{speaker_id}", it is your turn to speak.',
+                    description=f'Player "{speaker_id}", it is your turn to speak.',
                     entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
                     public=False,
                     visible_to=[speaker_id],
@@ -616,7 +618,7 @@ class SimultaneousMajority(VotingProtocol):
                     reasoning=vote_action.reasoning
                 )
                 state.add_history_entry(
-                    description=f'"{data.actor_id}" voted to exile "{data.target_id}".'
+                    description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". '
                                 + f"Reasoning: {data.reasoning}" if data.reasoning else "",
                     entry_type=HistoryEntryType.VOTE_ACTION,
                     public=True,
@@ -651,10 +653,9 @@ class SimultaneousMajority(VotingProtocol):
         return self._elected
 
     def get_voting_prompt(self, state: GameState, player_id: str) -> str:
-        target_options = [f"P{p_id}" for p_id in self._potential_targets if
+        target_options = [p_id for p_id in self._potential_targets if
                           state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive]
-        options_str = ", ".join(target_options) if target_options else "No valid targets"
-        return f"P{player_id}, please cast your vote. Options: {options_str} or Abstain ('-1')."
+        return f'Player "{player_id}", please cast your vote. Options: {target_options} or Abstain ("-1").'
 
     def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
         return Counter(self._ballots.values())
