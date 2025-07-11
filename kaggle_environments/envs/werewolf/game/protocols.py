@@ -5,9 +5,9 @@ from collections import Counter
 import json
 
 from .states import GameState
-from .records import HistoryEntryType, AskVillagerToSpeakDataEntry, DayExileVoteDataEntry
+from .records import HistoryEntryType, AskVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
 from .roles import Player
-from .consts import Team
+from .consts import Team, Phase
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
 
 
@@ -258,17 +258,24 @@ class RoundRobinDiscussion(DiscussionProtocol):
         for act in actions:
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
+                    data = ChatDataEntry(
+                        speaker_id=act.actor_id,
+                        message=act.message,
+                        reasoning=act.reasoning
+                    )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
                         entry_type=HistoryEntryType.DISCUSSION,
                         public=True,
-                        source=act.actor_id
+                        source=act.actor_id,
+                        data=data
                     )
                 else:
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
                         visible_to=[act.actor_id],
+                        public=False,
                         source=act.actor_id
                     )
 
@@ -326,15 +333,18 @@ class RandomOrderDiscussion(DiscussionProtocol):
         for act in actions:
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
+                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
-                        description=f"P{act.actor_id} (chat): {act.message}",
+                        description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
-                        visible_to=[act.actor_id]
-                    )  # Consider making public like RoundRobin
+                        public=True,  # Chat should be public
+                        data=data
+                    )
                 else:
                     state.add_history_entry(
-                        description=f"P{act.actor_id} (chat, out of turn): {act.message}",
+                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
+                        public=False,
                         visible_to=[act.actor_id]
                     )
 
@@ -342,7 +352,7 @@ class RandomOrderDiscussion(DiscussionProtocol):
         if speakers:  # Typically one speaker
             speaker_id = speakers[0]
             state.add_history_entry(
-                description=f"P{speaker_id}, it is your turn to speak.",
+                description=f'Player "{speaker_id}", it is your turn to speak.',
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=False,
                 visible_to=[speaker_id]
@@ -389,10 +399,12 @@ class ParallelDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 # In parallel, any alive player in expected_speakers can talk
                 if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
+                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
-                        description=f"P{act.actor_id} (chat): {act.message}",
+                        description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
-                        public=True  # Parallel chat is usually public
+                        public=True,  # Parallel chat is usually public
+                        data=data
                     )
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
@@ -400,7 +412,8 @@ class ParallelDiscussion(DiscussionProtocol):
             # The begin() method already announces the general start.
             # This prompt can confirm the active tick and remaining time.
             state.add_history_entry(
-                description=f"Parallel discussion: All designated players may speak now. ({self._remaining + 1} speaking opportunities remaining, including this one).",
+                description=f"Parallel discussion: All designated players may speak now. "
+                            f"({self._remaining + 1} speaking opportunities remaining, including this one).",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=True  # General status update for parallel discussion
             )
@@ -580,7 +593,10 @@ class SimultaneousMajority(VotingProtocol):
 
     @property
     def voting_rule(self) -> str:
-        return "Simultaneous majority vote. Player with the most votes is exiled. Ties result in random selection amongst the top ties."
+        return ("Simultaneous majority vote. Player with the most votes is exiled. "
+                "Ties result in random selection amongst the top ties. "
+                "If no valid vote available (if all casted abstained votes), "
+                "will result in random elimination of one player.")
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         self._ballots = {}
@@ -593,11 +609,13 @@ class SimultaneousMajority(VotingProtocol):
         actor_player = state.get_player_by_id(vote_action.actor_id)
         if not isinstance(vote_action, VoteAction):
             state.add_history_entry(
-                description=f'Invalid vote attempt by "{vote_action.actor_id}". Not a VoteAction; submitted {vote_action.__class__.__name__} instead.',
+                description=f'Invalid vote attempt by player "{vote_action.actor_id}". Not a VoteAction; submitted {vote_action.__class__.__name__} instead. Cast as abstained vote.',
                 entry_type=HistoryEntryType.ERROR,
                 public=True,
                 data={'vote_action': vote_action.serialize()}
             )
+            self._ballots[vote_action.actor_id] = "-1"
+            return
 
         # Voter must be expected and alive at the moment of casting vote
         if actor_player and actor_player.alive and vote_action.actor_id in self._expected_voters:
@@ -610,9 +628,19 @@ class SimultaneousMajority(VotingProtocol):
                     data={'vote_action': vote_action.serialize()}
                 )
                 return
+
             if vote_action.target_id in self._potential_targets:
                 self._ballots[vote_action.actor_id] = vote_action.target_id
-                data = DayExileVoteDataEntry(
+
+                # Determine DataEntry type based on game phase
+                from .consts import Phase
+                from .records import WerewolfNightVoteDataEntry
+                if state.phase == Phase.NIGHT:
+                    data_entry_class = WerewolfNightVoteDataEntry
+                else:
+                    data_entry_class = DayExileVoteDataEntry
+
+                data = data_entry_class(
                     actor_id=vote_action.actor_id,
                     target_id=vote_action.target_id,
                     reasoning=vote_action.reasoning
@@ -625,13 +653,14 @@ class SimultaneousMajority(VotingProtocol):
                     data=data
                 )
             else:
-                self._ballots[vote_action.actor_id] = None
+                self._ballots[vote_action.actor_id] = "-1"
                 state.add_history_entry(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}".',
                     entry_type=HistoryEntryType.ERROR,
                     public=True,
                     data={'vote_action': vote_action.serialize()}
                 )
+                return
         else:
             state.add_history_entry(
                 description=f"Invalid vote attempt by P{vote_action.actor_id}.",
@@ -644,9 +673,9 @@ class SimultaneousMajority(VotingProtocol):
         if self._done_tallying:
             return self._elected
         self._done_tallying = True
-        counts = Counter(v for v in self._ballots.values() if v is not None).most_common()
+        counts = Counter(v for v in self._ballots.values() if v is not None or v != "-1").most_common()
         if not counts:
-            self._elected = None
+            self._elected = random.choice(self._potential_targets)
         else:
             _, top_votes = counts[0]
             self._elected = random.choice([v for v, c in counts if c == top_votes])
@@ -804,7 +833,9 @@ class FirstPriceSealed(BiddingProtocol):
                 except ValueError as e:  # Or other specific exceptions from accept
                     state.add_history_entry(
                         description=f"Invalid bid by P{act.actor_id}: {e}",
-                        entry_type=HistoryEntryType.ERROR  # Or BIDDING_INFO with error status
+                        entry_type=HistoryEntryType.ERROR,  # Or BIDDING_INFO with error status
+                        public=False,
+                        visible_to=[act.actor_id]
                     )
 
     def is_finished(self, state):
@@ -922,7 +953,7 @@ class SequentialVoting(VotingProtocol):
                 description=f"Action ({vote_action.kind}) received from P{vote_action.actor_id}, but voting is already complete.",
                 entry_type=HistoryEntryType.ERROR,
                 public=False,
-                visible_to={vote_action.actor_id}
+                visible_to=[vote_action.actor_id]
             )
             return
 
@@ -932,7 +963,7 @@ class SequentialVoting(VotingProtocol):
                 description=f"Action ({vote_action.kind}) received from P{vote_action.actor_id}, but it is P{expected_voter_id}'s turn.",
                 entry_type=HistoryEntryType.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
-                visible_to={vote_action.actor_id, expected_voter_id}
+                visible_to=[vote_action.actor_id, expected_voter_id]
             )
             return
 
@@ -940,6 +971,7 @@ class SequentialVoting(VotingProtocol):
         if actor_player and actor_player.alive:
             description_for_history = ""
             involved_players_list = [vote_action.actor_id]  # Actor is always involved
+            data = None
             if isinstance(vote_action, NoOpAction):
                 self._ballots[vote_action.actor_id] = "-1"  # Treat NoOp as abstain
                 description_for_history = f"P{vote_action.actor_id} chose to NoOp (treated as Abstain)."
@@ -953,7 +985,7 @@ class SequentialVoting(VotingProtocol):
                         description=f"P{vote_action.actor_id} attempted to vote for P{vote_action.target_id} (invalid target). Vote recorded as Abstain.",
                         entry_type=HistoryEntryType.ERROR,
                         public=True,
-                        visible_to={vote_action.actor_id}
+                        visible_to=[vote_action.actor_id]
                     )
                     recorded_target_id = "-1"  # Treat invalid target as abstain
                     target_display = f"Invalid Target (P{vote_action.target_id}), recorded as Abstain"
@@ -969,10 +1001,19 @@ class SequentialVoting(VotingProtocol):
                 self._ballots[vote_action.actor_id] = recorded_target_id
                 description_for_history = f"P{vote_action.actor_id} has voted for {target_display}."
 
+                # Add data entry for the vote
+                data_entry_class = DayExileVoteDataEntry if state.phase == Phase.DAY else WerewolfNightVoteDataEntry
+                data = data_entry_class(
+                    actor_id=vote_action.actor_id,
+                    target_id=recorded_target_id,
+                    reasoning=vote_action.reasoning
+                )
+
             state.add_history_entry(
                 description=description_for_history,
-                entry_type=HistoryEntryType.VOTE_RESULT,
-                public=True  # Transparent voting
+                entry_type=HistoryEntryType.VOTE_ACTION,
+                public=True,  # Transparent voting
+                data=data
             )
             self._current_voter_index += 1
         else:  # Player not found, not alive, or (redundantly) not their turn
@@ -980,7 +1021,7 @@ class SequentialVoting(VotingProtocol):
                 description=f"Invalid action ({vote_action.kind}) attempt by P{vote_action.actor_id} (player not found, not alive, or not their turn). Action not counted.",
                 entry_type=HistoryEntryType.ERROR,
                 public=True,
-                visible_to={vote_action.actor_id}
+                visible_to=[vote_action.actor_id]
             )
             # If voter was expected but found to be not alive, advance turn to prevent stall
             if vote_action.actor_id == expected_voter_id:  # Implies actor_player was found but not actor_player.alive

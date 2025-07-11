@@ -1,8 +1,8 @@
 from abc import ABC
 from enum import Enum
-from typing import Set, Optional, List, Dict
+from typing import Set, Optional, List, Dict, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from kaggle_environments.envs.werewolf.game.consts import Phase
 
@@ -32,9 +32,18 @@ class HistoryEntry(BaseModel):
     entry_type: HistoryEntryType
     description: str
     public: bool = False
-    visible_to: Set[str] = Field(default_factory=set)
-    data: Optional[DataEntry]
+    visible_to: List[str] = Field(default_factory=list)
+    data: Optional[dict | DataEntry]
     source: str
+
+    @field_serializer('data')
+    def serialize_data(self, data):
+        if data is None: return None
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, BaseModel):
+            return data.model_dump()
+        return None
 
 
 class GameStartDataEntry(DataEntry):
@@ -114,6 +123,12 @@ class DayExileElectedDataEntry(DataEntry):
     elected_player_id: str
     elected_player_role_name: str
     elected_player_team_name: str
+
+
+class ChatDataEntry(DataEntry):
+    speaker_id: str
+    message: str
+    reasoning: Optional[str]
 
 
 class GameEndResultsDataEntry(DataEntry):
