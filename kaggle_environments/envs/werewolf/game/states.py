@@ -74,7 +74,7 @@ class GameState(BaseModel):
         self.history.setdefault(day_key, [])
         entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
                              description=description, public=public,
-                             visible_to=set(visible_to) if visible_to is not None else set(),
+                             visible_to=visible_to or [],
                              data=data,
                              source=source)
         self.history[day_key].append(entry)
