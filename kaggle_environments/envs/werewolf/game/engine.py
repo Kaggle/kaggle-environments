@@ -4,16 +4,16 @@ import json
 
 from .actions import (
     Action, VoteAction,
-    HealAction, InspectAction, ChatAction, EliminateProposalAction
+    HealAction, InspectAction, ChatAction, EliminateProposalAction, NoOpAction
 )
 from .protocols import DiscussionProtocol, VotingProtocol
-from .roles import Player, Team, Phase, RoleConst
-from .states import (
-    GameState, HistoryEntry, HistoryEntryType, GameStartDataEntry, GameStartRoleDataEntry, 
-    AskDoctorSaveDataEntry, AskSeerRevealDataEntry, AskWerewolfVotingDataEntry,
-    SeerInspectResultDataEntry, WerewolfNightVoteDataEntry,
-    WerewolfNightEliminationDataEntry, WerewolfNightEliminationElectedDataEntry
-)
+from .roles import Player
+from .consts import Phase, Team, RoleConst
+from .states import GameState
+from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, AskDoctorSaveDataEntry, \
+    AskSeerRevealDataEntry, AskWerewolfVotingDataEntry, SeerInspectResultDataEntry, WerewolfNightVoteDataEntry, \
+    WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry, \
+    GameEndResultsDataEntry
 
 
 class DetailedPhase(Enum):
@@ -52,7 +52,7 @@ class Moderator:
 
         self._active_night_roles_queue: List[Player] = []
         self._night_save_queue: List[str] = []
-        self._action_queue: List[str] = [] # Player IDs expected to act
+        self._action_queue: List[str] = []  # Player IDs expected to act
 
         # below is the state transition function table
         # each transition function has the signature tr_func(actions: List[Action]) where the input is a list of actions
@@ -64,7 +64,7 @@ class Moderator:
             DetailedPhase.DAY_START: self._handle_day_start,
             DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT: self._handle_day_discussion_await_chat,
             DetailedPhase.DAY_VOTING_AWAIT: self._handle_day_voting_await,
-            DetailedPhase.GAME_OVER: self._handle_game_over,
+            # DetailedPhase.GAME_OVER: self._handle_game_over,
         }
 
         self.night_step = 0
@@ -114,9 +114,8 @@ class Moderator:
                 data=data
             )
 
-
     def get_active_player_ids(self) -> List[str]:
-        return list(self._action_queue) # Return a copy
+        return list(self._action_queue)  # Return a copy
 
     def get_observation(self, player_id: str) -> Tuple[List[HistoryEntry], Tuple[int, int]]:
         """
@@ -146,10 +145,10 @@ class Moderator:
                 entry = day_entries[current_processing_idx]
                 if entry.public or player_id in entry.visible_to:
                     newly_visible_entries.append(entry)
-                
+
                 current_processing_idx += 1
                 updated_cursor_day = day_num
-                updated_cursor_idx_in_day = current_processing_idx # Next index to read
+                updated_cursor_idx_in_day = current_processing_idx  # Next index to read
 
         return newly_visible_entries, (updated_cursor_day, updated_cursor_idx_in_day)
 
@@ -160,19 +159,28 @@ class Moderator:
         self._player_history_cursors[player_id] = new_cursor
 
     def advance(self, player_actions: Dict[str, Action]):
-        if self.is_game_over() and self.detailed_phase != DetailedPhase.GAME_OVER:
-            self.detailed_phase = DetailedPhase.GAME_OVER
-            self._determine_and_log_winner()
-            return
-
-        handler = self._phase_handlers.get(self.detailed_phase)
-        if handler:
-            handler(player_actions)
+        # Process the incoming actions for the current phase.
+        current_handler = self._phase_handlers.get(self.detailed_phase)
+        if current_handler:
+            current_handler(player_actions)
         else:
             raise ValueError(f"Unhandled detailed_phase: {self.detailed_phase}")
 
-        # Check game over condition again, as handlers might change the state to game over
+        # Loop through automatic state transitions (those that don't need agent actions)
+        # This continues until the game is over or requires new agent input.
+        # this logic is required since Environments in core.py requires that there are some players being ACTIVE to
+        # continue. Otherwise, if all INACTIVE the game is marked done.
+        while not self.get_active_player_ids() and not self.is_game_over():
+            next_handler = self._phase_handlers.get(self.detailed_phase)
+            if next_handler:
+                next_handler({})  # Pass empty actions for automatic transitions
+            else:
+                raise ValueError(f"Unhandled detailed_phase during transition: {self.detailed_phase}")
+
+        # After all transitions, check for game over.
         if self.is_game_over() and self.detailed_phase != DetailedPhase.GAME_OVER:
+            # clear action queue
+            self._action_queue.clear()
             self.detailed_phase = DetailedPhase.GAME_OVER
             self._determine_and_log_winner()
 
@@ -245,13 +253,12 @@ class Moderator:
             alive_voters=alive_werewolves,
             potential_targets=potential_targets
         )
-        for ww_voter_id in self.night_voting.get_next_voters(): # Should give all WWs if simultaneous
+        for ww_voter_id in self.night_voting.get_next_voters():  # Should give all WWs if simultaneous
             if ww_voter_id not in self._action_queue: self._action_queue.append(ww_voter_id)
 
         # state transition 
         self.detailed_phase = DetailedPhase.NIGHT_AWAIT_ACTIONS
-        self.night_step = 1 # Mark that initial night roles (doc, seer) + first WW vote are expected
-
+        self.night_step = 1  # Mark that initial night roles (doc, seer) + first WW vote are expected
 
     def _handle_night_await_actions(self, player_actions: Dict[str, Action]):
         # Process actions from Doctor, Seer (if it's the first step of night actions)
@@ -277,7 +284,7 @@ class Moderator:
                     self._night_save_queue.append(action.target_id)
                 elif player.role.name == RoleConst.SEER and isinstance(action, InspectAction):
                     target_player = self.state.get_player_by_id(action.target_id)
-                    if target_player: # Ensure target exists
+                    if target_player:  # Ensure target exists
                         data = SeerInspectResultDataEntry(
                             actor_id=actor_id,
                             target_id=action.target_id,
@@ -298,11 +305,12 @@ class Moderator:
                             public=False,
                             visible_to=[actor_id]
                         )
-        
+
         # Process werewolf votes from any received actions
         for actor_id, action in player_actions.items():
             player = self.state.get_player_by_id(actor_id)
-            if player and player.alive and player.role.name == RoleConst.WEREWOLF and isinstance(action, EliminateProposalAction):
+            if player and player.alive and player.role.name == RoleConst.WEREWOLF and isinstance(action,
+                                                                                                 EliminateProposalAction):
                 self.night_voting.collect_vote(action, self.state)
                 data = WerewolfNightVoteDataEntry(
                     actor_id=actor_id,
@@ -318,9 +326,9 @@ class Moderator:
                 )
 
         if self.night_step == 1:
-            self.night_step += 1 # Increment so Doctor/Seer actions aren't re-processed if WW voting is sequential
+            self.night_step += 1  # Increment so Doctor/Seer actions aren't re-processed if WW voting is sequential
 
-        self._action_queue.clear() # Prepare for next set of actors or end of night
+        self._action_queue.clear()  # Prepare for next set of actors or end of night
 
         if not self.night_voting.done():
             # Werewolf voting is not complete (e.g., sequential voting)
@@ -329,10 +337,11 @@ class Moderator:
                 if voter_id not in self._action_queue: self._action_queue.append(voter_id)
 
             # Re-prompt only the werewolves whose turn it is now
-            alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if p.id in self._action_queue]
+            alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
+                                              p.id in self._action_queue]
             if alive_werewolves_still_to_vote:
                 for ww_voter in alive_werewolves_still_to_vote:
-                    prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id) # Use protocol's prompt
+                    prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id)  # Use protocol's prompt
                     self.state.add_history_entry(
                         description=prompt,
                         entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
@@ -340,7 +349,7 @@ class Moderator:
                         visible_to=[ww_voter.id]
                     )
             # Stay in NIGHT_AWAIT_ACTIONS
-        else: 
+        else:
             # All werewolf votes are in, or voting is otherwise complete
             werewolf_target_id = self.night_voting.get_elected()
 
@@ -362,8 +371,8 @@ class Moderator:
                             entry_type=HistoryEntryType.ACTION_RESULT,
                             public=True
                         )
-                    else: 
-                        original_role_name = werewolf_target_player.role.name 
+                    else:
+                        original_role_name = werewolf_target_player.role.name
                         self.state.eliminate_player(werewolf_target_id)
                         data = WerewolfNightEliminationDataEntry(
                             eliminated_player_id=werewolf_target_id,
@@ -375,7 +384,7 @@ class Moderator:
                             public=True,
                             data=data
                         )
-                else: 
+                else:
                     self.state.add_history_entry(
                         description=f"Last night, werewolves targeted P{werewolf_target_id}, but this player could not be found. No one was eliminated by werewolves.",
                         entry_type=HistoryEntryType.ERROR,
@@ -385,7 +394,7 @@ class Moderator:
                 # TODO: add fail over if no consensus can be reached (all werewolf action failed) for several voting rounds.
                 self.state.add_history_entry(
                     description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, # This could also be a VOTE_RESULT type
+                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,  # This could also be a VOTE_RESULT type
                     data={
                         "outcome": "no_elimination",
                         "reason": "no_consensus_werewolves"
@@ -393,6 +402,7 @@ class Moderator:
                     public=True
                 )
 
+            self.night_voting.reset()
             self._night_save_queue = []
             if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.DAY_START
@@ -401,7 +411,7 @@ class Moderator:
         self._action_queue.clear()
         self.state.day_count += 1
         self.state.phase = Phase.DAY
-        self.night_step = 0 # Reset night step counter
+        self.night_step = 0  # Reset night step counter
 
         self.state.add_history_entry(
             description=f"Day {self.state.day_count} begins.",
@@ -409,20 +419,27 @@ class Moderator:
             public=True
         )
 
+        self.state.add_history_entry(
+            description=f"Villagers, let's discuss who to exile today. The discussion rule is: {self.discussion.discussion_rule}",
+            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+            public=True,
+            data={'discussion_rule': self.discussion.discussion_rule}
+        )
+
         self.discussion.begin(self.state)
         # Initial speakers for discussion/bidding
         current_speakers = self.discussion.speakers_for_tick(self.state)
         self._action_queue.extend(s_id for s_id in current_speakers if s_id not in self._action_queue)
-        if self._action_queue: # Only prompt if there are speakers
+        if self._action_queue:  # Only prompt if there are speakers
             self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
-        
+
         self.detailed_phase = DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT
         # If _action_queue is empty here (e.g. discussion protocol immediately ends),
         # Env will call advance({}) and _handle_day_discussion_await_chat will transition.
 
     def _handle_day_discussion_await_chat(self, player_actions: Dict[str, Action]):
         # current_speakers_last_tick refers to who was in _action_queue for the player_actions received
-        current_speakers_last_tick = list(self._action_queue) # Who was expected to act
+        current_speakers_last_tick = list(self._action_queue)  # Who was expected to act
         self._action_queue.clear()
 
         # The discussion protocol processes actions.
@@ -432,10 +449,11 @@ class Moderator:
 
         if self.discussion.is_discussion_over(self.state):
             self.state.add_history_entry(
-                description="Daytime activity (discussion/bidding) has concluded. Moving to vote.",
+                description="Daytime activity (discussion/bidding) has concluded. Moving to day vote.",
                 entry_type=HistoryEntryType.PHASE_CHANGE,
                 public=True
             )
+            self.discussion.reset()
             alive_players = self.state.alive_players()
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
@@ -447,7 +465,7 @@ class Moderator:
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)
             if self._action_queue:
-                for voter_id in self._action_queue: # Prompt only the current batch of voters
+                for voter_id in self._action_queue:  # Prompt only the current batch of voters
                     player = self.state.get_player_by_id(voter_id)
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
@@ -459,41 +477,9 @@ class Moderator:
             # Discussion not over, get next speakers
             next_speakers = self.discussion.speakers_for_tick(self.state)
             self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
-            if self._action_queue: # Prompt if there are speakers for the next tick
+            if self._action_queue:  # Prompt if there are speakers for the next tick
                 self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
             # Stay in DAY_DISCUSSION_AWAIT_CHAT
-
-    def _determine_and_log_winner(self):
-        # Check if a GAME_END entry for the current day_count already exists
-        day_history = self.state.history.get(self.state.day_count, [])
-        if any(entry.entry_type == HistoryEntryType.GAME_END for entry in day_history):
-            return # Winner already logged for this day count
-
-        winner_message = "Game Over: Undetermined."
-        winner_data = {"winner_team": "Undetermined", "reason": "unknown"}
-
-        wolves = [p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]
-        villagers = [p for p in self.state.alive_players() if p.role.team == Team.VILLAGERS]
-
-        if not wolves and villagers: 
-            winner_message = "Game Over: Villagers Win!"
-            winner_data = {"winner_team": Team.VILLAGERS.value, "reason": "no_werewolves_left"}
-        elif wolves and not villagers: 
-            winner_message = "Game Over: Werewolves Win!"
-            winner_data = {"winner_team": Team.WEREWOLVES.value, "reason": "no_villagers_left"}
-        elif wolves and len(wolves) >= len(villagers): 
-            winner_message = "Game Over: Werewolves Win!"
-            winner_data = {"winner_team": Team.WEREWOLVES.value, "reason": "werewolves_majority"}
-        elif not wolves and not villagers: 
-            winner_message = "Game Over: Draw! No one is left."
-            winner_data = {"winner_team": "Draw", "reason": "no_one_left"}
-        
-        self.state.add_history_entry(
-            description=winner_message,
-            entry_type=HistoryEntryType.GAME_END,
-            public=True,
-            data=winner_data
-        )
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
         # Actions in player_actions are from the voters queued in the previous step.
@@ -501,28 +487,28 @@ class Moderator:
             # Ensure the action is from an expected voter (though Env should filter)
             # and is a valid type for voting protocol.
             # The collect_vote method in the protocol should handle validation.
-            if isinstance(action, (VoteAction, ChatAction)): # TODO: ChatAction is a bug, should be NoOpAction
-                self.day_voting.collect_vote(action, self.state)
+            self.day_voting.collect_vote(action, self.state)
 
-        self._action_queue.clear() # Clear previous voters
+        self._action_queue.clear()  # Clear previous voters
 
         if self.day_voting.done():
             exiled_player_id = self.day_voting.get_elected()
             if exiled_player_id:
                 exiled_player = self.state.get_player_by_id(exiled_player_id)
-                if exiled_player: 
+                if exiled_player:
                     original_role_name = exiled_player.role.name
                     self.state.eliminate_player(exiled_player_id)
+                    data = DayExileElectedDataEntry(
+                        elected_player_id=exiled_player_id,
+                        elected_player_role_name=original_role_name,
+                        elected_player_team_name=exiled_player.role.team.value
+                    )
                     self.state.add_history_entry(
-                        description=f"P{exiled_player_id} ({original_role_name}) was exiled by vote. They were a {original_role_name}.", # Keep description
+                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} was exiled by vote. They was a {original_role_name}.',
+                        # Keep description
                         entry_type=HistoryEntryType.ELIMINATION,
                         public=True,
-                        data={
-                            "eliminated_player_id": exiled_player_id,
-                            "eliminated_player_role_name": original_role_name,
-                            "elimination_reason": "vote",
-                            "saved_by_doctor": None # Not applicable for day eliminations
-                        }
+                        data=data
                     )
             else:
                 self.state.add_history_entry(
@@ -536,6 +522,7 @@ class Moderator:
                     }
                 )
 
+            self.day_voting.reset()
             if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.NIGHT_START
                 self.state.phase = Phase.NIGHT
@@ -545,9 +532,9 @@ class Moderator:
             next_voter_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(v_id for v_id in next_voter_ids if v_id not in self._action_queue)
             if self._action_queue:
-                for voter_id in self._action_queue: # Prompt only the current batch
+                for voter_id in self._action_queue:  # Prompt only the current batch
                     player = self.state.get_player_by_id(voter_id)
-                    if player and player.alive: 
+                    if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
                         self.state.add_history_entry(
                             description=prompt,
@@ -557,102 +544,49 @@ class Moderator:
                         )
             # Stay in DetailedPhase.DAY_VOTING_AWAIT
 
+    def _determine_and_log_winner(self):
+        # Check if a GAME_END entry already exists
+        game_end_history = self.state.get_history_by_type(HistoryEntryType.GAME_END)
+        if game_end_history:
+            return  # Winner already logged for this day count
+
+        wolves = [p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]
+        villagers = [p for p in self.state.alive_players() if p.role.team == Team.VILLAGERS]
+
+        if not wolves:
+            winner_team = Team.VILLAGERS.value
+            winner_message = "Game Over: Villagers Win!"
+            reason = "All werewolves exiled."
+            scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.VILLAGERS)}
+            scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)})
+        else:
+            winner_team = Team.WEREWOLVES.value
+            winner_message = "Game Over: Werewolves Win!"
+            reason = f"len(werewolves) >= len(villagers). Final counts: len(werewolves)={len(wolves)}, len(villagers)={len(villagers)})."
+            scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)}
+            scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.VILLAGERS)})
+
+        data = GameEndResultsDataEntry(
+            winner_team=winner_team,
+            scores=scores,
+            reason=reason,
+            survivors_until_last_round_and_role={p.id: p.role.name for p in self.state.alive_players()},
+            all_players_and_role={p.id: p.role.name for p in self.state.players}
+        )
+        self.state.add_history_entry(
+            description=f"{winner_message}\n{reason}\nScores: {scores}\n"
+                        f"Survivors: {data.survivors_until_last_round_and_role}\n"
+                        f"All player roles: {data.all_players_and_role}",
+            entry_type=HistoryEntryType.GAME_END,
+            public=True,
+            data=data
+        )
+
     def is_game_over(self) -> bool:
         if self.detailed_phase == DetailedPhase.GAME_OVER:
             return True
-
-        wolves = [p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]
-        villagers = [p for p in self.state.alive_players()
-                     if p.role.team == Team.VILLAGERS]
-        # Game ends if no werewolves are left (villagers win)
-        # OR if number of werewolves is equal to or greater than villagers (werewolves win)
-        # OR if no villagers are left (werewolves win, covered by parity or if only WWs remain)
-        if not wolves and villagers: return True # Villagers win
-        if wolves and len(wolves) >= len(villagers): return True # Werewolves win by numbers or if no villagers
-        if wolves and not villagers: return True # Werewolves win (all villagers eliminated)
-        
-        return False # Game continues
-    
-    def _handle_game_over(self, actions: Dict[str, Action]):
-        self._action_queue.clear()
-
-        # resolve werewolves action
-        for action, player in zip(actions, self.state.players):
-            if player.alive and player.role == RoleConst.WEREWOLF and isinstance(action, VoteAction):
-                self.night_voting.collect_vote(action, self.state)
-
-        if not self.night_voting.done():
-            alive_werewolves = self.state.alive_players_by_role(RoleConst.WEREWOLF)
-            werewolf_team_list_str = ", ".join([f"{p.id}" for p in alive_werewolves])
-
-            for voter in self.night_voting.get_next_voters():
-                self.state.add_history_entry(
-                    description=f"Wake up Werewolves ({werewolf_team_list_str}). Your fellow werewolves are: {werewolf_team_list_str}. "
-                                f"The voting rules are: {self.night_voting.voting_rule}."
-                                f"The tally is: {self.night_voting.get_current_tally_info(self.state)}"
-                                f"Who would you like to eliminate tonight? Options: {self.night_voting.get_valid_targets()}",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                    public=False,
-                    visible_to=[voter]
-                )
-        else: # All werewolf votes are in, or voting is otherwise complete
-            # Resolve werewolf elimination and doctor save
-            werewolf_target_id = self.night_voting.get_elected() # str | None
-            
-            # Log night events (elimination/save)
-            if werewolf_target_id:
-                werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
-                if werewolf_target_player: # Player exists
-                    if werewolf_target_id in self._night_save_queue:
-                        self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} ({werewolf_target_player.role.name}) was attacked by werewolves but saved by the Doctor!", # Keep description
-                            entry_type=HistoryEntryType.ACTION_RESULT,
-                            public=True,
-                            data={
-                                "action_type": "heal_outcome",
-                                "saved_player_id": werewolf_target_id,
-                                "saved_player_role_name": werewolf_target_player.role.name,
-                                "saved_by_role": RoleConst.DOCTOR.value,
-                                "attacked_by_team": Team.WEREWOLVES.value,
-                                "outcome": "saved"
-                            }
-                        )
-                    else: # Not saved
-                        original_role_name = werewolf_target_player.role.name 
-                        self.state.eliminate_player(werewolf_target_id)
-                        self.state.add_history_entry(
-                            description=f"Last night, P{werewolf_target_id} was eliminated by werewolves. They were a {original_role_name}.", # Keep description
-                            entry_type=HistoryEntryType.ELIMINATION,
-                            public=True,
-                            data={
-                                "eliminated_player_id": werewolf_target_id,
-                                "eliminated_player_role_name": original_role_name,
-                                "elimination_reason": "werewolves",
-                                "saved_by_doctor": False
-                            }
-                        )
-                else: # Target ID from vote, but player not found
-                    self.state.add_history_entry(
-                        description=f"Last night, werewolves targeted P{werewolf_target_id}, but this player could not be found. No one was eliminated by werewolves.",
-                        entry_type=HistoryEntryType.ERROR,
-                        public=True
-                    )
-            else: # No one elected by werewolves
-                self.state.add_history_entry(
-                    description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, # This could also be a VOTE_RESULT type
-                    data={
-                        "outcome": "no_elimination",
-                        "reason": "no_consensus_werewolves"
-                    },
-                    public=True
-                )
-
-            # Check for game over condition AFTER night eliminations
-            if self.is_game_over():
-                self.detailed_phase = DetailedPhase.GAME_OVER
-            else:
-                # If game is not over, then transition to day
-                self.detailed_phase = DetailedPhase.DAY_START
-            
-            self._night_save_queue = [] # Reset for the next night
+        wolves = self.state.alive_players_by_team(Team.WEREWOLVES)
+        villagers = self.state.alive_players_by_team(Team.VILLAGERS)
+        if not wolves and villagers: return True
+        if wolves and len(wolves) >= len(villagers): return True
+        return False
