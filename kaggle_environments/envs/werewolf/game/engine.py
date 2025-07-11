@@ -85,7 +85,7 @@ class Moderator:
         self.state.add_history_entry(
             description="\n".join([
                 "Werewolf game begins.",
-                f"All player ids: {', '.join(data.player_ids)}"
+                f"All player ids: {', '.join(data.player_ids)}",
                 f"Number of alive players: {data.number_of_players}.",
                 f"Role counts: {data.role_counts}."
                 f"Alive team member counts: {data.team_member_counts}",
@@ -106,7 +106,7 @@ class Moderator:
                 rule_of_role=player.role.descriptions
             )
             self.state.add_history_entry(
-                description=f"You are {data.player_id}. Your team is {data.team}. Your role is {data.role}.\n"
+                description=f'Your player id is "{data.player_id}". Your team is "{data.team}". Your role is "{data.role}".\n'
                             f"The rule of your role: {data.rule_of_role}",
                 entry_type=HistoryEntryType.GAME_START,
                 public=False,
@@ -274,7 +274,8 @@ class Moderator:
                     if not self.allow_doctor_self_save:
                         if action.target_id == actor_id:
                             self.state.add_history_entry(
-                                description=f"Doctor is not allowed to self save. Your target is {action.target_id}, which is your own id.",
+                                description=f'Player "{actor_id}", doctor is not allowed to self save. '
+                                            f'Your target is {action.target_id}, which is your own id.',
                                 entry_type=HistoryEntryType.ERROR,
                                 public=False,
                                 visible_to=[actor_id]
@@ -292,7 +293,9 @@ class Moderator:
                             team=target_player.role.team.value
                         )
                         self.state.add_history_entry(
-                            description=f'You inspected {target_player.id}. They are a "{target_player.role.name}" in team "{target_player.role.team.value}".',
+                            description=f'Player "{actor_id}", you inspected {target_player.id}. '
+                                        f'Their role is a "{target_player.role.name}" in team '
+                                        f'"{target_player.role.team.value}".',
                             entry_type=HistoryEntryType.ACTION_RESULT,
                             public=False,
                             visible_to=[actor_id],
@@ -300,7 +303,8 @@ class Moderator:
                         )
                     else:
                         self.state.add_history_entry(
-                            description=f'You inspected player "{action.target_id}", but this player could not be found.',
+                            description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
+                                        f' but this player could not be found.',
                             entry_type=HistoryEntryType.ERROR,
                             public=False,
                             visible_to=[actor_id]
@@ -318,7 +322,8 @@ class Moderator:
                     reasoning=action.reasoning
                 )
                 self.state.add_history_entry(
-                    description=f'{actor_id} has voted to eliminate {action.target_id}.' + f"Reasoning: {action.reasoning}" if action.reasoning else "",
+                    description=f'{actor_id} has voted to eliminate {action.target_id}. ' \
+                                + f"Reasoning: {action.reasoning}" if action.reasoning else "",
                     entry_type=HistoryEntryType.VOTE_ACTION,
                     public=False,
                     visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
@@ -355,7 +360,7 @@ class Moderator:
 
             data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
             self.state.add_history_entry(
-                description=f'Werewolves elected to eliminate "{data.elected_target_player_id}".',
+                description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
                 entry_type=HistoryEntryType.ACTION_RESULT,
                 public=False,
                 visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
@@ -372,21 +377,23 @@ class Moderator:
                             public=True
                         )
                     else:
-                        original_role_name = werewolf_target_player.role.name
+                        original_role_name = werewolf_target_player.role.name.value
                         self.state.eliminate_player(werewolf_target_id)
                         data = WerewolfNightEliminationDataEntry(
                             eliminated_player_id=werewolf_target_id,
                             eliminated_player_role_name=original_role_name,
                         )
                         self.state.add_history_entry(
-                            description=f"Last night, {werewolf_target_id} was eliminated by werewolves. Their role was a {original_role_name}.",
+                            description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
+                                        f'Their role was a "{original_role_name}".',
                             entry_type=HistoryEntryType.ELIMINATION,
                             public=True,
                             data=data
                         )
                 else:
                     self.state.add_history_entry(
-                        description=f"Last night, werewolves targeted P{werewolf_target_id}, but this player could not be found. No one was eliminated by werewolves.",
+                        description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
+                                    f'but this player could not be found. No one was eliminated by werewolves.',
                         entry_type=HistoryEntryType.ERROR,
                         public=True
                     )
@@ -458,7 +465,7 @@ class Moderator:
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
             self.state.add_history_entry(
-                description=f"Voting phase begins. Rule: {self.day_voting.voting_rule}",
+                description=f"Voting phase begins.\nRule: {self.day_voting.voting_rule}",
                 entry_type=HistoryEntryType.PHASE_CHANGE,
                 public=True
             )
@@ -496,7 +503,7 @@ class Moderator:
             if exiled_player_id:
                 exiled_player = self.state.get_player_by_id(exiled_player_id)
                 if exiled_player:
-                    original_role_name = exiled_player.role.name
+                    original_role_name = exiled_player.role.name.value
                     self.state.eliminate_player(exiled_player_id)
                     data = DayExileElectedDataEntry(
                         elected_player_id=exiled_player_id,
@@ -556,13 +563,13 @@ class Moderator:
         if not wolves:
             winner_team = Team.VILLAGERS.value
             winner_message = "Game Over: Villagers Win!"
-            reason = "All werewolves exiled."
+            reason = "Reason: All werewolves exiled."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.VILLAGERS)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)})
         else:
             winner_team = Team.WEREWOLVES.value
             winner_message = "Game Over: Werewolves Win!"
-            reason = f"len(werewolves) >= len(villagers). Final counts: len(werewolves)={len(wolves)}, len(villagers)={len(villagers)})."
+            reason = f"Reason: len(werewolves) >= len(villagers). Final counts: len(werewolves)={len(wolves)}, len(villagers)={len(villagers)})."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.VILLAGERS)})
 

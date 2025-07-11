@@ -372,16 +372,13 @@ def interpreter(state, env):
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
 
-        # skip if player not active
-        if player_id_str not in active_player_ids_after_advance:
+        # skip if player not active and game is not done
+        if player_id_str not in active_player_ids_after_advance and not is_game_done:
            state[i].status = 'INACTIVE'
            continue
         
         # set the status of active player to ACTIVE
         state[i].status = 'ACTIVE'
-        print(f"Player {player_id_str} status after advance: {state[i].status}")
-
-
         player_obj = game_state.get_player_by_id(player_id_str)
 
         # Observation processing
@@ -430,44 +427,12 @@ def renderer(state, env):
     if not hasattr(env, 'moderator') or not hasattr(env, 'game_state'):
         return "Game not initialized by interpreter yet."
 
-    moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
-    
+
     lines = []
-    lines.append(f"--- Werewolf Game ---")
-    lines.append(f"Day: {game_state.day_count}, Game Phase: {game_state.phase.value} (Detailed: {moderator.detailed_phase.value})")
-    lines.append("Players:")
-    for p_obj in game_state.players:
-        status = "Alive" if p_obj.alive else "Dead"
-        # For debugging, show roles. In a real game, this might be hidden or player-specific.
-        lines.append(f"  Player {p_obj.id} ({p_obj.role.name}, Team: {p_obj.role.team.value}): {status}")
-
-    lines.append("\nRecent Public History (last 10):")
-    public_history_entries = []
-    for day_num in sorted(game_state.history.keys()):
-        for entry in game_state.history[day_num]:
-            if entry.public:
-                public_history_entries.append(
-                    f"  Day {entry.day} [{entry.phase.value}] ({entry.entry_type.value}): {entry.description}"
-                )
-    
-    for entry_line in public_history_entries[-10:]: # Display last 10 public entries
-        lines.append(entry_line)
-
-    if not public_history_entries:
-        lines.append("  No public history events yet.")
-    
-    if moderator.is_game_over():
-        lines.append("\n--- GAME OVER ---")
-        game_end_entry = next((e for day_hist in game_state.history.values() for e in day_hist if e.entry_type == HistoryEntryType.GAME_END), None)
-        if game_end_entry:
-            lines.append(f"  {game_end_entry.description}")
-            if game_end_entry.data:
-                lines.append(f"  Reason: {game_end_entry.data.get('reason')}")
-        else:
-            lines.append("  Winner determination pending or not logged in history.")
-
-    return "\n".join(lines)
+    for entry in game_state.consume_messages():
+        lines.append(entry.description)
+    return "\n\n".join(lines)
 
 
 def html_renderer():
