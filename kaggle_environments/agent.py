@@ -163,11 +163,13 @@ class Agent:
 
         # Start the timer.
 
-        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
-            if self.debug:
-                start = perf_counter()
-                action = self.agent(*args)
-            else:
+        if self.debug:
+            start = perf_counter()
+            action = self.agent(*args)
+            out = ""
+            err = ""
+        else:
+            with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
                 try:
                     start = perf_counter()
                     action = self.agent(*args)
@@ -175,16 +177,16 @@ class Agent:
                     traceback.print_exc(file=err_buffer)
                     action = e
 
-            out = out_buffer.getvalue()
-            err = err_buffer.getvalue()
-            # Get the maximum log length
-            # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
-            max_log_length = self.configuration.get('maxLogLength', 1024)
+                out = out_buffer.getvalue()
+                err = err_buffer.getvalue()
+                # Get the maximum log length
+                # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
+                max_log_length = self.configuration.get('maxLogLength', 1024)
 
-            # truncate if max_log_length is set to None, do not truncate
-            if max_log_length is not None:
-                out = out[0:max_log_length]
-                err = err[0:max_log_length]
+                # truncate if max_log_length is set to None, do not truncate
+                if max_log_length is not None:
+                    out = out[0:max_log_length]
+                    err = err[0:max_log_length]
 
         duration = perf_counter() - start
         log = {
