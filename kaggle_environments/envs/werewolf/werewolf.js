@@ -1,35 +1,324 @@
 // werewolf.js
 function renderer({
-    environment,
-    step,
-    parent,
-    height = 600, // Default height
-    width = 800   // Default width
+  environment,
+  step,
+  parent,
+  height = 700, // Default height
+  width = 1100, // Default width
 }) {
-    // Helper to get player name or a special string if index is out of bounds
-    function formatVotes(votesObject) {
-        if (!votesObject || Object.keys(votesObject).length === 0) {
-            return "No votes cast yet.";
+  // --- CSS for the UI ---
+  const css = `
+        :root {
+            --night-bg: #2c3e50;
+            --day-bg: #3498db;
+            --night-text: #ecf0f1;
+            --day-text: #2c3e50;
+            --dead-filter: grayscale(100%) brightness(50%);
+            --active-border: #f1c40f;
         }
-        let readableVotes = "";
-        for (const voterName in votesObject) {
-            const targetName = votesObject[voterName];
-            readableVotes += `  ${voterName} -> ${targetName}\n`;
+        .werewolf-parent {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
         }
-        return readableVotes.trim();
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 1s ease-in-out;
+        }
+        .werewolf-parent.night .background {
+            background-image: url('https://www.kaggle.com/static/images/games/werewolf/night.png');
+        }
+        .werewolf-parent.day .background {
+            background-image: url('https://www.kaggle.com/static/images/games/werewolf/day.png');
+        }
+        .main-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            height: 100%;
+            width: 100%;
+            background-color: rgba(0,0,0,0.3);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--night-text);
+        }
+
+        /* 2-COLUMN LAYOUT */
+        .left-panel {
+            width: 300px;
+            flex-shrink: 0;
+            background-color: rgba(44, 62, 80, 0.85);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .right-panel {
+            flex-grow: 1; /* Panel now grows to fill available space */
+            background-color: rgba(44, 62, 80, 0.85);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Panel Headers */
+        .right-panel h1, #player-list-area h1 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 1.5em;
+            color: var(--night-text);
+            border-bottom: 2px solid var(--night-text);
+            padding-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Player List (Left Panel) */
+        #player-list-area {
+            flex: 3;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #player-list-container {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            flex-grow: 1;
+        }
+
+        #player-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .player-card {
+            display: flex;
+            align-items: center;
+            background-color: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 5px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .player-card.active {
+            border-left-color: var(--active-border);
+            box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
+        }
+        .player-card.dead {
+            opacity: 0.6;
+        }
+        .player-card .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background-color: #fff;
+        }
+        .player-card.dead .avatar {
+             filter: var(--dead-filter);
+        }
+        .player-info {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .player-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .player-role, .player-status {
+            font-size: 0.9em;
+            color: #bdc3c7;
+        }
+
+        /* Right Panel (Event Log) */
+        #chat-log {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .chat-entry {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .balloon {
+            background-color: #34495e;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%; /* Allow wider chat balloons */
+            word-wrap: break-word;
+        }
+        .balloon cite {
+            font-style: normal;
+            font-weight: bold;
+            font-size: 0.9em;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .msg-entry {
+            background-color: rgba(0,0,0,0.2);
+            border-left: 3px solid #f39c12;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .msg-entry.game-event {
+             border-left-color: #e74c3c; /* Red for eliminations/exiles */
+        }
+        .msg-entry.game-win {
+             border-left-color: #2ecc71; /* Green for win */
+        }
+        .msg-entry cite {
+            font-style: normal;
+            font-weight: bold;
+            display: block;
+            font-size: 0.8em;
+            color: #bdc3c7;
+            margin-bottom: 5px;
+        }
+    `;
+
+  // --- Helper Functions ---
+
+  function renderPlayerList(container, gameState, actingPlayerName) {
+    // container is #player-list-area
+    container.innerHTML = '<h1>Players</h1>';
+    const listContainer = document.createElement('div');
+    listContainer.id = 'player-list-container';
+    const playerUl = document.createElement('ul');
+    playerUl.id = 'player-list';
+
+    gameState.players.forEach(player => {
+        const li = document.createElement('li');
+        li.className = 'player-card';
+        if (!player.is_alive) li.classList.add('dead');
+        if (player.name === actingPlayerName) li.classList.add('active');
+
+        const roleText = player.role !== 'Unknown' ? `Role: ${player.role}` : 'Role: Unknown';
+        const statusText = player.is_alive ? 'Status: Alive' : 'Status: Eliminated';
+
+        li.innerHTML = `
+            <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
+            <div class="player-info">
+                <div class="player-name" title="${player.name}">${player.name}</div>
+                <div class="player-role">${roleText}</div>
+                <div class="player-status">${statusText}</div>
+            </div>
+        `;
+        playerUl.appendChild(li);
+    });
+
+    listContainer.appendChild(playerUl);
+    container.appendChild(listContainer);
+  }
+
+  function renderEventLog(container, gameState, playerMap) {
+    container.innerHTML = '<h1>Event Log</h1>';
+    const logUl = document.createElement('ul');
+    logUl.id = 'chat-log';
+
+    const logEntries = gameState.eventLog;
+
+    if (logEntries.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'msg-entry';
+        li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
+        logUl.appendChild(li);
+    } else {
+        logEntries.forEach(entry => {
+            const li = document.createElement('li');
+            switch (entry.type) {
+                case 'chat':
+                    const speaker = playerMap.get(entry.speaker);
+                    if (!speaker) return;
+                    li.className = 'chat-entry';
+                    li.innerHTML = `
+                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
+                        <div class="balloon">
+                            <cite>${speaker.name}</cite>
+                            <div class="balloon-text"><quote>${entry.message}</quote></div>
+                        </div>
+                    `;
+                    break;
+                case 'seer_inspection':
+                    li.className = 'msg-entry';
+                    li.innerHTML = `
+                        <cite>Day ${entry.day} (Private)</cite>
+                        <div class="msg-text">(As Seer) You saw that <strong>${entry.target}</strong>'s role is <strong>${entry.role}</strong>.</div>
+                    `;
+                    break;
+                case 'system':
+                    li.className = 'msg-entry';
+                    li.innerHTML = `
+                        <cite>Day ${entry.day}</cite>
+                        <div class="msg-text">${entry.text}</div>
+                    `;
+                    break;
+                case 'exile':
+                    li.className = 'msg-entry game-event';
+                    li.innerHTML = `
+                        <cite>Day ${entry.day}</cite>
+                        <div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>
+                    `;
+                    break;
+                case 'elimination':
+                    li.className = 'msg-entry game-event';
+                    li.innerHTML = `
+                        <cite>Night ${entry.day}</cite>
+                        <div class="msg-text"><strong>${entry.name}</strong> was killed. Their role was a ${entry.role}.</div>
+                    `;
+                    break;
+                case 'save':
+                     li.className = 'msg-entry';
+                     li.innerHTML = `
+                        <cite>Night ${entry.day}</cite>
+                        <div class="msg-text">A player was attacked but saved by the Doctor!</div>
+                     `;
+                     break;
+                case 'game_over':
+                    li.className = 'msg-entry game-win';
+                    li.innerHTML = `
+                        <cite>Game Over</cite>
+                        <div class="msg-text">The <strong>${entry.winner}</strong> team has won!</div>
+                    `;
+                    break;
+            }
+            logUl.appendChild(li);
+
+        });
     }
 
-    // Helper to parse discussion log into a readable string
-    function formatDiscussion(discussionLog) {
-        if (!discussionLog || discussionLog.length === 0) {
-            return "No discussion yet this day.";
-        }
-        try {
-            return discussionLog.map(d => `${d.speaker}: ${d.message}`).join('\n');
-        } catch (e) {
-            return "Error parsing discussion log.";
-        }
-    }
+    container.appendChild(logUl);
+    logUl.scrollTop = logUl.scrollHeight;
+  }
 
     parent.innerHTML = ''; // Clear previous rendering
 
@@ -37,12 +326,10 @@ function renderer({
     Object.assign(container.style, {
         fontFamily: "Arial, sans-serif",
         padding: "15px",
-        backgroundColor: "#f4f4f9",
-        border: "1px solid #ccc",
-        borderRadius: "8px",
-        width: `${width - 32}px`,
-        height: `${height - 32}px`,
-        overflowY: "auto",
+        width: `${width}px`,
+        height: `${height}px`,
+        overflow: "hidden",
+        position: 'relative',
     });
 
     if (!environment || !environment.steps || environment.steps.length === 0 || step >= environment.steps.length) {
@@ -50,23 +337,15 @@ function renderer({
         parent.appendChild(container);
         return;
     }
-    
+
     // --- State Reconstruction ---
-    // The new observation model is event-based, so we must reconstruct state by processing history.
     let gameState = {
         players: [],
         day: 0,
         phase: 'GAME_SETUP',
         gameWinner: null,
-        lastLynched: null,
-        lastKilledByWW: null,
-        seerInspections: [],
-        discussionLog: [],
-        dayVotes: {},
-        nightVotes: {},
+        eventLog: [], // Unified log for right panel
     };
-
-    const processedEvents = new Set();
 
     const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
     if (!firstObs) {
@@ -75,9 +354,19 @@ function renderer({
         return;
     }
 
+    const playerThumbnails = firstObs.player_thumbnails || {};
     const allPlayerNamesList = firstObs.all_player_ids;
-    gameState.players = allPlayerNamesList.map(name => ({ name: name, is_alive: true, role: 'Unknown' }));
+    gameState.players = allPlayerNamesList.map(name => ({
+        name: name,
+        is_alive: true,
+        role: 'Unknown',
+        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
+    }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
+
+    const processedEvents = new Set();
+    let lastPhase = null;
+    let lastDay = 0;
 
     for (let s = 0; s <= step; s++) {
         const stepStateList = environment.steps[s];
@@ -85,9 +374,21 @@ function renderer({
 
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
+            if (currentObsForStep.day > lastDay) {
+                if (currentObsForStep.day > 0) {
+                    gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, text: `Day ${currentObsForStep.day} has begun.` });
+                }
+            }
+            lastDay = currentObsForStep.day;
+
+            if (lastPhase && lastPhase !== currentObsForStep.phase) {
+                gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
+            }
+            lastPhase = currentObsForStep.phase;
+
             gameState.day = currentObsForStep.day;
             gameState.phase = currentObsForStep.phase;
-            // Update alive status based on the latest step's observation
+            gameState.game_state_phase = currentObsForStep.game_state_phase;
             const alivePlayerIds = new Set(currentObsForStep.alive_players);
             for (const player of gameState.players) {
                 player.is_alive = alivePlayerIds.has(player.name);
@@ -102,10 +403,8 @@ function renderer({
                 if (processedEvents.has(eventKey)) continue;
                 processedEvents.add(eventKey);
 
-                // The json_str in the current Python implementation contains the entire HistoryEntry object.
-                // The actual event payload is in the 'data' property of that object.
                 const historyEvent = JSON.parse(dataEntry.json_str);
-                if (!historyEvent.data) continue; // Safety check for events without a data payload
+                if (!historyEvent.data) continue;
                 const data = historyEvent.data;
 
                 switch (dataEntry.data_type) {
@@ -113,37 +412,38 @@ function renderer({
                         playerMap.get(data.player_id).role = data.role;
                         break;
                     case 'DayExileElectedDataEntry':
-                        gameState.lastLynched = { name: data.elected_player_id, role: data.elected_player_role_name };
+                        gameState.eventLog.push({ type: 'exile', day: gameState.day, name: data.elected_player_id, role: data.elected_player_role_name });
                         if (playerMap.has(data.elected_player_id)) {
                             playerMap.get(data.elected_player_id).is_alive = false;
                         }
-                        gameState.discussionLog = []; // Reset for next day
                         break;
                     case 'WerewolfNightEliminationDataEntry':
-                        gameState.lastKilledByWW = { name: data.eliminated_player_id, role: data.eliminated_player_role_name };
+                         gameState.eventLog.push({ type: 'elimination', day: gameState.day, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
                         if (playerMap.has(data.eliminated_player_id)) {
                             playerMap.get(data.eliminated_player_id).is_alive = false;
                         }
                         break;
                     case 'SeerInspectResultDataEntry':
-                        gameState.seerInspections.push({ seer: data.actor_id, target: data.target_id, role: data.role, day: gameState.day });
+                        gameState.eventLog.push({ type: 'seer_inspection', day: gameState.day, seer: data.actor_id, target: data.target_id, role: data.role });
+                        break;
+                    case 'DoctorSaveDataEntry':
+                        gameState.eventLog.push({ type: 'save', day: gameState.day });
                         break;
                     case 'ChatDataEntry':
-                        gameState.discussionLog.push({ speaker: data.speaker_id, message: data.message });
-                        break;
-                    case 'DayExileVoteDataEntry':
-                        if (!gameState.dayVotes[gameState.day]) gameState.dayVotes[gameState.day] = {};
-                        gameState.dayVotes[gameState.day][data.actor_id] = data.target_id;
-                        break;
-                    case 'WerewolfNightVoteDataEntry':
-                        if (!gameState.nightVotes[gameState.day]) gameState.nightVotes[gameState.day] = {};
-                        gameState.nightVotes[gameState.day][data.actor_id] = data.target_id;
+                        gameState.eventLog.push({ type: 'chat', day: gameState.day, speaker: data.speaker_id, message: data.message });
                         break;
                     case 'GameEndResultsDataEntry':
                         gameState.gameWinner = data.winner_team;
+                        gameState.eventLog.push({ type: 'game_over', winner: data.winner_team });
                         Object.entries(data.all_players_and_role).forEach(([p_id, p_role]) => {
                             playerMap.get(p_id).role = p_role;
                         });
+                        break;
+                    // Ignored entries for UI purposes
+                    case 'SeerInspectActionDataEntry':
+                    case 'DoctorHealActionDataEntry':
+                    case 'DayExileVoteDataEntry':
+                    case 'WerewolfNightVoteDataEntry':
                         break;
                 }
             }
@@ -155,113 +455,43 @@ function renderer({
     const actingPlayerIndex = lastStepStateList.findIndex(s => s.status === 'ACTIVE');
     const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N/A";
 
-    // --- Game Info Section ---
-    const gameInfoDiv = document.createElement("div");
-    gameInfoDiv.innerHTML = `
-        <h2 style="color: #333; border-bottom: 2px solid #666; padding-bottom: 5px;">Werewolf Game Viewer</h2>
-        <p><strong>Kaggle Step:</strong> ${step}</p>
-        <p><strong>Day:</strong> ${gameState.day}</p>
-        <p><strong>Game Phase:</strong> ${gameState.phase.replace(/_/g, ' ')}</p>
-        ${actingPlayerName !== "N/A" ? `
-            <p><strong>Awaiting Action From:</strong> ${actingPlayerName}</p>
-        ` : '<p><strong>Action:</strong> Game is processing...</p>'}
-    `;
-    container.appendChild(gameInfoDiv);
+    // --- Main DOM Rendering ---
+    parent.innerHTML = '';
+    Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
+    parent.className = 'werewolf-parent';
 
-    // --- Player Status Section ---
-    const playerStatusDiv = document.createElement("div");
-    playerStatusDiv.innerHTML = `<h3 style="color: #555;">Player Status</h3>`;
-    const playerListUl = document.createElement("ul");
-    Object.assign(playerListUl.style, { listStyleType: "none", paddingLeft: "0" });
+    const style = document.createElement('style');
+    style.textContent = css;
+    parent.appendChild(style);
 
-    for (const player of gameState.players) {
-        const li = document.createElement("li");
-        Object.assign(li.style, { padding: "5px 0", borderBottom: "1px dashed #ddd" });
+    const isNight = gameState.game_state_phase === 'NIGHT';
+    parent.classList.toggle('night', isNight);
+    parent.classList.toggle('day', !isNight);
 
-        let roleDisplay = "Role: Unknown";
-        if (gameState.gameWinner) {
-            roleDisplay = `Role: ${player.role} (${player.is_alive ? 'Survived' : 'Eliminated'})`;
-        } else if (!player.is_alive) {
-            roleDisplay = `Role: ${player.role} (Eliminated)`;
-        } else {
-            roleDisplay = `Role: (Alive)`;
-        }
+    const background = document.createElement('div');
+    background.className = 'background';
 
-        li.innerHTML = `
-            <strong style="color: ${player.is_alive ? 'green' : 'red'};">${player.name}</strong>
-            (Status: ${player.is_alive ? 'Alive' : 'Dead'}) - ${roleDisplay}
-        `;
-        if (player.name === actingPlayerName) {
-            li.style.backgroundColor = "#e0e0ff"; // Highlight acting player
-        }
-        playerListUl.appendChild(li);
-    }
-    playerStatusDiv.appendChild(playerListUl);
-    container.appendChild(playerStatusDiv);
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'main-container';
 
-    // --- Events & Details Section ---
-    const eventLogDiv = document.createElement("div");
-    eventLogDiv.innerHTML = `<h3 style="color: #555;">Events & Details</h3>`;
+    parent.appendChild(background);
+    parent.appendChild(mainContainer);
 
-    if (gameState.lastLynched) {
-        eventLogDiv.innerHTML += `<p><strong>Last Lynched:</strong> ${gameState.lastLynched.name} (Role: ${gameState.lastLynched.role})</p>`;
-    }
-    if (gameState.lastKilledByWW) {
-        eventLogDiv.innerHTML += `<p><strong>Last Killed by Werewolf:</strong> ${gameState.lastKilledByWW.name} (Role: ${gameState.lastKilledByWW.role})</p>`;
-    }
+    // Left Panel for Players
+    const leftPanel = document.createElement('div');
+    leftPanel.className = 'left-panel';
+    mainContainer.appendChild(leftPanel);
 
-    // Discussion Log
-    const discussionDiv = document.createElement("div");
-    discussionDiv.innerHTML = `<h4>Discussion Log (Current Day)</h4>`;
-    const discussionPre = document.createElement("pre");
-    Object.assign(discussionPre.style, {
-        backgroundColor: "#fff", border: "1px solid #eee", padding: "10px",
-        maxHeight: "150px", overflowY: "auto", whiteSpace: "pre-wrap"
-    });
-    discussionPre.textContent = formatDiscussion(gameState.discussionLog);
-    discussionDiv.appendChild(discussionPre);
-    eventLogDiv.appendChild(discussionDiv);
+    const playerListArea = document.createElement('div');
+    playerListArea.id = 'player-list-area';
+    leftPanel.appendChild(playerListArea);
 
-    // Vote Details
-    const voteDetailsDiv = document.createElement("div");
-    voteDetailsDiv.innerHTML = `<h4>Vote Details</h4>`;
+    // Right Panel for Event Log
+    const rightPanel = document.createElement('div');
+    rightPanel.className = 'right-panel';
+    mainContainer.appendChild(rightPanel);
 
-    const currentDayVotes = gameState.dayVotes[gameState.day] || {};
-    const dayVotesPre = document.createElement("pre");
-    dayVotesPre.textContent = `Day ${gameState.day} Lynch Votes:\n${formatVotes(currentDayVotes)}`;
-    voteDetailsDiv.appendChild(dayVotesPre);
-
-    const currentNightVotes = gameState.nightVotes[gameState.day] || {};
-    if (Object.keys(currentNightVotes).length > 0) {
-        const nightVotesPre = document.createElement("pre");
-        nightVotesPre.textContent = `Night ${gameState.day} Werewolf Votes:\n${formatVotes(currentNightVotes)}`;
-        voteDetailsDiv.appendChild(nightVotesPre);
-    }
-
-    eventLogDiv.appendChild(voteDetailsDiv);
-
-    // Seer Inspections
-    const seerInspectionsForDay = gameState.seerInspections.filter(insp => insp.day === gameState.day);
-    if (seerInspectionsForDay.length > 0) {
-        const seerInspectionDiv = document.createElement("div");
-        seerInspectionDiv.innerHTML = `<h4>Seer Inspections (Night ${gameState.day})</h4>`;
-        seerInspectionsForDay.forEach(insp => {
-            seerInspectionDiv.innerHTML += `<p>${insp.seer} inspected ${insp.target} and saw role: ${insp.role}</p>`;
-        });
-        eventLogDiv.appendChild(seerInspectionDiv);
-    }
-
-    container.appendChild(eventLogDiv);
-
-    // --- Game Outcome Section ---
-    if (gameState.gameWinner) {
-        const outcomeDiv = document.createElement("div");
-        outcomeDiv.innerHTML = `
-            <h2 style="color: #800000; margin-top: 20px;">GAME OVER!</h2>
-            <p style="font-size: 1.2em;"><strong>Winner Team:</strong> ${gameState.gameWinner}</p>
-        `;
-        container.appendChild(outcomeDiv);
-    }
-
-    parent.appendChild(container);
+    // Render the main UI components
+    renderPlayerList(playerListArea, gameState, actingPlayerName);
+    renderEventLog(rightPanel, gameState, playerMap);
 }
