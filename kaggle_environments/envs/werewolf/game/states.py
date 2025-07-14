@@ -69,6 +69,7 @@ class GameState(BaseModel):
     def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
                           visible_to: Optional[List[str]] = None, data: Optional[Union[
                 DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
+        visible_to = visible_to or []
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])

@@ -10,8 +10,8 @@ from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
-from .game.records import AskDoctorSaveDataEntry, AskSeerRevealDataEntry, \
-    AskWerewolfVotingDataEntry
+from .game.records import RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, \
+    RequestWerewolfVotingDataEntry
 from .game.roles import create_players_from_roles_and_ids
 from .game.states import *
 
@@ -50,6 +50,7 @@ class WerewolfObservationModel(BaseModel):
     day: int
     phase: str
     all_player_ids: List[str]
+    player_thumbnails: Dict[str, str] = {}
     alive_players: List[str]
     new_visible_announcements: List[str]
     new_visible_raw_data: List[VisibleRawData]
@@ -315,6 +316,7 @@ def interpreter(state, env):
         env.player_ids_map = {i: p.id for i, p in enumerate(players)}
         env.player_id_str_list = [p.id for p in players]
 
+        env.player_thumbnails = getattr(env.configuration, "player_thumbnails", {})
         # Initialize protocols from configuration or defaults
         discussion_protocol = create_protocol_from_config(
             env.configuration,
@@ -399,6 +401,7 @@ def interpreter(state, env):
             day=game_state.day_count,
             phase=moderator.detailed_phase.value,
             all_player_ids=game_state.all_player_ids,
+            player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
