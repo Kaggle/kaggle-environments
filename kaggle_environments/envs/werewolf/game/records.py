@@ -13,6 +13,7 @@ class HistoryEntryType(str, Enum):
     ACTION_RESULT = "action_result"
     ELIMINATION = "elimination"
     VOTE_ACTION = "vote_action"
+    HEAL_ACTION = "heal_action"
     VOTE_RESULT = "vote_result"
     DISCUSSION = "discussion"
     BIDDING_INFO = "bidding_info"
@@ -66,26 +67,26 @@ class GameStartRoleDataEntry(DataEntry):
     rule_of_role: str
 
 
-class AskForActionDataEntry(DataEntry):
+class RequestForActionDataEntry(DataEntry):
     action_json_schema: str
 
 
-class AskDoctorSaveDataEntry(AskForActionDataEntry):
+class RequestDoctorSaveDataEntry(RequestForActionDataEntry):
     valid_candidates: List[str]
 
 
-class AskSeerRevealDataEntry(AskForActionDataEntry):
+class RequestSeerRevealDataEntry(RequestForActionDataEntry):
     valid_candidates: List[str]
 
 
-class AskWerewolfVotingDataEntry(AskForActionDataEntry):
+class RequestWerewolfVotingDataEntry(RequestForActionDataEntry):
     valid_targets: List[str]
     alive_werewolve_player_ids: List[str]
     voting_protocol_name: str
     voting_protocol_rule: str
 
 
-class AskVillagerToSpeakDataEntry(AskForActionDataEntry):
+class RequestVillagerToSpeakDataEntry(RequestForActionDataEntry):
     pass
 
 
@@ -94,6 +95,22 @@ class SeerInspectResultDataEntry(DataEntry):
     target_id: str
     role: str
     team: str
+
+
+class SeerInspectActionDataEntry(DataEntry):
+    """This records the Seer's choice of target to inspect."""
+    actor_id: str
+    target_id: str
+
+
+class DoctorHealActionDataEntry(DataEntry):
+    actor_id: str
+    target_id: str
+
+
+class DoctorSaveDataEntry(DataEntry):
+    """This records that a player was successfully saved by a doctor."""
+    saved_player_id: str
 
 
 class WerewolfNightVoteDataEntry(DataEntry):

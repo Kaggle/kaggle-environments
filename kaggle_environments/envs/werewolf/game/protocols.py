@@ -5,7 +5,7 @@ from collections import Counter
 import json
 
 from .states import GameState
-from .records import HistoryEntryType, AskVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
+from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
 from .roles import Player
 from .consts import Team, Phase
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
@@ -282,7 +282,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
         if speakers:  # Typically one speaker for RoundRobin
             for speaker_id in speakers:
-                data = AskVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
+                data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
                 state.add_history_entry(
                     description=f'Player "{speaker_id}", it is your turn to speak.',
                     entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
