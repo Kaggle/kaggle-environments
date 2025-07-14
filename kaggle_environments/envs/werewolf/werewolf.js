@@ -147,7 +147,6 @@ function renderer({
             font-size: 0.9em;
             color: #bdc3c7;
         }
-
         /* Right Panel (Event Log) */
         #chat-log {
             list-style: none;
@@ -167,6 +166,7 @@ function renderer({
             height: 40px;
             border-radius: 50%;
             margin-right: 10px;
+            object-fit: cover;
             flex-shrink: 0;
         }
         .balloon {
@@ -264,6 +264,7 @@ function renderer({
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
                         <div class="balloon">
                             <cite>${speaker.name}</cite>
+
                             <div class="balloon-text"><quote>${entry.message}</quote></div>
                         </div>
                     `;
@@ -271,8 +272,8 @@ function renderer({
                 case 'seer_inspection':
                     li.className = 'msg-entry';
                     li.innerHTML = `
-                        <cite>Day ${entry.day} (Private)</cite>
-                        <div class="msg-text">(As Seer) You saw that <strong>${entry.target}</strong>'s role is <strong>${entry.role}</strong>.</div>
+                        <cite>Night ${entry.day} (Private)</cite>
+                        <div class="msg-text">(As Seer) You saw that <strong>${entry.target}</strong>'s role is a <strong>${entry.role}</strong>.</div>
                     `;
                     break;
                 case 'system':
@@ -293,7 +294,7 @@ function renderer({
                     li.className = 'msg-entry game-event';
                     li.innerHTML = `
                         <cite>Night ${entry.day}</cite>
-                        <div class="msg-text"><strong>${entry.name}</strong> was killed. Their role was a ${entry.role}.</div>
+                        <div class="msg-text"><strong>${entry.name}</strong> was eliminated. Their role was a ${entry.role}.</div>
                     `;
                     break;
                 case 'save':
@@ -302,7 +303,23 @@ function renderer({
                         <cite>Night ${entry.day}</cite>
                         <div class="msg-text">A player was attacked but saved by the Doctor!</div>
                      `;
+
+                    break;
+                case 'vote':
+                    li.className = 'msg-entry';
+                    li.innerHTML = `
+                    <cite>Day ${entry.day} (Vote)</cite>
+                     <div class="msg-text">${entry.name} votes to eliminate ${entry.target}.</div>
+
+                     `;
                      break;
+                case 'night_vote':
+                    li.className = 'msg-entry';
+                    li.innerHTML = `
+                    <cite>Night ${entry.day} (Secret Vote)</cite>
+                     <div class="msg-text">(As Werewolf) <strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
+                     `;
+                    break;
                 case 'game_over':
                     li.className = 'msg-entry game-win';
                     li.innerHTML = `
@@ -337,6 +354,7 @@ function renderer({
         parent.appendChild(container);
         return;
     }
+
 
     // --- State Reconstruction ---
     let gameState = {
@@ -439,11 +457,15 @@ function renderer({
                             playerMap.get(p_id).role = p_role;
                         });
                         break;
+                    case 'DayExileVoteDataEntry':
+                        gameState.eventLog.push({ type: 'vote', day: gameState.day, name: data.actor_id, target: data.target_id });
+                        break;
+                    case 'WerewolfNightVoteDataEntry':
+                        gameState.eventLog.push({ type: 'night_vote', day: gameState.day, name: data.actor_id, target: data.target_id });
+                        break;
                     // Ignored entries for UI purposes
                     case 'SeerInspectActionDataEntry':
                     case 'DoctorHealActionDataEntry':
-                    case 'DayExileVoteDataEntry':
-                    case 'WerewolfNightVoteDataEntry':
                         break;
                 }
             }
