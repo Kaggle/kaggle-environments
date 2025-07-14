@@ -52,7 +52,7 @@ class Moderator:
         assert state.phase == Phase.NIGHT
 
         self._active_night_roles_queue: List[Player] = []
-        self._night_save_queue: List[str] = []
+        self._night_save_queue: Dict[str, List[str]] = {}
         self._action_queue: List[str] = []  # Player IDs expected to act
 
         # below is the state transition function table
@@ -94,7 +94,7 @@ class Moderator:
                 f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
                 f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}"
             ]),
-            entry_type=HistoryEntryType.GAME_START,
+            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
             data=data
         )
@@ -257,7 +257,7 @@ class Moderator:
         for ww_voter_id in self.night_voting.get_next_voters():  # Should give all WWs if simultaneous
             if ww_voter_id not in self._action_queue: self._action_queue.append(ww_voter_id)
 
-        # state transition 
+        # state transition
         self.detailed_phase = DetailedPhase.NIGHT_AWAIT_ACTIONS
         self.night_step = 1  # Mark that initial night roles (doc, seer) + first WW vote are expected
 
@@ -294,7 +294,10 @@ class Moderator:
                         visible_to=[actor_id],
                         data=data
                     )
-                    self._night_save_queue.append(action.target_id)
+                    target_id = action.target_id
+                    if target_id not in self._night_save_queue:
+                        self._night_save_queue[target_id] = []
+                    self._night_save_queue[target_id].append(actor_id)
                 elif player.role.name == RoleConst.SEER and isinstance(action, InspectAction):
 
                     action_data = SeerInspectActionDataEntry(
@@ -381,18 +384,21 @@ class Moderator:
                 werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
                 if werewolf_target_player:
                     if werewolf_target_id in self._night_save_queue:
+                        saving_doctor_ids = self._night_save_queue[werewolf_target_id]
                         save_data = DoctorSaveDataEntry(saved_player_id=werewolf_target_id)
+
+                        # Private message to doctor(s) with data for the renderer
                         self.state.add_history_entry(
-                            description=f"Last night, player \"{werewolf_target_id}\" was attacked but was saved "
-                                        f"by a Doctor! No one was eliminated.",
+                            description=f"Your heal on player \"{werewolf_target_id}\" was successful!",
                             entry_type=HistoryEntryType.ACTION_RESULT,
                             public=False,
                             data=save_data,
-                            visible_to=[]
+                            visible_to=saving_doctor_ids
                         )
-                        # public info cannot reveal who's attacked and who's saved
+
+                        # Generic public announcement for all other players
                         self.state.add_history_entry(
-                            description=f"Last night, No one was eliminated.",
+                            description=f"A player was attacked but was saved by the Doctor!",
                             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                             public=True
                         )
@@ -430,7 +436,7 @@ class Moderator:
                 )
 
             self.night_voting.reset()
-            self._night_save_queue = []
+            self._night_save_queue = {}
             if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.DAY_START
 
@@ -485,9 +491,10 @@ class Moderator:
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
             self.state.add_history_entry(
-                description=f"Voting phase begins.\nRule: {self.day_voting.voting_rule}",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
-                public=True
+                description=f"Voting phase begins. We will decide who to exile today.\nDay voting Rule: {self.day_voting.voting_rule}",
+                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                public=True,
+                data={"voting_rule": self.day_voting.voting_rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)

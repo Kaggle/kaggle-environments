@@ -112,6 +112,7 @@ def random_agent(obs):
     if not raw_obs or not entries:
         return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
 
+    phase = raw_obs['game_state_phase']
     current_phase = DetailedPhase(raw_obs['phase'])
     my_role = RoleConst(raw_obs['role'])
 
@@ -119,7 +120,10 @@ def random_agent(obs):
     my_id = raw_obs['player_id']
     alive_players = raw_obs['alive_players']
 
-    action = NoOpAction(actor_id=my_id, reasoning="There's nothing to be done.") # Default action
+    day = raw_obs['day']
+    common_args = {"day": day, "phase": phase, "actor_id": my_id}
+
+    action = NoOpAction(**common_args, reasoning="There's nothing to be done.") # Default action
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
@@ -130,7 +134,7 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data.get('valid_targets')
                 target_id = random.choice(valid_targets)
-                action = EliminateProposalAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one.")
+                action = EliminateProposalAction(**common_args, target_id=target_id, reasoning="I randomly chose one.")
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
@@ -140,7 +144,7 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
-                action = HealAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to heal.")
+                action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.")
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
@@ -150,13 +154,13 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
-                action = InspectAction(actor_id=my_id, target_id=target_id, reasoning="I randomly chose one to inspect.")
+                action = InspectAction(**common_args, target_id=target_id, reasoning="I randomly chose one to inspect.")
 
     elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
         # Only alive players can discuss
         if my_id in alive_players:
             action = ChatAction(
-                actor_id=my_id,
+                **common_args,
                 message=random.choice([
                     "Hello everyone!",
                     "I have a strong feeling about someone.",
@@ -171,7 +175,7 @@ def random_agent(obs):
         # Only alive players can vote
         if my_id in alive_players:
             action = VoteAction(
-                actor_id=my_id,
+                **common_args,
                 target_id=random.choice(all_player_names),
                 reasoning="I randomly chose one."
             )
@@ -270,24 +274,7 @@ class LLMAgent:
 
 agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
-
-def _prepare_observation(sub_state, player_obj, game_state, detailed_phase):
-    new_history_entries = player_obj.consume_messages()
-    sub_state['observation']['new_history_entries_json'] = new_history_entries
-    obs = WerewolfObservationModel(
-        player_id=player_obj.id,
-        role=player_obj.role.name,
-        team=player_obj.role.team.value,
-        is_alive=player_obj.alive,
-        day=game_state.day_count,
-        phase=detailed_phase.value,
-        all_player_ids=game_state.all_player_ids,
-        alive_players=[p.id for p in game_state.alive_players()],
-        new_visible_announcements=[entry.description for entry in new_history_entries],
-        new_visible_raw_data=[VisibleRawData.from_entry(entry.data) for entry in new_history_entries if entry.data],
-        game_state_phase=game_state.phase.value
-    )
-    sub_state.observation["raw_observation"] = obs.model_dump()
+MODERATOR_OBS_KEY = "MODERATOR_OBSERVATION"
 
 
 def interpreter(state, env):
@@ -345,6 +332,7 @@ def interpreter(state, env):
         )
 
         env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
+        env.info = {MODERATOR_OBS_KEY: []}
 
     moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
@@ -375,6 +363,9 @@ def interpreter(state, env):
             state[i].reward = scores[player_id]
 
     active_player_ids_after_advance = set(moderator.get_active_player_ids())
+
+    # accumulate God mode observations from env for rendering
+    env.info[MODERATOR_OBS_KEY].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
