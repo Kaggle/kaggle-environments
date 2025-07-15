@@ -25,6 +25,15 @@
             },
             "default": ["player_0", "player_1", "player_2", "player_3", "player_4", "player_5", "player_6", "player_7"]
         },
+        "player_thumbnails": {
+            "description": "A dictionary mapping player names to their thumbnail image URLs. Keys should match the names provided in the 'names' configuration.",
+            "type": "object",
+            "additionalProperties": {
+                "type": "string",
+                "format": "uri"
+            },
+            "default": {}
+        },
         "discussion_protocol": {
             "description": "Configuration for the daytime discussion protocol.",
             "type": "object",
