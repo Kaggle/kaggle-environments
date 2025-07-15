@@ -271,25 +271,6 @@ class LLMAgent:
 agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
 
-def _prepare_observation(sub_state, player_obj, game_state, detailed_phase):
-    new_history_entries = player_obj.consume_messages()
-    sub_state['observation']['new_history_entries_json'] = new_history_entries
-    obs = WerewolfObservationModel(
-        player_id=player_obj.id,
-        role=player_obj.role.name,
-        team=player_obj.role.team.value,
-        is_alive=player_obj.alive,
-        day=game_state.day_count,
-        phase=detailed_phase.value,
-        all_player_ids=game_state.all_player_ids,
-        alive_players=[p.id for p in game_state.alive_players()],
-        new_visible_announcements=[entry.description for entry in new_history_entries],
-        new_visible_raw_data=[VisibleRawData.from_entry(entry.data) for entry in new_history_entries if entry.data],
-        game_state_phase=game_state.phase.value
-    )
-    sub_state.observation["raw_observation"] = obs.model_dump()
-
-
 def interpreter(state, env):
     """
     state: list of dictionaries, one for each agent.
