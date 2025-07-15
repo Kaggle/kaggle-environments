@@ -160,11 +160,11 @@ function renderer({
             flex-shrink: 0;
         }
         .balloon {
-            background-color: #34495e;
             padding: 10px;
             border-radius: 10px;
             max-width: 80%;
             word-wrap: break-word;
+            transition: background-color 0.3s ease;
         }
         .balloon cite {
             font-style: normal;
@@ -173,12 +173,24 @@ function renderer({
             display: block;
             margin-bottom: 5px;
         }
+        .chat-entry.event-day .balloon {
+            background-color: #7f8c8d; /* Lighter color for day chat */
+        }
+        .chat-entry.event-night .balloon {
+            background-color: #34495e; /* Original darker color for night chat */
+        }
         .msg-entry {
-            background-color: rgba(0,0,0,0.2);
             border-left: 3px solid #f39c12;
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .msg-entry.event-day {
+            background-color: rgba(236, 240, 241, 0.1); /* Lighter background for Day events */
+        }
+        .msg-entry.event-night {
+            background-color: rgba(0, 0, 0, 0.25); /* Darker background for Night events */
         }
         .reasoning-text {
             font-size: 0.85em;
@@ -253,12 +265,13 @@ function renderer({
         logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
+            const phaseClass = `event-${(entry.phase || 'day').toLowerCase()}`;
 
             switch (entry.type) {
                 case 'chat':
                     const speaker = playerMap.get(entry.speaker);
                     if (!speaker) return;
-                    li.className = 'chat-entry';
+                    li.className = `chat-entry ${phaseClass}`;
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
                         <div class="balloon">
@@ -269,7 +282,7 @@ function renderer({
                     `;
                     break;
                 case 'seer_inspection':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
                         <div class="msg-text">(As Seer) <strong>${entry.actor}</strong> chose to inspect <strong>${entry.target}</strong>'s role.</div>
@@ -277,14 +290,14 @@ function renderer({
                     `;
                     break;
                 case 'seer_inspection_result':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
                         <div class="msg-text">(As Seer) <strong>${entry.seer}</strong> saw <strong>${entry.target}</strong>'s role is a <strong>${entry.role}</strong>.</div>
                     `;
                     break;
                 case 'doctor_heal_action':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
                         <div class="msg-text">(As Doctor) <strong>${entry.actor}</strong> chose to heal <strong>${entry.target}</strong>.</div>
@@ -292,23 +305,23 @@ function renderer({
                     `;
                     break;
                 case 'system':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text">${entry.text}</div>`;
                     break;
                 case 'exile':
-                    li.className = 'msg-entry game-event';
+                    li.className = `msg-entry game-event ${phaseClass}`;
                     li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>`;
                     break;
                 case 'elimination':
-                    li.className = 'msg-entry game-event';
+                    li.className = `msg-entry game-event ${phaseClass}`;
                     li.innerHTML = `<cite>Night ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> was eliminated. Their role was a ${entry.role}.</div>`;
                     break;
                 case 'save':
-                     li.className = 'msg-entry';
+                     li.className = `msg-entry ${phaseClass}`;
                      li.innerHTML = `<cite>Night ${entry.day} (Doctor Save)</cite><div class="msg-text">Player <strong>${entry.saved_player}</strong> was attacked but saved by a Doctor!</div>`;
                     break;
                 case 'vote':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Day ${entry.day} (Vote)</cite>
                         <div class="msg-text"><strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
@@ -316,7 +329,7 @@ function renderer({
                      `;
                      break;
                 case 'night_vote':
-                    li.className = 'msg-entry';
+                    li.className = `msg-entry ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Secret Vote)</cite>
                         <div class="msg-text">(As Werewolf) <strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
@@ -324,7 +337,7 @@ function renderer({
                     `;
                     break;
                 case 'game_over':
-                    li.className = 'msg-entry game-win';
+                    li.className = `msg-entry game-win ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Game Over</cite>
                         <div class="msg-text">
@@ -362,7 +375,7 @@ function renderer({
     }
 
     // --- State Reconstruction ---
-    let gameState = { players: [], day: 0, phase: 'GAME_SETUP', gameWinner: null, eventLog: [] };
+    let gameState = { players: [], day: 0, phase: 'GAME_SETUP', game_state_phase: 'DAY', gameWinner: null, eventLog: [] };
     const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
     if (!firstObs) {
         container.textContent = "Waiting for game data...";
@@ -410,10 +423,10 @@ function renderer({
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
             if (currentObsForStep.day > lastDay) {
-                if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, text: `Day ${currentObsForStep.day} has begun.` });
+                if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
             }
             lastDay = currentObsForStep.day;
-            if (lastPhase && lastPhase !== currentObsForStep.phase) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
+            if (lastPhase && lastPhase !== currentObsForStep.phase) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: currentObsForStep.game_state_phase, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
             lastPhase = currentObsForStep.phase;
             gameState.day = currentObsForStep.day;
             gameState.phase = currentObsForStep.phase;
@@ -469,26 +482,26 @@ function renderer({
 
                 switch (dataEntry.data_type) {
                     case 'DayExileElectedDataEntry':
-                        gameState.eventLog.push({ type: 'exile', day: historyEvent.day, name: data.elected_player_id, role: data.elected_player_role_name });
+                        gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name });
                         const exiledPlayer = playerMap.get(data.elected_player_id);
                         if (exiledPlayer) { exiledPlayer.is_alive = false; exiledPlayer.status = 'Exiled by voting'; }
                         break;
                     case 'WerewolfNightEliminationDataEntry':
-                        gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
+                        gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name });
                         const elimPlayer = playerMap.get(data.eliminated_player_id);
                         if (elimPlayer) { elimPlayer.is_alive = false; elimPlayer.status = 'Eliminated by werewolf'; }
                         break;
                     case 'SeerInspectResultDataEntry':
-                        gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, seer: data.actor_id, target: data.target_id, role: data.role });
+                        gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role });
                         break;
                     case 'DoctorSaveDataEntry':
-                        gameState.eventLog.push({ type: 'save', day: historyEvent.day, saved_player: data.saved_player_id });
+                        gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id });
                         break;
                     case 'GameEndResultsDataEntry':
                         gameState.gameWinner = data.winner_team;
                         const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                         const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                        gameState.eventLog.push({ type: 'game_over', day: Infinity, winner: data.winner_team, winners, losers });
+                        gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'DAY', winner: data.winner_team, winners, losers });
                         break;
                 }
             }
