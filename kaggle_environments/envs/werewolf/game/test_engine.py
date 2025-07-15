@@ -1,8 +1,10 @@
 import pytest
 
-from .engine import Moderator, DetailedPhase, HistoryEntryType
+from .engine import Moderator, DetailedPhase
+from .records import HistoryEntryType
 from .states import GameState
-from .roles import Player, Werewolf, Villager, Seer, Doctor, Team, Phase, RoleConst
+from .roles import Player, Werewolf, Villager, Seer, Doctor
+from .consts import Phase, Team, RoleConst
 from .actions import EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction
 from .protocols import RoundRobinDiscussion, SimultaneousMajority, MajorityEliminateResolver, WerewolfEliminationProtocol
 
