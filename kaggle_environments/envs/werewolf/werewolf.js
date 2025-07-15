@@ -433,7 +433,7 @@ function renderer({
                         const actionKey = `${s}-${actionData.actor_id}-${actionType}`;
                         if (!processedEvents.has(actionKey)) {
                             processedEvents.add(actionKey);
-                            const commonData = { day: gameState.day, reasoning: actionData.reasoning };
+                            const commonData = { day: actionData.day, phase: actionData.phase, reasoning: actionData.reasoning };
                             switch (actionType) {
                                 case 'ChatAction':
                                     gameState.eventLog.push({ ...commonData, type: 'chat', speaker: actionData.actor_id, message: actionData.message });
