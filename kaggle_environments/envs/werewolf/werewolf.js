@@ -223,7 +223,7 @@ function renderer({
         if (player.name === actingPlayerName) li.classList.add('active');
 
         const roleText = player.role !== 'Unknown' ? `Role: ${player.role}` : 'Role: Unknown';
-        const statusText = player.is_alive ? 'Status: Alive' : 'Status: Eliminated';
+        const statusText = `Status: ${player.status}`;
 
         li.innerHTML = `
             <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
@@ -273,7 +273,14 @@ function renderer({
                     li.className = 'msg-entry';
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
-                        <div class="msg-text">(As Seer) You saw that <strong>${entry.target}</strong>'s role is a <strong>${entry.role}</strong>.</div>
+                        <div class="msg-text">(As Seer) <strong>${entry.seer}</strong> saw that <strong>${entry.target}</strong>'s role is a <strong>${entry.role}</strong>.</div>
+                    `;
+                    break;
+                case 'doctor_heal_action':
+                    li.className = 'msg-entry';
+                    li.innerHTML = `
+                        <cite>Night ${entry.day} (Private)</cite>
+                        <div class="msg-text">(As Doctor) <strong>${entry.actor}</strong> chose to heal <strong>${entry.target}</strong>.</div>
                     `;
                     break;
                 case 'system':
@@ -300,8 +307,8 @@ function renderer({
                 case 'save':
                      li.className = 'msg-entry';
                      li.innerHTML = `
-                        <cite>Night ${entry.day}</cite>
-                        <div class="msg-text">A player was attacked but saved by the Doctor!</div>
+                        <cite>Night ${entry.day} (Doctor Save)</cite>
+                        <div class="msg-text">Player <strong>${entry.saved_player}</strong> was attacked but saved by a Doctor!</div>
                      `;
 
                     break;
@@ -377,10 +384,40 @@ function renderer({
     gameState.players = allPlayerNamesList.map(name => ({
         name: name,
         is_alive: true,
-        role: 'Unknown',
+        role: 'Villager',
+        status: 'Alive',
         thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
+
+    // --- Pre-scan for all roles from the beginning (for watcher view) ---
+    const roleMap = new Map();
+    const initialStep = environment.steps[0];
+    if (initialStep) {
+        // Since each player is privately given their role at the start, we must scan
+        // the initial observations for all players to build a complete role map.
+        for (const agentState of initialStep) {
+            const rawObs = agentState.observation?.raw_observation;
+            if (rawObs?.new_visible_raw_data) {
+                for (const dataEntry of rawObs.new_visible_raw_data) {
+                    if (dataEntry.data_type === 'GameStartRoleDataEntry') {
+                        const historyEvent = JSON.parse(dataEntry.json_str);
+                        const data = historyEvent.data;
+                        if (data) {
+                            roleMap.set(data.player_id, data.role);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Apply the discovered roles to the main player state
+    roleMap.forEach((role, playerId) => {
+        if (playerMap.has(playerId)) {
+            playerMap.get(playerId).role = role;
+        }
+    });
+
 
     const processedEvents = new Set();
     let lastPhase = null;
@@ -426,26 +463,27 @@ function renderer({
                 const data = historyEvent.data;
 
                 switch (dataEntry.data_type) {
-                    case 'GameStartRoleDataEntry':
-                        playerMap.get(data.player_id).role = data.role;
-                        break;
                     case 'DayExileElectedDataEntry':
                         gameState.eventLog.push({ type: 'exile', day: gameState.day, name: data.elected_player_id, role: data.elected_player_role_name });
                         if (playerMap.has(data.elected_player_id)) {
-                            playerMap.get(data.elected_player_id).is_alive = false;
+                            const player = playerMap.get(data.elected_player_id);
+                            player.is_alive = false;
+                            player.status = 'Exiled by voting';
                         }
                         break;
                     case 'WerewolfNightEliminationDataEntry':
                          gameState.eventLog.push({ type: 'elimination', day: gameState.day, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
                         if (playerMap.has(data.eliminated_player_id)) {
-                            playerMap.get(data.eliminated_player_id).is_alive = false;
+                            const player = playerMap.get(data.eliminated_player_id);
+                            player.is_alive = false;
+                            player.status = 'Eliminated by werewolf';
                         }
                         break;
                     case 'SeerInspectResultDataEntry':
                         gameState.eventLog.push({ type: 'seer_inspection', day: gameState.day, seer: data.actor_id, target: data.target_id, role: data.role });
                         break;
                     case 'DoctorSaveDataEntry':
-                        gameState.eventLog.push({ type: 'save', day: gameState.day });
+                        gameState.eventLog.push({ type: 'save', day: gameState.day, saved_player: data.saved_player_id });
                         break;
                     case 'ChatDataEntry':
                         gameState.eventLog.push({ type: 'chat', day: gameState.day, speaker: data.speaker_id, message: data.message });
@@ -453,9 +491,7 @@ function renderer({
                     case 'GameEndResultsDataEntry':
                         gameState.gameWinner = data.winner_team;
                         gameState.eventLog.push({ type: 'game_over', winner: data.winner_team });
-                        Object.entries(data.all_players_and_role).forEach(([p_id, p_role]) => {
-                            playerMap.get(p_id).role = p_role;
-                        });
+                        // No longer need to update roles here for the UI, as they are pre-scanned
                         break;
                     case 'DayExileVoteDataEntry':
                         gameState.eventLog.push({ type: 'vote', day: gameState.day, name: data.actor_id, target: data.target_id });
@@ -463,9 +499,12 @@ function renderer({
                     case 'WerewolfNightVoteDataEntry':
                         gameState.eventLog.push({ type: 'night_vote', day: gameState.day, name: data.actor_id, target: data.target_id });
                         break;
-                    // Ignored entries for UI purposes
-                    case 'SeerInspectActionDataEntry':
                     case 'DoctorHealActionDataEntry':
+                        gameState.eventLog.push({ type: 'doctor_heal_action', day: gameState.day, actor: data.actor_id, target: data.target_id });
+                        break;
+                    // Ignored/unhandled entries
+                    case 'GameStartRoleDataEntry':
+                    case 'SeerInspectActionDataEntry':
                         break;
                 }
             }
