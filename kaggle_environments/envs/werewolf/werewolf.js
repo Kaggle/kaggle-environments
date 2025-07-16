@@ -174,7 +174,9 @@ function renderer({
             margin-bottom: 5px;
         }
         .chat-entry.event-day .balloon {
-            background-color: #7f8c8d; /* Lighter color for day chat */
+//            background-color: #7f8c8d; /* Lighter color for day chat */
+            background-color: #ecf0f1; /* Light background for the bubble */
+            color: #2c3e50;             /* Dark text for high contrast */
         }
         .chat-entry.event-night .balloon {
             background-color: #34495e; /* Original darker color for night chat */
@@ -213,6 +215,53 @@ function renderer({
             font-size: 0.8em;
             color: #bdc3c7;
             margin-bottom: 5px;
+        }
+//        .moderator-announcement {
+//            text-align: left;
+//            margin: 15px 10px;
+//            padding: 12px;
+//            border-radius: 4px;
+//            font-size: 1.05em;
+//            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+//        }
+        .moderator-announcement {
+            text-align: left;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .moderator-announcement.event-night {
+            background-color: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.4);
+            border-left: 5px solid #2ecc71;
+            color: #ecf0f1;
+        }
+        .moderator-announcement.event-day {
+            background-color: #e8f8f5;
+            border: 1px solid #a3e4d7;
+            border-left: 5px solid #1abc9c;
+            color: #145a32;
+        }
+        .moderator-announcement .announcement-icon {
+            font-size: 1.2em;
+            margin-right: 12px;
+            vertical-align: middle;
+        }
+        .moderator-announcement .announcement-text {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .moderator-announcement .announcement-detail {
+            display: block;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .moderator-announcement.event-night .announcement-detail {
+            color: #bdc3c7;
+        }
+        .moderator-announcement.event-day .announcement-detail {
+            color: #196f3d;
         }
     `;
 
@@ -305,8 +354,10 @@ function renderer({
                     `;
                     break;
                 case 'system':
-                    li.className = `msg-entry ${phaseClass}`;
-                    li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text">${entry.text}</div>`;
+                    li.className = `moderator-announcement ${phaseClass}`;
+//                    li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text">${entry.text}</div>`;
+//                    li.innerHTML = `<span class="announcement-icon">&#128226;</span><span class="announcement-text">Day ${entry.day}. ${entry.text}</span>`;
+                    li.innerHTML = `<cite>Day ${entry.day} (Moderator &#128226;)</cite><div class="msg-text">${entry.text}</div>`;
                     break;
                 case 'exile':
                     li.className = `msg-entry game-event event-day`;
@@ -495,7 +546,12 @@ function renderer({
                     gameState.gameWinner = data.winner_team;
                     const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                     const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'DAY', winner: data.winner_team, winners, losers });
+                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: historyEvent.phase, winner: data.winner_team, winners, losers });
+                    break;
+                default:
+                    if (data && historyEvent.entry_type === "moderator_announcement") {
+                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: eventPhase, text: historyEvent.description});
+                    }
                     break;
              }
         });
