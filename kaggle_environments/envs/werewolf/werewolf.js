@@ -5,7 +5,7 @@ function renderer({
   height = 700, // Default height
   width = 1100, // Default width
 }) {
-  // --- CSS for the UI ---
+  // --- CSS for the UI (remains the same) ---
   const css = `
         :root {
             --night-bg: #2c3e50;
@@ -271,7 +271,7 @@ function renderer({
                 case 'chat':
                     const speaker = playerMap.get(entry.speaker);
                     if (!speaker) return;
-                    li.className = `chat-entry ${phaseClass}`;
+                    li.className = `chat-entry event-day`;
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
                         <div class="balloon">
@@ -282,7 +282,7 @@ function renderer({
                     `;
                     break;
                 case 'seer_inspection':
-                    li.className = `msg-entry ${phaseClass}`;
+                    li.className = `msg-entry event-night`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
                         <div class="msg-text">(As Seer) <strong>${entry.actor}</strong> chose to inspect <strong>${entry.target}</strong>'s role.</div>
@@ -297,7 +297,7 @@ function renderer({
                     `;
                     break;
                 case 'doctor_heal_action':
-                    li.className = `msg-entry ${phaseClass}`;
+                    li.className = `msg-entry event-night`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Private)</cite>
                         <div class="msg-text">(As Doctor) <strong>${entry.actor}</strong> chose to heal <strong>${entry.target}</strong>.</div>
@@ -309,19 +309,19 @@ function renderer({
                     li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text">${entry.text}</div>`;
                     break;
                 case 'exile':
-                    li.className = `msg-entry game-event ${phaseClass}`;
+                    li.className = `msg-entry game-event event-day`;
                     li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>`;
                     break;
                 case 'elimination':
-                    li.className = `msg-entry game-event ${phaseClass}`;
+                    li.className = `msg-entry game-event event-night`;
                     li.innerHTML = `<cite>Night ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> was eliminated. Their role was a ${entry.role}.</div>`;
                     break;
                 case 'save':
-                     li.className = `msg-entry ${phaseClass}`;
+                     li.className = `msg-entry event-night`;
                      li.innerHTML = `<cite>Night ${entry.day} (Doctor Save)</cite><div class="msg-text">Player <strong>${entry.saved_player}</strong> was attacked but saved by a Doctor!</div>`;
                     break;
                 case 'vote':
-                    li.className = `msg-entry ${phaseClass}`;
+                    li.className = `msg-entry event-day`;
                     li.innerHTML = `
                         <cite>Day ${entry.day} (Vote)</cite>
                         <div class="msg-text"><strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
@@ -329,7 +329,7 @@ function renderer({
                      `;
                      break;
                 case 'night_vote':
-                    li.className = `msg-entry ${phaseClass}`;
+                    li.className = `msg-entry event-night`;
                     li.innerHTML = `
                         <cite>Night ${entry.day} (Secret Vote)</cite>
                         <div class="msg-text">(As Werewolf) <strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
@@ -391,22 +391,16 @@ function renderer({
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
+    // Get initial roles from the start of the game
     const roleAndTeamMap = new Map();
-    const initialStep = environment.steps[0];
-    if (initialStep) {
-        for (const agentState of initialStep) {
-            const rawObs = agentState.observation?.raw_observation;
-            if (rawObs?.new_visible_raw_data) {
-                for (const dataEntry of rawObs.new_visible_raw_data) {
-                    if (dataEntry.data_type === 'GameStartRoleDataEntry') {
-                        const historyEvent = JSON.parse(dataEntry.json_str);
-                        const data = historyEvent.data;
-                        if (data) roleAndTeamMap.set(data.player_id, { role: data.role, team: data.team });
-                    }
-                }
-            }
+    const moderatorInitialLog = environment.info?.MODERATOR_OBSERVATION?.[0] || [];
+    moderatorInitialLog.forEach(dataEntry => {
+        if (dataEntry.data_type === 'GameStartRoleDataEntry') {
+            const historyEvent = JSON.parse(dataEntry.json_str);
+            const data = historyEvent.data;
+            if (data) roleAndTeamMap.set(data.player_id, { role: data.role, team: data.team });
         }
-    }
+    });
     roleAndTeamMap.forEach((info, playerId) => {
         const player = playerMap.get(playerId);
         if (player) { player.role = info.role; player.team = info.team; }
@@ -414,27 +408,29 @@ function renderer({
 
     const processedEvents = new Set();
     let lastPhase = null;
-    let lastDay = 0;
+    let lastDay = -1;
 
     for (let s = 0; s <= step; s++) {
         const stepStateList = environment.steps[s];
         if (!stepStateList) continue;
 
+        // Update overall game state from the first agent in the current step
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
             if (currentObsForStep.day > lastDay) {
                 if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
             }
             lastDay = currentObsForStep.day;
-            if (lastPhase && lastPhase !== currentObsForStep.phase) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: currentObsForStep.game_state_phase, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
+            // if (lastPhase && lastPhase !== currentObsForStep.phase) {
+            //      gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: currentObsForStep.game_state_phase, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
+            // }
             lastPhase = currentObsForStep.phase;
             gameState.day = currentObsForStep.day;
             gameState.phase = currentObsForStep.phase;
             gameState.game_state_phase = currentObsForStep.game_state_phase;
-            const alivePlayerIds = new Set(currentObsForStep.alive_players);
-            gameState.players.forEach(p => p.is_alive = alivePlayerIds.has(p.name));
         }
 
+        // 1. Process agent actions for immediate feedback (chats, votes, etc.)
         for (const agentState of stepStateList) {
             if (agentState.action) {
                 try {
@@ -446,7 +442,7 @@ function renderer({
                         const actionKey = `${s}-${actionData.actor_id}-${actionType}`;
                         if (!processedEvents.has(actionKey)) {
                             processedEvents.add(actionKey);
-                            const commonData = { day: actionData.day, phase: actionData.phase, reasoning: actionData.reasoning };
+                            const commonData = { day: actionData.day, phase: actionData.game_state_phase, reasoning: actionData.reasoning };
                             switch (actionType) {
                                 case 'ChatAction':
                                     gameState.eventLog.push({ ...commonData, type: 'chat', speaker: actionData.actor_id, message: actionData.message });
@@ -468,45 +464,54 @@ function renderer({
                     }
                 } catch (e) { /* Fail silently */ }
             }
+        }
+        
+        // 2. Process confirmed events from the moderator log
+        const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
+        moderatorLogForStep.forEach(dataEntry => {
+             const eventKey = dataEntry.json_str;
+             if (processedEvents.has(eventKey)) return;
+             processedEvents.add(eventKey);
 
-            if (!agentState.observation?.raw_observation?.new_visible_raw_data) continue;
+             const historyEvent = JSON.parse(dataEntry.json_str);
+             if (!historyEvent.data) return;
+             const data = historyEvent.data;
+             const eventPhase = historyEvent.phase || 'DAY'; // Default to DAY if phase is missing
 
-            for (const dataEntry of agentState.observation.raw_observation.new_visible_raw_data) {
-                const eventKey = JSON.stringify(dataEntry);
-                if (processedEvents.has(eventKey)) continue;
-                processedEvents.add(eventKey);
+             switch (dataEntry.data_type) {
+                case 'DayExileElectedDataEntry':
+                    gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: eventPhase, name: data.elected_player_id, role: data.elected_player_role_name });
+                    break;
+                case 'WerewolfNightEliminationDataEntry':
+                    gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: eventPhase, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
+                    break;
+                case 'SeerInspectResultDataEntry':
+                    gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: eventPhase, seer: data.actor_id, target: data.target_id, role: data.role });
+                    break;
+                case 'DoctorSaveDataEntry':
+                    gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: eventPhase, saved_player: data.saved_player_id });
+                    break;
+                case 'GameEndResultsDataEntry':
+                    gameState.gameWinner = data.winner_team;
+                    const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
+                    const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
+                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'DAY', winner: data.winner_team, winners, losers });
+                    break;
+             }
+        });
+    }
 
-                const historyEvent = JSON.parse(dataEntry.json_str);
-                if (!historyEvent.data) continue;
-                const data = historyEvent.data;
-
-                switch (dataEntry.data_type) {
-                    case 'DayExileElectedDataEntry':
-                        gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name });
-                        const exiledPlayer = playerMap.get(data.elected_player_id);
-                        if (exiledPlayer) { exiledPlayer.is_alive = false; exiledPlayer.status = 'Exiled by voting'; }
-                        break;
-                    case 'WerewolfNightEliminationDataEntry':
-                        gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name });
-                        const elimPlayer = playerMap.get(data.eliminated_player_id);
-                        if (elimPlayer) { elimPlayer.is_alive = false; elimPlayer.status = 'Eliminated by werewolf'; }
-                        break;
-                    case 'SeerInspectResultDataEntry':
-                        gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role });
-                        break;
-                    case 'DoctorSaveDataEntry':
-                        gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id });
-                        break;
-                    case 'GameEndResultsDataEntry':
-                        gameState.gameWinner = data.winner_team;
-                        const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
-                        const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                        gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'DAY', winner: data.winner_team, winners, losers });
-                        break;
-                }
+    // Update player statuses based on the final log
+    gameState.players.forEach(p => { p.is_alive = true; p.status = 'Alive'; });
+    gameState.eventLog.forEach(entry => {
+        if (entry.type === 'exile' || entry.type === 'elimination') {
+            const player = playerMap.get(entry.name);
+            if (player) {
+                player.is_alive = false;
+                player.status = entry.type === 'exile' ? 'Exiled' : 'Eliminated';
             }
         }
-    }
+    });
 
     gameState.eventLog.sort((a, b) => a.day - b.day);
 
