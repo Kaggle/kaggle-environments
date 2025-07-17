@@ -94,7 +94,7 @@ class Moderator:
                 f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
                 f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}"
             ]),
-            entry_type=HistoryEntryType.GAME_START,
+            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
             data=data
         )
@@ -491,9 +491,10 @@ class Moderator:
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
             self.state.add_history_entry(
-                description=f"Voting phase begins.\nRule: {self.day_voting.voting_rule}",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
-                public=True
+                description=f"Voting phase begins. We will decide who to exile today.\nDay voting Rule: {self.day_voting.voting_rule}",
+                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                public=True,
+                data={"voting_rule": self.day_voting.voting_rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)
