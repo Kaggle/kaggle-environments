@@ -33,10 +33,10 @@ function renderer({
             transition: background-image 1s ease-in-out;
         }
         .werewolf-parent.night .background {
-            background-image: url('https://www.kaggle.com/static/images/games/werewolf/night.png');
+            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-night.png');
         }
         .werewolf-parent.day .background {
-            background-image: url('https://www.kaggle.com/static/images/games/werewolf/day.png');
+            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-day.png');
         }
         .main-container {
             position: relative;
@@ -174,12 +174,13 @@ function renderer({
             margin-bottom: 5px;
         }
         .chat-entry.event-day .balloon {
-//            background-color: #7f8c8d; /* Lighter color for day chat */
-            background-color: #ecf0f1; /* Light background for the bubble */
-            color: #2c3e50;             /* Dark text for high contrast */
+            // background-color:rgb(70, 77, 78); /* Darker grey for day chat bubble */
+            background-color: rgba(236, 240, 241, 0.1);
+            color: var(--night-text);   /* Use consistent light text color */
         }
         .chat-entry.event-night .balloon {
-            background-color: #34495e; /* Original darker color for night chat */
+            // background-color:rgb(25, 36, 46); /* Original darker color for night chat */
+            background-color: rgba(0, 0, 0, 0.25);
         }
         .msg-entry {
             border-left: 3px solid #f39c12;
@@ -216,52 +217,19 @@ function renderer({
             color: #bdc3c7;
             margin-bottom: 5px;
         }
-//        .moderator-announcement {
-//            text-align: left;
-//            margin: 15px 10px;
-//            padding: 12px;
-//            border-radius: 4px;
-//            font-size: 1.05em;
-//            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
-//        }
         .moderator-announcement {
-            text-align: left;
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
             transition: background-color 0.3s ease;
-        }
-        .moderator-announcement.event-night {
-            background-color: rgba(46, 204, 113, 0.1);
-            border: 1px solid rgba(46, 204, 113, 0.4);
-            border-left: 5px solid #2ecc71;
-            color: #ecf0f1;
+            border-left: 5px solid #2ecc71; /* Green border for differentiation */
+            color: var(--night-text); /* Ensure text is consistently light */
         }
         .moderator-announcement.event-day {
-            background-color: #e8f8f5;
-            border: 1px solid #a3e4d7;
-            border-left: 5px solid #1abc9c;
-            color: #145a32;
+            background-color: rgba(236, 240, 241, 0.1); /* Same as msg-entry.event-day */
         }
-        .moderator-announcement .announcement-icon {
-            font-size: 1.2em;
-            margin-right: 12px;
-            vertical-align: middle;
-        }
-        .moderator-announcement .announcement-text {
-            display: inline-block;
-            vertical-align: middle;
-        }
-        .moderator-announcement .announcement-detail {
-            display: block;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-        .moderator-announcement.event-night .announcement-detail {
-            color: #bdc3c7;
-        }
-        .moderator-announcement.event-day .announcement-detail {
-            color: #196f3d;
+        .moderator-announcement.event-night {
+            background-color: rgba(0, 0, 0, 0.25); /* Same as msg-entry.event-night */
         }
     `;
 
@@ -355,13 +323,11 @@ function renderer({
                     break;
                 case 'system':
                     li.className = `moderator-announcement ${phaseClass}`;
-//                    li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text">${entry.text}</div>`;
-//                    li.innerHTML = `<span class="announcement-icon">&#128226;</span><span class="announcement-text">Day ${entry.day}. ${entry.text}</span>`;
-                    li.innerHTML = `<cite>Day ${entry.day} (Moderator &#128226;)</cite><div class="msg-text">${entry.text}</div>`;
+                    li.innerHTML = `<cite>${entry.phase} ${entry.day} (Moderator &#128226;)</cite><div class="msg-text">${entry.text}</div>`;
                     break;
                 case 'exile':
                     li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>Day ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>`;
+                    li.innerHTML = `<cite>${entry.phase} ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>`;
                     break;
                 case 'elimination':
                     li.className = `msg-entry game-event event-night`;
@@ -549,8 +515,8 @@ function renderer({
                     gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: historyEvent.phase, winner: data.winner_team, winners, losers });
                     break;
                 default:
-                    if (data && historyEvent.entry_type === "moderator_announcement") {
-                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: eventPhase, text: historyEvent.description});
+                    if (historyEvent.entry_type === "moderator_announcement") {
+                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description});
                     }
                     break;
              }
@@ -583,7 +549,7 @@ function renderer({
     style.textContent = css;
     parent.appendChild(style);
 
-    const isNight = gameState.game_state_phase === 'NIGHT';
+    const isNight = gameState.game_state_phase === 'Night';
     parent.classList.toggle('night', isNight);
     parent.classList.toggle('day', !isNight);
 

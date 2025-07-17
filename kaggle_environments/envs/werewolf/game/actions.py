@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field, ConfigDict, model_validator
 # ------------------------------------------------------------------ #
 class Action(BaseModel):
     """Root of the discriminated-union tree."""
+    day: int
+    phase: str
     actor_id: str
     reasoning: Optional[str] = Field(default=None, max_length=4096)
 
