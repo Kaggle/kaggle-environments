@@ -19,6 +19,7 @@ DONE = "DONE"
 INACTIVE = "INACTIVE"
 ACTIVE = "ACTIVE"
 TIMEOUT = "TIMEOUT"
+INVALID = "INVALID"
 
 _log = logging.getLogger(__name__) 
 _log.setLevel(logging.INFO) 
@@ -41,6 +42,8 @@ for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
 
 
 # --- Constants ---
+DEFAULT_INVALID_ACTION_REWARD = -1
+
 DEFAULT_ACT_TIMEOUT = 300
 DEFAULT_RUN_TIMEOUT = 7200
 # Buffer in addition to max game length to account for timeouts, retrys, etc.
@@ -176,19 +179,6 @@ def interpreter(
   os_game = env.os_game
   os_state = env.os_state
   num_players = os_game.num_players()
-  statuses = [
-      kaggle_state[player_id].status for player_id in range(num_players)
-  ]
-  if not any(status == ACTIVE for status in statuses):
-    for player_id in range(num_players):
-      p = kaggle_state[player_id]
-      if p.status in [ERROR, TIMEOUT]:
-        # TODO: properly set the reward per game
-        p.reward = -1
-      elif p.status in [INACTIVE]:
-        p.reward = 1
-        p.status = DONE
-    return kaggle_state
 
   # TODO(jhtschultz): Test reset behavior.
   is_initial_step = len(env.steps) == 1
@@ -199,31 +189,39 @@ def interpreter(
   # --- Apply agent action ---
   acting_agent = os_state.current_player()
   action_submitted = None
+  action_submitted_to_string = None
   action_applied = None
   move_duration = None
   if is_initial_step:
     pass
   elif 0 <= acting_agent < num_players:
-    if kaggle_state[acting_agent].status != "ACTIVE":
+    if kaggle_state[acting_agent]["status"] != "ACTIVE":
       pass
     else:
-      action_submitted = kaggle_state[acting_agent].action["submission"]
+      action_submitted = kaggle_state[acting_agent]["action"]["submission"]
       if action_submitted in os_state.legal_actions():
         try:
+          action_submitted_to_string = os_state.action_to_string(
+              action_submitted
+          )
           os_state.apply_action(action_submitted)
           action_applied = action_submitted
           env.info['actionHistory'].append(str(action_applied))
           env.info['stateHistory'].append(str(os_state))
         except Exception as e:  # pylint: disable=broad-exception-caught
           _log.debug(e)
-          kaggle_state[acting_agent].status = "ERROR"
+          kaggle_state[acting_agent]["status"] = "ERROR"
       else:
-        kaggle_state[acting_agent].status = "INVALID"
-      if "duration" in logs[acting_agent]:
-        move_duration = round(logs[acting_agent]["duration"], 3)
-        env.info["moveDurations"].append(move_duration)
-      else:
-        env.info["moveDurations"].append(None)
+        kaggle_state[acting_agent]["status"] = "INVALID"
+      try:
+        if "duration" in logs[acting_agent]:
+          move_duration = round(logs[acting_agent]["duration"], 3)
+          env.info["moveDurations"].append(move_duration)
+        else:
+          env.info["moveDurations"].append(None)
+      except Exception:
+        pass  # No logs when stepping the env manually.
+
   elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
     raise NotImplementedError
   elif acting_agent == pyspiel.PlayerId.TERMINAL:
@@ -242,10 +240,23 @@ def interpreter(
     env.info['stateHistory'].append(str(os_state))
 
   # --- Update agent states ---
+  invalid_action = any(
+    kaggle_state[player_id]["status"] == INVALID
+    for player_id in range(num_players)
+  )
+  if invalid_action:
+    _log.info("INVALID ACTION DETECTED")
+
   for player_id, agent_state in enumerate(kaggle_state):
     reward = None
-    if agent_state.status in ["TIMEOUT", "ERROR", "INVALID"]:
-      status = agent_state.status
+    if invalid_action:
+      if agent_state["status"] == "INVALID":
+        reward = DEFAULT_INVALID_ACTION_REWARD
+      else:
+        reward = -DEFAULT_INVALID_ACTION_REWARD
+      status = "DONE"
+    elif agent_state["status"] in ["TIMEOUT", "ERROR"]:
+      status = agent_state["status"]
     elif os_state.is_terminal():
       status = "DONE"
       reward = os_state.returns()[player_id]
@@ -261,6 +272,7 @@ def interpreter(
     info_dict = {}
     if acting_agent == player_id:
       info_dict["actionSubmitted"] = action_submitted
+      info_dict["actionSubmittedToString"] = action_submitted_to_string
       info_dict["actionApplied"] = action_applied
       info_dict["timeTaken"] = move_duration
 
@@ -279,9 +291,9 @@ def interpreter(
     # Apply updates
     for k, v in obs_update_dict.items():
       setattr(agent_state.observation, k, v)
-    agent_state.reward = reward
-    agent_state.info = info_dict
-    agent_state.status = status
+    agent_state["reward"] = reward
+    agent_state["info_dict"] = info_dict
+    agent_state["status"] = status
 
   return kaggle_state
 
