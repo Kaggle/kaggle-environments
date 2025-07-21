@@ -2,14 +2,16 @@ from typing import List, Dict, Optional, Any, Union, Deque
 from collections import defaultdict, deque
 from functools import cached_property
 
-from pydantic import BaseModel, PrivateAttr, Field, computed_field
+from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
 from .records import HistoryEntryType, DataEntry, HistoryEntry
-from .roles import Player
+from .roles import Player, Role
 from .consts import Phase, Team, RoleConst, MODERATOR_ID
 
 
 class GameState(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     players: List[Player]
     phase: Phase = Phase.NIGHT
     day_count: int = 0
@@ -24,6 +26,12 @@ class GameState(BaseModel):
     @cached_property
     def all_player_ids(self) -> List[str]:
         return [player.id for player in self.players]
+    
+    @computed_field
+    @cached_property
+    def all_unique_roles(self) -> List[Role]:
+        role_dict = {player.role.name: player.role for player in self.players}
+        return list(role_dict.values())
 
     def model_post_init(self, context: Any, /) -> None:
         self._id_to_player = {p.id: p for p in self.players}
@@ -36,6 +44,12 @@ class GameState(BaseModel):
 
     def alive_players(self):
         return [p for p in self.players if p.alive]
+    
+    def eliminated_players(self):
+        return [p for p in self.players if not p.alive]
+    
+    def revealed_players(self):
+        return {p.id: p.role.name for p in self.players if not p.alive}
 
     def alive_players_by_role(self, role: RoleConst):
         return [p for p in self.alive_players() if p.role.name == role]
@@ -73,31 +87,45 @@ class GameState(BaseModel):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
-        entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
-                             description=description, public=public,
-                             visible_to=visible_to or [],
-                             data=data,
-                             source=source)
-        self.history[day_key].append(entry)
-        self._history_entry_by_type[entry_type].append(entry)
-        self._history_queue.append(entry)
+        sys_entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
+                                 description=description, public=public,
+                                 visible_to=visible_to or [],
+                                 data=data,
+                                 source=source)
+
+        self.history[day_key].append(sys_entry)
+        self._history_entry_by_type[entry_type].append(sys_entry)
+        self._history_queue.append(sys_entry)
+
+        public_data = data.public_view() if isinstance(data, DataEntry) else data
+
+        public_entry = HistoryEntry(
+            day=day_key, phase=self.phase, entry_type=entry_type,
+            description=description, public=public,
+            visible_to=visible_to or [],
+            data=public_data,
+            source=source
+        )
 
         # observers message pushing below
         if public:
             for player in self.players:
-                player.update(entry)
+                player.update(public_entry)
         else:
             for player_id in visible_to:
                 player = self.get_player_by_id(player_id)
                 if player:
-                    player.update(entry)
+                    player.update(public_entry)
 
     def eliminate_player(self, pid: str):
         player = self.get_player_by_id(pid)
         if player:
-            player.alive = False
+            player.eliminate(day=self.day_count, phase=self.phase)
 
     def consume_messages(self) -> List[HistoryEntry]:
         messages = list(self._history_queue)
         self._history_queue.clear()
         return messages
+
+    def get_elimination_info(self):
+        return [player.report_elimination() for player in self.players]

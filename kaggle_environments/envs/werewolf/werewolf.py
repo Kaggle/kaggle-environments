@@ -1,64 +1,23 @@
 import json
 import random  # Added for random.choice
-from enum import Enum
-from os import path
+from os import path, getenv
 
 from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
     NoOpAction, create_action
+from .game.consts import ActionType
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
-from .game.records import RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, \
-    RequestWerewolfVotingDataEntry
-from .game.roles import create_players_from_roles_and_ids
+from .game.records import WerewolfObservationModel, VisibleRawData
+from .game.roles import create_players_from_agents_config
 from .game.states import *
+from .harness.base import LLMWerewolfAgent
 
 
 # my_kaggle_env.py
 # Enums used by agents and action parser
-
-
-class ActionType(str, Enum):
-    NO_OP = "NO_OP"
-    NIGHT_KILL_VOTE = "NIGHT_KILL_VOTE"
-    NIGHT_SAVE_TARGET = "NIGHT_SAVE_TARGET"
-    NIGHT_INSPECT_TARGET = "NIGHT_INSPECT_TARGET"
-    DAY_DISCUSS = "DAY_DISCUSS"
-    DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
-
-
-class VisibleRawData(BaseModel):
-    data_type: str
-    json_str: str
-    """json dump"""
-
-    @classmethod
-    def from_entry(cls, entry: dict | DataEntry):
-        if not entry: return
-        if isinstance(entry, dict):
-            return cls(data_type=entry.__class__.__name__, json_str=json.dumps(entry))
-        return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
-
-
-class WerewolfObservationModel(BaseModel):
-    player_id: str
-    role: str
-    team: str
-    is_alive: bool
-    day: int
-    phase: str
-    all_player_ids: List[str]
-    player_thumbnails: Dict[str, str] = {}
-    alive_players: List[str]
-    new_visible_announcements: List[str]
-    new_visible_raw_data: List[VisibleRawData]
-    game_state_phase: str
-
-    def get_human_readable(self) -> str:
-        # This is a placeholder implementation. A real implementation would format this nicely.
-        return json.dumps(self.model_dump(), indent=2)
 
 
 MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in agent observation
@@ -103,8 +62,6 @@ def create_protocol_from_config(
 
 
 def random_agent(obs):
-
-    # TODO: pydantic cannot handle class inversion in subfield correctly
     raw_obs = obs.get('raw_observation')
     entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json')]
 
@@ -270,11 +227,100 @@ class LLMAgent:
         action_to_take = self.parse_llm_response_to_action(llm_response_action_str)
         
         return action_to_take
-    
 
-agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
 
-MODERATOR_OBS_KEY = "MODERATOR_OBSERVATION"
+class AgentFactoryWrapper:
+    """
+    A wrapper that creates and manages separate agent instances for each player.
+    This is necessary for stateful agents to be used in the agent registry,
+    preventing them from sharing state (like memory or history) across different players.
+    """
+    def __init__(self, agent_class, **kwargs):
+        self._agent_class = agent_class
+        self._kwargs = kwargs
+        self._instances = {}
+
+    def __call__(self, obs, config):
+        """
+        The main callable method for the agent. It routes the call to the correct
+        player-specific agent instance.
+        """
+        # In werewolf, obs['raw_observation']['player_id'] is the unique ID for a player.
+        player_id = obs.get('raw_observation', {}).get('player_id')
+
+        if not player_id:
+            # This could happen on initial steps or for an inactive agent.
+            # Returning a NO_OP action is a safe fallback.
+            raw_obs = obs.get('raw_observation', {})
+            return NoOpAction(
+                day=raw_obs.get('day', 0),
+                phase=raw_obs.get('phase', 'unknown'),
+                actor_id="unknown_fallback",
+                reasoning="AgentFactoryWrapper: No player_id found in observation."
+            ).serialize()
+
+        if player_id not in self._instances:
+            agents_dict = {agent_config.id: agent_config for agent_config in config.agents}
+            # Create a new agent instance for this player
+            self._kwargs['agent_config'] = agents_dict.get(player_id)
+            self._instances[player_id] = self._agent_class(**self._kwargs)
+
+        return self._instances[player_id](obs)
+
+# --- Agent Registry ---
+
+LLM_MODEL_NAMES = [
+    # Google
+    "gemini/gemini-2.5-pro",
+    "gemini/gemini-2.5-flash",
+    # OpenAI
+    "gpt-4.1",
+    "o3",
+    "o4-mini",
+    # Anthropic
+    "claude-4-sonnet-20250514",
+    "claude-4-opus-20250514",
+    "claude-3-5-haiku-latest",
+    # xai
+    "xai/grok-4-0709",
+    "xai/grok-4-latest",
+    # vertex AI
+    "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+    # together ai
+    "together_ai/deepseek-ai/DeepSeek-R1",
+    "together_ai/moonshotai/Kimi-K2-Instruct",
+    "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+]
+
+LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
+
+# Base agents, a convenient default 'llm' agent, and all specific LLM agents
+agents = {
+    "random": random_agent,
+    "dummy_llm": AgentFactoryWrapper(LLMAgent, model_name='dummy_llm'),
+    # A default 'llm' for convenience, pointing to a recommended model.
+    # This can also be overridden by an environment variable for quick tests.
+    "llm": AgentFactoryWrapper(
+        LLMWerewolfAgent,
+        model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
+        system_prompt=LLM_SYSTEM_PROMPT
+    ),
+    # Register all specific LLM models. The AgentFactoryWrapper ensures each
+    # player gets a unique, stateful agent instance.
+    **{
+        f"llm/{model_name}": AgentFactoryWrapper(
+            LLMWerewolfAgent,
+            model_name=model_name,
+            system_prompt=LLM_SYSTEM_PROMPT
+        )
+        for model_name in LLM_MODEL_NAMES
+    }
+}
+
+
+class EnvInfoKeys:
+    MODERATOR_OBS = "MODERATOR_OBSERVATION"
+    GAME_END = "GAME_END"
 
 
 def interpreter(state, env):
@@ -288,22 +334,20 @@ def interpreter(state, env):
     if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
         num_players = len(state)
 
-        roles_from_config = env.configuration.roles
-        names_from_config = env.configuration.names
+        agents_from_config = env.configuration.agents
 
         # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
-        if len(roles_from_config) < num_players:
-            raise ValueError(f"Configuration has {len(roles_from_config)} roles, but {num_players} agents are present.")
-        if len(names_from_config) < num_players:
-            raise ValueError(f"Configuration has {len(names_from_config)} names, but {num_players} agents are present.")
+        if len(agents_from_config) < num_players:
+            raise ValueError(f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
 
-        players = create_players_from_roles_and_ids(role_strings=roles_from_config[:num_players], player_ids=names_from_config[:num_players])
+        players = create_players_from_agents_config(agents_from_config)
+
         env.game_state = GameState(players=players, history={})
 
         env.player_ids_map = {i: p.id for i, p in enumerate(players)}
         env.player_id_str_list = [p.id for p in players]
 
-        env.player_thumbnails = getattr(env.configuration, "player_thumbnails", {})
+        env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
         # Initialize protocols from configuration or defaults
         discussion_protocol = create_protocol_from_config(
             env.configuration,
@@ -332,7 +376,7 @@ def interpreter(state, env):
         )
 
         env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
-        env.info = {MODERATOR_OBS_KEY: []}
+        env.info = {EnvInfoKeys.MODERATOR_OBS: []}
 
     moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
@@ -353,19 +397,23 @@ def interpreter(state, env):
 
     # 3. Update Kaggle state (observations, rewards, statuses)
     is_game_done = moderator.is_game_over()
-    
+    current_info = {}
     if is_game_done:
+        # log game end to env.info using GameEndResultsDataEntry
+        game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
+        if game_end_entry and game_end_entry.data:
+            current_info.update(game_end_entry.data.model_dump())
+        env.info[EnvInfoKeys.GAME_END] = current_info
         # Determine winner based on game_state.history's GAME_END entry
-        end_entry = game_state.get_history_by_type(entry_type=HistoryEntryType.GAME_END)[0]
-        scores = end_entry.data.scores
-
+        scores = game_end_entry.data.scores
         for i, player_id in enumerate(env.player_id_str_list):
             state[i].reward = scores[player_id]
 
     active_player_ids_after_advance = set(moderator.get_active_player_ids())
 
     # accumulate God mode observations from env for rendering
-    env.info[MODERATOR_OBS_KEY].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
+    env.info[EnvInfoKeys.MODERATOR_OBS].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
+
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
@@ -394,6 +442,7 @@ def interpreter(state, env):
             all_player_ids=game_state.all_player_ids,
             player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],
+            revealed_players_by_role=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
             game_state_phase=game_state.phase.value
@@ -410,14 +459,6 @@ def interpreter(state, env):
             state[i].status = "INACTIVE"
         
         # Info
-        current_info = {}
-        if is_game_done:
-            game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
-            if game_end_entry and game_end_entry.data:
-                current_info["winner_team"] = game_end_entry.data.winner_team
-                current_info["win_reason"] = game_end_entry.data.reason
-                current_info["scores"] = game_end_entry.data.scores
-                current_info["survivors_until_last_round_and_role"] = game_end_entry.data.survivors_until_last_round_and_role
         state[i].info = current_info
     return state
 

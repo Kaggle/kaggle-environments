@@ -2,17 +2,14 @@ from enum import Enum
 from typing import List, Dict, Tuple
 import json
 
-from .actions import (
-    Action, VoteAction,
-    HealAction, InspectAction, ChatAction, EliminateProposalAction, NoOpAction
-)
+from .actions import Action, VoteAction, HealAction, InspectAction
 from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player
 from .consts import Phase, Team, RoleConst
 from .states import GameState
 from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry, \
     RequestDoctorSaveDataEntry, \
-    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, WerewolfNightVoteDataEntry, \
+    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, \
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry, \
     GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
 
@@ -83,16 +80,19 @@ class Moderator:
             day_voting_protocol_name=self.day_voting.__class__.__name__,
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
+        
+        role_msg = "The following explain the function of each role.\n" + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
         self.state.add_history_entry(
             description="\n".join([
                 "Werewolf game begins.",
-                f"All player ids: {', '.join(data.player_ids)}",
+                f"All player ids: {data.player_ids}",
                 f"Number of alive players: {data.number_of_players}.",
                 f"Role counts: {data.role_counts}."
                 f"Alive team member counts: {data.team_member_counts}",
                 f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
                 f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
-                f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}"
+                f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
+                role_msg
             ]),
             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
@@ -241,7 +241,7 @@ class Moderator:
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
-                            f"Choose one target player to eliminate tonight.The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule}."
+                            f"Choose one target player to eliminate tonight. The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule} "
                             f"Who would you like to eliminate tonight? Options: {data.valid_targets}.",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=False,
@@ -491,7 +491,9 @@ class Moderator:
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
             self.state.add_history_entry(
-                description=f"Voting phase begins. We will decide who to exile today.\nDay voting Rule: {self.day_voting.voting_rule}",
+                description="Voting phase begins. We will decide who to exile today."
+                            f"\nDay voting Rule: {self.day_voting.voting_rule}."
+                            f"\nCurrent alive players are: {[player.id for player in alive_players]}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=True,
                 data={"voting_rule": self.day_voting.voting_rule}
@@ -516,13 +518,8 @@ class Moderator:
             # Stay in DAY_DISCUSSION_AWAIT_CHAT
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
-        # Actions in player_actions are from the voters queued in the previous step.
-        for actor_id, action in player_actions.items():
-            # Ensure the action is from an expected voter (though Env should filter)
-            # and is a valid type for voting protocol.
-            # The collect_vote method in the protocol should handle validation.
-            self.day_voting.collect_vote(action, self.state)
-
+        # TODO: refactor self._action_queue to be a list of tuple to include which action is queued information
+        self.day_voting.collect_votes(player_actions, self.state, self._action_queue)
         self._action_queue.clear()  # Clear previous voters
 
         if self.day_voting.done():
@@ -593,20 +590,31 @@ class Moderator:
             reason = "Reason: All werewolves exiled."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.VILLAGERS)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)})
+            winner_ids = [p.id for p in self.state.get_players_by_team(Team.VILLAGERS)]
+            loser_ids = [p.id for p in self.state.get_players_by_team(Team.WEREWOLVES)]
         else:
             winner_team = Team.WEREWOLVES.value
             winner_message = "Game Over: Werewolves Win!"
             reason = f"Reason: len(werewolves) >= len(villagers). Final counts: len(werewolves)={len(wolves)}, len(villagers)={len(villagers)})."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.VILLAGERS)})
+            loser_ids = [p.id for p in self.state.get_players_by_team(Team.VILLAGERS)]
+            winner_ids = [p.id for p in self.state.get_players_by_team(Team.WEREWOLVES)]
 
         data = GameEndResultsDataEntry(
             winner_team=winner_team,
+            winner_ids=winner_ids,
+            loser_ids=loser_ids,
             scores=scores,
             reason=reason,
-            survivors_until_last_round_and_role={p.id: p.role.name for p in self.state.alive_players()},
-            all_players_and_role={p.id: p.role.name for p in self.state.players}
+            last_day=self.state.day_count,
+            last_phase=self.state.phase.value,
+            survivors_until_last_round_and_role={p.id: p.role.name.value for p in self.state.alive_players()},
+            all_players_and_role={p.id: p.role.name.value for p in self.state.players},
+            elimination_info=self.state.get_elimination_info(),
+            all_players=[p.model_dump() for p in self.state.players]
         )
+
         self.state.add_history_entry(
             description=f"{winner_message}\n{reason}\nScores: {scores}\n"
                         f"Survivors: {data.survivors_until_last_round_and_role}\n"

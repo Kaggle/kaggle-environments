@@ -84,6 +84,10 @@ class VotingProtocol(ABC):
         """Collect an individual vote."""
 
     @abstractmethod
+    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+        """Collect a batch of votes."""
+
+    @abstractmethod
     def _tally_votes(self, state: GameState) -> str | None:
         """
         Return exiled `player_id`, or None if no one is exiled
@@ -259,7 +263,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
                     data = ChatDataEntry(
-                        speaker_id=act.actor_id,
+                        actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning
                     )
@@ -333,7 +337,7 @@ class RandomOrderDiscussion(DiscussionProtocol):
         for act in actions:
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
@@ -399,7 +403,7 @@ class ParallelDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 # In parallel, any alive player in expected_speakers can talk
                 if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
-                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
@@ -605,17 +609,36 @@ class SimultaneousMajority(VotingProtocol):
         self._potential_targets = [p.id for p in potential_targets if p.alive]
         self._current_game_state = state  # Store the game state reference
 
+    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+        for actor_id, action in player_actions.items():
+            self.collect_vote(action, state)
+        # set default for all expected voter
+        for player_id in expected_voters:
+            self._ballots.setdefault(player_id, "-1")
+
     def collect_vote(self, vote_action: Action, state: GameState):
         actor_player = state.get_player_by_id(vote_action.actor_id)
         if not isinstance(vote_action, VoteAction):
             state.add_history_entry(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". Not a VoteAction; submitted {vote_action.__class__.__name__} instead. Cast as abstained vote.',
                 entry_type=HistoryEntryType.ERROR,
-                public=True,
-                data={'vote_action': vote_action.serialize()}
+                public=False,
+                visible_to=self._expected_voters,
+                data={}
             )
             self._ballots[vote_action.actor_id] = "-1"
             return
+
+        if state.phase == Phase.NIGHT:
+            data_entry_class = WerewolfNightVoteDataEntry
+        else:
+            data_entry_class = DayExileVoteDataEntry
+
+        data = data_entry_class(
+            actor_id=vote_action.actor_id,
+            target_id=vote_action.target_id,
+            reasoning=vote_action.reasoning
+        )
 
         # Voter must be expected and alive at the moment of casting vote
         if actor_player and actor_player.alive and vote_action.actor_id in self._expected_voters:
@@ -624,8 +647,9 @@ class SimultaneousMajority(VotingProtocol):
                 state.add_history_entry(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}", already voted.',
                     entry_type=HistoryEntryType.ERROR,
-                    public=True,
-                    data={'vote_action': vote_action.serialize()}
+                    public=False,
+                    visible_to=self._expected_voters,
+                    data=data
                 )
                 return
 
@@ -633,23 +657,11 @@ class SimultaneousMajority(VotingProtocol):
                 self._ballots[vote_action.actor_id] = vote_action.target_id
 
                 # Determine DataEntry type based on game phase
-                from .consts import Phase
-                from .records import WerewolfNightVoteDataEntry
-                if state.phase == Phase.NIGHT:
-                    data_entry_class = WerewolfNightVoteDataEntry
-                else:
-                    data_entry_class = DayExileVoteDataEntry
-
-                data = data_entry_class(
-                    actor_id=vote_action.actor_id,
-                    target_id=vote_action.target_id,
-                    reasoning=vote_action.reasoning
-                )
                 state.add_history_entry(
-                    description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". '
-                                + f"Reasoning: {data.reasoning}" if data.reasoning else "",
+                    description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". ',
                     entry_type=HistoryEntryType.VOTE_ACTION,
-                    public=True,
+                    public=False,
+                    visible_to=self._expected_voters,
                     data=data
                 )
             else:
@@ -657,23 +669,24 @@ class SimultaneousMajority(VotingProtocol):
                 state.add_history_entry(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}".',
                     entry_type=HistoryEntryType.ERROR,
-                    public=True,
-                    data={'vote_action': vote_action.serialize()}
+                    public=False,
+                    visible_to=self._expected_voters,
+                    data=data
                 )
                 return
         else:
             state.add_history_entry(
-                description=f"Invalid vote attempt by P{vote_action.actor_id}.",
+                description=f"Invalid vote attempt by {vote_action.actor_id}.",
                 entry_type=HistoryEntryType.ERROR,
-                public=True,
-                data={'vote_action': vote_action.serialize()}
+                public=False,
+                data=data
             )
 
     def _tally_votes(self, state: GameState) -> str | None:
         if self._done_tallying:
             return self._elected
         self._done_tallying = True
-        counts = Counter(v for v in self._ballots.values() if v is not None or v != "-1").most_common()
+        counts = Counter(v for v in self._ballots.values() if v is not None and v != "-1").most_common()
         if not counts:
             self._elected = random.choice(self._potential_targets)
         else:
@@ -718,11 +731,13 @@ class SequentialFirstToK(VotingProtocol):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._expected_voters: List[str] = []
         self._potential_targets: List[str] = []
+        self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
 
     def reset(self) -> None:
         self._ballots = {}
         self._expected_voters = []
         self._potential_targets = []
+        self._current_game_state = None  # To store state from begin_voting
 
     @property
     def voting_rule(self) -> str:
@@ -732,6 +747,14 @@ class SequentialFirstToK(VotingProtocol):
         self._ballots = {}
         self._expected_voters = [p.id for p in alive_voters]  # Or manage sequential turns
         self._potential_targets = [p.id for p in potential_targets]
+        self._current_game_state = state
+
+    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+        for actor_id, action in player_actions.items():
+            self.collect_vote(action, state)
+        # set default for all expected voter
+        for player_id in expected_voters:
+            self._ballots.setdefault(player_id, "-1")
 
     def collect_vote(self, vote_action: Action, state: GameState):
         if not isinstance(vote_action, VoteAction): return
@@ -776,7 +799,7 @@ class SequentialFirstToK(VotingProtocol):
 
     def done(self) -> bool:
         # Done if someone reached threshold or all expected voters have voted.
-        return self._tally_votes(state) is not None or len(self._ballots) >= len(self._expected_voters)
+        return self._tally_votes(self._current_game_state) is not None or len(self._ballots) >= len(self._expected_voters)
 
 
 # ----------------- decision protocols --------------------------------------- #
@@ -941,6 +964,13 @@ class SequentialVoting(VotingProtocol):
         return (f"P{player_id}, it is your turn to vote. "
                 f"Current tally: {tally_str}. "
                 f"Options: {options_str} or Abstain (vote for -1).")
+
+    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+        for actor_id, action in player_actions.items():
+            self.collect_vote(action, state)
+        # set default for all expected voter
+        for player_id in expected_voters:
+            self._ballots.setdefault(player_id, "-1")
 
     def collect_vote(self, vote_action: Action, state: GameState):
         if not isinstance(vote_action, (VoteAction, NoOpAction)):
