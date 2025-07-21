@@ -1,64 +1,23 @@
 import json
 import random  # Added for random.choice
-from enum import Enum
-from os import path
+from os import path, getenv
 
 from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
     NoOpAction, create_action
+from .game.consts import ActionType
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
-from .game.records import RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, \
-    RequestWerewolfVotingDataEntry
+from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_roles_and_ids
 from .game.states import *
+from .harness.base import LLMWerewolfAgent
 
 
 # my_kaggle_env.py
 # Enums used by agents and action parser
-
-
-class ActionType(str, Enum):
-    NO_OP = "NO_OP"
-    NIGHT_KILL_VOTE = "NIGHT_KILL_VOTE"
-    NIGHT_SAVE_TARGET = "NIGHT_SAVE_TARGET"
-    NIGHT_INSPECT_TARGET = "NIGHT_INSPECT_TARGET"
-    DAY_DISCUSS = "DAY_DISCUSS"
-    DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
-
-
-class VisibleRawData(BaseModel):
-    data_type: str
-    json_str: str
-    """json dump"""
-
-    @classmethod
-    def from_entry(cls, entry: dict | DataEntry):
-        if not entry: return
-        if isinstance(entry, dict):
-            return cls(data_type=entry.__class__.__name__, json_str=json.dumps(entry))
-        return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
-
-
-class WerewolfObservationModel(BaseModel):
-    player_id: str
-    role: str
-    team: str
-    is_alive: bool
-    day: int
-    phase: str
-    all_player_ids: List[str]
-    player_thumbnails: Dict[str, str] = {}
-    alive_players: List[str]
-    new_visible_announcements: List[str]
-    new_visible_raw_data: List[VisibleRawData]
-    game_state_phase: str
-
-    def get_human_readable(self) -> str:
-        # This is a placeholder implementation. A real implementation would format this nicely.
-        return json.dumps(self.model_dump(), indent=2)
 
 
 MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in agent observation
@@ -270,9 +229,87 @@ class LLMAgent:
         action_to_take = self.parse_llm_response_to_action(llm_response_action_str)
         
         return action_to_take
-    
 
-agents = {"random": random_agent, "dummy_llm": LLMAgent('dummy_llm')}
+
+class AgentFactoryWrapper:
+    """
+    A wrapper that creates and manages separate agent instances for each player.
+    This is necessary for stateful agents to be used in the agent registry,
+    preventing them from sharing state (like memory or history) across different players.
+    """
+    def __init__(self, agent_class, **kwargs):
+        self._agent_class = agent_class
+        self._kwargs = kwargs
+        self._instances = {}
+
+    def __call__(self, obs, config):
+        """
+        The main callable method for the agent. It routes the call to the correct
+        player-specific agent instance.
+        """
+        # In werewolf, obs['raw_observation']['player_id'] is the unique ID for a player.
+        player_id = obs.get('raw_observation', {}).get('player_id')
+
+        if not player_id:
+            # This could happen on initial steps or for an inactive agent.
+            # Returning a NO_OP action is a safe fallback.
+            raw_obs = obs.get('raw_observation', {})
+            return NoOpAction(
+                day=raw_obs.get('day', 0),
+                phase=raw_obs.get('phase', 'unknown'),
+                actor_id="unknown_fallback",
+                reasoning="AgentFactoryWrapper: No player_id found in observation."
+            ).serialize()
+
+        if player_id not in self._instances:
+            # Create a new agent instance for this player
+            self._instances[player_id] = self._agent_class(**self._kwargs)
+
+        return self._instances[player_id](obs)
+
+# --- Agent Registry ---
+
+LLM_MODEL_NAMES = [
+    # Google
+    "gemini/gemini-2.5-pro",
+    "gemini/gemini-2.5-flash",
+    # OpenAI
+    "gpt-4.1",
+    "o3",
+    "o4-mini",
+    # Anthropic
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-20250514",
+    "anthropic/claude-3-haiku-20240307",
+    # xai
+    "xai/grok-4-0709"
+]
+
+LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
+
+# Base agents, a convenient default 'llm' agent, and all specific LLM agents
+agents = {
+    "random": random_agent,
+    "dummy_llm": AgentFactoryWrapper(LLMAgent, model_name='dummy_llm'),
+    # A default 'llm' for convenience, pointing to a recommended model.
+    # This can also be overridden by an environment variable for quick tests.
+    "llm": AgentFactoryWrapper(
+        LLMWerewolfAgent,
+        model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
+        system_prompt=LLM_SYSTEM_PROMPT
+    ),
+    # Register all specific LLM models. The AgentFactoryWrapper ensures each
+    # player gets a unique, stateful agent instance.
+    **{
+        f"llm/{model_name}": AgentFactoryWrapper(
+            LLMWerewolfAgent,
+            model_name=model_name,
+            system_prompt=LLM_SYSTEM_PROMPT
+        )
+        for model_name in LLM_MODEL_NAMES
+    }
+}
+
 
 MODERATOR_OBS_KEY = "MODERATOR_OBSERVATION"
 
@@ -394,6 +431,7 @@ def interpreter(state, env):
             all_player_ids=game_state.all_player_ids,
             player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],
+            revealed_players_by_role=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
             game_state_phase=game_state.phase.value

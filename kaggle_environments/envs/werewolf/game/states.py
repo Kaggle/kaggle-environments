@@ -36,6 +36,12 @@ class GameState(BaseModel):
 
     def alive_players(self):
         return [p for p in self.players if p.alive]
+    
+    def eliminated_players(self):
+        return [p for p in self.players if not p.alive]
+    
+    def revealed_players(self):
+        return {p.id: p.role.name for p in self.players if not p.alive}
 
     def alive_players_by_role(self, role: RoleConst):
         return [p for p in self.alive_players() if p.role.name == role]

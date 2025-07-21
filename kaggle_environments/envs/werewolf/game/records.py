@@ -1,3 +1,4 @@
+import json
 from abc import ABC
 from enum import Enum
 from typing import Set, Optional, List, Dict, Any
@@ -154,3 +155,36 @@ class GameEndResultsDataEntry(DataEntry):
     reason: str
     survivors_until_last_round_and_role: Dict[str, str]
     all_players_and_role: Dict[str, str]
+
+
+class VisibleRawData(BaseModel):
+    data_type: str
+    json_str: str
+    """json dump"""
+
+    @classmethod
+    def from_entry(cls, entry: dict | DataEntry):
+        if not entry: return
+        if isinstance(entry, dict):
+            return cls(data_type=entry.__class__.__name__, json_str=json.dumps(entry))
+        return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
+
+
+class WerewolfObservationModel(BaseModel):
+    player_id: str
+    role: str
+    team: str
+    is_alive: bool
+    day: int
+    phase: str
+    all_player_ids: List[str]
+    player_thumbnails: Dict[str, str] = {}
+    alive_players: List[str]
+    revealed_players_by_role: Dict[str, str] = {}
+    new_visible_announcements: List[str]
+    new_visible_raw_data: List[VisibleRawData]
+    game_state_phase: str
+
+    def get_human_readable(self) -> str:
+        # This is a placeholder implementation. A real implementation would format this nicely.
+        return json.dumps(self.model_dump(), indent=2)
