@@ -79,24 +79,35 @@ class GameState(BaseModel):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
-        entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
-                             description=description, public=public,
-                             visible_to=visible_to or [],
-                             data=data,
-                             source=source)
-        self.history[day_key].append(entry)
-        self._history_entry_by_type[entry_type].append(entry)
-        self._history_queue.append(entry)
+        sys_entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
+                                 description=description, public=public,
+                                 visible_to=visible_to or [],
+                                 data=data,
+                                 source=source)
+
+        self.history[day_key].append(sys_entry)
+        self._history_entry_by_type[entry_type].append(sys_entry)
+        self._history_queue.append(sys_entry)
+
+        public_data = data.public_view() if isinstance(data, DataEntry) else data
+
+        public_entry = HistoryEntry(
+            day=day_key, phase=self.phase, entry_type=entry_type,
+            description=description, public=public,
+            visible_to=visible_to or [],
+            data=public_data,
+            source=source
+        )
 
         # observers message pushing below
         if public:
             for player in self.players:
-                player.update(entry)
+                player.update(public_entry)
         else:
             for player_id in visible_to:
                 player = self.get_player_by_id(player_id)
                 if player:
-                    player.update(entry)
+                    player.update(public_entry)
 
     def eliminate_player(self, pid: str):
         player = self.get_player_by_id(pid)
