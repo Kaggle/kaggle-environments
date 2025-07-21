@@ -259,7 +259,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
                     data = ChatDataEntry(
-                        speaker_id=act.actor_id,
+                        actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning
                     )
@@ -333,7 +333,7 @@ class RandomOrderDiscussion(DiscussionProtocol):
         for act in actions:
             if isinstance(act, ChatAction):
                 if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
@@ -399,7 +399,7 @@ class ParallelDiscussion(DiscussionProtocol):
             if isinstance(act, ChatAction):
                 # In parallel, any alive player in expected_speakers can talk
                 if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
-                    data = ChatDataEntry(speaker_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
@@ -611,11 +611,23 @@ class SimultaneousMajority(VotingProtocol):
             state.add_history_entry(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". Not a VoteAction; submitted {vote_action.__class__.__name__} instead. Cast as abstained vote.',
                 entry_type=HistoryEntryType.ERROR,
-                public=True,
-                data={'vote_action': vote_action.serialize()}
+                public=False,
+                visible_to=self._expected_voters,
+                data={}
             )
             self._ballots[vote_action.actor_id] = "-1"
             return
+
+        if state.phase == Phase.NIGHT:
+            data_entry_class = WerewolfNightVoteDataEntry
+        else:
+            data_entry_class = DayExileVoteDataEntry
+
+        data = data_entry_class(
+            actor_id=vote_action.actor_id,
+            target_id=vote_action.target_id,
+            reasoning=vote_action.reasoning
+        )
 
         # Voter must be expected and alive at the moment of casting vote
         if actor_player and actor_player.alive and vote_action.actor_id in self._expected_voters:
@@ -624,8 +636,9 @@ class SimultaneousMajority(VotingProtocol):
                 state.add_history_entry(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}", already voted.',
                     entry_type=HistoryEntryType.ERROR,
-                    public=True,
-                    data={'vote_action': vote_action.serialize()}
+                    public=False,
+                    visible_to=self._expected_voters,
+                    data=data
                 )
                 return
 
@@ -633,23 +646,11 @@ class SimultaneousMajority(VotingProtocol):
                 self._ballots[vote_action.actor_id] = vote_action.target_id
 
                 # Determine DataEntry type based on game phase
-                from .consts import Phase
-                from .records import WerewolfNightVoteDataEntry
-                if state.phase == Phase.NIGHT:
-                    data_entry_class = WerewolfNightVoteDataEntry
-                else:
-                    data_entry_class = DayExileVoteDataEntry
-
-                data = data_entry_class(
-                    actor_id=vote_action.actor_id,
-                    target_id=vote_action.target_id,
-                    reasoning=vote_action.reasoning
-                )
                 state.add_history_entry(
-                    description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". '
-                                + f"Reasoning: {data.reasoning}" if data.reasoning else "",
+                    description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". ',
                     entry_type=HistoryEntryType.VOTE_ACTION,
-                    public=True,
+                    public=False,
+                    visible_to=self._expected_voters,
                     data=data
                 )
             else:
@@ -657,16 +658,17 @@ class SimultaneousMajority(VotingProtocol):
                 state.add_history_entry(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}".',
                     entry_type=HistoryEntryType.ERROR,
-                    public=True,
-                    data={'vote_action': vote_action.serialize()}
+                    public=False,
+                    visible_to=self._expected_voters,
+                    data=data
                 )
                 return
         else:
             state.add_history_entry(
-                description=f"Invalid vote attempt by P{vote_action.actor_id}.",
+                description=f"Invalid vote attempt by {vote_action.actor_id}.",
                 entry_type=HistoryEntryType.ERROR,
-                public=True,
-                data={'vote_action': vote_action.serialize()}
+                public=False,
+                data=data
             )
 
     def _tally_votes(self, state: GameState) -> str | None:
