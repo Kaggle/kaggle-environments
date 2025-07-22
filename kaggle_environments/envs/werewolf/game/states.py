@@ -118,9 +118,12 @@ class GameState(BaseModel):
     def eliminate_player(self, pid: str):
         player = self.get_player_by_id(pid)
         if player:
-            player.alive = False
+            player.eliminate(day=self.day_count, phase=self.phase)
 
     def consume_messages(self) -> List[HistoryEntry]:
         messages = list(self._history_queue)
         self._history_queue.clear()
         return messages
+
+    def get_elimination_info(self):
+        return [player.report_elimination() for player in self.players]
