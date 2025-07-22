@@ -598,19 +598,28 @@ class Moderator:
             reason = "Reason: All werewolves exiled."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.VILLAGERS)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)})
+            winner_ids = self.state.get_players_by_team(Team.VILLAGERS)
+            loser_ids = self.state.get_players_by_team(Team.WEREWOLVES)
         else:
             winner_team = Team.WEREWOLVES.value
             winner_message = "Game Over: Werewolves Win!"
             reason = f"Reason: len(werewolves) >= len(villagers). Final counts: len(werewolves)={len(wolves)}, len(villagers)={len(villagers)})."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.VILLAGERS)})
+            loser_ids = [p.id for p in self.state.get_players_by_team(Team.VILLAGERS)]
+            winner_ids = [p.id for p in self.state.get_players_by_team(Team.WEREWOLVES)]
 
         data = GameEndResultsDataEntry(
             winner_team=winner_team,
+            winner_ids=winner_ids,
+            loser_ids=loser_ids,
             scores=scores,
             reason=reason,
+            last_day=self.state.day_count,
+            last_phase=self.state.phase.value,
             survivors_until_last_round_and_role={p.id: p.role.name for p in self.state.alive_players()},
-            all_players_and_role={p.id: p.role.name for p in self.state.players}
+            all_players_and_role={p.id: p.role.name for p in self.state.players},
+            elimination_info=self.state.get_elimination_info()
         )
         self.state.add_history_entry(
             description=f"{winner_message}\n{reason}\nScores: {scores}\n"

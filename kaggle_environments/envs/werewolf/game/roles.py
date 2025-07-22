@@ -1,10 +1,10 @@
-from typing import List, Deque
+from typing import List, Deque, Optional
 import logging
 from collections import deque
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from .consts import Team, RoleConst
+from .consts import Team, RoleConst, Phase
 from .records import HistoryEntry
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,11 @@ class Player(BaseModel):
     id: str
     role: Role
     alive: bool = True
+    eliminated_during_day: int = -1
+    """game starts at night 0, then day 1, night 1, day 2, ..."""
+
+    eliminated_during_phase: Optional[str] = None
+
     _message_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
 
     def update(self, entry: HistoryEntry):
@@ -70,6 +75,18 @@ class Player(BaseModel):
         messages = list(self._message_queue)
         self._message_queue.clear()
         return messages
+
+    def eliminate(self, day: int, phase: Phase):
+        self.alive = False
+        self.eliminated_during_day = day
+        self.eliminated_during_phase = phase.value
+
+    def report_elimination(self):
+        return {
+            "player_id": self.id,
+            "eliminated_during_day": self.eliminated_during_day,
+            "eliminated_during_phase": self.eliminated_during_phase
+        }
 
 
 def create_players_from_roles_and_ids(role_strings: List[str], player_ids: List[str]) -> List[Player]:

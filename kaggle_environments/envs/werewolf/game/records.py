@@ -175,10 +175,16 @@ class ChatDataEntry(DataEntry, ActionDataMixin):
 # --- Game End and Observation Models (Unchanged) ---
 class GameEndResultsDataEntry(DataEntry):
     winner_team: str
+    winner_ids: List[str]
+    loser_ids: List[str]
     scores: Dict[str, int | float]
     reason: str
+    last_day: int
+    last_phase: str
     survivors_until_last_round_and_role: Dict[str, str]
     all_players_and_role: Dict[str, str]
+    elimination_info: List[Dict]
+    """list each player's elimination status, see GameState.get_elimination_info"""
 
 
 class VisibleRawData(BaseModel):
