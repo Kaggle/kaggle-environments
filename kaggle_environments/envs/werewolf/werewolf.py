@@ -311,7 +311,9 @@ agents = {
 }
 
 
-MODERATOR_OBS_KEY = "MODERATOR_OBSERVATION"
+class EnvInfoKeys:
+    MODERATOR_OBS = "MODERATOR_OBSERVATION"
+    GAME_END = "GAME_END"
 
 
 def interpreter(state, env):
@@ -369,7 +371,7 @@ def interpreter(state, env):
         )
 
         env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
-        env.info = {MODERATOR_OBS_KEY: []}
+        env.info = {EnvInfoKeys.MODERATOR_OBS: []}
 
     moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
@@ -390,19 +392,23 @@ def interpreter(state, env):
 
     # 3. Update Kaggle state (observations, rewards, statuses)
     is_game_done = moderator.is_game_over()
-    
+    current_info = {}
     if is_game_done:
+        # log game end to env.info using GameEndResultsDataEntry
+        game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
+        if game_end_entry and game_end_entry.data:
+            current_info.update(game_end_entry.data.model_dump())
+        env.info[EnvInfoKeys.GAME_END] = current_info
         # Determine winner based on game_state.history's GAME_END entry
-        end_entry = game_state.get_history_by_type(entry_type=HistoryEntryType.GAME_END)[0]
-        scores = end_entry.data.scores
-
+        scores = game_end_entry.data.scores
         for i, player_id in enumerate(env.player_id_str_list):
             state[i].reward = scores[player_id]
 
     active_player_ids_after_advance = set(moderator.get_active_player_ids())
 
     # accumulate God mode observations from env for rendering
-    env.info[MODERATOR_OBS_KEY].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
+    env.info[EnvInfoKeys.MODERATOR_OBS].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
+
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
@@ -448,14 +454,6 @@ def interpreter(state, env):
             state[i].status = "INACTIVE"
         
         # Info
-        current_info = {}
-        if is_game_done:
-            game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
-            if game_end_entry and game_end_entry.data:
-                current_info["winner_team"] = game_end_entry.data.winner_team
-                current_info["win_reason"] = game_end_entry.data.reason
-                current_info["scores"] = game_end_entry.data.scores
-                current_info["survivors_until_last_round_and_role"] = game_end_entry.data.survivors_until_last_round_and_role
         state[i].info = current_info
     return state
 
