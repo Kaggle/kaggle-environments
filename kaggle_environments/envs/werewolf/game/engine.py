@@ -83,16 +83,19 @@ class Moderator:
             day_voting_protocol_name=self.day_voting.__class__.__name__,
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
+        
+        role_msg = "The following explain the function of each role." + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
         self.state.add_history_entry(
             description="\n".join([
                 "Werewolf game begins.",
-                f"All player ids: {', '.join(data.player_ids)}",
+                f"All player ids: {data.player_ids}",
                 f"Number of alive players: {data.number_of_players}.",
                 f"Role counts: {data.role_counts}."
                 f"Alive team member counts: {data.team_member_counts}",
                 f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
                 f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
-                f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}"
+                f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
+                role_msg
             ]),
             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
@@ -491,7 +494,9 @@ class Moderator:
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
             self.state.add_history_entry(
-                description=f"Voting phase begins. We will decide who to exile today.\nDay voting Rule: {self.day_voting.voting_rule}",
+                description="Voting phase begins. We will decide who to exile today."
+                            f"\nDay voting Rule: {self.day_voting.voting_rule}."
+                            f"\nCurrent alive players are: {[player.id for player in alive_players]}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=True,
                 data={"voting_rule": self.day_voting.voting_rule}

@@ -5,7 +5,7 @@ from functools import cached_property
 from pydantic import BaseModel, PrivateAttr, Field, computed_field
 
 from .records import HistoryEntryType, DataEntry, HistoryEntry
-from .roles import Player
+from .roles import Player, Role
 from .consts import Phase, Team, RoleConst, MODERATOR_ID
 
 
@@ -24,6 +24,12 @@ class GameState(BaseModel):
     @cached_property
     def all_player_ids(self) -> List[str]:
         return [player.id for player in self.players]
+    
+    @computed_field
+    @cached_property
+    def all_unique_roles(self) -> List[Role]:
+        role_dict = {player.role.name: player.role for player in self.players}
+        return list(role_dict.values())
 
     def model_post_init(self, context: Any, /) -> None:
         self._id_to_player = {p.id: p for p in self.players}
