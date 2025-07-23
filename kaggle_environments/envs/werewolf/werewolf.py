@@ -278,9 +278,9 @@ LLM_MODEL_NAMES = [
     "o3",
     "o4-mini",
     # Anthropic
-    "claude-sonnet-4-20250514",
-    "claude-opus-4-20250514",
-    "anthropic/claude-3-haiku-20240307",
+    "claude-4-sonnet-20250514",
+    "claude-4-opus-20250514",
+    "claude-3-5-haiku-latest",
     # xai
     "xai/grok-4-0709"
 ]
