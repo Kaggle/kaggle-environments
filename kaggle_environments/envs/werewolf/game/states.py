@@ -2,7 +2,7 @@ from typing import List, Dict, Optional, Any, Union, Deque
 from collections import defaultdict, deque
 from functools import cached_property
 
-from pydantic import BaseModel, PrivateAttr, Field, computed_field
+from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
 from .records import HistoryEntryType, DataEntry, HistoryEntry
 from .roles import Player, Role
@@ -10,6 +10,8 @@ from .consts import Phase, Team, RoleConst, MODERATOR_ID
 
 
 class GameState(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     players: List[Player]
     phase: Phase = Phase.NIGHT
     day_count: int = 0

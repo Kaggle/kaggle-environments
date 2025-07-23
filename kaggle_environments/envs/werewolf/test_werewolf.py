@@ -27,21 +27,14 @@ URLS = {
 @pytest.fixture
 def env():
     roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = [f"player_{i}" for i in range(len(roles))]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'], URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in zip(roles, names, thumbnails)]
     env = make(
         'werewolf',
         debug=True,
         configuration={
-            "roles": roles,
-            "names": ["gemini-2.5-pro", "gemini-2.5-flash", "gpt-4.1", "o3", "o4-mini", "claude-4-sonnet", "grok-4"],
-            "player_thumbnails": {
-                "gemini-2.5-pro": URLS['gemini'],
-                "gemini-2.5-flash": URLS['gemini'],
-                "gpt-4.1": URLS['openai'],
-                "o3": URLS['openai'],
-                "o4-mini": URLS['openai'],
-                "claude-4-sonnet": URLS['claude'],
-                "grok-4": URLS['grok']
-            }
+            "agents": agents_config
         }
     )
     return env
@@ -51,6 +44,56 @@ def test_load_env(env):
     agents = ['random'] * 7
     env.run(agents)
 
+    for i, state in enumerate(env.steps):
+        env.render_step_ind = i
+        out = env.renderer(state, env)
+        print(out)
+
+
+def test_discussion_protocol():
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = ["gemini-2.5-pro", "gemini-2.5-flash", "gpt-4.1", "o3", "o4-mini", "claude-4-sonnet", "grok-4"]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
+                  URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
+                     zip(roles, names, thumbnails)]
+
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents":agents_config,
+            "discussion_protocol": {
+                "name": "ParallelDiscussion",
+                "params": {
+                    "ticks": 2
+                }
+            }
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
+@pytest.mark.skip('Slow test, meant for manual testing.')
+def test_llm_players():
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = ["gemini-2.5-flash-0", "random-0", "gemini-2.5-flash-1", "gemini-2.5-flash-2", "gemini-2.5-flash-3", "random-1", "random-2"]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
+                  URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
+                     zip(roles, names, thumbnails)]
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "actTimeout": 30,
+            "agents": agents_config
+        }
+    )
+    agents = ['llm/gemini/gemini-2.5-flash', 'random', 'llm/gemini/gemini-2.5-flash', 'llm/gemini/gemini-2.5-flash', 'llm/gemini/gemini-2.5-flash', 'random', 'random']
+    env.run(agents)
     for i, state in enumerate(env.steps):
         env.render_step_ind = i
         out = env.renderer(state, env)

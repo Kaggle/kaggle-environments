@@ -11,7 +11,7 @@ from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
 )
 from .game.records import WerewolfObservationModel, VisibleRawData
-from .game.roles import create_players_from_roles_and_ids
+from .game.roles import create_players_from_agents_config
 from .game.states import *
 from .harness.base import LLMWerewolfAgent
 
@@ -327,22 +327,20 @@ def interpreter(state, env):
     if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
         num_players = len(state)
 
-        roles_from_config = env.configuration.roles
-        names_from_config = env.configuration.names
+        agents_from_config = env.configuration.agents
 
         # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
-        if len(roles_from_config) < num_players:
-            raise ValueError(f"Configuration has {len(roles_from_config)} roles, but {num_players} agents are present.")
-        if len(names_from_config) < num_players:
-            raise ValueError(f"Configuration has {len(names_from_config)} names, but {num_players} agents are present.")
+        if len(agents_from_config) < num_players:
+            raise ValueError(f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
 
-        players = create_players_from_roles_and_ids(role_strings=roles_from_config[:num_players], player_ids=names_from_config[:num_players])
+        players = create_players_from_agents_config(agents_from_config)
+
         env.game_state = GameState(players=players, history={})
 
         env.player_ids_map = {i: p.id for i, p in enumerate(players)}
         env.player_id_str_list = [p.id for p in players]
 
-        env.player_thumbnails = getattr(env.configuration, "player_thumbnails", {})
+        env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
         # Initialize protocols from configuration or defaults
         discussion_protocol = create_protocol_from_config(
             env.configuration,
