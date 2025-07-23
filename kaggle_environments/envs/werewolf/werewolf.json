@@ -9,30 +9,68 @@
         "actTimeout": { "type": "number", "default": 3 },
         "runTimeout": { "type": "number", "default": 1200 },
         "seed": { "type": "integer", "description": "Seed to use for episodes" },
-        "roles": {
+        "agents": {
             "type": "array",
+            "description": "Configuration for each agent playing the game.",
+            "default": [
+                { "name": "Player 1", "role": "Werewolf" },
+                { "name": "Player 2", "role": "Werewolf" },
+                { "name": "Player 3", "role": "Seer" },
+                { "name": "Player 4", "role": "Doctor" },
+                { "name": "Player 5", "role": "Villager" },
+                { "name": "Player 6", "role": "Villager" },
+                { "name": "Player 7", "role": "Villager" }
+            ],
             "items": {
-                "type": "string",
-                "enum": ["Werewolf", "Doctor", "Seer", "Villager"]
-            },
-            "default": ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
-        },
-        "names": {
-            "description": "An array of unique string names for each player. If provided, its length must match the number of players defined by the 'roles' array. If not provided, players will be named 'player_0', 'player_1', etc.",
-            "type": "array",
-            "items": {
-                "type": "string"
-            },
-            "default": ["player_0", "player_1", "player_2", "player_3", "player_4", "player_5", "player_6", "player_7"]
-        },
-        "player_thumbnails": {
-            "description": "A dictionary mapping player names to their thumbnail image URLs. Keys should match the names provided in the 'names' configuration.",
-            "type": "object",
-            "additionalProperties": {
-                "type": "string",
-                "format": "uri"
-            },
-            "default": {}
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The unique name of the player. Visible to everyone."
+                    },
+                    "agent_id": {
+                        "type": "string",
+                        "description": "The id of the agent. Might not be unique since different players might be using the same underlying agent. Not visible to everyone."
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": ["Werewolf", "Doctor", "Seer", "Villager"],
+                        "description": "The role assigned to the player."
+                    },
+                    "thumbnail": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "A URL for the player's thumbnail image.",
+                        "default": ""
+                    },
+                    "agent_harness_name": {
+                        "type": "string",
+                        "description": "The name of the agent harness to use.",
+                        "default": ""
+                    },
+                    "llms": {
+                        "type": "array",
+                        "description": "A list of Language Learning Models to be used by the agent.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "model_name": {
+                                    "type": "string",
+                                    "description": "The name of the LLM."
+                                },
+                                "parameters": {
+                                    "type": "object",
+                                    "description": "Parameters specific to this LLM.",
+                                    "default": {}
+                                }
+                            },
+                            "required": ["model_name"]
+                        },
+                        "default": []
+                    }
+                },
+                "required": ["id", "role"]
+            }
         },
         "discussion_protocol": {
             "description": "Configuration for the daytime discussion protocol.",
