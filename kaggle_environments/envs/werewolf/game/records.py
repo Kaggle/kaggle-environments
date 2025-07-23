@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Set, Optional, List, Dict, Any, Self
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, ConfigDict
 
 from kaggle_environments.envs.werewolf.game.consts import Phase
 
@@ -174,6 +174,8 @@ class ChatDataEntry(DataEntry, ActionDataMixin):
 
 # --- Game End and Observation Models (Unchanged) ---
 class GameEndResultsDataEntry(DataEntry):
+    model_config = ConfigDict(use_enum_values=True)
+
     winner_team: str
     winner_ids: List[str]
     loser_ids: List[str]
@@ -185,6 +187,9 @@ class GameEndResultsDataEntry(DataEntry):
     all_players_and_role: Dict[str, str]
     elimination_info: List[Dict]
     """list each player's elimination status, see GameState.get_elimination_info"""
+
+    all_players: List[Dict]
+    """provide the info dump for each player"""
 
 
 class VisibleRawData(BaseModel):

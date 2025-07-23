@@ -2,17 +2,14 @@ from enum import Enum
 from typing import List, Dict, Tuple
 import json
 
-from .actions import (
-    Action, VoteAction,
-    HealAction, InspectAction, ChatAction, EliminateProposalAction, NoOpAction
-)
+from .actions import Action, VoteAction, HealAction, InspectAction
 from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player
 from .consts import Phase, Team, RoleConst
 from .states import GameState
 from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry, \
     RequestDoctorSaveDataEntry, \
-    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, WerewolfNightVoteDataEntry, \
+    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, \
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry, \
     GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
 
@@ -84,7 +81,7 @@ class Moderator:
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
         
-        role_msg = "The following explain the function of each role." + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
+        role_msg = "The following explain the function of each role.\n" + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
         self.state.add_history_entry(
             description="\n".join([
                 "Werewolf game begins.",
@@ -617,10 +614,12 @@ class Moderator:
             reason=reason,
             last_day=self.state.day_count,
             last_phase=self.state.phase.value,
-            survivors_until_last_round_and_role={p.id: p.role.name for p in self.state.alive_players()},
-            all_players_and_role={p.id: p.role.name for p in self.state.players},
-            elimination_info=self.state.get_elimination_info()
+            survivors_until_last_round_and_role={p.id: p.role.name.value for p in self.state.alive_players()},
+            all_players_and_role={p.id: p.role.name.value for p in self.state.players},
+            elimination_info=self.state.get_elimination_info(),
+            all_players=[p.model_dump() for p in self.state.players]
         )
+
         self.state.add_history_entry(
             description=f"{winner_message}\n{reason}\nScores: {scores}\n"
                         f"Survivors: {data.survivors_until_last_round_and_role}\n"

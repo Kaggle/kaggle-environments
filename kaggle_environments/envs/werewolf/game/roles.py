@@ -1,8 +1,8 @@
-from typing import List, Deque, Optional
+from typing import List, Deque, Optional, Dict
 import logging
 from collections import deque
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
 
 from .consts import Team, RoleConst, Phase
 from .records import HistoryEntry
@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class Role(BaseModel):
-    name: str = Field(..., frozen=True)
+    model_config = ConfigDict(use_enum_values=True)
+
+    name: RoleConst = Field(..., frozen=True)
     team: Team
     night_priority: int = 100  # lower number acts earlier
     descriptions: str
@@ -24,7 +26,7 @@ class Role(BaseModel):
 
 
 class Werewolf(Role):
-    name: str = RoleConst.WEREWOLF
+    name: RoleConst = RoleConst.WEREWOLF
     team: Team = Team.WEREWOLVES
     night_priority: int = 2
     descriptions: str = "A member of the Werewolf team. At night, works with other werewolves to vote on eliminating one player."
@@ -34,13 +36,13 @@ class Werewolf(Role):
 
 
 class Villager(Role):
-    name: str = RoleConst.VILLAGER
+    name: RoleConst = RoleConst.VILLAGER
     team: Team = Team.VILLAGERS
     descriptions: str = "A member of the Villagers team. Has no special abilities other than their vote during the day."
 
 
 class Doctor(Role):
-    name: str = RoleConst.DOCTOR
+    name: RoleConst = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
 
@@ -49,7 +51,7 @@ class Doctor(Role):
 
 
 class Seer(Role):
-    name: str = RoleConst.SEER
+    name: RoleConst = RoleConst.SEER
     team: Team = Team.VILLAGERS
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
 
@@ -57,8 +59,34 @@ class Seer(Role):
         state.queue_seer_action(actor, target)
 
 
-class Player(BaseModel):
+class LLM(BaseModel):
+    model_name: str
+    properties: Dict = {}
+
+
+class Agent(BaseModel):
     id: str
+    """The unique name of the player."""
+
+    agent_id: str
+    """Id of the agent. Might not be unique (many players might be using the same underlying agent)."""
+
+    role: str
+    thumbnail: Optional[str] = None
+    agent_harness_name: str = "basic_llm"
+    llms: List[LLM] = []
+
+    def get_agent_name(self):
+        return f"{self.agent_harness_name}({', '.join([llm.model_name for llm in self.llms])})"
+
+
+class Player(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    id: str
+    """The unique name of the player."""
+
+    agent: Agent
     role: Role
     alive: bool = True
     eliminated_during_day: int = -1
@@ -89,41 +117,15 @@ class Player(BaseModel):
         }
 
 
-def create_players_from_roles_and_ids(role_strings: List[str], player_ids: List[str]) -> List[Player]:
-    """
-    Initializes a list of Player instances given a list of role strings and player IDs.
+ROLE_CLASS_MAP = {
+    RoleConst.WEREWOLF.value: Werewolf,
+    RoleConst.DOCTOR.value: Doctor,
+    RoleConst.SEER.value: Seer,
+    RoleConst.VILLAGER.value: Villager,
+}
 
-    Args:
-        role_strings: A list of strings representing player roles (e.g., "Werewolf", "Doctor").
-                      These strings should match the values in RoleConst enum.
-        player_ids: A list of unique strings representing player IDs.
 
-    Returns:
-        A list of Player instances.
-
-    Raises:
-        ValueError: If the lengths of role_strings and player_ids do not match,
-                    or if an unknown role string is encountered.
-    """
-    if len(role_strings) != len(player_ids):
-        raise ValueError("The number of roles must match the number of player IDs.")
-    
-    assert len(player_ids) == len(set(player_ids)), "Player IDs must be unique."
-
-    # Mapping from RoleConst string value to the actual Role class constructor
-    role_class_map = {
-        RoleConst.WEREWOLF.value: Werewolf,
-        RoleConst.DOCTOR.value: Doctor,
-        RoleConst.SEER.value: Seer,
-        RoleConst.VILLAGER.value: Villager,
-    }
-
-    players: List[Player] = []
-    for role_str, player_id in zip(role_strings, player_ids):
-        role_class: type[Role] = role_class_map.get(role_str)
-        if role_class is None:
-            raise ValueError(f"Unknown role string: '{role_str}'. Must be one of {list(role_class_map.keys())}")
-        
-        players.append(Player(id=player_id, role=role_class()))
-
+def create_players_from_agents_config(agents_config: List[Dict]) -> List[Player]:
+    agents = [Agent(**agent_config) for agent_config in agents_config]
+    players = [Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role]()) for agent in agents]
     return players
