@@ -1,8 +1,10 @@
 
 from abc import ABC, abstractmethod
-
+import os
 import re
 import json
+import traceback
+
 from litellm import completion
 from dotenv import load_dotenv
 from pydantic import create_model
@@ -65,6 +67,18 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._model_name = model_name
         self._system_prompt = system_prompt
         self._prompt_template = prompt_template
+        self._is_vertex_ai = "vertex_ai" in self._model_name
+
+        if self._is_vertex_ai:
+            file_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+            with open(file_path, 'r') as file:
+                vertex_credentials = json.load(file)
+            vertex_credentials_json = json.dumps(vertex_credentials)
+            self._decoding_kwargs.update({
+                "vertex_ai_project": os.environ["VERTEXAI_PROJECT"],
+                "vertex_ai_location": os.environ["VERTEXAI_LOCATION"],
+                "vertex_credentials": vertex_credentials_json
+            })
 
     def query(self, prompt):
         response = completion(
@@ -133,10 +147,12 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 # If regex fails, we will return an empty dict.
             except Exception:
                 # This will catch errors from regex and return empty dict below
-                pass
+                traceback.print_exc()
+                print(f"out={out}")
         except Exception:
             # Catch any other unexpected errors during string manipulation
-            pass
+            traceback.print_exc()
+            print(f"out={out}")
 
         return {}
 
@@ -210,56 +226,62 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
+        instruction = None
+        parsed_out = None
+        try:
+            if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
+                if my_role == RoleConst.WEREWOLF:
+                    # Werewolves target other alive players.
+                    history_entry = next((entry for entry in entries
+                                          if entry.data and entry.data.get('valid_targets')), None)
+                    if history_entry:
+                        valid_targets = history_entry.data.get('valid_targets')
+                        instruction = f'You are a Werewolf. Vote for a player to eliminate. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        parsed_out = self.query_parse(instruction, obs)
+                        action = EliminateProposalAction(**common_args, **parsed_out)
 
-        if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
-            if my_role == RoleConst.WEREWOLF:
-                # Werewolves target other alive players.
-                history_entry = next((entry for entry in entries
-                                      if entry.data and entry.data.get('valid_targets')), None)
-                if history_entry:
-                    valid_targets = history_entry.data.get('valid_targets')
-                    instruction = f'You are a Werewolf. Vote for a player to eliminate. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                elif my_role == RoleConst.DOCTOR:
+                    # Doctors can save any alive player (including themselves).
+                    history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                                         None)
+                    if history_entry:
+                        valid_targets = history_entry.data['valid_candidates']
+                        instruction = f'You are a Doctor. Choose a player to save. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        parsed_out = self.query_parse(instruction, obs)
+                        action = HealAction(**common_args, **parsed_out)
+
+                elif my_role == RoleConst.SEER:
+                    # Seers can inspect any alive player.
+                    history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                                         None)
+                    if history_entry:
+                        valid_targets = history_entry.data['valid_candidates']
+                        instruction = f'You are a Seer. Choose a player to inspect and reveal their role. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        parsed_out = self.query_parse(instruction, obs)
+                        action = InspectAction(**common_args, **parsed_out)
+
+            elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
+                # All alive players can discuss.
+                if my_id in alive_players:
+                    instruction = f'It is day. Discuss with other players to decide who to vote out. Formulate a message to persuade others. Respond in this JSON schema: `{json.dumps(CHAT_ACTION_SCHEMA)}`'
                     parsed_out = self.query_parse(instruction, obs)
-                    action = EliminateProposalAction(**common_args, **parsed_out)
+                    action = ChatAction(**common_args, **parsed_out)
 
-            elif my_role == RoleConst.DOCTOR:
-                # Doctors can save any alive player (including themselves).
-                history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                     None)
-                if history_entry:
-                    valid_targets = history_entry.data['valid_candidates']
-                    instruction = f'You are a Doctor. Choose a player to save. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+            elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
+                # Only alive players can vote. They cannot vote for themselves.
+                if my_id in alive_players:
+                    valid_targets = [p for p in alive_players if p != my_id]
+                    instruction = f'It is time to vote. Choose a player to exile. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
                     parsed_out = self.query_parse(instruction, obs)
-                    action = HealAction(**common_args, **parsed_out)
+                    action = VoteAction(**common_args, **parsed_out)
 
-            elif my_role == RoleConst.SEER:
-                # Seers can inspect any alive player.
-                history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                     None)
-                if history_entry:
-                    valid_targets = history_entry.data['valid_candidates']
-                    instruction = f'You are a Seer. Choose a player to inspect and reveal their role. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
-                    parsed_out = self.query_parse(instruction, obs)
-                    action = InspectAction(**common_args, **parsed_out)
-
-        elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
-            # All alive players can discuss.
-            if my_id in alive_players:
-                instruction = f'It is day. Discuss with other players to decide who to vote out. Formulate a message to persuade others. Respond in this JSON schema: `{json.dumps(CHAT_ACTION_SCHEMA)}`'
-                parsed_out = self.query_parse(instruction, obs)
-                action = ChatAction(**common_args, **parsed_out)
-
-        elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
-            # Only alive players can vote. They cannot vote for themselves.
-            if my_id in alive_players:
-                valid_targets = [p for p in alive_players if p != my_id]
-                instruction = f'It is time to vote. Choose a player to exile. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
-                parsed_out = self.query_parse(instruction, obs)
-                action = VoteAction(**common_args, **parsed_out)
-
-        elif current_phase == DetailedPhase.GAME_OVER:
-            # No action needed when the game is over.
-            action = NoOpAction(**common_args, reasoning="Game over.")
+            elif current_phase == DetailedPhase.GAME_OVER:
+                # No action needed when the game is over.
+                action = NoOpAction(**common_args, reasoning="Game over.")
+        except Exception:
+            traceback.print_exc()
+            print(f"instruction={instruction}")
+            print(f"parsed_out={parsed_out}")
 
         print(action.model_dump())
         return action.serialize()
