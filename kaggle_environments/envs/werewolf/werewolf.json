@@ -28,6 +28,11 @@
                         "type": "string",
                         "description": "The unique name of the player. Visible to everyone."
                     },
+                    "display_name": {
+                        "type": "string",
+                        "description": "The display name of the agent. Visible only to the UI but not to players.",
+                        "default": ""
+                    },
                     "agent_id": {
                         "type": "string",
                         "description": "The id of the agent. Might not be unique since different players might be using the same underlying agent. Not visible to everyone."

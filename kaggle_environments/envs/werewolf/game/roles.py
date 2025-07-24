@@ -71,6 +71,12 @@ class Agent(BaseModel):
     agent_id: str
     """Id of the agent. Might not be unique (many players might be using the same underlying agent)."""
 
+    display_name: str
+    """Agent name shown in the UI and only visible to spectator but not the players. e.g. Pete (base_harness-gemini-2.5-pro)
+    base_harness-gemini-2.5-pro is the display_name while Pete is the id. It maybe different from agent_id, 
+    e.g. base_harness_v2-gemini-2.5-pro-0506, to reduce the cognitive load of the spectators.
+    """
+
     role: str
     thumbnail: Optional[str] = None
     agent_harness_name: str = "basic_llm"
