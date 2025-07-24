@@ -282,7 +282,14 @@ LLM_MODEL_NAMES = [
     "claude-4-opus-20250514",
     "claude-3-5-haiku-latest",
     # xai
-    "xai/grok-4-0709"
+    "xai/grok-4-0709",
+    "xai/grok-4-latest",
+    # vertex AI
+    "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+    # together ai
+    "together_ai/deepseek-ai/DeepSeek-R1",
+    "together_ai/moonshotai/Kimi-K2-Instruct",
+    "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
 ]
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
