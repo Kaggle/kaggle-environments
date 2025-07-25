@@ -42,7 +42,13 @@ for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
 
 
 # --- Constants ---
+# TODO(jhtschultz): Make this configurable per-game. For instance, in poker, a
+# invalid action would likely result in a fold, forfeiting the player's
+# contribution to the pot.
 DEFAULT_INVALID_ACTION_REWARD = -1
+
+# Can be used by agents to signal an internal error to the environement.
+AGENT_ERROR_ACTION = -2
 
 DEFAULT_ACT_TIMEOUT = 60 * 10 # ten minutes
 DEFAULT_RUN_TIMEOUT = 60 * 60 * 5 # five hours
@@ -188,10 +194,10 @@ def interpreter(
 
   # --- Apply agent action ---
   acting_agent = os_state.current_player()
-  action_submitted = None
-  action_submitted_to_string = None
-  action_applied = None
-  move_duration = None
+  action_submitted: int | None = None
+  action_submitted_to_string: str | None = None
+  action_applied: int | None = None
+  move_duration: float | None = None
   if is_initial_step:
     pass
   elif 0 <= acting_agent < num_players:
@@ -200,17 +206,13 @@ def interpreter(
     else:
       action_submitted = kaggle_state[acting_agent]["action"]["submission"]
       if action_submitted in os_state.legal_actions():
-        try:
-          action_submitted_to_string = os_state.action_to_string(
-              action_submitted
-          )
-          os_state.apply_action(action_submitted)
-          action_applied = action_submitted
-          env.info['actionHistory'].append(str(action_applied))
-          env.info['stateHistory'].append(str(os_state))
-        except Exception as e:  # pylint: disable=broad-exception-caught
-          _log.debug(e)
-          kaggle_state[acting_agent]["status"] = "ERROR"
+        action_submitted_to_string = os_state.action_to_string(action_submitted)
+        os_state.apply_action(action_submitted)
+        action_applied = action_submitted
+        env.info['actionHistory'].append(str(action_applied))
+        env.info['stateHistory'].append(str(os_state))
+      elif action_submitted == AGENT_ERROR_ACTION:
+        kaggle_state[acting_agent]["status"] = "ERROR"
       else:
         kaggle_state[acting_agent]["status"] = "INVALID"
       try:
@@ -240,23 +242,36 @@ def interpreter(
     env.info['stateHistory'].append(str(os_state))
 
   # --- Update agent states ---
+  agent_error = any(
+    kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"]
+    for player_id in range(num_players)
+  )
+  if agent_error:
+    _log.info("AGENT ERROR DETECTED")
+  
   invalid_action = any(
-    kaggle_state[player_id]["status"] == INVALID
+    kaggle_state[player_id]["status"] == "INVALID"
     for player_id in range(num_players)
   )
   if invalid_action:
     _log.info("INVALID ACTION DETECTED")
 
+  status: str | None = None
   for player_id, agent_state in enumerate(kaggle_state):
     reward = None
-    if invalid_action:
+    if agent_error:
+      # Set all agent statuses to ERROR in order not to score episode. Preserve
+      # TIMEOUT which has the same effect.
+      if agent_state["status"] == "TIMEOUT":
+        status = "TIMEOUT"
+      else:
+        status = "ERROR"
+    elif invalid_action:
       if agent_state["status"] == "INVALID":
         reward = DEFAULT_INVALID_ACTION_REWARD
       else:
         reward = -DEFAULT_INVALID_ACTION_REWARD
       status = "DONE"
-    elif agent_state["status"] in ["TIMEOUT", "ERROR"]:
-      status = agent_state["status"]
     elif os_state.is_terminal():
       status = "DONE"
       reward = os_state.returns()[player_id]
@@ -268,6 +283,7 @@ def interpreter(
         )
     else:
       status = "INACTIVE"
+    assert status is not None
 
     info_dict = {}
     if acting_agent == player_id:
@@ -275,6 +291,9 @@ def interpreter(
       info_dict["actionSubmittedToString"] = action_submitted_to_string
       info_dict["actionApplied"] = action_applied
       info_dict["timeTaken"] = move_duration
+      info_dict[
+        "agentSelfReportedStatus"
+      ] = kaggle_state[acting_agent]["action"].get("status")
 
     obs_update_dict = {
       "observationString": os_state.observation_string(player_id),
