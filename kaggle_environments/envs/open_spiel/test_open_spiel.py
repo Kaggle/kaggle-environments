@@ -62,6 +62,24 @@ class OpenSpielEnvTest(absltest.TestCase):
         ]
     )
 
+  def test_agent_error(self):
+    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    env = make("open_spiel_tic_tac_toe", debug=True)
+    env.reset()
+    # Setup step
+    env.step([
+        {"submission": pyspiel.INVALID_ACTION},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    env.step([
+        {"submission": open_spiel_env.AGENT_ERROR_ACTION},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    self.assertTrue(env.done)
+    json = env.toJSON()
+    self.assertEqual(json["rewards"], [None, None])
+    self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
+
 
 if __name__ == '__main__':
   absltest.main()
