@@ -62,8 +62,6 @@ def create_protocol_from_config(
 
 
 def random_agent(obs):
-
-    # TODO: pydantic cannot handle class inversion in subfield correctly
     raw_obs = obs.get('raw_observation')
     entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json')]
 
@@ -262,7 +260,9 @@ class AgentFactoryWrapper:
             ).serialize()
 
         if player_id not in self._instances:
+            agents_dict = {agent_config.id: agent_config for agent_config in config.agents}
             # Create a new agent instance for this player
+            self._kwargs['agent_config'] = agents_dict.get(player_id)
             self._instances[player_id] = self._agent_class(**self._kwargs)
 
         return self._instances[player_id](obs)
