@@ -241,7 +241,7 @@ class Moderator:
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
-                            f"Choose one target player to eliminate tonight.The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule}."
+                            f"Choose one target player to eliminate tonight. The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule} "
                             f"Who would you like to eliminate tonight? Options: {data.valid_targets}.",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=False,
@@ -518,13 +518,8 @@ class Moderator:
             # Stay in DAY_DISCUSSION_AWAIT_CHAT
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
-        # Actions in player_actions are from the voters queued in the previous step.
-        for actor_id, action in player_actions.items():
-            # Ensure the action is from an expected voter (though Env should filter)
-            # and is a valid type for voting protocol.
-            # The collect_vote method in the protocol should handle validation.
-            self.day_voting.collect_vote(action, self.state)
-
+        # TODO: refactor self._action_queue to be a list of tuple to include which action is queued information
+        self.day_voting.collect_votes(player_actions, self.state, self._action_queue)
         self._action_queue.clear()  # Clear previous voters
 
         if self.day_voting.done():
@@ -595,8 +590,8 @@ class Moderator:
             reason = "Reason: All werewolves exiled."
             scores = {p.id: 1 for p in self.state.get_players_by_team(team=Team.VILLAGERS)}
             scores.update({p.id: 0 for p in self.state.get_players_by_team(team=Team.WEREWOLVES)})
-            winner_ids = self.state.get_players_by_team(Team.VILLAGERS)
-            loser_ids = self.state.get_players_by_team(Team.WEREWOLVES)
+            winner_ids = [p.id for p in self.state.get_players_by_team(Team.VILLAGERS)]
+            loser_ids = [p.id for p in self.state.get_players_by_team(Team.WEREWOLVES)]
         else:
             winner_team = Team.WEREWOLVES.value
             winner_message = "Game Over: Werewolves Win!"
