@@ -5,6 +5,7 @@ import re
 import json
 import traceback
 
+import litellm
 from litellm import completion
 from dotenv import load_dotenv
 from pydantic import create_model
@@ -16,6 +17,8 @@ from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction
 )
+
+litellm.drop_params = True
 
 # Load environment variables from a .env file in the same directory
 load_dotenv()
@@ -33,6 +36,10 @@ TARGETED_ACTION_SCHEMA = get_action_subset_fields_schema(
     TargetedAction, "TargetedLLMAction", fields=['target_id', 'reasoning'])
 CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
     ChatAction, "ChatLLMAction", fields=['message', 'reasoning'])
+
+TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id")}\n```"
+CHAT_ACTION_EXEMPLAR = f"```json\n{dict(reasoning='I need to show that I am a helpful villager.', 
+                                        message='I am only a helpful villager. Anyone has any information to share?')}\n```"
 
 
 class WerewolfAgentBase(ABC):
@@ -56,13 +63,45 @@ Based on the game state and event log, please respond to the following instructi
 {instruction}
 """
 
+INSTRUCTION_TEMPLATE = """#### ROLE
+{role}
+
+#### TASK
+{task}
+
+#### CONSTRAINTS
+- Your response MUST be a single, valid JSON object.
+- generate the "reasoning" key first to think through your response. Your "reasoning" is invisible to other players.
+{additional_constraints}
+
+#### JSON SCHEMA
+Your JSON output must conform to the following schema. Do NOT include this schema in your response.
+```json
+{json_schema}
+```
+
+#### EXAMPLE OUTPUT
+Here is an example of a valid response format:
+```json
+{exemplar}
+```
+"""
+
+
+
+
 class LLMWerewolfAgent(WerewolfAgentBase):
 
     def __init__(
-            self, model_name: str, decoding_kwargs: dict = None, system_prompt: str = "",
-            prompt_template: str = DEFAULT_PROMPT_TEMPLATE
+            self, model_name: str, agent_config: dict = None, system_prompt: str = "",
+            prompt_template: str = DEFAULT_PROMPT_TEMPLATE, kaggle_config=None
     ):
+        """This wrapper only support 1 LLM.
+        """
+        decoding_kwargs = agent_config.get("llms", [{}])[0].get('parameters')
         self._decoding_kwargs = decoding_kwargs or {}
+        self._kaggle_config = kaggle_config or {}
+
         self._history_entries = []
         self._model_name = model_name
         self._system_prompt = system_prompt
@@ -95,7 +134,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         This method implements best practices for parsing potentially-malformed
         JSON output from a large language model.
-        1. It looks for JSON within markdown code blocks (```json ... ```).
+        1. It looks for JSON within Markdown code blocks (```json ... ```).
         2. It attempts to clean the extracted string to fix common LLM mistakes.
         3. It uses a robust JSON parser.
         4. If standard parsing fails, it falls back to a regular expression search
@@ -109,7 +148,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         """
         json_str = ""
         try:
-            # 1. Extract JSON string from markdown code blocks
+            # 1. Extract JSON string from Markdown code blocks
             if '```json' in out:
                 # Find the start and end of the json block
                 start = out.find('```json') + len('```json')
@@ -130,30 +169,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             # 3. Parse the cleaned string
             parsed_json = json.loads(json_str)
             return parsed_json
-        except json.JSONDecodeError:
-            # 4. Fallback to regex if JSON parsing fails
-            try:
-                # This regex is more general and looks for key-value pairs
-                # It's not perfect but can salvage some results.
-                target_id_match = re.search(r'["\']target_id["\']\s*:\s*["\']?([\w\s-]+)["\']?', json_str or out)
-                reasoning_match = re.search(r'["\']reasoning["\']\s*:\s*["\'](.*?)["\']', json_str or out,
-                                            re.DOTALL)
-
-                if target_id_match and reasoning_match:
-                    return {
-                        "target_id": target_id_match.group(1).strip(),
-                        "reasoning": reasoning_match.group(1).strip().replace('"', '')
-                    }
-                # If regex fails, we will return an empty dict.
-            except Exception:
-                # This will catch errors from regex and return empty dict below
-                traceback.print_exc()
-                print(f"out={out}")
         except Exception:
             # Catch any other unexpected errors during string manipulation
             traceback.print_exc()
             print(f"out={out}")
-
         return {}
 
 
@@ -236,7 +255,16 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                                           if entry.data and entry.data.get('valid_targets')), None)
                     if history_entry:
                         valid_targets = history_entry.data.get('valid_targets')
-                        instruction = f'You are a Werewolf. Vote for a player to eliminate. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        instruction = INSTRUCTION_TEMPLATE.format(**{
+                            "role": "You are a Werewolf.",
+                            "task": "Vote for a player to eliminate.",
+                            "additional_constraints": f"- Valid targets are: `{valid_targets}`.",
+                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                            "exemplar": TARGETED_ACTION_EXEMPLAR
+                        })
+                        # instruction = (f'You are a Werewolf. Vote for a player to eliminate. Valid targets are: `{valid_targets}`. '
+                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
+                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = EliminateProposalAction(**common_args, **parsed_out)
 
@@ -246,7 +274,16 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                                          None)
                     if history_entry:
                         valid_targets = history_entry.data['valid_candidates']
-                        instruction = f'You are a Doctor. Choose a player to save. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        instruction = INSTRUCTION_TEMPLATE.format(**{
+                            "role": "You are a Doctor.",
+                            "task": "Choose a player to save from the werewolf attack.",
+                            "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                            "exemplar": TARGETED_ACTION_EXEMPLAR
+                        })
+                        # instruction = (f'You are a Doctor. Choose a player to save. Valid targets are: `{valid_targets}`. '
+                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
+                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = HealAction(**common_args, **parsed_out)
 
@@ -256,14 +293,32 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                                          None)
                     if history_entry:
                         valid_targets = history_entry.data['valid_candidates']
-                        instruction = f'You are a Seer. Choose a player to inspect and reveal their role. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                        instruction = INSTRUCTION_TEMPLATE.format(**{
+                            "role": "You are a Seer.",
+                            "task": "Choose a player to inspect and reveal their role.",
+                            "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                            "exemplar": TARGETED_ACTION_EXEMPLAR
+                        })
+                        # instruction = (f'You are a Seer. Choose a player to inspect and reveal their role. Valid targets are: `{valid_targets}`. '
+                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
+                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = InspectAction(**common_args, **parsed_out)
 
             elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
                 # All alive players can discuss.
                 if my_id in alive_players:
-                    instruction = f'It is day. Discuss with other players to decide who to vote out. Formulate a message to persuade others. Respond in this JSON schema: `{json.dumps(CHAT_ACTION_SCHEMA)}`'
+                    instruction = INSTRUCTION_TEMPLATE.format(**{
+                        "role": "It is day time. Participate in the discussion.",
+                        "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
+                        "additional_constraints": "",
+                        "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
+                        "exemplar": CHAT_ACTION_EXEMPLAR
+                    })
+                    # instruction = (f'It is day. Discuss with other players to decide who to vote out. '
+                    #                f'Formulate a message to persuade others. Respond in this JSON schema: `{json.dumps(CHAT_ACTION_SCHEMA)}`,'
+                    #                f' e.g. {CHAT_ACTION_EXEMPLAR}')
                     parsed_out = self.query_parse(instruction, obs)
                     action = ChatAction(**common_args, **parsed_out)
 
@@ -271,7 +326,16 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 # Only alive players can vote. They cannot vote for themselves.
                 if my_id in alive_players:
                     valid_targets = [p for p in alive_players if p != my_id]
-                    instruction = f'It is time to vote. Choose a player to exile. Valid targets are: `{valid_targets}`. Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                    instruction = INSTRUCTION_TEMPLATE.format(**{
+                        "role": "It is day time. It is time to vote.",
+                        "task": 'Choose a player to exile.',
+                        "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+                        "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                        "exemplar": TARGETED_ACTION_EXEMPLAR
+                    })
+                    # instruction = (f'It is time to vote. Choose a player to exile. Valid targets are: `{valid_targets}`. '
+                    #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
+                    #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                     parsed_out = self.query_parse(instruction, obs)
                     action = VoteAction(**common_args, **parsed_out)
 
@@ -282,6 +346,5 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             traceback.print_exc()
             print(f"instruction={instruction}")
             print(f"parsed_out={parsed_out}")
-
         print(action.model_dump())
         return action.serialize()
