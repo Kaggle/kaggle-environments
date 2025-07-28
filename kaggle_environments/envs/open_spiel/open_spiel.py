@@ -293,7 +293,7 @@ def interpreter(
       info_dict["timeTaken"] = move_duration
       info_dict[
         "agentSelfReportedStatus"
-      ] = kaggle_state[acting_agent]["action"].get("status")
+      ] = kaggle_state[acting_agent]["action"].get("status") if kaggle_state[acting_agent]["action"] else "unknown"
 
     obs_update_dict = {
       "observationString": os_state.observation_string(player_id),
