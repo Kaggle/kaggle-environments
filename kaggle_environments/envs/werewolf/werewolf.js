@@ -32,12 +32,12 @@ function renderer({
             background-position: center;
             transition: background-image 1s ease-in-out;
         }
-        .werewolf-parent.night .background {
-            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-night.png');
-        }
-        .werewolf-parent.day .background {
-            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-day.png');
-        }
+//        .werewolf-parent.night .background {
+//            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-night.png');
+//        }
+//        .werewolf-parent.day .background {
+//            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-day.png');
+//        }
         .main-container {
             position: relative;
             z-index: 1;

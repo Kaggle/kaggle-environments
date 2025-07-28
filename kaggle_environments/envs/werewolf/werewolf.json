@@ -7,7 +7,7 @@
     "configuration": {
         "episodeSteps": { "type": "integer", "default": 1000 },
         "actTimeout": { "type": "number", "default": 3 },
-        "runTimeout": { "type": "number", "default": 1200 },
+        "runTimeout": { "type": "number", "default": 1800 },
         "seed": { "type": "integer", "description": "Seed to use for episodes" },
         "agents": {
             "type": "array",
