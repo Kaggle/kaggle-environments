@@ -4,11 +4,14 @@ import os
 import re
 import json
 import traceback
+import datetime
 
 import litellm
 from litellm import completion
 from dotenv import load_dotenv
 from pydantic import create_model
+import tenacity
+from absl import logging
 
 from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel
 from kaggle_environments.envs.werewolf.game.states import HistoryEntry
@@ -22,6 +25,25 @@ litellm.drop_params = True
 
 # Load environment variables from a .env file in the same directory
 load_dotenv()
+
+
+def _log_retry_warning(retry_state: tenacity.RetryCallState):
+  assert retry_state.outcome is not None
+  exception = retry_state.outcome.exception()
+  traceback_str = ''.join(traceback.format_exception(exception))
+  logging.warning(
+      'Attempting retry # %d. Traceback: %s. Retry state: %s',
+      retry_state.attempt_number,
+      traceback_str,
+      retry_state,
+  )
+
+_retry_decorator = tenacity.retry(
+    wait=tenacity.wait_random_exponential(min=1, max=60),
+    stop=tenacity.stop_after_delay(datetime.timedelta(minutes=15)),
+    before_sleep=_log_retry_warning,
+    reraise=True,
+)
 
 
 def get_action_subset_fields_schema(model_cls, new_cls_name, fields):
@@ -119,6 +141,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "vertex_credentials": vertex_credentials_json
             })
 
+    @_retry_decorator
     def query(self, prompt):
         response = completion(
             model=self._model_name,
@@ -146,7 +169,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         Returns:
             A dictionary parsed from the JSON, or an empty dictionary if all parsing attempts fail.
         """
-        json_str = ""
         try:
             # 1. Extract JSON string from Markdown code blocks
             if '```json' in out:
