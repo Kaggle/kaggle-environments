@@ -38,6 +38,41 @@ def _log_retry_warning(retry_state: tenacity.RetryCallState):
       retry_state,
   )
 
+
+def _is_rate_limit_error(exception) -> bool:
+    """
+    Checks if an exception is a RateLimitError that warrants a context reduction retry.
+    This checks for both OpenAI's specific error and the generic HTTP 429 status code.
+    """
+    is_openai_rate_limit = "RateLimitError" in str(type(exception))
+    is_http_429 = hasattr(exception, 'status_code') and exception.status_code == 429
+    return is_openai_rate_limit or is_http_429
+
+
+def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
+    """
+    Tenacity hook called before a retry. It reduces the context size if a
+    RateLimitError was detected.
+    """
+    # The first argument of the retried method is the class instance 'self'
+    agent_instance = retry_state.args[0]
+
+    if _is_rate_limit_error(retry_state.outcome.exception()):
+        # Reduce the number of history items to keep by 25% on each attempt
+        original_count = agent_instance._event_log_items_to_keep
+        agent_instance._event_log_items_to_keep = int(original_count * 0.75)
+
+        logging.warning(
+            'RateLimitError detected. Retrying with smaller context. '
+            'Reducing event log from %d to %d items.',
+            original_count,
+            agent_instance._event_log_items_to_keep,
+        )
+
+    # Also call the original logging function for general retry logging
+    _log_retry_warning(retry_state)
+
+
 _retry_decorator = tenacity.retry(
     wait=tenacity.wait_random_exponential(min=1, max=60),
     stop=tenacity.stop_after_delay(datetime.timedelta(minutes=15)),
@@ -130,6 +165,9 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._prompt_template = prompt_template
         self._is_vertex_ai = "vertex_ai" in self._model_name
 
+        # This new attribute will track how much history to include for each retry attempt
+        self._event_log_items_to_keep = 0
+
         if self._is_vertex_ai:
             file_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
             with open(file_path, 'r') as file:
@@ -141,7 +179,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "vertex_credentials": vertex_credentials_json
             })
 
-    @_retry_decorator
     def query(self, prompt):
         response = completion(
             model=self._model_name,
@@ -198,32 +235,30 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         return {}
 
 
-    def render_prompt(self, instruction: str, obs):
+    def render_prompt(self, instruction: str, obs, max_log_items: int = -1):
         """
-        Renders the final prompt string by injecting context into a template.
-
-        Args:
-            instruction: The specific instruction for the current action.
-            current_state: A dictionary representing the current game state.
+        Renders the final prompt, optionally truncating the event log
+        to include only the last 'max_log_items' events.
         """
         current_state = self.current_state(obs)
-        # Flatten the list of lists of history entries into a single list of descriptions
         all_descriptions = [
             entry.description
             for entry_list in self._history_entries
             for entry in entry_list
         ]
-        event_log = "\n\n".join(all_descriptions)
 
-        # The content dictionary holds the values for the template
+        # Greedily take the last n items from the event log if a limit is set
+        if max_log_items >= 0 and len(all_descriptions) > max_log_items:
+            event_log = "\n\n".join(all_descriptions[-max_log_items:])
+        else:
+            event_log = "\n\n".join(all_descriptions)
+
         content = {
             "system_prompt": self._system_prompt,
             "current_state": json.dumps(current_state, indent=2, sort_keys=True),
             "event_log": event_log,
             "instruction": instruction
         }
-
-        # Render the template with the content
         return self._prompt_template.format(**content)
 
     @staticmethod
@@ -240,8 +275,15 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         }
         return content
 
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception(_is_rate_limit_error),
+        stop=tenacity.stop_after_attempt(5),
+        wait=tenacity.wait_random_exponential(min=1, max=60),
+        before_sleep=_truncate_and_log_on_retry,
+        reraise=True,
+    )
     def query_parse(self, instruction, obs):
-        prompt = self.render_prompt(instruction=instruction, obs=obs)
+        prompt = self.render_prompt(instruction=instruction, obs=obs, max_log_items=self._event_log_items_to_keep)
         out = self.query(prompt)
         parsed_out = self.parse(out)
         return parsed_out
@@ -255,6 +297,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         # Default to NO_OP if observation is missing or agent cannot act
         if not raw_obs or not entries:
             return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
+
+        self._event_log_items_to_keep = sum(len(entry_list) for entry_list in self._history_entries)
 
         phase = raw_obs['game_state_phase']
         current_phase = DetailedPhase(raw_obs['phase'])
