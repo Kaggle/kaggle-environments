@@ -59,6 +59,7 @@ setup(
         "shimmy >= 1.2.1",
         "Chessnut >= 0.4.1",
         "open_spiel >= 1.6.0",
+        "pydantic >= 2.11.4",
     ],
     packages=find_packages(),
     include_package_data=True,
