@@ -127,6 +127,10 @@ OBSERVATION_SPEC_TEMPLATE = {
             "description": "Boolean indicating game end.",
             "type": "boolean"
         },
+        "serializedGameAndState": {
+            "description": "Enables reconstructing the Game and State objects.",
+            "type": "string"
+        },
         "remainingOverageTime": 60,
         "step": 0
     },
@@ -305,6 +309,9 @@ def interpreter(
       "currentPlayer": os_state.current_player(),
       "playerId": player_id,
       "isTerminal": os_state.is_terminal(),
+      "serializedGameAndState": pyspiel.serialize_game_and_state(
+          os_game, os_state
+      ),
     }
 
     # Apply updates
