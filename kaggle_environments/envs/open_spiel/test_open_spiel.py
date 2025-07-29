@@ -62,6 +62,17 @@ class OpenSpielEnvTest(absltest.TestCase):
         ]
     )
 
+  def test_serialized_game_and_state(self):
+    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    env = make("open_spiel_tic_tac_toe", debug=True)
+    env.reset()
+    env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+    kaggle_state = env.step([{"submission": 0}, {"submission": -1}])
+    serialize_game_and_state = kaggle_state[1]["observation"]["serializedGameAndState"]
+    game, state = pyspiel.deserialize_game_and_state(serialize_game_and_state)
+    self.assertEqual(game.get_type().short_name, "tic_tac_toe_proxy")
+    self.assertEqual(state.history(), [0])
+
   def test_agent_error(self):
     envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
