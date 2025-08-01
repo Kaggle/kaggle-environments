@@ -158,33 +158,6 @@ function renderer(options) {
         return true;
     }
 
-    // White is in position 1, Black is in position 0
-    function _getTeamNameForColor(color, teamNames) {
-        if (!teamNames || teamNames.length < 2) return null;
-        return color.toLowerCase() === 'white' ? teamNames[1] : teamNames[0];
-    }
-
-    function _deriveWinnerFromRewards(currentStepAgents, teamNames) {
-        if (!currentStepAgents || currentStepAgents.length < 2) return null;
-        
-        const player0Reward = currentStepAgents[0].reward;
-        const player1Reward = currentStepAgents[1].reward;
-        
-        if (player0Reward === player1Reward) {
-            return 'draw';
-        }
-        
-        const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
-        const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
-        
-        if (teamNames) {
-            const teamName = _getTeamNameForColor(color, teamNames);
-            return `${color} (${teamName})`;
-        }
-        
-        return color.toLowerCase();
-    }
-
     function _parseFen(fen) {
         if (!fen || typeof fen !== 'string') return null;
 
@@ -262,17 +235,15 @@ function renderer(options) {
                  if (String(winner).toLowerCase() === 'draw') {
                     currentWinnerTextElement.textContent = "It's a Draw!";
                  } else {
-                    currentWinnerTextElement.innerHTML = `Winner: <span style="font-weight: bold;">${winner}</span>`;
+                    const winnerColor = String(winner).toLowerCase() === 'white' ? 'White' : 'Black';
+                    currentWinnerTextElement.innerHTML = `Winner: <span style="font-weight: bold;">${winnerColor}</span>`;
                  }
             } else {
                  currentWinnerTextElement.textContent = "Game ended.";
             }
         } else {
           const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
-          const teamName = _getTeamNameForColor(playerColor, environment.info?.TeamNames);
-          const currentPlayerText = teamName ? `${playerColor} (${teamName})` : playerColor;
-          
-          currentStatusTextElement.innerHTML = `Current Player: <span style="font-weight: bold;">${currentPlayerText}</span>`;
+          currentStatusTextElement.innerHTML = `Current Player: <span style="font-weight: bold;">${playerColor}</span>`;
         }
     }
 
@@ -314,12 +285,11 @@ function renderer(options) {
             const fen = observationForRenderer.observationString;
             const parsedFen = _parseFen(fen);
             if (parsedFen) {
-                const winner = observationForRenderer.isTerminal ? 
-                    _deriveWinnerFromRewards(currentStepAgents, environment.info?.TeamNames) : null;
+                // Assuming `isTerminal` and `winner` are provided in the top-level observation
                 gameSpecificState = { 
                     ...parsedFen,
                     isTerminal: observationForRenderer.isTerminal,
-                    winner: winner
+                    winner: observationForRenderer.winner
                 };
             }
         } catch (e) {
