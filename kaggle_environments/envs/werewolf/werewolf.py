@@ -3,13 +3,17 @@ import logging
 import random  # Added for random.choice
 from os import path, getenv
 
-from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
-    NoOpAction, create_action
+from .game.actions import (
+    Action, EliminateProposalAction, VoteAction, HealAction, InspectAction,
+    BidAction, ChatAction, NoOpAction, create_action
+)
 from .game.consts import ActionType
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
-    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
+    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
+    FirstPriceSealed, VickreyAuction, BidDrivenDiscussion, TurnByTurnBiddingDiscussion,
+    UrgencyBiddingProtocol
 )
 from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_agents_config
@@ -23,12 +27,23 @@ PROTOCOL_REGISTRY = {
     "discussion": {
         "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
         "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
-        # Add other discussion protocols here if needed
+        "BidDrivenDiscussion": {"class": BidDrivenDiscussion,
+                                "default_params": {"bidding": {"name": "FirstPriceSealed"},
+                                                   "inner": {"name": "RoundRobinDiscussion"}}},
+        "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
+                                        "default_params": {
+                                            "bidding": {"name": "UrgencyBiddingProtocol"},
+                                            "max_turns": 5
+                                        }},
     },
     "voting": {
         "SimultaneousMajority": {"class": SimultaneousMajority, "default_params": {}},
         "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
-        # Add other voting protocols here if needed
+    },
+    "bidding": {
+        "FirstPriceSealed": {"class": FirstPriceSealed, "default_params": {}},
+        "VickreyAuction": {"class": VickreyAuction, "default_params": {}},
+        "UrgencyBiddingProtocol": {"class": UrgencyBiddingProtocol, "default_params": {}},
     }
 }
 
@@ -36,114 +51,125 @@ DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
 DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
 
 
-def create_protocol_from_config(
-        config: Any,  # env.configuration
-        protocol_config_key: str,  # e.g., "discussion_protocol"
-        protocol_type: str,  # "discussion" or "voting"
-        default_protocol_name: str
-) -> Union[DiscussionProtocol, VotingProtocol]:
-    protocol_config = getattr(config, protocol_config_key, {})
-    protocol_name = protocol_config.get("name", default_protocol_name)
-    user_params = protocol_config.get("params", {})
+def create_protocol(protocol_type: str, config: dict, default_name: str):
+    name = config.get("name", default_name)
+    params = config.get("params", {})
 
-    registry_for_type = PROTOCOL_REGISTRY[protocol_type]
-    protocol_info = registry_for_type.get(protocol_name)
+    registry = PROTOCOL_REGISTRY[protocol_type]
+    protocol_info = registry.get(name)
     if not protocol_info:
-        logger.warning(f"Warning: Protocol '{protocol_name}' not found in {protocol_type} registry."
-                       f"Using default '{default_protocol_name}'.")
-        protocol_info = registry_for_type[default_protocol_name]
-    protocol_class, default_params_dict = protocol_info["class"], protocol_info["default_params"]
-    final_params = {**default_params_dict, **user_params}
+        logger.warning(f"Protocol '{name}' not found in {protocol_type} registry. Using default '{default_name}'.")
+        protocol_info = registry[default_name]
+        name = default_name
+
+    protocol_class = protocol_info["class"]
+    default_params = protocol_info["default_params"]
+    final_params = {**default_params, **params}
+
+    # Handle nested protocols
+    if name == "BidDrivenDiscussion":
+        final_params["bidding"] = create_protocol("bidding", final_params.get("bidding", {}), "FirstPriceSealed")
+        final_params["inner"] = create_protocol("discussion", final_params.get("inner", {}), "RoundRobinDiscussion")
+    elif name == "TurnByTurnBiddingDiscussion":
+        final_params["bidding"] = create_protocol("bidding", final_params.get("bidding", {}), "FirstPriceSealed")
+
     return protocol_class(**final_params)
 
 
 def random_agent(obs):
     raw_obs = obs.get('raw_observation')
-    entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json')]
+    if not raw_obs:
+        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
 
-    # Default to NO_OP if observation is missing or agent cannot act
-    if not raw_obs or not entries:
-        return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
+    entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json', [])]
+    current_phase_str = raw_obs.get('phase')
+    if not current_phase_str:
+        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
 
-    phase = raw_obs['game_state_phase']
-    current_phase = DetailedPhase(raw_obs['phase'])
+    current_phase = DetailedPhase(current_phase_str)
     my_role = RoleConst(raw_obs['role'])
-
     all_player_names = raw_obs['all_player_ids']
     my_id = raw_obs['player_id']
     alive_players = raw_obs['alive_players']
-
     day = raw_obs['day']
+    phase = raw_obs['game_state_phase']
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
-
-    threat_level = random.choice(['SAFE', 'UNEASY', 'DANGER'])
+    threat_level = random.choice(['SAFE', 'UNEASY', 'IN_DANGER'])
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
-            # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
-            # ActionType.NIGHT_KILL_VOTE
             history_entry = next((entry for entry in entries
                                   if entry.data and entry.data.get('valid_targets')), None)
             if history_entry:
                 valid_targets = history_entry.data.get('valid_targets')
-                target_id = random.choice(valid_targets)
-                action = EliminateProposalAction(**common_args, target_id=target_id, reasoning="I randomly chose one.",
-                                                 perceived_threat_level=threat_level)
+                if valid_targets:
+                    target_id = random.choice(valid_targets)
+                    action = VoteAction(**common_args, target_id=target_id, reasoning="I randomly chose one.",
+                                        perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.DOCTOR:
-            # Doctors can save any alive player (including themselves)
-            # ActionType.NIGHT_SAVE_TARGET
             history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
                                  None)
-
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
-                target_id = random.choice(valid_targets)
-                action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.",
-                                    perceived_threat_level=threat_level)
+                if valid_targets:
+                    target_id = random.choice(valid_targets)
+                    action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.",
+                                        perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.SEER:
-            # Seers can inspect any alive player
-            # ActionType.NIGHT_INSPECT_TARGET
             history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
                                  None)
-
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
-                target_id = random.choice(valid_targets)
-                action = InspectAction(**common_args, target_id=target_id, reasoning="I randomly chose one to inspect.",
-                                       perceived_threat_level=threat_level)
+                if valid_targets:
+                    target_id = random.choice(valid_targets)
+                    action = InspectAction(**common_args, target_id=target_id,
+                                           reasoning="I randomly chose one to inspect.",
+                                           perceived_threat_level=threat_level)
 
-    elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
-        # Only alive players can discuss
-        if my_id in alive_players:
-            action = ChatAction(
-                **common_args,
-                message=random.choice([
-                    "Hello everyone!",
-                    "I have a strong feeling about someone.",
-                    "Any information to share?",
-                    "I am a simple Villager just trying to survive.",
-                    "Let's think carefully before voting."
-                ]),
-                reasoning="I randomly chose one message.",
-                perceived_threat_level=threat_level
-            )
+    elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT:
+        # Check if this is a bidding turn
+        is_bidding_turn = any(
+            entry.entry_type == HistoryEntryType.PROMPT_FOR_ACTION and 'bid' in entry.description.lower() for entry in
+            entries)
+
+        if is_bidding_turn:
+            if my_id in alive_players:
+                action = BidAction(
+                    **common_args,
+                    amount=random.randint(0, 4),
+                    reasoning="I am bidding randomly.",
+                    perceived_threat_level=threat_level
+                )
+        else:  # It's a chat turn
+            if my_id in alive_players:
+                action = ChatAction(
+                    **common_args,
+                    message=random.choice([
+                        "Hello everyone!",
+                        f"I think {random.choice(all_player_names)} is suspicious.",
+                        "Any information to share?",
+                        "I am a simple Villager just trying to survive.",
+                        "Let's think carefully before voting."
+                    ]),
+                    reasoning="I randomly chose one message.",
+                    perceived_threat_level=threat_level
+                )
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
-        # Only alive players can vote
         if my_id in alive_players:
-            action = VoteAction(
-                **common_args,
-                target_id=random.choice(all_player_names),
-                reasoning="I randomly chose one.",
-                perceived_threat_level=threat_level
-            )
-
-    elif current_phase == DetailedPhase.GAME_OVER:
-        action = {"action_type": ActionType.NO_OP.value}
+            # A real agent would parse the prompt for valid targets
+            valid_targets = [p_id for p_id in alive_players if p_id != my_id]
+            if valid_targets:
+                action = VoteAction(
+                    **common_args,
+                    target_id=random.choice(valid_targets),
+                    reasoning="I randomly chose one.",
+                    perceived_threat_level=threat_level
+                )
 
     return action.serialize()
 
@@ -431,21 +457,20 @@ def initialize_moderator(state, env):
 
     env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
     # Initialize protocols from configuration or defaults
-    discussion_protocol = create_protocol_from_config(
-        env.configuration,
-        "discussion_protocol",
-        "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
+    discussion_protocol = create_protocol(
+        "discussion",
+        env.configuration.get("discussion_protocol", {}),
+        DEFAULT_DISCUSSION_PROTOCOL_NAME
     )
-    day_voting_protocol = create_protocol_from_config(
-        env.configuration,
-        "day_voting_protocol",
-        "voting", DEFAULT_VOTING_PROTOCOL_NAME
+    day_voting_protocol = create_protocol(
+        "voting",
+        env.configuration.get("day_voting_protocol", {}),
+        DEFAULT_VOTING_PROTOCOL_NAME
     )
-    # Night voting can be configured.
-    night_voting_protocol = create_protocol_from_config(
-        env.configuration,
-        "werewolf_night_vote_protocol",
-        "voting", DEFAULT_VOTING_PROTOCOL_NAME  # Default to same as day voting if not specified
+    night_voting_protocol = create_protocol(
+        "voting",
+        env.configuration.get("werewolf_night_vote_protocol", {}),
+        DEFAULT_VOTING_PROTOCOL_NAME
     )
 
     logger.info(
