@@ -50,8 +50,8 @@ DEFAULT_INVALID_ACTION_REWARD = -1
 # Can be used by agents to signal an internal error to the environement.
 AGENT_ERROR_ACTION = -2
 
-DEFAULT_ACT_TIMEOUT = 60 * 20 # twenty minutes
-DEFAULT_RUN_TIMEOUT = 60 * 60 * 8 # eight hours
+DEFAULT_ACT_TIMEOUT = 60 * 60 # sixty minutes
+DEFAULT_RUN_TIMEOUT = 60 * 60 * 30 # thirty hours
 # Buffer in addition to max game length to account for timeouts, retrys, etc.
 DEFAULT_STEP_BUFFER = 100
 # TODO(jhtschultz): Add individual game descriptions.
