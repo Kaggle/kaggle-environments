@@ -1,5 +1,5 @@
 function renderer(options) {
-    const { environment, step, parent, width = 400, height = 400 } = options;
+    const { environment, step, parent } = options;
 
     // Chess-specific constants
     const DEFAULT_NUM_ROWS = 8;
@@ -90,7 +90,7 @@ function renderer(options) {
         }
         parentElementToClear.appendChild(currentRendererContainer);
 
-        const smallestParentEdge = Math.min(width, height);
+        const smallestParentEdge = Math.min(currentRendererContainer.offsetWidth, currentRendererContainer.offsetHeight);
         squareSize = Math.floor(smallestParentEdge / DEFAULT_NUM_COLS);
         currentBoardElement = document.createElement('div');
         Object.assign(currentBoardElement.style, {
