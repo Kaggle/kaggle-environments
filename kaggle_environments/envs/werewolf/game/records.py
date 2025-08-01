@@ -2,10 +2,16 @@ import json
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Set, Optional, List, Dict, Any, Self
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_serializer, ConfigDict
 
 from kaggle_environments.envs.werewolf.game.consts import Phase
+
+
+def get_utc_now():
+    return str(datetime.now(ZoneInfo("UTC")))
 
 
 class HistoryEntryType(str, Enum):
@@ -60,6 +66,7 @@ class HistoryEntry(BaseModel):
     visible_to: List[str] = Field(default_factory=list)
     data: Optional[dict | DataEntry]
     source: str
+    created_at: str = Field(default_factory=get_utc_now)
 
     @field_serializer('data')
     def serialize_data(self, data):
