@@ -1,5 +1,7 @@
-from absl.testing import absltest
+import functools
 import sys
+
+from absl.testing import absltest
 from kaggle_environments import make
 import pyspiel
 from . import open_spiel as open_spiel_env
@@ -90,6 +92,22 @@ class OpenSpielEnvTest(absltest.TestCase):
     json = env.toJSON()
     self.assertEqual(json["rewards"], [None, None])
     self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
+
+  def test_debug_agent(self):
+    env = make("open_spiel_chess", debug=True)
+    max_history_length = 5
+    debug_agent = functools.partial(
+      open_spiel_env.debug_agent,
+      max_history_length=max_history_length,
+    )
+    env.run([debug_agent, "random"])
+    json = env.toJSON()
+    self.assertEqual(json["rewards"], [-1, 1])
+    self.assertEqual(json["statuses"], ["DONE", "DONE"])
+    self.assertEqual(
+      len(json["info"]["actionHistory"]),
+      max_history_length,
+    )
 
 
 if __name__ == '__main__':

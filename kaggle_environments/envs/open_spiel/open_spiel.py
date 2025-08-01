@@ -421,8 +421,32 @@ def random_agent(
   return {"submission": int(action)}
 
 
+def debug_agent(
+  observation: dict[str, Any],
+  configuration: dict[str, Any],
+  max_history_length: int = 8,
+) -> int:
+  """A built-in random agent specifically for OpenSpiel environments."""
+  del configuration
+  serialized_game_and_state = observation.get("serializedGameAndState")
+  if not serialized_game_and_state:
+    return None
+  game, state = pyspiel.deserialize_game_and_state(serialized_game_and_state)
+  if len(state.history()) >= max_history_length:
+    return {
+      "submission": pyspiel.INVALID_ACTION,
+      "status": "Max history length reached; intentionally submitting invalid action.",
+    }
+  legal_actions = observation.get("legalActions")
+  if not legal_actions:
+    return None
+  action = random.choice(legal_actions)
+  return {"submission": int(action)}
+
+
 AGENT_REGISTRY = {
   "random": random_agent,
+  "debug": debug_agent,
 }
 
 
