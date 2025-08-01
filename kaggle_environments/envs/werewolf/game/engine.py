@@ -82,18 +82,19 @@ class Moderator:
         )
         
         role_msg = "The following explain the function of each role.\n" + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
+        description = "\n".join([
+            "Werewolf game begins.",
+            f"All player ids: {data.player_ids}",
+            f"Number of alive players: {data.number_of_players}.",
+            f"Role counts: {data.role_counts}."
+            f"Alive team member counts: {data.team_member_counts}",
+            f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
+            f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
+            f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
+            role_msg
+        ])
         self.state.add_history_entry(
-            description="\n".join([
-                "Werewolf game begins.",
-                f"All player ids: {data.player_ids}",
-                f"Number of alive players: {data.number_of_players}.",
-                f"Role counts: {data.role_counts}."
-                f"Alive team member counts: {data.team_member_counts}",
-                f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
-                f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
-                f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
-                role_msg
-            ]),
+            description=description,
             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
             data=data
