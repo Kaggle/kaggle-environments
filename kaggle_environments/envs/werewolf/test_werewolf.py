@@ -89,6 +89,56 @@ def test_disable_doctor_self_save(agents_config):
     out = env.toJSON()
 
 
+def test_simple_bidding_protocol(agents_config):
+    """first bid then roundrobin based on bids."""
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "discussion_protocol": {
+                "name": "BidDrivenDiscussion",
+                "params": {
+                    "bidding":{
+                        "name": "FirstPriceSealed"
+                    },
+                    "inner": {
+                        "name": "RoundRobinDiscussion",
+                        "params": {
+                            "max_rounds": 2
+                        }
+                    },
+                }
+            }
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
+def test_urgency_bidding_protocol(agents_config):
+    """first bid then roundrobin based on bids."""
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "discussion_protocol": {
+                "name": "TurnByTurnBiddingDiscussion",
+                "params": {
+                    "bidding":{
+                        "name": "FirstPriceSealed"
+                    }
+                }
+            }
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
 @pytest.mark.skip('Slow test, meant for manual testing.')
 def test_llm_players(agents_config):
     env = make(
