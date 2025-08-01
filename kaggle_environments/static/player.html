@@ -565,10 +565,10 @@
                         steps: event.data.environment?.steps ?? []
                       }
                     };
-                    window.kaggle = nextContext;
-                    if (!window.kaggle.renderer) {
-                      window.kaggle.renderer = window.renderer;
-                    }
+                    window.kaggle = {
+                      ...nextContext,
+                      renderer: window.kaggle.renderer
+                    };
                     updateContext(nextContext);
                   }
                   if (event.data.setSteps) {
@@ -579,10 +579,10 @@
                         steps: event.data.setSteps
                       }
                     }
-                    window.kaggle = nextContext;
-                    if (!window.kaggle.renderer) {
-                      window.kaggle.renderer = window.renderer;
-                    }
+                    window.kaggle = {
+                      ...nextContext,
+                      renderer: window.kaggle.renderer
+                    };
                     updateContext(nextContext)
                   }
 
