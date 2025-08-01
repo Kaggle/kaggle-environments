@@ -2,13 +2,17 @@ import json
 import random  # Added for random.choice
 from os import path, getenv
 
-from .game.actions import Action, EliminateProposalAction, VoteAction, HealAction, InspectAction, ChatAction, \
-    NoOpAction, create_action
+from .game.actions import (
+    Action, EliminateProposalAction, VoteAction, HealAction, InspectAction,
+    BidAction, ChatAction, NoOpAction, create_action
+)
 from .game.consts import ActionType
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     DiscussionProtocol, VotingProtocol,
-    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting
+    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
+    FirstPriceSealed, VickreyAuction, BidDrivenDiscussion, TurnByTurnBiddingDiscussion,
+    UrgencyBiddingProtocol
 )
 from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_agents_config
@@ -28,17 +32,83 @@ PROTOCOL_REGISTRY = {
     "discussion": {
         "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
         "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
-        # Add other discussion protocols here if needed
+        "BidDrivenDiscussion": {"class": BidDrivenDiscussion,
+                                "default_params": {"bidding": {"name": "FirstPriceSealed"},
+                                                   "inner": {"name": "RoundRobinDiscussion"}}},
+        "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
+                                        "default_params": {
+                                            "bidding": {"name": "UrgencyBiddingProtocol"},
+                                            "max_turns": 5
+                                        }},
     },
     "voting": {
         "SimultaneousMajority": {"class": SimultaneousMajority, "default_params": {}},
         "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
-        # Add other voting protocols here if needed
+    },
+    "bidding": {
+        "FirstPriceSealed": {"class": FirstPriceSealed, "default_params": {}},
+        "VickreyAuction": {"class": VickreyAuction, "default_params": {}},
+        "UrgencyBiddingProtocol": {"class": UrgencyBiddingProtocol, "default_params": {}},
     }
 }
 
 DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
 DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
+
+
+def _create_protocol_from_dict(
+    protocol_config: dict,
+) -> Union[DiscussionProtocol, VotingProtocol]:
+    """
+    Recursively creates a protocol from a configuration dictionary.
+
+    This is a helper function that finds a protocol by name in the global
+    registry and initializes it, recursively doing the same for any
+    parameters that are themselves protocol configurations.
+
+    Args:
+        protocol_config: A dictionary with a 'name' and optional 'params'.
+
+    Returns:
+        An instantiated protocol object.
+
+    Raises:
+        ValueError: If the protocol name is not found or config is invalid.
+    """
+    protocol_name = protocol_config["name"]
+    # Find the protocol class and its defaults in the entire registry
+    protocol_info = None
+    for registry in PROTOCOL_REGISTRY.values():
+        if protocol_name in registry:
+            protocol_info = registry[protocol_name]
+            break
+
+    if not protocol_info:
+        raise ValueError(f"Protocol '{protocol_name}' not found in any registry.")
+
+    protocol_class = protocol_info["class"]
+    default_params = protocol_info.get("default_params", {})
+    user_params = protocol_config.get("params", {})
+
+    # Recursively process parameters
+    processed_params = {}
+    for key, value in user_params.items():
+        # Check if a parameter value looks like a protocol configuration
+        if isinstance(value, dict) and "name" in value:
+            try:
+                # Attempt to create a nested protocol
+                processed_params[key] = _create_protocol_from_dict(value)
+            except ValueError:
+                # If it fails (e.g., name not in registry), it's probably just a
+                # regular dictionary parameter.
+                processed_params[key] = value
+        else:
+            processed_params[key] = value
+
+    # Combine default and user-provided parameters
+    final_params = {**default_params, **processed_params}
+
+    return protocol_class(**final_params)
 
 
 def create_protocol_from_config(
@@ -47,18 +117,39 @@ def create_protocol_from_config(
     protocol_type: str, # "discussion" or "voting"
     default_protocol_name: str
 ) -> Union[DiscussionProtocol, VotingProtocol]:
-    protocol_config = getattr(config, protocol_config_key, {})
-    protocol_name = protocol_config.get("name", default_protocol_name)
-    user_params = protocol_config.get("params", {})
+    """
+    Creates a protocol instance from the environment configuration.
+    This function can recursively initialize protocols defined as parameters for other protocols.
+    """
+    # Get the user's config for this specific protocol key.
+    user_protocol_config = getattr(config, protocol_config_key, {})
 
+    # Determine the final protocol name, using default if not provided.
+    protocol_name = user_protocol_config.get("name", default_protocol_name)
+
+    # Check if the chosen protocol is valid for the expected type.
     registry_for_type = PROTOCOL_REGISTRY[protocol_type]
-    protocol_info = registry_for_type.get(protocol_name)
-    if not protocol_info:
-        print(f"Warning: Protocol '{protocol_name}' not found in {protocol_type} registry. Using default '{default_protocol_name}'.")
-        protocol_info = registry_for_type[default_protocol_name]
-    protocol_class, default_params_dict = protocol_info["class"], protocol_info["default_params"]
-    final_params = {**default_params_dict, **user_params}
-    return protocol_class(**final_params)
+    if protocol_name not in registry_for_type:
+        print(f"Warning: Protocol '{protocol_name}' not found in '{protocol_type}' registry or is of the wrong type. "
+              f"Using default '{default_protocol_name}'.")
+        protocol_name = default_protocol_name
+
+    # Construct the full configuration dictionary to pass to the recursive helper.
+    # This ensures the helper has a definite 'name' to work with.
+    full_protocol_config = {
+        "name": protocol_name,
+        "params": user_protocol_config.get("params", {})
+    }
+
+    # Use the recursive helper to build the protocol and its children.
+    try:
+        return _create_protocol_from_dict(full_protocol_config)
+    except ValueError as e:
+        print(f"Error creating protocol '{protocol_name}': {e}. "
+              f"Falling back to a default instance of '{default_protocol_name}'.")
+        # Fallback to a simple default instance if recursive creation fails.
+        default_info = registry_for_type[default_protocol_name]
+        return default_info["class"](**default_info["default_params"])
 
 
 def random_agent(obs):
@@ -113,7 +204,12 @@ def random_agent(obs):
                 target_id = random.choice(valid_targets)
                 action = InspectAction(**common_args, target_id=target_id, reasoning="I randomly chose one to inspect.")
 
-    elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
+    elif current_phase == DetailedPhase.DAY_BIDDING_AWAIT:
+        if my_id in alive_players:
+            action = BidAction(
+
+            )
+    elif current_phase == DetailedPhase.DAY_CHAT_AWAIT:
         # Only alive players can discuss
         if my_id in alive_players:
             action = ChatAction(

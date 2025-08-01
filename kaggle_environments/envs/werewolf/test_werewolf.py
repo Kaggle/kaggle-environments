@@ -76,6 +76,70 @@ def test_discussion_protocol():
     out = env.toJSON()
 
 
+def test_simple_bidding_protocol():
+    """first bid then round robin based on bids."""
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = ["gemini-2.5-pro", "gemini-2.5-flash", "gpt-4.1", "o3", "o4-mini", "claude-4-sonnet", "grok-4"]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
+                  URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
+                     zip(roles, names, thumbnails)]
+
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "discussion_protocol": {
+                "name": "BidDrivenDiscussion",
+                "params": {
+                    "bidding":{
+                        "name": "FirstPriceSealed"
+                    },
+                    "inner": {
+                        "name": "RoundRobinDiscussion",
+                        "params": {
+                            "max_rounds": 2
+                        }
+                    },
+                }
+            }
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
+def test_urgency_bidding_protocol():
+    """first bid then round robin based on bids."""
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = ["gemini-2.5-pro", "gemini-2.5-flash", "gpt-4.1", "o3", "o4-mini", "claude-4-sonnet", "grok-4"]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
+                  URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
+                     zip(roles, names, thumbnails)]
+
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "discussion_protocol": {
+                "name": "TurnByTurnBiddingDiscussion",
+                "params": {
+                    "bidding":{
+                        "name": "FirstPriceSealed"
+                    }
+                }
+            }
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
 @pytest.mark.skip('Slow test, meant for manual testing.')
 def test_llm_players():
     roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
@@ -116,4 +180,7 @@ def test_run_dummy_llm():
 def test_html_render(env):
     agents = ['random'] * 7
     env.run(agents)
-    env.render(mode='html')
+    html_content = env.render(mode='html')
+    output_filename = "/Users/hannw/repo/kaggle-environments/kaggle_environments/envs/werewolf/game_replay.html"
+    with open(output_filename, "w") as f:
+        f.write(html_content)

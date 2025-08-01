@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple
 import json
 
 from .actions import Action, VoteAction, HealAction, InspectAction
-from .protocols import DiscussionProtocol, VotingProtocol
+from .protocols import DiscussionProtocol, VotingProtocol, BidDrivenDiscussion, TurnByTurnBiddingDiscussion
 from .roles import Player
 from .consts import Phase, Team, RoleConst
 from .states import GameState
@@ -20,7 +20,8 @@ class DetailedPhase(Enum):
     NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
     # Day Phases
     DAY_START = "DAY_START"
-    DAY_DISCUSSION_AWAIT_CHAT = "DAY_DISCUSSION_AWAIT_CHAT"
+    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT"
+    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
     DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
     GAME_OVER = "GAME_OVER"
 
@@ -60,7 +61,8 @@ class Moderator:
             DetailedPhase.NIGHT_START: self._handle_night_start,
             DetailedPhase.NIGHT_AWAIT_ACTIONS: self._handle_night_await_actions,
             DetailedPhase.DAY_START: self._handle_day_start,
-            DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT: self._handle_day_discussion_await_chat,
+            DetailedPhase.DAY_BIDDING_AWAIT: self._handle_day_bidding_await,  # New handler
+            DetailedPhase.DAY_CHAT_AWAIT: self._handle_day_chat_await,
             DetailedPhase.DAY_VOTING_AWAIT: self._handle_day_voting_await,
             # DetailedPhase.GAME_OVER: self._handle_game_over,
         }
@@ -444,7 +446,7 @@ class Moderator:
         self._action_queue.clear()
         self.state.day_count += 1
         self.state.phase = Phase.DAY
-        self.night_step = 0  # Reset night step counter
+        self.night_step = 0
 
         self.state.add_history_entry(
             description=f"Day {self.state.day_count} begins.",
@@ -453,39 +455,76 @@ class Moderator:
         )
 
         self.state.add_history_entry(
-            description=f"Villagers, let's discuss who to exile today. The discussion rule is: {self.discussion.discussion_rule}",
+            description=f"Villagers, let's decide who to exile. The discussion rule is: {self.discussion.discussion_rule}",
             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
             data={'discussion_rule': self.discussion.discussion_rule}
         )
 
         self.discussion.begin(self.state)
-        # Initial speakers for discussion/bidding
-        current_speakers = self.discussion.speakers_for_tick(self.state)
-        self._action_queue.extend(s_id for s_id in current_speakers if s_id not in self._action_queue)
-        if self._action_queue:  # Only prompt if there are speakers
-            self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
 
-        self.detailed_phase = DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT
-        # If _action_queue is empty here (e.g. discussion protocol immediately ends),
-        # Env will call advance({}) and _handle_day_discussion_await_chat will transition.
+        # Check if the protocol starts with bidding
+        if isinstance(self.discussion, BidDrivenDiscussion):
+            self.detailed_phase = DetailedPhase.DAY_BIDDING_AWAIT
+            # In bidding, all alive players can be active
+            bidders = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(b_id for b_id in bidders if b_id not in self._action_queue)
+            if self._action_queue:
+                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+        else:
+            # If no bidding, go straight to chatting
+            self.detailed_phase = DetailedPhase.DAY_CHAT_AWAIT
+            initial_speakers = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(s_id for s_id in initial_speakers if s_id not in self._action_queue)
+            if self._action_queue:
+                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
 
-    def _handle_day_discussion_await_chat(self, player_actions: Dict[str, Action]):
-        # current_speakers_last_tick refers to who was in _action_queue for the player_actions received
-        current_speakers_last_tick = list(self._action_queue)  # Who was expected to act
+    def _handle_day_bidding_await(self, player_actions: Dict[str, Action]):
+        current_bidders = list(self._action_queue)
         self._action_queue.clear()
 
-        # The discussion protocol processes actions.
-        # player_actions are from current_speakers_last_tick
-        # The protocol needs to know who was expected to speak when these actions were generated.
-        self.discussion.process_actions(list(player_actions.values()), current_speakers_last_tick, self.state)
+        # The protocol processes bid actions
+        self.discussion.process_actions(list(player_actions.values()), current_bidders, self.state)
 
-        if self.discussion.is_discussion_over(self.state):
+        # We need to explicitly check if the bidding sub-phase is over
+        # This requires a reference to the bidding protocol within BidDrivenDiscussion
+        bidding_protocol = self.discussion.bidding
+        if bidding_protocol.is_finished(self.state):
             self.state.add_history_entry(
-                description="Daytime activity (discussion/bidding) has concluded. Moving to day vote.",
+                description="Bidding has concluded. The discussion will now begin.",
                 entry_type=HistoryEntryType.PHASE_CHANGE,
                 public=True
             )
+            # Transition to the chat phase
+            self.detailed_phase = DetailedPhase.DAY_CHAT_AWAIT
+
+            # Get the first speakers for the chat phase (could be bid winners)
+            next_speakers = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
+            if self._action_queue:
+                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+        else:
+            # Bidding is not over (e.g., sequential auction), get next bidders
+            next_bidders = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(b_id for b_id in next_bidders if b_id not in self._action_queue)
+            if self._action_queue:
+                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            # Stay in DAY_BIDDING_AWAIT
+
+    def _handle_day_chat_await(self, player_actions: Dict[str, Action]):
+        current_speakers_last_tick = list(self._action_queue)
+        self._action_queue.clear()
+
+        self.discussion.process_actions(list(player_actions.values()), current_speakers_last_tick, self.state)
+
+        if self.discussion.is_discussion_over(self.state):
+            # Standard transition to voting
+            self.state.add_history_entry(
+                description="Daytime discussion has concluded. Moving to day vote.",
+                entry_type=HistoryEntryType.PHASE_CHANGE,
+                public=True
+            )
+            # ... (rest of the voting transition logic is unchanged)
             self.discussion.reset()
             alive_players = self.state.alive_players()
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
@@ -501,7 +540,7 @@ class Moderator:
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)
             if self._action_queue:
-                for voter_id in self._action_queue:  # Prompt only the current batch of voters
+                for voter_id in self._action_queue:
                     player = self.state.get_player_by_id(voter_id)
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
@@ -510,12 +549,15 @@ class Moderator:
                             public=False, visible_to=[voter_id]
                         )
         else:
-            # Discussion not over, get next speakers
+            # Discussion is not over. Check if we need to go back to bidding.
+            if isinstance(self.discussion, TurnByTurnBiddingDiscussion) and self.discussion._phase == "bidding":
+                self.detailed_phase = DetailedPhase.DAY_BIDDING_AWAIT
+
+            # Get the next active players (either bidders or the next speaker)
             next_speakers = self.discussion.speakers_for_tick(self.state)
             self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
-            if self._action_queue:  # Prompt if there are speakers for the next tick
+            if self._action_queue:
                 self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
-            # Stay in DAY_DISCUSSION_AWAIT_CHAT
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
         # TODO: refactor self._action_queue to be a list of tuple to include which action is queued information
