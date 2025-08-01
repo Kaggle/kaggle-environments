@@ -177,6 +177,7 @@ class ChatDataEntry(DataEntry, ActionDataMixin):
     """Records a chat message from a player, including private reasoning."""
     # actor_id and reasoning are inherited from ActionDataMixin
     message: str
+    mentioned_player_ids: List[str] = Field(default_factory=list)
 
 
 # --- Game End and Observation Models (Unchanged) ---

@@ -3,12 +3,25 @@ from typing import Dict, List, Sequence, Optional  # Added Optional
 import random
 from collections import Counter
 import json
+import re
 
 from .states import GameState
 from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
 from .roles import Player
 from .consts import Team, Phase
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
+
+
+def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> List[str]:
+    """Extracts player IDs mentioned in a string."""
+    if not all_player_ids:
+        return []
+    # Create a regex pattern to find any of the player IDs as whole words
+    # Using a set for faster lookups and to handle duplicates from the regex
+    pattern = r'\b(' + '|'.join(re.escape(pid) for pid in all_player_ids) + r')\b'
+    # Use a set to automatically handle duplicates found by the regex
+    found_ids = set(re.findall(pattern, text))
+    return sorted(list(found_ids)) # sorted for deterministic order
 
 
 class DiscussionProtocol(ABC):
@@ -261,11 +274,14 @@ class RoundRobinDiscussion(DiscussionProtocol):
     def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
         for act in actions:
             if isinstance(act, ChatAction):
+                all_player_ids = [p.id for p in state.players]
+                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
                 if expected_speakers and act.actor_id in expected_speakers:
                     data = ChatDataEntry(
                         actor_id=act.actor_id,
                         message=act.message,
-                        reasoning=act.reasoning
+                        reasoning=act.reasoning,
+                        mentioned_player_ids=mentioned_ids
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
@@ -336,8 +352,15 @@ class RandomOrderDiscussion(DiscussionProtocol):
     def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
         for act in actions:
             if isinstance(act, ChatAction):
+                all_player_ids = [p.id for p in state.players]
+                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
                 if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(
+                        actor_id=act.actor_id,
+                        message=act.message,
+                        reasoning=act.reasoning,
+                        mentioned_player_ids=mentioned_ids
+                    )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,
@@ -401,9 +424,16 @@ class ParallelDiscussion(DiscussionProtocol):
     def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
         for act in actions:
             if isinstance(act, ChatAction):
+                all_player_ids = [p.id for p in state.players]
+                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
                 # In parallel, any alive player in expected_speakers can talk
                 if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
-                    data = ChatDataEntry(actor_id=act.actor_id, message=act.message, reasoning=act.reasoning)
+                    data = ChatDataEntry(
+                        actor_id=act.actor_id,
+                        message=act.message,
+                        reasoning=act.reasoning,
+                        mentioned_player_ids=mentioned_ids
+                    )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         entry_type=HistoryEntryType.DISCUSSION,

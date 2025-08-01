@@ -32,12 +32,6 @@ function renderer({
             background-position: center;
             transition: background-image 1s ease-in-out;
         }
-//        .werewolf-parent.night .background {
-//            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-night.png');
-//        }
-//        .werewolf-parent.day .background {
-//            background-image: url('./kaggle_environments/envs/werewolf/game/_ui/img/background-day.png');
-//        }
         .main-container {
             position: relative;
             z-index: 1;
@@ -159,6 +153,11 @@ function renderer({
             object-fit: cover;
             flex-shrink: 0;
         }
+        .message-content {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
         .balloon {
             padding: 10px;
             border-radius: 10px;
@@ -166,20 +165,11 @@ function renderer({
             word-wrap: break-word;
             transition: background-color 0.3s ease;
         }
-        .balloon cite {
-            font-style: normal;
-            font-weight: bold;
-            font-size: 0.9em;
-            display: block;
-            margin-bottom: 5px;
-        }
         .chat-entry.event-day .balloon {
-            // background-color:rgb(70, 77, 78); /* Darker grey for day chat bubble */
             background-color: rgba(236, 240, 241, 0.1);
-            color: var(--night-text);   /* Use consistent light text color */
+            color: var(--night-text);
         }
         .chat-entry.event-night .balloon {
-            // background-color:rgb(25, 36, 46); /* Original darker color for night chat */
             background-color: rgba(0, 0, 0, 0.25);
         }
         .msg-entry {
@@ -208,32 +198,147 @@ function renderer({
         }
         .msg-entry.game-win {
              border-left-color: #2ecc71;
+             line-height: 1.5;
         }
-        .msg-entry cite {
+        #chat-log cite {
             font-style: normal;
             font-weight: bold;
             display: block;
-            font-size: 0.8em;
-            color: #bdc3c7;
+            font-size: 0.9em;
+            color: #ecf0f1;
             margin-bottom: 5px;
         }
         .moderator-announcement {
-            padding: 10px;
             margin: 10px 0;
+        }
+        .moderator-announcement-content {
+            padding: 10px;
             border-radius: 5px;
             transition: background-color 0.3s ease;
-            border-left: 5px solid #2ecc71; /* Green border for differentiation */
-            color: var(--night-text); /* Ensure text is consistently light */
+            border-left: 5px solid #2ecc71;
+            color: var(--night-text);
+            line-height: 1.2;
         }
-        .moderator-announcement.event-day {
-            background-color: rgba(236, 240, 241, 0.1); /* Same as msg-entry.event-day */
+        .moderator-announcement-content.event-day {
+            background-color: rgba(236, 240, 241, 0.1);
         }
-        .moderator-announcement.event-night {
-            background-color: rgba(0, 0, 0, 0.25); /* Same as msg-entry.event-night */
+        .moderator-announcement-content.event-night {
+            background-color: rgba(0, 0, 0, 0.25);
+        }
+        .phase-separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0 15px;
+            color: #bdc3c7;
+            font-variant: small-caps;
+        }
+        .phase-separator::before,
+        .phase-separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #555;
+        }
+        .phase-separator:not(:empty)::before {
+            margin-right: 1em;
+        }
+        .phase-separator:not(:empty)::after {
+            margin-left: 1em;
+        }
+        .phase-separator span {
+            padding: 0 10px;
+            font-style: italic;
+            font-size: 1em;
+            letter-spacing: 1px;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #bdc3c7;
+            margin-left: 10px;
+            font-weight: normal;
+        }
+        .msg-text br {
+            display: block; /* makes <br> behave like a block element */
+            margin-bottom: 0.5em; /* space below the <br> */
+            content: ""; /* required for margin to apply */
+        }
+        .player-capsule {
+            display: inline-flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1px 8px 1px 2px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin: 0 2px;
+            vertical-align: middle;
+        }
+        .capsule-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            margin-right: 5px;
+            object-fit: cover;
         }
     `;
 
   // --- Helper Functions ---
+  function formatTimestamp(isoString) {
+    if (!isoString) return '';
+    try {
+        return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    } catch (e) {
+        return '';
+    }
+  }
+
+  function createPlayerCapsule(player) {
+    if (!player) return '';
+    return `<span class="player-capsule" title="${player.name}">
+        <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
+        <span class="capsule-name">${player.name}</span>
+    </span>`;
+  }
+
+  function replacePlayerIdsWithCapsules(text, playerIds, playerMap) {
+      if (!text) return '';
+      if (!playerIds || playerIds.length === 0) {
+          return text;
+      }
+      let newText = text;
+      // Sort by length descending to match longer names first (e.g. "Player10" before "Player1")
+      const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
+
+      sortedPlayerIds.forEach(playerId => {
+          const player = playerMap.get(playerId);
+          if (player) {
+              const capsule = createPlayerCapsule(player);
+              // Use a regex to replace whole words only to avoid replacing parts of other words.
+              // The \b is a word boundary.
+              const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+              newText = newText.replace(regex, capsule);
+          }
+      });
+      return newText;
+  }
+
+  function replacePlayerIdsWithBold(text, playerIds) {
+    if (!text) return '';
+    if (!playerIds || playerIds.length === 0) {
+        return text;
+    }
+    let newText = text;
+    // Sort by length descending to match longer names first (e.g. "Player10" before "Player1")
+    const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
+
+    sortedPlayerIds.forEach(playerId => {
+        // Use a regex to replace whole words only to avoid replacing parts of other words.
+        const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+        newText = newText.replace(regex, `<strong>${playerId}</strong>`);
+    });
+    return newText;
+  }
+
 
   function renderPlayerList(container, gameState, actingPlayerName) {
     container.innerHTML = '<h1>Players</h1>';
@@ -249,14 +354,12 @@ function renderer({
         if (player.name === actingPlayerName) li.classList.add('active');
 
         const roleText = player.role !== 'Unknown' ? `Role: ${player.role}` : 'Role: Unknown';
-        const statusText = `Status: ${player.status}`;
 
         li.innerHTML = `
             <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
             <div class="player-info">
                 <div class="player-name" title="${player.name}">${player.name}</div>
                 <div class="player-role">${roleText}</div>
-                <div class="player-status">${statusText}</div>
             </div>
         `;
         playerUl.appendChild(li);
@@ -279,93 +382,174 @@ function renderer({
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
     } else {
+        let lastPhaseIdentifier = null;
+
         logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
             const phaseClass = `event-${(entry.phase || 'day').toLowerCase()}`;
+            const timestampHtml = `<span class="timestamp">${formatTimestamp(entry.timestamp)}</span>`;
+
+            if (entry.day !== Infinity) {
+                const phase = (entry.phase || 'Day').toUpperCase();
+                const currentPhaseIdentifier = `${phase} ${entry.day}`;
+                if (currentPhaseIdentifier !== lastPhaseIdentifier) {
+                    const separator = document.createElement('li');
+                    separator.className = 'phase-separator';
+                    separator.innerHTML = `<span>${phase} ${entry.day}</span>`;
+                    logUl.appendChild(separator);
+                    lastPhaseIdentifier = currentPhaseIdentifier;
+                }
+            }
 
             switch (entry.type) {
                 case 'chat':
                     const speaker = playerMap.get(entry.speaker);
                     if (!speaker) return;
+                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
                     li.className = `chat-entry event-day`;
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
-                        <div class="balloon">
-                            <cite>${speaker.name}</cite>
-                            <div class="balloon-text"><quote>${entry.message}</quote></div>
-                            ${reasoningHtml}
+                        <div class="message-content">
+                            <cite>${speaker.name} ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text"><quote>${messageText}</quote></div>
+                                ${reasoningHtml}
+                            </div>
                         </div>
                     `;
                     break;
                 case 'seer_inspection':
-                    li.className = `msg-entry event-night`;
+                    const seerInspector = playerMap.get(entry.actor_id);
+                    if (!seerInspector) return;
+                    const seerTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    li.className = `chat-entry event-night`;
                     li.innerHTML = `
-                        <cite>Night ${entry.day} (Private)</cite>
-                        <div class="msg-text">(As Seer) <strong>${entry.actor}</strong> chose to inspect <strong>${entry.target}</strong>'s role.</div>
-                        ${reasoningHtml}
+                        <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">Chose to inspect ${seerTargetCap}'s role.</div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
                     `;
                     break;
                 case 'seer_inspection_result':
-                    li.className = `msg-entry ${phaseClass}`;
+                    const seerResultViewer = playerMap.get(entry.seer);
+                    if (!seerResultViewer) return;
+                    const seerResultTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    li.className = `chat-entry ${phaseClass}`;
                     li.innerHTML = `
-                        <cite>Night ${entry.day} (Private)</cite>
-                        <div class="msg-text">(As Seer) <strong>${entry.seer}</strong> saw <strong>${entry.target}</strong>'s role is a <strong>${entry.role}</strong>.</div>
+                        <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>${entry.seer} (Seer) ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">Saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
+                            </div>
+                        </div>
                     `;
                     break;
                 case 'doctor_heal_action':
-                    li.className = `msg-entry event-night`;
+                    const doctor = playerMap.get(entry.actor_id);
+                    if (!doctor) return;
+                    const docTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    li.className = `chat-entry event-night`;
                     li.innerHTML = `
-                        <cite>Night ${entry.day} (Private)</cite>
-                        <div class="msg-text">(As Doctor) <strong>${entry.actor}</strong> chose to heal <strong>${entry.target}</strong>.</div>
-                        ${reasoningHtml}
+                        <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>Secret Heal by ${doctor.name} (Doctor) ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">Chose to heal ${docTargetCap}.</div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
                     `;
                     break;
                 case 'system':
-                    li.className = `moderator-announcement ${phaseClass}`;
-                    li.innerHTML = `<cite>${entry.phase} ${entry.day} (Moderator &#128226;)</cite><div class="msg-text">${entry.text}</div>`;
+                    if (entry.text && entry.text.includes('has begun')) return;
+
+                    let systemText = entry.text;
+                    // Regex to find python list of strings and replace it with just the comma-separated content
+                    const listRegex = /\[(.*?)\]/g;
+                    systemText = systemText.replace(listRegex, (match, listContent) => {
+                        // listContent is "'player-1', 'player-2', 'player-3'"
+                        return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
+                    });
+
+                    const allPlayerIdsForSystem = Array.from(playerMap.keys());
+                    const finalSystemText = replacePlayerIdsWithCapsules(systemText, allPlayerIdsForSystem, playerMap);
+
+                    li.className = `moderator-announcement`;
+                    li.innerHTML = `
+                        <cite>Moderator &#128226; ${timestampHtml}</cite>
+                        <div class="moderator-announcement-content ${phaseClass}">
+                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
+                        </div>
+                    `;
                     break;
                 case 'exile':
+                    const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>${entry.phase} ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> (${entry.role}) was exiled by vote.</div>`;
+                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
                     break;
                 case 'elimination':
+                    const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-night`;
-                    li.innerHTML = `<cite>Night ${entry.day}</cite><div class="msg-text"><strong>${entry.name}</strong> was eliminated. Their role was a ${entry.role}.</div>`;
+                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
                     break;
                 case 'save':
+                     const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
                      li.className = `msg-entry event-night`;
-                     li.innerHTML = `<cite>Night ${entry.day} (Doctor Save)</cite><div class="msg-text">Player <strong>${entry.saved_player}</strong> was attacked but saved by a Doctor!</div>`;
+                     li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
                     break;
                 case 'vote':
-                    li.className = `msg-entry event-day`;
+                    const voter = playerMap.get(entry.actor_id);
+                    if (!voter) return;
+                    const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    li.className = `chat-entry event-day`;
                     li.innerHTML = `
-                        <cite>Day ${entry.day} (Vote)</cite>
-                        <div class="msg-text"><strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
-                        ${reasoningHtml}
+                        <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>${voter.name} ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">Votes to eliminate ${voteTargetCap}.</div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
                      `;
                      break;
                 case 'night_vote':
-                    li.className = `msg-entry event-night`;
+                    const nightVoter = playerMap.get(entry.actor_id);
+                    if (!nightVoter) return;
+                    const nightVoteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    li.className = `chat-entry event-night`;
                     li.innerHTML = `
-                        <cite>Night ${entry.day} (Secret Vote)</cite>
-                        <div class="msg-text">(As Werewolf) <strong>${entry.name}</strong> votes to eliminate <strong>${entry.target}</strong>.</div>
-                        ${reasoningHtml}
+                        <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">Votes to eliminate ${nightVoteTargetCap}.</div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
                     `;
                     break;
                 case 'game_over':
+                    const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
+                    const losersText = entry.losers.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
                     li.className = `msg-entry game-win ${phaseClass}`;
                     li.innerHTML = `
-                        <cite>Game Over</cite>
+                        <cite>Game Over ${timestampHtml}</cite>
                         <div class="msg-text">
                             <div>The <strong>${entry.winner}</strong> team has won!</div><br>
-                            <div><strong>Winning Team:</strong> ${entry.winners.join(', ')}</div>
-                            <div><strong>Losing Team:</strong> ${entry.losers.join(', ')}</div>
+                            <div><strong>Winning Team:</strong> ${winnersText}</div>
+                            <div><strong>Losing Team:</strong> ${losersText}</div>
                         </div>
                     `;
                     break;
             }
-            logUl.appendChild(li);
+            if (li.innerHTML) logUl.appendChild(li);
         });
     }
 
@@ -438,52 +622,13 @@ function renderer({
                 if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
             }
             lastDay = currentObsForStep.day;
-            // if (lastPhase && lastPhase !== currentObsForStep.phase) {
-            //      gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: currentObsForStep.game_state_phase, text: `Phase: ${currentObsForStep.phase.replace(/_/g, ' ')}` });
-            // }
             lastPhase = currentObsForStep.phase;
             gameState.day = currentObsForStep.day;
             gameState.phase = currentObsForStep.phase;
             gameState.game_state_phase = currentObsForStep.game_state_phase;
         }
 
-        // 1. Process agent actions for immediate feedback (chats, votes, etc.)
-        for (const agentState of stepStateList) {
-            if (agentState.action) {
-                try {
-                    const action = typeof agentState.action === 'string' ? JSON.parse(agentState.action) : agentState.action;
-                    const actionData = action.kwargs;
-                    const actionType = action.action_type;
-
-                    if (actionData && actionType) {
-                        const actionKey = `${s}-${actionData.actor_id}-${actionType}`;
-                        if (!processedEvents.has(actionKey)) {
-                            processedEvents.add(actionKey);
-                            const commonData = { day: actionData.day, phase: actionData.game_state_phase, reasoning: actionData.reasoning };
-                            switch (actionType) {
-                                case 'ChatAction':
-                                    gameState.eventLog.push({ ...commonData, type: 'chat', speaker: actionData.actor_id, message: actionData.message });
-                                    break;
-                                case 'VoteAction':
-                                    gameState.eventLog.push({ ...commonData, type: 'vote', name: actionData.actor_id, target: actionData.target_id });
-                                    break;
-                                case 'EliminateProposalAction':
-                                    gameState.eventLog.push({ ...commonData, type: 'night_vote', name: actionData.actor_id, target: actionData.target_id });
-                                    break;
-                                case 'HealAction':
-                                    gameState.eventLog.push({ ...commonData, type: 'doctor_heal_action', actor: actionData.actor_id, target: actionData.target_id });
-                                    break;
-                                case 'InspectAction':
-                                    gameState.eventLog.push({ ...commonData, type: 'seer_inspection', actor: actionData.actor_id, target: actionData.target_id });
-                                    break;
-                            }
-                        }
-                    }
-                } catch (e) { /* Fail silently */ }
-            }
-        }
-        
-        // 2. Process confirmed events from the moderator log
+        // Process confirmed events from the moderator log
         const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
         moderatorLogForStep.forEach(dataEntry => {
              const eventKey = dataEntry.json_str;
@@ -493,30 +638,45 @@ function renderer({
              const historyEvent = JSON.parse(dataEntry.json_str);
              if (!historyEvent.data) return;
              const data = historyEvent.data;
-             const eventPhase = historyEvent.phase || 'DAY'; // Default to DAY if phase is missing
+             const timestamp = historyEvent.created_at;
 
              switch (dataEntry.data_type) {
+                case 'ChatDataEntry':
+                    gameState.eventLog.push({ type: 'chat', day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                    break;
+                case 'DayExileVoteDataEntry':
+                    gameState.eventLog.push({ type: 'vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    break;
+                case 'WerewolfNightVoteDataEntry':
+                    gameState.eventLog.push({ type: 'night_vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    break;
+                case 'DoctorHealActionDataEntry':
+                    gameState.eventLog.push({ type: 'doctor_heal_action', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    break;
+                case 'SeerInspectActionDataEntry':
+                    gameState.eventLog.push({ type: 'seer_inspection', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    break;
                 case 'DayExileElectedDataEntry':
-                    gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: eventPhase, name: data.elected_player_id, role: data.elected_player_role_name });
+                    gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
                     break;
                 case 'WerewolfNightEliminationDataEntry':
-                    gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: eventPhase, name: data.eliminated_player_id, role: data.eliminated_player_role_name });
+                    gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                     break;
                 case 'SeerInspectResultDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: eventPhase, seer: data.actor_id, target: data.target_id, role: data.role });
+                    gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
                     break;
                 case 'DoctorSaveDataEntry':
-                    gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: eventPhase, saved_player: data.saved_player_id });
+                    gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
                     break;
                 case 'GameEndResultsDataEntry':
                     gameState.gameWinner = data.winner_team;
                     const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                     const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: historyEvent.phase, winner: data.winner_team, winners, losers });
+                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
                     break;
                 default:
                     if (historyEvent.entry_type === "moderator_announcement") {
-                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description});
+                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
                     }
                     break;
              }
@@ -535,11 +695,21 @@ function renderer({
         }
     });
 
-    gameState.eventLog.sort((a, b) => a.day - b.day);
+    gameState.eventLog.sort((a, b) => {
+        if (a.day !== b.day) return a.day - b.day;
+        const phaseOrder = { 'DAY': 1, 'NIGHT': 2 };
+        const aPhase = (a.phase || '').toUpperCase();
+        const bPhase = (b.phase || '').toUpperCase();
+        const aOrder = phaseOrder[aPhase] || 99;
+        const bOrder = phaseOrder[bPhase] || 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        if (a.timestamp && b.timestamp) return new Date(a.timestamp) - new Date(b.timestamp);
+        return 0;
+    });
 
     const lastStepStateList = environment.steps[step];
     const actingPlayerIndex = lastStepStateList.findIndex(s => s.status === 'ACTIVE');
-    const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N/A";
+    const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N.A";
 
     parent.innerHTML = '';
     Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
@@ -571,6 +741,6 @@ function renderer({
     rightPanel.className = 'right-panel';
     mainContainer.appendChild(rightPanel);
 
-    renderPlayerList(playerListArea, gameState, actingPlayerName);
+    renderPlayerList(playerListArea, gameState, playerMap, actingPlayerName);
     renderEventLog(rightPanel, gameState, playerMap);
 }
