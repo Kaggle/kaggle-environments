@@ -174,7 +174,7 @@ function renderer(options) {
             return 'draw';
         }
         
-        const winnerPlayerIndex = player0Reward === 1.0 ? 0 : 1;
+        const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
         const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
         
         if (teamNames) {
