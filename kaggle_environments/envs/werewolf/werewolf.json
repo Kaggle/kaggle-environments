@@ -136,7 +136,7 @@
                     "description": "The name of the voting protocol to use.",
                     "type": "string",
                     "enum": ["SimultaneousMajority", "SequentialVoting"],
-                    "default": "SimultaneousMajority"
+                    "default": "SequentialVoting"
                 },
                 "params": {
                     "description": "Parameters for the selected voting protocol.",
@@ -145,7 +145,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SimultaneousMajority", "params": {} },
+            "default": { "name": "SequentialVoting", "params": {} },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
@@ -175,7 +175,7 @@
                     "description": "The name of the voting protocol to use.",
                     "type": "string",
                     "enum": ["SimultaneousMajority", "SequentialVoting"],
-                    "default": "SimultaneousMajority"
+                    "default": "SequentialVoting"
                 },
                 "params": {
                     "description": "Parameters for the selected voting protocol.",
@@ -184,7 +184,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SimultaneousMajority", "params": {} },
+            "default": { "name": "SequentialVoting", "params": {} },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
