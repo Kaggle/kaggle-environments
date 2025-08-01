@@ -255,6 +255,11 @@ function renderer({
             margin-left: 10px;
             font-weight: normal;
         }
+        .msg-text br {
+            display: block; /* makes <br> behave like a block element */
+            margin-bottom: 0.5em; /* space below the <br> */
+            content: ""; /* required for margin to apply */
+        }
         .player-capsule {
             display: inline-flex;
             align-items: center;
@@ -413,14 +418,14 @@ function renderer({
                     `;
                     break;
                 case 'seer_inspection':
-                    const seerInspector = playerMap.get(entry.actor);
+                    const seerInspector = playerMap.get(entry.actor_id);
                     if (!seerInspector) return;
                     const seerTargetCap = createPlayerCapsule(playerMap.get(entry.target));
                     li.className = `chat-entry event-night`;
                     li.innerHTML = `
                         <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Private (As Seer) ${timestampHtml}</cite>
+                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">Chose to inspect ${seerTargetCap}'s role.</div>
                                 ${reasoningHtml}
@@ -436,7 +441,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Private (As Seer) ${timestampHtml}</cite>
+                            <cite>${entry.seer} (Seer) ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">Saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
                             </div>
@@ -444,14 +449,14 @@ function renderer({
                     `;
                     break;
                 case 'doctor_heal_action':
-                    const doctor = playerMap.get(entry.actor);
+                    const doctor = playerMap.get(entry.actor_id);
                     if (!doctor) return;
                     const docTargetCap = createPlayerCapsule(playerMap.get(entry.target));
                     li.className = `chat-entry event-night`;
                     li.innerHTML = `
                         <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Private (As Doctor) ${timestampHtml}</cite>
+                            <cite>Secret Heal by ${doctor.name} (Doctor) ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">Chose to heal ${docTargetCap}.</div>
                                 ${reasoningHtml}
@@ -497,7 +502,7 @@ function renderer({
                      li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
                     break;
                 case 'vote':
-                    const voter = playerMap.get(entry.name);
+                    const voter = playerMap.get(entry.actor_id);
                     if (!voter) return;
                     const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
                     li.className = `chat-entry event-day`;
@@ -513,14 +518,14 @@ function renderer({
                      `;
                      break;
                 case 'night_vote':
-                    const nightVoter = playerMap.get(entry.name);
+                    const nightVoter = playerMap.get(entry.actor_id);
                     if (!nightVoter) return;
                     const nightVoteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
                     li.className = `chat-entry event-night`;
                     li.innerHTML = `
                         <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Vote (As Werewolf) ${timestampHtml}</cite>
+                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">Votes to eliminate ${nightVoteTargetCap}.</div>
                                 ${reasoningHtml}
@@ -638,16 +643,16 @@ function renderer({
                     gameState.eventLog.push({ type: 'chat', day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
                     break;
                 case 'DayExileVoteDataEntry':
-                    gameState.eventLog.push({ type: 'vote', day: historyEvent.day, phase: historyEvent.phase, name: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'WerewolfNightVoteDataEntry':
-                    gameState.eventLog.push({ type: 'night_vote', day: historyEvent.day, phase: historyEvent.phase, name: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'night_vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'DoctorHealActionDataEntry':
-                    gameState.eventLog.push({ type: 'doctor_heal_action', day: historyEvent.day, phase: historyEvent.phase, actor: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'doctor_heal_action', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'SeerInspectActionDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection', day: historyEvent.day, phase: historyEvent.phase, actor: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'seer_inspection', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'DayExileElectedDataEntry':
                     gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
@@ -734,6 +739,6 @@ function renderer({
     rightPanel.className = 'right-panel';
     mainContainer.appendChild(rightPanel);
 
-    renderPlayerList(playerListArea, gameState, actingPlayerName);
+    renderPlayerList(playerListArea, gameState, playerMap, actingPlayerName);
     renderEventLog(rightPanel, gameState, playerMap);
 }
