@@ -4,6 +4,7 @@ import os
 import re
 import json
 import traceback
+import ast
 import datetime
 
 import litellm
@@ -138,10 +139,8 @@ Your JSON output must conform to the following schema. Do NOT include this schem
 ```
 
 #### EXAMPLE OUTPUT
-Here is an example of a valid response format:
-```json
+Please format your response as a Markdown JSON code block, which should include the fences. Here's a valid example:
 {exemplar}
-```
 """
 
 
@@ -226,11 +225,15 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
 
             # 3. Parse the cleaned string
-            parsed_json = json.loads(json_str)
-            return parsed_json
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                # Fallback for models that output python dicts with single quotes.
+                return ast.literal_eval(json_str)
         except Exception:
-            # Catch any other unexpected errors during string manipulation
+            # Catch any other unexpected errors during string manipulation or parsing
             traceback.print_exc()
+            print(f"model_name={self._model_name}")
             print(f"out={out}")
         return {}
 
@@ -328,9 +331,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                             "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
                             "exemplar": TARGETED_ACTION_EXEMPLAR
                         })
-                        # instruction = (f'You are a Werewolf. Vote for a player to eliminate. Valid targets are: `{valid_targets}`. '
-                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
-                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = EliminateProposalAction(**common_args, **parsed_out)
 
@@ -347,9 +347,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                             "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
                             "exemplar": TARGETED_ACTION_EXEMPLAR
                         })
-                        # instruction = (f'You are a Doctor. Choose a player to save. Valid targets are: `{valid_targets}`. '
-                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
-                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = HealAction(**common_args, **parsed_out)
 
@@ -366,9 +363,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                             "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
                             "exemplar": TARGETED_ACTION_EXEMPLAR
                         })
-                        # instruction = (f'You are a Seer. Choose a player to inspect and reveal their role. Valid targets are: `{valid_targets}`. '
-                        #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`, '
-                        #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                         parsed_out = self.query_parse(instruction, obs)
                         action = InspectAction(**common_args, **parsed_out)
 
@@ -382,9 +376,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                         "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
                         "exemplar": CHAT_ACTION_EXEMPLAR
                     })
-                    # instruction = (f'It is day. Discuss with other players to decide who to vote out. '
-                    #                f'Formulate a message to persuade others. Respond in this JSON schema: `{json.dumps(CHAT_ACTION_SCHEMA)}`,'
-                    #                f' e.g. {CHAT_ACTION_EXEMPLAR}')
                     parsed_out = self.query_parse(instruction, obs)
                     action = ChatAction(**common_args, **parsed_out)
 
@@ -399,9 +390,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                         "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
                         "exemplar": TARGETED_ACTION_EXEMPLAR
                     })
-                    # instruction = (f'It is time to vote. Choose a player to exile. Valid targets are: `{valid_targets}`. '
-                    #                f'Respond in this JSON schema: `{json.dumps(TARGETED_ACTION_SCHEMA)}`'
-                    #                f'e.g. {TARGETED_ACTION_EXEMPLAR}')
                     parsed_out = self.query_parse(instruction, obs)
                     action = VoteAction(**common_args, **parsed_out)
 
@@ -410,7 +398,9 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 action = NoOpAction(**common_args, reasoning="Game over.")
         except Exception:
             traceback.print_exc()
+            print(f"model_name={self._model_name}")
             print(f"instruction={instruction}")
             print(f"parsed_out={parsed_out}")
+        print(f"model_name={self._model_name}")
         print(action.model_dump())
         return action.serialize()
