@@ -48,13 +48,14 @@ class ActionDataMixin(BaseModel):
     """
     actor_id: str
     reasoning: Optional[str] = Field(default=None, description="Private reasoning for moderator analysis.")
+    perceived_threat_level: Optional[str] = 'SAFE'
 
     def public_view(self) -> Self:
         """
         Returns a public view of the action, excluding private reasoning.
         This overrides the default behavior from the DataEntry base class.
         """
-        return self.model_copy(update={'reasoning': None}, deep=True)
+        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None}, deep=True)
 
 
 class HistoryEntry(BaseModel):

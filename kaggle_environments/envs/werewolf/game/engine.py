@@ -248,7 +248,7 @@ class Moderator:
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
                 voting_protocol_rule=self.night_voting.voting_rule,
-                action_json_schema=json.dumps(VoteAction.model_json_schema())
+                action_json_schema=json.dumps(VoteAction.model_json_schema()),
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
@@ -297,7 +297,8 @@ class Moderator:
                     data = DoctorHealActionDataEntry(
                         actor_id=actor_id,
                         target_id=action.target_id,
-                        reasoning=action.reasoning
+                        reasoning=action.reasoning,
+                        perceived_threat_level=action.perceived_threat_level
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
@@ -315,7 +316,8 @@ class Moderator:
                     action_data = SeerInspectActionDataEntry(
                         actor_id=actor_id,
                         target_id=action.target_id,
-                        reasoning=action.reasoning
+                        reasoning=action.reasoning,
+                        perceived_threat_level=action.perceived_threat_level
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
