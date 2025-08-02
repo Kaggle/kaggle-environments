@@ -198,6 +198,7 @@ function renderer({
         }
         .msg-entry.game-win {
              border-left-color: #2ecc71;
+             line-height: 1.5;
         }
         #chat-log cite {
             font-style: normal;
@@ -216,6 +217,7 @@ function renderer({
             transition: background-color 0.3s ease;
             border-left: 5px solid #2ecc71;
             color: var(--night-text);
+            line-height: 1.2;
         }
         .moderator-announcement-content.event-day {
             background-color: rgba(236, 240, 241, 0.1);
