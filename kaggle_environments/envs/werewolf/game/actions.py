@@ -11,6 +11,7 @@ class Action(BaseModel):
     phase: str
     actor_id: str
     reasoning: Optional[str] = Field(default=None, max_length=4096)
+    perceived_threat_level: Optional[str] = "SAFE"
 
     def serialize(self):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}

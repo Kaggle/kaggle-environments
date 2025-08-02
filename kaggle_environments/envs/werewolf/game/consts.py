@@ -28,3 +28,9 @@ class ActionType(str, Enum):
     NIGHT_INSPECT_TARGET = "NIGHT_INSPECT_TARGET"
     DAY_DISCUSS = "DAY_DISCUSS"
     DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
+
+
+class PerceivedThreatLevel(str, Enum):
+    SAFE = "SAFE"
+    UNEASY = "UNEASY"
+    DANGER = "DANGER"

@@ -281,7 +281,8 @@ class RoundRobinDiscussion(DiscussionProtocol):
                         actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
@@ -432,7 +433,8 @@ class ParallelDiscussion(DiscussionProtocol):
                         actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
@@ -667,7 +669,8 @@ class SimultaneousMajority(VotingProtocol):
         data = data_entry_class(
             actor_id=vote_action.actor_id,
             target_id=vote_action.target_id,
-            reasoning=vote_action.reasoning
+            reasoning=vote_action.reasoning,
+            perceived_threat_level=vote_action.perceived_threat_level
         )
 
         # Voter must be expected and alive at the moment of casting vote
@@ -1091,7 +1094,8 @@ class SequentialVoting(VotingProtocol):
                 data = data_entry_class(
                     actor_id=vote_action.actor_id,
                     target_id=recorded_target_id,
-                    reasoning=vote_action.reasoning
+                    reasoning=vote_action.reasoning,
+                    perceived_threat_level=vote_action.perceived_threat_level
                 )
 
             state.add_history_entry(
