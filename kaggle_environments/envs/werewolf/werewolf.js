@@ -230,14 +230,14 @@ function renderer({
             align-items: center;
             text-align: center;
             margin: 20px 0 15px;
-            color: #bdc3c7;
+            color: white;
             font-variant: small-caps;
         }
         .phase-separator::before,
         .phase-separator::after {
             content: '';
             flex: 1;
-            border-bottom: 1px solid #555;
+            border-bottom: 1px solid white;
         }
         .phase-separator:not(:empty)::before {
             margin-right: 1em;
@@ -247,9 +247,10 @@ function renderer({
         }
         .phase-separator span {
             padding: 0 10px;
-            font-style: italic;
+            font-style: normal;
             font-size: 1em;
             letter-spacing: 1px;
+            color: white;
         }
         .timestamp {
             font-size: 0.8em;
@@ -396,7 +397,8 @@ function renderer({
                 if (currentPhaseIdentifier !== lastPhaseIdentifier) {
                     const separator = document.createElement('li');
                     separator.className = 'phase-separator';
-                    separator.innerHTML = `<span>${phase} ${entry.day}</span>`;
+                    const phaseText = phase === 'DAY' ? `&#9788; ${phase} ${entry.day}` : `&#9790; ${phase} ${entry.day}`;
+                    separator.innerHTML = `<span>${phaseText}</span>`;
                     logUl.appendChild(separator);
                     lastPhaseIdentifier = currentPhaseIdentifier;
                 }
