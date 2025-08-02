@@ -104,14 +104,20 @@ function renderer({
         .player-card.dead {
             opacity: 0.6;
         }
-        .player-card .avatar {
+        .avatar-container {
+            position: relative;
             width: 50px;
             height: 50px;
-            border-radius: 50%;
             margin-right: 15px;
-            object-fit: cover;
             flex-shrink: 0;
+        }
+        .player-card .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
             background-color: #fff;
+            transition: box-shadow 0.3s ease;
         }
         .player-card.dead .avatar {
              filter: var(--dead-filter);
@@ -230,14 +236,14 @@ function renderer({
             align-items: center;
             text-align: center;
             margin: 20px 0 15px;
-            color: #bdc3c7;
+            color: white;
             font-variant: small-caps;
         }
         .phase-separator::before,
         .phase-separator::after {
             content: '';
             flex: 1;
-            border-bottom: 1px solid #555;
+            border-bottom: 1px solid white;
         }
         .phase-separator:not(:empty)::before {
             margin-right: 1em;
@@ -247,9 +253,10 @@ function renderer({
         }
         .phase-separator span {
             padding: 0 10px;
-            font-style: italic;
+            font-style: normal;
             font-size: 1em;
             letter-spacing: 1px;
+            color: white;
         }
         .timestamp {
             font-size: 0.8em;
@@ -340,6 +347,14 @@ function renderer({
   }
 
 
+  function getThreatColor(threatLevel) {
+    const value = Math.max(0, Math.min(1, threatLevel));
+    // Interpolates from green (hue 120) to red (hue 0)
+    const hue = 120 * (1 - value);
+    // Use HSL for lighter, less saturated colors
+    return `hsl(${hue}, 90%, 70%)`;
+  }
+
   function renderPlayerList(container, gameState, actingPlayerName) {
     container.innerHTML = '<h1>Players</h1>';
     const listContainer = document.createElement('div');
@@ -356,7 +371,9 @@ function renderer({
         const roleText = player.role !== 'Unknown' ? `Role: ${player.role}` : 'Role: Unknown';
 
         li.innerHTML = `
-            <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
+            <div class="avatar-container">
+                <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
+            </div>
             <div class="player-info">
                 <div class="player-name" title="${player.name}">${player.name}</div>
                 <div class="player-role">${roleText}</div>
@@ -367,6 +384,23 @@ function renderer({
 
     listContainer.appendChild(playerUl);
     container.appendChild(listContainer);
+
+    // --- Threat Aura Management ---
+    gameState.players.forEach((player, index) => {
+        const li = playerUl.children[index];
+        const avatar = li.querySelector('.avatar');
+        if (!avatar) return;
+
+        if (player.is_alive) {
+            const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
+            const color = getThreatColor(threatLevel);
+            // The aura is a box-shadow on the avatar image
+            avatar.style.boxShadow = `0 0 8px 2px ${color}`;
+        } else {
+            // No aura for dead players
+            avatar.style.boxShadow = 'none';
+        }
+    });
   }
 
   function renderEventLog(container, gameState, playerMap) {
@@ -396,7 +430,8 @@ function renderer({
                 if (currentPhaseIdentifier !== lastPhaseIdentifier) {
                     const separator = document.createElement('li');
                     separator.className = 'phase-separator';
-                    separator.innerHTML = `<span>${phase} ${entry.day}</span>`;
+                    const phaseText = phase === 'DAY' ? `&#9788; ${phase} ${entry.day}` : `&#9790; ${phase} ${entry.day}`;
+                    separator.innerHTML = `<span>${phaseText}</span>`;
                     logUl.appendChild(separator);
                     lastPhaseIdentifier = currentPhaseIdentifier;
                 }
@@ -576,7 +611,15 @@ function renderer({
     }
 
     // --- State Reconstruction ---
-    let gameState = { players: [], day: 0, phase: 'GAME_SETUP', game_state_phase: 'DAY', gameWinner: null, eventLog: [] };
+    let gameState = {
+        players: [],
+        day: 0,
+        phase: 'GAME_SETUP',
+        game_state_phase: 'DAY',
+        gameWinner: null,
+        eventLog: [],
+        playerThreatLevels: new Map()
+    };
     const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
     if (!firstObs) {
         container.textContent = "Waiting for game data...";
@@ -591,6 +634,9 @@ function renderer({
         thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
+
+    // Initialize all threat levels to 0 (SAFE)
+    gameState.players.forEach(p => gameState.playerThreatLevels.set(p.name, 0));
 
     // Get initial roles from the start of the game
     const roleAndTeamMap = new Map();
@@ -610,6 +656,15 @@ function renderer({
     const processedEvents = new Set();
     let lastPhase = null;
     let lastDay = -1;
+
+    function threatStringToLevel(threatString) {
+        switch(threatString) {
+            case 'SAFE': return 0;
+            case 'UNEASY': return 0.5;
+            case 'IN_DANGER': return 1.0;
+            default: return 0; // Default to safe
+        }
+    }
 
     for (let s = 0; s <= step; s++) {
         const stepStateList = environment.steps[s];
@@ -639,6 +694,12 @@ function renderer({
              if (!historyEvent.data) return;
              const data = historyEvent.data;
              const timestamp = historyEvent.created_at;
+
+            // Update threat level whenever an action with that info appears
+            if (data.actor_id && data.perceived_threat_level) {
+                const threatScore = threatStringToLevel(data.perceived_threat_level);
+                gameState.playerThreatLevels.set(data.actor_id, threatScore);
+            }
 
              switch (dataEntry.data_type) {
                 case 'ChatDataEntry':

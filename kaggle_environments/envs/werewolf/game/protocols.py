@@ -281,7 +281,8 @@ class RoundRobinDiscussion(DiscussionProtocol):
                         actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
@@ -432,7 +433,8 @@ class ParallelDiscussion(DiscussionProtocol):
                         actor_id=act.actor_id,
                         message=act.message,
                         reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
@@ -667,7 +669,8 @@ class SimultaneousMajority(VotingProtocol):
         data = data_entry_class(
             actor_id=vote_action.actor_id,
             target_id=vote_action.target_id,
-            reasoning=vote_action.reasoning
+            reasoning=vote_action.reasoning,
+            perceived_threat_level=vote_action.perceived_threat_level
         )
 
         # Voter must be expected and alive at the moment of casting vote
@@ -713,6 +716,10 @@ class SimultaneousMajority(VotingProtocol):
             )
 
     def _tally_votes(self, state: GameState) -> str | None:
+        if not self.done():
+            # Voting is not yet complete for this protocol.
+            raise Exception("Voting is not done yet.")
+
         if self._done_tallying:
             return self._elected
         self._done_tallying = True
@@ -947,15 +954,21 @@ class SequentialVoting(VotingProtocol):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._potential_targets: List[str] = []
         self._voter_queue: List[str] = []  # Order of players to vote
+        self._expected_voters: List[str] = []
         self._current_voter_index: int = 0  # Index for _voter_queue
         self._current_game_state: Optional[GameState] = None # To store state from begin_voting
+        self._elected = None
+        self._done_tallying = False
 
     def reset(self) -> None:
         self._ballots = {}
         self._potential_targets = []
+        self._expected_voters = []
         self._voter_queue = []
         self._current_voter_index = 0
         self._current_game_state = None
+        self._elected = None
+        self._done_tallying = False
 
     @property
     def voting_rule(self) -> str:
@@ -963,6 +976,7 @@ class SequentialVoting(VotingProtocol):
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         self._ballots = {}
+        self._expected_voters = [p.id for p in alive_voters if p.alive]
         self._potential_targets = [p.id for p in potential_targets]
         # The order of voting can be based on player ID, a random shuffle, or the order in alive_voters
         # For simplicity, using the order from alive_voters.
@@ -996,11 +1010,25 @@ class SequentialVoting(VotingProtocol):
                 f"Options: {options_str} or Abstain (vote for -1).")
 
     def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
-        for actor_id, action in player_actions.items():
+        if self.done():
+            return
+
+        # In sequential voting, expected_voters should contain exactly one player.
+        if not expected_voters:
+            # This case should ideally not be reached if `done()` is false.
+            # If it is, advancing the turn might be a safe way to prevent a stall.
+            self._current_voter_index += 1
+            return
+
+        expected_voter_id = expected_voters[0]
+        action = player_actions.get(expected_voter_id)
+
+        if action:
             self.collect_vote(action, state)
-        # set default for all expected voter
-        for player_id in expected_voters:
-            self._ballots.setdefault(player_id, "-1")
+        else:
+            # This block handles timeout for the expected voter.
+            # The player did not submit an action. Treat as NoOp/Abstain.
+            self.collect_vote(NoOpAction(actor_id=expected_voter_id, day=state.day_count, phase=state.phase), state)
 
     def collect_vote(self, vote_action: Action, state: GameState):
         if not isinstance(vote_action, (VoteAction, NoOpAction)):
@@ -1044,7 +1072,7 @@ class SequentialVoting(VotingProtocol):
                     state.add_history_entry(
                         description=f"P{vote_action.actor_id} attempted to vote for P{vote_action.target_id} (invalid target). Vote recorded as Abstain.",
                         entry_type=HistoryEntryType.ERROR,
-                        public=True,
+                        public=False,
                         visible_to=[vote_action.actor_id]
                     )
                     recorded_target_id = "-1"  # Treat invalid target as abstain
@@ -1066,13 +1094,15 @@ class SequentialVoting(VotingProtocol):
                 data = data_entry_class(
                     actor_id=vote_action.actor_id,
                     target_id=recorded_target_id,
-                    reasoning=vote_action.reasoning
+                    reasoning=vote_action.reasoning,
+                    perceived_threat_level=vote_action.perceived_threat_level
                 )
 
             state.add_history_entry(
                 description=description_for_history,
                 entry_type=HistoryEntryType.VOTE_ACTION,
-                public=True,  # Transparent voting
+                public=False,
+                visible_to=self._expected_voters,
                 data=data
             )
             self._current_voter_index += 1
@@ -1080,7 +1110,7 @@ class SequentialVoting(VotingProtocol):
             state.add_history_entry(
                 description=f"Invalid action ({vote_action.kind}) attempt by P{vote_action.actor_id} (player not found, not alive, or not their turn). Action not counted.",
                 entry_type=HistoryEntryType.ERROR,
-                public=True,
+                public=False,
                 visible_to=[vote_action.actor_id]
             )
             # If voter was expected but found to be not alive, advance turn to prevent stall
@@ -1090,29 +1120,19 @@ class SequentialVoting(VotingProtocol):
     def _tally_votes(self, state: GameState) -> Optional[str]:
         if not self.done():
             # Voting is not yet complete for this protocol.
-            return None
+            raise Exception("Voting is not done yet.")
 
-        non_abstain_votes = [
-            target_id for voter_id, target_id in self._ballots.items()
-            if target_id != "-1" and target_id in self._potential_targets  # Ensure target is valid and not an abstain
-        ]
+        if self._done_tallying:
+            return self._elected
+        self._done_tallying = True
 
-        if not non_abstain_votes:
-            return None  # No non-abstain votes cast for valid targets
-
-        counts = Counter(non_abstain_votes).most_common()
-        if not counts:  # Should be redundant if non_abstain_votes is not empty
-            return None
-
-        top_candidate, top_votes = counts[0]
-
-        # Tie-breaking: if multiple players have top_votes, exile one of them randomly.
-        if len(counts) > 1 and counts[1][1] == top_votes:
-            tied_candidates = [cand_id for cand_id, num_votes in counts if num_votes == top_votes]
-            if tied_candidates:
-                return random.choice(tied_candidates)
-            return None # Should not happen if tied_candidates is populated
-        return top_candidate
+        counts = Counter(v for v in self._ballots.values() if v is not None and v != "-1").most_common()
+        if not counts:
+            self._elected = random.choice(self._potential_targets)
+        else:
+            _, top_votes = counts[0]
+            self._elected = random.choice([v for v, c in counts if c == top_votes])
+        return self._elected
 
     def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
         # Returns counts of non-abstain votes for valid targets
@@ -1137,7 +1157,6 @@ class SequentialVoting(VotingProtocol):
         return list(self._potential_targets)
 
     def get_elected(self) -> Optional[str]:
-        if self._current_game_state is None:
-            # This implies begin_voting was not called or state was not set.
-            return None # Or raise an error
+        if not self.done():
+            raise Exception("Voting is not done yet.")
         return self._tally_votes(self._current_game_state)

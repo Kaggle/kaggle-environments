@@ -2,16 +2,17 @@ from enum import Enum
 from typing import List, Dict, Tuple
 import json
 
-from .actions import Action, VoteAction, HealAction, InspectAction
+from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction
 from .protocols import DiscussionProtocol, VotingProtocol
 from .roles import Player
 from .consts import Phase, Team, RoleConst
 from .states import GameState
-from .records import HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry, \
-    RequestDoctorSaveDataEntry, \
-    RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry, \
-    WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry, \
+from .records import (
+    HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
+    RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry,
+    WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry,
     GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
+)
 
 
 class DetailedPhase(Enum):
@@ -50,7 +51,7 @@ class Moderator:
 
         self._active_night_roles_queue: List[Player] = []
         self._night_save_queue: Dict[str, List[str]] = {}
-        self._action_queue: List[str] = []  # Player IDs expected to act
+        self._action_queue: Dict[str, List[str]] = {}  # Player IDs expected to act, keyed by action type
 
         # below is the state transition function table
         # each transition function has the signature tr_func(actions: List[Action]) where the input is a list of actions
@@ -108,7 +109,7 @@ class Moderator:
                 rule_of_role=player.role.descriptions
             )
             self.state.add_history_entry(
-                description=f'Your player id is "{data.player_id}". Your team is "{data.team}". Your role is "{data.role}".\n'
+                description=f'Your player id is "{data.player_id}". Your team is "{data.team}". Your role is "{data.role}".\n'           
                             f"The rule of your role: {data.rule_of_role}",
                 entry_type=HistoryEntryType.GAME_START,
                 public=False,
@@ -116,8 +117,17 @@ class Moderator:
                 data=data
             )
 
+    def _add_to_action_queue(self, player_id: str, action_type: str):
+        if action_type not in self._action_queue:
+            self._action_queue[action_type] = []
+        if player_id not in self._action_queue[action_type]:
+            self._action_queue[action_type].append(player_id)
+
     def get_active_player_ids(self) -> List[str]:
-        return list(self._action_queue)  # Return a copy
+        all_players = set()
+        for players in self._action_queue.values():
+            all_players.update(players)
+        return list(all_players)
 
     def get_observation(self, player_id: str) -> Tuple[List[HistoryEntry], Tuple[int, int]]:
         """
@@ -197,7 +207,7 @@ class Moderator:
 
         self.valid_doctor_save_ids = {}
         for doctor in self.state.alive_players_by_role(RoleConst.DOCTOR):
-            if doctor.id not in self._action_queue: self._action_queue.append(doctor.id)
+            self._add_to_action_queue(doctor.id, HealAction.__name__)
             self.valid_doctor_save_ids[doctor.id] = [f"{p.id}" for p in self.state.alive_players()] \
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
             data_entry = RequestDoctorSaveDataEntry(
@@ -214,7 +224,7 @@ class Moderator:
 
         # announce await action to seer
         for seer in self.state.alive_players_by_role(RoleConst.SEER):
-            if seer.id not in self._action_queue: self._action_queue.append(seer.id)
+            self._add_to_action_queue(seer.id, InspectAction.__name__)
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
                 action_json_schema=json.dumps(InspectAction.model_json_schema())
@@ -238,7 +248,7 @@ class Moderator:
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
                 voting_protocol_rule=self.night_voting.voting_rule,
-                action_json_schema=json.dumps(VoteAction.model_json_schema())
+                action_json_schema=json.dumps(VoteAction.model_json_schema()),
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
@@ -256,7 +266,7 @@ class Moderator:
             potential_targets=potential_targets
         )
         for ww_voter_id in self.night_voting.get_next_voters():  # Should give all WWs if simultaneous
-            if ww_voter_id not in self._action_queue: self._action_queue.append(ww_voter_id)
+            self._add_to_action_queue(ww_voter_id, VoteAction.__name__)
 
         # state transition
         self.detailed_phase = DetailedPhase.NIGHT_AWAIT_ACTIONS
@@ -287,7 +297,8 @@ class Moderator:
                     data = DoctorHealActionDataEntry(
                         actor_id=actor_id,
                         target_id=action.target_id,
-                        reasoning=action.reasoning
+                        reasoning=action.reasoning,
+                        perceived_threat_level=action.perceived_threat_level
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
@@ -305,7 +316,8 @@ class Moderator:
                     action_data = SeerInspectActionDataEntry(
                         actor_id=actor_id,
                         target_id=action.target_id,
-                        reasoning=action.reasoning
+                        reasoning=action.reasoning,
+                        perceived_threat_level=action.perceived_threat_level
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
@@ -340,11 +352,13 @@ class Moderator:
                             visible_to=[actor_id]
                         )
 
-        # Process werewolf votes from any received actions
-        for actor_id, action in player_actions.items():
-            player = self.state.get_player_by_id(actor_id)
-            if player and player.alive and player.role.name == RoleConst.WEREWOLF:
-                self.night_voting.collect_vote(action, self.state)
+        # Process werewolf votes
+        werewolf_voters_expected = self._action_queue.get(VoteAction.__name__, [])
+        if werewolf_voters_expected:
+            # Using collect_votes (plural) assuming it can handle timeouts by comparing
+            # the actions in player_actions against the list of expected voters.
+            # This is consistent with day_voting.
+            self.night_voting.collect_votes(player_actions, self.state, werewolf_voters_expected)
 
         if self.night_step == 1:
             self.night_step += 1  # Increment so Doctor/Seer actions aren't re-processed if WW voting is sequential
@@ -355,11 +369,12 @@ class Moderator:
             # Werewolf voting is not complete (e.g., sequential voting)
             next_ww_voters = self.night_voting.get_next_voters()
             for voter_id in next_ww_voters:
-                if voter_id not in self._action_queue: self._action_queue.append(voter_id)
+                self._add_to_action_queue(voter_id, VoteAction.__name__)
 
             # Re-prompt only the werewolves whose turn it is now
+            vote_action_queue = self._action_queue.get(VoteAction.__name__, [])
             alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
-                                              p.id in self._action_queue]
+                                              p.id in vote_action_queue]
             if alive_werewolves_still_to_vote:
                 for ww_voter in alive_werewolves_still_to_vote:
                     prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id)  # Use protocol's prompt
@@ -465,9 +480,12 @@ class Moderator:
         self.discussion.begin(self.state)
         # Initial speakers for discussion/bidding
         current_speakers = self.discussion.speakers_for_tick(self.state)
-        self._action_queue.extend(s_id for s_id in current_speakers if s_id not in self._action_queue)
-        if self._action_queue:  # Only prompt if there are speakers
-            self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+        for s_id in current_speakers:
+            self._add_to_action_queue(s_id, ChatAction.__name__)
+
+        chat_queue = self._action_queue.get(ChatAction.__name__, [])
+        if chat_queue:  # Only prompt if there are speakers
+            self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
 
         self.detailed_phase = DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT
         # If _action_queue is empty here (e.g. discussion protocol immediately ends),
@@ -475,7 +493,7 @@ class Moderator:
 
     def _handle_day_discussion_await_chat(self, player_actions: Dict[str, Action]):
         # current_speakers_last_tick refers to who was in _action_queue for the player_actions received
-        current_speakers_last_tick = list(self._action_queue)  # Who was expected to act
+        current_speakers_last_tick = self._action_queue.get(ChatAction.__name__, [])
         self._action_queue.clear()
 
         # The discussion protocol processes actions.
@@ -502,9 +520,12 @@ class Moderator:
                 data={"voting_rule": self.day_voting.voting_rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
-            self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)
-            if self._action_queue:
-                for voter_id in self._action_queue:  # Prompt only the current batch of voters
+            for v_id in next_voters_ids:
+                self._add_to_action_queue(v_id, VoteAction.__name__)
+
+            vote_queue = self._action_queue.get(VoteAction.__name__, [])
+            if vote_queue:
+                for voter_id in vote_queue:  # Prompt only the current batch of voters
                     player = self.state.get_player_by_id(voter_id)
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
@@ -515,14 +536,17 @@ class Moderator:
         else:
             # Discussion not over, get next speakers
             next_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
-            if self._action_queue:  # Prompt if there are speakers for the next tick
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            for s_id in next_speakers:
+                self._add_to_action_queue(s_id, ChatAction.__name__)
+
+            chat_queue = self._action_queue.get(ChatAction.__name__, [])
+            if chat_queue:  # Prompt if there are speakers for the next tick
+                self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
             # Stay in DAY_DISCUSSION_AWAIT_CHAT
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
-        # TODO: refactor self._action_queue to be a list of tuple to include which action is queued information
-        self.day_voting.collect_votes(player_actions, self.state, self._action_queue)
+        vote_queue = self._action_queue.get(VoteAction.__name__, [])
+        self.day_voting.collect_votes(player_actions, self.state, vote_queue)
         self._action_queue.clear()  # Clear previous voters
 
         if self.day_voting.done():
@@ -559,24 +583,6 @@ class Moderator:
             self.day_voting.reset()
             if not self.is_game_over():
                 self.detailed_phase = DetailedPhase.NIGHT_START
-                self.state.phase = Phase.NIGHT
-            # _action_queue is clear; NIGHT_START will populate it.
-        else:
-            # Voting is not done, prompt next voters
-            next_voter_ids = self.day_voting.get_next_voters()
-            self._action_queue.extend(v_id for v_id in next_voter_ids if v_id not in self._action_queue)
-            if self._action_queue:
-                for voter_id in self._action_queue:  # Prompt only the current batch
-                    player = self.state.get_player_by_id(voter_id)
-                    if player and player.alive:
-                        prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
-                        self.state.add_history_entry(
-                            description=prompt,
-                            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                            public=False,
-                            visible_to=[voter_id]
-                        )
-            # Stay in DetailedPhase.DAY_VOTING_AWAIT
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists

@@ -82,6 +82,8 @@ def random_agent(obs):
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.") # Default action
 
+    threat_level = random.choice(['SAFE', 'UNEASY', 'DANGER'])
+
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
             # Werewolves target other alive players. A smarter agent would parse history to find non-werewolves.
@@ -91,7 +93,8 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data.get('valid_targets')
                 target_id = random.choice(valid_targets)
-                action = EliminateProposalAction(**common_args, target_id=target_id, reasoning="I randomly chose one.")
+                action = EliminateProposalAction(**common_args, target_id=target_id, reasoning="I randomly chose one.",
+                                                 perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
@@ -101,7 +104,8 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
-                action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.")
+                action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.",
+                                    perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
@@ -111,7 +115,8 @@ def random_agent(obs):
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 target_id = random.choice(valid_targets)
-                action = InspectAction(**common_args, target_id=target_id, reasoning="I randomly chose one to inspect.")
+                action = InspectAction(**common_args, target_id=target_id, reasoning="I randomly chose one to inspect.",
+                                       perceived_threat_level=threat_level)
 
     elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
         # Only alive players can discuss
@@ -125,7 +130,8 @@ def random_agent(obs):
                     "I am a simple Villager just trying to survive.",
                     "Let's think carefully before voting."
                 ]),
-                reasoning="I randomly chose one message."
+                reasoning="I randomly chose one message.",
+                perceived_threat_level=threat_level
             )
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
@@ -134,7 +140,8 @@ def random_agent(obs):
             action = VoteAction(
                 **common_args,
                 target_id=random.choice(all_player_names),
-                reasoning="I randomly chose one."
+                reasoning="I randomly chose one.",
+                perceived_threat_level=threat_level
             )
 
     elif current_phase == DetailedPhase.GAME_OVER:
@@ -414,6 +421,7 @@ def interpreter(state, env):
     # accumulate God mode observations from env for rendering
     env.info[EnvInfoKeys.MODERATOR_OBS].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
 
+    print(f"detailed_phase = {moderator.detailed_phase.value}")
 
     for i in range(len(state)):
         player_id_str = env.player_ids_map[i]
