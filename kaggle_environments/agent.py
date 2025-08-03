@@ -174,8 +174,8 @@ class Agent:
             out = out_buffer.getvalue()
             err = err_buffer.getvalue()
             # Get the maximum log length
-            # Allow up to 1k (default) log characters per step which is ~1MB per 600 step episode
-            max_log_length = self.configuration.get('maxLogLength', 1024)
+            # Allow up to 10k (default) log characters per step which is ~10MB per 600 step episode
+            max_log_length = self.configuration.get('maxLogLength', 10000)
 
             # truncate if max_log_length is set to None, do not truncate
             if max_log_length is not None:
