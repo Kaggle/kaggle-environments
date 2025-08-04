@@ -82,7 +82,11 @@ class Moderator:
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
         
-        role_msg = "The following explain the function of each role." + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
+        role_msg = "The following explain the function of each role." + "\n".join(
+            [f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
+             for role in self.state.all_unique_roles])
+        self.doctor_special_msg = "Doctor is allowed to save themselves during night time." if allow_doctor_self_save \
+            else "Doctor is NOT allowed to save themselves during night time."
         description = "\n".join([
             "Werewolf game begins.",
             f"All player ids: {data.player_ids}",
@@ -92,7 +96,8 @@ class Moderator:
             f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
             f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
             f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
-            role_msg
+            role_msg,
+            self.doctor_special_msg
         ])
         self.state.add_history_entry(
             description=description,
@@ -116,6 +121,15 @@ class Moderator:
                 visible_to=[player.id],
                 data=data
             )
+
+    def set_new_phase(self, new_detailed_phase, add_one_day=False):
+        self.detailed_phase = new_detailed_phase
+        if new_detailed_phase == DetailedPhase.NIGHT_START or new_detailed_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
+            self.state.phase = Phase.NIGHT
+        else:
+            self.state.phase = Phase.DAY
+        if add_one_day:
+            self.state.day_count += 1
 
     def _add_to_action_queue(self, player_id: str, action_type: str):
         if action_type not in self._action_queue:
@@ -193,7 +207,7 @@ class Moderator:
         if self.is_game_over() and self.detailed_phase != DetailedPhase.GAME_OVER:
             # clear action queue
             self._action_queue.clear()
-            self.detailed_phase = DetailedPhase.GAME_OVER
+            self.set_new_phase(DetailedPhase.GAME_OVER)
             self._determine_and_log_winner()
 
     def _handle_night_start(self, player_actions: Dict[str, Action]):
@@ -215,7 +229,8 @@ class Moderator:
                 action_json_schema=json.dumps(HealAction.model_json_schema())
             )
             self.state.add_history_entry(
-                description=f"Wake up Doctor. Who would you like to save? The options are {data_entry.valid_candidates}.",
+                description=f"Wake up Doctor. Who would you like to save? "
+                            f"The options are {data_entry.valid_candidates}.\n{self.doctor_special_msg}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=False,
                 visible_to=[doctor.id],
@@ -269,7 +284,7 @@ class Moderator:
             self._add_to_action_queue(ww_voter_id, VoteAction.__name__)
 
         # state transition
-        self.detailed_phase = DetailedPhase.NIGHT_AWAIT_ACTIONS
+        self.set_new_phase(DetailedPhase.NIGHT_AWAIT_ACTIONS)
         self.night_step = 1  # Mark that initial night roles (doc, seer) + first WW vote are expected
 
     def _handle_night_await_actions(self, player_actions: Dict[str, Action]):
@@ -456,12 +471,10 @@ class Moderator:
             self.night_voting.reset()
             self._night_save_queue = {}
             if not self.is_game_over():
-                self.detailed_phase = DetailedPhase.DAY_START
+                self.set_new_phase(DetailedPhase.DAY_START, add_one_day=True)
 
     def _handle_day_start(self, player_actions: Dict[str, Action]):
         self._action_queue.clear()
-        self.state.day_count += 1
-        self.state.phase = Phase.DAY
         self.night_step = 0  # Reset night step counter
 
         self.state.add_history_entry(
@@ -487,7 +500,7 @@ class Moderator:
         if chat_queue:  # Only prompt if there are speakers
             self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
 
-        self.detailed_phase = DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT
+        self.set_new_phase(DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT)
         # If _action_queue is empty here (e.g. discussion protocol immediately ends),
         # Env will call advance({}) and _handle_day_discussion_await_chat will transition.
 
@@ -510,7 +523,7 @@ class Moderator:
             self.discussion.reset()
             alive_players = self.state.alive_players()
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
-            self.detailed_phase = DetailedPhase.DAY_VOTING_AWAIT
+            self.set_new_phase(DetailedPhase.DAY_VOTING_AWAIT)
             self.state.add_history_entry(
                 description="Voting phase begins. We will decide who to exile today."
                             f"\nDay voting Rule: {self.day_voting.voting_rule}."
@@ -582,7 +595,7 @@ class Moderator:
 
             self.day_voting.reset()
             if not self.is_game_over():
-                self.detailed_phase = DetailedPhase.NIGHT_START
+                self.set_new_phase(DetailedPhase.NIGHT_START)
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists
