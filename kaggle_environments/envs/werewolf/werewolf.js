@@ -88,6 +88,7 @@ function renderer({
             margin: 0;
         }
         .player-card {
+            position: relative;
             display: flex;
             align-items: center;
             background-color: rgba(0,0,0,0.2);
@@ -134,9 +135,20 @@ function renderer({
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .player-role, .player-status {
+        .player-role,         .player-status {
             font-size: 0.9em;
             color: #bdc3c7;
+        }
+        .threat-indicator {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            background-color: transparent;
+            transition: background-color 0.3s ease;
         }
         #chat-log {
             list-style: none;
@@ -351,8 +363,8 @@ function renderer({
     const value = Math.max(0, Math.min(1, threatLevel));
     // Interpolates from green (hue 120) to red (hue 0)
     const hue = 120 * (1 - value);
-    // Use HSL for lighter, less saturated colors
-    return `hsl(${hue}, 90%, 70%)`;
+    // Use HSL for vibrant colors
+    return `hsl(${hue}, 100%, 50%)`;
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
@@ -378,6 +390,7 @@ function renderer({
                 <div class="player-name" title="${player.name}">${player.name}</div>
                 <div class="player-role">${roleText}</div>
             </div>
+            <div class="threat-indicator"></div>
         `;
         playerUl.appendChild(li);
     });
@@ -385,20 +398,17 @@ function renderer({
     listContainer.appendChild(playerUl);
     container.appendChild(listContainer);
 
-    // --- Threat Aura Management ---
+    // --- Threat Indicator Management ---
     gameState.players.forEach((player, index) => {
         const li = playerUl.children[index];
-        const avatar = li.querySelector('.avatar');
-        if (!avatar) return;
+        const indicator = li.querySelector('.threat-indicator');
+        if (!indicator) return;
 
         if (player.is_alive) {
             const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
-            const color = getThreatColor(threatLevel);
-            // The aura is a box-shadow on the avatar image
-            avatar.style.boxShadow = `0 0 8px 2px ${color}`;
+            indicator.style.backgroundColor = getThreatColor(threatLevel);
         } else {
-            // No aura for dead players
-            avatar.style.boxShadow = 'none';
+            indicator.style.backgroundColor = 'transparent';
         }
     });
   }
