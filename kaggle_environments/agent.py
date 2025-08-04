@@ -164,6 +164,8 @@ class Agent:
         # Start the timer.
 
         if self.debug:
+            # Adding a debugging branch here, since the context manager and try except would prevent
+            # debugger from functioning properly.
             start = perf_counter()
             action = self.agent(*args)
             out = ""
