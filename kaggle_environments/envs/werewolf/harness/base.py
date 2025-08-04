@@ -83,21 +83,34 @@ _retry_decorator = tenacity.retry(
 
 
 def get_action_subset_fields_schema(model_cls, new_cls_name, fields):
-    field_definitions = {field: (model_cls.model_fields[field].annotation, model_cls.model_fields[field].default)
-                  for field in fields}
+    """
+    Creates a new Pydantic model with a subset of fields from an existing model,
+    preserving all field metadata (like descriptions, constraints, etc.).
+    """
+    field_definitions = {
+        field: (
+            model_cls.model_fields[field].annotation,
+            # Pass the entire FieldInfo object, not just the default value
+            model_cls.model_fields[field]
+        )
+        for field in fields
+        if field in model_cls.model_fields
+    }
     sub_cls = create_model(new_cls_name, **field_definitions)
     subset_schema = sub_cls.model_json_schema()
     return subset_schema
 
 
 TARGETED_ACTION_SCHEMA = get_action_subset_fields_schema(
-    TargetedAction, "TargetedLLMAction", fields=['target_id', 'reasoning'])
+    TargetedAction, "TargetedLLMAction", fields=['target_id', 'reasoning', 'perceived_threat_level'])
 CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
-    ChatAction, "ChatLLMAction", fields=['message', 'reasoning'])
+    ChatAction, "ChatLLMAction", fields=['message', 'reasoning', 'perceived_threat_level'])
 
-TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id")}\n```"
+TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id",
+                                            perceived_threat_level="SAFE")}\n```"
 CHAT_ACTION_EXEMPLAR = f"```json\n{dict(reasoning='I need to show that I am a helpful villager.', 
-                                        message='I am only a helpful villager. Anyone has any information to share?')}\n```"
+                                        message='I am only a helpful villager. Anyone has any information to share?',
+                                        perceived_threat_level='SAFE')}\n```"
 
 
 class WerewolfAgentBase(ABC):
