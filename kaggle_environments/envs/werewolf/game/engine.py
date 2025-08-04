@@ -82,7 +82,7 @@ class Moderator:
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
         
-        role_msg = "The following explain the function of each role.\n" + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
+        role_msg = "The following explain the function of each role." + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
         description = "\n".join([
             "Werewolf game begins.",
             f"All player ids: {data.player_ids}",
