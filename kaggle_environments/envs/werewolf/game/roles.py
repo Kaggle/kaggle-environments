@@ -1,6 +1,6 @@
 from typing import List, Deque, Optional, Dict
 import logging
-from collections import deque
+from collections import deque, Counter
 
 from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
 
@@ -78,7 +78,7 @@ class Agent(BaseModel):
     """
 
     role: str
-    thumbnail: Optional[str] = None
+    thumbnail: Optional[str] = ""
     agent_harness_name: str = "basic_llm"
     llms: List[LLM] = []
 
@@ -132,6 +132,13 @@ ROLE_CLASS_MAP = {
 
 
 def create_players_from_agents_config(agents_config: List[Dict]) -> List[Player]:
+    # check all agents have unique ids
+    agent_ids = [agent_config["id"] for agent_config in agents_config]
+    if len(agent_ids) != len(set(agent_ids)):
+        counts = Counter(agent_ids)
+        duplicates = [item for item, count in counts.items() if count > 1 and item is not None]
+        if duplicates:
+            raise ValueError(f"Duplicate agent ids found: {', '.join(duplicates)}")
     agents = [Agent(**agent_config) for agent_config in agents_config]
     players = [Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role]()) for agent in agents]
     return players
