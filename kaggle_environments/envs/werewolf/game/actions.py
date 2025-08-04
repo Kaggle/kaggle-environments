@@ -4,14 +4,25 @@ from typing import Literal, Annotated, Optional
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
+from .consts import PerceivedThreatLevel
+
+
 # ------------------------------------------------------------------ #
 class Action(BaseModel):
     """Root of the discriminated-union tree."""
     day: int
     phase: str
     actor_id: str
-    reasoning: Optional[str] = Field(default=None, max_length=4096)
-    perceived_threat_level: Optional[str] = "SAFE"
+    reasoning: Optional[str] = Field(
+        default=None, max_length=4096,
+        description="The self monologue that illustrate how you arrived at the action. "
+                    "It will be invisible to other players.")
+
+    perceived_threat_level: PerceivedThreatLevel = Field(
+        default=PerceivedThreatLevel.SAFE,
+        description="The self perceived threat level you are currently experiencing from other players. "
+                    "The assessment will be invisible to other players."
+    )
 
     def serialize(self):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
@@ -19,7 +30,7 @@ class Action(BaseModel):
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
-    target_id: str
+    target_id: str = Field(description="The target player's id.")
 
 
 # ——— Concrete leaf classes --------------------------------------- #
