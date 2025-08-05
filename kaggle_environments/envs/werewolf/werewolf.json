@@ -9,6 +9,11 @@
         "actTimeout": { "type": "number", "default": 3 },
         "runTimeout": { "type": "number", "default": 1800 },
         "seed": { "type": "integer", "description": "Seed to use for episodes" },
+        "allow_doctor_self_save": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether or not doctors are allowed to save themselves."
+        },
         "agents": {
             "type": "array",
             "description": "Configuration for each agent playing the game.",

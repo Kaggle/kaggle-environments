@@ -82,7 +82,11 @@ class Moderator:
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
         
-        role_msg = "The following explain the function of each role." + "\n".join([f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}" for role in self.state.all_unique_roles])
+        role_msg = "The following explain the function of each role." + "\n".join(
+            [f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
+             for role in self.state.all_unique_roles])
+        self.doctor_special_msg = "Doctor is allowed to save themselves during night time." if allow_doctor_self_save \
+            else "Doctor is NOT allowed to save themselves during night time."
         description = "\n".join([
             "Werewolf game begins.",
             f"All player ids: {data.player_ids}",
@@ -92,7 +96,8 @@ class Moderator:
             f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
             f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
             f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
-            role_msg
+            role_msg,
+            self.doctor_special_msg
         ])
         self.state.add_history_entry(
             description=description,
@@ -224,7 +229,8 @@ class Moderator:
                 action_json_schema=json.dumps(HealAction.model_json_schema())
             )
             self.state.add_history_entry(
-                description=f"Wake up Doctor. Who would you like to save? The options are {data_entry.valid_candidates}.",
+                description=f"Wake up Doctor. Who would you like to save? "
+                            f"The options are {data_entry.valid_candidates}.\n{self.doctor_special_msg}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=False,
                 visible_to=[doctor.id],

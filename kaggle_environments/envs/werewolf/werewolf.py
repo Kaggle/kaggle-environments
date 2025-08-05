@@ -480,9 +480,10 @@ def initialize_moderator(state, env):
 
     agents_from_config = env.configuration.agents
 
-        # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
+    # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
     if len(agents_from_config) < num_players:
-        raise ValueError(f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
+        raise ValueError(
+            f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
 
     players = create_players_from_agents_config(agents_from_config)
 
@@ -492,32 +493,34 @@ def initialize_moderator(state, env):
     env.player_id_str_list = [p.id for p in players]
 
     env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
-        # Initialize protocols from configuration or defaults
+    # Initialize protocols from configuration or defaults
     discussion_protocol = create_protocol_from_config(
-            env.configuration,
-            "discussion_protocol",
-            "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
-        )
+        env.configuration,
+        "discussion_protocol",
+        "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
+    )
     day_voting_protocol = create_protocol_from_config(
-            env.configuration,
-            "day_voting_protocol",
-            "voting", DEFAULT_VOTING_PROTOCOL_NAME
-        )
-        # Night voting can be configured.
+        env.configuration,
+        "day_voting_protocol",
+        "voting", DEFAULT_VOTING_PROTOCOL_NAME
+    )
+    # Night voting can be configured.
     night_voting_protocol = create_protocol_from_config(
-            env.configuration,
-            "werewolf_night_vote_protocol",
-            "voting", DEFAULT_VOTING_PROTOCOL_NAME # Default to same as day voting if not specified
-        )
+        env.configuration,
+        "werewolf_night_vote_protocol",
+        "voting", DEFAULT_VOTING_PROTOCOL_NAME  # Default to same as day voting if not specified
+    )
 
-    print(f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
+    print(
+        f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
 
     env.moderator = Moderator(
-            state=env.game_state,
-            discussion=discussion_protocol,
-            day_voting=day_voting_protocol,
-            night_voting=night_voting_protocol
-        )
+        state=env.game_state,
+        discussion=discussion_protocol,
+        day_voting=day_voting_protocol,
+        night_voting=night_voting_protocol,
+        allow_doctor_self_save=env.configuration['allow_doctor_self_save']
+    )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
     env.info = {EnvInfoKeys.MODERATOR_OBS: []}
