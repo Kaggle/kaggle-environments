@@ -3,15 +3,12 @@ function renderer(props) {
     const { parent, environment, step, width, height } = props;
     const { h, render } = preact;
     const { useState, useEffect, useMemo, useRef } = preactHooks;
-    // Correctly access the styled-components instance for creating components
     const styled = window.styled.default;
     const htm = window.htm;
     const html = htm.bind(h);
 
     // --- Global Styles (using injectGlobal for styled-components v3) ---
-    // Use a flag on the window object to ensure styles are only injected once per page load.
     if (!window.werewolfStylesInjected) {
-        // Access injectGlobal from the top-level 'window.styled' object for UMD build
         window.styled.injectGlobal`
             :root {
                 --night-bg: #2c3e50;
@@ -21,14 +18,12 @@ function renderer(props) {
                 --dead-filter: grayscale(100%) brightness(50%);
                 --active-border: #f1c40f;
             }
-            /* Scope box-sizing to the container to avoid interfering with player UI */
             .werewolf-container, .werewolf-container * {
                 box-sizing: border-box;
             }
         `;
         window.werewolfStylesInjected = true;
     }
-
 
     // --- Styled Components ---
     const WerewolfParent = styled.div`
@@ -143,15 +138,7 @@ function renderer(props) {
     `;
 
     const LogEntryStyled = styled.li`
-        opacity: 0;
-        animation: fadeIn 0.5s forwards;
         margin-bottom: 15px;
-
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-            }
-        }
 
         cite {
             font-style: normal;
@@ -279,7 +266,7 @@ function renderer(props) {
         }
 
         const sortedPlayerIds = [...allPlayerIds].sort((a, b) => b.length - a.length);
-        const regex = new RegExp(`\b(${sortedPlayerIds.map(id => id.replace(/[-\/\\^$*+?.()|[\\]{}]/g, '\\$&')).join('|')})\b`, 'g');
+        const regex = new RegExp(`\\b(${sortedPlayerIds.map(id => id.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`, 'g');
         const parts = text.split(regex);
 
         return html`
@@ -411,12 +398,16 @@ function renderer(props) {
                     <//>
                 `;
             default: // System messages, eliminations, etc.
-                let citeText = 'Moderator 📣';
+                let citeText = 'Moderator \uD83D\uDCE3'; // Unicode for megaphone emoji
                 let msgText;
                 switch(entry.type) {
                     case 'system':
                         if (entry.text && entry.text.includes('has begun')) return null;
-                        msgText = html`<${TextWithCapsules} text=${entry.text} playerMap=${playerMap} />`;
+                        // Restore python list cleanup logic
+                        let cleanedText = (entry.text || '').replace(/\\\[(.*?)\\\]/g, (match, listContent) => {
+                            return listContent.replace(/'/g, "").replace(/, /g, " ");
+                        });
+                        msgText = html`<${TextWithCapsules} text=${cleanedText} playerMap=${playerMap} />`;
                         break;
                     case 'exile':
                         citeText = 'Exile';
@@ -458,9 +449,13 @@ function renderer(props) {
         const logEl = useRef(null);
         useEffect(() => {
             if (logEl.current) {
-                logEl.current.scrollTop = logEl.current.scrollHeight;
+                // Use a timeout to ensure the DOM has updated before scrolling
+                const timer = setTimeout(() => {
+                    logEl.current.scrollTop = logEl.current.scrollHeight;
+                }, 0);
+                return () => clearTimeout(timer); // Cleanup the timer
             }
-        });
+        }, [eventLog]); // Dependency on the array reference is correct
 
         return html`
             <h1>Event Log</h1>
