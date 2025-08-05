@@ -353,7 +353,18 @@ function renderer({
         if (!player.is_alive) li.classList.add('dead');
         if (player.name === actingPlayerName) li.classList.add('active');
 
-        const roleText = player.role !== 'Unknown' ? `Role: ${player.role}` : 'Role: Unknown';
+        let roleDisplay = player.role;
+        if (player.role === 'Werewolf') {
+            roleDisplay = `\uD83D\uDC3A ${player.role}`;
+        } else if (player.role === 'Doctor') {
+            roleDisplay = `\uD83E\uDE79 ${player.role}`;
+        } else if (player.role === 'Seer') {
+            roleDisplay = `\uD83D\uDC41\uFE0F ${player.role}`;
+        } else if (player.role === 'Villager') {
+            roleDisplay = `\uD83D\uDE36 ${player.role}`;
+        }
+
+        const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
         li.innerHTML = `
             <div class="avatar-container">
@@ -420,7 +431,15 @@ function renderer({
             }
 
             const phaseClass = `event-${phase.toLowerCase()}`;
-            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phase}]` : '';
+            
+            let phaseEmoji = phase;
+            if (phase === 'DAY') {
+                phaseEmoji = '\u2600\uFE0F'; // Sun emoji
+            } else if (phase === 'NIGHT') {
+                phaseEmoji = '\uD83C\uDF19'; // Crescent moon emoji
+            }
+
+            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
             const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
 
             switch (entry.type) {
@@ -530,6 +549,7 @@ function renderer({
                 case 'vote':
                     const voter = playerMap.get(entry.actor_id);
                     if (!voter) return;
+                    const voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
                     const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
                     li.className = `chat-entry event-day`;
                     li.innerHTML = `
@@ -537,7 +557,7 @@ function renderer({
                         <div class="message-content">
                             <cite>${voter.name} ${timestampHtml}</cite>
                             <div class="balloon">
-                                <div class="balloon-text">Votes to eliminate ${voteTargetCap}.</div>
+                                <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
                                 ${reasoningHtml}
                             </div>
                         </div>
