@@ -132,10 +132,11 @@ class Moderator:
             self.state.day_count += 1
 
     def _add_to_action_queue(self, player_id: str, action_type: str):
-        if action_type not in self._action_queue:
-            self._action_queue[action_type] = []
-        if player_id not in self._action_queue[action_type]:
-            self._action_queue[action_type].append(player_id)
+        self._action_queue.setdefault(action_type, [])
+        if player_id in self._action_queue[action_type]:
+            raise ValueError(f'player {player_id} is already in the action queue. '
+                             'One turn only one action is allowed in the queue.')
+        self._action_queue[action_type].append(player_id)
 
     def get_active_player_ids(self) -> List[str]:
         all_players = set()
@@ -562,6 +563,7 @@ class Moderator:
         self.day_voting.collect_votes(player_actions, self.state, vote_queue)
         self._action_queue.clear()  # Clear previous voters
 
+
         if self.day_voting.done():
             exiled_player_id = self.day_voting.get_elected()
             if exiled_player_id:
@@ -596,6 +598,21 @@ class Moderator:
             self.day_voting.reset()
             if not self.is_game_over():
                 self.set_new_phase(DetailedPhase.NIGHT_START)
+        else:
+            next_voters_ids = self.day_voting.get_next_voters()
+            for v_id in next_voters_ids:
+                self._add_to_action_queue(v_id, VoteAction.__name__)
+
+            vote_queue = self._action_queue.get(VoteAction.__name__, [])
+            if vote_queue:
+                for voter_id in vote_queue:  # Prompt only the current batch of voters
+                    player = self.state.get_player_by_id(voter_id)
+                    if player and player.alive:
+                        prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
+                        self.state.add_history_entry(
+                            description=prompt, entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                            public=False, visible_to=[voter_id]
+                        )
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists
