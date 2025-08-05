@@ -379,7 +379,8 @@ def interpreter(state, env):
             state=env.game_state,
             discussion=discussion_protocol,
             day_voting=day_voting_protocol,
-            night_voting=night_voting_protocol
+            night_voting=night_voting_protocol,
+            allow_doctor_self_save=env.configuration['allow_doctor_self_save']
         )
 
         env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
