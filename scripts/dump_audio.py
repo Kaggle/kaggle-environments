@@ -20,8 +20,7 @@ OUTPUT_HTML_FILE = "game_replay_audio.html"
 # Load environment variables from .env file
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# if GEMINI_API_KEY:
-#     genai.configure(api_key=GEMINI_API_KEY)
+
 
 # Create the audio directory if it doesn't exist
 os.makedirs(AUDIO_DIR, exist_ok=True)
@@ -37,7 +36,7 @@ def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
       wf.setframerate(rate)
       wf.writeframes(pcm)
 
-def get_tts_audio(text: str) -> bytes | None:
+def get_tts_audio(text: str, voice_name: str) -> bytes | None:
     """Fetches TTS audio from Gemini API and returns the audio content as bytes."""
     response = client.models.generate_content(
        model="gemini-2.5-flash-preview-tts",
@@ -47,7 +46,7 @@ def get_tts_audio(text: str) -> bytes | None:
           speech_config=types.SpeechConfig(
              voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                   voice_name='Kore',
+                   voice_name=voice_name,
                 )
              )
           ),
@@ -72,8 +71,6 @@ else:
         "qwen": "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
     }
 
-    # TODO: vertex AI model still has issues
-
     roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
     random.shuffle(roles)
     names = ["gemini-2.5-flash", "deepseek-r1", "kimi-k2", "qwen3", "gpt-4.1", "o4-mini", "claude-4-sonnet", "grok-4"]
@@ -96,6 +93,9 @@ else:
 
     brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'claude', 'grok']
 
+    voices = ['Kore', 'Charon', 'Leda', 'Despina', 'Erinome', 'Gacrux', 'Achird', 'Puck']
+    random.shuffle(voices)
+
     agents_config = [
         {"role": role, "id": name, "agent_id": f"llm_harness/{model}",
          "thumbnail": URLS[brand], "display_name": model,
@@ -103,6 +103,12 @@ else:
          "llms": [{"model_name": model, "parameters": parameter_dict.get(model, {})}]}
         for role, name, brand, model in zip(roles, names, brands, models)
     ]
+
+    # Assign voices to agents
+    for agent, voice in zip(agents_config, voices):
+        agent['voice'] = voice
+
+    player_voice_map = {agent["id"]: agent["voice"] for agent in agents_config}
 
     env = make(
         'werewolf',
@@ -121,34 +127,46 @@ else:
     )
 
     print("2. Running a full game episode...")
-    env.run(["random"] * 8)
+    agents = [f"llm/{model}" for model in models]
+    # agents = ['random'] * 8
+    env.run(agents)
 
     print("3. Extracting dialogue and generating audio files...")
-    unique_messages = set()
+    unique_speaker_messages = set()
     audio_map = {}
 
-    # Collect all unique chat messages from the game history
-    for step_data in env.steps:
-        for agent_obs in step_data:
-            if "new_history_entries_json" in agent_obs["observation"]:
-                for entry_json in agent_obs["observation"]["new_history_entries_json"]:
-                    entry = entry_json
-                    if entry.get("data") and entry["entry_type"] == "discussion":
-                        unique_messages.add(entry["data"]["message"])
+    # Collect all unique (speaker, message) tuples from the moderator log
+    moderator_log_steps = env.info.get("MODERATOR_OBSERVATION", [])
+    for step_log in moderator_log_steps:
+        for data_entry_str in step_log:
+            data_entry = data_entry_str
+            if data_entry.get("data_type") == "ChatDataEntry":
+                data = json.loads(data_entry.get('json_str','')).get('data', {})
+                speaker_id = data.get("actor_id")
+                message = data.get("message")
+                if speaker_id and message:
+                    unique_speaker_messages.add((speaker_id, message))
 
-    # Generate and save audio for each unique message
-    for message in unique_messages:
-        filename = hashlib.md5(message.encode()).hexdigest() + ".wav"
+    # Generate and save audio for each unique message from each speaker
+    for speaker_id, message in unique_speaker_messages:
+        voice = player_voice_map.get(speaker_id)
+        if not voice:
+            print(f"  - Warning: No voice found for speaker: {speaker_id}")
+            continue
+
+        # The key for caching and for the map should include the speaker
+        map_key = f"{speaker_id}:{message}"
+        filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
         audio_path = os.path.join(AUDIO_DIR, filename)
 
         if not os.path.exists(audio_path):
-            print(f"  - Generating audio for: \"{message[:50]}...\"")
-            audio_content = get_tts_audio(message)
+            print(f"  - Generating audio for {speaker_id} ({voice}): \"{message[:40]}...\"")
+            audio_content = get_tts_audio(message, voice_name=voice)
             if audio_content:
                 wave_file(audio_path, audio_content)
-                audio_map[message] = audio_path
+                audio_map[map_key] = audio_path
         else:
-            audio_map[message] = audio_path
+            audio_map[map_key] = audio_path
 
     print("4. Rendering the game to an HTML file...")
     html_content = env.render(mode="html")
