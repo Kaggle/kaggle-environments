@@ -729,15 +729,30 @@ function renderer({
         eventLog: [],
         playerThreatLevels: new Map()
     };
+
     const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
-    if (!firstObs) {
-        container.textContent = "Waiting for game data...";
+    let allPlayerNamesList;
+    let playerThumbnails = {};
+
+    if (firstObs && firstObs.all_player_ids) {
+        allPlayerNamesList = firstObs.all_player_ids;
+        playerThumbnails = firstObs.player_thumbnails || {};
+    } else if (environment.configuration && environment.configuration.agents) {
+        console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
+        allPlayerNamesList = environment.configuration.agents.map(agent => agent.id);
+        environment.configuration.agents.forEach(agent => {
+            if (agent.id && agent.thumbnail) {
+                playerThumbnails[agent.id] = agent.thumbnail;
+            }
+        });
+    }
+
+    if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
+        container.textContent = "Waiting for game data: No players found in observation or configuration.";
         parent.appendChild(container);
         return;
     }
 
-    const playerThumbnails = firstObs.player_thumbnails || {};
-    const allPlayerNamesList = firstObs.all_player_ids;
     gameState.players = allPlayerNamesList.map(name => ({
         name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
         thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
