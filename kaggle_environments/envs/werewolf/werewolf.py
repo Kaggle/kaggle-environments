@@ -301,7 +301,17 @@ LLM_MODEL_NAMES = [
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
 
-# Base agents, a convenient default 'llm' agent, and all specific LLM agents
+
+
+
+class EnvInfoKeys:
+    MODERATOR_OBS = "MODERATOR_OBSERVATION"
+    GAME_END = "GAME_END"
+
+# *Package variable required by Kaggle Environments framework*
+# These are base agents that the calling framework can choose from
+# Provides a random_agent for testing,  a convenient default 'llm' agent, 
+# and agents powered by the various specific models
 agents = {
     "random": random_agent,
     "dummy_llm": AgentFactoryWrapper(LLMAgent, model_name='dummy_llm'),
@@ -324,80 +334,53 @@ agents = {
     }
 }
 
-
-class EnvInfoKeys:
-    MODERATOR_OBS = "MODERATOR_OBSERVATION"
-    GAME_END = "GAME_END"
-
-
 def interpreter(state, env):
     """
+    * Required interface function for kaggle environments package *
+
+    This is the primary interface for the kaggle environment (kEnv) to step game forward.
+    Briefly flow of logic is:
+    Initialization - kEnv creates werewolf object and chooses players. Schema definition for
+    this is in werewolf.json
+    1) kEnv calls interpreter() with current game state recorded in env.game_state 
+    2) interpreter() reads game state and any new player actions and updates
+       the games state based on those actions and flow of the game to env.game_state.
+    3) interpreter() writes events to history data and also writes events about 
+       state change in the game to env.game_state and returns back to kEnv
+    4) kEnv parses out the relevant game events via agent logic in harness/base.py, 
+       constructs final prompt, and performs external API calls for models and records back 
+       to env.game_state
+    Go back to 1 and continue
+
+    For example - consider discussion and voting by villagers. werewolf.interpreter()
+    updates phase and writes history entry that solicits players for discussion. 
+    kEnv calls agents to get their discussion and writes them to the history/game state.
+    kEnv then calls interpreter() that then updates game phase and writes history entry soliciting
+    votes for exile. kEnv then calls agents and associated models to get their votes and writes
+    responses to game state. env then calls interpreter() and moderator collects votes, determine
+    who was exiled, performs that action and advances game phase and game state.
+    And so on...
+
+    Note - The UI is also updated after each call to interpreter() as that is the tick unit
+    for the game.
+
+    Note - env framework assumes that there is an action to be done by player, but 
+    for werewolf there are places where moderator is the one taking the action (e.g
+    counting votes and performing exile) so some game 'ticks' are larger than others.
+
     state: list of dictionaries, one for each agent.
            Each dict has: {observation, action, reward, status, info}
-    env:   the kaggle_environments.Environment object itself.
+    env:   the kaggle_environments.Environment object itself including the env.game_state
     """
-
     # --- Initialize Moderator and GameState if it's the start of an episode ---
     if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
-        num_players = len(state)
-
-        agents_from_config = env.configuration.agents
-
-        # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
-        if len(agents_from_config) < num_players:
-            raise ValueError(f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
-
-        players = create_players_from_agents_config(agents_from_config)
-
-        env.game_state = GameState(players=players, history={})
-
-        env.player_ids_map = {i: p.id for i, p in enumerate(players)}
-        env.player_id_str_list = [p.id for p in players]
-
-        env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
-        # Initialize protocols from configuration or defaults
-        discussion_protocol = create_protocol_from_config(
-            env.configuration,
-            "discussion_protocol",
-            "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
-        )
-        day_voting_protocol = create_protocol_from_config(
-            env.configuration,
-            "day_voting_protocol",
-            "voting", DEFAULT_VOTING_PROTOCOL_NAME
-        )
-        # Night voting can be configured.
-        night_voting_protocol = create_protocol_from_config(
-            env.configuration,
-            "werewolf_night_vote_protocol",
-            "voting", DEFAULT_VOTING_PROTOCOL_NAME # Default to same as day voting if not specified
-        )
-
-        print(f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
-
-        env.moderator = Moderator(
-            state=env.game_state,
-            discussion=discussion_protocol,
-            day_voting=day_voting_protocol,
-            night_voting=night_voting_protocol
-        )
-
-        env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
-        env.info = {EnvInfoKeys.MODERATOR_OBS: []}
+        initialize_moderator(state, env)
 
     moderator: Moderator = env.moderator
     game_state: GameState = env.game_state
 
     # 1. Collect and parse actions from Kaggle agents
-    parsed_player_actions: Dict[str, Action] = {}
-    active_player_ids_from_moderator = moderator.get_active_player_ids()
-
-    for sub_state, player in zip(state, game_state.players):
-        player_id_str = player.id
-        if player_id_str in active_player_ids_from_moderator and sub_state.status == "ACTIVE":
-            serialized_action = sub_state.action
-            if serialized_action:
-                parsed_player_actions[player_id_str] = create_action(serialized_action)
+    parsed_player_actions = parse_player_actions(state, moderator, game_state)
 
     # 2. Advance the Moderator
     moderator.advance(parsed_player_actions)
@@ -406,39 +389,50 @@ def interpreter(state, env):
     is_game_done = moderator.is_game_over()
     current_info = {}
     if is_game_done:
-        # log game end to env.info using GameEndResultsDataEntry
-        game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
-        if game_end_entry and game_end_entry.data:
-            current_info.update(game_end_entry.data.model_dump())
-        env.info[EnvInfoKeys.GAME_END] = current_info
-        # Determine winner based on game_state.history's GAME_END entry
-        scores = game_end_entry.data.scores
-        for i, player_id in enumerate(env.player_id_str_list):
-            state[i].reward = scores[player_id]
+        record_game_end(state, env, game_state, current_info)
 
+    # 4. Moderator interprets player actions, updates game phase, and advance game player actions
     active_player_ids_after_advance = set(moderator.get_active_player_ids())
 
-    # accumulate God mode observations from env for rendering
-    env.info[EnvInfoKeys.MODERATOR_OBS].append([VisibleRawData.from_entry(entry).model_dump() for entry in env.game_state.consume_messages() if entry.data])
+    # 4.1. Accumulate God mode observations from env for rendering
+    global_messages = env.game_state.consume_messages()
+    global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
+    env.info[EnvInfoKeys.MODERATOR_OBS].append([global_data])
 
     print(f"detailed_phase = {moderator.detailed_phase.value}")
+    # 4.2. Update observations for individual agents
+    update_agent_messages(state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance)
 
-    for i in range(len(state)):
-        player_id_str = env.player_ids_map[i]
+    return state
+
+def record_game_end(state, env, game_state, current_info):   
+    # log game end to env.info using GameEndResultsDataEntry
+    game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
+    if game_end_entry and game_end_entry.data:
+        current_info.update(game_end_entry.data.model_dump())
+    env.info[EnvInfoKeys.GAME_END] = current_info
+    # Determine winner based on game_state.history's GAME_END entry
+    scores = game_end_entry.data.scores
+    for i, player_id in enumerate(env.player_id_str_list):
+        state[i].reward = scores[player_id]
+
+def update_agent_messages(state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance):
+    for player_index, player_state in enumerate(state):
+        player_id_str = env.player_ids_map[player_index]
 
         # skip if player not active and game is not done
         if player_id_str not in active_player_ids_after_advance and not is_game_done:
-           state[i].status = 'INACTIVE'
+           player_state.status = 'INACTIVE'
            continue
         
         # set the status of active player to ACTIVE
-        state[i].status = 'ACTIVE'
+        player_state.status = 'ACTIVE'
         player_obj = game_state.get_player_by_id(player_id_str)
 
         # Observation processing
         new_history_entries = player_obj.consume_messages()
 
-        state[i].observation['new_history_entries_json'] = [msg.model_dump() for msg in new_history_entries]
+        player_state.observation['new_history_entries_json'] = [msg.model_dump() for msg in new_history_entries]
 
         obs = WerewolfObservationModel(
             player_id=player_obj.id,
@@ -456,19 +450,77 @@ def interpreter(state, env):
             game_state_phase=game_state.phase.value
         )
 
-        state[i].observation["raw_observation"] = obs.model_dump()
+        player_state.observation["raw_observation"] = obs.model_dump()
 
         # Status
         if is_game_done:
-            state[i].status = "DONE"
+            player_state.status = "DONE"
         elif player_id_str in active_player_ids_after_advance:
-            state[i].status = "ACTIVE"
+            player_state.status = "ACTIVE"
         else:
-            state[i].status = "INACTIVE"
+            player_state.status = "INACTIVE"
         
         # Info
-        state[i].info = current_info
-    return state
+        player_state.info = current_info
+
+def parse_player_actions(state, moderator, game_state):
+    parsed_player_actions: Dict[str, Action] = {}
+    active_player_ids_from_moderator = moderator.get_active_player_ids()
+
+    for sub_state, player in zip(state, game_state.players):
+        player_id_str = player.id
+        if player_id_str in active_player_ids_from_moderator and sub_state.status == "ACTIVE":
+            serialized_action = sub_state.action
+            if serialized_action:
+                parsed_player_actions[player_id_str] = create_action(serialized_action)
+    return parsed_player_actions
+
+def initialize_moderator(state, env):
+    num_players = len(state)
+
+    agents_from_config = env.configuration.agents
+
+        # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
+    if len(agents_from_config) < num_players:
+        raise ValueError(f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
+
+    players = create_players_from_agents_config(agents_from_config)
+
+    env.game_state = GameState(players=players, history={})
+
+    env.player_ids_map = {i: p.id for i, p in enumerate(players)}
+    env.player_id_str_list = [p.id for p in players]
+
+    env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
+        # Initialize protocols from configuration or defaults
+    discussion_protocol = create_protocol_from_config(
+            env.configuration,
+            "discussion_protocol",
+            "discussion", DEFAULT_DISCUSSION_PROTOCOL_NAME
+        )
+    day_voting_protocol = create_protocol_from_config(
+            env.configuration,
+            "day_voting_protocol",
+            "voting", DEFAULT_VOTING_PROTOCOL_NAME
+        )
+        # Night voting can be configured.
+    night_voting_protocol = create_protocol_from_config(
+            env.configuration,
+            "werewolf_night_vote_protocol",
+            "voting", DEFAULT_VOTING_PROTOCOL_NAME # Default to same as day voting if not specified
+        )
+
+    print(f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
+
+    env.moderator = Moderator(
+            state=env.game_state,
+            discussion=discussion_protocol,
+            day_voting=day_voting_protocol,
+            night_voting=night_voting_protocol
+        )
+
+    env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
+    env.info = {EnvInfoKeys.MODERATOR_OBS: []}
 
 
 def renderer(state, env):
