@@ -300,8 +300,9 @@ function renderer({
           return;
       }
       audioState.isAudioPlaying = true;
-      const text = audioState.audioQueue.shift();
-      const audioPath = audioMap[text];
+      const event = audioState.audioQueue.shift();
+      const audioKey = `${event.speaker}:${event.message}`;
+      const audioPath = audioMap[audioKey];
 
       if (audioPath) {
           audioState.audioPlayer.src = audioPath;
@@ -310,7 +311,7 @@ function renderer({
               playNextInQueue();
           };
           audioState.audioPlayer.onerror = () => {
-              console.error("Audio playback failed for:", text);
+              console.error("Audio playback failed for key:", audioKey);
               audioState.isAudioPlaying = false;
               playNextInQueue();
           };
@@ -320,7 +321,7 @@ function renderer({
               playNextInQueue();
           });
       } else {
-          console.warn(`No audio found for text: "${text}"`);
+          console.warn(`No audio found for key: "${audioKey}"`);
           audioState.isAudioPlaying = false;
           playNextInQueue();
       }
@@ -339,9 +340,9 @@ function renderer({
       }, { once: true });
   }
 
-  function speak(text) {
+  function speak(message, speaker) {
       if (audioState.isAudioEnabled) {
-          audioState.audioQueue.push(text);
+          audioState.audioQueue.push({ message, speaker });
           playNextInQueue();
       }
   }
@@ -427,13 +428,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `		extrm{Werewolf} ${player.role}`;
+            roleDisplay = `	extrm{Werewolf} ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `		extrm{Doctor} ${player.role}`;
+            roleDisplay = `	extrm{Doctor} ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `		extrm{Seer} ${player.role}`;
+            roleDisplay = `	extrm{Seer} ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `		extrm{Villager} ${player.role}`;
+            roleDisplay = `	extrm{Villager} ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -537,7 +538,7 @@ function renderer({
                         const ttsButton = document.createElement('span');
                         ttsButton.className = 'tts-button';
                         ttsButton.textContent = '\uD83D\uDD0A'; // Speaker icon
-                        ttsButton.onclick = () => speak(entry.message);
+                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
                         balloonText.appendChild(ttsButton);
                     }
                     break;
@@ -607,7 +608,7 @@ function renderer({
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
-                        <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
+                        <cite>Moderator \\u{1F4E2} ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
@@ -876,7 +877,7 @@ function renderer({
     );
 
     if (eventsToPlay.length > 0) {
-        eventsToPlay.forEach(entry => audioState.audioQueue.push(entry.message));
+        eventsToPlay.forEach(entry => audioState.audioQueue.push({ message: entry.message, speaker: entry.speaker }));
         if (audioState.isAudioEnabled) {
             playNextInQueue();
         }
