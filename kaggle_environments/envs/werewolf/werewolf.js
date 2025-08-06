@@ -272,7 +272,49 @@ function renderer({
             margin-right: 5px;
             object-fit: cover;
         }
+        .controls-container {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 10;
+            background-color: rgba(44, 62, 80, 0.85);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #autoplay-button {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            background-color: #27ae60;
+            color: white;
+            cursor: pointer;
+        }
+        #autoplay-button:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+        .tts-button {
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-left: 10px;
+            display: inline-block;
+            vertical-align: middle;
+        }
     `;
+
+  // --- TTS Caching and Playback ---
+  const audioMap = window.AUDIO_MAP || {};
+  let autoplayEnabled = false;
+
+  function speak(text) {
+      const audioPath = audioMap[text];
+      if (audioPath) {
+          const audio = new Audio(audioPath);
+          audio.play().catch(e => console.error("Audio playback failed:", e));
+      } else {
+          console.warn(`No audio found for text: "${text}"`);
+      }
+  }
 
   // --- Helper Functions ---
   function formatTimestamp(isoString) {
@@ -307,7 +349,7 @@ function renderer({
               const capsule = createPlayerCapsule(player);
               // Use a regex to replace whole words only to avoid replacing parts of other words.
               // The \b is a word boundary.
-              const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\b`, 'g');
               newText = newText.replace(regex, capsule);
           }
       });
@@ -325,7 +367,7 @@ function renderer({
 
     sortedPlayerIds.forEach(playerId => {
         // Use a regex to replace whole words only to avoid replacing parts of other words.
-        const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+        const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\b`, 'g');
         newText = newText.replace(regex, `<strong>${playerId}</strong>`);
     });
     return newText;
@@ -355,13 +397,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `\uD83D\uDC3A ${player.role}`;
+            roleDisplay = `	extrm{Werewolf} ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `\uD83E\uDE79 ${player.role}`;
+            roleDisplay = `	extrm{Doctor} ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `\uD83D\uDC41\uFE0F ${player.role}`;
+            roleDisplay = `	extrm{Seer} ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `\uD83D\uDE36 ${player.role}`;
+            roleDisplay = `	extrm{Villager} ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -413,7 +455,7 @@ function renderer({
         logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-
+            
             // --- Phase Correction Logic ---
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
@@ -431,7 +473,7 @@ function renderer({
             }
 
             const phaseClass = `event-${phase.toLowerCase()}`;
-
+            
             let phaseEmoji = phase;
             if (phase === 'DAY') {
                 phaseEmoji = '\u2600\uFE0F'; // Sun emoji
@@ -453,11 +495,21 @@ function renderer({
                         <div class="message-content">
                             <cite>${speaker.name} ${timestampHtml}</cite>
                             <div class="balloon">
-                                <div class="balloon-text"><quote>${messageText}</quote></div>
+                                <div class="balloon-text">
+                                    <quote>${messageText}</quote>
+                                </div>
                                 ${reasoningHtml}
                             </div>
                         </div>
                     `;
+                    const balloonText = li.querySelector('.balloon-text');
+                    if (balloonText) {
+                        const ttsButton = document.createElement('span');
+                        ttsButton.className = 'tts-button';
+                        ttsButton.textContent = '\uD83D\uDD0A'; // Speaker icon
+                        ttsButton.onclick = () => speak(entry.message);
+                        balloonText.appendChild(ttsButton);
+                    }
                     break;
                 case 'seer_inspection':
                     const seerInspector = playerMap.get(entry.actor_id);
@@ -514,7 +566,7 @@ function renderer({
 
                     let systemText = entry.text;
                     // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\\\[(.*?)\\\]/g;
+                    const listRegex = /\\\\[(.*?)\\\\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         // listContent is "'player-1', 'player-2', 'player-3'"
                         return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
@@ -525,7 +577,7 @@ function renderer({
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
-                        <cite>Moderator &#128226; ${timestampHtml}</cite>
+                        <cite>Moderator \\u{1F4E2} ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
@@ -619,6 +671,28 @@ function renderer({
   }
 
     parent.innerHTML = ''; // Clear previous rendering
+
+    // --- Add Controls for TTS ---
+    if (!parent.querySelector('.controls-container')) {
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'controls-container';
+
+        const autoplayButton = document.createElement('button');
+        autoplayButton.id = 'autoplay-button';
+        autoplayButton.textContent = 'Enable Autoplay';
+        autoplayButton.onclick = () => {
+            // This user interaction unlocks autoplay
+            autoplayEnabled = true;
+            autoplayButton.textContent = 'Autoplay Enabled';
+            autoplayButton.disabled = true;
+            // Play a silent sound to activate audio context if needed
+            const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+            audio.play().catch(() => {});
+        };
+
+        controlsContainer.appendChild(autoplayButton);
+        parent.appendChild(controlsContainer);
+    }
 
     const container = document.createElement("div");
     Object.assign(container.style, {
@@ -741,6 +815,9 @@ function renderer({
 
              switch (dataEntry.data_type) {
                 case 'ChatDataEntry':
+                    if (s === step && autoplayEnabled) {
+                        speak(data.message);
+                    }
                     gameState.eventLog.push({ type: 'chat', day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
                     break;
                 case 'DayExileVoteDataEntry':
