@@ -295,8 +295,8 @@ function renderer(options) {
         const isMobile = window.innerWidth < 768;
 
         // Calculate and apply board size
-        const containerWidth = currentBoardContainer.clientWidth ?? width;
-        const containerHeight = currentBoardContainer.clientHeight ?? height;
+        const containerWidth = currentBoardContainer?.clientWidth ?? width;
+        const containerHeight = currentBoardContainer?.clientHeight ?? height;
         const smallestContainerEdge = Math.min(containerWidth, containerHeight);
         const newSquareSize = Math.floor(smallestContainerEdge / displayCols);
 
