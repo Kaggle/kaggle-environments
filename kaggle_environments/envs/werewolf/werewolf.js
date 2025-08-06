@@ -279,6 +279,20 @@ function renderer({
             display: inline-block;
             vertical-align: middle;
         }
+        .audio-controls {
+            padding: 10px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 10px;
+        }
+        .audio-controls label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #bdc3c7;
+        }
+        .audio-controls input[type="range"] {
+            width: 100%;
+        }
     `;
 
   // --- TTS Management ---
@@ -291,9 +305,17 @@ function renderer({
           isAudioEnabled: false,
           lastPlayedStep: -1,
           audioPlayer: new Audio(),
+          playbackRate: 1.0,
       };
   }
   const audioState = window.kaggleWerewolf;
+
+  function setPlaybackRate(rate) {
+      audioState.playbackRate = rate;
+      if (audioState.isAudioPlaying) {
+          audioState.audioPlayer.playbackRate = rate;
+      }
+  }
 
   function playNextInQueue() {
       if (audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
@@ -306,6 +328,7 @@ function renderer({
 
       if (audioPath) {
           audioState.audioPlayer.src = audioPath;
+          audioState.audioPlayer.playbackRate = audioState.playbackRate;
           audioState.audioPlayer.onended = () => {
               audioState.isAudioPlaying = false;
               playNextInQueue();
@@ -343,7 +366,9 @@ function renderer({
   function speak(message, speaker) {
       if (audioState.isAudioEnabled) {
           audioState.audioQueue.push({ message, speaker });
-          playNextInQueue();
+          if (!audioState.isAudioPlaying) {
+              playNextInQueue();
+          }
       }
   }
 
@@ -380,7 +405,7 @@ function renderer({
               const capsule = createPlayerCapsule(player);
               // Use a regex to replace whole words only to avoid replacing parts of other words.
               // The \b is a word boundary.
-              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\b`, 'g');
+              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
               newText = newText.replace(regex, capsule);
           }
       });
@@ -398,7 +423,7 @@ function renderer({
 
     sortedPlayerIds.forEach(playerId => {
         // Use a regex to replace whole words only to avoid replacing parts of other words.
-        const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\b`, 'g');
+        const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
         newText = newText.replace(regex, `<strong>${playerId}</strong>`);
     });
     return newText;
@@ -428,13 +453,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `	extrm{Werewolf} ${player.role}`;
+            roleDisplay = `\t extrm{Werewolf} ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `	extrm{Doctor} ${player.role}`;
+            roleDisplay = `\t extrm{Doctor} ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `	extrm{Seer} ${player.role}`;
+            roleDisplay = `\t extrm{Seer} ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `	extrm{Villager} ${player.role}`;
+            roleDisplay = `\t extrm{Villager} ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -467,6 +492,24 @@ function renderer({
         } else {
             indicator.style.backgroundColor = 'transparent';
         }
+    });
+
+    // --- Audio Controls ---
+    const audioControls = document.createElement('div');
+    audioControls.className = 'audio-controls';
+    audioControls.innerHTML = `
+        <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
+        <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}">
+    `;
+    container.appendChild(audioControls);
+
+    const speedSlider = audioControls.querySelector('#playback-speed');
+    const speedLabel = audioControls.querySelector('#speed-label');
+
+    speedSlider.addEventListener('input', (e) => {
+        const newRate = parseFloat(e.target.value);
+        setPlaybackRate(newRate);
+        speedLabel.textContent = newRate.toFixed(1);
     });
   }
 
@@ -608,9 +651,10 @@ function renderer({
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
-                        <cite>Moderator \\u{1F4E2} ${timestampHtml}</cite>
+                        <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
-                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
+                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}
+</div>
                         </div>
                     `;
                     break;
@@ -893,7 +937,7 @@ function renderer({
 
     if (eventsToPlay.length > 0) {
         eventsToPlay.forEach(entry => audioState.audioQueue.push({ message: entry.message, speaker: entry.speaker }));
-        if (audioState.isAudioEnabled) {
+        if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
             playNextInQueue();
         }
     }
