@@ -272,7 +272,105 @@ function renderer({
             margin-right: 5px;
             object-fit: cover;
         }
+        .tts-button {
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-left: 10px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .audio-controls {
+            padding: 10px 0;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 10px;
+        }
+        .audio-controls label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #bdc3c7;
+        }
+        .audio-controls input[type="range"] {
+            width: 100%;
+        }
     `;
+
+  // --- TTS Management ---
+  const audioMap = window.AUDIO_MAP || {};
+
+  if (!window.kaggleWerewolf) {
+      window.kaggleWerewolf = {
+          audioQueue: [],
+          isAudioPlaying: false,
+          isAudioEnabled: false,
+          lastPlayedStep: -1,
+          audioPlayer: new Audio(),
+          playbackRate: 1.0,
+      };
+  }
+  const audioState = window.kaggleWerewolf;
+
+  function setPlaybackRate(rate) {
+      audioState.playbackRate = rate;
+      if (audioState.isAudioPlaying) {
+          audioState.audioPlayer.playbackRate = rate;
+      }
+  }
+
+  function playNextInQueue() {
+      if (audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
+          return;
+      }
+      audioState.isAudioPlaying = true;
+      const event = audioState.audioQueue.shift();
+      const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
+      const audioPath = audioMap[audioKey];
+
+      if (audioPath) {
+          audioState.audioPlayer.src = audioPath;
+          audioState.audioPlayer.playbackRate = audioState.playbackRate;
+          audioState.audioPlayer.onended = () => {
+              audioState.isAudioPlaying = false;
+              playNextInQueue();
+          };
+          audioState.audioPlayer.onerror = () => {
+              console.error("Audio playback failed for key:", audioKey);
+              audioState.isAudioPlaying = false;
+              playNextInQueue();
+          };
+          audioState.audioPlayer.play().catch(e => {
+              console.error("Audio playback failed:", e);
+              audioState.isAudioPlaying = false;
+              playNextInQueue();
+          });
+      } else {
+          console.warn(`No audio found for key: "${audioKey}"`);
+          audioState.isAudioPlaying = false;
+          playNextInQueue();
+      }
+  }
+
+  // --- Audio state activation ---
+  if (!parent.dataset.audioListenerAttached) {
+      parent.dataset.audioListenerAttached = 'true';
+      parent.addEventListener('click', () => {
+          if (!audioState.isAudioEnabled) {
+              audioState.isAudioEnabled = true;
+              const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+              audio.play().catch(e => console.warn("Audio context activation failed:", e));
+              playNextInQueue();
+          }
+      }, { once: true });
+  }
+
+  function speak(message, speaker) {
+      if (audioState.isAudioEnabled) {
+          audioState.audioQueue.push({ message, speaker });
+          if (!audioState.isAudioPlaying) {
+              playNextInQueue();
+          }
+      }
+  }
 
   // --- Helper Functions ---
   function formatTimestamp(isoString) {
@@ -307,7 +405,7 @@ function renderer({
               const capsule = createPlayerCapsule(player);
               // Use a regex to replace whole words only to avoid replacing parts of other words.
               // The \b is a word boundary.
-              const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
               newText = newText.replace(regex, capsule);
           }
       });
@@ -325,7 +423,7 @@ function renderer({
 
     sortedPlayerIds.forEach(playerId => {
         // Use a regex to replace whole words only to avoid replacing parts of other words.
-        const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'g');
+        const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
         newText = newText.replace(regex, `<strong>${playerId}</strong>`);
     });
     return newText;
@@ -357,11 +455,11 @@ function renderer({
         if (player.role === 'Werewolf') {
             roleDisplay = `\uD83D\uDC3A ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `\uD83E\uDE79 ${player.role}`;
+            roleDisplay = `\uD83E\uDE7A ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `\uD83D\uDC41\uFE0F ${player.role}`;
+            roleDisplay = `\uD83D\uDD2E ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `\uD83D\uDE36 ${player.role}`;
+            roleDisplay = `\uD83E\uDDD1 ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -395,6 +493,24 @@ function renderer({
             indicator.style.backgroundColor = 'transparent';
         }
     });
+
+    // --- Audio Controls ---
+    const audioControls = document.createElement('div');
+    audioControls.className = 'audio-controls';
+    audioControls.innerHTML = `
+        <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
+        <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}">
+    `;
+    container.appendChild(audioControls);
+
+    const speedSlider = audioControls.querySelector('#playback-speed');
+    const speedLabel = audioControls.querySelector('#speed-label');
+
+    speedSlider.addEventListener('input', (e) => {
+        const newRate = parseFloat(e.target.value);
+        setPlaybackRate(newRate);
+        speedLabel.textContent = newRate.toFixed(1);
+    });
   }
 
   function renderEventLog(container, gameState, playerMap) {
@@ -413,7 +529,7 @@ function renderer({
         logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-
+            
             // --- Phase Correction Logic ---
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
@@ -431,7 +547,7 @@ function renderer({
             }
 
             const phaseClass = `event-${phase.toLowerCase()}`;
-
+            
             let phaseEmoji = phase;
             if (phase === 'DAY') {
                 phaseEmoji = '\u2600\uFE0F'; // Sun emoji
@@ -453,11 +569,21 @@ function renderer({
                         <div class="message-content">
                             <cite>${speaker.name} ${timestampHtml}</cite>
                             <div class="balloon">
-                                <div class="balloon-text"><quote>${messageText}</quote></div>
+                                <div class="balloon-text">
+                                    <quote>${messageText}</quote>
+                                </div>
                                 ${reasoningHtml}
                             </div>
                         </div>
                     `;
+                    const balloonText = li.querySelector('.balloon-text');
+                    if (balloonText) {
+                        const ttsButton = document.createElement('span');
+                        ttsButton.className = 'tts-button';
+                        ttsButton.textContent = '\uD83D\uDD0A'; // Speaker icon
+                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
+                        balloonText.appendChild(ttsButton);
+                    }
                     break;
                 case 'seer_inspection':
                     const seerInspector = playerMap.get(entry.actor_id);
@@ -514,7 +640,7 @@ function renderer({
 
                     let systemText = entry.text;
                     // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\\\[(.*?)\\\]/g;
+                    const listRegex = /\\\\[(.*?)\\\\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         // listContent is "'player-1', 'player-2', 'player-3'"
                         return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
@@ -525,7 +651,7 @@ function renderer({
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
-                        <cite>Moderator &#128226; ${timestampHtml}</cite>
+                        <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
@@ -646,21 +772,34 @@ function renderer({
         eventLog: [],
         playerThreatLevels: new Map()
     };
+
     const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
-    if (!firstObs) {
-        container.textContent = "Waiting for game data...";
+    let allPlayerNamesList;
+    let playerThumbnails = {};
+
+    if (firstObs && firstObs.all_player_ids) {
+        allPlayerNamesList = firstObs.all_player_ids;
+        playerThumbnails = firstObs.player_thumbnails || {};
+    } else if (environment.configuration && environment.configuration.agents) {
+        console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
+        allPlayerNamesList = environment.configuration.agents.map(agent => agent.id);
+        environment.configuration.agents.forEach(agent => {
+            if (agent.id && agent.thumbnail) {
+                playerThumbnails[agent.id] = agent.thumbnail;
+            }
+        });
+    }
+
+    if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
+        container.textContent = "Waiting for game data: No players found in observation or configuration.";
         parent.appendChild(container);
         return;
     }
-    const agentConfig = environment.configuration.agents
-    const playerThumbnails = firstObs.player_thumbnails || {};
-    const allPlayerNamesList = firstObs.all_player_ids;
-//    gameState.players = allPlayerNamesList.map(name => ({
-//        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
-//        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
-//    }));
-    gameState.players = agentConfig.map(p => ({
-	name: p.id, is_alive: true, role: p.role, team: 'Unknown', status: 'Alive', thumbnail: p.thumbnail}))
+
+    gameState.players = allPlayerNamesList.map(name => ({
+        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
+        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
+    }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
     // Initialize all threat levels to 0 (SAFE)
@@ -702,7 +841,7 @@ function renderer({
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
             if (currentObsForStep.day > lastDay) {
-                if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
+                if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', step: s, day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
             }
             lastDay = currentObsForStep.day;
             lastPhase = currentObsForStep.phase;
@@ -733,7 +872,7 @@ function renderer({
                     const match = historyEvent.description.match(/P(player_\d+)/);
                     if (match) {
                         const actor_id = match[1];
-                        gameState.eventLog.push({ type: 'timeout', day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
+                        gameState.eventLog.push({ type: 'timeout', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
                     }
                 }
                 return;
@@ -741,46 +880,113 @@ function renderer({
 
              switch (dataEntry.data_type) {
                 case 'ChatDataEntry':
-                    gameState.eventLog.push({ type: 'chat', day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                    gameState.eventLog.push({ type: 'chat', step: s, day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
                     break;
                 case 'DayExileVoteDataEntry':
-                    gameState.eventLog.push({ type: 'vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'vote', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'WerewolfNightVoteDataEntry':
-                    gameState.eventLog.push({ type: 'night_vote', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'night_vote', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'DoctorHealActionDataEntry':
-                    gameState.eventLog.push({ type: 'doctor_heal_action', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'doctor_heal_action', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'SeerInspectActionDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection', day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                    gameState.eventLog.push({ type: 'seer_inspection', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                     break;
                 case 'DayExileElectedDataEntry':
-                    gameState.eventLog.push({ type: 'exile', day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
+                    gameState.eventLog.push({ type: 'exile', step: s, day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
                     break;
                 case 'WerewolfNightEliminationDataEntry':
-                    gameState.eventLog.push({ type: 'elimination', day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
+                    gameState.eventLog.push({ type: 'elimination', step: s, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                     break;
                 case 'SeerInspectResultDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection_result', day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                    gameState.eventLog.push({ type: 'seer_inspection_result', step: s, day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
                     break;
                 case 'DoctorSaveDataEntry':
-                    gameState.eventLog.push({ type: 'save', day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
+                    gameState.eventLog.push({ type: 'save', step: s, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
                     break;
                 case 'GameEndResultsDataEntry':
                     gameState.gameWinner = data.winner_team;
                     const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                     const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                    gameState.eventLog.push({ type: 'game_over', day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
+                    gameState.eventLog.push({ type: 'game_over', step: s, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
                     break;
                 default:
                     if (historyEvent.entry_type === "moderator_announcement") {
-                        gameState.eventLog.push({ type: 'system', day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
+                        gameState.eventLog.push({ type: 'system', step: s, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
                     }
                     break;
              }
         });
     }
+
+    // --- Audio Playback Management ---
+    if (step < audioState.lastPlayedStep) {
+        audioState.audioQueue = [];
+        audioState.isAudioPlaying = false;
+        if (audioState.audioPlayer) {
+            audioState.audioPlayer.pause();
+        }
+    }
+
+    const eventsToPlay = gameState.eventLog.filter(entry =>
+        entry.step > audioState.lastPlayedStep && entry.step <= step
+    );
+
+    if (eventsToPlay.length > 0) {
+        eventsToPlay.forEach(entry => {
+            let audioEvent = null;
+            if (entry.type === 'chat') {
+                audioEvent = { message: entry.message, speaker: entry.speaker };
+            } else if (entry.type === 'system') {
+                const text = entry.text.toLowerCase();
+                if (text.includes('night') && text.includes('begins')) {
+                    audioEvent = { message: 'night_begins', speaker: 'moderator' };
+                } else if (text.includes('day') && text.includes('begins')) {
+                    audioEvent = { message: 'day_begins', speaker: 'moderator' };
+                } else if (text.includes('discussion')) {
+                    audioEvent = { message: 'discussion_begins', speaker: 'moderator' };
+                } else if (text.includes('voting phase begins')) {
+                    audioEvent = { message: 'voting_begins', speaker: 'moderator' };
+                }
+            } else if (entry.type === 'exile') {
+                const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'elimination') {
+                const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'save') {
+                const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'game_over') {
+                const message = `The game is over. The ${entry.winner} team has won!`;
+                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'night_vote') {
+//                const message = `Player ${entry.actor_id} has voted to eliminate player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'vote') {
+//                const message = `Player ${entry.actor_id} has voted to exile player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'seer_inspection') {
+//                const message = `The Seer, player ${entry.actor_id}, has chosen to inspect player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'doctor_heal_action') {
+//                const message = `The Doctor, player ${entry.actor_id}, has chosen to heal player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+            }
+
+            if (audioEvent) {
+                audioState.audioQueue.push(audioEvent);
+            }
+        });
+
+        if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
+            playNextInQueue();
+        }
+    }
+    audioState.lastPlayedStep = step;
+
 
     // Update player statuses based on the final log
     gameState.players.forEach(p => { p.is_alive = true; p.status = 'Alive'; });
