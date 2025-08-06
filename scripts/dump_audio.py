@@ -38,6 +38,8 @@ def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
 
 def get_tts_audio(text: str, voice_name: str) -> bytes | None:
     """Fetches TTS audio from Gemini API and returns the audio content as bytes."""
+    if not text:
+        return None
     response = client.models.generate_content(
        model="gemini-2.5-flash-preview-tts",
        contents=text,
@@ -71,15 +73,26 @@ else:
         "qwen": "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
     }
 
-    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
-    random.shuffle(roles)
-    names = ["gemini-2.5-flash", "deepseek-r1", "kimi-k2", "qwen3", "gpt-4.1", "o4-mini", "claude-4-sonnet", "grok-4"]
-
     parameter_dict = {
         "together_ai/deepseek-ai/DeepSeek-R1": {"max_tokens": 163839},
         "claude-4-sonnet-20250514": {"max_tokens": 64000}
     }
 
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
+    random.shuffle(roles)
+    # names = ["gemini-2.5-flash", "deepseek-r1", "kimi-k2", "qwen3", "gpt-4.1", "o4-mini", "claude-4-sonnet", "grok-4"]
+    names = ["gemini-2.5-flash", "deepseek-r1", "kimi-k2", "qwen3", "gpt-4.1", "o4-mini", "gemini-2.5-pro", "grok-4"]
+
+    # models = [
+    #     "gemini/gemini-2.5-flash",
+    #     "together_ai/deepseek-ai/DeepSeek-R1",
+    #     "together_ai/moonshotai/Kimi-K2-Instruct",
+    #     "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+    #     "gpt-4.1",
+    #     "o4-mini",
+    #     "claude-4-sonnet-20250514",
+    #     "xai/grok-4-latest",
+    # ]
     models = [
         "gemini/gemini-2.5-flash",
         "together_ai/deepseek-ai/DeepSeek-R1",
@@ -87,14 +100,15 @@ else:
         "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
         "gpt-4.1",
         "o4-mini",
-        "claude-4-sonnet-20250514",
+        "gemini/gemini-2.5-pro",
         "xai/grok-4-latest",
     ]
 
-    brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'claude', 'grok']
+    # brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'claude', 'grok']
+    brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'gemini', 'grok']
 
     voices = ['Kore', 'Charon', 'Leda', 'Despina', 'Erinome', 'Gacrux', 'Achird', 'Puck']
-    random.shuffle(voices)
+    # random.shuffle(voices)
 
     agents_config = [
         {"role": role, "id": name, "agent_id": f"llm_harness/{model}",
@@ -120,15 +134,15 @@ else:
             "discussion_protocol": {
                 "name": "RoundRobinDiscussion",
                 "params": {
-                    "max_rounds": 2
+                    "max_rounds": 1
                 }
             }
         }
     )
 
     print("2. Running a full game episode...")
-    agents = [f"llm/{model}" for model in models]
-    # agents = ['random'] * 8
+    # agents = [f"llm/{model}" for model in models]
+    agents = ['random'] * 8
     env.run(agents)
 
     print("3. Extracting dialogue and generating audio files...")
