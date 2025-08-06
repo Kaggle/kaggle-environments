@@ -413,13 +413,13 @@ function renderer({
         logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-            
+
             // --- Phase Correction Logic ---
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
             const systemText = (entry.text || '').toLowerCase();
 
-            if (entryType === 'exile' || entryType === 'vote' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
+            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
                 phase = 'DAY';
             } else if (
                 entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
@@ -431,7 +431,7 @@ function renderer({
             }
 
             const phaseClass = `event-${phase.toLowerCase()}`;
-            
+
             let phaseEmoji = phase;
             if (phase === 'DAY') {
                 phaseEmoji = '\u2600\uFE0F'; // Sun emoji
@@ -514,7 +514,7 @@ function renderer({
 
                     let systemText = entry.text;
                     // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\[(.*?)\]/g;
+                    const listRegex = /\\\[(.*?)\\\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         // listContent is "'player-1', 'player-2', 'player-3'"
                         return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
@@ -558,6 +558,22 @@ function renderer({
                             <cite>${voter.name} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
+                     `;
+                     break;
+                case 'timeout':
+                    const to_voter = playerMap.get(entry.actor_id);
+                    if (!to_voter) return;
+                    const to_voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
+                    li.className = `chat-entry event-day`;
+                    li.innerHTML = `
+                        <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>${to_voter.name} ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">${to_voterCap} timed out and abstained from voting.</div>
                                 ${reasoningHtml}
                             </div>
                         </div>
@@ -701,14 +717,24 @@ function renderer({
              processedEvents.add(eventKey);
 
              const historyEvent = JSON.parse(dataEntry.json_str);
-             if (!historyEvent.data) return;
              const data = historyEvent.data;
              const timestamp = historyEvent.created_at;
 
             // Update threat level whenever an action with that info appears
-            if (data.actor_id && data.perceived_threat_level) {
+            if (data && data.actor_id && data.perceived_threat_level) {
                 const threatScore = threatStringToLevel(data.perceived_threat_level);
                 gameState.playerThreatLevels.set(data.actor_id, threatScore);
+            }
+
+            if (!data) {
+                if (historyEvent.entry_type === 'vote_action') {
+                    const match = historyEvent.description.match(/P(player_\d+)/);
+                    if (match) {
+                        const actor_id = match[1];
+                        gameState.eventLog.push({ type: 'timeout', day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
+                    }
+                }
+                return;
             }
 
              switch (dataEntry.data_type) {
