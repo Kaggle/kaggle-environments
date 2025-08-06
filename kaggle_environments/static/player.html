@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <title>Kaggle Simulation Player</title>
@@ -96,7 +96,7 @@
             </g>
           </svg>
         </a>
-      `
+      `,
       )`
         display: inline-flex;
       `;
@@ -129,11 +129,9 @@
 
         useEffect(async () => {
           if (!ref.current) return;
-
           const renderFrame = async (start, step, lastFrame) => {
             if (step !== context.step) return;
             if (lastFrame === 1) {
-              if (!animate) return;
               start = Date.now();
             }
             const frame =
@@ -142,16 +140,18 @@
                 : 1;
             try {
               if (debug) console.time("render");
-              await renderer({
-                ...context,
-                frame,
-                height: ref.current.clientHeight,
-                hooks: preactHooks,
-                parent: ref.current,
-                preact,
-                styled,
-                width: ref.current.clientWidth,
-              });
+              if (typeof renderer === "function") {
+                await renderer({
+                  ...context,
+                  frame,
+                  height: ref.current.clientHeight,
+                  hooks: preactHooks,
+                  parent: ref.current,
+                  preact,
+                  styled,
+                  width: ref.current.clientWidth,
+                });
+              }
             } catch (error) {
               if (debug) console.error(error);
               console.log({ ...context, frame, error });
@@ -199,7 +199,7 @@
           ${processing && h`<${Processing} />`}
         </div>`;
       })`
-        background-color: #1C1D20;
+        background-color: #1c1d20;
         display: flex;
         flex: 1;
         overflow: hidden;
@@ -210,34 +210,40 @@
       // Partitions the elements of arr into subarrays of max length num.
       const groupIntoSets = (arr, num) => {
         const sets = [];
-        arr.forEach(a => {
+        arr.forEach((a) => {
           if (sets.length === 0 || sets[sets.length - 1].length === num) {
             sets.push([]);
           }
           sets[sets.length - 1].push(a);
         });
         return sets;
-      }
+      };
 
       // Expects `width` input prop to set proper max-width for agent name span.
       const Legend = styled((props) => {
         const { agents, legend } = useContext(Context);
 
-        const agentPairs = groupIntoSets(agents.sort((a, b) => a.index - b.index), 2);
+        const agentPairs = groupIntoSets(
+          agents.sort((a, b) => a.index - b.index),
+          2,
+        );
 
         return h`<div className=${props.className}>
-          ${agentPairs.map(agentList =>
-            h`<ul>
-                ${agentList.map(a =>
-                  h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
+          ${agentPairs.map(
+            (agentList) =>
+              h`<ul>
+                ${agentList.map(
+                  (a) =>
+                    h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
                       ${a.image && h`<img src=${a.image} />`}
                       <span>${a.name}</span>
-                    </li>`
+                    </li>`,
                 )}
-              </ul>`)}
+              </ul>`,
+          )}
         </div>`;
       })`
-        background-color: #1C1D20;
+        background-color: #1c1d20;
         font-family: sans-serif;
         font-size: 14px;
         height: 48px;
@@ -257,7 +263,7 @@
         }
 
         span {
-          max-width: ${p => (p.width || 400) * 0.5 - 36}px;
+          max-width: ${(p) => (p.width || 400) * 0.5 - 36}px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -343,9 +349,8 @@
       `;
 
       const Controls = styled((props) => {
-        const { environment, pause, play, playing, setStep, step } = useContext(
-          Context
-        );
+        const { environment, pause, play, playing, setStep, step } =
+          useContext(Context);
         const value = step + 1;
         const onClick = () => (playing ? pause() : play());
         const onInput = (e) => {
@@ -356,13 +361,11 @@
         return h`
           <div className=${props.className}>
             <${PlayButton} onClick=${onClick}><svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="#FFFFFF">${
-          playing
-            ? h`<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/><path d="M0 0h24v24H0z" fill="none"/>`
-            : h`<path d="M8 5v14l11-7z"/><path d="M0 0h24v24H0z" fill="none"/>`
-        }</svg><//>
-            <${StepInput} min="1" max=${
-          environment.steps.length
-        } value="${value}" onInput=${onInput} />
+              playing
+                ? h`<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/><path d="M0 0h24v24H0z" fill="none"/>`
+                : h`<path d="M8 5v14l11-7z"/><path d="M0 0h24v24H0z" fill="none"/>`
+            }</svg><//>
+            <${StepInput} min="1" max=${environment.steps.length} value="${value}" onInput=${onInput} />
             <${StepCount}>${value} / ${environment.steps.length}<//>
           </div>
         `;
@@ -401,9 +404,8 @@
       `;
 
       const Settings = styled((props) => {
-        const { environment, pause, play, playing, setStep, step } = useContext(
-          Context
-        );
+        const { environment, pause, play, playing, setStep, step } =
+          useContext(Context);
 
         return h`
           <div className=${props.className}>
@@ -424,13 +426,14 @@
 
       const Player = styled((props) => {
         const context = useContext(Context);
-        const { agents, controls, header, legend, loading, settings, width } = context;
+        const { agents, controls, header, legend, loading, settings, width } =
+          context;
         return h`
           <div className=${props.className}>
             ${loading && h`<${Loading} />`}
             ${!loading && header && h`<${Header} />`}
             ${!loading && h`<${Viewer} />`}
-            ${!loading && legend && h`<${Legend} width=${width}/>`}
+            ${!loading && legend && agents?.length > 0 && h`<${Legend} width=${width}/>`}
             ${!loading && controls && h`<${Controls} />`}
             ${!loading && settings && h`<${Settings} />`}
           </div>`;
@@ -444,7 +447,6 @@
         justify-content: center;
         position: relative;
         width: 100%;
-
         &:not(.no-border) {
           border: 4px solid #212121;
         }
@@ -544,7 +546,7 @@
             updateContext(window.kaggle || {});
 
             if (window.kaggle?.playing) {
-                play(true);
+              play(true);
             }
 
             // Listen for messages received to update the context.
@@ -554,16 +556,19 @@
                 // Ensure the environment names match before updating.
                 try {
                   if (
-                    event.data.environment?.name == contextRef.current.environment.name ||
-                    event.data.environment?.name && !contextRef.current.environment.name ||
-                    event.data.environment?.loading !== contextRef.current.environment.loading
+                    event.data.environment?.name ==
+                      contextRef.current.environment.name ||
+                    (event.data.environment?.name &&
+                      !contextRef.current.environment.name) ||
+                    event.data.environment?.loading !==
+                      contextRef.current.environment.loading
                   ) {
                     const nextContext = {
                       ...event.data,
                       environment: {
                         ...event.data.environment,
-                        steps: event.data.environment?.steps ?? []
-                      }
+                        steps: event.data.environment?.steps ?? [],
+                      },
                     };
                     window.kaggle = nextContext;
                     if (!window.kaggle.renderer) {
@@ -576,21 +581,24 @@
                       ...(window.kaggle ?? {}),
                       environment: {
                         ...(window.kaggle?.environment ?? {}),
-                        steps: event.data.setSteps
-                      }
-                    }
+                        steps: event.data.setSteps,
+                      },
+                    };
                     window.kaggle = nextContext;
                     if (!window.kaggle.renderer) {
                       window.kaggle.renderer = window.renderer;
                     }
-                    updateContext(nextContext)
+                    updateContext(nextContext);
                   }
 
                   // Side load the renderer script if it is specified by the post message event and not already loaded.
-                  const renderScriptId = 'rendererScript'
-                  if (event.data.environment?.rendererUrl && !document.querySelector(`#${renderScriptId}`)) {
+                  const renderScriptId = "rendererScript";
+                  if (
+                    event.data.environment?.rendererUrl &&
+                    !document.querySelector(`#${renderScriptId}`)
+                  ) {
                     window.rendererUrl = event.data.environment?.rendererUrl;
-                    const script = document.createElement('script');
+                    const script = document.createElement("script");
                     script.id = renderScriptId;
                     script.onload = () => {
                       window.kaggle.renderer = window.renderer;
@@ -600,7 +608,7 @@
                   }
                 } catch {}
               },
-              false
+              false,
             );
             // Listen for keyboard commands.
             window.addEventListener(
@@ -614,12 +622,15 @@
                   environment,
                 } = contextRef.current;
                 const key = event.keyCode;
-                const zero_key = 48
-                const nine_key = 57
+                const zero_key = 48;
+                const nine_key = 57;
                 if (
                   interactive ||
                   isInteractive() ||
-                  (key !== 32 && key !== 37 && key !== 39 && !(key >= zero_key && key <= nine_key))
+                  (key !== 32 &&
+                    key !== 37 &&
+                    key !== 39 &&
+                    !(key >= zero_key && key <= nine_key))
                 )
                   return;
 
@@ -639,7 +650,7 @@
                 event.preventDefault();
                 return false;
               },
-              false
+              false,
             );
           }, 1);
         }, []);
@@ -711,7 +722,7 @@
 
         return h`
           <${Context.Provider} value=${contextRef.current}>
-            <${Player} className="${contextRef.current.environment.viewer ? 'no-border' : ''}" />
+            <${Player} className="${contextRef.current.environment.viewer ? "no-border" : ""}" />
           <//>`;
       };
 
