@@ -962,6 +962,18 @@ function renderer({
             } else if (entry.type === 'game_over') {
                 const message = `The game is over. The ${entry.winner} team has won!`;
                 audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'night_vote') {
+//                const message = `Player ${entry.actor_id} has voted to eliminate player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'vote') {
+//                const message = `Player ${entry.actor_id} has voted to exile player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'seer_inspection') {
+//                const message = `The Seer, player ${entry.actor_id}, has chosen to inspect player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
+//            } else if (entry.type === 'doctor_heal_action') {
+//                const message = `The Doctor, player ${entry.actor_id}, has chosen to heal player ${entry.target}.`;
+//                audioEvent = { message: message, speaker: 'moderator' };
             }
 
             if (audioEvent) {
