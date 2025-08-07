@@ -5,7 +5,108 @@ function renderer({
   height = 700, // Default height
   width = 1100, // Default width
 }) {
-  // --- CSS for the UI (remains the same) ---
+  // --- THREE.js Scene Setup (Singleton Pattern) ---
+  if (!window.werewolfThreeJs) {
+    window.werewolfThreeJs = {
+      initialized: false,
+      scene: null,
+      camera: null,
+      renderer: null,
+      model: null,
+      ambientLight: null,
+      directionalLight: null,
+    };
+  }
+  const threeState = window.werewolfThreeJs;
+
+  function initThreeJs() {
+    if (threeState.initialized) {
+        if (threeState.renderer && parent && !parent.contains(threeState.renderer.domElement)) {
+            parent.appendChild(threeState.renderer.domElement);
+        }
+        return;
+    }
+
+    if (typeof THREE === 'undefined' || (typeof THREE.GLTFLoader === 'undefined')) {
+      const scriptId = 'threejs-script';
+      if (document.getElementById(scriptId)) return; // Script already requested
+
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+      script.onload = () => {
+        const loaderScript = document.createElement('script');
+        loaderScript.id = 'gltf-loader-script';
+        loaderScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+        loaderScript.onload = setupScene;
+        document.head.appendChild(loaderScript);
+      };
+      document.head.appendChild(script);
+    } else {
+      setupScene();
+    }
+  }
+
+  function setupScene() {
+    if (threeState.initialized) return;
+
+    threeState.scene = new THREE.Scene();
+    threeState.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    threeState.renderer = new THREE.WebGLRenderer({ antialias: true }); // No alpha needed
+    threeState.renderer.setSize(width, height);
+
+    const threeCanvas = threeState.renderer.domElement;
+    threeCanvas.style.position = 'absolute';
+    threeCanvas.style.top = '0';
+    threeCanvas.style.left = '0';
+    threeCanvas.style.zIndex = '0'; // Behind UI
+    parent.appendChild(threeCanvas);
+
+    threeState.ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    threeState.scene.add(threeState.ambientLight);
+    threeState.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    threeState.directionalLight.position.set(5, 10, 7.5);
+    threeState.scene.add(threeState.directionalLight);
+
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      'https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf',
+      function (gltf) {
+        threeState.model = gltf.scene;
+        threeState.model.scale.set(2, 2, 2);
+        threeState.model.position.set(0, 0, 0);
+        threeState.scene.add(threeState.model);
+      }
+    );
+
+    threeState.camera.position.z = 5;
+    threeState.initialized = true;
+    animate();
+  }
+
+  function animate() {
+    if (!threeState.initialized) return;
+    requestAnimationFrame(animate);
+    if (threeState.model) {
+      threeState.model.rotation.y += 0.005;
+    }
+    threeState.renderer.render(threeState.scene, threeState.camera);
+  }
+
+  function updateBackground(isNight) {
+      if (!threeState.initialized) return;
+      if (isNight) {
+          threeState.scene.background = new THREE.Color(0x2c3e50); // Night color from CSS var
+          threeState.ambientLight.intensity = 0.5;
+          threeState.directionalLight.intensity = 0.5;
+      } else {
+          threeState.scene.background = new THREE.Color(0x3498db); // Day color from CSS var
+          threeState.ambientLight.intensity = 1.0;
+          threeState.directionalLight.intensity = 1.0;
+      }
+  }
+
+  // --- CSS for the UI ---
   const css = `
         :root {
             --night-bg: #2c3e50;
@@ -21,45 +122,31 @@ function renderer({
             width: 100%;
             height: 100%;
         }
-        .background {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            background-size: cover;
-            background-position: center;
-            transition: background-image 1s ease-in-out;
-        }
         .main-container {
             position: relative;
             z-index: 1;
             display: flex;
             height: 100%;
             width: 100%;
-            background-color: rgba(0,0,0,0.3);
+            background-color: transparent; /* Make container transparent */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: var(--night-text);
+        }
+        .left-panel, .right-panel {
+            /* Make panels semi-transparent to see the background */
+            background-color: rgba(44, 62, 80, 0.6);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
         }
         .left-panel {
             width: 300px;
             flex-shrink: 0;
-            background-color: rgba(44, 62, 80, 0.85);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            box-sizing: border-box;
         }
         .right-panel {
             flex-grow: 1;
-            background-color: rgba(44, 62, 80, 0.85);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            box-sizing: border-box;
         }
         .right-panel h1, #player-list-area h1 {
             margin-top: 0;
@@ -744,21 +831,24 @@ function renderer({
     logUl.scrollTop = logUl.scrollHeight;
   }
 
-    parent.innerHTML = ''; // Clear previous rendering
+    // --- Main Rendering Logic ---
 
-    const container = document.createElement("div");
-    Object.assign(container.style, {
-        fontFamily: "Arial, sans-serif",
-        padding: "15px",
-        width: `${width}px`,
-        height: `${height}px`,
-        overflow: "hidden",
-        position: 'relative',
-    });
+    // Clean up previous UI, but not the canvas
+    const oldUI = parent.querySelector('.main-container');
+    if (oldUI) {
+        parent.removeChild(oldUI);
+    }
+    const oldStyle = parent.querySelector('style');
+    if (oldStyle) {
+        parent.removeChild(oldStyle);
+    }
+
+    initThreeJs(); // Initialize three.js if not already done
 
     if (!environment || !environment.steps || environment.steps.length === 0 || step >= environment.steps.length) {
-        container.textContent = "Waiting for game data or invalid step...";
-        parent.appendChild(container);
+        const tempContainer = document.createElement("div");
+        tempContainer.textContent = "Waiting for game data or invalid step...";
+        parent.appendChild(tempContainer);
         return;
     }
 
@@ -791,8 +881,9 @@ function renderer({
     }
 
     if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
-        container.textContent = "Waiting for game data: No players found in observation or configuration.";
-        parent.appendChild(container);
+        const tempContainer = document.createElement("div");
+        tempContainer.textContent = "Waiting for game data: No players found in observation or configuration.";
+        parent.appendChild(tempContainer);
         return;
     }
 
@@ -962,18 +1053,6 @@ function renderer({
             } else if (entry.type === 'game_over') {
                 const message = `The game is over. The ${entry.winner} team has won!`;
                 audioEvent = { message: message, speaker: 'moderator' };
-//            } else if (entry.type === 'night_vote') {
-//                const message = `Player ${entry.actor_id} has voted to eliminate player ${entry.target}.`;
-//                audioEvent = { message: message, speaker: 'moderator' };
-//            } else if (entry.type === 'vote') {
-//                const message = `Player ${entry.actor_id} has voted to exile player ${entry.target}.`;
-//                audioEvent = { message: message, speaker: 'moderator' };
-//            } else if (entry.type === 'seer_inspection') {
-//                const message = `The Seer, player ${entry.actor_id}, has chosen to inspect player ${entry.target}.`;
-//                audioEvent = { message: message, speaker: 'moderator' };
-//            } else if (entry.type === 'doctor_heal_action') {
-//                const message = `The Doctor, player ${entry.actor_id}, has chosen to heal player ${entry.target}.`;
-//                audioEvent = { message: message, speaker: 'moderator' };
             }
 
             if (audioEvent) {
@@ -1016,7 +1095,6 @@ function renderer({
     const actingPlayerIndex = lastStepStateList.findIndex(s => s.status === 'ACTIVE');
     const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N.A";
 
-    parent.innerHTML = '';
     Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
     parent.className = 'werewolf-parent';
 
@@ -1024,15 +1102,11 @@ function renderer({
     style.textContent = css;
     parent.appendChild(style);
 
-    const isNight = gameState.game_state_phase === 'Night';
-    parent.classList.toggle('night', isNight);
-    parent.classList.toggle('day', !isNight);
+    const isNight = (gameState.game_state_phase || '').toLowerCase() === 'night';
+    updateBackground(isNight);
 
-    const background = document.createElement('div');
-    background.className = 'background';
     const mainContainer = document.createElement('div');
     mainContainer.className = 'main-container';
-    parent.appendChild(background);
     parent.appendChild(mainContainer);
 
     const leftPanel = document.createElement('div');
