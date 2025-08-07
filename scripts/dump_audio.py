@@ -211,6 +211,30 @@ else:
                     winner_team = data.get('winner_team')
                     if winner_team:
                         dynamic_moderator_messages.add(f"The game is over. The {winner_team} team has won!")
+                elif data_type == "WerewolfNightEliminationElectedDataEntry":
+                    player_id = data.get('elected_target_player_id')
+                    if player_id:
+                        dynamic_moderator_messages.add(f"The werewolves have chosen to eliminate player {player_id}.")
+                # elif data_type == "SeerInspectActionDataEntry":
+                #     actor_id = data.get('actor_id')
+                #     target_id = data.get('target_id')
+                #     if actor_id and target_id:
+                #         dynamic_moderator_messages.add(f"The Seer, player {actor_id}, has chosen to inspect player {target_id}.")
+                # elif data_type == "DoctorHealActionDataEntry":
+                #     actor_id = data.get('actor_id')
+                #     target_id = data.get('target_id')
+                #     if actor_id and target_id:
+                #         dynamic_moderator_messages.add(f"The Doctor, player {actor_id}, has chosen to heal player {target_id}.")
+                # elif data_type == "WerewolfNightVoteDataEntry":
+                #     actor_id = data.get('actor_id')
+                #     target_id = data.get('target_id')
+                #     if actor_id and target_id:
+                #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to eliminate player {target_id}.")
+                # elif data_type == "DayExileVoteDataEntry":
+                #     actor_id = data.get('actor_id')
+                #     target_id = data.get('target_id')
+                #     if actor_id and target_id:
+                #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to exile player {target_id}.")
 
             except json.JSONDecodeError:
                 print(f"  - Warning: Could not decode JSON: {json_str}")
