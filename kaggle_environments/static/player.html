@@ -570,10 +570,13 @@
                         steps: event.data.environment?.steps ?? [],
                       },
                     };
-                    window.kaggle = nextContext;
-                    if (!window.kaggle.renderer) {
-                      window.kaggle.renderer = window.renderer;
+                    if (
+                      !nextContext.renderer ||
+                      typeof nextContext.renderer !== "function"
+                    ) {
+                      nextContext.renderer = contextRef.current.renderer;
                     }
+                    window.kaggle = nextContext;
                     updateContext(nextContext);
                   }
                   if (event.data.setSteps) {
@@ -584,10 +587,14 @@
                         steps: event.data.setSteps,
                       },
                     };
-                    window.kaggle = nextContext;
-                    if (!window.kaggle.renderer) {
-                      window.kaggle.renderer = window.renderer;
+                    if (
+                      !nextContext.renderer ||
+                      typeof nextContext.renderer !== "function"
+                    ) {
+                      nextContext.renderer = contextRef.current.renderer;
                     }
+
+                    window.kaggle = nextContext;
                     updateContext(nextContext);
                   }
 
