@@ -70,12 +70,16 @@ function renderer({
 
     const loader = new THREE.GLTFLoader();
     loader.load(
-      'https://threejs.org/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.gltf',
+      'assets/low_poly_medieval_windmill/scene.gltf',
       function (gltf) {
         threeState.model = gltf.scene;
-        threeState.model.scale.set(2, 2, 2);
-        threeState.model.position.set(0, 0, 0);
+        threeState.model.scale.set(0.5, 0.5, 0.5); // Adjust scale for the new model
+        threeState.model.position.set(0, -2, 0); // Adjust position
         threeState.scene.add(threeState.model);
+      },
+      undefined,
+      function(error) {
+        console.error('An error occurred loading the model:', error);
       }
     );
 

@@ -1,9 +1,11 @@
+import argparse
 import base64
 import hashlib
 import json
 import os
 import random
 import http.server
+import shutil
 import socketserver
 import wave
 from kaggle_environments import make
@@ -13,8 +15,9 @@ from google.genai import types
 
 # --- Configuration ---
 PORT = 8000
-AUDIO_DIR = "audio"
-OUTPUT_HTML_FILE = "game_replay_audio.html"
+OUTPUT_DIR = "werewolf_replay"
+AUDIO_DIR_NAME = "audio"
+OUTPUT_HTML_FILENAME = "replay.html"
 MODERATOR_VOICE = "enceladus"  # A distinct voice for the moderator
 
 # --- Setup ---
@@ -22,14 +25,30 @@ MODERATOR_VOICE = "enceladus"  # A distinct voice for the moderator
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Create the audio directory if it doesn't exist
+# Create the output directory and audio subdirectory
+AUDIO_DIR = os.path.join(OUTPUT_DIR, AUDIO_DIR_NAME)
+OUTPUT_HTML_FILE = os.path.join(OUTPUT_DIR, OUTPUT_HTML_FILENAME)
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
+# Copy assets directory to the output folder for the 3D model
+SOURCE_ASSETS_DIR = "assets"
+dest_assets_dir = os.path.join(OUTPUT_DIR, "assets")
+if os.path.exists(SOURCE_ASSETS_DIR):
+    if os.path.exists(dest_assets_dir):
+        shutil.rmtree(dest_assets_dir) # remove existing assets to copy fresh
+    shutil.copytree(SOURCE_ASSETS_DIR, dest_assets_dir)
+    print(f"Copied '{SOURCE_ASSETS_DIR}' to '{dest_assets_dir}' for 3D rendering.")
+
+
 # --- Main Script ---
-if not GEMINI_API_KEY:
-    print("Error: GEMINI_API_KEY not found in .env file.")
-else:
-    client = genai.Client()
+def main(generate_audio=True):
+    client = None
+    if generate_audio:
+        if not GEMINI_API_KEY:
+            print("Error: GEMINI_API_KEY not found in .env file. Audio generation requires it.")
+            print("You can run with --no-audio to generate a replay without sound.")
+            return
+        client = genai.Client()
 
     # --- Helper Functions ---
     def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
@@ -107,10 +126,10 @@ else:
         "xai/grok-4-latest",
     ]
 
-    # brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'claude', 'grok']
-    brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'gemini', 'grok']
+    # brands = ["gemini", "deepseek", "kimi", "qwen", "openai", "openai", "claude", "grok"]
+    brands = ["gemini", "deepseek", "kimi", "qwen", "openai", "openai", "gemini", "grok"]
 
-    voices = ['Kore', 'Charon', 'Leda', 'Despina', 'Erinome', 'Gacrux', 'Achird', 'Puck']
+    voices = ["Kore", "Charon", "Leda", "Despina", "Erinome", "Gacrux", "Achird", "Puck"]
     # random.shuffle(voices)
 
     agents_config = [
@@ -148,131 +167,139 @@ else:
     agents = ['random'] * 8
     env.run(agents)
 
-    print("3. Extracting dialogue and generating audio files...")
-    unique_speaker_messages = set()
-    dynamic_moderator_messages = set()
     audio_map = {}
+    if generate_audio:
+        print("3. Extracting dialogue and generating audio files...")
+        unique_speaker_messages = set()
+        dynamic_moderator_messages = set()
 
-    # Define static moderator messages
-    static_moderator_messages = {
-        "night_begins": '(rate="slow", volume="soft", voice="mysterious")[As darkness descends, the village falls silent.] (break="1s") (rate="slower", pitch="-2st")[Everyone, close your eyes.]',
-        "day_begins": '(rate="fast", volume="loud")[Wake up, villagers!] (rate="medium", voice="neutral")[The sun rises on a new day.] (break="750ms") (rate="slow", voice="somber")[Let\'s see who survived the night.]',
-        "discussion_begins": '(voice="authoritative")[The town meeting now begins.] (voice="neutral")[You have a few minutes to discuss and find the werewolves among you.] (voice="authoritative")[Begin.]',
-        "voting_begins": '(rate="slow", voice="serious")[The time for talk is over.] (break="500ms") (rate="slower", volume="loud", voice="dramatic")[Now, you must cast your votes!]',
-    }
+        # Define static moderator messages
+        static_moderator_messages = {
+            "night_begins": "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]",
+            "day_begins": "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]",
+            "discussion_begins": "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]",
+            "voting_begins": "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]",
+        }
 
-    # Generate and cache static moderator audio
-    for key, message in static_moderator_messages.items():
-        map_key = f"moderator:{key}"
-        filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
-        audio_path = os.path.join(AUDIO_DIR, filename)
+        # Generate and cache static moderator audio
+        for key, message in static_moderator_messages.items():
+            map_key = f"moderator:{key}"
+            filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
+            audio_path_on_disk = os.path.join(AUDIO_DIR, filename)
+            audio_path_for_html = os.path.join(AUDIO_DIR_NAME, filename)
 
-        if not os.path.exists(audio_path):
-            print(f"  - Generating moderator audio for: \"{message}\" ")
-            audio_content = get_tts_audio(message, voice_name=MODERATOR_VOICE)
-            if audio_content:
-                wave_file(audio_path, audio_content)
-                audio_map[map_key] = audio_path
-        else:
-            audio_map[map_key] = audio_path
 
-    # Collect player chat and dynamic moderator announcements
-    moderator_log_steps = env.info.get("MODERATOR_OBSERVATION", [])
-    for step_log in moderator_log_steps:
-        for data_entry in step_log:
-            data_type = data_entry.get("data_type")
-            json_str = data_entry.get('json_str')
-            if not json_str:
+            if not os.path.exists(audio_path_on_disk):
+                print(f"  - Generating moderator audio for: \"{message}\" ")
+                audio_content = get_tts_audio(message, voice_name=MODERATOR_VOICE)
+                if audio_content:
+                    wave_file(audio_path_on_disk, audio_content)
+                    audio_map[map_key] = audio_path_for_html
+            else:
+                audio_map[map_key] = audio_path_for_html
+
+        # Collect player chat and dynamic moderator announcements
+        moderator_log_steps = env.info.get("MODERATOR_OBSERVATION", [])
+        for step_log in moderator_log_steps:
+            for data_entry in step_log:
+                data_type = data_entry.get("data_type")
+                json_str = data_entry.get('json_str')
+                if not json_str:
+                    continue
+                try:
+                    history_event = json.loads(json_str)
+                    data = history_event.get('data', {})
+
+                    if data_type == "ChatDataEntry":
+                        speaker_id = data.get("actor_id")
+                        message = data.get("message")
+                        if speaker_id and message:
+                            unique_speaker_messages.add((speaker_id, message))
+                    elif data_type == "DayExileElectedDataEntry":
+                        player_id = data.get('elected_player_id')
+                        role = data.get('elected_player_role_name')
+                        if player_id and role:
+                            dynamic_moderator_messages.add(f"Player {player_id} was exiled by vote. Their role was a {role}.")
+                    elif data_type == "WerewolfNightEliminationDataEntry":
+                        player_id = data.get('eliminated_player_id')
+                        role = data.get('eliminated_player_role_name')
+                        if player_id and role:
+                            dynamic_moderator_messages.add(f"Player {player_id} was eliminated. Their role was a {role}.")
+                    elif data_type == "DoctorSaveDataEntry":
+                        player_id = data.get('saved_player_id')
+                        if player_id:
+                            dynamic_moderator_messages.add(f"Player {player_id} was attacked but saved by a Doctor!")
+                    elif data_type == "GameEndResultsDataEntry":
+                        winner_team = data.get('winner_team')
+                        if winner_team:
+                            dynamic_moderator_messages.add(f"The game is over. The {winner_team} team has won!")
+                    elif data_type == "WerewolfNightEliminationElectedDataEntry":
+                        player_id = data.get('elected_target_player_id')
+                        if player_id:
+                            dynamic_moderator_messages.add(f"The werewolves have chosen to eliminate player {player_id}.")
+                    # elif data_type == "SeerInspectActionDataEntry":
+                    #     actor_id = data.get('actor_id')
+                    #     target_id = data.get('target_id')
+                    #     if actor_id and target_id:
+                    #         dynamic_moderator_messages.add(f"The Seer, player {actor_id}, has chosen to inspect player {target_id}.")
+                    # elif data_type == "DoctorHealActionDataEntry":
+                    #     actor_id = data.get('actor_id')
+                    #     target_id = data.get('target_id')
+                    #     if actor_id and target_id:
+                    #         dynamic_moderator_messages.add(f"The Doctor, player {actor_id}, has chosen to heal player {target_id}.")
+                    # elif data_type == "WerewolfNightVoteDataEntry":
+                    #     actor_id = data.get('actor_id')
+                    #     target_id = data.get('target_id')
+                    #     if actor_id and target_id:
+                    #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to eliminate player {target_id}.")
+                    # elif data_type == "DayExileVoteDataEntry":
+                    #     actor_id = data.get('actor_id')
+                    #     target_id = data.get('target_id')
+                    #     if actor_id and target_id:
+                    #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to exile player {target_id}.")
+
+                except json.JSONDecodeError:
+                    print(f"  - Warning: Could not decode JSON: {json_str}")
+
+        # Generate and cache dynamic moderator audio
+        for message in dynamic_moderator_messages:
+            map_key = f"moderator:{message}"
+            filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
+            audio_path_on_disk = os.path.join(AUDIO_DIR, filename)
+            audio_path_for_html = os.path.join(AUDIO_DIR_NAME, filename)
+
+            if not os.path.exists(audio_path_on_disk):
+                print(f"  - Generating dynamic moderator audio for: \"{message}\" ")
+                audio_content = get_tts_audio(message, voice_name=MODERATOR_VOICE)
+                if audio_content:
+                    wave_file(audio_path_on_disk, audio_content)
+                    audio_map[map_key] = audio_path_for_html
+            else:
+                audio_map[map_key] = audio_path_for_html
+
+        # Generate and save audio for each unique message from each speaker
+        for speaker_id, message in unique_speaker_messages:
+            voice = player_voice_map.get(speaker_id)
+            if not voice:
+                print(f"  - Warning: No voice found for speaker: {speaker_id}")
                 continue
-            try:
-                history_event = json.loads(json_str)
-                data = history_event.get('data', {})
 
-                if data_type == "ChatDataEntry":
-                    speaker_id = data.get("actor_id")
-                    message = data.get("message")
-                    if speaker_id and message:
-                        unique_speaker_messages.add((speaker_id, message))
-                elif data_type == "DayExileElectedDataEntry":
-                    player_id = data.get('elected_player_id')
-                    role = data.get('elected_player_role_name')
-                    if player_id and role:
-                        dynamic_moderator_messages.add(f"Player {player_id} was exiled by vote. Their role was a {role}.")
-                elif data_type == "WerewolfNightEliminationDataEntry":
-                    player_id = data.get('eliminated_player_id')
-                    role = data.get('eliminated_player_role_name')
-                    if player_id and role:
-                        dynamic_moderator_messages.add(f"Player {player_id} was eliminated. Their role was a {role}.")
-                elif data_type == "DoctorSaveDataEntry":
-                    player_id = data.get('saved_player_id')
-                    if player_id:
-                        dynamic_moderator_messages.add(f"Player {player_id} was attacked but saved by a Doctor!")
-                elif data_type == "GameEndResultsDataEntry":
-                    winner_team = data.get('winner_team')
-                    if winner_team:
-                        dynamic_moderator_messages.add(f"The game is over. The {winner_team} team has won!")
-                elif data_type == "WerewolfNightEliminationElectedDataEntry":
-                    player_id = data.get('elected_target_player_id')
-                    if player_id:
-                        dynamic_moderator_messages.add(f"The werewolves have chosen to eliminate player {player_id}.")
-                # elif data_type == "SeerInspectActionDataEntry":
-                #     actor_id = data.get('actor_id')
-                #     target_id = data.get('target_id')
-                #     if actor_id and target_id:
-                #         dynamic_moderator_messages.add(f"The Seer, player {actor_id}, has chosen to inspect player {target_id}.")
-                # elif data_type == "DoctorHealActionDataEntry":
-                #     actor_id = data.get('actor_id')
-                #     target_id = data.get('target_id')
-                #     if actor_id and target_id:
-                #         dynamic_moderator_messages.add(f"The Doctor, player {actor_id}, has chosen to heal player {target_id}.")
-                # elif data_type == "WerewolfNightVoteDataEntry":
-                #     actor_id = data.get('actor_id')
-                #     target_id = data.get('target_id')
-                #     if actor_id and target_id:
-                #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to eliminate player {target_id}.")
-                # elif data_type == "DayExileVoteDataEntry":
-                #     actor_id = data.get('actor_id')
-                #     target_id = data.get('target_id')
-                #     if actor_id and target_id:
-                #         dynamic_moderator_messages.add(f"Player {actor_id} has voted to exile player {target_id}.")
+            map_key = f"{speaker_id}:{message}"
+            filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
+            audio_path_on_disk = os.path.join(AUDIO_DIR, filename)
+            audio_path_for_html = os.path.join(AUDIO_DIR_NAME, filename)
 
-            except json.JSONDecodeError:
-                print(f"  - Warning: Could not decode JSON: {json_str}")
+            if not os.path.exists(audio_path_on_disk):
+                print(f"  - Generating audio for {speaker_id} ({voice}): \"{message[:40]}...\" ")
+                audio_content = get_tts_audio(message, voice_name=voice)
+                if audio_content:
+                    wave_file(audio_path_on_disk, audio_content)
+                    audio_map[map_key] = audio_path_for_html
+            else:
+                audio_map[map_key] = audio_path_for_html
+    else:
+        print("3. Skipping audio generation.")
 
-    # Generate and cache dynamic moderator audio
-    for message in dynamic_moderator_messages:
-        map_key = f"moderator:{message}"
-        filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
-        audio_path = os.path.join(AUDIO_DIR, filename)
-
-        if not os.path.exists(audio_path):
-            print(f"  - Generating dynamic moderator audio for: \"{message}\" ")
-            audio_content = get_tts_audio(message, voice_name=MODERATOR_VOICE)
-            if audio_content:
-                wave_file(audio_path, audio_content)
-                audio_map[map_key] = audio_path
-        else:
-            audio_map[map_key] = audio_path
-
-    # Generate and save audio for each unique message from each speaker
-    for speaker_id, message in unique_speaker_messages:
-        voice = player_voice_map.get(speaker_id)
-        if not voice:
-            print(f"  - Warning: No voice found for speaker: {speaker_id}")
-            continue
-
-        map_key = f"{speaker_id}:{message}"
-        filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
-        audio_path = os.path.join(AUDIO_DIR, filename)
-
-        if not os.path.exists(audio_path):
-            print(f"  - Generating audio for {speaker_id} ({voice}): \"{message[:40]}...\" ")
-            audio_content = get_tts_audio(message, voice_name=voice)
-            if audio_content:
-                wave_file(audio_path, audio_content)
-                audio_map[map_key] = audio_path
-        else:
-            audio_map[map_key] = audio_path
 
     print("4. Rendering the game to an HTML file...")
     html_content = env.render(mode="html")
@@ -285,16 +312,24 @@ else:
     with open(OUTPUT_HTML_FILE, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    print(f"\n6. Starting local server to serve '{OUTPUT_HTML_FILE}' and audio files...")
+    print(f"\n6. Starting local server to serve from the '{OUTPUT_DIR}' directory...")
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=".", **kwargs)
+            super().__init__(*args, directory=OUTPUT_DIR, **kwargs)
 
     with socketserver.TCPServer(('', PORT), Handler) as httpd:
-        print(f"\nServing replay at: http://localhost:{PORT}/{OUTPUT_HTML_FILE}")
+        print(f"\nServing replay at: http://localhost:{PORT}/{OUTPUT_HTML_FILENAME}")
         print("Open this URL in your web browser.")
+        print(f"Or you can zip the '{OUTPUT_DIR}' directory and share it.")
         print("Press Ctrl+C to stop the server.")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nServer stopped.")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Generate a Werewolf game replay.")
+    parser.add_argument('--no-audio', action='store_true', help="Disable audio generation.")
+    args = parser.parse_args()
+    main(generate_audio=not args.no_audio)
