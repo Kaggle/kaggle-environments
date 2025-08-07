@@ -323,7 +323,7 @@ function renderer({
       }
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
-      const audioKey = `${event.speaker}:${event.message}`;
+      const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
       const audioPath = audioMap[audioKey];
 
       if (audioPath) {
@@ -453,13 +453,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `\t extrm{Werewolf} ${player.role}`;
+            roleDisplay = `\uD83D\uDC3A ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `\t extrm{Doctor} ${player.role}`;
+            roleDisplay = `\uD83E\uDE7A ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `\t extrm{Seer} ${player.role}`;
+            roleDisplay = `\uD83D\uDD2E ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `\t extrm{Villager} ${player.role}`;
+            roleDisplay = `\uD83E\uDDD1 ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -653,8 +653,7 @@ function renderer({
                     li.innerHTML = `
                         <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
-                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}
-</div>
+                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
                     `;
                     break;
@@ -932,11 +931,44 @@ function renderer({
     }
 
     const eventsToPlay = gameState.eventLog.filter(entry =>
-        entry.type === 'chat' && entry.step > audioState.lastPlayedStep && entry.step <= step
+        entry.step > audioState.lastPlayedStep && entry.step <= step
     );
 
     if (eventsToPlay.length > 0) {
-        eventsToPlay.forEach(entry => audioState.audioQueue.push({ message: entry.message, speaker: entry.speaker }));
+        eventsToPlay.forEach(entry => {
+            let audioEvent = null;
+            if (entry.type === 'chat') {
+                audioEvent = { message: entry.message, speaker: entry.speaker };
+            } else if (entry.type === 'system') {
+                const text = entry.text.toLowerCase();
+                if (text.includes('night') && text.includes('begins')) {
+                    audioEvent = { message: 'night_begins', speaker: 'moderator' };
+                } else if (text.includes('day') && text.includes('begins')) {
+                    audioEvent = { message: 'day_begins', speaker: 'moderator' };
+                } else if (text.includes('discussion')) {
+                    audioEvent = { message: 'discussion_begins', speaker: 'moderator' };
+                } else if (text.includes('voting phase begins')) {
+                    audioEvent = { message: 'voting_begins', speaker: 'moderator' };
+                }
+            } else if (entry.type === 'exile') {
+                const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'elimination') {
+                const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'save') {
+                const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            } else if (entry.type === 'game_over') {
+                const message = `The game is over. The ${entry.winner} team has won!`;
+                audioEvent = { message: message, speaker: 'moderator' };
+            }
+
+            if (audioEvent) {
+                audioState.audioQueue.push(audioEvent);
+            }
+        });
+
         if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
             playNextInQueue();
         }
