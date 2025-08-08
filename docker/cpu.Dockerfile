@@ -15,8 +15,8 @@ RUN mkdir /opt/node && \
     ln -s /usr/bin/npm /opt/node/
 
 # add node and npm to path so the commands are available
-ENV PATH /opt/node:$PATH
-ENV NODE_PATH /usr/lib/node_modules
+ENV PATH=/opt/node:$PATH
+ENV NODE_PATH=/usr/lib/node_modules
 
 # confirm installation
 RUN node -v && npm -v
