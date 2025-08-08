@@ -124,44 +124,84 @@
 
       const Renderer = styled((props) => {
         const context = useContext(Context);
-        const { animate, debug, playing, renderer, speed } = context;
-        const ref = preact.createRef();
+        const { animate, debug, playing, renderer, speed, step } = context;
 
-        useEffect(async () => {
-          if (!ref.current) return;
-          const renderFrame = async (start, step, lastFrame) => {
-            if (step !== context.step) return;
-            if (lastFrame === 1) {
-              start = Date.now();
-            }
-            const frame =
-              playing || animate
-                ? Math.min((Date.now() - start) / speed, 1)
-                : 1;
+        const ref = useRef(null);
+        const animationFrameId = useRef();
+
+        useEffect(() => {
+          const element = ref.current;
+          if (!element) return;
+
+          // A single function to render a static frame (for resizes and step changes)
+          const renderStaticFrame = async () => {
+            if (!ref.current) return;
             try {
-              if (debug) console.time("render");
-              if (typeof renderer === "function") {
-                await renderer({
-                  ...context,
-                  frame,
-                  height: ref.current.clientHeight,
-                  hooks: preactHooks,
-                  parent: ref.current,
-                  preact,
-                  styled,
-                  width: ref.current.clientWidth,
-                });
-              }
+              // Pass a frame of 1 to indicate a final/static state
+              await renderer({
+                ...context,
+                frame: 1,
+                height: ref.current.clientHeight,
+                width: ref.current.clientWidth,
+                hooks: preactHooks,
+                parent: ref.current,
+                preact,
+                styled,
+              });
             } catch (error) {
-              if (debug) console.error(error);
-              console.log({ ...context, frame, error });
-            } finally {
-              if (debug) console.timeEnd("render");
+              if (debug) console.error("Static render failed:", error);
             }
-            window.requestAnimationFrame(() => renderFrame(start, step, frame));
           };
 
-          await renderFrame(Date.now(), context.step);
+          // --- Resize Handling ---
+          const observer = new ResizeObserver(() => {
+            renderStaticFrame();
+          });
+          observer.observe(element);
+
+          // --- Animation Loop ---
+          let start = Date.now();
+          const renderAnimation = async () => {
+            // Stop the loop if the component unmounts or if animate is turned off
+            if (!ref.current || !animate) return;
+
+            const frame = Math.min((Date.now() - start) / speed, 1);
+            if (frame === 1) {
+              start = Date.now();
+            }
+
+            try {
+              await renderer({
+                ...context,
+                frame,
+                height: ref.current.clientHeight,
+                width: ref.current.clientWidth,
+                hooks: preactHooks,
+                parent: ref.current,
+                preact,
+                styled,
+              });
+            } catch (error) {
+              if (debug) console.error("Animation render failed:", error);
+            }
+
+            animationFrameId.current = requestAnimationFrame(renderAnimation);
+          };
+
+          // --- Initial Action ---
+          if (animate) {
+            // If animate is on, start the animation loop
+            renderAnimation();
+          } else {
+            // Otherwise, just render a single static frame for the current step
+            renderStaticFrame();
+          }
+
+          // --- Cleanup ---
+          return () => {
+            observer.disconnect();
+            cancelAnimationFrame(animationFrameId.current);
+          };
         }, [ref.current, context.step, context.renderer]);
 
         return h`<div className=${props.className} ref=${ref} />`;
