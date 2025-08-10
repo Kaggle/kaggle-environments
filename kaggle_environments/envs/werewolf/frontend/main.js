@@ -67,7 +67,17 @@ class BasicWorldDemo {
         const stickmanGroup = new THREE.Group();
         const idleClip = fbx.animations[0];
 
-        const names = ["Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Heidi"];
+        const names = ["gemini-2.5-pro", "gpt-4.1", "claude-4-sonnet", "grok4", "deepseek-r1", "kimi-k2", "qwen3", "gemini-2.5-flash"];
+        const brands = ["gemini", "chatgpt", "claude", "grok", "deepseek", "kimi", "qwen", "gemini"];
+        const URLS = {
+            "gemini": "assets/logo/gemini.png",
+            "chatgpt": "assets/logo/chatgpt.png",
+            "claude": "assets/logo/claude.png",
+            "grok": "assets/logo/grok.png",
+            "deepseek": "assets/logo/deepseek.png",
+            "kimi": "assets/logo/kimi.png",
+            "qwen": "assets/logo/qwen.png"
+        };
         
         const numStickmen = 8;
         const radius = 15;
@@ -75,17 +85,9 @@ class BasicWorldDemo {
         const sectorAngleRadians = sectorAngleDegrees * (Math.PI / 180);
         const stickmanHeight = 4;
 
-        // --- CHANGE START ---
-        // Create a bounding box from the base (normalized) model to find its dimensions in local space.
         const modelBox = new THREE.Box3().setFromObject(stickmanModel);
-
-        // Calculate the Y position for the top of the scaled stickman's head.
-        // This is the max Y of the local bounding box, multiplied by the scaling factor.
         const topOfHeadY = modelBox.max.y * stickmanHeight;
-
-        // Add a small offset to place the nameplate slightly above the head.
-        const nameplateOffset = 1;
-        // --- CHANGE END ---
+        const nameplateOffset = 1.5;
 
         const startAngle = -sectorAngleRadians / 2;
         const angleIncrement = numStickmen > 1 ? sectorAngleRadians / (numStickmen - 1) : 0;
@@ -102,12 +104,8 @@ class BasicWorldDemo {
           stickman.scale.multiplyScalar(stickmanHeight);
           stickman.lookAt(new THREE.Vector3(0, y, 0));
 
-          const nameplate = this._createNameplate(names[i]);
-
-          // --- CHANGE START ---
-          // Position the nameplate's 3D anchor above the top of the stickman's bounding box.
+          const nameplate = this._createNameplate(names[i], URLS[brands[i]]);
           nameplate.position.set(0, topOfHeadY + nameplateOffset, 0);
-          // --- CHANGE END ---
           stickman.add(nameplate);
 
           stickmanGroup.add(stickman);
@@ -131,19 +129,33 @@ class BasicWorldDemo {
     );
   }
 
-  _createNameplate(name) {
+  _createNameplate(name, imageUrl) {
     const container = document.createElement('div');
-    container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    container.style.padding = '5px 10px';
-    container.style.borderRadius = '5px';
-    container.style.color = 'white';
-    container.style.fontWeight = 'bold';
-    container.style.fontSize = '18px';
-    container.textContent = name;
-    
-    // This CSS transform shifts the element up by 100% of its own height,
-    // aligning its bottom edge with the 3D anchor point.
-    container.style.transform = 'translateY(-100%)';
+    container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
+    container.style.padding = '8px 12px';
+    container.style.borderRadius = '8px';
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+    container.style.gap = '10px'; // Space between logo and name
+
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.style.width = '60px';
+    img.style.height = '60px';
+    img.style.borderRadius = '80%'; // Circular frame
+    img.style.objectFit = 'cover';
+    img.style.backgroundColor = 'white';
+//    img.style.border = '2px solid black';
+
+    const text = document.createElement('div');
+    text.textContent = name;
+    text.style.color = 'white';
+    text.style.fontFamily = 'Arial, sans-serif';
+    text.style.fontSize = '18px';
+
+    container.appendChild(img);
+    container.appendChild(text);
 
     const label = new CSS2DObject(container);
     return label;
@@ -172,26 +184,14 @@ class BasicWorldDemo {
   }
 
   _NormalizeModel(model) {
-    // 1. Calculate the model's bounding box and center.
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-
-    // 2. Instead of translating the geometry, reposition the model inside a wrapper.
-    // We move the model by the negative of its center, which aligns its center
-    // with the origin of the wrapper group.
     model.position.copy(center).negate();
-
-    // 3. Create a wrapper group. This group will now act as the main object.
     const wrapper = new THREE.Group();
     wrapper.add(model);
-
-    // 4. Scale the wrapper. This scales the model and its skeleton together,
-    // preserving the animation.
     const scale = 1.0 / size.y;
     wrapper.scale.set(scale, scale, scale);
-
-    // 5. Return the wrapper. This is now our correctly centered and scaled object.
     return wrapper;
   }
 
