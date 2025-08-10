@@ -2,6 +2,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.118/build/three.mod
 
 import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.118/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/GLTFLoader.js';
+import {FBXLoader} from "https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js";
+import { SkeletonUtils } from 'https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js';
 
 
 class BasicWorldDemo {
@@ -18,6 +20,9 @@ class BasicWorldDemo {
     this._threejs.setPixelRatio(window.devicePixelRatio);
     this._threejs.setSize(window.innerWidth, window.innerHeight);
 
+    this._clock = new THREE.Clock();
+    this._mixers = [];
+
     document.body.appendChild(this._threejs.domElement);
 
     window.addEventListener('resize', () => {
@@ -25,11 +30,11 @@ class BasicWorldDemo {
     }, false);
 
     const fov = 60;
-    const aspect = 1920 / 1080;
+    const aspect = window.innerWidth / 1080;
     const near = 1.0;
     const far = 100000.0;
     this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    this._camera.position.set(0, 5, 25);
+    this._camera.position.set(0, 10, -25); // Moved camera to the front
 
     this._scene = new THREE.Scene();
     this._scene.background = new THREE.Color(0x7393B3); // A calm blue-grey background
@@ -56,80 +61,64 @@ class BasicWorldDemo {
   }
 
   _LoadModels() {
-    const loader = new GLTFLoader();
+    const fbxLoader = new FBXLoader();
 
-    const loadPromises = [
-      this._LoadAndProcessModel(loader, '../../../assets/wolf-kun/scene.gltf'),
-      this._LoadAndProcessModel(loader, '../../../assets/low_poly_medieval_windmill/scene.gltf')
-    ];
+    fbxLoader.load('assets/Idle_stickman.fbx', (fbx) => {
+        const stickmanModel = this._NormalizeModel(fbx);
+        const idleClip = fbx.animations[0];
 
-    Promise.all(loadPromises).then(([wolfModel, windmillModel]) => {
-      // Now that both models are loaded and normalized to a height of 1...
+        if (!idleClip) {
+            console.error("FBX file does not contain an animation clip.");
+            return;
+        }
 
-      // 1. Create clones
-      const wolf1 = wolfModel;
-      const wolf2 = wolfModel.clone();
-      const windmill = windmillModel;
+        const numStickmen = 8;
+        const radius = 15;
+        const sectorAngleDegrees = 60;
+        const sectorAngleRadians = sectorAngleDegrees * (Math.PI / 180);
+        const stickmanHeight = 4;
 
-      // 2. Set final scales
-      const wolfHeight = 4;
-      const windmillHeight = wolfHeight * 2;
+        const startAngle = -sectorAngleRadians / 2;
+        const angleIncrement = numStickmen > 1 ? sectorAngleRadians / (numStickmen - 1) : 0;
 
-      wolf1.scale.multiplyScalar(wolfHeight);
-      wolf2.scale.multiplyScalar(wolfHeight);
-      windmill.scale.multiplyScalar(windmillHeight);
+        for (let i = 0; i < numStickmen; i++) {
+          // We need to clone the model for each instance using SkeletonUtils
+          const stickman = SkeletonUtils.clone(stickmanModel);
+          
+          const angle = startAngle + i * angleIncrement;
 
-      // 3. Position them on the same horizontal plane (y=0) with wolves in front
-      const wolfSpacing = 5; // Spacing between the two wolves
-      const windmillZ = 0;
-      const wolfZ = 5;
+          const x = radius * Math.sin(angle);
+          const z = radius * Math.cos(angle);
+          const y = stickmanHeight / 2;
+          stickman.position.set(x, y, z);
 
-      // To place the base on y=0, we lift the model by half its final height
-//      windmill.position.set(0, windmillHeight / 2, windmillZ);
-//      wolf1.position.set(-wolfSpacing / 2, wolfHeight / 2, wolfZ);
-//      wolf2.position.set(wolfSpacing / 2, wolfHeight / 2, wolfZ);
-      windmill.position.set(-5, - windmillHeight / 2, 0);
-      wolf1.position.set(0, - wolfHeight / 2, 0)
-      wolf2.position.set(3, - wolfHeight / 2, 0)
+          stickman.scale.multiplyScalar(stickmanHeight);
+          stickman.lookAt(new THREE.Vector3(0, y, 0));
 
+          this._scene.add(stickman);
 
-      // 4. Add to the scene
-      this._scene.add(windmill);
-      this._scene.add(wolf1);
-      this._scene.add(wolf2);
-
-    }).catch(error => {
-      console.error("Error loading models:", error);
-    });
+          // Animation
+          const mixer = new THREE.AnimationMixer(stickman);
+          const idleAction = mixer.clipAction(idleClip);
+          idleAction.play();
+          this._mixers.push(mixer);
+        }
+      },
+      undefined,
+      (error) => {
+        console.error("Error loading FBX model:", error);
+      }
+    );
   }
 
-  _LoadAndProcessModel(loader, url) {
-    return new Promise((resolve, reject) => {
-      loader.load(url,
-        (gltf) => {
-          const model = gltf.scene;
-
-          // --- Normalize logic ---
-          const box = new THREE.Box3().setFromObject(model);
-          const size = box.getSize(new THREE.Vector3());
-          const center = box.getCenter(new THREE.Vector3());
-
-          // Center the model
-          model.position.sub(center);
-
-          // Scale model to a height of 1
-          const scale = 1.0 / size.y;
-          model.scale.set(scale, scale, scale);
-
-          resolve(model);
-        },
-        undefined,
-        (error) => {
-          console.error(`An error occurred loading ${url}`, error);
-          reject(error);
-        }
-      );
-    });
+  _NormalizeModel(model) {
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.sub(center);
+    const scale = 1.0 / size.y;
+    model.scale.set(scale, scale, scale);
+    return model;
   }
 
   _OnWindowResize() {
@@ -140,6 +129,10 @@ class BasicWorldDemo {
 
   _RAF() {
     requestAnimationFrame(() => {
+      const delta = this._clock.getDelta();
+      for (const mixer of this._mixers) {
+        mixer.update(delta);
+      }
       this._threejs.render(this._scene, this._camera);
       this._RAF();
     });
