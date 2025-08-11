@@ -87,6 +87,7 @@ class BasicWorldDemo {
 
         const modelBox = new THREE.Box3().setFromObject(stickmanModel);
         const topOfHeadY = modelBox.max.y * stickmanHeight;
+        const frontOffsetZ = modelBox.max.z * stickmanHeight; // Get the depth of the model
         const nameplateOffset = 1.5;
 
         const startAngle = -sectorAngleRadians / 2;
@@ -105,7 +106,8 @@ class BasicWorldDemo {
           stickman.lookAt(new THREE.Vector3(0, y, 0));
 
           const nameplate = this._createNameplate(names[i], URLS[brands[i]]);
-          nameplate.position.set(0, topOfHeadY + nameplateOffset, 0);
+          // Position the nameplate at the top-front of the stickman's bounding box
+          nameplate.position.set(0, topOfHeadY + nameplateOffset, frontOffsetZ);
           stickman.add(nameplate);
 
           stickmanGroup.add(stickman);
@@ -131,7 +133,7 @@ class BasicWorldDemo {
 
   _createNameplate(name, imageUrl) {
     const container = document.createElement('div');
-    container.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+    container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
     container.style.padding = '8px 12px';
     container.style.borderRadius = '8px';
     container.style.display = 'flex';
