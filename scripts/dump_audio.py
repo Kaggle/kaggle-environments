@@ -14,7 +14,7 @@ from google import genai
 from google.genai import types
 
 # --- Configuration ---
-PORT = 8000
+PORT = 7999
 OUTPUT_DIR = "werewolf_replay"
 AUDIO_DIR_NAME = "audio"
 OUTPUT_HTML_FILENAME = "replay.html"
