@@ -17,11 +17,13 @@ from google.genai import types
 PORT = 7999
 OUTPUT_DIR = "werewolf_replay"
 AUDIO_DIR_NAME = "audio"
+DEBUG_AUDIO_DIR_NAME = "debug_audio"
 OUTPUT_HTML_FILENAME = "replay.html"
 MODERATOR_VOICE = "enceladus"
 
 # --- Global Paths ---
 AUDIO_DIR = os.path.join(OUTPUT_DIR, AUDIO_DIR_NAME)
+DEBUG_AUDIO_DIR = os.path.join(OUTPUT_DIR, DEBUG_AUDIO_DIR_NAME)
 OUTPUT_HTML_FILE = os.path.join(OUTPUT_DIR, OUTPUT_HTML_FILENAME)
 
 
@@ -206,6 +208,56 @@ def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_mess
 
     return audio_map
 
+def generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderator_messages):
+    """Generates a single debug audio file and maps all events to it."""
+    print("3. Generating single debug audio for UI testing...")
+    os.makedirs(DEBUG_AUDIO_DIR, exist_ok=True)
+    audio_map = {}
+
+    debug_message = "Testing start, testing end."
+    debug_voice = "achird"  # A standard, generic voice
+
+    # Generate the single debug audio file
+    filename = "debug_audio.wav"
+    audio_path_on_disk = os.path.join(DEBUG_AUDIO_DIR, filename)
+    audio_path_for_html = os.path.join(DEBUG_AUDIO_DIR_NAME, filename)
+
+    if not os.path.exists(audio_path_on_disk):
+        print(f"  - Generating debug audio: \"{debug_message}\"")
+        audio_content = get_tts_audio(client, debug_message, voice_name=debug_voice)
+        if audio_content:
+            wave_file(audio_path_on_disk, audio_content)
+        else:
+            print("  - Failed to generate debug audio. The map will be empty.")
+            return {}
+    else:
+        print(f"  - Using existing debug audio file: {audio_path_on_disk}")
+
+    # Now, map all possible audio events to this one file.
+    static_moderator_messages = {
+        "night_begins": "...",
+        "day_begins": "...",
+        "discussion_begins": "...",
+        "voting_begins": "...",
+    }
+
+    messages_to_map = []
+    # Queue static moderator messages
+    for key in static_moderator_messages:
+        messages_to_map.append(("moderator", key))
+    # Queue dynamic moderator messages
+    for message in dynamic_moderator_messages:
+        messages_to_map.append(("moderator", message))
+    # Queue player messages
+    for speaker_id, message in unique_speaker_messages:
+        messages_to_map.append((speaker_id, message))
+
+    for speaker, key in messages_to_map:
+        map_key = f"{speaker}:{key}"
+        audio_map[map_key] = audio_path_for_html
+
+    print(f"  - Mapped all {len(audio_map)} audio events to '{audio_path_for_html}'")
+    return audio_map
 
 def render_html(env, audio_map, output_file):
     """Renders the game to HTML and injects the audio map."""
@@ -267,7 +319,11 @@ def main(generate_audio=True):
             client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map
         )
     else:
-        print("3. Skipping audio generation.")
+        print("3. Skipping full audio generation. Attempting to generate a single debug audio file for UI testing.")
+        load_dotenv()
+        client = genai.Client()
+        unique_speaker_messages, dynamic_moderator_messages = extract_game_data(env)
+        audio_map = generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderator_messages)
 
     render_html(env, audio_map, OUTPUT_HTML_FILE)
     start_server(OUTPUT_DIR, PORT, OUTPUT_HTML_FILENAME)
