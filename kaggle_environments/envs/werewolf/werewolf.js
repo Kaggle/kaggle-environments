@@ -377,6 +377,11 @@ function renderer({
         .playing-audio * {
             color: #87CEFA !important;
         }
+        .playing-audio .balloon,
+        .playing-audio.msg-entry,
+        .playing-audio .moderator-announcement-content {
+            background-color: rgba(135, 206, 250, 0.2) !important;
+        }
         .audio-controls {
             padding: 10px 0;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -754,6 +759,11 @@ function renderer({
     } else {
         logEntries.forEach((entry, index) => {
             const li = document.createElement('li');
+            const audioEvent = getAudioEventForEntry(entry);
+            if (audioEvent) {
+                const audioKey = audioEvent.speaker === 'moderator' ? `moderator:${audioEvent.message}` : `${audioEvent.speaker}:${audioEvent.message}`;
+                li.setAttribute('data-audio-key', audioKey);
+            }
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
 
             // --- Phase Correction Logic ---
