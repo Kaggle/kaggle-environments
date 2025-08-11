@@ -69,23 +69,23 @@ function renderer({
     threeState.scene.add(threeState.directionalLight);
 
     const loader = new THREE.GLTFLoader();
-    loader.load(
-      'assets/low_poly_medieval_windmill/scene.gltf',
-      function (gltf) {
-        threeState.model = gltf.scene;
-        threeState.model.scale.set(0.5, 0.5, 0.5); // Adjust scale for the new model
-        threeState.model.position.set(0, -2, 0); // Adjust position
-        threeState.scene.add(threeState.model);
-      },
-      undefined,
-      function(error) {
-        console.error('An error occurred loading the model:', error);
-      }
-    );
-
-    threeState.camera.position.z = 5;
-    threeState.initialized = true;
-    animate();
+//    loader.load(
+//      'assets/low_poly_medieval_windmill/scene.gltf',
+//      function (gltf) {
+//        threeState.model = gltf.scene;
+//        threeState.model.scale.set(0.5, 0.5, 0.5); // Adjust scale for the new model
+//        threeState.model.position.set(0, -2, 0); // Adjust position
+//        threeState.scene.add(threeState.model);
+//      },
+//      undefined,
+//      function(error) {
+//        console.error('An error occurred loading the model:', error);
+//      }
+//    );
+//
+//    threeState.camera.position.z = 5;
+//    threeState.initialized = true;
+//    animate();
   }
 
   function animate() {
@@ -363,12 +363,24 @@ function renderer({
             margin-right: 5px;
             object-fit: cover;
         }
-        .tts-button {
+        .balloon, .msg-entry.clickable, .moderator-announcement-content.clickable {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .balloon:hover, .msg-entry.clickable:hover, .moderator-announcement-content.clickable:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
             cursor: pointer;
-            font-size: 1.2em;
-            margin-left: 10px;
-            display: inline-block;
-            vertical-align: middle;
+        }
+        .playing-audio {
+            color: #87CEFA !important; /* Light Sky Blue */
+        }
+        .playing-audio * {
+            color: #87CEFA !important;
+        }
+        .playing-audio .balloon,
+        .playing-audio.msg-entry,
+        .playing-audio .moderator-announcement-content {
+            background-color: rgba(135, 206, 250, 0.2) !important;
         }
         .audio-controls {
             padding: 10px 0;
@@ -384,6 +396,25 @@ function renderer({
         .audio-controls input[type="range"] {
             width: 100%;
         }
+        #pause-audio {
+            background-color: transparent;
+            border: none;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            padding: 0;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            /* Use a filter to make the icons white to match the theme text */
+            filter: invert(90%) sepia(10%) saturate(100%) hue-rotate(180deg) brightness(100%) contrast(90%);
+        }
+        #pause-audio.paused {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWdvbiBwb2ludHM9IjYgMyAyMCAxMiA2IDIxIi8+PC9zdmc+');
+        }
+        #pause-audio.playing {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSI2IiB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNiIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iNCIgd2lkdGg9IjQiIGhlaWdodD0iMTYiIHJ4PSIxIi8+PC9zdmc+');
+        }
     `;
 
   // --- TTS Management ---
@@ -394,12 +425,29 @@ function renderer({
           audioQueue: [],
           isAudioPlaying: false,
           isAudioEnabled: false,
+          isPaused: false,
           lastPlayedStep: -1,
           audioPlayer: new Audio(),
           playbackRate: 1.0,
       };
   }
   const audioState = window.kaggleWerewolf;
+
+  function togglePause() {
+      audioState.isPaused = !audioState.isPaused;
+      const pauseButton = parent.querySelector('#pause-audio');
+      if (pauseButton) {
+          pauseButton.classList.toggle('paused', audioState.isPaused);
+          pauseButton.classList.toggle('playing', !audioState.isPaused);
+      }
+      if (!audioState.isPaused && !audioState.isAudioPlaying) {
+          playNextInQueue();
+      } else if (audioState.isPaused && audioState.isAudioPlaying) {
+          audioState.audioPlayer.pause();
+      } else if (!audioState.isPaused && audioState.isAudioPlaying) {
+          audioState.audioPlayer.play();
+      }
+  }
 
   function setPlaybackRate(rate) {
       audioState.playbackRate = rate;
@@ -409,33 +457,57 @@ function renderer({
   }
 
   function playNextInQueue() {
-      if (audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
+      if (audioState.isPaused || audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
           return;
       }
+
+      const previouslyPlaying = parent.querySelector('.playing-audio');
+      if (previouslyPlaying) {
+          previouslyPlaying.classList.remove('playing-audio');
+      }
+
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
       const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
       const audioPath = audioMap[audioKey];
 
+      let elementToHighlight = null;
+      const allAudioElements = parent.querySelectorAll('[data-audio-key]');
+      for (const el of allAudioElements) {
+          if (el.getAttribute('data-audio-key') === audioKey) {
+              elementToHighlight = el;
+              break;
+          }
+      }
+      if (elementToHighlight) {
+          elementToHighlight.classList.add('playing-audio');
+      }
+
       if (audioPath) {
           audioState.audioPlayer.src = audioPath;
           audioState.audioPlayer.playbackRate = audioState.playbackRate;
           audioState.audioPlayer.onended = () => {
+              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
-              playNextInQueue();
+              if (!audioState.isPaused) {
+                playNextInQueue();
+              }
           };
           audioState.audioPlayer.onerror = () => {
               console.error("Audio playback failed for key:", audioKey);
+              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
               playNextInQueue();
           };
           audioState.audioPlayer.play().catch(e => {
               console.error("Audio playback failed:", e);
+              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
               playNextInQueue();
           });
       } else {
           console.warn(`No audio found for key: "${audioKey}"`);
+          if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
           audioState.isAudioPlaying = false;
           playNextInQueue();
       }
@@ -454,13 +526,79 @@ function renderer({
       }, { once: true });
   }
 
-  function speak(message, speaker) {
-      if (audioState.isAudioEnabled) {
-          audioState.audioQueue.push({ message, speaker });
-          if (!audioState.isAudioPlaying) {
-              playNextInQueue();
+  function getAudioEventForEntry(entry) {
+    let audioEvent = null;
+    if (entry.type === 'chat') {
+        audioEvent = { message: entry.message, speaker: entry.speaker };
+    } else if (entry.type === 'system') {
+        const text = (entry.text || '').toLowerCase();
+        let audioKey = null;
+        if (text.includes('night') && text.includes('begins')) {
+            audioKey = 'night_begins';
+        } else if (text.includes('day') && text.includes('begins')) {
+            audioKey = 'day_begins';
+        } else if (text.includes('discussion')) {
+            audioKey = 'discussion_begins';
+        } else if (text.includes('voting phase begins')) {
+            audioKey = 'voting_begins';
+        }
+        if (audioKey) {
+            audioEvent = { message: audioKey, speaker: 'moderator' };
+        }
+    } else if (entry.type === 'exile') {
+        const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
+        audioEvent = { message: message, speaker: 'moderator' };
+    } else if (entry.type === 'elimination') {
+        const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
+        audioEvent = { message: message, speaker: 'moderator' };
+    } else if (entry.type === 'save') {
+        const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
+        audioEvent = { message: message, speaker: 'moderator' };
+    } else if (entry.type === 'game_over') {
+        const message = `The game is over. The ${entry.winner} team has won!`;
+        audioEvent = { message: message, speaker: 'moderator' };
+    }
+    return audioEvent;
+  }
+
+  function speakFrom(startIndex, logEntries) {
+      if (!audioState.isAudioEnabled) {
+          audioState.isAudioEnabled = true;
+          const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+          audio.play().catch(e => console.warn("Audio context activation failed:", e));
+      }
+
+      // Stop current playback and clear highlight
+      if (audioState.isAudioPlaying) {
+          audioState.audioPlayer.pause();
+          audioState.isAudioPlaying = false;
+          const previouslyPlaying = parent.querySelector('.playing-audio');
+          if (previouslyPlaying) {
+              previouslyPlaying.classList.remove('playing-audio');
           }
       }
+
+      audioState.audioQueue = [];
+      if (audioState.isPaused) {
+          audioState.isPaused = false;
+          const pauseButton = parent.querySelector('#pause-audio');
+          if (pauseButton) {
+              pauseButton.classList.remove('paused');
+              pauseButton.classList.add('playing');
+          }
+      }
+
+      const eventsToQueue = [];
+      for (let i = startIndex; i < logEntries.length; i++) {
+          const entry = logEntries[i];
+          const audioEvent = getAudioEventForEntry(entry);
+          if (audioEvent) {
+              eventsToQueue.push(audioEvent);
+          }
+      }
+
+      audioState.audioQueue = eventsToQueue;
+      playNextInQueue();
   }
 
   // --- Helper Functions ---
@@ -588,19 +726,28 @@ function renderer({
     // --- Audio Controls ---
     const audioControls = document.createElement('div');
     audioControls.className = 'audio-controls';
+    const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
     audioControls.innerHTML = `
         <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
-        <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}">
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="flex-grow: 1;">
+            <button id="pause-audio" class="${pauseButtonClass}"></button>
+        </div>
     `;
     container.appendChild(audioControls);
 
     const speedSlider = audioControls.querySelector('#playback-speed');
     const speedLabel = audioControls.querySelector('#speed-label');
+    const pauseButton = audioControls.querySelector('#pause-audio');
 
     speedSlider.addEventListener('input', (e) => {
         const newRate = parseFloat(e.target.value);
         setPlaybackRate(newRate);
         speedLabel.textContent = newRate.toFixed(1);
+    });
+
+    pauseButton.addEventListener('click', () => {
+        togglePause();
     });
   }
 
@@ -617,10 +764,15 @@ function renderer({
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
     } else {
-        logEntries.forEach(entry => {
+        logEntries.forEach((entry, index) => {
             const li = document.createElement('li');
+            const audioEvent = getAudioEventForEntry(entry);
+            if (audioEvent) {
+                const audioKey = audioEvent.speaker === 'moderator' ? `moderator:${audioEvent.message}` : `${audioEvent.speaker}:${audioEvent.message}`;
+                li.setAttribute('data-audio-key', audioKey);
+            }
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-            
+
             // --- Phase Correction Logic ---
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
@@ -638,7 +790,7 @@ function renderer({
             }
 
             const phaseClass = `event-${phase.toLowerCase()}`;
-            
+
             let phaseEmoji = phase;
             if (phase === 'DAY') {
                 phaseEmoji = '\u2600\uFE0F'; // Sun emoji
@@ -667,13 +819,9 @@ function renderer({
                             </div>
                         </div>
                     `;
-                    const balloonText = li.querySelector('.balloon-text');
-                    if (balloonText) {
-                        const ttsButton = document.createElement('span');
-                        ttsButton.className = 'tts-button';
-                        ttsButton.textContent = '\uD83D\uDD0A'; // Speaker icon
-                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
-                        balloonText.appendChild(ttsButton);
+                    const balloon = li.querySelector('.balloon');
+                    if (balloon) {
+                        balloon.onclick = () => speakFrom(index, logEntries);
                     }
                     break;
                 case 'seer_inspection':
@@ -727,11 +875,9 @@ function renderer({
                     `;
                     break;
                 case 'system':
-                    if (entry.text && entry.text.includes('has begun')) return;
-
                     let systemText = entry.text;
                     // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\\\\[(.*?)\\\\]/g;
+                    const listRegex = /\[(.*?)\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         // listContent is "'player-1', 'player-2', 'player-3'"
                         return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
@@ -747,21 +893,43 @@ function renderer({
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
                     `;
+                    const announcementContent = li.querySelector('.moderator-announcement-content');
+                    if (announcementContent) {
+                        const text = (entry.text || '').toLowerCase();
+                        let audioKey = null;
+                        if (text.includes('night') && text.includes('begins')) {
+                            audioKey = 'night_begins';
+                        } else if (text.includes('day') && text.includes('begins')) {
+                            audioKey = 'day_begins';
+                        } else if (text.includes('discussion')) {
+                            audioKey = 'discussion_begins';
+                        } else if (text.includes('voting phase begins')) {
+                            audioKey = 'voting_begins';
+                        }
+
+                        if (audioKey) {
+                            announcementContent.classList.add('clickable');
+                            announcementContent.onclick = () => speakFrom(index, logEntries);
+                        }
+                    }
                     break;
                 case 'exile':
                     const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-day`;
+                    li.className = `msg-entry game-event event-day clickable`;
                     li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
+                    li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'elimination':
                     const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-night`;
+                    li.className = `msg-entry game-event event-night clickable`;
                     li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
+                    li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'save':
                      const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
-                     li.className = `msg-entry event-night`;
+                     li.className = `msg-entry event-night clickable`;
                      li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
+                     li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'vote':
                     const voter = playerMap.get(entry.actor_id);
@@ -816,7 +984,7 @@ function renderer({
                 case 'game_over':
                     const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
                     const losersText = entry.losers.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    li.className = `msg-entry game-win ${phaseClass}`;
+                    li.className = `msg-entry game-win ${phaseClass} clickable`;
                     li.innerHTML = `
                         <cite>Game Over ${timestampHtml}</cite>
                         <div class="msg-text">
@@ -825,6 +993,7 @@ function renderer({
                             <div><strong>Losing Team:</strong> ${losersText}</div>
                         </div>
                     `;
+                    li.onclick = () => speakFrom(index, logEntries);
                     break;
             }
             if (li.innerHTML) logUl.appendChild(li);

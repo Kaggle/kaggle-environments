@@ -110,9 +110,32 @@ CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
 
 TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id",
                                             perceived_threat_level="SAFE")}\n```"
-CHAT_ACTION_EXEMPLAR = f"```json\n{dict(reasoning='I need to show that I am a helpful villager.', 
-                                        message='I am only a helpful villager. Anyone has any information to share?',
-                                        perceived_threat_level='SAFE')}\n```"
+
+AUDIO_EXAMPLE = 'Say in an spooky whisper: \"By the pricking of my thumbs... Something wicked this way comes!\"'
+AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: \"I was stunned. I really suspect John\'s intent of bringing up Tim.\"'
+AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."'
+AUDIO_EXAMPLE_4 = 'Sound amused and relaxed: \"that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say.\"'
+CHAT_AUDIO_DICT = {"message": AUDIO_EXAMPLE, "reasoning": "To draw attention to other players ...", "perceived_threat_level": "SAFE"}
+CHAT_AUDIO_DICT_2 = {"message": AUDIO_EXAMPLE_2, "reasoning": "This accusation is uncalled for ...", "perceived_threat_level": "DANGER"}
+CHAT_AUDIO_DICT_3 = {"message": AUDIO_EXAMPLE_3, "reasoning": "I sense there are some suspicion directed towards me ...", "perceived_threat_level": "UNEASY"}
+CHAT_AUDIO_DICT_4 = {"message": AUDIO_EXAMPLE_4, "reasoning": "I am redirecting the attention to other leads ...", "perceived_threat_level": "UNEASY"}
+CHAT_ACTION_EXEMPLAR_2 = f"```json\n{json.dumps(CHAT_AUDIO_DICT)}\n```"
+CHAT_ACTION_EXEMPLAR_3 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_2)}\n```"
+CHAT_ACTION_EXEMPLAR = f"```json\n{json.dumps(CHAT_AUDIO_DICT_3)}\n```"
+CHAT_ACTION_EXEMPLAR_4 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_4)}\n```"
+
+
+CHAT_ACTION_ADDITIONAL_CONSTRAINTS = [
+    f'- The "message" will be rendered to TTS and shown to other players, so make sure to control the style, tone, '
+    f'accent and pace of your message using natural language prompt. e.g.\n{CHAT_ACTION_EXEMPLAR_2}',
+    "- Since this is a social game, the script in the message should sound conversational.",
+    '- Be Informal: Use contractions (like "it\'s," "gonna"), and simple language.',
+    '- Be Spontaneous: Vary your sentence length. It\'s okay to have short, incomplete thoughts or to restart a sentence.',
+    '- [Optional] If appropriate, you could add natural sounds in (sound: ...) e.g. (sound: chuckles), or (sound: laughs), etc.',
+    '- [Optional] Be Dynamic: A real chat is never monotonous. Use (voice: ...) instructions to constantly and subtly shift the tone to match the words.',
+    # f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, '
+    # f'thoughtful, curious, energetic, sarcastic, or conspiratorial. e.g. \n{CHAT_ACTION_EXEMPLAR_4}'
+]
 
 
 class WerewolfAgentBase(ABC):
@@ -403,7 +426,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                     instruction = INSTRUCTION_TEMPLATE.format(**{
                         "role": "It is day time. Participate in the discussion.",
                         "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
-                        "additional_constraints": "",
+                        "additional_constraints": "\n".join(CHAT_ACTION_ADDITIONAL_CONSTRAINTS),
                         "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
                         "exemplar": CHAT_ACTION_EXEMPLAR
                     })
