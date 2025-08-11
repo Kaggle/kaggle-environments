@@ -293,6 +293,8 @@ LLM_MODEL_NAMES = [
     "xai/grok-4-latest",
     # vertex AI
     "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+    "vertex_ai/gemini-2.0-flash",
+    "vertex_ai/gemini-2.5-pro",
     # together ai
     "together_ai/deepseek-ai/DeepSeek-R1",
     "together_ai/moonshotai/Kimi-K2-Instruct",
@@ -300,9 +302,6 @@ LLM_MODEL_NAMES = [
 ]
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
-
-
-
 
 class EnvInfoKeys:
     MODERATOR_OBS = "MODERATOR_OBSERVATION"
@@ -524,7 +523,6 @@ def initialize_moderator(state, env):
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
     env.info = {EnvInfoKeys.MODERATOR_OBS: []}
-
 
 def renderer(state, env):
     if not hasattr(env, 'moderator') or not hasattr(env, 'game_state'):
