@@ -64,9 +64,9 @@ def test_discussion_protocol():
         configuration={
             "agents":agents_config,
             "discussion_protocol": {
-                "name": "ParallelDiscussion",
+                "name": "RoundRobinDiscussion",
                 "params": {
-                    "ticks": 2
+                    "max_rounds": 2
                 }
             }
         }
@@ -102,7 +102,7 @@ def test_llm_players():
 
 def test_default_env():
     env = make('werewolf', debug=True)
-    agents = ['random'] * 8
+    agents = ['random'] * 7
     env.run(agents)
 
 
@@ -116,4 +116,7 @@ def test_run_dummy_llm():
 def test_html_render(env):
     agents = ['random'] * 7
     env.run(agents)
-    env.render(mode='html')
+    content = env.render(mode='html', configuration={"allow_doctor_self_save": True})
+
+    with open('game_replay.html', 'w') as handle:
+        handle.write(content)
