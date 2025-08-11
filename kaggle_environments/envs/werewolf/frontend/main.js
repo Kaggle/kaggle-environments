@@ -131,13 +131,14 @@ class BasicWorldDemo {
 
   _createNameplate(name, imageUrl) {
     const container = document.createElement('div');
-    container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
+    container.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
     container.style.padding = '8px 12px';
     container.style.borderRadius = '8px';
     container.style.display = 'flex';
     container.style.alignItems = 'center';
     container.style.justifyContent = 'center';
     container.style.gap = '10px'; // Space between logo and name
+    container.style.textAlign = 'center';
 
     const img = document.createElement('img');
     img.src = imageUrl;
@@ -146,13 +147,12 @@ class BasicWorldDemo {
     img.style.borderRadius = '80%'; // Circular frame
     img.style.objectFit = 'cover';
     img.style.backgroundColor = 'white';
-//    img.style.border = '2px solid black';
 
     const text = document.createElement('div');
     text.textContent = name;
     text.style.color = 'white';
     text.style.fontFamily = 'Arial, sans-serif';
-    text.style.fontSize = '18px';
+    text.style.fontSize = '16px';
 
     container.appendChild(img);
     container.appendChild(text);
