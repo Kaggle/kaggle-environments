@@ -4,3 +4,8 @@ ipython
 jsonschema
 numpy
 requests
+pytest
+litellm
+tenacity
+pygame
+termcolor
