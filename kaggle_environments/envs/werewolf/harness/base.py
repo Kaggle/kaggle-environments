@@ -108,9 +108,23 @@ CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
 
 TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id",
                                             perceived_threat_level="SAFE")}\n```"
-CHAT_ACTION_EXEMPLAR = f"```json\n{dict(reasoning='I need to show that I am a helpful villager.', 
-                                        message='I am only a helpful villager. Anyone has any information to share?',
-                                        perceived_threat_level='SAFE')}\n```"
+
+AUDIO_EXAMPLE = 'Say in an spooky whisper: \"By the pricking of my thumbs... Something wicked this way comes!\"'
+AUDIO_EXAMPLE_2 = 'I <emphasis level="strong">really</emphasis> suspect John\'s intent of bringing up Tim.'
+AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."'
+CHAT_AUDIO_DICT = {"message": AUDIO_EXAMPLE, "reasoning": "To draw attention to other players ...", "perceived_threat_level": "SAFE"}
+CHAT_AUDIO_DICT_2 = {"message": AUDIO_EXAMPLE_2, "reasoning": "This accusation is uncalled for ...", "perceived_threat_level": "DANGER"}
+CHAT_AUDIO_DICT_3 = {"message": AUDIO_EXAMPLE_3, "reasoning": "I sense there are some suspicion directed towards me ...", "perceived_threat_level": "UNEASY"}
+CHAT_ACTION_EXEMPLAR_2 = f"```json\n{json.dumps(CHAT_AUDIO_DICT)}\n```"
+CHAT_ACTION_EXEMPLAR_3 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_2)}\n```"
+CHAT_ACTION_EXEMPLAR = f"```json\n{json.dumps(CHAT_AUDIO_DICT_3)}\n```"
+
+
+CHAT_ACTION_ADDITIONAL_CONSTRAINTS = [
+    '- The "message" will be rendered to TTS, so make sure it follow one of the two formats. '
+    f'(1) Control style, tone, accent and pace using natural language prompt. e.g.\n{CHAT_ACTION_EXEMPLAR_2} '
+    f'(2) Use Speech Synthesis Markup Language (SSML) to customize your response. e.g.\n{CHAT_ACTION_EXEMPLAR_3}'
+]
 
 
 class WerewolfAgentBase(ABC):
@@ -385,7 +399,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                     instruction = INSTRUCTION_TEMPLATE.format(**{
                         "role": "It is day time. Participate in the discussion.",
                         "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
-                        "additional_constraints": "",
+                        "additional_constraints": "\n".join(CHAT_ACTION_ADDITIONAL_CONSTRAINTS),
                         "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
                         "exemplar": CHAT_ACTION_EXEMPLAR
                     })
