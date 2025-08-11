@@ -27,7 +27,7 @@ class BasicWorldDemo {
     this._labelRenderer.setSize(window.innerWidth, window.innerHeight);
     this._labelRenderer.domElement.style.position = 'absolute';
     this._labelRenderer.domElement.style.top = '0px';
-    this._labelRenderer.domElement.style.pointerEvents = 'none'; // Allow clicks to pass through
+    this._labelRenderer.domElement.style.pointerEvents = 'none';
     document.body.appendChild(this._labelRenderer.domElement);
 
     window.addEventListener('resize', () => {
@@ -42,7 +42,8 @@ class BasicWorldDemo {
     this._camera.position.set(0, 0, 50);
 
     this._scene = new THREE.Scene();
-    this._scene.background = new THREE.Color(0x7393B3);
+    
+    this._createSkybox();
 
     const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
     this._scene.add(hemisphereLight);
@@ -58,6 +59,53 @@ class BasicWorldDemo {
 
     this._LoadModels();
     this._RAF();
+  }
+
+  _createSkybox() {
+    const skyboxSize = 1000;
+    const skyboxGeo = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+    const black = 0x000000;
+
+    const backPanelMaterial = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
+
+    // The order is: right, left, top, bottom, front, back
+    // The "front" face (+z) is the one behind the characters, serving as the backdrop.
+    const materials = [
+        new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // right
+        new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // left
+        new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // top
+        new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // bottom
+        backPanelMaterial,                                                    // front (the backdrop)
+        new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide })   // back (behind camera)
+    ];
+
+    const skybox = new THREE.Mesh(skyboxGeo, materials);
+    this._scene.add(skybox);
+
+    const backCanvas = document.createElement('canvas');
+    const backContext = backCanvas.getContext('2d');
+
+    const canvasSize = 2048
+    backCanvas.width = canvasSize;
+    backCanvas.height = canvasSize;
+    
+    const moonImage = new Image();
+    moonImage.onload = () => {
+        backContext.fillStyle = 'black';
+        backContext.fillRect(0, 0, backCanvas.width, backCanvas.height);
+        const moonSize = 500;
+        backContext.drawImage(moonImage, moonSize, moonSize, moonSize, moonSize);
+//        backContext.drawImage(moonImage, backCanvas.width - moonSize - 50, 50, moonSize, moonSize);
+        
+        const backTexture = new THREE.CanvasTexture(backCanvas);
+        
+        backPanelMaterial.map = backTexture;
+        backPanelMaterial.needsUpdate = true;
+    };
+    moonImage.onerror = () => {
+        console.error("Failed to load moon texture for skybox.");
+    };
+    moonImage.src = 'assets/moon4.png';
   }
 
   _LoadModels() {
@@ -87,7 +135,7 @@ class BasicWorldDemo {
 
         const modelBox = new THREE.Box3().setFromObject(stickmanModel);
         const topOfHeadY = modelBox.max.y * stickmanHeight;
-        const frontOffsetZ = modelBox.max.z * stickmanHeight; // Get the depth of the model
+        const frontOffsetZ = modelBox.max.z * stickmanHeight;
         const nameplateOffset = 1.5;
 
         const startAngle = -sectorAngleRadians / 2;
@@ -106,8 +154,7 @@ class BasicWorldDemo {
           stickman.lookAt(new THREE.Vector3(0, y, 0));
 
           const nameplate = this._createNameplate(names[i], URLS[brands[i]]);
-          // Position the nameplate at the top-front of the stickman's bounding box
-          nameplate.position.set(0, topOfHeadY + nameplateOffset, frontOffsetZ);
+          nameplate.position.set(0, topOfHeadY + nameplateOffset, -frontOffsetZ);
           stickman.add(nameplate);
 
           stickmanGroup.add(stickman);
@@ -139,14 +186,14 @@ class BasicWorldDemo {
     container.style.display = 'flex';
     container.style.alignItems = 'center';
     container.style.justifyContent = 'center';
-    container.style.gap = '10px'; // Space between logo and name
+    container.style.gap = '10px';
     container.style.textAlign = 'center';
 
     const img = document.createElement('img');
     img.src = imageUrl;
     img.style.width = '60px';
     img.style.height = '60px';
-    img.style.borderRadius = '80%'; // Circular frame
+    img.style.borderRadius = '80%';
     img.style.objectFit = 'cover';
     img.style.backgroundColor = 'white';
 
