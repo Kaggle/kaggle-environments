@@ -170,7 +170,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         decoding_kwargs = agent_config.get("llms", [{}])[0].get('parameters')
         self._decoding_kwargs = decoding_kwargs or {}
         self._kaggle_config = kaggle_config or {}
-
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
         self._history_entries = []
         self._model_name = model_name
         self._system_prompt = system_prompt
@@ -191,6 +192,12 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "vertex_credentials": vertex_credentials_json
             })
 
+    def print_token_usage(self) :
+        print(f"*** Total prompt tokens '{self._prompt_tokens}' total completion_tokens '{self._completion_tokens}'")
+
+    def __del__(self):
+        print(f"Instance '{self._model_name}' is being deleted. Prompt tokens '{self._prompt_tokens}' completion_tokens '{self._completion_tokens}'")
+
     def query(self, prompt):
         response = completion(
             model=self._model_name,
@@ -198,6 +205,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             **self._decoding_kwargs
         )
         msg = response["choices"][0]["message"]["content"]
+        self._completion_tokens += response['usage']['completion_tokens']
+        self._prompt_tokens += response['usage']['prompt_tokens']
         return msg
 
     def parse(self, out: str) -> dict:
@@ -416,4 +425,5 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             print(f"parsed_out={parsed_out}")
         print(f"model_name={self._model_name}")
         print(action.model_dump())
+        self.print_token_usage()
         return action.serialize()
