@@ -180,19 +180,19 @@ function renderer({
             background: var(--night-bg);
             font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
             color: var(--night-text);
-            gap: 20px;
-            padding: 20px;
+            gap: 12px;
+            padding: 12px;
             box-sizing: border-box;
         }
         .left-panel, .right-panel {
             background: var(--night-surface);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 24px;
+            border-radius: 16px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            height: calc(100% - 40px);
+            height: calc(100% - 24px);
             box-sizing: border-box;
             box-shadow:
                 0 25px 50px -12px rgba(0, 0, 0, 0.5),
@@ -219,16 +219,16 @@ function renderer({
             min-width: 0;
         }
         .right-panel h1, #player-list-area h1 {
-            margin: 0 0 32px 0;
+            margin: 0 0 16px 0;
             text-align: center;
-            font-size: 2.2em;
+            font-size: 1.4em;
             font-weight: 700;
             background: linear-gradient(135deg, #ffffff 0%, #a0a6b8 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             position: relative;
-            padding-bottom: 16px;
+            padding-bottom: 8px;
             flex-shrink: 0;
         }
         .right-panel h1::after, #player-list-area h1::after {
@@ -237,10 +237,10 @@ function renderer({
             bottom: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
+            width: 40px;
+            height: 2px;
             background: linear-gradient(90deg, transparent, #ffffff, transparent);
-            border-radius: 2px;
+            border-radius: 1px;
         }
         #player-list-area {
             flex: 3;
@@ -265,9 +265,9 @@ function renderer({
             align-items: center;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
             backdrop-filter: blur(10px);
-            padding: 16px;
-            border-radius: 16px;
-            margin-bottom: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
@@ -338,8 +338,8 @@ function renderer({
         
         .player-name {
             font-weight: 700;
-            font-size: 1.4em;
-            margin-bottom: 8px;
+            font-size: 1.1em;
+            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -352,12 +352,12 @@ function renderer({
         }
         
         .player-role {
-            font-size: 1em;
+            font-size: 0.85em;
             font-weight: 600;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 4px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(160, 166, 184, 0.8) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -365,19 +365,19 @@ function renderer({
         }
         
         .role-icon {
-            font-size: 1.3em;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+            font-size: 1em;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
             text-shadow: none;
             -webkit-text-fill-color: initial;
         }
         
         .player-status {
-            font-size: 0.85em;
+            font-size: 0.7em;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 4px 8px;
-            border-radius: 12px;
+            letter-spacing: 0.5px;
+            padding: 2px 6px;
+            border-radius: 8px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: var(--night-text);
@@ -494,8 +494,8 @@ function renderer({
         }
         
         .balloon {
-            padding: 20px 24px;
-            border-radius: 24px 24px 24px 8px;
+            padding: 12px 16px;
+            border-radius: 16px 16px 16px 6px;
             max-width: 85%;
             word-wrap: break-word;
             transition: all var(--transition-base);
@@ -1171,25 +1171,6 @@ function renderer({
             animation: none;
         }
         
-        .interactive-tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--radius-md);
-            font-size: 0.8em;
-            white-space: nowrap;
-            z-index: 1000;
-            pointer-events: none;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all var(--transition-base);
-        }
-        
-        .interactive-tooltip.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
         
         .sound-wave {
             position: absolute;
@@ -1458,31 +1439,6 @@ function renderer({
       }, 2000);
   }
   
-  function addInteractiveTooltip(element, text) {
-      const tooltip = document.createElement('div');
-      tooltip.className = 'interactive-tooltip';
-      tooltip.textContent = text;
-      document.body.appendChild(tooltip);
-      
-      element.addEventListener('mouseenter', (e) => {
-          const rect = element.getBoundingClientRect();
-          tooltip.style.left = rect.left + rect.width / 2 + 'px';
-          tooltip.style.top = rect.top - 10 + 'px';
-          tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
-          tooltip.classList.add('show');
-      });
-      
-      element.addEventListener('mouseleave', () => {
-          tooltip.classList.remove('show');
-      });
-      
-      // Cleanup function
-      return () => {
-          if (document.body.contains(tooltip)) {
-              document.body.removeChild(tooltip);
-          }
-      };
-  }
   
   function createBackgroundParticles() {
       if (parent.querySelector('.interactive-background')) return;
@@ -1716,8 +1672,6 @@ function renderer({
             setTimeout(() => animatePlayerCard(li, 'slide-in-left'), index * 100);
         }
         
-        // Add interactive tooltip
-        addInteractiveTooltip(li, `${player.name} - ${player.role} (${statusText})`);
         
         // Add click effects
         li.addEventListener('click', () => {
