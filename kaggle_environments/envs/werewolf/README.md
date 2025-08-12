@@ -6,6 +6,7 @@ This example only uses models from vertexai for simplicity of auth
 Checkout the werewolf_harness branch
 ```bash
 git clone https://github.com/Kaggle/kaggle-environments.git
+cd kaggle-environments
 git checkout werewolf_harness
 ```
 
