@@ -321,12 +321,12 @@ function renderer({
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects
+                // Bloom pass for glowing effects - balanced settings
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.5,  // strength
-                  0.8,  // radius
-                  0.3   // threshold
+                  0.1,  // moderate strength for subtle glow
+                  0.3,  // moderate radius
+                  0.4   // balanced threshold
                 );
                 this._composer.addPass(bloomPass);
 
@@ -503,24 +503,58 @@ function renderer({
                         player.isAlive = false;
                         break;
                     case 'werewolf':
-                        // Red/purple glow for werewolves
-                        orb.material.color.setHex(0xff0000);
-                        orb.material.emissive.setHex(0xff0000);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0xff0000);
-                        orbLight.intensity = 1.2;
-                        body.material.color.setHex(0x880000);
-                        body.material.emissive.setHex(0x440000);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x880000);
-                        shoulders.material.emissive.setHex(0x440000);
-                        shoulders.material.emissiveIntensity = 0.3;
-                        glow.material.color.setHex(0xff0000);
-                        glow.material.emissive.setHex(0xff0000);
-                        glow.material.emissiveIntensity = 0.4;
-                        glow.visible = true;
-                        pedestal.material.emissive.setHex(0x440000);
-                        pedestal.material.emissiveIntensity = 0.2;
+                        // Desaturated red/crimson glow for werewolves
+                        const crimsonColor = 0xcc4444;  // Less saturated red
+                        const darkCrimson = 0x993333;   // Darker, less saturated
+                        const glowCrimson = 0xdd6666;   // Lighter crimson for glow
+                        
+                        if (orb && orb.material) {
+                            orb.material.color.setHex(crimsonColor);
+                            orb.material.emissive.setHex(crimsonColor);
+                            orb.material.emissiveIntensity = 2.0;  // Moderate brightness
+                            orb.material.opacity = 1.0;
+                        }
+                        if (orbLight) {
+                            orbLight.color.setHex(crimsonColor);
+                            orbLight.intensity = 3.0;  // Moderate red light
+                        }
+                        if (body && body.material) {
+                            body.material.color.setHex(darkCrimson);  // Darker crimson body
+                            body.material.emissive.setHex(darkCrimson);
+                            body.material.emissiveIntensity = 0.8;  // Subtle body glow
+                        }
+                        if (shoulders && shoulders.material) {
+                            shoulders.material.color.setHex(darkCrimson);
+                            shoulders.material.emissive.setHex(darkCrimson);
+                            shoulders.material.emissiveIntensity = 0.8;
+                        }
+                        if (head && head.material) {
+                            head.material.color.setHex(0xcc8888);  // Pinkish crimson head
+                            head.material.emissive.setHex(crimsonColor);
+                            head.material.emissiveIntensity = 0.6;
+                        }
+                        // Make glow sphere visible with desaturated color
+                        if (glow && glow.material) {
+                            glow.material.color.setHex(glowCrimson);
+                            glow.material.emissive.setHex(glowCrimson);
+                            glow.material.emissiveIntensity = 1.5;  // Moderate glow
+                            glow.material.opacity = 0.7;  // Semi-transparent
+                            glow.visible = true;
+                            glow.scale.set(2.5, 2.5, 2.5);  // Large but not overwhelming
+                        }
+                        if (pedestal && pedestal.material) {
+                            pedestal.material.color.setHex(darkCrimson);
+                            pedestal.material.emissive.setHex(darkCrimson);
+                            pedestal.material.emissiveIntensity = 0.5;
+                        }
+                        // Make werewolves larger
+                        container.scale.setScalar(1.25);  // 25% larger
+                        // Ensure upright position
+                        container.position.y = 0;
+                        container.rotation.x = 0;
+                        container.rotation.z = 0;
+                        // Mark as werewolf for special animation handling
+                        player.isWerewolf = true;
                         break;
                     case 'voting':
                         // Orange pulse for voting
@@ -731,12 +765,21 @@ function renderer({
                         // Enhanced glow animation
                         if (player.glow && player.glow.visible) {
                           player.glow.rotation.y = -time * 0.002;
-                          const glowScale = 1 + Math.sin(time * 0.004 + player.baseAngle) * 0.15;
-                          player.glow.scale.setScalar(glowScale);
-                          
-                          // Pulsing emissive intensity
-                          const pulseIntensity = 0.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.1;
-                          player.glow.material.emissiveIntensity = pulseIntensity;
+                          // Don't override werewolf glow scale
+                          if (!player.isWerewolf) {
+                            const glowScale = 1 + Math.sin(time * 0.004 + player.baseAngle) * 0.15;
+                            player.glow.scale.setScalar(glowScale);
+                            
+                            // Pulsing emissive intensity
+                            const pulseIntensity = 0.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.1;
+                            player.glow.material.emissiveIntensity = pulseIntensity;
+                          } else {
+                            // Werewolf glow pulsing - subtle and desaturated
+                            const werewolfGlowScale = 2.5 + Math.sin(time * 0.004 + player.baseAngle) * 0.3;
+                            player.glow.scale.setScalar(werewolfGlowScale);
+                            const werewolfIntensity = 1.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.3;
+                            player.glow.material.emissiveIntensity = werewolfIntensity;
+                          }
                         }
                         
                         // Enhanced pulse effect for active players
@@ -807,7 +850,8 @@ function renderer({
         threeState.demo.updatePlayerStatus(player.name, 'dead');
       } else if (player.name === actingPlayerName) {
         threeState.demo.updatePlayerStatus(player.name, 'active');
-      } else if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
+      } else if (player.role === 'Werewolf') {
+        // Show werewolves with red glow always (not just at night) for visibility
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
       } else {
         threeState.demo.updatePlayerStatus(player.name, 'default');
@@ -2608,7 +2652,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         playerContainer.add(orb);
         
         // Add outer glow sphere
-        const glowGeometry = new THREE.SphereGeometry(0.5, 12, 8);
+        const glowGeometry = new THREE.SphereGeometry(0.2, 12, 8);
         const glowMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ff00,
             emissive: 0x00ff00,
@@ -2627,14 +2671,14 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         orbLight.castShadow = true;
         playerContainer.add(orbLight);
         
-        // Make player face center
-        playerContainer.lookAt(new THREE.Vector3(0, 0, 0));
-        playerContainer.rotation.y += Math.PI; // Face inward
+        // Make player face center (only rotate on Y axis to keep upright)
+        const angleToCenter = Math.atan2(-x, -z);
+        playerContainer.rotation.y = angleToCenter;
         
         // Create nameplate with actual player thumbnail
-        const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
+        const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/45/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight * 1.4, 0);
+        nameplate.position.set(0, playerHeight * 2.0, 0);  // Moved up from 1.4 to 1.6
         playerContainer.add(nameplate);
         
         // Store references
