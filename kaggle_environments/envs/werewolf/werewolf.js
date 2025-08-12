@@ -2627,9 +2627,9 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         orbLight.castShadow = true;
         playerContainer.add(orbLight);
         
-        // Make player face center
-        playerContainer.lookAt(new THREE.Vector3(0, 0, 0));
-        playerContainer.rotation.y += Math.PI; // Face inward
+        // Make player face center without flipping
+        // Calculate the angle to face the center
+        playerContainer.rotation.y = -angle + Math.PI / 2;
         
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
