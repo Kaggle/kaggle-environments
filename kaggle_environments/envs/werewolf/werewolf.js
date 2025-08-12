@@ -493,317 +493,611 @@ function renderer({
   // --- CSS for the UI ---
   const css = `
         :root {
-            --night-bg: #2c3e50;
-            --day-bg: #3498db;
-            --night-text: #ecf0f1;
-            --day-text: #2c3e50;
-            --dead-filter: grayscale(100%) brightness(50%);
-            --active-border: #f1c40f;
+            --night-bg: linear-gradient(135deg, #1a1a2e, #16213e);
+            --day-bg: linear-gradient(135deg, #74b9ff, #0984e3);
+            --night-text: #f8f9fa;
+            --day-text: #2d3436;
+            --dead-filter: grayscale(100%) brightness(40%) contrast(0.8);
+            --active-border: #fdcb6e;
+            --active-glow: rgba(253, 203, 110, 0.4);
+            --werewolf-color: #e17055;
+            --villager-color: #00b894;
+            --doctor-color: #6c5ce7;
+            --seer-color: #fd79a8;
+            --panel-bg: rgba(33, 40, 54, 0.95);
+            --panel-border: rgba(116, 185, 255, 0.2);
+            --hover-bg: rgba(116, 185, 255, 0.1);
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            --text-primary: #f8f9fa;
+            --text-secondary: #b2bec3;
+            --text-muted: #74b9ff;
         }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
         .werewolf-parent {
             position: relative;
             overflow: hidden;
             width: 100%;
             height: 100%;
-            background-color: #000;
+            background: radial-gradient(ellipse at center, #0f1419 0%, #000000 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
+        
         .main-container {
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            z-index: 2; /* UI on top of label renderer */
-            pointer-events: none; /* Allow clicks to go through to canvas */
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: var(--night-text);
+            z-index: 2;
+            pointer-events: none;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+            font-weight: 400;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
+        
+        /* Enhanced Panel Styling */
+        .left-panel, .right-panel {
+            position: fixed;
+            top: 20px;
+            max-height: calc(100vh - 40px);
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px) saturate(1.5);
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            pointer-events: auto;
+            box-shadow: var(--card-shadow), 0 0 40px rgba(116, 185, 255, 0.05);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
         .left-panel {
-            position: fixed;
-            top: 20px;
             left: 20px;
-            width: 280px;
-            max-height: calc(100vh - 40px);
-            background-color: rgba(44, 62, 80, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            box-sizing: border-box;
-            pointer-events: auto;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+            width: 320px;
         }
+        
         .right-panel {
-            position: fixed;
-            top: 20px;
             right: 20px;
-            width: 400px;
-            max-height: calc(100vh - 40px);
-            background-color: rgba(44, 62, 80, 0.9);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            box-sizing: border-box;
-            pointer-events: auto;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+            width: 420px;
         }
+        
+        .left-panel:hover, .right-panel:hover {
+            border-color: rgba(116, 185, 255, 0.3);
+            box-shadow: var(--card-shadow), 0 0 60px rgba(116, 185, 255, 0.08);
+        }
+        
+        /* Enhanced Headers */
         .right-panel h1, #player-list-area h1 {
-            margin-top: 0;
+            margin: 0 0 20px 0;
             text-align: center;
-            font-size: 1.5em;
-            color: var(--night-text);
-            border-bottom: 2px solid var(--night-text);
-            padding-bottom: 10px;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            padding-bottom: 15px;
             flex-shrink: 0;
         }
+        
+        .right-panel h1::after, #player-list-area h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #74b9ff, transparent);
+            border-radius: 2px;
+        }
+        
+        /* Enhanced Player List */
         #player-list-area {
-            flex: 3;
-            flex-grow: 1;
+            flex: 1;
             display: flex;
             flex-direction: column;
             min-height: 0;
         }
+        
         #player-list-container {
             overflow-y: auto;
-            scrollbar-width: thin;
             flex-grow: 1;
+            padding-right: 8px;
+            margin-right: -8px;
         }
+        
+        #player-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #player-list-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        #player-list-container::-webkit-scrollbar-thumb {
+            background: rgba(116, 185, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        #player-list-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(116, 185, 255, 0.5);
+        }
+        
         #player-list {
             list-style: none;
             padding: 0;
             margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
+        
+        /* Enhanced Player Cards */
         .player-card {
             position: relative;
             display: flex;
             align-items: center;
-            background-color: rgba(0,0,0,0.2);
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border-left: 5px solid transparent;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .player-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: transparent;
             transition: all 0.3s ease;
         }
+        
+        .player-card:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+            border-color: rgba(116, 185, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+        
         .player-card.active {
-            border-left-color: var(--active-border);
-            box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
+            background: linear-gradient(135deg, rgba(253, 203, 110, 0.15), rgba(253, 203, 110, 0.05));
+            border-color: var(--active-border);
+            box-shadow: 0 0 20px var(--active-glow), 0 4px 20px rgba(0, 0, 0, 0.1);
         }
+        
+        .player-card.active::before {
+            background: linear-gradient(180deg, var(--active-border), rgba(253, 203, 110, 0.5));
+        }
+        
         .player-card.dead {
-            opacity: 0.6;
+            opacity: 0.5;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            filter: brightness(0.7);
         }
+        
+        /* Enhanced Avatar */
         .avatar-container {
             position: relative;
-            width: 50px;
-            height: 50px;
-            margin-right: 15px;
+            width: 56px;
+            height: 56px;
+            margin-right: 16px;
             flex-shrink: 0;
         }
+        
         .player-card .avatar {
             width: 100%;
             height: 100%;
             border-radius: 50%;
             object-fit: cover;
-            background-color: #fff;
-            transition: box-shadow 0.3s ease;
+            background-color: #ffffff;
+            border: 2px solid rgba(116, 185, 255, 0.2);
+            transition: all 0.3s ease;
         }
+        
+        .player-card:hover .avatar {
+            border-color: rgba(116, 185, 255, 0.4);
+            box-shadow: 0 0 15px rgba(116, 185, 255, 0.2);
+        }
+        
+        .player-card.active .avatar {
+            border-color: var(--active-border);
+            box-shadow: 0 0 15px var(--active-glow);
+        }
+        
         .player-card.dead .avatar {
-             filter: var(--dead-filter);
+            filter: var(--dead-filter);
+            border-color: rgba(255, 255, 255, 0.1);
         }
+        
+        /* Enhanced Player Info */
         .player-info {
             flex-grow: 1;
             overflow: hidden;
+            min-width: 0;
         }
+        
         .player-name {
-            font-weight: bold;
-            font-size: 1.1em;
-            margin-bottom: 3px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+            color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            letter-spacing: -0.01em;
         }
-        .player-role, .player-status {
-            font-size: 0.9em;
-            color: #bdc3c7;
+        
+        .player-role {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+        
+        .player-role.werewolf { color: var(--werewolf-color); }
+        .player-role.villager { color: var(--villager-color); }
+        .player-role.doctor { color: var(--doctor-color); }
+        .player-role.seer { color: var(--seer-color); }
+        
+        /* Enhanced Threat Indicator */
         .threat-indicator {
             position: absolute;
-            top: 50%;
-            right: 15px;
-            width: 12px;
-            height: 12px;
+            top: 12px;
+            right: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            transform: translateY(-50%);
             background-color: transparent;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
         }
+        
+        /* Enhanced Chat/Event Log */
         #chat-log {
             list-style: none;
             padding: 0;
             margin: 0;
             flex-grow: 1;
             overflow-y: auto;
-            scrollbar-width: thin;
+            padding-right: 8px;
+            margin-right: -8px;
         }
+        
+        #chat-log::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #chat-log::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        #chat-log::-webkit-scrollbar-thumb {
+            background: rgba(116, 185, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        #chat-log::-webkit-scrollbar-thumb:hover {
+            background: rgba(116, 185, 255, 0.5);
+        }
+        
+        /* Enhanced Chat Entries */
         .chat-entry {
             display: flex;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             align-items: flex-start;
+            animation: fadeInUp 0.3s ease-out;
         }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         .chat-avatar {
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            margin-right: 10px;
+            margin-right: 12px;
             object-fit: cover;
             flex-shrink: 0;
+            border: 2px solid rgba(116, 185, 255, 0.2);
+            transition: all 0.3s ease;
         }
+        
+        .chat-entry:hover .chat-avatar {
+            border-color: rgba(116, 185, 255, 0.4);
+        }
+        
         .message-content {
             display: flex;
             flex-direction: column;
             flex-grow: 1;
+            min-width: 0;
         }
+        
+        /* Enhanced Message Bubbles */
         .balloon {
-            padding: 10px;
-            border-radius: 10px;
-            max-width: 80%;
+            padding: 14px 16px;
+            border-radius: 16px 16px 16px 4px;
+            max-width: 85%;
             word-wrap: break-word;
-            transition: background-color 0.3s ease;
+            background: linear-gradient(135deg, rgba(116, 185, 255, 0.1), rgba(116, 185, 255, 0.05));
+            border: 1px solid rgba(116, 185, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            line-height: 1.4;
+            font-size: 0.95rem;
         }
+        
+        .balloon:hover {
+            background: linear-gradient(135deg, rgba(116, 185, 255, 0.15), rgba(116, 185, 255, 0.08));
+            border-color: rgba(116, 185, 255, 0.3);
+        }
+        
         .chat-entry.event-day .balloon {
-            background-color: rgba(236, 240, 241, 0.1);
-            color: var(--night-text);
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+            border-color: rgba(255, 193, 7, 0.2);
+            color: var(--text-primary);
         }
+        
         .chat-entry.event-night .balloon {
-            background-color: rgba(0, 0, 0, 0.25);
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(108, 92, 231, 0.05));
+            border-color: rgba(108, 92, 231, 0.2);
         }
+        
+        /* Enhanced System Messages */
         .msg-entry {
-            border-left: 3px solid #f39c12;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
+            border-left: 4px solid #f39c12;
+            padding: 16px;
+            margin: 16px 0;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(243, 156, 18, 0.1), rgba(243, 156, 18, 0.05));
+            border: 1px solid rgba(243, 156, 18, 0.2);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.3s ease-out;
         }
+        
+        .msg-entry:hover {
+            background: linear-gradient(135deg, rgba(243, 156, 18, 0.15), rgba(243, 156, 18, 0.08));
+            border-color: rgba(243, 156, 18, 0.3);
+        }
+        
         .msg-entry.event-day {
-            background-color: rgba(236, 240, 241, 0.1);
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+            border-color: rgba(255, 193, 7, 0.2);
         }
+        
         .msg-entry.event-night {
-            background-color: rgba(0, 0, 0, 0.25);
+            background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(108, 92, 231, 0.05));
+            border-color: rgba(108, 92, 231, 0.2);
         }
-        .reasoning-text {
-            font-size: 0.85em;
-            color: #bdc3c7;
-            font-style: italic;
-            margin-top: 5px;
-            padding-left: 10px;
-            border-left: 2px solid #555;
-        }
+        
         .msg-entry.game-event {
-             border-left-color: #e74c3c;
+            border-left-color: #e74c3c;
+            background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(231, 76, 60, 0.05));
+            border-color: rgba(231, 76, 60, 0.2);
         }
+        
         .msg-entry.game-win {
-             border-left-color: #2ecc71;
-             line-height: 1.5;
+            border-left-color: #2ecc71;
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+            border-color: rgba(46, 204, 113, 0.2);
+            line-height: 1.6;
         }
+        
+        /* Enhanced Reasoning Text */
+        .reasoning-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-style: italic;
+            margin-top: 8px;
+            padding-left: 12px;
+            border-left: 2px solid rgba(116, 185, 255, 0.3);
+            line-height: 1.4;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* Enhanced Citations */
         #chat-log cite {
             font-style: normal;
-            font-weight: bold;
-            display: block;
-            font-size: 0.9em;
-            color: #ecf0f1;
-            margin-bottom: 5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            gap: 8px;
         }
+        
+        /* Enhanced Moderator Announcements */
         .moderator-announcement {
-            margin: 10px 0;
+            margin: 16px 0;
+            animation: fadeInUp 0.3s ease-out;
         }
+        
         .moderator-announcement-content {
-            padding: 10px;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-            border-left: 5px solid #2ecc71;
-            color: var(--night-text);
-            line-height: 1.2;
+            padding: 16px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+            border: 1px solid rgba(46, 204, 113, 0.2);
+            border-left: 4px solid #2ecc71;
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: all 0.3s ease;
         }
-        .moderator-announcement-content.event-day {
-            background-color: rgba(236, 240, 241, 0.1);
+        
+        .moderator-announcement-content:hover {
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.08));
+            border-color: rgba(46, 204, 113, 0.3);
         }
-        .moderator-announcement-content.event-night {
-            background-color: rgba(0, 0, 0, 0.25);
-        }
+        
+        /* Enhanced Timestamps */
         .timestamp {
-            font-size: 0.8em;
-            color: #bdc3c7;
-            margin-left: 10px;
-            font-weight: normal;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(116, 185, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: auto;
         }
+        
+        /* Enhanced Player Capsules */
+        .player-capsule {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(116, 185, 255, 0.15), rgba(116, 185, 255, 0.08));
+            border: 1px solid rgba(116, 185, 255, 0.2);
+            border-radius: 16px;
+            padding: 2px 10px 2px 2px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0 2px;
+            vertical-align: middle;
+            transition: all 0.3s ease;
+        }
+        
+        .player-capsule:hover {
+            background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1));
+            border-color: rgba(116, 185, 255, 0.3);
+        }
+        
+        .capsule-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 6px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Enhanced TTS Button */
+        .tts-button {
+            cursor: pointer;
+            font-size: 1.1rem;
+            margin-left: 12px;
+            padding: 4px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            opacity: 0.6;
+        }
+        
+        .tts-button:hover {
+            opacity: 1;
+            background: rgba(116, 185, 255, 0.1);
+            transform: scale(1.1);
+        }
+        
+        /* Enhanced Audio Controls */
+        .audio-controls {
+            padding: 16px 0;
+            border-top: 1px solid rgba(116, 185, 255, 0.2);
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .audio-controls label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .audio-controls input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(116, 185, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .audio-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #74b9ff;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        
+        #pause-audio {
+            background-color: rgba(116, 185, 255, 0.1);
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            padding: 0;
+            background-size: 16px;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: all 0.3s ease;
+            filter: none;
+        }
+        
+        #pause-audio:hover {
+            background-color: rgba(116, 185, 255, 0.2);
+            border-color: rgba(116, 185, 255, 0.5);
+            transform: scale(1.1);
+        }
+        
+        #pause-audio.paused {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM3NGI5ZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWdvbiBwb2ludHM9IjYgMyAyMCAxMiA2IDIxIi8+PC9zdmc+');
+        }
+        
+        #pause-audio.playing {
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM3NGI5ZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSI2IiB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNiIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iNCIgd2lkdGg9IjQiIGhlaWdodD0iMTYiIHJ4PSIxIi8+PC9zdmc+');
+        }
+        
+        /* Message text formatting */
+        .msg-text {
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+        
         .msg-text br {
             display: block;
             margin-bottom: 0.5em;
             content: "";
         }
-        .player-capsule {
-            display: inline-flex;
-            align-items: center;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 1px 8px 1px 2px;
-            font-size: 0.9em;
-            font-weight: bold;
-            margin: 0 2px;
-            vertical-align: middle;
-        }
-        .capsule-avatar {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            margin-right: 5px;
-            object-fit: cover;
-        }
-        .tts-button {
-            cursor: pointer;
-            font-size: 1.2em;
-            margin-left: 10px;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        .audio-controls {
-            padding: 10px 0;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            margin-top: 10px;
-        }
-        .audio-controls label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-            color: #bdc3c7;
-        }
-        .audio-controls input[type="range"] {
-            width: 100%;
-        }
-        #pause-audio {
-            background-color: transparent;
-            border: none;
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
-            padding: 0;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            /* Use a filter to make the icons white to match the theme text */
-            filter: invert(90%) sepia(10%) saturate(100%) hue-rotate(180deg) brightness(100%) contrast(90%);
-        }
-        #pause-audio.paused {
-            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWdvbiBwb2ludHM9IjYgMyAyMCAxMiA2IDIxIi8+PC9zdmc+');
-        }
-        #pause-audio.playing {
-            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMDAwMDAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSI2IiB5PSI0IiB3aWR0aD0iNCIgaGVpZ2h0PSIxNiIgcng9IjEiLz48cmVjdCB4PSIxNCIgeT0iNCIgd2lkdGg9IjQiIGhlaWdodD0iMTYiIHJ4PSIxIi8+PC9zdmc+');
+        
+        /* Smooth scrolling */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(116, 185, 255, 0.3) transparent;
         }
     `;
 
@@ -959,6 +1253,224 @@ function renderer({
     const value = Math.max(0, Math.min(1, threatLevel));
     const hue = 120 * (1 - value);
     return `hsl(${hue}, 100%, 50%)`;
+  }
+
+  function updatePlayerList(container, gameState, actingPlayerName) {
+    // Get or create header
+    let header = container.querySelector('h1');
+    if (!header) {
+        header = document.createElement('h1');
+        header.textContent = 'Players';
+        container.appendChild(header);
+    }
+
+    // Get or create list container
+    let listContainer = container.querySelector('#player-list-container');
+    if (!listContainer) {
+        listContainer = document.createElement('div');
+        listContainer.id = 'player-list-container';
+        container.appendChild(listContainer);
+    }
+
+    // Get or create player list
+    let playerUl = listContainer.querySelector('#player-list');
+    if (!playerUl) {
+        playerUl = document.createElement('ul');
+        playerUl.id = 'player-list';
+        listContainer.appendChild(playerUl);
+    }
+
+    // Update player cards
+    gameState.players.forEach((player, index) => {
+        let li = playerUl.children[index];
+        if (!li) {
+            li = document.createElement('li');
+            playerUl.appendChild(li);
+        }
+
+        // Update player card classes
+        li.className = 'player-card';
+        if (!player.is_alive) li.classList.add('dead');
+        if (player.name === actingPlayerName) li.classList.add('active');
+
+        let roleDisplay = player.role;
+        if (player.role === 'Werewolf') {
+            roleDisplay = `🐺 ${player.role}`;
+        } else if (player.role === 'Doctor') {
+            roleDisplay = `🩺 ${player.role}`;
+        } else if (player.role === 'Seer') {
+            roleDisplay = `🔮 ${player.role}`;
+        } else if (player.role === 'Villager') {
+            roleDisplay = `🧑 ${player.role}`;
+        }
+
+        const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
+
+        // Update content
+        li.innerHTML = `
+            <div class="avatar-container">
+                <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
+            </div>
+            <div class="player-info">
+                <div class="player-name" title="${player.name}">${player.name}</div>
+                <div class="player-role">${roleText}</div>
+            </div>
+            <div class="threat-indicator"></div>
+        `;
+
+        // Update threat indicator
+        const indicator = li.querySelector('.threat-indicator');
+        if (indicator && player.is_alive) {
+            const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
+            indicator.style.backgroundColor = getThreatColor(threatLevel);
+        } else if (indicator) {
+            indicator.style.backgroundColor = 'transparent';
+        }
+    });
+
+    // Remove excess player cards
+    while (playerUl.children.length > gameState.players.length) {
+        playerUl.removeChild(playerUl.lastChild);
+    }
+
+    // Get or create audio controls
+    let audioControls = container.querySelector('.audio-controls');
+    if (!audioControls) {
+        audioControls = document.createElement('div');
+        audioControls.className = 'audio-controls';
+        const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
+        audioControls.innerHTML = `
+            <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="flex-grow: 1;">
+                <button id="pause-audio" class="${pauseButtonClass}"></button>
+            </div>
+        `;
+        container.appendChild(audioControls);
+
+        // Add event listeners only once
+        const speedSlider = audioControls.querySelector('#playback-speed');
+        const speedLabel = audioControls.querySelector('#speed-label');
+        const pauseButton = audioControls.querySelector('#pause-audio');
+
+        speedSlider.addEventListener('input', (e) => {
+            const newRate = parseFloat(e.target.value);
+            setPlaybackRate(newRate);
+            speedLabel.textContent = newRate.toFixed(1);
+        });
+
+        pauseButton.addEventListener('click', () => {
+            togglePause();
+        });
+    }
+  }
+
+  function updateEventLog(container, gameState, playerMap) {
+    // Get or create header
+    let header = container.querySelector('h1');
+    if (!header) {
+        header = document.createElement('h1');
+        header.textContent = 'Event Log';
+        container.appendChild(header);
+    }
+
+    // Get or create log container
+    let logUl = container.querySelector('#chat-log');
+    if (!logUl) {
+        logUl = document.createElement('ul');
+        logUl.id = 'chat-log';
+        container.appendChild(logUl);
+    }
+
+    const logEntries = gameState.eventLog;
+    
+    // Store current scroll position
+    const wasScrolledToBottom = logUl.scrollHeight - logUl.clientHeight <= logUl.scrollTop + 1;
+
+    // Only add new entries, don't rebuild the entire log
+    const currentEntryCount = logUl.children.length;
+    
+    if (logEntries.length === 0 && currentEntryCount === 0) {
+        const li = document.createElement('li');
+        li.className = 'msg-entry';
+        li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
+        logUl.appendChild(li);
+    } else if (logEntries.length > currentEntryCount) {
+        // Only process new entries
+        const newEntries = logEntries.slice(currentEntryCount);
+        newEntries.forEach(entry => {
+            const li = document.createElement('li');
+            let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
+
+            let phase = (entry.phase || 'Day').toUpperCase();
+            const entryType = entry.type;
+            const systemText = (entry.text || '').toLowerCase();
+
+            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
+                phase = 'DAY';
+            } else if (
+                entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
+                entryType === 'seer_inspection' || entryType === 'seer_inspection_result' ||
+                entryType === 'doctor_heal_action' ||
+                (entryType === 'system' && (systemText.includes('werewolf vote request') || systemText.includes('doctor save request') || systemText.includes('seer inspect request') || systemText.includes('night has begun')))
+            ) {
+                phase = 'NIGHT';
+            }
+
+            const phaseClass = `event-${phase.toLowerCase()}`;
+
+            let phaseEmoji = phase;
+            if (phase === 'DAY') {
+                phaseEmoji = '☀️';
+            } else if (phase === 'NIGHT') {
+                phaseEmoji = '🌙';
+            }
+
+            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
+            const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
+
+            switch (entry.type) {
+                case 'chat':
+                    const speaker = playerMap.get(entry.speaker);
+                    if (!speaker) return;
+                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
+                    li.className = `chat-entry event-day`;
+                    li.innerHTML = `
+                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
+                        <div class="message-content">
+                            <cite>${speaker.name} ${timestampHtml}</cite>
+                            <div class="balloon">
+                                <div class="balloon-text">
+                                    <quote>${messageText}</quote>
+                                </div>
+                                ${reasoningHtml}
+                            </div>
+                        </div>
+                    `;
+                    const balloonText = li.querySelector('.balloon-text');
+                    if (balloonText) {
+                        const ttsButton = document.createElement('span');
+                        ttsButton.className = 'tts-button';
+                        ttsButton.textContent = '🔊';
+                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
+                        balloonText.appendChild(ttsButton);
+                    }
+                    break;
+                default:
+                    // Handle other message types here if needed
+                    break;
+            }
+            
+            if (li.innerHTML) {
+                logUl.appendChild(li);
+            }
+        });
+
+        // Maintain scroll position
+        if (wasScrolledToBottom) {
+            logUl.scrollTop = logUl.scrollHeight;
+        }
+    }
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
@@ -1271,22 +1783,25 @@ function renderer({
     logUl.scrollTop = logUl.scrollHeight;
   }
 
-    // --- Main Rendering Logic ---
-    const oldUI = parent.querySelector('.main-container');
-    if (oldUI) {
-        parent.removeChild(oldUI);
-    }
-    const oldStyle = parent.querySelector('style');
-    if (oldStyle) {
-        parent.removeChild(oldStyle);
+    // --- Main Rendering Logic (Incremental) ---
+    // Only create UI elements if they don't exist
+    let mainContainer = parent.querySelector('.main-container');
+    let style = parent.querySelector('style');
+    
+    if (!style) {
+        style = document.createElement('style');
+        style.textContent = css;
+        parent.appendChild(style);
     }
 
     initThreeJs();
 
     if (!environment || !environment.steps || environment.steps.length === 0 || step >= environment.steps.length) {
-        const tempContainer = document.createElement("div");
-        tempContainer.textContent = "Waiting for game data or invalid step...";
-        parent.appendChild(tempContainer);
+        if (!mainContainer) {
+            const tempContainer = document.createElement("div");
+            tempContainer.textContent = "Waiting for game data or invalid step...";
+            parent.appendChild(tempContainer);
+        }
         return;
     }
 
@@ -1536,27 +2051,38 @@ function renderer({
     Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
     parent.className = 'werewolf-parent';
 
-    const style = document.createElement('style');
-    style.textContent = css;
-    parent.appendChild(style);
+    // Create or get existing main container
+    if (!mainContainer) {
+        mainContainer = document.createElement('div');
+        mainContainer.className = 'main-container';
+        parent.appendChild(mainContainer);
+    }
 
-    const mainContainer = document.createElement('div');
-    mainContainer.className = 'main-container';
-    parent.appendChild(mainContainer);
+    // Create or get existing panels
+    let leftPanel = mainContainer.querySelector('.left-panel');
+    if (!leftPanel) {
+        leftPanel = document.createElement('div');
+        leftPanel.className = 'left-panel';
+        mainContainer.appendChild(leftPanel);
+    }
 
-    const leftPanel = document.createElement('div');
-    leftPanel.className = 'left-panel';
-    mainContainer.appendChild(leftPanel);
-    const playerListArea = document.createElement('div');
-    playerListArea.id = 'player-list-area';
-    leftPanel.appendChild(playerListArea);
+    let playerListArea = leftPanel.querySelector('#player-list-area');
+    if (!playerListArea) {
+        playerListArea = document.createElement('div');
+        playerListArea.id = 'player-list-area';
+        leftPanel.appendChild(playerListArea);
+    }
 
-    const rightPanel = document.createElement('div');
-    rightPanel.className = 'right-panel';
-    mainContainer.appendChild(rightPanel);
+    let rightPanel = mainContainer.querySelector('.right-panel');
+    if (!rightPanel) {
+        rightPanel = document.createElement('div');
+        rightPanel.className = 'right-panel';
+        mainContainer.appendChild(rightPanel);
+    }
 
-    renderPlayerList(playerListArea, gameState, playerMap, actingPlayerName);
-    renderEventLog(rightPanel, gameState, playerMap);
+    // Update existing content instead of clearing and rebuilding
+    updatePlayerList(playerListArea, gameState, actingPlayerName);
+    updateEventLog(rightPanel, gameState, playerMap);
 
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, actingPlayerName);
