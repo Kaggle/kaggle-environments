@@ -6,13 +6,13 @@ import json
 import traceback
 import ast
 import datetime
+import logging
 
 import litellm
 from litellm import completion
 from dotenv import load_dotenv
 from pydantic import create_model
 import tenacity
-from absl import logging
 
 from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel
 from kaggle_environments.envs.werewolf.game.states import HistoryEntry
@@ -21,6 +21,8 @@ from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction
 )
+
+logger = logging.getLogger(__name__)
 
 litellm.drop_params = True
 
@@ -63,7 +65,7 @@ def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
         original_count = agent_instance._event_log_items_to_keep
         agent_instance._event_log_items_to_keep = int(original_count * 0.75)
 
-        logging.warning(
+        logger.warning(
             'RateLimitError detected. Retrying with smaller context. '
             'Reducing event log from %d to %d items.',
             original_count,
@@ -192,11 +194,17 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "vertex_credentials": vertex_credentials_json
             })
 
-    def print_token_usage(self) :
-        print(f"*** Total prompt tokens '{self._prompt_tokens}' total completion_tokens '{self._completion_tokens}'")
+    def log_token_usage(self) :
+        logger.info(
+            f"*** Total prompt tokens: '{self._prompt_tokens}' "
+            f"total completion_tokens: '{self._completion_tokens}'"
+        )
 
     def __del__(self):
-        print(f"Instance '{self._model_name}' is being deleted. Prompt tokens '{self._prompt_tokens}' completion_tokens '{self._completion_tokens}'")
+        logger.info(
+            f"Instance '{self._model_name}' is being deleted. "
+            f"Prompt tokens: '{self._prompt_tokens}' completion_tokens: '{self._completion_tokens}'."
+        )
 
     def query(self, prompt):
         response = completion(
@@ -254,9 +262,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 return ast.literal_eval(json_str)
         except Exception:
             # Catch any other unexpected errors during string manipulation or parsing
-            traceback.print_exc()
-            print(f"model_name={self._model_name}")
-            print(f"out={out}")
+            error_trace = traceback.format_exc()
+            logger.error("An error occurred:\n%s", error_trace)
+            logger.error(f"The model out failed to parse is model_name=\"{self._model_name}\".")
+            logger.error(f"Failed to parse out={out}")
         return {}
 
 
@@ -419,11 +428,13 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 # No action needed when the game is over.
                 action = NoOpAction(**common_args, reasoning="Game over.")
         except Exception:
-            traceback.print_exc()
-            print(f"model_name={self._model_name}")
-            print(f"instruction={instruction}")
-            print(f"parsed_out={parsed_out}")
-        print(f"model_name={self._model_name}")
-        print(action.model_dump())
-        self.print_token_usage()
+            error_trace = traceback.format_exc()
+            logger.error("An error occurred:\n%s", error_trace)
+            logger.error(f"The model failed to act is model_name=\"{self._model_name}\".")
+            logger.error(f"instruction=\"{instruction}\"")
+            logger.error(f'parsed_out="{parsed_out}"')
+        logger.info(f"model_name={self._model_name}")
+        logger.info(f'instruction="{instruction}"')
+        logger.info(f'action="{action.model_dump()}"')
+        self.log_token_usage()
         return action.serialize()

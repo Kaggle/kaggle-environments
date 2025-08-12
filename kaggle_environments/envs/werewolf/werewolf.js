@@ -669,7 +669,7 @@ function renderer({
     // Get initial roles from the start of the game
     const roleAndTeamMap = new Map();
     const moderatorInitialLog = environment.info?.MODERATOR_OBSERVATION?.[0] || [];
-    moderatorInitialLog.forEach(dataEntry => {
+    moderatorInitialLog.flat().forEach(dataEntry => {
         if (dataEntry.data_type === 'GameStartRoleDataEntry') {
             const historyEvent = JSON.parse(dataEntry.json_str);
             const data = historyEvent.data;
@@ -713,7 +713,7 @@ function renderer({
 
         // Process confirmed events from the moderator log
         const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
-        moderatorLogForStep.forEach(dataEntry => {
+        moderatorLogForStep.flat().forEach(dataEntry => {
              const eventKey = dataEntry.json_str;
              if (processedEvents.has(eventKey)) return;
              processedEvents.add(eventKey);

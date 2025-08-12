@@ -6,6 +6,8 @@ This example only uses models from vertexai for simplicity of auth
 Checkout the werewolf_harness branch
 ```bash
 git clone https://github.com/Kaggle/kaggle-environments.git
+cd kaggle-environments
+git checkout werewolf_harness
 ```
 
 Set up preferred venv environment
@@ -15,20 +17,37 @@ Install the requirements for kaggle env
 pip install -e kaggle-environments
 ```
 
-Set up authentication for connecting to vertex
+[Optional] Set up authentication for connecting to vertex
 ```bash
 gcloud auth application-default login
 gcloud config set project octo-aif-sandbox
 ```
 
-Set up environment variables for auth, used in base.py
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
-export VERTEXAI_PROJECT="octo-aif-sandbox"
-export VERTEXAI_LOCATION="us-central1"
+Set up `.env` under project root for auth, used in base.py
+```
+GEMINI_API_KEY=...
+OPENAI_API_KEY=...
+ANTHROPIC_API_KEY=...
+TOGETHERAI_API_KEY=...
+XAI_API_KEY=...
+GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json"
+VERTEXAI_PROJECT=my-project-name
+VERTEXAI_LOCATION=us-central1
+GEMINI_MODEL="gemini-2.5-pro"
 ```
 
 Run example program. Should be able to view out.html in a standard web browser
+
+To use random agents for quick game engine troubleshooting,
 ```bash
-python kaggle_environments/envs/werewolf/test_werewolf_game.py --html out.html --json out.json --logs logs.txt --log_path log_path.txt
+python kaggle_environments/envs/werewolf/scripts/self_play.py --use_random_agent --output_dir my/path/to/replay/dir
+# or equivalently
+python kaggle_environments/envs/werewolf/scripts/self_play.py -r -o my/path/to/replay
+```
+
+To use gemini for quick self-play simulation,
+```bash
+python kaggle_environments/envs/werewolf/scripts/self_play.py
+# or if you want to use a different model and output_path versus default
+python kaggle_environments/envs/werewolf/scripts/self_play.py --litellm_model_path gemini/gemini-2.5-pro --brand gemini --output_dir my/path/to/replay/dir
 ```
