@@ -18,13 +18,13 @@
             "type": "array",
             "description": "Configuration for each agent playing the game.",
             "default": [
-                { "name": "Player 1", "role": "Werewolf" },
-                { "name": "Player 2", "role": "Werewolf" },
-                { "name": "Player 3", "role": "Seer" },
-                { "name": "Player 4", "role": "Doctor" },
-                { "name": "Player 5", "role": "Villager" },
-                { "name": "Player 6", "role": "Villager" },
-                { "name": "Player 7", "role": "Villager" }
+                { "id": "Player 1", "role": "Werewolf", "agent_id": "random"},
+                { "id": "Player 2", "role": "Werewolf", "agent_id": "random"},
+                { "id": "Player 3", "role": "Seer", "agent_id": "random"},
+                { "id": "Player 4", "role": "Doctor", "agent_id": "random"},
+                { "id": "Player 5", "role": "Villager", "agent_id": "random"},
+                { "id": "Player 6", "role": "Villager", "agent_id": "random"},
+                { "id": "Player 7", "role": "Villager", "agent_id": "random"}
             ],
             "items": {
                 "type": "object",

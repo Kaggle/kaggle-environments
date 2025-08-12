@@ -1145,7 +1145,7 @@ class SequentialVoting(VotingProtocol):
         if not self.done():
             # Ensure _current_voter_index is within bounds before accessing
             if self._current_voter_index < len(self._voter_queue):
-                return self._voter_queue[self._current_voter_index]
+                return [self._voter_queue[self._current_voter_index]]
         return []
 
     def done(self) -> bool:

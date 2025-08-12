@@ -248,6 +248,17 @@ agents = {
 }
 
 
+def log_error(status_code, state, env):
+    invalid_action = any(player_state["status"] == status_code for player_state in state)
+    if invalid_action:
+        logger.error(f"{status_code} DETECTED")
+        for i, player_state in enumerate(state):
+            if player_state["status"] == status_code:
+                agent_config = env.configuration['agents'][i]
+                logger.error(f"agent_id={agent_config['id']} returns action with status code {status_code}.")
+    return invalid_action
+
+
 def interpreter(state, env):
     """
     * Required interface function for kaggle environments package *
@@ -286,6 +297,11 @@ def interpreter(state, env):
            Each dict has: {observation, action, reward, status, info}
     env:   the kaggle_environments.Environment object itself including the env.game_state
     """
+    agent_error = False
+    for status_code in ["TIMEOUT", "ERROR", "INVALID"]:
+        if log_error(status_code, state, env):
+            agent_error = True
+
     # --- Initialize Moderator and GameState if it's the start of an episode ---
     if not hasattr(env, 'moderator') or env.done:  # env.done is true after reset by Kaggle core
         initialize_moderator(state, env)
@@ -300,10 +316,10 @@ def interpreter(state, env):
     moderator.advance(parsed_player_actions)
 
     # 3. Update Kaggle state (observations, rewards, statuses)
-    is_game_done = moderator.is_game_over()
+    is_game_done = moderator.is_game_over() or agent_error
     current_info = {}
     if is_game_done:
-        record_game_end(state, env, game_state, current_info)
+        record_game_end(state, env, game_state, current_info, agent_error)
 
     # 4. Moderator interprets player actions, updates game phase, and advance game player actions
     active_player_ids_after_advance = set(moderator.get_active_player_ids())
@@ -311,20 +327,22 @@ def interpreter(state, env):
     # 4.1. Accumulate God mode observations from env for rendering
     global_messages = env.game_state.consume_messages()
     global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
-    env.info[EnvInfoKeys.MODERATOR_OBS].append([global_data])
+    env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
     logger.info(f"detailed_phase = {moderator.detailed_phase.value}")
     # 4.2. Update observations for individual agents
     update_agent_messages(
-        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance)
+        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error)
     return state
 
 
-def record_game_end(state, env, game_state, current_info):
+def record_game_end(state, env, game_state, current_info, agent_error):
     # log game end to env.info using GameEndResultsDataEntry
-    game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
+    game_end_entry = next(iter(game_state.get_history_by_type(HistoryEntryType.GAME_END)), None)
     if game_end_entry and game_end_entry.data:
         current_info.update(game_end_entry.data.model_dump())
+    # Record if terminated with agent error. If so, the game record is invalid.
+    current_info['terminated_with_agent_error'] = agent_error
     env.info[EnvInfoKeys.GAME_END] = current_info
     # Determine winner based on game_state.history's GAME_END entry
     scores = game_end_entry.data.scores
@@ -333,7 +351,7 @@ def record_game_end(state, env, game_state, current_info):
 
 
 def update_agent_messages(
-        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance):
+        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error):
     for player_index, player_state in enumerate(state):
         player_id_str = env.player_ids_map[player_index]
 
@@ -370,7 +388,7 @@ def update_agent_messages(
         player_state.observation["raw_observation"] = obs.model_dump()
 
         # Status
-        if is_game_done:
+        if is_game_done or agent_error:
             player_state.status = "DONE"
         elif player_id_str in active_player_ids_after_advance:
             player_state.status = "ACTIVE"
