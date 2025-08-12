@@ -652,13 +652,15 @@ function renderer({
         parent.appendChild(container);
         return;
     }
-
+    const agentConfig = environment.configuration.agents
     const playerThumbnails = firstObs.player_thumbnails || {};
     const allPlayerNamesList = firstObs.all_player_ids;
-    gameState.players = allPlayerNamesList.map(name => ({
-        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
-        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
-    }));
+//    gameState.players = allPlayerNamesList.map(name => ({
+//        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
+//        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
+//    }));
+    gameState.players = agentConfig.map(p => ({
+	name: p.id, is_alive: true, role: p.role, team: 'Unknown', status: 'Alive', thumbnail: p.thumbnail}))
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
     // Initialize all threat levels to 0 (SAFE)
