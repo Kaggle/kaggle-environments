@@ -30,25 +30,36 @@ function renderer({
             const { FBXLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js');
             const { SkeletonUtils } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js');
             const { CSS2DRenderer, CSS2DObject } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/renderers/CSS2DRenderer.js');
+            const { EffectComposer } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/EffectComposer.js');
+            const { RenderPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/RenderPass.js');
+            const { UnrealBloomPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/UnrealBloomPass.js');
+            const { ShaderPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/ShaderPass.js');
+            const { FilmPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/FilmPass.js');
 
             class BasicWorldDemo {
               constructor(options) {
-                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject);
+                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass);
               }
 
-              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject) {
+              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass) {
                 this._parent = options.parent;
                 this._width = options.width;
                 this._height = options.height;
 
-                // WebGL Renderer
+                // WebGL Renderer with enhanced settings
                 this._threejs = new THREE.WebGLRenderer({
                   antialias: true,
+                  alpha: true,
+                  powerPreference: "high-performance"
                 });
                 this._threejs.shadowMap.enabled = true;
                 this._threejs.shadowMap.type = THREE.PCFSoftShadowMap;
-                this._threejs.setPixelRatio(window.devicePixelRatio);
+                this._threejs.shadowMap.autoUpdate = true;
+                this._threejs.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 this._threejs.setSize(this._width, this._height);
+                this._threejs.outputEncoding = THREE.sRGBEncoding;
+                this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
+                this._threejs.toneMappingExposure = 1.2;
                 this._threejs.domElement.style.position = 'absolute';
                 this._threejs.domElement.style.top = '0';
                 this._threejs.domElement.style.left = '0';
@@ -73,16 +84,11 @@ function renderer({
                 this._camera.position.set(0, 0, 50);
 
                 this._scene = new THREE.Scene();
+                this._scene.fog = new THREE.FogExp2(0x0a0a1a, 0.01);
 
                 this._createSkybox(THREE);
-
-                const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
-                this._scene.add(hemisphereLight);
-
-                const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-                dirLight.position.set(20, 50, 10);
-                dirLight.castShadow = true;
-                this._scene.add(dirLight);
+                this._createAdvancedLighting(THREE);
+                this._setupPostProcessing(THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass);
 
                 this._controls = new OrbitControls(this._camera, this._threejs.domElement);
                 this._controls.target.set(0, 0, 0);
@@ -136,24 +142,296 @@ function renderer({
                 moonImage.src = 'assets/moon4.png';
               }
 
+              _createAdvancedLighting(THREE) {
+                // Enhanced ambient lighting with color variation
+                const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
+                ambientLight.name = 'ambientLight';
+                this._scene.add(ambientLight);
+
+                // Main directional light (moon/sun)
+                const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+                mainLight.position.set(30, 50, 20);
+                mainLight.castShadow = true;
+                mainLight.shadow.mapSize.width = 2048;
+                mainLight.shadow.mapSize.height = 2048;
+                mainLight.shadow.camera.near = 0.5;
+                mainLight.shadow.camera.far = 100;
+                mainLight.shadow.camera.left = -50;
+                mainLight.shadow.camera.right = 50;
+                mainLight.shadow.camera.top = 50;
+                mainLight.shadow.camera.bottom = -50;
+                mainLight.shadow.bias = -0.001;
+                mainLight.shadow.normalBias = 0.02;
+                this._scene.add(mainLight);
+
+                // Rim light for dramatic effect
+                const rimLight = new THREE.DirectionalLight(0x8080ff, 0.8);
+                rimLight.position.set(-20, 10, -30);
+                this._scene.add(rimLight);
+
+                // Atmospheric hemisphere light
+                const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x1e1e3f, 0.6);
+                this._scene.add(hemiLight);
+
+                // Ground fill light
+                const fillLight = new THREE.DirectionalLight(0x404080, 0.3);
+                fillLight.position.set(0, -1, 0);
+                this._scene.add(fillLight);
+
+                // Store references for phase updates
+                this._mainLight = mainLight;
+                this._rimLight = rimLight;
+                this._hemiLight = hemiLight;
+                this._fillLight = fillLight;
+              }
+
+              _createMysticalCircles(THREE, radius) {
+                // Create multiple concentric circles with mystical patterns
+                for (let i = 0; i < 3; i++) {
+                  const circleRadius = radius - (i * 2) - 1;
+                  const circleGeometry = new THREE.RingGeometry(circleRadius - 0.1, circleRadius + 0.1, 64);
+                  const circleMaterial = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(0.6 + i * 0.1, 0.8, 0.3 + i * 0.1),
+                    emissive: new THREE.Color().setHSL(0.6 + i * 0.1, 0.5, 0.1),
+                    emissiveIntensity: 0.2,
+                    transparent: true,
+                    opacity: 0.6 - i * 0.1,
+                    side: THREE.DoubleSide
+                  });
+                  
+                  const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+                  circle.rotation.x = -Math.PI / 2;
+                  circle.position.y = 0.01 + i * 0.001;
+                  this._scene.add(circle);
+                }
+
+                // Add runic symbols around the outer circle
+                this._createRunicSymbols(THREE, radius);
+              }
+
+              _createRunicSymbols(THREE, radius) {
+                const symbolCount = 8;
+                const symbolGeometry = new THREE.PlaneGeometry(1, 1);
+                
+                for (let i = 0; i < symbolCount; i++) {
+                  const angle = (i / symbolCount) * Math.PI * 2;
+                  const x = (radius + 3) * Math.sin(angle);
+                  const z = (radius + 3) * Math.cos(angle);
+                  
+                  // Create a simple runic-like pattern using canvas
+                  const canvas = document.createElement('canvas');
+                  canvas.width = 64;
+                  canvas.height = 64;
+                  const ctx = canvas.getContext('2d');
+                  
+                  ctx.fillStyle = 'rgba(100, 150, 255, 0.8)';
+                  ctx.font = '40px serif';
+                  ctx.textAlign = 'center';
+                  ctx.fillText(['ᚠ', 'ᚡ', 'ᚢ', 'ᚣ', 'ᚤ', 'ᚥ', 'ᚦ', 'ᚧ'][i], 32, 45);
+                  
+                  const symbolMaterial = new THREE.MeshBasicMaterial({
+                    map: new THREE.CanvasTexture(canvas),
+                    transparent: true,
+                    alphaTest: 0.1
+                  });
+                  
+                  const symbol = new THREE.Mesh(symbolGeometry, symbolMaterial);
+                  symbol.position.set(x, 0.1, z);
+                  symbol.rotation.x = -Math.PI / 2;
+                  symbol.rotation.z = angle;
+                  this._scene.add(symbol);
+                }
+              }
+
+              _createParticleSystem(THREE) {
+                // Create floating mystical particles
+                const particleCount = 150;
+                const particles = new THREE.BufferGeometry();
+                const positions = new Float32Array(particleCount * 3);
+                const colors = new Float32Array(particleCount * 3);
+                const sizes = new Float32Array(particleCount);
+                
+                for (let i = 0; i < particleCount; i++) {
+                  const i3 = i * 3;
+                  
+                  // Random position within a larger area
+                  positions[i3] = (Math.random() - 0.5) * 80;
+                  positions[i3 + 1] = Math.random() * 30 + 5;
+                  positions[i3 + 2] = (Math.random() - 0.5) * 80;
+                  
+                  // Mystical colors (blues, purples, greens)
+                  const hue = Math.random() * 0.3 + 0.5; // 0.5-0.8 range
+                  const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
+                  colors[i3] = color.r;
+                  colors[i3 + 1] = color.g;
+                  colors[i3 + 2] = color.b;
+                  
+                  sizes[i] = Math.random() * 2 + 0.5;
+                }
+                
+                particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                particles.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                
+                const particleMaterial = new THREE.ShaderMaterial({
+                  uniforms: {
+                    time: { value: 0 }
+                  },
+                  vertexShader: `
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    uniform float time;
+                    
+                    void main() {
+                      vColor = color;
+                      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                      gl_PointSize = size * (300.0 / -mvPosition.z) * (1.0 + sin(time * 2.0 + position.x * 0.1) * 0.3);
+                      gl_Position = projectionMatrix * mvPosition;
+                    }
+                  `,
+                  fragmentShader: `
+                    varying vec3 vColor;
+                    
+                    void main() {
+                      float dist = distance(gl_PointCoord, vec2(0.5));
+                      if (dist > 0.5) discard;
+                      
+                      float alpha = 1.0 - (dist * 2.0);
+                      alpha *= alpha; // Softer edges
+                      
+                      gl_FragColor = vec4(vColor, alpha * 0.6);
+                    }
+                  `,
+                  transparent: true,
+                  blending: THREE.AdditiveBlending,
+                  depthWrite: false
+                });
+                
+                this._particles = new THREE.Points(particles, particleMaterial);
+                this._scene.add(this._particles);
+                this._particleMaterial = particleMaterial;
+              }
+
+              _setupPostProcessing(THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass) {
+                // Create effect composer
+                this._composer = new EffectComposer(this._threejs);
+                
+                // Render pass
+                const renderPass = new RenderPass(this._scene, this._camera);
+                this._composer.addPass(renderPass);
+
+                // Bloom pass for glowing effects
+                const bloomPass = new UnrealBloomPass(
+                  new THREE.Vector2(this._width, this._height),
+                  0.5,  // strength
+                  0.8,  // radius
+                  0.3   // threshold
+                );
+                this._composer.addPass(bloomPass);
+
+                // Film grain for atmosphere
+                const filmPass = new FilmPass(
+                  0.15,  // noise intensity
+                  0.1,   // scanline intensity
+                  0,     // scanline count
+                  false  // grayscale
+                );
+                this._composer.addPass(filmPass);
+
+                // Custom atmospheric shader
+                const atmosphereShader = {
+                  uniforms: {
+                    'tDiffuse': { value: null },
+                    'time': { value: 0.0 },
+                    'phase': { value: 0.0 } // 0 = day, 1 = night
+                  },
+                  vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                      vUv = uv;
+                      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                  `,
+                  fragmentShader: `
+                    uniform sampler2D tDiffuse;
+                    uniform float time;
+                    uniform float phase;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                      vec4 color = texture2D(tDiffuse, vUv);
+                      
+                      // Add subtle color grading based on phase
+                      if (phase > 0.5) {
+                        // Night - add blue tint and increase contrast
+                        color.rgb = mix(color.rgb, color.rgb * vec3(0.8, 0.9, 1.2), 0.3);
+                        color.rgb = pow(color.rgb, vec3(1.1));
+                      } else {
+                        // Day - add warm tint
+                        color.rgb = mix(color.rgb, color.rgb * vec3(1.1, 1.05, 0.95), 0.2);
+                      }
+                      
+                      // Add subtle vignette
+                      vec2 center = vec2(0.5, 0.5);
+                      float dist = distance(vUv, center);
+                      float vignette = 1.0 - smoothstep(0.3, 0.8, dist);
+                      color.rgb *= mix(0.7, 1.0, vignette);
+                      
+                      gl_FragColor = color;
+                    }
+                  `
+                };
+
+                this._atmospherePass = new ShaderPass(atmosphereShader);
+                this._composer.addPass(this._atmospherePass);
+
+                // Store references
+                this._bloomPass = bloomPass;
+                this._filmPass = filmPass;
+              }
+
               _LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject) {
                 this._playerObjects = new Map();
                 this._playerGroup = new THREE.Group();
                 this._playerGroup.name = 'playerGroup';
 
-                // Create ground circle
+                // Create enhanced ground circle with better materials
                 const radius = 15;
                 const groundGeometry = new THREE.CircleGeometry(radius + 5, 64);
                 const groundMaterial = new THREE.MeshStandardMaterial({
-                    color: 0x1a1a1a,
-                    roughness: 0.8,
-                    metalness: 0.2
+                    color: 0x1a1a2a,
+                    roughness: 0.9,
+                    metalness: 0.1,
+                    normalScale: new THREE.Vector2(0.5, 0.5),
+                    transparent: true,
+                    opacity: 0.95
                 });
+                
+                // Add a subtle normal map pattern
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.createImageData(512, 512);
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    const noise = Math.random() * 0.1 + 0.5;
+                    imageData.data[i] = Math.floor(noise * 255);     // R
+                    imageData.data[i + 1] = Math.floor(noise * 255); // G
+                    imageData.data[i + 2] = 255;                     // B
+                    imageData.data[i + 3] = 255;                     // A
+                }
+                ctx.putImageData(imageData, 0, 0);
+                groundMaterial.normalMap = new THREE.CanvasTexture(canvas);
+                
                 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
                 ground.rotation.x = -Math.PI / 2;
                 ground.position.y = -0.1;
                 ground.receiveShadow = true;
                 this._scene.add(ground);
+
+                // Add mystical circle patterns
+                this._createMysticalCircles(THREE, radius);
 
                 this._scene.add(this._playerGroup);
 
@@ -161,9 +439,17 @@ function renderer({
                 this._THREE = THREE;
                 this._CSS2DObject = CSS2DObject;
                 
-                // Frame the empty group initially
-                this._camera.position.set(0, 20, 40);
-                this._controls.target.set(0, 5, 0);
+                // Create particle system for atmosphere
+                this._createParticleSystem(THREE);
+                
+                // Frame the empty group initially with better camera positioning
+                this._camera.position.set(25, 30, 35);
+                this._controls.target.set(0, 8, 0);
+                this._controls.enableDamping = true;
+                this._controls.dampingFactor = 0.05;
+                this._controls.minDistance = 20;
+                this._controls.maxDistance = 80;
+                this._controls.maxPolarAngle = Math.PI * 0.75;
                 this._controls.update();
               }
 
@@ -291,22 +577,45 @@ function renderer({
               updatePhase(phase) {
                 if (!this._scene) return;
                 
-                // Update ambient lighting based on phase
-                const ambientLight = this._scene.getObjectByName('ambientLight');
-                if (!ambientLight) {
-                    const newAmbientLight = new this._THREE.AmbientLight(0xffffff, 0.3);
-                    newAmbientLight.name = 'ambientLight';
-                    this._scene.add(newAmbientLight);
-                }
-                
+                // Update enhanced lighting based on phase
                 if (phase === 'NIGHT') {
-                    // Darker scene for night
-                    if (ambientLight) ambientLight.intensity = 0.1;
-                    this._scene.fog = new this._THREE.Fog(0x000033, 10, 100);
+                    // Night phase - cooler, darker lighting
+                    if (this._mainLight) {
+                      this._mainLight.color.setHex(0x9999ff);
+                      this._mainLight.intensity = 1.2;
+                    }
+                    if (this._rimLight) {
+                      this._rimLight.intensity = 1.0;
+                      this._rimLight.color.setHex(0x6666ff);
+                    }
+                    if (this._hemiLight) {
+                      this._hemiLight.intensity = 0.4;
+                    }
+                    this._scene.fog = new this._THREE.FogExp2(0x0a0a2a, 0.02);
+                    
+                    // Update atmosphere shader
+                    if (this._atmospherePass) {
+                      this._atmospherePass.uniforms.phase.value = 1.0;
+                    }
                 } else {
-                    // Brighter scene for day
-                    if (ambientLight) ambientLight.intensity = 0.3;
-                    this._scene.fog = new this._THREE.Fog(0x333366, 20, 150);
+                    // Day phase - warmer, brighter lighting
+                    if (this._mainLight) {
+                      this._mainLight.color.setHex(0xffffcc);
+                      this._mainLight.intensity = 1.6;
+                    }
+                    if (this._rimLight) {
+                      this._rimLight.intensity = 0.6;
+                      this._rimLight.color.setHex(0xffcc99);
+                    }
+                    if (this._hemiLight) {
+                      this._hemiLight.intensity = 0.8;
+                    }
+                    this._scene.fog = new this._THREE.FogExp2(0x1a1a3a, 0.015);
+                    
+                    // Update atmosphere shader
+                    if (this._atmospherePass) {
+                      this._atmospherePass.uniforms.phase.value = 0.0;
+                    }
                 }
               }
 
@@ -378,49 +687,87 @@ function renderer({
 
               _RAF() {
                 requestAnimationFrame((time) => {
-                  // Animate player objects
+                  // Update time-based uniforms
+                  if (this._particleMaterial) {
+                    this._particleMaterial.uniforms.time.value = time * 0.001;
+                  }
+                  if (this._atmospherePass) {
+                    this._atmospherePass.uniforms.time.value = time * 0.001;
+                  }
+                  
+                  // Animate particle system
+                  if (this._particles) {
+                    this._particles.rotation.y = time * 0.0001;
+                    const positions = this._particles.geometry.attributes.position.array;
+                    for (let i = 0; i < positions.length; i += 3) {
+                      positions[i + 1] += Math.sin(time * 0.001 + positions[i] * 0.01) * 0.02;
+                      // Wrap around if particles fall too low
+                      if (positions[i + 1] < 0) {
+                        positions[i + 1] = 35;
+                      }
+                    }
+                    this._particles.geometry.attributes.position.needsUpdate = true;
+                  }
+                  
+                  // Animate player objects with enhanced effects
                   if (this._playerObjects) {
                     this._playerObjects.forEach((player, name) => {
                       if (player.isAlive) {
-                        // Gentle floating animation for alive players
-                        const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.15;
-                        player.container.position.y = floatOffset;
+                        // Enhanced floating animation for alive players
+                        const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.2;
+                        const bobOffset = Math.cos(time * 0.0015 + player.baseAngle * 2) * 0.05;
+                        player.container.position.y = floatOffset + bobOffset;
                         
-                        // Rotate orbs
-                        player.orb.rotation.y = time * 0.002;
-                        player.orb.rotation.x = Math.sin(time * 0.001) * 0.1;
+                        // More dynamic orb rotation
+                        player.orb.rotation.y = time * 0.003;
+                        player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
+                        player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
                         
-                        // Animate glow
+                        // Enhanced glow animation
                         if (player.glow && player.glow.visible) {
-                          player.glow.rotation.y = -time * 0.001;
-                          const glowScale = 1 + Math.sin(time * 0.003 + player.baseAngle) * 0.1;
+                          player.glow.rotation.y = -time * 0.002;
+                          const glowScale = 1 + Math.sin(time * 0.004 + player.baseAngle) * 0.15;
                           player.glow.scale.setScalar(glowScale);
+                          
+                          // Pulsing emissive intensity
+                          const pulseIntensity = 0.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.1;
+                          player.glow.material.emissiveIntensity = pulseIntensity;
                         }
                         
-                        // Pulse effect for active players
+                        // Enhanced pulse effect for active players
                         if (player.container.scale.x > 1.0) {
-                          const pulseScale = 1.05 + Math.sin(time * 0.005) * 0.05;
+                          const pulseScale = 1.05 + Math.sin(time * 0.008) * 0.08;
                           player.container.scale.setScalar(pulseScale);
                         }
                         
-                        // Subtle breathing effect
+                        // Enhanced breathing effect
                         if (player.body) {
-                          const breathScale = 1 + Math.sin(time * 0.0015 + player.baseAngle) * 0.02;
+                          const breathScale = 1 + Math.sin(time * 0.002 + player.baseAngle) * 0.03;
                           player.body.scale.y = breathScale;
                           if (player.shoulders) {
                             player.shoulders.scale.y = 0.6 * breathScale;
                           }
                         }
+                        
+                        // Subtle head movement
+                        if (player.head) {
+                          player.head.rotation.y = Math.sin(time * 0.001 + player.baseAngle) * 0.1;
+                        }
                       } else {
-                        // Dead players still have some animation
+                        // Dead players have reduced animation
                         if (player.orb) {
-                          player.orb.rotation.y = time * 0.0005;
+                          player.orb.rotation.y = time * 0.0008;
                         }
                       }
                     });
                   }
 
-                  this._threejs.render(this._scene, this._camera);
+                  // Use post-processing composer if available, otherwise fallback to direct render
+                  if (this._composer) {
+                    this._composer.render();
+                  } else {
+                    this._threejs.render(this._scene, this._camera);
+                  }
                   this._labelRenderer.render(this._scene, this._camera);
                   this._RAF();
                 });
