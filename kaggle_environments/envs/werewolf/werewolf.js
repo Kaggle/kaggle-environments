@@ -713,7 +713,7 @@ function renderer({
 
         // Process confirmed events from the moderator log
         const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
-        moderatorLogForStep.forEach(dataEntry => {
+        moderatorLogForStep.flat().forEach(dataEntry => {
              const eventKey = dataEntry.json_str;
              if (processedEvents.has(eventKey)) return;
              processedEvents.add(eventKey);
