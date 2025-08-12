@@ -471,7 +471,14 @@ function renderer({
       const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
       const audioPath = audioMap[audioKey];
 
-      const elementToHighlight = parent.querySelector(`[data-audio-key="${audioKey}"]`);
+      let elementToHighlight = null;
+      const allAudioElements = parent.querySelectorAll('[data-audio-key]');
+      for (const el of allAudioElements) {
+          if (el.getAttribute('data-audio-key') === audioKey) {
+              elementToHighlight = el;
+              break;
+          }
+      }
       if (elementToHighlight) {
           elementToHighlight.classList.add('playing-audio');
       }
@@ -868,11 +875,9 @@ function renderer({
                     `;
                     break;
                 case 'system':
-                    if (entry.text && entry.text.includes('has begun')) return;
-
                     let systemText = entry.text;
                     // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\\\[(.*?)\\\]/g;
+                    const listRegex = /\[(.*?)\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         // listContent is "'player-1', 'player-2', 'player-3'"
                         return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
