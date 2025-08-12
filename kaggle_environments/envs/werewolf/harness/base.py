@@ -110,9 +110,9 @@ TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target rando
                                             perceived_threat_level="SAFE")}\n```"
 
 AUDIO_EXAMPLE = 'Say in an spooky whisper: \"By the pricking of my thumbs... Something wicked this way comes!\"'
-AUDIO_EXAMPLE_2 = '(voice: thoughtful) hm, I was stunned. I really suspect John\'s intent of bringing up Tim.'
+AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: \"I was stunned. I really suspect John\'s intent of bringing up Tim.\"'
 AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."'
-AUDIO_EXAMPLE_4 = '(sound: slight chuckle)\n(voice: amused, relaxed)\nUm, that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say.'
+AUDIO_EXAMPLE_4 = 'Sound amused and relaxed: \"that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say.\"'
 CHAT_AUDIO_DICT = {"message": AUDIO_EXAMPLE, "reasoning": "To draw attention to other players ...", "perceived_threat_level": "SAFE"}
 CHAT_AUDIO_DICT_2 = {"message": AUDIO_EXAMPLE_2, "reasoning": "This accusation is uncalled for ...", "perceived_threat_level": "DANGER"}
 CHAT_AUDIO_DICT_3 = {"message": AUDIO_EXAMPLE_3, "reasoning": "I sense there are some suspicion directed towards me ...", "perceived_threat_level": "UNEASY"}
@@ -126,13 +126,13 @@ CHAT_ACTION_EXEMPLAR_4 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_4)}\n```"
 CHAT_ACTION_ADDITIONAL_CONSTRAINTS = [
     f'- The "message" will be rendered to TTS and shown to other players, so make sure to control the style, tone, '
     f'accent and pace of your message using natural language prompt. e.g.\n{CHAT_ACTION_EXEMPLAR_2}',
-    "- Since this is a social game, the script in the message should sound natural. Do NOT write a perfect script.",
-    '- Be Informal: Use contractions (like "it\'s," "gonna"), common fillers (like "um," "like," "you know"), and simple language.',
-    '- Be Human: Add natural sounds like (chuckles), (sighs), or (laughs) where appropriate.',
+    "- Since this is a social game, the script in the message should sound conversational.",
+    '- Be Informal: Use contractions (like "it\'s," "gonna"), and simple language.',
     '- Be Spontaneous: Vary your sentence length. It\'s okay to have short, incomplete thoughts or to restart a sentence.',
-    '- Be Dynamic: A real chat is never monotonous. Use (voice: ...) instructions to constantly and subtly shift the tone to match the words.',
-    f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, '
-    f'thoughtful, curious, energetic, sarcastic, or conspiratorial. e.g. \n{CHAT_ACTION_EXEMPLAR_4}'
+    '- [Optional] If appropriate, you could add natural sounds in (sound: ...) e.g. (sound: chuckles), or (sound: laughs), etc.',
+    '- [Optional] Be Dynamic: A real chat is never monotonous. Use (voice: ...) instructions to constantly and subtly shift the tone to match the words.',
+    # f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, '
+    # f'thoughtful, curious, energetic, sarcastic, or conspiratorial. e.g. \n{CHAT_ACTION_EXEMPLAR_4}'
 ]
 
 
