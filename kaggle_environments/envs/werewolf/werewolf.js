@@ -1198,11 +1198,90 @@ function renderer({
 
   // --- CSS for the UI ---
   const css = `
+        /* Game Status Scoreboard */
+        .game-scoreboard {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            background: linear-gradient(135deg, rgba(33, 40, 54, 0.95), rgba(44, 52, 68, 0.95));
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            pointer-events: none;
+        }
+        
+        .scoreboard-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 10px;
+            border-right: 1px solid rgba(116, 185, 255, 0.2);
+        }
+        
+        .scoreboard-item:last-child {
+            border-right: none;
+        }
+        
+        .scoreboard-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        
+        .scoreboard-value {
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .scoreboard-value.alive {
+            color: #00b894;
+        }
+        
+        .scoreboard-value.dead {
+            color: #e17055;
+        }
+        
+        .scoreboard-value.werewolf {
+            color: #e17055;
+        }
+        
+        .scoreboard-value.villager {
+            color: #74b9ff;
+        }
+        
+        .scoreboard-action {
+            background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1));
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            color: #74b9ff;
+            font-weight: 500;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
         /* Phase Indicator */
         .phase-indicator {
             position: fixed;
-            top: 20px;
-            left: 50%;
+            top: 60px;
+            left: 50px;
             transform: translateX(-50%);
             z-index: 1000;
             padding: 12px 24px;
@@ -1214,6 +1293,7 @@ function renderer({
             pointer-events: none;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            scale: 0.6;
         }
         
         .phase-indicator.day {
@@ -2816,6 +2896,85 @@ function renderer({
     phaseIndicator.innerHTML = `
         <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
         <span>${isNight ? 'NIGHT' : 'DAY'} ${gameState.day > 0 ? gameState.day : ''}</span>
+    `;
+    
+    // Create or update game scoreboard
+    let scoreboard = parent.querySelector('.game-scoreboard');
+    if (!scoreboard) {
+        scoreboard = document.createElement('div');
+        scoreboard.className = 'game-scoreboard';
+        parent.appendChild(scoreboard);
+    }
+    
+    // Calculate game statistics
+    const alivePlayers = gameState.players.filter(p => p.is_alive).length;
+    const deadPlayers = gameState.players.filter(p => !p.is_alive).length;
+    const werewolves = gameState.players.filter(p => p.is_alive && p.role === 'Werewolf').length;
+    const villagers = gameState.players.filter(p => p.is_alive && p.role !== 'Werewolf' && p.role !== 'Unknown').length;
+    
+    // Determine current action based on phase and recent events
+    let currentAction = 'Waiting...';
+    const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
+    
+    if (gameState.gameWinner) {
+        currentAction = `${gameState.gameWinner} Win!`;
+    } else if (gameState.phase === 'VOTING') {
+        currentAction = 'Voting Phase';
+    } else if (gameState.phase === 'DISCUSSION') {
+        currentAction = 'Discussion';
+    } else if (isNight) {
+        // Check for recent night actions
+        if (lastEvent) {
+            if (lastEvent.type === 'night_vote') {
+                currentAction = 'Werewolves Voting';
+            } else if (lastEvent.type === 'doctor_heal_action') {
+                currentAction = 'Doctor Saving';
+            } else if (lastEvent.type === 'seer_inspection') {
+                currentAction = 'Seer Inspecting';
+            } else {
+                currentAction = 'Night Actions';
+            }
+        } else {
+            currentAction = 'Night Phase';
+        }
+    } else {
+        // Day phase
+        if (lastEvent && lastEvent.type === 'chat') {
+            currentAction = 'Discussion';
+        } else if (lastEvent && lastEvent.type === 'vote') {
+            currentAction = 'Exile Voting';
+        } else {
+            currentAction = 'Day Phase';
+        }
+    }
+    
+    // Update scoreboard content
+    scoreboard.innerHTML = `
+        <div class="scoreboard-item">
+            <div class="scoreboard-label">Day</div>
+            <div class="scoreboard-value">${gameState.day || 0}</div>
+        </div>
+        <div class="scoreboard-item">
+            <div class="scoreboard-label">Alive</div>
+            <div class="scoreboard-value alive">${alivePlayers}</div>
+        </div>
+        <div class="scoreboard-item">
+            <div class="scoreboard-label">Dead</div>
+            <div class="scoreboard-value dead">${deadPlayers}</div>
+        </div>
+        ${werewolves > 0 || villagers > 0 ? `
+            <div class="scoreboard-item">
+                <div class="scoreboard-label">Werewolves</div>
+                <div class="scoreboard-value werewolf">${werewolves}</div>
+            </div>
+            <div class="scoreboard-item">
+                <div class="scoreboard-label">Villagers</div>
+                <div class="scoreboard-value villager">${villagers}</div>
+            </div>
+        ` : ''}
+        <div class="scoreboard-item">
+            <div class="scoreboard-action">${currentAction}</div>
+        </div>
     `;
 
     // Create or get existing panels
