@@ -9,105 +9,406 @@ function renderer({
   if (!window.werewolfThreeJs) {
     window.werewolfThreeJs = {
       initialized: false,
-      scene: null,
-      camera: null,
-      renderer: null,
-      model: null,
-      ambientLight: null,
-      directionalLight: null,
+      demo: null,
     };
   }
   const threeState = window.werewolfThreeJs;
 
   function initThreeJs() {
     if (threeState.initialized) {
-        if (threeState.renderer && parent && !parent.contains(threeState.renderer.domElement)) {
-            parent.appendChild(threeState.renderer.domElement);
-        }
-        return;
-    }
-
-    if (typeof THREE === 'undefined' || (typeof THREE.GLTFLoader === 'undefined')) {
-      const scriptId = 'threejs-script';
-      if (document.getElementById(scriptId)) return; // Script already requested
-
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-      script.onload = () => {
-        const loaderScript = document.createElement('script');
-        loaderScript.id = 'gltf-loader-script';
-        loaderScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-        loaderScript.onload = setupScene;
-        document.head.appendChild(loaderScript);
-      };
-      document.head.appendChild(script);
-    } else {
-      setupScene();
-    }
-  }
-
-  function setupScene() {
-    if (threeState.initialized) return;
-
-    threeState.scene = new THREE.Scene();
-    threeState.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    threeState.renderer = new THREE.WebGLRenderer({ antialias: true }); // No alpha needed
-    threeState.renderer.setSize(width, height);
-
-    const threeCanvas = threeState.renderer.domElement;
-    threeCanvas.style.position = 'absolute';
-    threeCanvas.style.top = '0';
-    threeCanvas.style.left = '0';
-    threeCanvas.style.zIndex = '0'; // Behind UI
-    parent.appendChild(threeCanvas);
-
-    threeState.ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-    threeState.scene.add(threeState.ambientLight);
-    threeState.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    threeState.directionalLight.position.set(5, 10, 7.5);
-    threeState.scene.add(threeState.directionalLight);
-
-    const loader = new THREE.GLTFLoader();
-//    loader.load(
-//      'assets/low_poly_medieval_windmill/scene.gltf',
-//      function (gltf) {
-//        threeState.model = gltf.scene;
-//        threeState.model.scale.set(0.5, 0.5, 0.5); // Adjust scale for the new model
-//        threeState.model.position.set(0, -2, 0); // Adjust position
-//        threeState.scene.add(threeState.model);
-//      },
-//      undefined,
-//      function(error) {
-//        console.error('An error occurred loading the model:', error);
-//      }
-//    );
-//
-//    threeState.camera.position.z = 5;
-//    threeState.initialized = true;
-//    animate();
-  }
-
-  function animate() {
-    if (!threeState.initialized) return;
-    requestAnimationFrame(animate);
-    if (threeState.model) {
-      threeState.model.rotation.y += 0.005;
-    }
-    threeState.renderer.render(threeState.scene, threeState.camera);
-  }
-
-  function updateBackground(isNight) {
-      if (!threeState.initialized) return;
-      if (isNight) {
-          threeState.scene.background = new THREE.Color(0x2c3e50); // Night color from CSS var
-          threeState.ambientLight.intensity = 0.5;
-          threeState.directionalLight.intensity = 0.5;
-      } else {
-          threeState.scene.background = new THREE.Color(0x3498db); // Day color from CSS var
-          threeState.ambientLight.intensity = 1.0;
-          threeState.directionalLight.intensity = 1.0;
+      if (threeState.demo && threeState.demo._parent && !parent.contains(threeState.demo._parent)) {
+          parent.appendChild(threeState.demo._threejs.domElement);
+          parent.appendChild(threeState.demo._labelRenderer.domElement);
       }
+      return;
+    }
+
+    const loadAndSetup = async () => {
+        try {
+            const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.118/build/three.module.js');
+            const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.118/examples/jsm/controls/OrbitControls.js');
+            const { FBXLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js');
+            const { SkeletonUtils } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js');
+            const { CSS2DRenderer, CSS2DObject } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/renderers/CSS2DRenderer.js');
+
+            class BasicWorldDemo {
+              constructor(options) {
+                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject);
+              }
+
+              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject) {
+                this._parent = options.parent;
+                this._width = options.width;
+                this._height = options.height;
+
+                // WebGL Renderer
+                this._threejs = new THREE.WebGLRenderer({
+                  antialias: true,
+                });
+                this._threejs.shadowMap.enabled = true;
+                this._threejs.shadowMap.type = THREE.PCFSoftShadowMap;
+                this._threejs.setPixelRatio(window.devicePixelRatio);
+                this._threejs.setSize(this._width, this._height);
+                this._threejs.domElement.style.position = 'absolute';
+                this._threejs.domElement.style.top = '0';
+                this._threejs.domElement.style.left = '0';
+                this._threejs.domElement.style.zIndex = '0';
+                this._parent.appendChild(this._threejs.domElement);
+
+                // CSS2D Renderer
+                this._labelRenderer = new CSS2DRenderer();
+                this._labelRenderer.setSize(this._width, this._height);
+                this._labelRenderer.domElement.style.position = 'absolute';
+                this._labelRenderer.domElement.style.top = '0px';
+                this._labelRenderer.domElement.style.left = '0px';
+                this._labelRenderer.domElement.style.zIndex = '1'; // On top of 3D, behind UI
+                this._labelRenderer.domElement.style.pointerEvents = 'none';
+                this._parent.appendChild(this._labelRenderer.domElement);
+
+                const fov = 60;
+                const aspect = this._width / this._height;
+                const near = 1.0;
+                const far = 100000.0;
+                this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+                this._camera.position.set(0, 0, 50);
+
+                this._scene = new THREE.Scene();
+
+                this._createSkybox(THREE);
+
+                const hemisphereLight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
+                this._scene.add(hemisphereLight);
+
+                const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+                dirLight.position.set(20, 50, 10);
+                dirLight.castShadow = true;
+                this._scene.add(dirLight);
+
+                this._controls = new OrbitControls(this._camera, this._threejs.domElement);
+                this._controls.target.set(0, 0, 0);
+                this._controls.update();
+
+                this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
+                this._RAF();
+              }
+
+              _createSkybox(THREE) {
+                const skyboxSize = 1000;
+                const skyboxGeo = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+                const black = 0x000000;
+
+                const backPanelMaterial = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
+
+                const materials = [
+                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // right
+                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // left
+                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // top
+                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // bottom
+                    backPanelMaterial,
+                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide })
+                ];
+
+                const skybox = new THREE.Mesh(skyboxGeo, materials);
+                this._scene.add(skybox);
+
+                const backCanvas = document.createElement('canvas');
+                const backContext = backCanvas.getContext('2d');
+
+                const canvasSize = 2048
+                backCanvas.width = canvasSize;
+                backCanvas.height = canvasSize;
+
+                const moonImage = new Image();
+                moonImage.onload = () => {
+                    backContext.fillStyle = 'black';
+                    backContext.fillRect(0, 0, backCanvas.width, backCanvas.height);
+                    const moonSize = 500;
+                    backContext.drawImage(moonImage, moonSize, moonSize, moonSize, moonSize);
+
+                    const backTexture = new THREE.CanvasTexture(backCanvas);
+
+                    backPanelMaterial.map = backTexture;
+                    backPanelMaterial.needsUpdate = true;
+                };
+                moonImage.onerror = () => {
+                    console.error("Failed to load moon texture for skybox.");
+                };
+                moonImage.src = 'assets/moon4.png';
+              }
+
+              _LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject) {
+                this._playerObjects = new Map();
+                this._playerGroup = new THREE.Group();
+                this._playerGroup.name = 'playerGroup';
+
+                // Create ground circle
+                const radius = 15;
+                const groundGeometry = new THREE.CircleGeometry(radius + 5, 64);
+                const groundMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x1a1a1a,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -0.1;
+                ground.receiveShadow = true;
+                this._scene.add(ground);
+
+                this._scene.add(this._playerGroup);
+
+                // Store references for later use
+                this._THREE = THREE;
+                this._CSS2DObject = CSS2DObject;
+                
+                // Frame the empty group initially
+                this._camera.position.set(0, 20, 40);
+                this._controls.target.set(0, 5, 0);
+                this._controls.update();
+              }
+
+              updatePlayerStatus(playerName, status) {
+                const player = this._playerObjects.get(playerName);
+                if (!player) return;
+
+                const { orb, orbLight, body, head, container } = player;
+                
+                switch(status) {
+                    case 'active':
+                        // Yellow glow for active player
+                        orb.material.color.setHex(0xffff00);
+                        orb.material.emissive.setHex(0xffff00);
+                        orbLight.color.setHex(0xffff00);
+                        orbLight.intensity = 1.0;
+                        // Slight scale up animation
+                        container.scale.setScalar(1.1);
+                        break;
+                    case 'dead':
+                        // Red color and move down
+                        orb.material.color.setHex(0xff0000);
+                        orb.material.emissive.setHex(0xff0000);
+                        orbLight.color.setHex(0xff0000);
+                        orbLight.intensity = 0.3;
+                        body.material.color.setHex(0x555555);
+                        head.material.color.setHex(0x888888);
+                        // Sink into ground (using a fixed value instead of playerHeight)
+                        container.position.y = -1.2;
+                        player.isAlive = false;
+                        break;
+                    case 'werewolf':
+                        // Purple glow for werewolves
+                        orb.material.color.setHex(0x9b59b6);
+                        orb.material.emissive.setHex(0x9b59b6);
+                        orbLight.color.setHex(0x9b59b6);
+                        orbLight.intensity = 0.7;
+                        body.material.color.setHex(0x8e44ad);
+                        break;
+                    case 'voting':
+                        // Orange pulse for voting
+                        orb.material.color.setHex(0xff8800);
+                        orb.material.emissive.setHex(0xff8800);
+                        orbLight.color.setHex(0xff8800);
+                        orbLight.intensity = 0.8;
+                        break;
+                    case 'speaking':
+                        // Blue pulse for speaking
+                        orb.material.color.setHex(0x00aaff);
+                        orb.material.emissive.setHex(0x00aaff);
+                        orbLight.color.setHex(0x00aaff);
+                        orbLight.intensity = 1.2;
+                        break;
+                    default:
+                        // Default green for alive
+                        if (player.isAlive) {
+                            orb.material.color.setHex(0x00ff00);
+                            orb.material.emissive.setHex(0x00ff00);
+                            orbLight.color.setHex(0x00ff00);
+                            orbLight.intensity = 0.5;
+                            container.scale.setScalar(1.0);
+                            container.position.y = 0;
+                        }
+                        break;
+                }
+              }
+
+              updatePhase(phase) {
+                if (!this._scene) return;
+                
+                // Update ambient lighting based on phase
+                const ambientLight = this._scene.getObjectByName('ambientLight');
+                if (!ambientLight) {
+                    const newAmbientLight = new this._THREE.AmbientLight(0xffffff, 0.3);
+                    newAmbientLight.name = 'ambientLight';
+                    this._scene.add(newAmbientLight);
+                }
+                
+                if (phase === 'NIGHT') {
+                    // Darker scene for night
+                    if (ambientLight) ambientLight.intensity = 0.1;
+                    this._scene.fog = new this._THREE.Fog(0x000033, 10, 100);
+                } else {
+                    // Brighter scene for day
+                    if (ambientLight) ambientLight.intensity = 0.3;
+                    this._scene.fog = new this._THREE.Fog(0x333366, 20, 150);
+                }
+              }
+
+              _createNameplate(name, imageUrl, CSS2DObject) {
+                const container = document.createElement('div');
+                container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
+                container.style.padding = '8px 12px';
+                container.style.borderRadius = '8px';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                container.style.gap = '10px';
+                container.style.textAlign = 'center';
+
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.style.width = '60px';
+                img.style.height = '60px';
+                img.style.borderRadius = '80%';
+                img.style.objectFit = 'cover';
+                img.style.backgroundColor = 'white';
+
+                const text = document.createElement('div');
+                text.textContent = name;
+                text.style.color = 'white';
+                text.style.fontFamily = 'Arial, sans-serif';
+                text.style.fontSize = '16px';
+
+                container.appendChild(img);
+                container.appendChild(text);
+
+                const label = new CSS2DObject(container);
+                return label;
+              }
+
+              _FrameGroup(group, THREE) {
+                const box = new THREE.Box3().setFromObject(group);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = this._camera.fov * (Math.PI / 180);
+
+                let cameraZ = Math.abs(maxDim / Math.tan(fov / 2));
+                cameraZ *= 0.5;
+
+                this._camera.position.set(center.x, center.y, center.z - cameraZ);
+
+                const shiftY = size.y / 2.5;
+                this._camera.position.y += shiftY;
+
+                const newTarget = center.clone();
+                newTarget.y += shiftY;
+                this._controls.target.copy(newTarget);
+                this._controls.update();
+              }
+
+              _NormalizeModel(model, THREE) {
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.copy(center).negate();
+                const wrapper = new THREE.Group();
+                wrapper.add(model);
+                const scale = 1.0 / size.y;
+                wrapper.scale.set(scale, scale, scale);
+                return wrapper;
+              }
+
+              _RAF() {
+                requestAnimationFrame((time) => {
+                  // Animate player objects
+                  if (this._playerObjects) {
+                    this._playerObjects.forEach((player, name) => {
+                      if (player.isAlive) {
+                        // Gentle floating animation for alive players
+                        const floatOffset = Math.sin(time * 0.001 + name.charCodeAt(0)) * 0.2;
+                        player.container.position.y = floatOffset;
+                        
+                        // Rotate orbs
+                        player.orb.rotation.y = time * 0.002;
+                        
+                        // Pulse effect for active players
+                        if (player.container.scale.x > 1.0) {
+                          const pulseScale = 1.05 + Math.sin(time * 0.005) * 0.05;
+                          player.container.scale.setScalar(pulseScale);
+                        }
+                      }
+                    });
+                  }
+
+                  this._threejs.render(this._scene, this._camera);
+                  this._labelRenderer.render(this._scene, this._camera);
+                  this._RAF();
+                });
+              }
+            }
+
+            setupScene(BasicWorldDemo);
+        } catch (error) {
+            console.error("Failed to load Three.js modules:", error);
+            parent.textContent = "Error loading 3D assets. Please refresh.";
+        }
+    };
+
+    loadAndSetup();
+  }
+
+  function setupScene(BasicWorldDemo) {
+    if (threeState.initialized) return;
+    threeState.demo = new BasicWorldDemo({ parent, width, height });
+    threeState.initialized = true;
+  }
+
+  function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
+    if (!threeState.demo || !threeState.demo._playerObjects) return;
+
+    // Update player statuses
+    gameState.players.forEach(player => {
+      const playerObj = threeState.demo._playerObjects.get(player.name);
+      if (!playerObj) return;
+
+      if (!player.is_alive) {
+        threeState.demo.updatePlayerStatus(player.name, 'dead');
+      } else if (player.name === actingPlayerName) {
+        threeState.demo.updatePlayerStatus(player.name, 'active');
+      } else if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
+        threeState.demo.updatePlayerStatus(player.name, 'werewolf');
+      } else {
+        threeState.demo.updatePlayerStatus(player.name, 'default');
+      }
+    });
+
+    // Update phase lighting
+    threeState.demo.updatePhase(gameState.phase);
+
+    // Handle recent events for animations
+    const recentEvents = gameState.eventLog.slice(-5); // Last 5 events
+    recentEvents.forEach(event => {
+      if (event.type === 'chat' && playerMap.has(event.speaker)) {
+        threeState.demo.updatePlayerStatus(event.speaker, 'speaking');
+        // Reset after a delay
+        setTimeout(() => {
+          const player = playerMap.get(event.speaker);
+          if (player && player.is_alive && event.speaker !== actingPlayerName) {
+            threeState.demo.updatePlayerStatus(event.speaker, 'default');
+          }
+        }, 2000);
+      } else if (event.type === 'vote' && playerMap.has(event.actor_id)) {
+        threeState.demo.updatePlayerStatus(event.actor_id, 'voting');
+        // Reset after a delay
+        setTimeout(() => {
+          const player = playerMap.get(event.actor_id);
+          if (player && player.is_alive && event.actor_id !== actingPlayerName) {
+            threeState.demo.updatePlayerStatus(event.actor_id, 'default');
+          }
+        }, 1500);
+      }
+    });
   }
 
   // --- CSS for the UI ---
@@ -125,32 +426,54 @@ function renderer({
             overflow: hidden;
             width: 100%;
             height: 100%;
+            background-color: #000;
         }
         .main-container {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            height: 100%;
-            width: 100%;
-            background-color: transparent; /* Make container transparent */
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2; /* UI on top of label renderer */
+            pointer-events: none; /* Allow clicks to go through to canvas */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: var(--night-text);
         }
-        .left-panel, .right-panel {
-            /* Make panels semi-transparent to see the background */
-            background-color: rgba(44, 62, 80, 0.6);
+        .left-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 280px;
+            max-height: calc(100vh - 40px);
+            background-color: rgba(44, 62, 80, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 15px;
             display: flex;
             flex-direction: column;
-            height: 100%;
             box-sizing: border-box;
-        }
-        .left-panel {
-            width: 300px;
-            flex-shrink: 0;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
         }
         .right-panel {
-            flex-grow: 1;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: calc(100vh - 40px);
+            background-color: rgba(44, 62, 80, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
         }
         .right-panel h1, #player-list-area h1 {
             margin-top: 0;
@@ -226,7 +549,7 @@ function renderer({
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .player-role,         .player-status {
+        .player-role, .player-status {
             font-size: 0.9em;
             color: #bdc3c7;
         }
@@ -289,10 +612,10 @@ function renderer({
             transition: background-color 0.3s ease;
         }
         .msg-entry.event-day {
-            background-color: rgba(236, 240, 241, 0.1); /* Lighter background for Day events */
+            background-color: rgba(236, 240, 241, 0.1);
         }
         .msg-entry.event-night {
-            background-color: rgba(0, 0, 0, 0.25); /* Darker background for Night events */
+            background-color: rgba(0, 0, 0, 0.25);
         }
         .reasoning-text {
             font-size: 0.85em;
@@ -341,9 +664,9 @@ function renderer({
             font-weight: normal;
         }
         .msg-text br {
-            display: block; /* makes <br> behave like a block element */
-            margin-bottom: 0.5em; /* space below the <br> */
-            content: ""; /* required for margin to apply */
+            display: block;
+            margin-bottom: 0.5em;
+            content: "";
         }
         .player-capsule {
             display: inline-flex;
@@ -363,24 +686,12 @@ function renderer({
             margin-right: 5px;
             object-fit: cover;
         }
-        .balloon, .msg-entry.clickable, .moderator-announcement-content.clickable {
-            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-        }
-        .balloon:hover, .msg-entry.clickable:hover, .moderator-announcement-content.clickable:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        .tts-button {
             cursor: pointer;
-        }
-        .playing-audio {
-            color: #87CEFA !important; /* Light Sky Blue */
-        }
-        .playing-audio * {
-            color: #87CEFA !important;
-        }
-        .playing-audio .balloon,
-        .playing-audio.msg-entry,
-        .playing-audio .moderator-announcement-content {
-            background-color: rgba(135, 206, 250, 0.2) !important;
+            font-size: 1.2em;
+            margin-left: 10px;
+            display: inline-block;
+            vertical-align: middle;
         }
         .audio-controls {
             padding: 10px 0;
@@ -428,7 +739,7 @@ function renderer({
           isPaused: false,
           lastPlayedStep: -1,
           audioPlayer: new Audio(),
-          playbackRate: 1.0,
+          playbackRate: 1.4,
       };
   }
   const audioState = window.kaggleWerewolf;
@@ -460,34 +771,15 @@ function renderer({
       if (audioState.isPaused || audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
           return;
       }
-
-      const previouslyPlaying = parent.querySelector('.playing-audio');
-      if (previouslyPlaying) {
-          previouslyPlaying.classList.remove('playing-audio');
-      }
-
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
       const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
       const audioPath = audioMap[audioKey];
 
-      let elementToHighlight = null;
-      const allAudioElements = parent.querySelectorAll('[data-audio-key]');
-      for (const el of allAudioElements) {
-          if (el.getAttribute('data-audio-key') === audioKey) {
-              elementToHighlight = el;
-              break;
-          }
-      }
-      if (elementToHighlight) {
-          elementToHighlight.classList.add('playing-audio');
-      }
-
       if (audioPath) {
           audioState.audioPlayer.src = audioPath;
           audioState.audioPlayer.playbackRate = audioState.playbackRate;
           audioState.audioPlayer.onended = () => {
-              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
               if (!audioState.isPaused) {
                 playNextInQueue();
@@ -495,25 +787,21 @@ function renderer({
           };
           audioState.audioPlayer.onerror = () => {
               console.error("Audio playback failed for key:", audioKey);
-              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
               playNextInQueue();
           };
           audioState.audioPlayer.play().catch(e => {
               console.error("Audio playback failed:", e);
-              if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
               audioState.isAudioPlaying = false;
               playNextInQueue();
           });
       } else {
           console.warn(`No audio found for key: "${audioKey}"`);
-          if (elementToHighlight) elementToHighlight.classList.remove('playing-audio');
           audioState.isAudioPlaying = false;
           playNextInQueue();
       }
   }
 
-  // --- Audio state activation ---
   if (!parent.dataset.audioListenerAttached) {
       parent.dataset.audioListenerAttached = 'true';
       parent.addEventListener('click', () => {
@@ -526,79 +814,13 @@ function renderer({
       }, { once: true });
   }
 
-  function getAudioEventForEntry(entry) {
-    let audioEvent = null;
-    if (entry.type === 'chat') {
-        audioEvent = { message: entry.message, speaker: entry.speaker };
-    } else if (entry.type === 'system') {
-        const text = (entry.text || '').toLowerCase();
-        let audioKey = null;
-        if (text.includes('night') && text.includes('begins')) {
-            audioKey = 'night_begins';
-        } else if (text.includes('day') && text.includes('begins')) {
-            audioKey = 'day_begins';
-        } else if (text.includes('discussion')) {
-            audioKey = 'discussion_begins';
-        } else if (text.includes('voting phase begins')) {
-            audioKey = 'voting_begins';
-        }
-        if (audioKey) {
-            audioEvent = { message: audioKey, speaker: 'moderator' };
-        }
-    } else if (entry.type === 'exile') {
-        const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
-        audioEvent = { message: message, speaker: 'moderator' };
-    } else if (entry.type === 'elimination') {
-        const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
-        audioEvent = { message: message, speaker: 'moderator' };
-    } else if (entry.type === 'save') {
-        const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
-        audioEvent = { message: message, speaker: 'moderator' };
-    } else if (entry.type === 'game_over') {
-        const message = `The game is over. The ${entry.winner} team has won!`;
-        audioEvent = { message: message, speaker: 'moderator' };
-    }
-    return audioEvent;
-  }
-
-  function speakFrom(startIndex, logEntries) {
-      if (!audioState.isAudioEnabled) {
-          audioState.isAudioEnabled = true;
-          const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-          audio.play().catch(e => console.warn("Audio context activation failed:", e));
-      }
-
-      // Stop current playback and clear highlight
-      if (audioState.isAudioPlaying) {
-          audioState.audioPlayer.pause();
-          audioState.isAudioPlaying = false;
-          const previouslyPlaying = parent.querySelector('.playing-audio');
-          if (previouslyPlaying) {
-              previouslyPlaying.classList.remove('playing-audio');
+  function speak(message, speaker) {
+      if (audioState.isAudioEnabled) {
+          audioState.audioQueue.push({ message, speaker });
+          if (!audioState.isAudioPlaying) {
+              playNextInQueue();
           }
       }
-
-      audioState.audioQueue = [];
-      if (audioState.isPaused) {
-          audioState.isPaused = false;
-          const pauseButton = parent.querySelector('#pause-audio');
-          if (pauseButton) {
-              pauseButton.classList.remove('paused');
-              pauseButton.classList.add('playing');
-          }
-      }
-
-      const eventsToQueue = [];
-      for (let i = startIndex; i < logEntries.length; i++) {
-          const entry = logEntries[i];
-          const audioEvent = getAudioEventForEntry(entry);
-          if (audioEvent) {
-              eventsToQueue.push(audioEvent);
-          }
-      }
-
-      audioState.audioQueue = eventsToQueue;
-      playNextInQueue();
   }
 
   // --- Helper Functions ---
@@ -625,15 +847,12 @@ function renderer({
           return text;
       }
       let newText = text;
-      // Sort by length descending to match longer names first (e.g. "Player10" before "Player1")
       const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
       sortedPlayerIds.forEach(playerId => {
           const player = playerMap.get(playerId);
           if (player) {
               const capsule = createPlayerCapsule(player);
-              // Use a regex to replace whole words only to avoid replacing parts of other words.
-              // The \b is a word boundary.
               const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
               newText = newText.replace(regex, capsule);
           }
@@ -647,11 +866,9 @@ function renderer({
         return text;
     }
     let newText = text;
-    // Sort by length descending to match longer names first (e.g. "Player10" before "Player1")
     const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
     sortedPlayerIds.forEach(playerId => {
-        // Use a regex to replace whole words only to avoid replacing parts of other words.
         const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
         newText = newText.replace(regex, `<strong>${playerId}</strong>`);
     });
@@ -661,9 +878,7 @@ function renderer({
 
   function getThreatColor(threatLevel) {
     const value = Math.max(0, Math.min(1, threatLevel));
-    // Interpolates from green (hue 120) to red (hue 0)
     const hue = 120 * (1 - value);
-    // Use HSL for vibrant colors
     return `hsl(${hue}, 100%, 50%)`;
   }
 
@@ -709,7 +924,6 @@ function renderer({
     listContainer.appendChild(playerUl);
     container.appendChild(listContainer);
 
-    // --- Threat Indicator Management ---
     gameState.players.forEach((player, index) => {
         const li = playerUl.children[index];
         const indicator = li.querySelector('.threat-indicator');
@@ -723,7 +937,6 @@ function renderer({
         }
     });
 
-    // --- Audio Controls ---
     const audioControls = document.createElement('div');
     audioControls.className = 'audio-controls';
     const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
@@ -764,16 +977,10 @@ function renderer({
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
     } else {
-        logEntries.forEach((entry, index) => {
+        logEntries.forEach(entry => {
             const li = document.createElement('li');
-            const audioEvent = getAudioEventForEntry(entry);
-            if (audioEvent) {
-                const audioKey = audioEvent.speaker === 'moderator' ? `moderator:${audioEvent.message}` : `${audioEvent.speaker}:${audioEvent.message}`;
-                li.setAttribute('data-audio-key', audioKey);
-            }
             let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
 
-            // --- Phase Correction Logic ---
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
             const systemText = (entry.text || '').toLowerCase();
@@ -793,9 +1000,9 @@ function renderer({
 
             let phaseEmoji = phase;
             if (phase === 'DAY') {
-                phaseEmoji = '\u2600\uFE0F'; // Sun emoji
+                phaseEmoji = '\u2600\uFE0F';
             } else if (phase === 'NIGHT') {
-                phaseEmoji = '\uD83C\uDF19'; // Crescent moon emoji
+                phaseEmoji = '\uD83C\uDF19';
             }
 
             const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
@@ -819,9 +1026,13 @@ function renderer({
                             </div>
                         </div>
                     `;
-                    const balloon = li.querySelector('.balloon');
-                    if (balloon) {
-                        balloon.onclick = () => speakFrom(index, logEntries);
+                    const balloonText = li.querySelector('.balloon-text');
+                    if (balloonText) {
+                        const ttsButton = document.createElement('span');
+                        ttsButton.className = 'tts-button';
+                        ttsButton.textContent = '\uD83D\uDD0A';
+                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
+                        balloonText.appendChild(ttsButton);
                     }
                     break;
                 case 'seer_inspection':
@@ -875,12 +1086,12 @@ function renderer({
                     `;
                     break;
                 case 'system':
+                    if (entry.text && entry.text.includes('has begun')) return;
+
                     let systemText = entry.text;
-                    // Regex to find python list of strings and replace it with just the comma-separated content
-                    const listRegex = /\[(.*?)\]/g;
+                    const listRegex = /\\\\[(.*?)\\\\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
-                        // listContent is "'player-1', 'player-2', 'player-3'"
-                        return listContent.replace(/'/g, "").replace(/, /g, " "); // Becomes "player-1 player-2 player-3"
+                        return listContent.replace(/'/g, "").replace(/, /g, " ");
                     });
 
                     const allPlayerIdsForSystem = Array.from(playerMap.keys());
@@ -893,43 +1104,21 @@ function renderer({
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
                     `;
-                    const announcementContent = li.querySelector('.moderator-announcement-content');
-                    if (announcementContent) {
-                        const text = (entry.text || '').toLowerCase();
-                        let audioKey = null;
-                        if (text.includes('night') && text.includes('begins')) {
-                            audioKey = 'night_begins';
-                        } else if (text.includes('day') && text.includes('begins')) {
-                            audioKey = 'day_begins';
-                        } else if (text.includes('discussion')) {
-                            audioKey = 'discussion_begins';
-                        } else if (text.includes('voting phase begins')) {
-                            audioKey = 'voting_begins';
-                        }
-
-                        if (audioKey) {
-                            announcementContent.classList.add('clickable');
-                            announcementContent.onclick = () => speakFrom(index, logEntries);
-                        }
-                    }
                     break;
                 case 'exile':
                     const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-day clickable`;
+                    li.className = `msg-entry game-event event-day`;
                     li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
-                    li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'elimination':
                     const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-night clickable`;
+                    li.className = `msg-entry game-event event-night`;
                     li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
-                    li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'save':
                      const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
-                     li.className = `msg-entry event-night clickable`;
+                     li.className = `msg-entry event-night`;
                      li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
-                     li.onclick = () => speakFrom(index, logEntries);
                     break;
                 case 'vote':
                     const voter = playerMap.get(entry.actor_id);
@@ -984,7 +1173,7 @@ function renderer({
                 case 'game_over':
                     const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
                     const losersText = entry.losers.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    li.className = `msg-entry game-win ${phaseClass} clickable`;
+                    li.className = `msg-entry game-win ${phaseClass}`;
                     li.innerHTML = `
                         <cite>Game Over ${timestampHtml}</cite>
                         <div class="msg-text">
@@ -993,7 +1182,6 @@ function renderer({
                             <div><strong>Losing Team:</strong> ${losersText}</div>
                         </div>
                     `;
-                    li.onclick = () => speakFrom(index, logEntries);
                     break;
             }
             if (li.innerHTML) logUl.appendChild(li);
@@ -1005,8 +1193,6 @@ function renderer({
   }
 
     // --- Main Rendering Logic ---
-
-    // Clean up previous UI, but not the canvas
     const oldUI = parent.querySelector('.main-container');
     if (oldUI) {
         parent.removeChild(oldUI);
@@ -1016,7 +1202,7 @@ function renderer({
         parent.removeChild(oldStyle);
     }
 
-    initThreeJs(); // Initialize three.js if not already done
+    initThreeJs();
 
     if (!environment || !environment.steps || environment.steps.length === 0 || step >= environment.steps.length) {
         const tempContainer = document.createElement("div");
@@ -1024,6 +1210,10 @@ function renderer({
         parent.appendChild(tempContainer);
         return;
     }
+
+    // Initialize player mapping for 3D scene
+    let playerNamesFor3D = [];
+    let playerThumbnailsFor3D = {};
 
     // --- State Reconstruction ---
     let gameState = {
@@ -1043,6 +1233,8 @@ function renderer({
     if (firstObs && firstObs.all_player_ids) {
         allPlayerNamesList = firstObs.all_player_ids;
         playerThumbnails = firstObs.player_thumbnails || {};
+        playerNamesFor3D = [...allPlayerNamesList];
+        playerThumbnailsFor3D = {...playerThumbnails};
     } else if (environment.configuration && environment.configuration.agents) {
         console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
         allPlayerNamesList = environment.configuration.agents.map(agent => agent.id);
@@ -1051,6 +1243,8 @@ function renderer({
                 playerThumbnails[agent.id] = agent.thumbnail;
             }
         });
+        playerNamesFor3D = [...allPlayerNamesList];
+        playerThumbnailsFor3D = {...playerThumbnails};
     }
 
     if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
@@ -1066,10 +1260,8 @@ function renderer({
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
-    // Initialize all threat levels to 0 (SAFE)
     gameState.players.forEach(p => gameState.playerThreatLevels.set(p.name, 0));
 
-    // Get initial roles from the start of the game
     const roleAndTeamMap = new Map();
     const moderatorInitialLog = environment.info?.MODERATOR_OBSERVATION?.[0] || [];
     moderatorInitialLog.flat().forEach(dataEntry => {
@@ -1093,7 +1285,7 @@ function renderer({
             case 'SAFE': return 0;
             case 'UNEASY': return 0.5;
             case 'IN_DANGER': return 1.0;
-            default: return 0; // Default to safe
+            default: return 0;
         }
     }
 
@@ -1101,7 +1293,6 @@ function renderer({
         const stepStateList = environment.steps[s];
         if (!stepStateList) continue;
 
-        // Update overall game state from the first agent in the current step
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
             if (currentObsForStep.day > lastDay) {
@@ -1114,7 +1305,6 @@ function renderer({
             gameState.game_state_phase = currentObsForStep.game_state_phase;
         }
 
-        // Process confirmed events from the moderator log
         const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
         moderatorLogForStep.flat().forEach(dataEntry => {
              const eventKey = dataEntry.json_str;
@@ -1125,7 +1315,6 @@ function renderer({
              const data = historyEvent.data;
              const timestamp = historyEvent.created_at;
 
-            // Update threat level whenever an action with that info appears
             if (data && data.actor_id && data.perceived_threat_level) {
                 const threatScore = threatStringToLevel(data.perceived_threat_level);
                 gameState.playerThreatLevels.set(data.actor_id, threatScore);
@@ -1185,7 +1374,6 @@ function renderer({
         });
     }
 
-    // --- Audio Playback Management ---
     if (step < audioState.lastPlayedStep) {
         audioState.audioQueue = [];
         audioState.isAudioPlaying = false;
@@ -1239,8 +1427,6 @@ function renderer({
     }
     audioState.lastPlayedStep = step;
 
-
-    // Update player statuses based on the final log
     gameState.players.forEach(p => { p.is_alive = true; p.status = 'Alive'; });
     gameState.eventLog.forEach(entry => {
         if (entry.type === 'exile' || entry.type === 'elimination') {
@@ -1275,9 +1461,6 @@ function renderer({
     style.textContent = css;
     parent.appendChild(style);
 
-    const isNight = (gameState.game_state_phase || '').toLowerCase() === 'night';
-    updateBackground(isNight);
-
     const mainContainer = document.createElement('div');
     mainContainer.className = 'main-container';
     parent.appendChild(mainContainer);
@@ -1295,4 +1478,113 @@ function renderer({
 
     renderPlayerList(playerListArea, gameState, playerMap, actingPlayerName);
     renderEventLog(rightPanel, gameState, playerMap);
+
+    // Update 3D scene based on game state
+    updateSceneFromGameState(gameState, playerMap, actingPlayerName);
+    
+    // Initialize 3D players if needed
+    if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
+        initializePlayers3D(playerNamesFor3D, playerThumbnailsFor3D, threeState);
+    }
+}
+
+function initializePlayers3D(playerNames, playerThumbnails, threeState) {
+    if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
+    
+    // Clear existing player objects
+    if (threeState.demo._playerGroup) {
+        // Remove all children from the group
+        while(threeState.demo._playerGroup.children.length > 0) {
+            threeState.demo._playerGroup.remove(threeState.demo._playerGroup.children[0]);
+        }
+    }
+    threeState.demo._playerObjects.clear();
+    
+    const numPlayers = playerNames.length;
+    const radius = 15;
+    const sectorAngleDegrees = 60;
+    const sectorAngleRadians = sectorAngleDegrees * (Math.PI / 180);
+    const playerHeight = 4;
+    
+    const startAngle = -sectorAngleRadians / 2;
+    const angleIncrement = numPlayers > 1 ? sectorAngleRadians / (numPlayers - 1) : 0;
+    
+    const THREE = threeState.demo._THREE;
+    const CSS2DObject = threeState.demo._CSS2DObject;
+    
+    playerNames.forEach((name, i) => {
+        const playerContainer = new THREE.Group();
+        const angle = startAngle + i * angleIncrement;
+        
+        const x = radius * Math.sin(angle);
+        const z = radius * Math.cos(angle);
+        playerContainer.position.set(x, 0, z);
+        
+        // Create player body (cylinder)
+        const bodyGeometry = new THREE.CylinderGeometry(1, 1.2, playerHeight, 16);
+        const bodyMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3498db,
+            roughness: 0.5,
+            metalness: 0.3
+        });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.position.y = playerHeight / 2;
+        body.castShadow = true;
+        body.receiveShadow = true;
+        playerContainer.add(body);
+        
+        // Create player head (sphere)
+        const headGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+        const headMaterial = new THREE.MeshStandardMaterial({
+            color: 0xfdbcb4,
+            roughness: 0.7,
+            metalness: 0.1
+        });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.y = playerHeight + 0.8;
+        head.castShadow = true;
+        head.receiveShadow = true;
+        playerContainer.add(head);
+        
+        // Create glowing orb for status
+        const orbGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+        const orbMaterial = new THREE.MeshStandardMaterial({
+            color: 0x00ff00,
+            emissive: 0x00ff00,
+            emissiveIntensity: 0.5
+        });
+        const orb = new THREE.Mesh(orbGeometry, orbMaterial);
+        orb.position.y = playerHeight + 2;
+        orb.name = 'statusOrb';
+        playerContainer.add(orb);
+        
+        // Add point light for glow effect
+        const orbLight = new THREE.PointLight(0x00ff00, 0.5, 5);
+        orbLight.position.copy(orb.position);
+        orbLight.name = 'orbLight';
+        playerContainer.add(orbLight);
+        
+        // Make player face center
+        playerContainer.lookAt(new THREE.Vector3(0, 0, 0));
+        
+        // Create nameplate with actual player thumbnail
+        const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
+        const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
+        nameplate.position.set(0, playerHeight + 3, 0);
+        playerContainer.add(nameplate);
+        
+        // Store references
+        threeState.demo._playerObjects.set(name, {
+            container: playerContainer,
+            body: body,
+            head: head,
+            orb: orb,
+            orbLight: orbLight,
+            nameplate: nameplate,
+            originalPosition: playerContainer.position.clone(),
+            isAlive: true
+        });
+        
+        threeState.demo._playerGroup.add(playerContainer);
+    });
 }
