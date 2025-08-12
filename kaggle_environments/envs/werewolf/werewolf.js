@@ -171,7 +171,7 @@ function renderer({
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
-                const { orb, orbLight, body, head, container } = player;
+                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
                 
                 switch(status) {
                     case 'active':
@@ -179,53 +179,110 @@ function renderer({
                         orb.material.color.setHex(0xffff00);
                         orb.material.emissive.setHex(0xffff00);
                         orbLight.color.setHex(0xffff00);
-                        orbLight.intensity = 1.0;
+                        orbLight.intensity = 1.5;
+                        glow.material.color.setHex(0xffff00);
+                        glow.material.emissive.setHex(0xffff00);
+                        glow.material.emissiveIntensity = 0.5;
+                        glow.visible = true;
                         // Slight scale up animation
                         container.scale.setScalar(1.1);
+                        pedestal.material.emissive.setHex(0x444400);
+                        pedestal.material.emissiveIntensity = 0.3;
                         break;
                     case 'dead':
-                        // Red color and move down
-                        orb.material.color.setHex(0xff0000);
-                        orb.material.emissive.setHex(0xff0000);
-                        orbLight.color.setHex(0xff0000);
-                        orbLight.intensity = 0.3;
-                        body.material.color.setHex(0x555555);
-                        head.material.color.setHex(0x888888);
-                        // Sink into ground (using a fixed value instead of playerHeight)
-                        container.position.y = -1.2;
+                        // Gray out dead players
+                        orb.material.color.setHex(0x333333);
+                        orb.material.emissive.setHex(0x111111);
+                        orb.material.emissiveIntensity = 0.1;
+                        orb.material.opacity = 0.3;
+                        orbLight.color.setHex(0x333333);
+                        orbLight.intensity = 0.1;
+                        body.material.color.setHex(0x444444);
+                        body.material.emissive.setHex(0x000000);
+                        shoulders.material.color.setHex(0x444444);
+                        shoulders.material.emissive.setHex(0x000000);
+                        head.material.color.setHex(0x666666);
+                        head.material.emissive.setHex(0x000000);
+                        glow.visible = false;
+                        pedestal.material.emissive.setHex(0x000000);
+                        // Sink into ground
+                        container.position.y = -1.5;
+                        // Tilt slightly
+                        container.rotation.x = 0.2;
                         player.isAlive = false;
                         break;
                     case 'werewolf':
-                        // Purple glow for werewolves
-                        orb.material.color.setHex(0x9b59b6);
-                        orb.material.emissive.setHex(0x9b59b6);
-                        orbLight.color.setHex(0x9b59b6);
-                        orbLight.intensity = 0.7;
-                        body.material.color.setHex(0x8e44ad);
+                        // Red/purple glow for werewolves
+                        orb.material.color.setHex(0xff0000);
+                        orb.material.emissive.setHex(0xff0000);
+                        orb.material.emissiveIntensity = 1.0;
+                        orbLight.color.setHex(0xff0000);
+                        orbLight.intensity = 1.2;
+                        body.material.color.setHex(0x880000);
+                        body.material.emissive.setHex(0x440000);
+                        body.material.emissiveIntensity = 0.3;
+                        shoulders.material.color.setHex(0x880000);
+                        shoulders.material.emissive.setHex(0x440000);
+                        shoulders.material.emissiveIntensity = 0.3;
+                        glow.material.color.setHex(0xff0000);
+                        glow.material.emissive.setHex(0xff0000);
+                        glow.material.emissiveIntensity = 0.4;
+                        glow.visible = true;
+                        pedestal.material.emissive.setHex(0x440000);
+                        pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'voting':
                         // Orange pulse for voting
                         orb.material.color.setHex(0xff8800);
                         orb.material.emissive.setHex(0xff8800);
+                        orb.material.emissiveIntensity = 0.9;
                         orbLight.color.setHex(0xff8800);
-                        orbLight.intensity = 0.8;
+                        orbLight.intensity = 1.0;
+                        glow.material.color.setHex(0xff8800);
+                        glow.material.emissive.setHex(0xff8800);
+                        glow.material.emissiveIntensity = 0.3;
+                        glow.visible = true;
                         break;
                     case 'speaking':
                         // Blue pulse for speaking
                         orb.material.color.setHex(0x00aaff);
                         orb.material.emissive.setHex(0x00aaff);
+                        orb.material.emissiveIntensity = 1.0;
                         orbLight.color.setHex(0x00aaff);
-                        orbLight.intensity = 1.2;
+                        orbLight.intensity = 1.5;
+                        glow.material.color.setHex(0x00aaff);
+                        glow.material.emissive.setHex(0x00aaff);
+                        glow.material.emissiveIntensity = 0.4;
+                        glow.visible = true;
+                        container.scale.setScalar(1.05);
                         break;
                     default:
                         // Default green for alive
                         if (player.isAlive) {
                             orb.material.color.setHex(0x00ff00);
                             orb.material.emissive.setHex(0x00ff00);
+                            orb.material.emissiveIntensity = 0.8;
+                            orb.material.opacity = 0.9;
                             orbLight.color.setHex(0x00ff00);
-                            orbLight.intensity = 0.5;
+                            orbLight.intensity = 0.8;
+                            body.material.color.setHex(0x4466ff);
+                            body.material.emissive.setHex(0x111166);
+                            body.material.emissiveIntensity = 0.2;
+                            shoulders.material.color.setHex(0x4466ff);
+                            shoulders.material.emissive.setHex(0x111166);
+                            shoulders.material.emissiveIntensity = 0.2;
+                            head.material.color.setHex(0xfdbcb4);
+                            head.material.emissive.setHex(0x442211);
+                            head.material.emissiveIntensity = 0.1;
+                            glow.material.color.setHex(0x00ff00);
+                            glow.material.emissive.setHex(0x00ff00);
+                            glow.material.emissiveIntensity = 0.3;
+                            glow.visible = true;
+                            pedestal.material.emissive.setHex(0x111122);
+                            pedestal.material.emissiveIntensity = 0.1;
                             container.scale.setScalar(1.0);
                             container.position.y = 0;
+                            container.rotation.x = 0;
                         }
                         break;
                 }
@@ -326,16 +383,38 @@ function renderer({
                     this._playerObjects.forEach((player, name) => {
                       if (player.isAlive) {
                         // Gentle floating animation for alive players
-                        const floatOffset = Math.sin(time * 0.001 + name.charCodeAt(0)) * 0.2;
+                        const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.15;
                         player.container.position.y = floatOffset;
                         
                         // Rotate orbs
                         player.orb.rotation.y = time * 0.002;
+                        player.orb.rotation.x = Math.sin(time * 0.001) * 0.1;
+                        
+                        // Animate glow
+                        if (player.glow && player.glow.visible) {
+                          player.glow.rotation.y = -time * 0.001;
+                          const glowScale = 1 + Math.sin(time * 0.003 + player.baseAngle) * 0.1;
+                          player.glow.scale.setScalar(glowScale);
+                        }
                         
                         // Pulse effect for active players
                         if (player.container.scale.x > 1.0) {
                           const pulseScale = 1.05 + Math.sin(time * 0.005) * 0.05;
                           player.container.scale.setScalar(pulseScale);
+                        }
+                        
+                        // Subtle breathing effect
+                        if (player.body) {
+                          const breathScale = 1 + Math.sin(time * 0.0015 + player.baseAngle) * 0.02;
+                          player.body.scale.y = breathScale;
+                          if (player.shoulders) {
+                            player.shoulders.scale.y = 0.6 * breathScale;
+                          }
+                        }
+                      } else {
+                        // Dead players still have some animation
+                        if (player.orb) {
+                          player.orb.rotation.y = time * 0.0005;
                         }
                       }
                     });
@@ -1501,76 +1580,183 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
     threeState.demo._playerObjects.clear();
     
     const numPlayers = playerNames.length;
-    const radius = 15;
-    const sectorAngleDegrees = 60;
-    const sectorAngleRadians = sectorAngleDegrees * (Math.PI / 180);
+    const radius = 18; // Increased radius to use more space
     const playerHeight = 4;
-    
-    const startAngle = -sectorAngleRadians / 2;
-    const angleIncrement = numPlayers > 1 ? sectorAngleRadians / (numPlayers - 1) : 0;
     
     const THREE = threeState.demo._THREE;
     const CSS2DObject = threeState.demo._CSS2DObject;
     
+    // Create a circular platform
+    const platformGeometry = new THREE.RingGeometry(radius - 2, radius + 3, 64);
+    const platformMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2a2a3a,
+        roughness: 0.9,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide
+    });
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+    platform.rotation.x = -Math.PI / 2;
+    platform.position.y = -0.05;
+    platform.receiveShadow = true;
+    threeState.demo._playerGroup.add(platform);
+    
+    // Create center decoration
+    const centerGeometry = new THREE.CylinderGeometry(3, 3, 0.2, 32);
+    const centerMaterial = new THREE.MeshStandardMaterial({
+        color: 0x444466,
+        roughness: 0.7,
+        metalness: 0.3,
+        emissive: 0x222244,
+        emissiveIntensity: 0.2
+    });
+    const centerPlatform = new THREE.Mesh(centerGeometry, centerMaterial);
+    centerPlatform.position.y = 0.1;
+    centerPlatform.receiveShadow = true;
+    threeState.demo._playerGroup.add(centerPlatform);
+    
+    // Add decorative lines from center to each player position
+    const linesMaterial = new THREE.LineBasicMaterial({
+        color: 0x334455,
+        transparent: true,
+        opacity: 0.3
+    });
+    
     playerNames.forEach((name, i) => {
         const playerContainer = new THREE.Group();
-        const angle = startAngle + i * angleIncrement;
+        // Use full circle (360 degrees)
+        const angle = (i / numPlayers) * Math.PI * 2;
         
         const x = radius * Math.sin(angle);
         const z = radius * Math.cos(angle);
         playerContainer.position.set(x, 0, z);
         
-        // Create player body (cylinder)
-        const bodyGeometry = new THREE.CylinderGeometry(1, 1.2, playerHeight, 16);
+        // Create line from center to player
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0.05, 0),
+            new THREE.Vector3(x, 0.05, z)
+        ]);
+        const line = new THREE.Line(lineGeometry, linesMaterial);
+        threeState.demo._playerGroup.add(line);
+        
+        // Create pedestal for each player
+        const pedestalGeometry = new THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
+        const pedestalMaterial = new THREE.MeshStandardMaterial({
+            color: 0x333344,
+            roughness: 0.8,
+            metalness: 0.2,
+            emissive: 0x111122,
+            emissiveIntensity: 0.1
+        });
+        const pedestal = new THREE.Mesh(pedestalGeometry, pedestalMaterial);
+        pedestal.position.y = 0.2;
+        pedestal.castShadow = true;
+        pedestal.receiveShadow = true;
+        playerContainer.add(pedestal);
+        
+        // Create player body (more detailed)
+        const bodyGeometry = new THREE.CylinderGeometry(0.8, 1, playerHeight * 0.6, 16);
         const bodyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x3498db,
+            color: 0x4466ff,
             roughness: 0.5,
-            metalness: 0.3
+            metalness: 0.3,
+            emissive: 0x111166,
+            emissiveIntensity: 0.2
         });
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = playerHeight / 2;
+        body.position.y = playerHeight * 0.4;
         body.castShadow = true;
         body.receiveShadow = true;
         playerContainer.add(body);
         
+        // Create shoulders
+        const shoulderGeometry = new THREE.SphereGeometry(1, 16, 8);
+        const shoulderMaterial = new THREE.MeshStandardMaterial({
+            color: 0x4466ff,
+            roughness: 0.5,
+            metalness: 0.3,
+            emissive: 0x111166,
+            emissiveIntensity: 0.2
+        });
+        const shoulders = new THREE.Mesh(shoulderGeometry, shoulderMaterial);
+        shoulders.position.y = playerHeight * 0.65;
+        shoulders.scale.set(1.2, 0.6, 0.8);
+        shoulders.castShadow = true;
+        playerContainer.add(shoulders);
+        
         // Create player head (sphere)
-        const headGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+        const headGeometry = new THREE.SphereGeometry(0.7, 16, 16);
         const headMaterial = new THREE.MeshStandardMaterial({
             color: 0xfdbcb4,
             roughness: 0.7,
-            metalness: 0.1
+            metalness: 0.1,
+            emissive: 0x442211,
+            emissiveIntensity: 0.1
         });
         const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = playerHeight + 0.8;
+        head.position.y = playerHeight * 0.85;
         head.castShadow = true;
         head.receiveShadow = true;
         playerContainer.add(head);
         
-        // Create glowing orb for status
-        const orbGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+        // Create eyes
+        const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 6);
+        const eyeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            roughness: 0.3,
+            metalness: 0.8
+        });
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.position.set(-0.2, playerHeight * 0.87, 0.6);
+        playerContainer.add(leftEye);
+        
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        rightEye.position.set(0.2, playerHeight * 0.87, 0.6);
+        playerContainer.add(rightEye);
+        
+        // Create glowing orb for status (more dramatic)
+        const orbGeometry = new THREE.IcosahedronGeometry(0.3, 2);
         const orbMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ff00,
             emissive: 0x00ff00,
-            emissiveIntensity: 0.5
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9
         });
         const orb = new THREE.Mesh(orbGeometry, orbMaterial);
-        orb.position.y = playerHeight + 2;
+        orb.position.y = playerHeight * 1.2;
         orb.name = 'statusOrb';
         playerContainer.add(orb);
         
+        // Add outer glow sphere
+        const glowGeometry = new THREE.SphereGeometry(0.5, 12, 8);
+        const glowMaterial = new THREE.MeshStandardMaterial({
+            color: 0x00ff00,
+            emissive: 0x00ff00,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.3
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.y = playerHeight * 1.2;
+        playerContainer.add(glow);
+        
         // Add point light for glow effect
-        const orbLight = new THREE.PointLight(0x00ff00, 0.5, 5);
-        orbLight.position.copy(orb.position);
+        const orbLight = new THREE.PointLight(0x00ff00, 0.8, 8);
+        orbLight.position.y = playerHeight * 1.2;
         orbLight.name = 'orbLight';
+        orbLight.castShadow = true;
         playerContainer.add(orbLight);
         
         // Make player face center
         playerContainer.lookAt(new THREE.Vector3(0, 0, 0));
+        playerContainer.rotation.y += Math.PI; // Face inward
         
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight + 3, 0);
+        nameplate.position.set(0, playerHeight * 1.4, 0);
         playerContainer.add(nameplate);
         
         // Store references
@@ -1578,13 +1764,24 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
             container: playerContainer,
             body: body,
             head: head,
+            shoulders: shoulders,
             orb: orb,
+            glow: glow,
             orbLight: orbLight,
             nameplate: nameplate,
+            pedestal: pedestal,
             originalPosition: playerContainer.position.clone(),
+            baseAngle: angle,
             isAlive: true
         });
         
         threeState.demo._playerGroup.add(playerContainer);
     });
+    
+    // Adjust camera to see the full circle
+    if (threeState.demo._camera) {
+        threeState.demo._camera.position.set(25, 30, 25);
+        threeState.demo._controls.target.set(0, 5, 0);
+        threeState.demo._controls.update();
+    }
 }
