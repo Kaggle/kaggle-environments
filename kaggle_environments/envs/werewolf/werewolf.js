@@ -895,8 +895,8 @@ function renderer({
         /* Enhanced Panel Styling */
         .left-panel, .right-panel {
             position: fixed;
-            top: 20px;
-            max-height: calc(100vh - 40px);
+            top: 54px;
+            max-height: calc(100vh - 124px);
             background: var(--panel-bg);
             backdrop-filter: blur(20px) saturate(1.5);
             border-radius: 16px;
