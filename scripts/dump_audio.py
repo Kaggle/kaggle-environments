@@ -89,13 +89,13 @@ def setup_environment():
     }
     roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
     random.shuffle(roles)
-    names = ["gemini-2.5-flash", "deepseek-r1", "kimi-k2", "qwen3", "gpt-4.1", "o4-mini", "gemini-2.5-pro", "grok-4"]
+    names = ["gemini-2.5-flash", "deepseek-r1", "gpt-oss-120b", "qwen3", "gpt-4.1", "o4-mini", "gemini-2.5-pro", "grok-4"]
     models = [
         "gemini/gemini-2.5-flash", "together_ai/deepseek-ai/DeepSeek-R1",
-        "together_ai/moonshotai/Kimi-K2-Instruct", "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+        "together_ai/openai/gpt-oss-120b", "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
         "gpt-4.1", "o4-mini", "gemini/gemini-2.5-pro", "xai/grok-4-latest",
     ]
-    brands = ['gemini', 'deepseek', 'kimi', 'qwen', 'openai', 'openai', 'gemini', 'grok']
+    brands = ['gemini', 'deepseek', 'openai', 'qwen', 'openai', 'openai', 'gemini', 'grok']
     voices = ['Kore', 'Charon', 'Leda', 'Despina', 'Erinome', 'Gacrux', 'Achird', 'Puck']
 
     agents_config = [
@@ -116,13 +116,17 @@ def setup_environment():
             "discussion_protocol": {"name": "RoundRobinDiscussion", "params": {"max_rounds": 1}}
         }
     )
-    return env, player_voice_map
+    return env, player_voice_map, models
 
 
-def run_game(env):
+def run_game(env, models, generate_audio):
     """Runs a full game episode."""
     print("2. Running a full game episode...")
-    agents = ['random'] * 8
+    if generate_audio:
+        agents = [f'llm/{model}' for model in models]
+    else:
+        agents = ['random'] * 8
+
     env.run(agents)
 
 
@@ -309,8 +313,8 @@ def main(generate_audio=True):
         client = genai.Client()
 
     # --- Core Workflow ---
-    env, player_voice_map = setup_environment()
-    run_game(env)
+    env, player_voice_map, models = setup_environment()
+    run_game(env, models, generate_audio)
 
     audio_map = {}
     if generate_audio:

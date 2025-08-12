@@ -213,6 +213,7 @@ LLM_MODEL_NAMES = [
     "together_ai/deepseek-ai/DeepSeek-R1",
     "together_ai/moonshotai/Kimi-K2-Instruct",
     "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+    "together_ai/openai/gpt-oss-120b"
 ]
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
