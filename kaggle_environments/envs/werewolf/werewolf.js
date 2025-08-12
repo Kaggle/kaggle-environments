@@ -84,7 +84,7 @@ function renderer({
                 this._camera.position.set(0, 0, 50);
 
                 this._scene = new THREE.Scene();
-                this._scene.fog = new THREE.FogExp2(0x0a0a1a, 0.01);
+                this._scene.fog = new THREE.FogExp2(0x2a2a4a, 0.01); // Start with day fog color
 
                 this._createSkybox(THREE);
                 this._createAdvancedLighting(THREE);
@@ -99,47 +99,291 @@ function renderer({
               }
 
               _createSkybox(THREE) {
+                // Store THREE reference first
+                this._THREE = THREE;
+                
                 const skyboxSize = 1000;
                 const skyboxGeo = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
-                const black = 0x000000;
+                
+                // Create materials for each face with initial day colors
+                this._skyboxMaterials = [];
+                for (let i = 0; i < 6; i++) {
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color(0x87ceeb), // Start with day color
+                        side: THREE.BackSide
+                    });
+                    this._skyboxMaterials.push(mat);
+                }
 
-                const backPanelMaterial = new THREE.MeshBasicMaterial({ side: THREE.BackSide });
-
-                const materials = [
-                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // right
-                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // left
-                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // top
-                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide }), // bottom
-                    backPanelMaterial,
-                    new THREE.MeshBasicMaterial({ color: black, side: THREE.BackSide })
-                ];
-
-                const skybox = new THREE.Mesh(skyboxGeo, materials);
+                const skybox = new THREE.Mesh(skyboxGeo, this._skyboxMaterials);
+                this._skybox = skybox;
                 this._scene.add(skybox);
 
+                // Create dynamic sky canvas for the back panel (where moon/sun appears)
                 const backCanvas = document.createElement('canvas');
-                const backContext = backCanvas.getContext('2d');
-
-                const canvasSize = 2048
+                const canvasSize = 2048;
                 backCanvas.width = canvasSize;
                 backCanvas.height = canvasSize;
+                this._skyCanvas = backCanvas;
+                this._skyContext = backCanvas.getContext('2d');
+                
+                // Store celestial body properties
+                this._celestialBody = {
+                    x: canvasSize / 2,
+                    y: canvasSize / 3,
+                    size: 250,
+                    phase: 0.0 // Start with day (0 = day, 1 = night)
+                };
 
+                // Create texture from canvas
+                this._skyTexture = new THREE.CanvasTexture(backCanvas);
+                this._skyboxMaterials[4].map = this._skyTexture;
+                
+                // Load moon image
                 const moonImage = new Image();
                 moonImage.onload = () => {
-                    backContext.fillStyle = 'black';
-                    backContext.fillRect(0, 0, backCanvas.width, backCanvas.height);
-                    const moonSize = 500;
-                    backContext.drawImage(moonImage, moonSize, moonSize, moonSize, moonSize);
-
-                    const backTexture = new THREE.CanvasTexture(backCanvas);
-
-                    backPanelMaterial.map = backTexture;
-                    backPanelMaterial.needsUpdate = true;
+                    this._moonImage = moonImage;
+                    this._updateSkybox(0.0); // Start with day
                 };
                 moonImage.onerror = () => {
                     console.error("Failed to load moon texture for skybox.");
+                    this._updateSkybox(0.0); // Start with day
                 };
                 moonImage.src = 'assets/moon4.png';
+                
+                // Create stars for night sky
+                this._createStars(THREE);
+              }
+              
+              _createStars(THREE) {
+                const starsGeometry = new THREE.BufferGeometry();
+                const starCount = 2000;
+                const positions = new Float32Array(starCount * 3);
+                const colors = new Float32Array(starCount * 3);
+                const sizes = new Float32Array(starCount);
+                
+                for (let i = 0; i < starCount; i++) {
+                    const i3 = i * 3;
+                    
+                    // Random position on a large sphere
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const radius = 400 + Math.random() * 100;
+                    
+                    positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+                    positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                    positions[i3 + 2] = radius * Math.cos(phi);
+                    
+                    // Star colors (white to slightly blue/yellow)
+                    const starColor = new THREE.Color();
+                    const colorChoice = Math.random();
+                    if (colorChoice < 0.3) {
+                        starColor.setHSL(0.6, 0.1, 0.9); // Bluish
+                    } else if (colorChoice < 0.6) {
+                        starColor.setHSL(0.1, 0.1, 0.95); // Yellowish
+                    } else {
+                        starColor.setHSL(0, 0, 1); // Pure white
+                    }
+                    colors[i3] = starColor.r;
+                    colors[i3 + 1] = starColor.g;
+                    colors[i3 + 2] = starColor.b;
+                    
+                    sizes[i] = Math.random() * 2 + 0.5;
+                }
+                
+                starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                starsGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                starsGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+                
+                const starsMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        phase: { value: 0.0 } // Start with day (0 = day, 1 = night)
+                    },
+                    vertexShader: `
+                        attribute float size;
+                        attribute vec3 color;
+                        varying vec3 vColor;
+                        uniform float phase;
+                        
+                        void main() {
+                            vColor = color;
+                            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                            gl_PointSize = size * (300.0 / -mvPosition.z) * phase;
+                            gl_Position = projectionMatrix * mvPosition;
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        uniform float phase;
+                        
+                        void main() {
+                            float dist = distance(gl_PointCoord, vec2(0.5));
+                            if (dist > 0.5) discard;
+                            
+                            float alpha = (1.0 - dist * 2.0) * phase * 0.8;
+                            gl_FragColor = vec4(vColor, alpha);
+                        }
+                    `,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                
+                this._stars = new THREE.Points(starsGeometry, starsMaterial);
+                this._starsMaterial = starsMaterial;
+                this._scene.add(this._stars);
+              }
+              
+              _updateSkybox(phase) {
+                if (!this._skyContext || !this._skyCanvas) {
+                    console.log('Skybox context not ready');
+                    return;
+                }
+                
+                const ctx = this._skyContext;
+                const canvas = this._skyCanvas;
+                const celestial = this._celestialBody;
+                
+                // Clear canvas with more dramatic color difference
+                const isNight = phase > 0.5;
+                ctx.fillStyle = isNight ? '#000011' : '#87ceeb';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Create gradient overlay
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                
+                if (phase > 0.5) {
+                    // Night sky
+                    const nightIntensity = (phase - 0.5) * 2;
+                    gradient.addColorStop(0, `rgba(10, 10, 40, ${nightIntensity})`);
+                    gradient.addColorStop(0.3, `rgba(20, 20, 60, ${nightIntensity})`);
+                    gradient.addColorStop(1, `rgba(5, 5, 20, ${nightIntensity})`);
+                    
+                    // Fill with gradient
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw stars manually
+                    ctx.fillStyle = 'white';
+                    for (let i = 0; i < 200; i++) {
+                        const x = Math.random() * canvas.width;
+                        const y = Math.random() * canvas.height;
+                        const size = Math.random() * 2;
+                        ctx.globalAlpha = nightIntensity * (0.3 + Math.random() * 0.7);
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    // Draw moon
+                    ctx.globalAlpha = nightIntensity;
+                    if (this._moonImage) {
+                        const moonSize = celestial.size;
+                        const moonX = celestial.x;
+                        const moonY = celestial.y;
+                        ctx.drawImage(this._moonImage,
+                            moonX - moonSize/2,
+                            moonY - moonSize/2,
+                            moonSize,
+                            moonSize
+                        );
+                    } else {
+                        // Fallback: draw procedural moon
+                        ctx.fillStyle = '#f0f0e0';
+                        ctx.shadowBlur = 50;
+                        ctx.shadowColor = '#f0f0e0';
+                        ctx.beginPath();
+                        ctx.arc(celestial.x, celestial.y, celestial.size/2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                } else {
+                    // Day sky
+                    const dayIntensity = 1 - phase * 2;
+                    gradient.addColorStop(0, `rgba(135, 206, 250, ${dayIntensity})`);
+                    gradient.addColorStop(0.5, `rgba(135, 206, 235, ${dayIntensity})`);
+                    gradient.addColorStop(1, `rgba(255, 255, 200, ${dayIntensity * 0.5})`);
+                    
+                    // Fill with gradient
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw sun
+                    ctx.globalAlpha = dayIntensity;
+                    
+                    // Sun glow
+                    const glowGradient = ctx.createRadialGradient(
+                        celestial.x, celestial.y, 0,
+                        celestial.x, celestial.y, celestial.size * 1.5
+                    );
+                    glowGradient.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
+                    glowGradient.addColorStop(0.3, 'rgba(255, 220, 100, 0.4)');
+                    glowGradient.addColorStop(1, 'rgba(255, 200, 50, 0)');
+                    
+                    ctx.fillStyle = glowGradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Sun core
+                    ctx.fillStyle = '#ffff99';
+                    ctx.shadowBlur = 80;
+                    ctx.shadowColor = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.arc(celestial.x, celestial.y, celestial.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    // Sun rays
+                    ctx.strokeStyle = `rgba(255, 220, 100, ${dayIntensity * 0.5})`;
+                    ctx.lineWidth = 3;
+                    for (let i = 0; i < 12; i++) {
+                        const angle = (i / 12) * Math.PI * 2;
+                        const innerRadius = celestial.size * 0.6;
+                        const outerRadius = celestial.size * 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(
+                            celestial.x + Math.cos(angle) * innerRadius,
+                            celestial.y + Math.sin(angle) * innerRadius
+                        );
+                        ctx.lineTo(
+                            celestial.x + Math.cos(angle) * outerRadius,
+                            celestial.y + Math.sin(angle) * outerRadius
+                        );
+                        ctx.stroke();
+                    }
+                }
+                
+                // Update texture
+                if (this._skyTexture) {
+                    this._skyTexture.needsUpdate = true;
+                }
+                
+                // Update skybox colors for all faces with more dramatic changes
+                if (this._skyboxMaterials && this._THREE) {
+                    const THREE = this._THREE;
+                    const nightColor = new THREE.Color(0x000011); // Very dark blue
+                    const dayColor = new THREE.Color(0x87ceeb); // Sky blue
+                    const currentColor = new THREE.Color();
+                    currentColor.copy(dayColor).lerp(nightColor, phase);
+                    
+                    this._skyboxMaterials.forEach((mat, index) => {
+                        if (index !== 4) { // Skip the back panel with moon/sun
+                            mat.color.copy(currentColor);
+                            mat.needsUpdate = true;
+                        }
+                    });
+                    
+                    // Force update the canvas texture
+                    if (this._skyTexture) {
+                        this._skyTexture.needsUpdate = true;
+                    }
+                }
+                
+                // Store current phase
+                if (celestial) {
+                    celestial.phase = phase;
+                }
+                
+                console.log(`Skybox updated for phase: ${phase.toFixed(2)} (${phase > 0.5 ? 'NIGHT' : 'DAY'})`);
               }
 
               _createAdvancedLighting(THREE) {
@@ -321,12 +565,12 @@ function renderer({
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects
+                // Bloom pass for glowing effects - balanced for day
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.5,  // strength
-                  0.8,  // radius
-                  0.3   // threshold
+                  0.15,  // strength - moderate for day
+                  0.333,   // radius - good coverage for day
+                  0.4    // threshold - balanced to allow some bloom
                 );
                 this._composer.addPass(bloomPass);
 
@@ -582,45 +826,125 @@ function renderer({
               updatePhase(phase) {
                 if (!this._scene) return;
                 
-                // Update enhanced lighting based on phase
-                if (phase === 'NIGHT') {
-                    // Night phase - cooler, darker lighting
-                    if (this._mainLight) {
-                      this._mainLight.color.setHex(0x9999ff);
-                      this._mainLight.intensity = 1.2;
-                    }
-                    if (this._rimLight) {
-                      this._rimLight.intensity = 1.0;
-                      this._rimLight.color.setHex(0x6666ff);
-                    }
-                    if (this._hemiLight) {
-                      this._hemiLight.intensity = 0.4;
-                    }
-                    this._scene.fog = new this._THREE.FogExp2(0x0a0a2a, 0.02);
+                // Handle various phase formats (DAY, NIGHT, or lowercase)
+                const normalizedPhase = (phase || 'DAY').toUpperCase();
+                
+                // Calculate target phase value (0 = day, 1 = night)
+                const targetPhase = normalizedPhase === 'NIGHT' ? 1.0 : 0.0;
+                
+                // Initialize transition system if not exists
+                if (!this._phaseTransition) {
+                    this._phaseTransition = {
+                        current: targetPhase,
+                        target: targetPhase,
+                        speed: 0.05 // Increased transition speed for testing
+                    };
+                    // Immediately set to target on first call
+                    this._updateSceneForPhase(targetPhase);
+                    console.log(`Phase transition initialized: ${normalizedPhase} (value: ${targetPhase})`);
+                } else if (this._phaseTransition.target !== targetPhase) {
+                    // Only update if phase actually changed
+                    this._phaseTransition.target = targetPhase;
+                    console.log(`Phase transition started: ${normalizedPhase} (from ${this._phaseTransition.current.toFixed(2)} to ${targetPhase})`);
+                }
+              }
+              
+              _updateSceneForPhase(phaseValue) {
+                const THREE = this._THREE;
+                
+                // Update renderer tone mapping for day/night mood
+                if (this._threejs) {
+                    this._threejs.toneMappingExposure = 1.2 - phaseValue * 0.5; // Darker at night
+                }
+                
+                // Smoothly interpolate lighting
+                if (this._mainLight) {
+                    const nightColor = new THREE.Color(0x6666cc); // More blue at night
+                    const dayColor = new THREE.Color(0xffffcc);
+                    this._mainLight.color.copy(dayColor).lerp(nightColor, phaseValue);
+                    this._mainLight.intensity = 1.8 - phaseValue * 1.0; // Much dimmer at night
                     
-                    // Update atmosphere shader
-                    if (this._atmospherePass) {
-                      this._atmospherePass.uniforms.phase.value = 1.0;
-                    }
-                } else {
-                    // Day phase - warmer, brighter lighting
-                    if (this._mainLight) {
-                      this._mainLight.color.setHex(0xffffcc);
-                      this._mainLight.intensity = 1.6;
-                    }
-                    if (this._rimLight) {
-                      this._rimLight.intensity = 0.6;
-                      this._rimLight.color.setHex(0xffcc99);
-                    }
-                    if (this._hemiLight) {
-                      this._hemiLight.intensity = 0.8;
-                    }
-                    this._scene.fog = new this._THREE.FogExp2(0x1a1a3a, 0.015);
+                    // Animate light position for sun/moon movement
+                    const angle = phaseValue * Math.PI * 0.3;
+                    this._mainLight.position.set(
+                        30 * Math.cos(angle),
+                        50 - phaseValue * 20,
+                        20 * Math.sin(angle)
+                    );
+                }
+                
+                if (this._rimLight) {
+                    const nightColor = new THREE.Color(0x6666ff);
+                    const dayColor = new THREE.Color(0xffcc99);
+                    this._rimLight.color.copy(dayColor).lerp(nightColor, phaseValue);
+                    this._rimLight.intensity = 0.6 + phaseValue * 0.4;
+                }
+                
+                if (this._hemiLight) {
+                    const nightSkyColor = new THREE.Color(0x4a4a6a);
+                    const daySkyColor = new THREE.Color(0x87ceeb);
+                    const nightGroundColor = new THREE.Color(0x1e1e3f);
+                    const dayGroundColor = new THREE.Color(0x8b7355);
                     
-                    // Update atmosphere shader
-                    if (this._atmospherePass) {
-                      this._atmospherePass.uniforms.phase.value = 0.0;
+                    this._hemiLight.color.copy(daySkyColor).lerp(nightSkyColor, phaseValue);
+                    this._hemiLight.groundColor.copy(dayGroundColor).lerp(nightGroundColor, phaseValue);
+                    this._hemiLight.intensity = 0.8 - phaseValue * 0.4;
+                }
+                
+                // Update ambient light
+                const ambientLight = this._scene.getObjectByName('ambientLight');
+                if (ambientLight) {
+                    const nightColor = new THREE.Color(0x404080);
+                    const dayColor = new THREE.Color(0x606090);
+                    ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
+                    ambientLight.intensity = 0.4 + phaseValue * 0.1;
+                }
+                
+                // Smoothly transition fog - more dramatic change
+                if (this._scene.fog) {
+                    const nightFogColor = new THREE.Color(0x050515); // Very dark blue at night
+                    const dayFogColor = new THREE.Color(0x2a2a4a); // Lighter blue during day
+                    this._scene.fog.color.copy(dayFogColor).lerp(nightFogColor, phaseValue);
+                    this._scene.fog.density = 0.01 + phaseValue * 0.015; // Denser fog at night
+                }
+                
+                // Update skybox
+                this._updateSkybox(phaseValue);
+                
+                // Update stars visibility
+                if (this._starsMaterial) {
+                    this._starsMaterial.uniforms.phase.value = phaseValue;
+                }
+                
+                // Update atmosphere shader
+                if (this._atmospherePass) {
+                    this._atmospherePass.uniforms.phase.value = phaseValue;
+                }
+                
+                // Update particle colors based on phase
+                if (this._particles && this._particles.geometry.attributes.color) {
+                    const colors = this._particles.geometry.attributes.color.array;
+                    for (let i = 0; i < colors.length; i += 3) {
+                        // Shift particle hue based on phase
+                        const baseHue = 0.5 + Math.random() * 0.3; // Base blue-purple range
+                        const phaseShift = phaseValue * 0.1; // Shift towards purple at night
+                        const hue = baseHue + phaseShift;
+                        const saturation = 0.8 - phaseValue * 0.2; // Less saturated at night
+                        const lightness = 0.6 - phaseValue * 0.2; // Darker at night
+                        
+                        const color = new THREE.Color().setHSL(hue, saturation, lightness);
+                        colors[i] = color.r;
+                        colors[i + 1] = color.g;
+                        colors[i + 2] = color.b;
                     }
+                    this._particles.geometry.attributes.color.needsUpdate = true;
+                }
+                
+                // Update bloom intensity based on phase - moderate during day, more at night
+                if (this._bloomPass) {
+                    this._bloomPass.strength = 0.35 + phaseValue * 0.35; // Moderate bloom during day (0.35), stronger at night (0.7)
+                    this._bloomPass.radius = 0.6 + phaseValue * 0.3; // Good radius during day (0.6), wider at night (0.9)
+                    this._bloomPass.threshold = 0.4 - phaseValue * 0.15; // Balanced threshold
                 }
               }
 
@@ -692,6 +1016,20 @@ function renderer({
 
               _RAF() {
                 requestAnimationFrame((time) => {
+                  // Animate phase transition with visual feedback
+                  if (this._phaseTransition) {
+                    const diff = this._phaseTransition.target - this._phaseTransition.current;
+                    if (Math.abs(diff) > 0.001) {
+                      this._phaseTransition.current += diff * this._phaseTransition.speed;
+                      this._updateSceneForPhase(this._phaseTransition.current);
+                      
+                      // Log transition progress occasionally
+                      if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
+                        console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
+                      }
+                    }
+                  }
+                  
                   // Update time-based uniforms
                   if (this._particleMaterial) {
                     this._particleMaterial.uniforms.time.value = time * 0.001;
@@ -700,18 +1038,32 @@ function renderer({
                     this._atmospherePass.uniforms.time.value = time * 0.001;
                   }
                   
-                  // Animate particle system
+                  // Animate particle system with phase-aware movement
                   if (this._particles) {
-                    this._particles.rotation.y = time * 0.0001;
+                    const phaseValue = this._phaseTransition ? this._phaseTransition.current : 0;
+                    // Slower rotation at night
+                    this._particles.rotation.y = time * 0.0001 * (1 - phaseValue * 0.5);
+                    
                     const positions = this._particles.geometry.attributes.position.array;
                     for (let i = 0; i < positions.length; i += 3) {
-                      positions[i + 1] += Math.sin(time * 0.001 + positions[i] * 0.01) * 0.02;
+                      // More gentle movement at night
+                      const movementScale = 1 - phaseValue * 0.5;
+                      positions[i + 1] += Math.sin(time * 0.001 + positions[i] * 0.01) * 0.02 * movementScale;
                       // Wrap around if particles fall too low
                       if (positions[i + 1] < 0) {
                         positions[i + 1] = 35;
                       }
                     }
                     this._particles.geometry.attributes.position.needsUpdate = true;
+                  }
+                  
+                  // Animate stars twinkling
+                  if (this._stars && this._phaseTransition && this._phaseTransition.current > 0.5) {
+                    const sizes = this._stars.geometry.attributes.size.array;
+                    for (let i = 0; i < sizes.length; i++) {
+                      sizes[i] = (Math.random() * 2 + 0.5) * (0.8 + Math.sin(time * 0.001 + i) * 0.2);
+                    }
+                    this._stars.geometry.attributes.size.needsUpdate = true;
                   }
                   
                   // Animate player objects with enhanced effects
@@ -814,8 +1166,8 @@ function renderer({
       }
     });
 
-    // Update phase lighting
-    threeState.demo.updatePhase(gameState.phase);
+    // Update phase lighting - use game_state_phase which contains DAY/NIGHT
+    threeState.demo.updatePhase(gameState.game_state_phase);
 
     // Handle recent events for animations
     const recentEvents = gameState.eventLog.slice(-5); // Last 5 events
@@ -844,6 +1196,43 @@ function renderer({
 
   // --- CSS for the UI ---
   const css = `
+        /* Phase Indicator */
+        .phase-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .phase-indicator.day {
+            background: linear-gradient(135deg, rgba(255, 220, 100, 0.9), rgba(255, 180, 50, 0.9));
+            color: #2d3436;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .phase-indicator.night {
+            background: linear-gradient(135deg, rgba(30, 30, 60, 0.9), rgba(60, 60, 120, 0.9));
+            color: #f8f9fa;
+            border: 2px solid rgba(100, 100, 200, 0.5);
+        }
+        
+        .phase-indicator .phase-icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 1.4rem;
+            vertical-align: middle;
+        }
+        
         :root {
             --night-bg: linear-gradient(135deg, #1a1a2e, #16213e);
             --day-bg: linear-gradient(135deg, #74b9ff, #0984e3);
@@ -2166,7 +2555,7 @@ function renderer({
         players: [],
         day: 0,
         phase: 'GAME_SETUP',
-        game_state_phase: 'DAY',
+        game_state_phase: 'DAY', // Start with DAY phase
         gameWinner: null,
         eventLog: [],
         playerThreatLevels: new Map()
@@ -2409,6 +2798,23 @@ function renderer({
         mainContainer.className = 'main-container';
         parent.appendChild(mainContainer);
     }
+    
+    // Create or update phase indicator
+    let phaseIndicator = parent.querySelector('.phase-indicator');
+    if (!phaseIndicator) {
+        phaseIndicator = document.createElement('div');
+        phaseIndicator.className = 'phase-indicator';
+        parent.appendChild(phaseIndicator);
+    }
+    
+    // Update phase indicator based on current game state
+    const currentPhase = gameState.game_state_phase || 'DAY';
+    const isNight = currentPhase === 'NIGHT';
+    phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
+    phaseIndicator.innerHTML = `
+        <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
+        <span>${isNight ? 'NIGHT' : 'DAY'} ${gameState.day > 0 ? gameState.day : ''}</span>
+    `;
 
     // Create or get existing panels
     let leftPanel = mainContainer.querySelector('.left-panel');
@@ -2438,6 +2844,11 @@ function renderer({
 
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, actingPlayerName);
+    
+    // Debug: Log current phase state
+    if (step % 10 === 0) { // Log every 10 steps to avoid spam
+        console.log(`Step ${step}: Phase=${gameState.phase}, GameStatePhase=${gameState.game_state_phase}, Day=${gameState.day}`);
+    }
     
     // Initialize 3D players if needed
     if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
@@ -2634,7 +3045,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight * 1.4, 0);
+        nameplate.position.set(0, playerHeight * 1.8, 0);
         playerContainer.add(nameplate);
         
         // Store references
