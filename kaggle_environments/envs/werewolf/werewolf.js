@@ -495,6 +495,11 @@ function renderer({
                         container.position.y = -1.5;
                         // Tilt slightly
                         container.rotation.x = 0.2;
+                        // Fade out nameplate
+                        if (player.nameplate && player.nameplate.element) {
+                            player.nameplate.element.style.transition = 'opacity 2s ease-out';
+                            player.nameplate.element.style.opacity = '0.2';
+                        }
                         player.isAlive = false;
                         break;
                     case 'werewolf':
