@@ -1295,13 +1295,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `🐺 ${player.role}`;
+            roleDisplay = `&#x1F43A; ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `🩺 ${player.role}`;
+            roleDisplay = `&#x1FA7A; ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `🔮 ${player.role}`;
+            roleDisplay = `&#x1F52E; ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `🧑 ${player.role}`;
+            roleDisplay = `&#x1F9D1; ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -1421,9 +1421,9 @@ function renderer({
 
             let phaseEmoji = phase;
             if (phase === 'DAY') {
-                phaseEmoji = '☀️';
+                phaseEmoji = '&#x2600;&#xFE0F;';
             } else if (phase === 'NIGHT') {
-                phaseEmoji = '🌙';
+                phaseEmoji = '&#x1F319;';
             }
 
             const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
@@ -1451,7 +1451,7 @@ function renderer({
                     if (balloonText) {
                         const ttsButton = document.createElement('span');
                         ttsButton.className = 'tts-button';
-                        ttsButton.textContent = '🔊';
+                        ttsButton.innerHTML = '&#x1F50A;';
                         ttsButton.onclick = () => speak(entry.message, entry.speaker);
                         balloonText.appendChild(ttsButton);
                     }
@@ -1488,13 +1488,13 @@ function renderer({
 
         let roleDisplay = player.role;
         if (player.role === 'Werewolf') {
-            roleDisplay = `\uD83D\uDC3A ${player.role}`;
+            roleDisplay = `&#x1F43A; ${player.role}`;
         } else if (player.role === 'Doctor') {
-            roleDisplay = `\uD83E\uDE7A ${player.role}`;
+            roleDisplay = `&#x1FA7A; ${player.role}`;
         } else if (player.role === 'Seer') {
-            roleDisplay = `\uD83D\uDD2E ${player.role}`;
+            roleDisplay = `&#x1F52E; ${player.role}`;
         } else if (player.role === 'Villager') {
-            roleDisplay = `\uD83E\uDDD1 ${player.role}`;
+            roleDisplay = `&#x1F9D1; ${player.role}`;
         }
 
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
@@ -1591,9 +1591,9 @@ function renderer({
 
             let phaseEmoji = phase;
             if (phase === 'DAY') {
-                phaseEmoji = '\u2600\uFE0F';
+                phaseEmoji = '&#x2600;&#xFE0F;';
             } else if (phase === 'NIGHT') {
-                phaseEmoji = '\uD83C\uDF19';
+                phaseEmoji = '&#x1F319;';
             }
 
             const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
@@ -1621,7 +1621,7 @@ function renderer({
                     if (balloonText) {
                         const ttsButton = document.createElement('span');
                         ttsButton.className = 'tts-button';
-                        ttsButton.textContent = '\uD83D\uDD0A';
+                        ttsButton.innerHTML = '&#x1F50A;';
                         ttsButton.onclick = () => speak(entry.message, entry.speaker);
                         balloonText.appendChild(ttsButton);
                     }
