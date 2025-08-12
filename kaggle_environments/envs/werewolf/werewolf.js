@@ -951,27 +951,29 @@ function renderer({
               _createNameplate(name, imageUrl, CSS2DObject) {
                 const container = document.createElement('div');
                 container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
-                container.style.padding = '8px 12px';
+                container.style.padding = '6px 10px';  // Slightly smaller padding
                 container.style.borderRadius = '8px';
                 container.style.display = 'flex';
                 container.style.alignItems = 'center';
                 container.style.justifyContent = 'center';
-                container.style.gap = '10px';
+                container.style.gap = '8px';  // Reduced gap
                 container.style.textAlign = 'center';
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
-                img.style.width = '60px';
-                img.style.height = '60px';
-                img.style.borderRadius = '80%';
+                img.style.width = '40px';  // Reduced from 60px
+                img.style.height = '40px'; // Reduced from 60px
+                img.style.borderRadius = '50%';
                 img.style.objectFit = 'cover';
                 img.style.backgroundColor = 'white';
+                img.style.border = '2px solid rgba(255, 255, 255, 0.3)';
 
                 const text = document.createElement('div');
                 text.textContent = name;
                 text.style.color = 'white';
                 text.style.fontFamily = 'Arial, sans-serif';
-                text.style.fontSize = '16px';
+                text.style.fontSize = '14px';  // Slightly smaller text
+                text.style.fontWeight = '500';
 
                 container.appendChild(img);
                 container.appendChild(text);
@@ -3045,7 +3047,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight * 1.8, 0);
+        nameplate.position.set(0, playerHeight * 2.0, 0);
         playerContainer.add(nameplate);
         
         // Store references
