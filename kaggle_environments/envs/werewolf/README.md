@@ -36,6 +36,8 @@ VERTEXAI_LOCATION=us-central1
 GEMINI_MODEL="gemini-2.5-pro"
 ```
 
+## Simple Self Play
+
 Run example program. Should be able to view out.html in a standard web browser
 
 To use random agents for quick game engine troubleshooting,
@@ -50,4 +52,12 @@ To use gemini for quick self-play simulation,
 python kaggle_environments/envs/werewolf/scripts/self_play.py
 # or if you want to use a different model and output_path versus default
 python kaggle_environments/envs/werewolf/scripts/self_play.py --litellm_model_path gemini/gemini-2.5-pro --brand gemini --output_dir my/path/to/replay/dir
+```
+
+## End to End Generate Game Play and Audio
+```bash
+# simple testing with debug audio
+python kaggle_environments/envs/werewolf/scripts/dump_audio.py -o werewolf_replay_audio --debug-audio -r -s
+# full llm game play and audio
+python kaggle_environments/envs/werewolf/scripts/dump_audio.py --output_dir werewolf_replay_audio --shuffle_roles
 ```
