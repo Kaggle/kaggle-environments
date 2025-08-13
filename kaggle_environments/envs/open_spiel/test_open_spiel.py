@@ -1,5 +1,9 @@
+"""Tests for OpenSpiel environment."""
+
+import json
+import pathlib
+
 from absl.testing import absltest
-import sys
 from kaggle_environments import make
 import pyspiel
 from . import open_spiel as open_spiel_env
@@ -11,21 +15,33 @@ from . import open_spiel as open_spiel_env
 _REGISTERED_GAMES_THRESHOLD = 50
 
 
+# These games may fail to register.
+_GAME_BLOCKLIST = [
+    "efg_game",
+    "scotland_yard",
+]
+
+
 class OpenSpielEnvTest(absltest.TestCase):
 
   def test_envs_load(self):
-    envs = open_spiel_env._register_game_envs(
-        [game_type.short_name for game_type in pyspiel.registered_games()]
-    )
-    self.assertTrue(len(envs) > _REGISTERED_GAMES_THRESHOLD)
+    short_names = []
+    for game_type in pyspiel.registered_games():
+      if game_type.short_name in _GAME_BLOCKLIST:
+        continue
+      short_names.append(game_type.short_name)
+    envs = open_spiel_env._register_game_envs(short_names)
+    self.assertGreater(len(envs), _REGISTERED_GAMES_THRESHOLD)
 
   def test_tic_tac_toe_agent_playthrough(self):
     open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.run(["random", "random"])
-    json = env.toJSON()
-    self.assertEqual(json["name"], "open_spiel_tic_tac_toe")
-    self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+    json_playthrough = env.toJSON()
+    self.assertEqual(json_playthrough["name"], "open_spiel_tic_tac_toe")
+    self.assertTrue(
+        all([status == "DONE" for status in json_playthrough["statuses"]])
+    )
 
   def test_tic_tac_toe_manual_playthrough(self):
     open_spiel_env._register_game_envs(["tic_tac_toe"])
@@ -52,10 +68,12 @@ class OpenSpielEnvTest(absltest.TestCase):
       if env.done:
         break
     self.assertEqual(i, 1)  # Zeroth step is setup step, should fail next step.
-    json = env.toJSON()
-    self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+    json_playthrough = env.toJSON()
+    self.assertTrue(
+        all([status == "DONE" for status in json_playthrough["statuses"]])
+    )
     self.assertEqual(
-        json["rewards"],
+        json_playthrough["rewards"],
         [
             open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
             -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD,
@@ -89,9 +107,9 @@ class OpenSpielEnvTest(absltest.TestCase):
         {"submission": pyspiel.INVALID_ACTION},
     ])
     self.assertTrue(env.done)
-    json = env.toJSON()
-    self.assertEqual(json["rewards"], [None, None])
-    self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
+    json_playthrough = env.toJSON()
+    self.assertEqual(json_playthrough["rewards"], [None, None])
+    self.assertEqual(json_playthrough["statuses"], ["ERROR", "ERROR"])
 
   def test_initial_actions(self):
     open_spiel_env._register_game_envs(["tic_tac_toe"])
@@ -111,10 +129,45 @@ class OpenSpielEnvTest(absltest.TestCase):
         {"submission": pyspiel.INVALID_ACTION},
     ])
     env.step([
-        {"submission": 7},
         {"submission": pyspiel.INVALID_ACTION},
+        {"submission": 7},
     ])
     self.assertTrue(env.done)
+    json_playthrough = env.toJSON()
+    self.assertEqual(json_playthrough["rewards"], [-1, 1])
+
+  def test_chess_openings(self):
+    open_spiel_env._register_game_envs(["chess"])
+    openings_path = pathlib.Path(
+        open_spiel_env.GAMES_DIR,
+        "chess/openings.jsonl",
+    )
+    self.assertTrue(openings_path.is_file())
+    with open(openings_path, "r", encoding="utf-8") as f:
+      for line in f:
+        opening = json.loads(line)
+        config = {
+            "initialActions": opening.pop("initialActions"),
+            "metadata": opening,
+        }
+        env = make(
+            "open_spiel_chess",
+            config,
+            debug=True,
+        )
+        env.reset()
+        # Setup step
+        env.step([
+            {"submission": pyspiel.INVALID_ACTION},
+            {"submission": pyspiel.INVALID_ACTION},
+        ])
+        obs = env.state[0]["observation"]
+        _, state = pyspiel.deserialize_game_and_state(
+            obs["serializedGameAndState"]
+        )
+        self.assertEqual(str(state), opening["fen"])
+        self.assertEqual(str(state),
+                         env.toJSON()["configuration"]["metadata"]["fen"])
 
 
 if __name__ == "__main__":
