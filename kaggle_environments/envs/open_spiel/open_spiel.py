@@ -85,6 +85,14 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "object",
         "default": {}
     },
+    "initialActions": {
+        "description": "Game parameters for Open Spiel game.",
+        "type": "array",
+        "items": {
+            "type": "integer"
+        },
+        "default": []
+    },
     "metadata": {
         "description": "Arbitrary metadata.",
         "type": "object",
@@ -192,6 +200,12 @@ def interpreter(
     env.info["stateHistory"] = [str(env.os_state)]
     env.info["actionHistory"] = []
     env.info["moveDurations"] = []
+    initial_actions = env.configuration.get("initialActions", [])
+    if initial_actions:
+      for action in initial_actions:
+        env.os_state.apply_action(action)
+        env.info["actionHistory"].append(str(action))
+        env.info["stateHistory"].append(str(env.os_state))
 
   os_game = env.os_game
   os_state = env.os_state

@@ -20,7 +20,7 @@ class OpenSpielEnvTest(absltest.TestCase):
     self.assertTrue(len(envs) > _REGISTERED_GAMES_THRESHOLD)
 
   def test_tic_tac_toe_agent_playthrough(self):
-    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.run(["random", "random"])
     json = env.toJSON()
@@ -28,7 +28,7 @@ class OpenSpielEnvTest(absltest.TestCase):
     self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
 
   def test_tic_tac_toe_manual_playthrough(self):
-    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.reset()
     env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
@@ -41,7 +41,7 @@ class OpenSpielEnvTest(absltest.TestCase):
     self.assertEqual(env.toJSON()["rewards"], [1, -1])
 
   def test_invalid_action(self):
-    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.reset()
     for i in range(5):  # Try repeatedly applying an illegal action
@@ -63,18 +63,20 @@ class OpenSpielEnvTest(absltest.TestCase):
     )
 
   def test_serialized_game_and_state(self):
-    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.reset()
     env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
     kaggle_state = env.step([{"submission": 0}, {"submission": -1}])
-    serialize_game_and_state = kaggle_state[1]["observation"]["serializedGameAndState"]
+    serialize_game_and_state = kaggle_state[1]["observation"][
+        "serializedGameAndState"
+    ]
     game, state = pyspiel.deserialize_game_and_state(serialize_game_and_state)
     self.assertEqual(game.get_type().short_name, "tic_tac_toe_proxy")
     self.assertEqual(state.history(), [0])
 
   def test_agent_error(self):
-    envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
     env = make("open_spiel_tic_tac_toe", debug=True)
     env.reset()
     # Setup step
@@ -91,6 +93,29 @@ class OpenSpielEnvTest(absltest.TestCase):
     self.assertEqual(json["rewards"], [None, None])
     self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
 
+  def test_initial_actions(self):
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
+    env = make(
+        "open_spiel_tic_tac_toe",
+        {"initialActions": [0, 1, 3, 4]},
+        debug=True,
+    )
+    env.reset()
+    # Setup step
+    env.step([
+        {"submission": pyspiel.INVALID_ACTION},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    env.step([
+        {"submission": 2},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    env.step([
+        {"submission": 7},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    self.assertTrue(env.done)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
   absltest.main()
