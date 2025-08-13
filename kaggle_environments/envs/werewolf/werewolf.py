@@ -311,7 +311,7 @@ def interpreter(state, env):
     # 4.1. Accumulate God mode observations from env for rendering
     global_messages = env.game_state.consume_messages()
     global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
-    env.info[EnvInfoKeys.MODERATOR_OBS].append([global_data])
+    env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
     logger.info(f"detailed_phase = {moderator.detailed_phase.value}")
     # 4.2. Update observations for individual agents
