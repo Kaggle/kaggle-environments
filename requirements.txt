@@ -9,5 +9,3 @@ litellm
 tenacity
 pygame
 termcolor
-python-dotenv
-PyYAML
