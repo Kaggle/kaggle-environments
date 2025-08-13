@@ -1,11 +1,20 @@
 import logging
 import os
 import time
+import random
 
 from kaggle_environments import make
 
 
 logger = logging.getLogger(__name__)
+
+
+def shuffle_roles_inplace(config):
+    agents = config['agents']
+    roles = [agent['role'] for agent in agents]
+    random.shuffle(roles)
+    for new_role, agent in zip(roles, agents):
+        agent['role'] = new_role
 
 
 def run_werewolf(output_dir, base_name, config, agents, debug):
@@ -44,6 +53,7 @@ def run_werewolf(output_dir, base_name, config, agents, debug):
     elapsed_time = end_time - start_time
     formatted_time = time.strftime("%H:%M:%S", time.gmtime(elapsed_time))
     logger.info(f"Script finished in {formatted_time}.")
+    return env
 
 
 def setup_logger(output_dir, base_name):

@@ -1,33 +1,26 @@
 import argparse
-import base64
 import hashlib
+import http.server
 import json
 import os
-import random
-import http.server
 import shutil
 import socketserver
 import wave
-from kaggle_environments import make
+
+import yaml
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# --- Configuration ---
-PORT = 7999
-OUTPUT_DIR = "werewolf_replay"
-AUDIO_DIR_NAME = "audio"
-DEBUG_AUDIO_DIR_NAME = "debug_audio"
-OUTPUT_HTML_FILENAME = "replay.html"
-MODERATOR_VOICE = "enceladus"
-
-# --- Global Paths ---
-AUDIO_DIR = os.path.join(OUTPUT_DIR, AUDIO_DIR_NAME)
-DEBUG_AUDIO_DIR = os.path.join(OUTPUT_DIR, DEBUG_AUDIO_DIR_NAME)
-OUTPUT_HTML_FILE = os.path.join(OUTPUT_DIR, OUTPUT_HTML_FILENAME)
+from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, shuffle_roles_inplace
 
 
-# --- Helper Functions ---
+def load_config(config_path):
+    """Loads the configuration from a YAML file."""
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+
 def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
     """Saves PCM audio data to a WAV file."""
     with wave.open(filename, "wb") as wf:
@@ -71,63 +64,17 @@ def copy_assets(output_dir):
         print(f"Copied '{source_assets_dir}' to '{dest_assets_dir}' for 3D rendering.")
 
 
-def setup_environment():
+def setup_environment(game_config, script_config):
     """Sets up the Werewolf game environment and agent configurations."""
-    print("1. Setting up Werewolf environment with random agents...")
-    URLS = {
-        "gemini": "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png",
-        "openai": "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png",
-        "claude": "https://images.seeklogo.com/logo-png/55/1/claude-logo-png_seeklogo-554534.png",
-        "grok": "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png",
-        "deepseek": "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png",
-        "kimi": "https://images.seeklogo.com/logo-png/61/1/kimi-logo-png_seeklogo-611650.png",
-        "qwen": "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
-    }
-    parameter_dict = {
-        "together_ai/deepseek-ai/DeepSeek-R1": {"max_tokens": 163839},
-        "claude-4-sonnet-20250514": {"max_tokens": 64000}
-    }
-    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager", "Villager"]
-    random.shuffle(roles)
-    names = ["gemini-2.5-flash", "deepseek-r1", "gpt-oss-120b", "qwen3", "gpt-4.1", "o4-mini", "gemini-2.5-pro", "grok-4"]
-    models = [
-        "gemini/gemini-2.5-flash", "together_ai/deepseek-ai/DeepSeek-R1",
-        "together_ai/openai/gpt-oss-120b", "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-        "gpt-4.1", "o4-mini", "gemini/gemini-2.5-pro", "xai/grok-4-latest",
-    ]
-    brands = ['gemini', 'deepseek', 'openai', 'qwen', 'openai', 'openai', 'gemini', 'grok']
-    voices = ['Kore', 'Charon', 'Leda', 'Despina', 'Erinome', 'Gacrux', 'Achird', 'Puck']
+    print("1. Setting up Werewolf environment...")
 
-    agents_config = [
-        {"role": role, "id": name, "agent_id": f"llm_harness/{model}",
-         "thumbnail": URLS[brand], "display_name": model,
-         "agent_harness_name": "llm_harness",
-         "llms": [{"model_name": model, "parameters": parameter_dict.get(model, {})}]}
-        for role, name, brand, model in zip(roles, names, brands, models)
-    ]
-    for agent, voice in zip(agents_config, voices):
-        agent['voice'] = voice
+    player_voices = script_config['voices']['players']
 
-    player_voice_map = {agent["id"]: agent["voice"] for agent in agents_config}
-    env = make(
-        'werewolf', debug=True,
-        configuration={
-            "actTimeout": 300, "runTimeout": 3600, "agents": agents_config,
-            "discussion_protocol": {"name": "RoundRobinDiscussion", "params": {"max_rounds": 1}}
-        }
-    )
-    return env, player_voice_map, models
-
-
-def run_game(env, models, generate_audio):
-    """Runs a full game episode."""
-    print("2. Running a full game episode...")
-    if generate_audio:
-        agents = [f'llm/{model}' for model in models]
-    else:
-        agents = ['random'] * 8
-
-    env.run(agents)
+    for agent_config in game_config['agents']:
+        agent_id = agent_config['id']
+        agent_config['voice'] = player_voices.get(agent_id)
+    player_voice_map = {agent["id"]: agent.get("voice") for agent in game_config['agents']}
+    return player_voice_map
 
 
 def extract_game_data(env):
@@ -168,26 +115,20 @@ def extract_game_data(env):
     return unique_speaker_messages, dynamic_moderator_messages
 
 
-def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map):
+def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map, script_config):
     """Generates and saves all required audio files, returning a map for the HTML."""
     print("3. Extracting dialogue and generating audio files...")
     audio_map = {}
-
-    static_moderator_messages = {
-        "night_begins": "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]",
-        "day_begins": "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]",
-        "discussion_begins": "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]",
-        "voting_begins": "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]",
-    }
+    paths = script_config['paths']
+    audio_dir = os.path.join(paths['output_dir'], paths['audio_dir_name'])
+    moderator_voice = script_config['voices']['moderator']
+    static_moderator_messages = script_config['audio']['static_moderator_messages']
 
     messages_to_generate = []
-    # Queue static moderator messages
     for key, message in static_moderator_messages.items():
-        messages_to_generate.append(("moderator", key, message, MODERATOR_VOICE))
-    # Queue dynamic moderator messages
+        messages_to_generate.append(("moderator", key, message, moderator_voice))
     for message in dynamic_moderator_messages:
-        messages_to_generate.append(("moderator", message, message, MODERATOR_VOICE))
-    # Queue player messages
+        messages_to_generate.append(("moderator", message, message, moderator_voice))
     for speaker_id, message in unique_speaker_messages:
         voice = player_voice_map.get(speaker_id)
         if voice:
@@ -198,8 +139,8 @@ def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_mess
     for speaker, key, message, voice in messages_to_generate:
         map_key = f"{speaker}:{key}"
         filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
-        audio_path_on_disk = os.path.join(AUDIO_DIR, filename)
-        audio_path_for_html = os.path.join(AUDIO_DIR_NAME, filename)
+        audio_path_on_disk = os.path.join(audio_dir, filename)
+        audio_path_for_html = os.path.join(paths['audio_dir_name'], filename)
 
         if not os.path.exists(audio_path_on_disk):
             print(f"  - Generating audio for {speaker} ({voice}): \"{message[:40]}...\" ")
@@ -212,19 +153,21 @@ def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_mess
 
     return audio_map
 
-def generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderator_messages):
+
+def generate_debug_audio_files(output_dir, client, unique_speaker_messages, dynamic_moderator_messages, script_config):
     """Generates a single debug audio file and maps all events to it."""
     print("3. Generating single debug audio for UI testing...")
-    os.makedirs(DEBUG_AUDIO_DIR, exist_ok=True)
+    paths = script_config['paths']
+    debug_audio_dir = os.path.join(output_dir, paths['debug_audio_dir_name'])
+    os.makedirs(debug_audio_dir, exist_ok=True)
     audio_map = {}
 
     debug_message = "Testing start, testing end."
-    debug_voice = "achird"  # A standard, generic voice
+    debug_voice = "achird"
 
-    # Generate the single debug audio file
     filename = "debug_audio.wav"
-    audio_path_on_disk = os.path.join(DEBUG_AUDIO_DIR, filename)
-    audio_path_for_html = os.path.join(DEBUG_AUDIO_DIR_NAME, filename)
+    audio_path_on_disk = os.path.join(debug_audio_dir, filename)
+    audio_path_for_html = os.path.join(paths['debug_audio_dir_name'], filename)
 
     if not os.path.exists(audio_path_on_disk):
         print(f"  - Generating debug audio: \"{debug_message}\"")
@@ -237,22 +180,13 @@ def generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderato
     else:
         print(f"  - Using existing debug audio file: {audio_path_on_disk}")
 
-    # Now, map all possible audio events to this one file.
-    static_moderator_messages = {
-        "night_begins": "...",
-        "day_begins": "...",
-        "discussion_begins": "...",
-        "voting_begins": "...",
-    }
+    static_moderator_messages = script_config['audio']['static_moderator_messages']
 
     messages_to_map = []
-    # Queue static moderator messages
     for key in static_moderator_messages:
         messages_to_map.append(("moderator", key))
-    # Queue dynamic moderator messages
     for message in dynamic_moderator_messages:
         messages_to_map.append(("moderator", message))
-    # Queue player messages
     for speaker_id, message in unique_speaker_messages:
         messages_to_map.append((speaker_id, message))
 
@@ -262,6 +196,7 @@ def generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderato
 
     print(f"  - Mapped all {len(audio_map)} audio events to '{audio_path_for_html}'")
     return audio_map
+
 
 def render_html(env, audio_map, output_file):
     """Renders the game to HTML and injects the audio map."""
@@ -296,45 +231,68 @@ def start_server(directory, port, filename):
             print("\nServer stopped.")
 
 
-def main(generate_audio=True):
+def main(output_dir, config, debug_audio, use_random_agents, shuffle_roles):
     """Main function to generate and serve the Werewolf replay."""
-    # --- Initial Setup ---
-    os.makedirs(AUDIO_DIR, exist_ok=True)
-    copy_assets(OUTPUT_DIR)
+    script_config = config['script_settings']
+    game_config = config['game_config']
+    if shuffle_roles:
+        shuffle_roles_inplace(game_config)
 
-    client = None
-    if generate_audio:
-        load_dotenv()
-        GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-        if not GEMINI_API_KEY:
-            print("Error: GEMINI_API_KEY not found. Audio generation requires it.")
-            print("Run with --no-audio to generate a replay without sound.")
-            return
-        client = genai.Client()
+    paths = script_config['paths']
+    audio_dir = os.path.join(output_dir, paths['audio_dir_name'])
+    output_html_file = os.path.join(output_dir, paths['output_html_filename'])
 
-    # --- Core Workflow ---
-    env, player_voice_map, models = setup_environment()
-    run_game(env, models, generate_audio)
+    os.makedirs(audio_dir, exist_ok=True)
+    copy_assets(output_dir)
 
-    audio_map = {}
-    if generate_audio:
-        unique_speaker_messages, dynamic_moderator_messages = extract_game_data(env)
-        audio_map = generate_audio_files(
-            client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map
-        )
+    player_voice_map = setup_environment(game_config, script_config)
+
+    agents = [agent['agent_id'] for agent in game_config['agents']]
+    if use_random_agents:
+        agents = ['random'] * len(agents)
+
+    load_dotenv()
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    if not GEMINI_API_KEY:
+        print("Error: GEMINI_API_KEY not found. Audio generation requires it.")
+        print("Run with --no-audio to generate a replay without sound.")
+        return
+    client = genai.Client()
+
+    env = run_werewolf(output_dir=output_dir, base_name="replay", config=game_config, agents=agents, debug=True)
+
+    unique_speaker_messages, dynamic_moderator_messages = extract_game_data(env)
+    if debug_audio:
+        audio_map = generate_debug_audio_files(output_dir, client, unique_speaker_messages, dynamic_moderator_messages,
+                                               script_config)
     else:
-        print("3. Skipping full audio generation. Attempting to generate a single debug audio file for UI testing.")
-        load_dotenv()
-        client = genai.Client()
-        unique_speaker_messages, dynamic_moderator_messages = extract_game_data(env)
-        audio_map = generate_debug_audio_files(client, unique_speaker_messages, dynamic_moderator_messages)
+        audio_map = generate_audio_files(
+            client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map, script_config
+        )
 
-    render_html(env, audio_map, OUTPUT_HTML_FILE)
-    start_server(OUTPUT_DIR, PORT, OUTPUT_HTML_FILENAME)
+    render_html(env, audio_map, output_html_file)
+    start_server(output_dir, script_config['server']['port'], paths['output_html_filename'])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate a Werewolf game replay.")
-    parser.add_argument('--no-audio', action='store_true', help="Disable audio generation.")
+    parser.add_argument("-o", "--output_dir", type=str, help="output directory", default="werewolf_replay")
+    parser.add_argument("-n", "--base_name", type=str, help="the base file name of .html, .json and .log",
+                        default="out")
+    parser.add_argument("-c", '--config', type=str,
+                        default='kaggle_environments/envs/werewolf/scripts/configs/standard.yaml',
+                        help="Path to the configuration YAML file.")
+    parser.add_argument('--debug-audio', action='store_true',
+                        help="Generate a single debug audio file for UI testing.")
+    parser.add_argument("-r", "--use_random_agents", action="store_true",
+                        help='Use random agent for fast testing.')
+    parser.add_argument('-s', "--shuffle_roles", action='store_true',
+                        help="shuffle the roles of the agents defined in config.")
+
     args = parser.parse_args()
-    main(generate_audio=not args.no_audio)
+
+    setup_logger(output_dir=args.output_dir, base_name=args.base_name)
+
+    config = load_config(args.config)
+    main(output_dir=args.output_dir, config=config, debug_audio=args.debug_audio,
+         use_random_agents=args.use_random_agents, shuffle_roles=args.shuffle_roles)
