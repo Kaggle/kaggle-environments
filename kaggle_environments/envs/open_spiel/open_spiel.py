@@ -21,14 +21,19 @@ ACTIVE = "ACTIVE"
 TIMEOUT = "TIMEOUT"
 INVALID = "INVALID"
 
-_log = logging.getLogger(__name__) 
-_log.setLevel(logging.INFO) 
-_handler = logging.StreamHandler(sys.stdout) 
-_formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
+_log = logging.getLogger(__name__)
+_log.setLevel(logging.INFO)
+_handler = logging.StreamHandler(sys.stdout)
+_formatter = logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
 _handler.setFormatter(_formatter)
 _log.addHandler(_handler)
 
+
+################################################################################
 # --- Import proxy games ---
+################################################################################
+
+
 _log.debug("Auto-importing OpenSpiel game proxies...")
 GAMES_DIR = pathlib.Path(__file__).parent / "games"
 for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
@@ -36,9 +41,9 @@ for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
     relative_path = proxy_file.relative_to(GAMES_DIR.parent)
     module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
     importlib.import_module("." + module_path, package=__package__)
-    _log.debug(f"  - Imported: {module_path}")
+    _log.debug("  - Imported: %s", module_path)
   except Exception as e:  # pylint: disable=broad-exception-caught
-    _log.debug(f"  - FAILED to import proxy from {proxy_file.name}: {e}")
+    _log.debug("  - FAILED to import proxy from %s: %s", proxy_file.name, e)
 
 
 # --- Constants ---
@@ -50,8 +55,8 @@ DEFAULT_INVALID_ACTION_REWARD = -1
 # Can be used by agents to signal an internal error to the environement.
 AGENT_ERROR_ACTION = -2
 
-DEFAULT_ACT_TIMEOUT = 60 * 20 # twenty minutes
-DEFAULT_RUN_TIMEOUT = 60 * 60 * 8 # eight hours
+DEFAULT_ACT_TIMEOUT = 60 * 60  # sixty minutes
+DEFAULT_RUN_TIMEOUT = 60 * 60 * 30  # thirty hours
 # Buffer in addition to max game length to account for timeouts, retrys, etc.
 DEFAULT_STEP_BUFFER = 100
 # TODO(jhtschultz): Add individual game descriptions.
@@ -91,56 +96,55 @@ OBSERVATION_SPEC_TEMPLATE = {
     "properties": {
         "openSpielGameString": {
             "description": "Full game string including parameters.",
-            "type": "string"
+            "type": "string",
         },
         "openSpielGameName": {
             "description": "Short name of the OpenSpiel game.",
-            "type": "string"
+            "type": "string",
         },
         "observationString": {
             "description": "String representation of state.",
-            "type": "string"
+            "type": "string",
         },
         "legalActions": {
             "description": "List of OpenSpiel legal action integers.",
             "type": "array",
-            "items": {
-                "type": "integer"
-            }
+            "items": {"type": "integer"},
         },
         "legalActionStrings": {
             "description": "List of OpenSpiel legal actions strings.",
             "type": "array",
-            "items": {
-                "type": "string"
-            }
+            "items": {"type": "string"},
         },
         "currentPlayer": {
             "description": "ID of player whose turn it is.",
-            "type": "integer"
+            "type": "integer",
         },
         "playerId": {
             "description": "ID of the agent receiving this observation.",
-            "type": "integer"
+            "type": "integer",
         },
         "isTerminal": {
             "description": "Boolean indicating game end.",
-            "type": "boolean"
+            "type": "boolean",
         },
         "serializedGameAndState": {
             "description": "Enables reconstructing the Game and State objects.",
-            "type": "string"
+            "type": "string",
         },
         "remainingOverageTime": 60,
-        "step": 0
+        "step": 0,
     },
-    "default": {}
+    "default": {},
 }
 
 ACTION_SPEC_TEMPLATE = {
-    "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+    "description": (
+        "Action object MUST contain a field `submission`, and MAY contain"
+        " arbitrary additional information."
+    ),
     "type": "object",
-    "default": {"submission": -1}
+    "default": {"submission": -1},
 }
 
 ENV_SPEC_TEMPLATE = {
@@ -152,19 +156,19 @@ ENV_SPEC_TEMPLATE = {
     "configuration": CONFIGURATION_SPEC_TEMPLATE,
     "observation": OBSERVATION_SPEC_TEMPLATE,
     "action": ACTION_SPEC_TEMPLATE,
-    "reward": {
-        "type": ["number"],
-        "default": 0.0
-    },
+    "reward": {"type": ["number"], "default": 0.0},
 }
 
 
+################################################################################
 # --- Core step logic ---
+################################################################################
+
 
 def interpreter(
-  state: list[utils.Struct],
-  env: core.Environment,
-  logs: list[dict[str, Any]],
+    state: list[utils.Struct],
+    env: core.Environment,
+    logs: list[dict[str, Any]],
 ) -> list[utils.Struct]:
   """Updates environment using player responses and returns new observations."""
   kaggle_state = state  # Not to be confused with OpenSpiel state.
@@ -176,16 +180,19 @@ def interpreter(
     return kaggle_state
 
   # --- Get and maybe initialize game and state on the env object ---
-  if not hasattr(env, 'os_game'):
+  if not hasattr(env, "os_game"):
     game_string = env.configuration.get("openSpielGameString")
     env.os_game = pyspiel.load_game(game_string)
-  if not hasattr(env, 'os_state'):
+  if not hasattr(env, "os_state"):
+    assert hasattr(env, "os_game")
     env.os_state = env.os_game.new_initial_state()
+  assert hasattr(env, "os_game")
+  assert hasattr(env, "os_state")
   if "stateHistory" not in env.info:
-    env.info['stateHistory'] = [str(env.os_state)]
-    env.info['actionHistory'] = []
-    env.info['moveDurations'] = []
-  
+    env.info["stateHistory"] = [str(env.os_state)]
+    env.info["actionHistory"] = []
+    env.info["moveDurations"] = []
+
   os_game = env.os_game
   os_state = env.os_state
   num_players = os_game.num_players()
@@ -213,8 +220,8 @@ def interpreter(
         action_submitted_to_string = os_state.action_to_string(action_submitted)
         os_state.apply_action(action_submitted)
         action_applied = action_submitted
-        env.info['actionHistory'].append(str(action_applied))
-        env.info['stateHistory'].append(str(os_state))
+        env.info["actionHistory"].append(str(action_applied))
+        env.info["stateHistory"].append(str(os_state))
       elif action_submitted == AGENT_ERROR_ACTION:
         kaggle_state[acting_agent]["status"] = "ERROR"
       else:
@@ -225,7 +232,7 @@ def interpreter(
           env.info["moveDurations"].append(move_duration)
         else:
           env.info["moveDurations"].append(None)
-      except Exception:
+      except Exception:  # pylint: disable=broad-except
         pass  # No logs when stepping the env manually.
 
   elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
@@ -242,25 +249,25 @@ def interpreter(
     outcomes, probs = zip(*os_state.chance_outcomes())
     chance_action = np.random.choice(outcomes, p=probs)
     os_state.apply_action(chance_action)
-    env.info['actionHistory'].append(str(chance_action))
-    env.info['stateHistory'].append(str(os_state))
+    env.info["actionHistory"].append(str(chance_action))
+    env.info["stateHistory"].append(str(os_state))
 
   # --- Update agent states ---
   agent_error = any(
-    kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"]
-    for player_id in range(num_players)
+      kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"]
+      for player_id in range(num_players)
   )
   if agent_error:
     _log.info("AGENT ERROR DETECTED")
-  
+
   invalid_action = any(
-    kaggle_state[player_id]["status"] == "INVALID"
-    for player_id in range(num_players)
+      kaggle_state[player_id]["status"] == "INVALID"
+      for player_id in range(num_players)
   )
   if invalid_action:
     _log.info("INVALID ACTION DETECTED")
 
-  status: str | None = None
+  status: str | None = None  # pylint: disable=unused-variable
   for player_id, agent_state in enumerate(kaggle_state):
     reward = None
     if agent_error:
@@ -283,7 +290,8 @@ def interpreter(
       status = "ACTIVE"
       if not os_state.legal_actions(player_id):
         raise ValueError(
-          f"Active agent {i} has no legal actions in state {os_state}."
+            f"Active agent {player_id} has no legal actions in state"
+            f" {os_state}."
         )
     else:
       status = "INACTIVE"
@@ -295,23 +303,25 @@ def interpreter(
       info_dict["actionSubmittedToString"] = action_submitted_to_string
       info_dict["actionApplied"] = action_applied
       info_dict["timeTaken"] = move_duration
-      info_dict[
-        "agentSelfReportedStatus"
-      ] = kaggle_state[acting_agent]["action"].get("status") if kaggle_state[acting_agent]["action"] else "unknown"
+      info_dict["agentSelfReportedStatus"] = (
+          kaggle_state[acting_agent]["action"].get("status")
+          if kaggle_state[acting_agent]["action"]
+          else "unknown"
+      )
 
     obs_update_dict = {
-      "observationString": os_state.observation_string(player_id),
-      "legalActions": os_state.legal_actions(player_id),
-      "legalActionStrings": [
-          os_state.action_to_string(action) for action
-          in os_state.legal_actions(player_id)
-      ],
-      "currentPlayer": os_state.current_player(),
-      "playerId": player_id,
-      "isTerminal": os_state.is_terminal(),
-      "serializedGameAndState": pyspiel.serialize_game_and_state(
-          os_game, os_state
-      ),
+        "observationString": os_state.observation_string(player_id),
+        "legalActions": os_state.legal_actions(player_id),
+        "legalActionStrings": [
+            os_state.action_to_string(action)
+            for action in os_state.legal_actions(player_id)
+        ],
+        "currentPlayer": os_state.current_player(),
+        "playerId": player_id,
+        "isTerminal": os_state.is_terminal(),
+        "serializedGameAndState": pyspiel.serialize_game_and_state(
+            os_game, os_state
+        ),
     }
 
     # Apply updates
@@ -324,11 +334,15 @@ def interpreter(
   return kaggle_state
 
 
+################################################################################
 # --- Rendering ---
+################################################################################
+
 
 def renderer(state: list[utils.Struct], env: core.Environment) -> str:
   """Kaggle environment text renderer."""
-  if hasattr(env, 'os_state'):
+  del state
+  if hasattr(env, "os_state"):
     return str(env.os_state)
   else:
     return "Game state uninitialized."
@@ -358,13 +372,13 @@ function renderer(context) {
     }
 
     // Try to get obs_string from game_master of current step
-    if (currentStepData[agentObsIndex] && 
-        currentStepData[agentObsIndex].observation && 
+    if (currentStepData[agentObsIndex] &&
+        currentStepData[agentObsIndex].observation &&
         typeof currentStepData[agentObsIndex].observation.observationString === 'string') {
         obsString = currentStepData[agentObsIndex].observation.observationString;
-    } 
+    }
     // Fallback to initial step if current is unavailable (e.g. very first render call)
-    else if (step === 0 && environment.steps[0] && environment.steps[0][agentObsIndex] && 
+    else if (step === 0 && environment.steps[0] && environment.steps[0][agentObsIndex] &&
              environment.steps[0][agentObsIndex].observation &&
              typeof environment.steps[0][agentObsIndex].observation.observationString === 'string') {
         obsString = environment.steps[0][agentObsIndex].observation.observationString;
@@ -384,6 +398,7 @@ function renderer(context) {
 }
 """
 
+
 def _get_html_renderer_content(
     open_spiel_short_name: str,
     base_path_for_custom_renderers: pathlib.Path,
@@ -399,18 +414,22 @@ def _get_html_renderer_content(
     try:
       with open(custom_renderer_js_path, "r", encoding="utf-8") as f:
         content = f.read()
-      _log.debug(f"Using custom HTML renderer for {open_spiel_short_name} from {custom_renderer_js_path}")
+      _log.debug("Using custom HTML renderer for %s from %s",
+                 open_spiel_short_name, custom_renderer_js_path)
       return content
     except Exception as e:  # pylint: disable=broad-exception-caught
       _log.debug(e)
   return default_renderer_func()
 
 
+################################################################################
 # --- Agents ---
+################################################################################
+
 
 def random_agent(
-  observation: dict[str, Any],
-  configuration: dict[str, Any],
+    observation: dict[str, Any],
+    configuration: dict[str, Any],
 ) -> int:
   """A built-in random agent specifically for OpenSpiel environments."""
   del configuration
@@ -422,13 +441,28 @@ def random_agent(
 
 
 AGENT_REGISTRY = {
-  "random": random_agent,
+    "random": random_agent,
 }
 
 
-# --- Build and register environments --- 
+################################################################################
+# --- Build and register environments ---
+################################################################################
+
 
 def _build_env(game_string: str) -> dict[str, Any]:
+  """Builds a Kaggle environment spec for a given OpenSpiel game string.
+
+  Args:
+    game_string: The full OpenSpiel game string including parameters.
+
+  Returns:
+    A dictionary containing the environment specification, interpreter,
+    renderer, HTML renderer, and agent registry.
+
+  Raises:
+    ValueError: If the game does not provide an observation string.
+  """
   game = pyspiel.load_game(game_string)
   short_name = game.get_type().short_name
 
@@ -466,9 +500,9 @@ def _build_env(game_string: str) -> dict[str, Any]:
   )
 
   def create_html_renderer_closure(captured_content):
-      def html_renderer_callable_no_args():
-          return captured_content
-      return html_renderer_callable_no_args
+    def html_renderer_callable_no_args():
+      return captured_content
+    return html_renderer_callable_no_args
 
   html_renderer_callable = create_html_renderer_closure(js_string_content)
 
@@ -482,6 +516,15 @@ def _build_env(game_string: str) -> dict[str, Any]:
 
 
 def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
+  """Builds and registers Kaggle environments for a list of OpenSpiel games.
+
+  Args:
+    games_list: A list of OpenSpiel game strings.
+
+  Returns:
+    A dictionary containing the registered environments, keyed by environment
+    name.
+  """
   skipped_games = []
   registered_envs = {}
   for game_string in games_list:
@@ -497,12 +540,14 @@ def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
       _log.debug(e)
       skipped_games.append(game_string)
 
-  _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
+  _log.info(
+      "Successfully loaded OpenSpiel environments: %d.", len(registered_envs)
+  )
   for env_name in registered_envs:
-    _log.info(f"   {env_name}")
-  _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
+    _log.info("   %s", env_name)
+  _log.info("OpenSpiel games skipped: %d.", len(skipped_games))
   for game_string in skipped_games:
-    _log.info(f"   {game_string}")
+    _log.info("   %s", game_string)
 
   return registered_envs
 
