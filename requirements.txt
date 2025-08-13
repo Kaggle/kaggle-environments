@@ -1,11 +1,5 @@
-flask
-gym
-ipython
-jsonschema
-numpy
-requests
-pytest
-litellm
-tenacity
-pygame
-termcolor
+kaggle-environments
+kaggle
+google-generativeai
+python-dotenv
+PyYAML
