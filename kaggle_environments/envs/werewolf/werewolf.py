@@ -1,4 +1,5 @@
 import json
+import logging
 import random  # Added for random.choice
 from os import path, getenv
 
@@ -15,13 +16,7 @@ from .game.roles import create_players_from_agents_config
 from .game.states import *
 from .harness.base import LLMWerewolfAgent
 
-
-# my_kaggle_env.py
-# Enums used by agents and action parser
-
-
-MAX_VISIBLE_HISTORY_ITEMS = 20 # Max number of history items in agent observation
-
+logger = logging.getLogger(__name__)
 
 # --- Protocol Factory ---
 PROTOCOL_REGISTRY = {
@@ -42,10 +37,10 @@ DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
 
 
 def create_protocol_from_config(
-    config: Any, # env.configuration
-    protocol_config_key: str, # e.g., "discussion_protocol"
-    protocol_type: str, # "discussion" or "voting"
-    default_protocol_name: str
+        config: Any,  # env.configuration
+        protocol_config_key: str,  # e.g., "discussion_protocol"
+        protocol_type: str,  # "discussion" or "voting"
+        default_protocol_name: str
 ) -> Union[DiscussionProtocol, VotingProtocol]:
     protocol_config = getattr(config, protocol_config_key, {})
     protocol_name = protocol_config.get("name", default_protocol_name)
@@ -54,7 +49,8 @@ def create_protocol_from_config(
     registry_for_type = PROTOCOL_REGISTRY[protocol_type]
     protocol_info = registry_for_type.get(protocol_name)
     if not protocol_info:
-        print(f"Warning: Protocol '{protocol_name}' not found in {protocol_type} registry. Using default '{default_protocol_name}'.")
+        logger.warning(f"Warning: Protocol '{protocol_name}' not found in {protocol_type} registry."
+                       f"Using default '{default_protocol_name}'.")
         protocol_info = registry_for_type[default_protocol_name]
     protocol_class, default_params_dict = protocol_info["class"], protocol_info["default_params"]
     final_params = {**default_params_dict, **user_params}
@@ -80,7 +76,7 @@ def random_agent(obs):
     day = raw_obs['day']
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
-    action = NoOpAction(**common_args, reasoning="There's nothing to be done.") # Default action
+    action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
 
     threat_level = random.choice(['SAFE', 'UNEASY', 'DANGER'])
 
@@ -99,7 +95,8 @@ def random_agent(obs):
         elif my_role == RoleConst.DOCTOR:
             # Doctors can save any alive player (including themselves)
             # ActionType.NIGHT_SAVE_TARGET
-            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')), None)
+            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                                 None)
 
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
@@ -110,7 +107,8 @@ def random_agent(obs):
         elif my_role == RoleConst.SEER:
             # Seers can inspect any alive player
             # ActionType.NIGHT_INSPECT_TARGET
-            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')), None)
+            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                                 None)
 
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
@@ -150,98 +148,13 @@ def random_agent(obs):
     return action.serialize()
 
 
-# This function is part of the skeleton and retained as a placeholder.
-def dummy_inference_endpoint(prompt):
-    # In a real scenario, this would query an LLM.
-    # For testing, we can make it return a valid JSON action string.
-    # Example: return '{"action_type": "NO_OP"}'
-    return '{"action_type": "NO_OP", "message": "dummy action"}'
-
-
-endpoints = {'dummy_llm': dummy_inference_endpoint}
-
-
-class LLMAgent:
-    def __init__(self, model_name="dummy_llm", system_prompt="You are a helpful assistant playing Werewolf."):
-        """
-        Initializes the LLMAgent.
-        Args:
-            model_name (str): Identifier for the LLM model (currently conceptual).
-            system_prompt (str): A system prompt to guide the LLM's behavior.
-        """
-        self.model_name = model_name
-        self.system_prompt = system_prompt
-        self.memory = [] # Stores a history of observations or processed information
-        self.inferencer = endpoints[model_name]
-    
-    def parse_llm_response_to_action(self, llm_response_str: str) -> dict:
-        """
-        Parses a JSON string from an LLM into a valid game action dictionary.
-
-        Args:
-            llm_response_str: The JSON string response from the LLM.
-                            Expected format: {"action_type": "ACTION_NAME_STR", "target_idx": int_or_null, "message": "str_or_null"}
-
-        Returns:
-            A dictionary representing the game action, or a NO_OP action if parsing fails.
-        """
-        try:
-            action_data = json.loads(llm_response_str)
-            if not isinstance(action_data, dict):
-                raise ValueError("LLM response is not a JSON object.")
-
-            action_type_str = action_data.get("action_type")
-            if not action_type_str or not hasattr(ActionType, action_type_str):
-                raise ValueError(f"Invalid or missing 'action_type': {action_type_str}")
-
-            action_type_enum_val = ActionType[action_type_str].value
-            target_idx = action_data.get("target_idx") # Can be None
-            message = action_data.get("message")     # Can be None
-
-            # Basic type check for target_idx if present
-            if target_idx is not None and not isinstance(target_idx, int):
-                target_idx = None # Or raise error, but defaulting to None is safer for NO_OP fallback
-
-            return {"action_type": action_type_enum_val, "target_idx": target_idx, "message": message}
-
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            print(f"Error parsing LLM response '{llm_response_str}': {e}. Defaulting to NO_OP.")
-            return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
-    
-    def __call__(self, obs):
-        """
-        Processes an observation, updates memory, and decides on an action.
-        Currently, it only stores the observation and returns a NO_OP action.
-        """
-        raw_aec_obs = obs.get('raw_observation')
-
-        if not raw_aec_obs:
-            # Default action if no observation is available
-            return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
-
-        # Convert raw observation to a more readable format.
-        # If WerewolfObservationModel instantiation or get_human_readable fails,
-        # the error will propagate as per the "no try-except" constraint.
-        pydantic_obs = WerewolfObservationModel(**raw_aec_obs)
-        human_readable_obs = pydantic_obs.get_human_readable()
-        
-        # Update memory
-        self.memory.append(human_readable_obs)
-
-        # --- Placeholder for actual LLM interaction (conceptual) ---
-        current_prompt = f"{self.system_prompt}\n\nObservation History:\n{json.dumps(self.memory, indent=2)}\n\nWhat is your action?"
-        llm_response_action_str = self.inferencer(current_prompt)
-        action_to_take = self.parse_llm_response_to_action(llm_response_action_str)
-        
-        return action_to_take
-
-
 class AgentFactoryWrapper:
     """
     A wrapper that creates and manages separate agent instances for each player.
     This is necessary for stateful agents to be used in the agent registry,
     preventing them from sharing state (like memory or history) across different players.
     """
+
     def __init__(self, agent_class, **kwargs):
         self._agent_class = agent_class
         self._kwargs = kwargs
@@ -274,6 +187,7 @@ class AgentFactoryWrapper:
 
         return self._instances[player_id](obs)
 
+
 # --- Agent Registry ---
 
 LLM_MODEL_NAMES = [
@@ -303,9 +217,11 @@ LLM_MODEL_NAMES = [
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
 
+
 class EnvInfoKeys:
     MODERATOR_OBS = "MODERATOR_OBSERVATION"
     GAME_END = "GAME_END"
+
 
 # *Package variable required by Kaggle Environments framework*
 # These are base agents that the calling framework can choose from
@@ -313,9 +229,6 @@ class EnvInfoKeys:
 # and agents powered by the various specific models
 agents = {
     "random": random_agent,
-    "dummy_llm": AgentFactoryWrapper(LLMAgent, model_name='dummy_llm'),
-    # A default 'llm' for convenience, pointing to a recommended model.
-    # This can also be overridden by an environment variable for quick tests.
     "llm": AgentFactoryWrapper(
         LLMWerewolfAgent,
         model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
@@ -332,6 +245,7 @@ agents = {
         for model_name in LLM_MODEL_NAMES
     }
 }
+
 
 def interpreter(state, env):
     """
@@ -372,7 +286,7 @@ def interpreter(state, env):
     env:   the kaggle_environments.Environment object itself including the env.game_state
     """
     # --- Initialize Moderator and GameState if it's the start of an episode ---
-    if not hasattr(env, 'moderator') or env.done: # env.done is true after reset by Kaggle core
+    if not hasattr(env, 'moderator') or env.done:  # env.done is true after reset by Kaggle core
         initialize_moderator(state, env)
 
     moderator: Moderator = env.moderator
@@ -398,13 +312,14 @@ def interpreter(state, env):
     global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
     env.info[EnvInfoKeys.MODERATOR_OBS].append([global_data])
 
-    print(f"detailed_phase = {moderator.detailed_phase.value}")
+    logger.info(f"detailed_phase = {moderator.detailed_phase.value}")
     # 4.2. Update observations for individual agents
-    update_agent_messages(state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance)
-
+    update_agent_messages(
+        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance)
     return state
 
-def record_game_end(state, env, game_state, current_info):   
+
+def record_game_end(state, env, game_state, current_info):
     # log game end to env.info using GameEndResultsDataEntry
     game_end_entry = game_state.get_history_by_type(HistoryEntryType.GAME_END)[0]
     if game_end_entry and game_end_entry.data:
@@ -415,15 +330,17 @@ def record_game_end(state, env, game_state, current_info):
     for i, player_id in enumerate(env.player_id_str_list):
         state[i].reward = scores[player_id]
 
-def update_agent_messages(state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance):
+
+def update_agent_messages(
+        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance):
     for player_index, player_state in enumerate(state):
         player_id_str = env.player_ids_map[player_index]
 
         # skip if player not active and game is not done
         if player_id_str not in active_player_ids_after_advance and not is_game_done:
-           player_state.status = 'INACTIVE'
-           continue
-        
+            player_state.status = 'INACTIVE'
+            continue
+
         # set the status of active player to ACTIVE
         player_state.status = 'ACTIVE'
         player_obj = game_state.get_player_by_id(player_id_str)
@@ -458,9 +375,10 @@ def update_agent_messages(state, env, moderator, game_state, is_game_done, curre
             player_state.status = "ACTIVE"
         else:
             player_state.status = "INACTIVE"
-        
+
         # Info
         player_state.info = current_info
+
 
 def parse_player_actions(state, moderator, game_state):
     parsed_player_actions: Dict[str, Action] = {}
@@ -473,6 +391,7 @@ def parse_player_actions(state, moderator, game_state):
             if serialized_action:
                 parsed_player_actions[player_id_str] = create_action(serialized_action)
     return parsed_player_actions
+
 
 def initialize_moderator(state, env):
     num_players = len(state)
@@ -510,8 +429,11 @@ def initialize_moderator(state, env):
         "voting", DEFAULT_VOTING_PROTOCOL_NAME  # Default to same as day voting if not specified
     )
 
-    print(
-        f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, Day Voting: {type(day_voting_protocol).__name__}, Night WW Voting: {type(night_voting_protocol).__name__}")
+    logger.info(
+        f"Interpreter: Using Discussion: {type(discussion_protocol).__name__}, "
+        f"Day Voting: {type(day_voting_protocol).__name__}, "
+        f"Night WW Voting: {type(night_voting_protocol).__name__}"
+    )
 
     env.moderator = Moderator(
         state=env.game_state,
@@ -523,6 +445,7 @@ def initialize_moderator(state, env):
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
     env.info = {EnvInfoKeys.MODERATOR_OBS: []}
+
 
 def renderer(state, env):
     if not hasattr(env, 'moderator') or not hasattr(env, 'game_state'):
