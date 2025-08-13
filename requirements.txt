@@ -1,3 +1,5 @@
+flask
+gym
 kaggle-environments
 kaggle
 google-generativeai
