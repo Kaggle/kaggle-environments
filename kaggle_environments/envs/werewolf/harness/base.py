@@ -108,8 +108,9 @@ TARGETED_ACTION_SCHEMA = get_action_subset_fields_schema(
 CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
     ChatAction, "ChatLLMAction", fields=['message', 'reasoning', 'perceived_threat_level'])
 
-TARGETED_ACTION_EXEMPLAR = f"```json\n{dict(reasoning="I chose this target randomly.", target_id="some_player_id",
-                                            perceived_threat_level="SAFE")}\n```"
+TARGETED_ACTION_EXEMPLAR = f"""```json
+{json.dumps(dict(reasoning="I chose this target randomly.", target_id="some_player_id", perceived_threat_level="SAFE"))}
+```"""
 
 AUDIO_EXAMPLE = 'Say in an spooky whisper: \"By the pricking of my thumbs... Something wicked this way comes!\"'
 AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: \"I was stunned. I really suspect John\'s intent of bringing up Tim.\"'
