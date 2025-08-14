@@ -573,7 +573,7 @@ class Environment:
         return data
 
     def __loop_through_interpreter(self, state, logs):
-        args = [structify(state), self]
+        args = [structify(state), self, logs]
         new_state = structify(self.interpreter(
             *args[:self.interpreter.__code__.co_argcount]))
         new_state[0].observation.step = (
