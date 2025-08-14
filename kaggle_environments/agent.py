@@ -178,9 +178,8 @@ class Agent:
                 except Exception as e:
                     traceback.print_exc(file=err_buffer)
                     action = e
-
-            out = out_buffer.getvalue()
-            err = err_buffer.getvalue()
+                out = out_buffer.getvalue()
+                err = err_buffer.getvalue()
             # Get the maximum log length
             # Allow up to 10k (default) log characters per step which is ~10MB per 600 step episode
             max_log_length = self.configuration.get('maxLogLength', 10000)
