@@ -459,7 +459,9 @@ def initialize_moderator(state, env):
         discussion=discussion_protocol,
         day_voting=day_voting_protocol,
         night_voting=night_voting_protocol,
-        allow_doctor_self_save=env.configuration['allow_doctor_self_save']
+        allow_doctor_self_save=env.configuration['allow_doctor_self_save'],
+        reveal_night_elimination_role=env.configuration['reveal_night_elimination_role'],
+        reveal_day_exile_role=env.configuration['reveal_day_exile_role']
     )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
