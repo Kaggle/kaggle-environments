@@ -123,7 +123,8 @@
                                 "additionalProperties": false
                             }
                         }
-                    }
+                    },
+                    "else": false
                 },
                 {
                     "if": { "properties": { "name": { "const": "ParallelDiscussion" } } },
@@ -137,27 +138,41 @@
                                 "additionalProperties": false
                             }
                         }
-                    }
+                    },
+                    "else": false
                 },
                 {
                     "if": { "properties": { "name": { "const": "BidDrivenDiscussion" } } },
                     "then": {
                         "properties": {
                             "params": {
-                                "type": "object"
+                                "type": "object",
+                                "properties": {
+                                    "bidding": { "type": "object" },
+                                    "inner": { "type": "object" }
+                                },
+                                "required": ["bidding", "inner"],
+                                "additionalProperties": false
                             }
                         }
-                    }
+                    },
+                    "else": false
                 },
                 {
                     "if": { "properties": { "name": { "const": "TurnByTurnBiddingDiscussion" } } },
                     "then": {
                         "properties": {
                             "params": {
-                                "type": "object"
+                                "type": "object",
+                                "properties": {
+                                    "bidding": { "type": "object" },
+                                    "max_turns": { "type": "integer", "minimum": 1, "default": 5 }
+                                },
+                                "additionalProperties": false
                             }
                         }
-                    }
+                    },
+                    "else": false
                 }
             ]
         },

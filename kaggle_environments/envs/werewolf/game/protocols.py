@@ -108,6 +108,10 @@ class TeamDecisionProtocol(ABC):
 
 class BiddingProtocol(ABC):
     """Drives one auction round and returns the winner(s)."""
+    @property
+    @abstractmethod
+    def bidding_rules(self) -> str:
+        """Specify the bidding rules"""
 
     @abstractmethod
     def begin(self, state: GameState) -> None: ...
@@ -118,7 +122,6 @@ class BiddingProtocol(ABC):
     @abstractmethod
     def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
         """Processes a batch of actions, handling BidActions by calling self.accept()."""
-        pass
 
     @abstractmethod
     def is_finished(self, state: GameState) -> bool: ...
@@ -133,7 +136,6 @@ class BiddingProtocol(ABC):
     @abstractmethod
     def reset(self) -> None:
         """Resets the protocol to its initial state."""
-        pass
 
 
 class NightTeamActionProtocol(ABC):
@@ -601,8 +603,16 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
         if self._phase == "bidding":
             self.bidding.process_incoming_bids(actions, state)
 
+            # Handle players who didn't bid (timed out) by assuming a bid of 0
+            all_alive_player_ids = [p.id for p in state.alive_players()]
+            if hasattr(self.bidding, '_bids'):
+                for player_id in all_alive_player_ids:
+                    if player_id not in self.bidding._bids:
+                        default_bid = BidAction(actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value)
+                        self.bidding.accept(default_bid, state)
+
             bids = getattr(self.bidding, '_bids', {})
-            if len(bids) == len(state.alive_players()) and all(amount == 0 for amount in bids.values()):
+            if len(bids) >= len(all_alive_player_ids) and all(amount == 0 for amount in bids.values()):
                 self._all_passed = True
                 state.add_history_entry(
                     description="All players passed on speaking. Discussion ends.",
@@ -919,74 +929,6 @@ class AlphaFirstEliminateResolver(TeamDecisionProtocol):
 
 # ----------------- bidding protocols --------------------------------------- #
 
-class FirstPriceSealed(BiddingProtocol):
-    def begin(self, state):
-        self._bids: Dict[str, int] = {}
-
-    def reset(self) -> None:
-        self._bids = {}
-
-    def accept(self, bid, state):
-        self._bids[bid.actor_id] = bid.amount
-
-    def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, BidAction):
-                try:
-                    self.accept(act, state)  # self.accept should handle adding to self._bids
-                except ValueError as e:  # Or other specific exceptions from accept
-                    state.add_history_entry(
-                        description=f"Invalid bid by P{act.actor_id}: {e}",
-                        entry_type=HistoryEntryType.ERROR,  # Or BIDDING_INFO with error status
-                        public=False,
-                        visible_to=[act.actor_id]
-                    )
-
-    def is_finished(self, state):
-        return len(self._bids) == len(state.alive_players())
-
-    def outcome(self, state) -> list[str]:  # Player IDs are strings
-        if not self._bids:
-            return []
-        top = max(self._bids.values())
-        winners = [pid for pid, amt in self._bids.items() if amt == top]
-        return sorted(winners)  # deterministic tie-break: lowest id
-
-
-class VickreyAuction(BiddingProtocol):
-    def begin(self, state):
-        self._bids: Dict[str, int] = {}
-
-    def reset(self) -> None:
-        self._bids = {}
-
-    def accept(self, bid, state):
-        self._bids[bid.actor_id] = bid.amount
-
-    def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, BidAction):
-                try:
-                    self.accept(act, state)
-                except ValueError as e:
-                    state.add_history_entry(
-                        description=f"Invalid bid by P{act.actor_id}: {e}",
-                        entry_type=HistoryEntryType.ERROR  # Or BIDDING_INFO with error status
-                    )
-
-    def is_finished(self, state):
-        return len(self._bids) == len(state.alive_players())
-
-    def outcome(self, state) -> list[str]:  # Player IDs are strings
-        if not self._bids or len(self._bids) < 1:  # Handle empty or single bid
-            return list(self._bids)  # trivial case
-        (w_id, w_amt), (_, second_price) = sorted(
-            self._bids.items(), key=lambda x: x[1], reverse=True)[:2]
-        # Charge second-highest price:
-        state.wallet[w_id] -= second_price
-        return [w_id]
-
-
 def _find_mentioned_players(text: str, all_player_ids: List[str]) -> List[str]:
     """
     Finds player IDs mentioned in a string of text.
@@ -999,7 +941,7 @@ def _find_mentioned_players(text: str, all_player_ids: List[str]) -> List[str]:
         # Extracts the number from player_id, e.g., "Player-3" -> "3"
         player_num = player_id.split('-')[-1]
         # Regex to find mentions like "Player-3", "Player 3", or just "P3"
-        pattern = re.compile(f'(player[- ]?{player_num}|p{player_num}\\b)', re.IGNORECASE)
+        pattern = re.compile(f'(player[- ]?{player_num}|p{player_num}\b)', re.IGNORECASE)
         if pattern.search(text):
             mentioned.add(player_id)
     return list(mentioned)
@@ -1012,6 +954,18 @@ class UrgencyBiddingProtocol(BiddingProtocol):
     - Highest bidder wins.
     - Ties are broken by prioritizing players mentioned in the previous turn.
     """
+    @property
+    def bidding_rules(self) -> str:
+        return "\n".join([
+            "Urgency-based bidding. Players bid with an urgency level (0-4).",
+            "0: I would like to observe and listen for now.",
+            "1: I have some general thoughts to share with the group.",
+            "2: I have something critical and specific to contribute to this discussion.",
+            "3: It is absolutely urgent for me to speak next.",
+            "4: Someone has addressed me directly and I must respond.",
+            "Highest bidder wins."
+            "Ties are broken by prioritizing players mentioned in the previous turn's chat, then randomly."
+        ])
 
     def __init__(self):
         self._bids: Dict[str, int] = {}
@@ -1089,7 +1043,6 @@ class UrgencyBiddingProtocol(BiddingProtocol):
             winner = random.choice(highest_bidders)
 
         return [winner]
-
 
 
 class SequentialVoting(VotingProtocol):
