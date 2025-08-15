@@ -1,23 +1,23 @@
 import json
 import logging
-import random  # Added for random.choice
+import random
 from os import path, getenv
+from typing import Dict
 
 from .game.actions import (
-    Action, EliminateProposalAction, VoteAction, HealAction, InspectAction,
+    Action, VoteAction, HealAction, InspectAction,
     BidAction, ChatAction, NoOpAction, create_action
 )
-from .game.consts import ActionType
+from .game.consts import RoleConst
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
-    DiscussionProtocol, VotingProtocol,
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    FirstPriceSealed, VickreyAuction, BidDrivenDiscussion, TurnByTurnBiddingDiscussion,
+    BidDrivenDiscussion, TurnByTurnBiddingDiscussion,
     UrgencyBiddingProtocol
 )
 from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_agents_config
-from .game.states import *
+from .game.states import GameState, HistoryEntry, HistoryEntryType
 from .harness.base import LLMWerewolfAgent
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ PROTOCOL_REGISTRY = {
         "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
         "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
         "BidDrivenDiscussion": {"class": BidDrivenDiscussion,
-                                "default_params": {"bidding": {"name": "FirstPriceSealed"},
+                                "default_params": {"bidding": {"name": "UrgencyBiddingProtocol"},
                                                    "inner": {"name": "RoundRobinDiscussion"}}},
         "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
                                         "default_params": {
@@ -41,8 +41,6 @@ PROTOCOL_REGISTRY = {
         "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
     },
     "bidding": {
-        "FirstPriceSealed": {"class": FirstPriceSealed, "default_params": {}},
-        "VickreyAuction": {"class": VickreyAuction, "default_params": {}},
         "UrgencyBiddingProtocol": {"class": UrgencyBiddingProtocol, "default_params": {}},
     }
 }
@@ -96,7 +94,7 @@ def random_agent(obs):
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
-    threat_level = random.choice(['SAFE', 'UNEASY', 'IN_DANGER'])
+    threat_level = random.choice(['SAFE', 'UNEASY', 'DANGER'])
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
@@ -130,13 +128,8 @@ def random_agent(obs):
                                            reasoning="I randomly chose one to inspect.",
                                            perceived_threat_level=threat_level)
 
-    elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT:
-        # Check if this is a bidding turn
-        is_bidding_turn = any(
-            entry.entry_type == HistoryEntryType.PROMPT_FOR_ACTION and 'bid' in entry.description.lower() for entry in
-            entries)
-
-        if is_bidding_turn:
+    elif current_phase in [DetailedPhase.DAY_BIDDING_AWAIT, DetailedPhase.DAY_CHAT_AWAIT]:
+        if current_phase == DetailedPhase.DAY_BIDDING_AWAIT:
             if my_id in alive_players:
                 action = BidAction(
                     **common_args,
@@ -144,7 +137,7 @@ def random_agent(obs):
                     reasoning="I am bidding randomly.",
                     perceived_threat_level=threat_level
                 )
-        else:  # It's a chat turn
+        else:  # It's a chat turn (DAY_CHAT_AWAIT)
             if my_id in alive_players:
                 action = ChatAction(
                     **common_args,

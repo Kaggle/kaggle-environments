@@ -2,9 +2,9 @@
 
 import json
 from enum import Enum
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Type, Sequence
 
-from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction
+from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
 from .consts import Phase, Team, RoleConst
 from .protocols import BidDrivenDiscussion, TurnByTurnBiddingDiscussion
 from .protocols import DiscussionProtocol, VotingProtocol
@@ -29,6 +29,38 @@ class DetailedPhase(Enum):
     DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
     DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
     GAME_OVER = "GAME_OVER"
+
+
+class ActionQueue:
+    """A data structure for managing player ids in action specific queues."""
+
+    def __init__(self):
+        self._action_queue: Dict[str, List[str]] = {}
+
+    def clear(self):
+        self._action_queue = {}
+
+    def append(self, action_cls: Type[Action], player_id: str):
+        action_type = action_cls.__name__
+        self._action_queue.setdefault(action_type, [])
+        if player_id in self._action_queue[action_type]:
+            raise ValueError(f'player {player_id} is already in the action queue. '
+                             'One turn only one action is allowed in the queue.')
+        self._action_queue[action_type].append(player_id)
+
+    def extend(self, action_cls: Type[Action], player_ids: Sequence[str]):
+        for player_id in player_ids:
+            self.append(action_cls, player_id)
+
+    def get(self, action_cls: Type[Action]) -> List[str]:
+        """return a list of player_id for the selected action."""
+        return self._action_queue.get(action_cls.__name__, [])
+
+    def get_active_player_ids(self) -> List[str]:
+        all_players = set()
+        for players in self._action_queue.values():
+            all_players.update(players)
+        return list(all_players)
 
 
 class Moderator:
@@ -62,7 +94,7 @@ class Moderator:
 
         self._active_night_roles_queue: List[Player] = []
         self._night_save_queue: Dict[str, List[str]] = {}
-        self._action_queue: Dict[str, List[str]] = {}  # Player IDs expected to act, keyed by action type
+        self._action_queue = ActionQueue()
 
         # below is the state transition function table
         # each transition function has the signature tr_func(actions: List[Action]) where the input is a list of actions
@@ -143,18 +175,8 @@ class Moderator:
         if add_one_day:
             self.state.day_count += 1
 
-    def _add_to_action_queue(self, player_id: str, action_type: str):
-        self._action_queue.setdefault(action_type, [])
-        if player_id in self._action_queue[action_type]:
-            raise ValueError(f'player {player_id} is already in the action queue. '
-                             'One turn only one action is allowed in the queue.')
-        self._action_queue[action_type].append(player_id)
-
     def get_active_player_ids(self) -> List[str]:
-        all_players = set()
-        for players in self._action_queue.values():
-            all_players.update(players)
-        return list(all_players)
+        return self._action_queue.get_active_player_ids()
 
     def get_observation(self, player_id: str) -> Tuple[List[HistoryEntry], Tuple[int, int]]:
         """
@@ -234,7 +256,7 @@ class Moderator:
 
         self.valid_doctor_save_ids = {}
         for doctor in self.state.alive_players_by_role(RoleConst.DOCTOR):
-            self._add_to_action_queue(doctor.id, HealAction.__name__)
+            self._action_queue.append(HealAction, doctor.id)
             self.valid_doctor_save_ids[doctor.id] = [f"{p.id}" for p in self.state.alive_players()] \
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
             data_entry = RequestDoctorSaveDataEntry(
@@ -252,7 +274,7 @@ class Moderator:
 
         # announce await action to seer
         for seer in self.state.alive_players_by_role(RoleConst.SEER):
-            self._add_to_action_queue(seer.id, InspectAction.__name__)
+            self._action_queue.append(InspectAction, seer.id)
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
                 action_json_schema=json.dumps(InspectAction.model_json_schema())
@@ -293,8 +315,7 @@ class Moderator:
             alive_voters=alive_werewolves,
             potential_targets=potential_targets
         )
-        for ww_voter_id in self.night_voting.get_next_voters():  # Should give all WWs if simultaneous
-            self._add_to_action_queue(ww_voter_id, VoteAction.__name__)
+        self._action_queue.extend(VoteAction, self.night_voting.get_next_voters())
 
         # state transition
         self.set_new_phase(DetailedPhase.NIGHT_AWAIT_ACTIONS)
@@ -381,7 +402,7 @@ class Moderator:
                         )
 
         # Process werewolf votes
-        werewolf_voters_expected = self._action_queue.get(VoteAction.__name__, [])
+        werewolf_voters_expected = self._action_queue.get(VoteAction)
         if werewolf_voters_expected:
             # Using collect_votes (plural) assuming it can handle timeouts by comparing
             # the actions in player_actions against the list of expected voters.
@@ -396,11 +417,10 @@ class Moderator:
         if not self.night_voting.done():
             # Werewolf voting is not complete (e.g., sequential voting)
             next_ww_voters = self.night_voting.get_next_voters()
-            for voter_id in next_ww_voters:
-                self._add_to_action_queue(voter_id, VoteAction.__name__)
+            self._action_queue.extend(VoteAction, next_ww_voters)
 
             # Re-prompt only the werewolves whose turn it is now
-            vote_action_queue = self._action_queue.get(VoteAction.__name__, [])
+            vote_action_queue = self._action_queue.get(VoteAction)
             alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
                                               p.id in vote_action_queue]
             if alive_werewolves_still_to_vote:
@@ -522,31 +542,17 @@ class Moderator:
             self.detailed_phase = DetailedPhase.DAY_BIDDING_AWAIT
             # In bidding, all alive players can be active
             bidders = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(b_id for b_id in bidders if b_id not in self._action_queue)
-            if self._action_queue:
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            self._action_queue.extend(BidAction, bidders)
+            self.discussion.prompt_speakers_for_tick(self.state, bidders)
         else:
             # If no bidding, go straight to chatting
             self.detailed_phase = DetailedPhase.DAY_CHAT_AWAIT
             initial_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(s_id for s_id in initial_speakers if s_id not in self._action_queue)
-            if self._action_queue:
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            self._action_queue.extend(ChatAction, initial_speakers)
+            self.discussion.prompt_speakers_for_tick(self.state, initial_speakers)
 
     def _handle_day_bidding_await(self, player_actions: Dict[str, Action]):
-        current_bidders = list(self._action_queue)
-
-        chat_queue = self._action_queue.get(ChatAction.__name__, [])
-        if chat_queue:  # Only prompt if there are speakers
-            self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
-
-        self.set_new_phase(DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT)
-        # If _action_queue is empty here (e.g. discussion protocol immediately ends),
-        # Env will call advance({}) and _handle_day_discussion_await_chat will transition.
-
-    def _handle_day_discussion_await_chat(self, player_actions: Dict[str, Action]):
-        # current_speakers_last_tick refers to who was in _action_queue for the player_actions received
-        current_speakers_last_tick = self._action_queue.get(ChatAction.__name__, [])
+        current_bidders = self._action_queue.get(BidAction)
         self._action_queue.clear()
 
         # The protocol processes bid actions
@@ -562,26 +568,23 @@ class Moderator:
                 public=True
             )
             # Transition to the chat phase
-            self.detailed_phase = DetailedPhase.DAY_CHAT_AWAIT
+            self.set_new_phase(DetailedPhase.DAY_CHAT_AWAIT)
 
             # Get the first speakers for the chat phase (could be bid winners)
             next_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
-            if self._action_queue:
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            self._action_queue.extend(ChatAction, next_speakers)
+            self.discussion.prompt_speakers_for_tick(self.state, next_speakers)
         else:
             # Bidding is not over (e.g., sequential auction), get next bidders
             next_bidders = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(b_id for b_id in next_bidders if b_id not in self._action_queue)
-            if self._action_queue:
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
+            self._action_queue.extend(BidAction, next_bidders)
+            self.discussion.prompt_speakers_for_tick(self.state, next_bidders)
             # Stay in DAY_BIDDING_AWAIT
 
     def _handle_day_chat_await(self, player_actions: Dict[str, Action]):
-        current_speakers_last_tick = list(self._action_queue)
+        speaker_ids = self._action_queue.get(ChatAction)
         self._action_queue.clear()
-
-        self.discussion.process_actions(list(player_actions.values()), current_speakers_last_tick, self.state)
+        self.discussion.process_actions(list(player_actions.values()), speaker_ids, self.state)
 
         if self.discussion.is_discussion_over(self.state):
             self.state.add_history_entry(
@@ -602,13 +605,9 @@ class Moderator:
                 data={"voting_rule": self.day_voting.voting_rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
-            self._action_queue.extend(v_id for v_id in next_voters_ids if v_id not in self._action_queue)
-            if self._action_queue:
-                for voter_id in self._action_queue:
-            for v_id in next_voters_ids:
-                self._add_to_action_queue(v_id, VoteAction.__name__)
+            self._action_queue.extend(VoteAction, next_voters_ids)
 
-            vote_queue = self._action_queue.get(VoteAction.__name__, [])
+            vote_queue = self._action_queue.get(VoteAction)
             if vote_queue:
                 for voter_id in vote_queue:  # Prompt only the current batch of voters
                     player = self.state.get_player_by_id(voter_id)
@@ -619,25 +618,19 @@ class Moderator:
                             public=False, visible_to=[voter_id]
                         )
         else:
-            # Discussion is not over. Check if we need to go back to bidding.
+            # Discussion is not over. Check if we need to go back to bidding action and phase.
+            action_cls = ChatAction
             if isinstance(self.discussion, TurnByTurnBiddingDiscussion) and self.discussion._phase == "bidding":
-                self.detailed_phase = DetailedPhase.DAY_BIDDING_AWAIT
+                self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
+                action_cls = BidAction
 
             # Get the next active players (either bidders or the next speaker)
-            next_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(s_id for s_id in next_speakers if s_id not in self._action_queue)
-            if self._action_queue:
-                self.discussion.prompt_speakers_for_tick(self.state, self._action_queue)
-            for s_id in next_speakers:
-                self._add_to_action_queue(s_id, ChatAction.__name__)
-
-            chat_queue = self._action_queue.get(ChatAction.__name__, [])
-            if chat_queue:  # Prompt if there are speakers for the next tick
-                self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
-            # Stay in DAY_DISCUSSION_AWAIT_CHAT
+            next_actors = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(action_cls, next_actors)
+            self.discussion.prompt_speakers_for_tick(self.state, next_actors)
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
-        vote_queue = self._action_queue.get(VoteAction.__name__, [])
+        vote_queue = self._action_queue.get(VoteAction)
         self.day_voting.collect_votes(player_actions, self.state, vote_queue)
         self._action_queue.clear()  # Clear previous voters
 
@@ -687,12 +680,9 @@ class Moderator:
                 self.set_new_phase(DetailedPhase.NIGHT_START)
         else:
             next_voters_ids = self.day_voting.get_next_voters()
-            for v_id in next_voters_ids:
-                self._add_to_action_queue(v_id, VoteAction.__name__)
-
-            vote_queue = self._action_queue.get(VoteAction.__name__, [])
-            if vote_queue:
-                for voter_id in vote_queue:  # Prompt only the current batch of voters
+            self._action_queue.extend(VoteAction, next_voters_ids)
+            if next_voters_ids:
+                for voter_id in next_voters_ids:
                     player = self.state.get_player_by_id(voter_id)
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
