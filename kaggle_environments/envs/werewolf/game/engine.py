@@ -1,18 +1,22 @@
-from enum import Enum
-from typing import List, Dict, Tuple
-import json
 
-from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction
-from .protocols import DiscussionProtocol, VotingProtocol
-from .roles import Player
+
+import json
+from enum import Enum
+from typing import List, Dict, Tuple, Type, Sequence
+
+from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
 from .consts import Phase, Team, RoleConst
-from .states import GameState
+from .protocols import TurnByTurnBiddingDiscussion
+from .protocols import DiscussionProtocol, VotingProtocol
 from .records import (
     HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
     RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry,
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry,
     GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
 )
+
+from .roles import Player
+from .states import GameState
 
 
 class DetailedPhase(Enum):
@@ -21,25 +25,64 @@ class DetailedPhase(Enum):
     NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
     # Day Phases
     DAY_START = "DAY_START"
-    DAY_DISCUSSION_AWAIT_CHAT = "DAY_DISCUSSION_AWAIT_CHAT"
+    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT"
+    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
     DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
     GAME_OVER = "GAME_OVER"
+
+
+class ActionQueue:
+    """A data structure for managing player ids in action specific queues."""
+
+    def __init__(self):
+        self._action_queue: Dict[str, List[str]] = {}
+
+    def clear(self):
+        self._action_queue = {}
+
+    def append(self, action_cls: Type[Action], player_id: str):
+        action_type = action_cls.__name__
+        self._action_queue.setdefault(action_type, [])
+        if player_id in self._action_queue[action_type]:
+            raise ValueError(f'player {player_id} is already in the action queue. '
+                             'One turn only one action is allowed in the queue.')
+        self._action_queue[action_type].append(player_id)
+
+    def extend(self, action_cls: Type[Action], player_ids: Sequence[str]):
+        for player_id in player_ids:
+            self.append(action_cls, player_id)
+
+    def get(self, action_cls: Type[Action]) -> List[str]:
+        """return a list of player_id for the selected action."""
+        return self._action_queue.get(action_cls.__name__, [])
+
+    def get_active_player_ids(self) -> List[str]:
+        all_players = set()
+        for players in self._action_queue.values():
+            all_players.update(players)
+        return list(all_players)
 
 
 class Moderator:
     """Drives the finite-state machine for the game."""
 
-    def __init__(self,
-                 state: GameState,
-                 discussion: DiscussionProtocol,
-                 day_voting: VotingProtocol,  # Renamed for clarity
-                 night_voting: VotingProtocol,
-                 allow_doctor_self_save: bool = False):
+    def __init__(
+        self,
+        state: GameState,
+        discussion: DiscussionProtocol,
+        day_voting: VotingProtocol,  # Renamed for clarity
+        night_voting: VotingProtocol,
+        allow_doctor_self_save: bool = False,
+        reveal_night_elimination_role: bool = True,
+        reveal_day_exile_role: bool = True
+    ):
         self.state = state
         self.discussion = discussion
         self.day_voting = day_voting
         self.night_voting = night_voting
         self.allow_doctor_self_save = allow_doctor_self_save
+        self._reveal_night_elimination_role = reveal_night_elimination_role
+        self._reveal_day_exile_role = reveal_day_exile_role
 
         self._player_history_cursors: Dict[str, Tuple[int, int]] = {
             p.id: (0, 0) for p in self.state.players
@@ -51,7 +94,7 @@ class Moderator:
 
         self._active_night_roles_queue: List[Player] = []
         self._night_save_queue: Dict[str, List[str]] = {}
-        self._action_queue: Dict[str, List[str]] = {}  # Player IDs expected to act, keyed by action type
+        self._action_queue = ActionQueue()
 
         # below is the state transition function table
         # each transition function has the signature tr_func(actions: List[Action]) where the input is a list of actions
@@ -61,7 +104,8 @@ class Moderator:
             DetailedPhase.NIGHT_START: self._handle_night_start,
             DetailedPhase.NIGHT_AWAIT_ACTIONS: self._handle_night_await_actions,
             DetailedPhase.DAY_START: self._handle_day_start,
-            DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT: self._handle_day_discussion_await_chat,
+            DetailedPhase.DAY_BIDDING_AWAIT: self._handle_day_bidding_await,
+            DetailedPhase.DAY_CHAT_AWAIT: self._handle_day_chat_await,
             DetailedPhase.DAY_VOTING_AWAIT: self._handle_day_voting_await,
             # DetailedPhase.GAME_OVER: self._handle_game_over,
         }
@@ -81,7 +125,7 @@ class Moderator:
             day_voting_protocol_name=self.day_voting.__class__.__name__,
             day_voting_protocol_rule=self.day_voting.voting_rule
         )
-        
+
         role_msg = "The following explain the function of each role." + "\n".join(
             [f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
              for role in self.state.all_unique_roles])
@@ -114,7 +158,7 @@ class Moderator:
                 rule_of_role=player.role.descriptions
             )
             self.state.add_history_entry(
-                description=f'Your player id is "{data.player_id}". Your team is "{data.team}". Your role is "{data.role}".\n'           
+                description=f'Your player id is "{data.player_id}". Your team is "{data.team}". Your role is "{data.role}".\n'
                             f"The rule of your role: {data.rule_of_role}",
                 entry_type=HistoryEntryType.GAME_START,
                 public=False,
@@ -131,18 +175,8 @@ class Moderator:
         if add_one_day:
             self.state.day_count += 1
 
-    def _add_to_action_queue(self, player_id: str, action_type: str):
-        self._action_queue.setdefault(action_type, [])
-        if player_id in self._action_queue[action_type]:
-            raise ValueError(f'player {player_id} is already in the action queue. '
-                             'One turn only one action is allowed in the queue.')
-        self._action_queue[action_type].append(player_id)
-
     def get_active_player_ids(self) -> List[str]:
-        all_players = set()
-        for players in self._action_queue.values():
-            all_players.update(players)
-        return list(all_players)
+        return self._action_queue.get_active_player_ids()
 
     def get_observation(self, player_id: str) -> Tuple[List[HistoryEntry], Tuple[int, int]]:
         """
@@ -222,7 +256,7 @@ class Moderator:
 
         self.valid_doctor_save_ids = {}
         for doctor in self.state.alive_players_by_role(RoleConst.DOCTOR):
-            self._add_to_action_queue(doctor.id, HealAction.__name__)
+            self._action_queue.append(HealAction, doctor.id)
             self.valid_doctor_save_ids[doctor.id] = [f"{p.id}" for p in self.state.alive_players()] \
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
             data_entry = RequestDoctorSaveDataEntry(
@@ -240,7 +274,7 @@ class Moderator:
 
         # announce await action to seer
         for seer in self.state.alive_players_by_role(RoleConst.SEER):
-            self._add_to_action_queue(seer.id, InspectAction.__name__)
+            self._action_queue.append(InspectAction, seer.id)
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
                 action_json_schema=json.dumps(InspectAction.model_json_schema())
@@ -281,8 +315,7 @@ class Moderator:
             alive_voters=alive_werewolves,
             potential_targets=potential_targets
         )
-        for ww_voter_id in self.night_voting.get_next_voters():  # Should give all WWs if simultaneous
-            self._add_to_action_queue(ww_voter_id, VoteAction.__name__)
+        self._action_queue.extend(VoteAction, self.night_voting.get_next_voters())
 
         # state transition
         self.set_new_phase(DetailedPhase.NIGHT_AWAIT_ACTIONS)
@@ -369,7 +402,7 @@ class Moderator:
                         )
 
         # Process werewolf votes
-        werewolf_voters_expected = self._action_queue.get(VoteAction.__name__, [])
+        werewolf_voters_expected = self._action_queue.get(VoteAction)
         if werewolf_voters_expected:
             # Using collect_votes (plural) assuming it can handle timeouts by comparing
             # the actions in player_actions against the list of expected voters.
@@ -384,11 +417,10 @@ class Moderator:
         if not self.night_voting.done():
             # Werewolf voting is not complete (e.g., sequential voting)
             next_ww_voters = self.night_voting.get_next_voters()
-            for voter_id in next_ww_voters:
-                self._add_to_action_queue(voter_id, VoteAction.__name__)
+            self._action_queue.extend(VoteAction, next_ww_voters)
 
             # Re-prompt only the werewolves whose turn it is now
-            vote_action_queue = self._action_queue.get(VoteAction.__name__, [])
+            vote_action_queue = self._action_queue.get(VoteAction)
             alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
                                               p.id in vote_action_queue]
             if alive_werewolves_still_to_vote:
@@ -439,17 +471,27 @@ class Moderator:
                     else:
                         original_role_name = werewolf_target_player.role.name.value
                         self.state.eliminate_player(werewolf_target_id)
-                        data = WerewolfNightEliminationDataEntry(
-                            eliminated_player_id=werewolf_target_id,
-                            eliminated_player_role_name=original_role_name,
-                        )
-                        self.state.add_history_entry(
-                            description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
-                                        f'Their role was a "{original_role_name}".',
-                            entry_type=HistoryEntryType.ELIMINATION,
-                            public=True,
-                            data=data
-                        )
+                        if self._reveal_night_elimination_role:
+                            data = WerewolfNightEliminationDataEntry(
+                                eliminated_player_id=werewolf_target_id,
+                                eliminated_player_role_name=original_role_name,
+                                eliminated_player_team_name=werewolf_target_player.role.team.value
+                            )
+                            self.state.add_history_entry(
+                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
+                                            f'Their role was a "{original_role_name}".',
+                                entry_type=HistoryEntryType.ELIMINATION,
+                                public=True,
+                                data=data
+                            )
+                        else:
+                            data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
+                            self.state.add_history_entry(
+                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.',
+                                entry_type=HistoryEntryType.ELIMINATION,
+                                public=True,
+                                data=data
+                            )
                 else:
                     self.state.add_history_entry(
                         description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
@@ -476,6 +518,8 @@ class Moderator:
 
     def _handle_day_start(self, player_actions: Dict[str, Action]):
         self._action_queue.clear()
+        self.state.day_count += 1
+        self.state.phase = Phase.DAY
         self.night_step = 0  # Reset night step counter
 
         self.state.add_history_entry(
@@ -485,39 +529,66 @@ class Moderator:
         )
 
         self.state.add_history_entry(
-            description=f"Villagers, let's discuss who to exile today. The discussion rule is: {self.discussion.discussion_rule}",
+            description=f"Villagers, let's decide who to exile. The discussion rule is: {self.discussion.discussion_rule}",
             entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
             public=True,
             data={'discussion_rule': self.discussion.discussion_rule}
         )
 
         self.discussion.begin(self.state)
-        # Initial speakers for discussion/bidding
-        current_speakers = self.discussion.speakers_for_tick(self.state)
-        for s_id in current_speakers:
-            self._add_to_action_queue(s_id, ChatAction.__name__)
 
-        chat_queue = self._action_queue.get(ChatAction.__name__, [])
-        if chat_queue:  # Only prompt if there are speakers
-            self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
+        # Check if the protocol starts with bidding
+        if isinstance(self.discussion, TurnByTurnBiddingDiscussion):
+            self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
+            # In bidding, all alive players can be active
+            bidders = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(BidAction, bidders)
+            self.discussion.prompt_speakers_for_tick(self.state, bidders)
+        else:
+            # If no bidding, go straight to chatting
+            self.set_new_phase(DetailedPhase.DAY_CHAT_AWAIT)
+            initial_speakers = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(ChatAction, initial_speakers)
+            self.discussion.prompt_speakers_for_tick(self.state, initial_speakers)
 
-        self.set_new_phase(DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT)
-        # If _action_queue is empty here (e.g. discussion protocol immediately ends),
-        # Env will call advance({}) and _handle_day_discussion_await_chat will transition.
-
-    def _handle_day_discussion_await_chat(self, player_actions: Dict[str, Action]):
-        # current_speakers_last_tick refers to who was in _action_queue for the player_actions received
-        current_speakers_last_tick = self._action_queue.get(ChatAction.__name__, [])
+    def _handle_day_bidding_await(self, player_actions: Dict[str, Action]):
+        current_bidders = self._action_queue.get(BidAction)
         self._action_queue.clear()
 
-        # The discussion protocol processes actions.
-        # player_actions are from current_speakers_last_tick
-        # The protocol needs to know who was expected to speak when these actions were generated.
-        self.discussion.process_actions(list(player_actions.values()), current_speakers_last_tick, self.state)
+        # The protocol processes bid actions
+        self.discussion.process_actions(list(player_actions.values()), current_bidders, self.state)
+
+        # We need to explicitly check if the bidding sub-phase is over
+        # This requires a reference to the bidding protocol within TurnByTurnBiddingDiscussion
+        bidding_protocol = self.discussion.bidding
+        if bidding_protocol.is_finished(self.state):
+            self.state.add_history_entry(
+                description="Bidding has concluded. The discussion will now begin.",
+                entry_type=HistoryEntryType.PHASE_CHANGE,
+                public=True
+            )
+            # Transition to the chat phase
+            self.set_new_phase(DetailedPhase.DAY_CHAT_AWAIT)
+
+            # Get the first speakers for the chat phase (could be bid winners)
+            next_speakers = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(ChatAction, next_speakers)
+            self.discussion.prompt_speakers_for_tick(self.state, next_speakers)
+        else:
+            # Bidding is not over (e.g., sequential auction), get next bidders
+            next_bidders = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(BidAction, next_bidders)
+            self.discussion.prompt_speakers_for_tick(self.state, next_bidders)
+            # Stay in DAY_BIDDING_AWAIT
+
+    def _handle_day_chat_await(self, player_actions: Dict[str, Action]):
+        speaker_ids = self._action_queue.get(ChatAction)
+        self._action_queue.clear()
+        self.discussion.process_actions(list(player_actions.values()), speaker_ids, self.state)
 
         if self.discussion.is_discussion_over(self.state):
             self.state.add_history_entry(
-                description="Daytime activity (discussion/bidding) has concluded. Moving to day vote.",
+                description="Daytime discussion has concluded. Moving to day vote.",
                 entry_type=HistoryEntryType.PHASE_CHANGE,
                 public=True
             )
@@ -527,17 +598,16 @@ class Moderator:
             self.set_new_phase(DetailedPhase.DAY_VOTING_AWAIT)
             self.state.add_history_entry(
                 description="Voting phase begins. We will decide who to exile today."
-                            f"\nDay voting Rule: {self.day_voting.voting_rule}."
+                            f"\nDay voting Rule: {self.day_voting.voting_rule}"
                             f"\nCurrent alive players are: {[player.id for player in alive_players]}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=True,
                 data={"voting_rule": self.day_voting.voting_rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
-            for v_id in next_voters_ids:
-                self._add_to_action_queue(v_id, VoteAction.__name__)
+            self._action_queue.extend(VoteAction, next_voters_ids)
 
-            vote_queue = self._action_queue.get(VoteAction.__name__, [])
+            vote_queue = self._action_queue.get(VoteAction)
             if vote_queue:
                 for voter_id in vote_queue:  # Prompt only the current batch of voters
                     player = self.state.get_player_by_id(voter_id)
@@ -548,21 +618,21 @@ class Moderator:
                             public=False, visible_to=[voter_id]
                         )
         else:
-            # Discussion not over, get next speakers
-            next_speakers = self.discussion.speakers_for_tick(self.state)
-            for s_id in next_speakers:
-                self._add_to_action_queue(s_id, ChatAction.__name__)
+            # Discussion is not over. Check if we need to go back to bidding action and phase.
+            action_cls = ChatAction
+            if isinstance(self.discussion, TurnByTurnBiddingDiscussion) and self.discussion._phase == "bidding":
+                self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
+                action_cls = BidAction
 
-            chat_queue = self._action_queue.get(ChatAction.__name__, [])
-            if chat_queue:  # Prompt if there are speakers for the next tick
-                self.discussion.prompt_speakers_for_tick(self.state, chat_queue)
-            # Stay in DAY_DISCUSSION_AWAIT_CHAT
+            # Get the next active players (either bidders or the next speaker)
+            next_actors = self.discussion.speakers_for_tick(self.state)
+            self._action_queue.extend(action_cls, next_actors)
+            self.discussion.prompt_speakers_for_tick(self.state, next_actors)
 
     def _handle_day_voting_await(self, player_actions: Dict[str, Action]):
-        vote_queue = self._action_queue.get(VoteAction.__name__, [])
+        vote_queue = self._action_queue.get(VoteAction)
         self.day_voting.collect_votes(player_actions, self.state, vote_queue)
         self._action_queue.clear()  # Clear previous voters
-
 
         if self.day_voting.done():
             exiled_player_id = self.day_voting.get_elected()
@@ -571,18 +641,28 @@ class Moderator:
                 if exiled_player:
                     original_role_name = exiled_player.role.name.value
                     self.state.eliminate_player(exiled_player_id)
-                    data = DayExileElectedDataEntry(
-                        elected_player_id=exiled_player_id,
-                        elected_player_role_name=original_role_name,
-                        elected_player_team_name=exiled_player.role.team.value
-                    )
-                    self.state.add_history_entry(
-                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
-                        # Keep description
-                        entry_type=HistoryEntryType.ELIMINATION,
-                        public=True,
-                        data=data
-                    )
+                    if self._reveal_day_exile_role:
+                        data = DayExileElectedDataEntry(
+                            elected_player_id=exiled_player_id,
+                            elected_player_role_name=original_role_name,
+                            elected_player_team_name=exiled_player.role.team.value
+                        )
+                        self.state.add_history_entry(
+                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
+                    else:
+                        data = DayExileElectedDataEntry(
+                            elected_player_id=exiled_player_id
+                        )
+                        self.state.add_history_entry(
+                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
             else:
                 self.state.add_history_entry(
                     description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",
@@ -600,12 +680,9 @@ class Moderator:
                 self.set_new_phase(DetailedPhase.NIGHT_START)
         else:
             next_voters_ids = self.day_voting.get_next_voters()
-            for v_id in next_voters_ids:
-                self._add_to_action_queue(v_id, VoteAction.__name__)
-
-            vote_queue = self._action_queue.get(VoteAction.__name__, [])
-            if vote_queue:
-                for voter_id in vote_queue:  # Prompt only the current batch of voters
+            self._action_queue.extend(VoteAction, next_voters_ids)
+            if next_voters_ids:
+                for voter_id in next_voters_ids:
                     player = self.state.get_player_by_id(voter_id)
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
@@ -613,6 +690,7 @@ class Moderator:
                             description=prompt, entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                             public=False, visible_to=[voter_id]
                         )
+            # Stay in DetailedPhase.DAY_VOTING_AWAIT
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists

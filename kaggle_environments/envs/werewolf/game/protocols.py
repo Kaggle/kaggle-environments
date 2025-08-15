@@ -1,15 +1,17 @@
-from abc import ABC, abstractmethod
-from typing import Dict, List, Sequence, Optional  # Added Optional
-import random
-from collections import Counter
+import itertools
 import json
+import random
 import re
+from abc import ABC, abstractmethod
+from collections import Counter
+from typing import Dict, List, Sequence, Optional, Tuple
 
-from .states import GameState
-from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
-from .roles import Player
-from .consts import Team, Phase
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
+from .consts import Team, Phase
+from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
+    WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry
+from .roles import Player
+from .states import GameState
 
 
 def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> List[str]:
@@ -22,56 +24,6 @@ def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> Lis
     # Use a set to automatically handle duplicates found by the regex
     found_ids = set(re.findall(pattern, text))
     return sorted(list(found_ids)) # sorted for deterministic order
-
-
-class DiscussionProtocol(ABC):
-    """Drives the order/shape of daytime conversation."""
-
-    @abstractmethod
-    def begin(self, state: GameState) -> None:
-        """Optional hook – initialise timers, round counters…"""
-
-    @property
-    @abstractmethod
-    def discussion_rule(self) -> str:
-        """A string describing the discussion rule in effect."""
-        """Optional hook – initialise timers, round counters…"""
-
-    @abstractmethod
-    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
-        """
-        Return the IDs that are *allowed to send a chat action* this tick.
-        Return an empty sequence when the discussion phase is over.
-        """
-
-    @abstractmethod
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        """
-        Processes a batch of actions. Depending on the protocol's state (e.g., bidding or chatting),
-        it will handle relevant actions (like BidAction or ChatAction) from expected_speakers.
-        """
-        pass
-
-    @abstractmethod
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        """
-        Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
-        This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,
-        and before process_actions().
-        Implementations should use state.add_history_entry() to make announcements.
-        These announcements are typically visible only to the speakers, unless they are general status updates.
-        """
-        pass
-
-    @abstractmethod
-    def is_discussion_over(self, state: GameState) -> bool:
-        """Returns True if the entire discussion (including any preliminary phases like bidding) is complete."""
-        pass
-
-    @abstractmethod
-    def reset(self) -> None:
-        """Resets the protocol to its initial state."""
-        pass
 
 
 class VotingProtocol(ABC):
@@ -154,8 +106,59 @@ class TeamDecisionProtocol(ABC):
         pass
 
 
+def _find_mentioned_players(text: str, all_player_ids: List[str]) -> List[str]:
+    """
+    Finds player IDs mentioned in a string of text, ordered by their first appearance.
+    Player IDs are treated as whole words.
+    Example: "I think gpt-4 is suspicious, what do you think John?" -> ["gpt-4", "John"]
+    """
+    if not text or not all_player_ids:
+        return []
+
+    # Sort by length descending to handle substrings correctly.
+    sorted_player_ids = sorted(all_player_ids, key=len, reverse=True)
+    pattern = r'\b(' + '|'.join(re.escape(pid) for pid in sorted_player_ids) + r')\b'
+
+    matches = re.finditer(pattern, text)
+
+    # Deduplicate while preserving order of first appearance
+    ordered_mentioned_ids = []
+    seen = set()
+    for match in matches:
+        player_id = match.group(1)
+        if player_id not in seen:
+            ordered_mentioned_ids.append(player_id)
+            seen.add(player_id)
+
+    return ordered_mentioned_ids
+
+
 class BiddingProtocol(ABC):
     """Drives one auction round and returns the winner(s)."""
+    @property
+    @abstractmethod
+    def bidding_rules(self) -> str:
+        """Specify the bidding rules"""
+
+    @property
+    @abstractmethod
+    def bids(self) -> Dict[str, int]:
+        """return a snapshot of the current bids"""
+
+    @staticmethod
+    def get_last_mentioned(state: GameState) -> Tuple[List[str], str]:
+        """get the players that were mentioned in last player message."""
+        last_chat_message = ""
+        sorted_days = sorted(state.history.keys(), reverse=True)
+        for day in sorted_days:
+            for entry in reversed(state.history[day]):
+                if entry.entry_type == HistoryEntryType.DISCUSSION and isinstance(entry.data, ChatDataEntry):
+                    last_chat_message = entry.data.message
+                    break
+            if last_chat_message:
+                break
+        players = _find_mentioned_players(last_chat_message, state.all_player_ids)
+        return players, last_chat_message
 
     @abstractmethod
     def begin(self, state: GameState) -> None: ...
@@ -166,13 +169,12 @@ class BiddingProtocol(ABC):
     @abstractmethod
     def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
         """Processes a batch of actions, handling BidActions by calling self.accept()."""
-        pass
 
     @abstractmethod
     def is_finished(self, state: GameState) -> bool: ...
 
     @abstractmethod
-    def outcome(self, state: GameState) -> list[int]:
+    def outcome(self, state: GameState) -> list[str]:
         """ # Return type should be list[str] for player IDs
         Return list of player-ids, ordered by bid strength.
         Could be 1 winner (sealed-bid) or a full ranking (Dutch auction).
@@ -181,7 +183,6 @@ class BiddingProtocol(ABC):
     @abstractmethod
     def reset(self) -> None:
         """Resets the protocol to its initial state."""
-        pass
 
 
 class NightTeamActionProtocol(ABC):
@@ -244,6 +245,92 @@ class WerewolfEliminationProtocol(NightTeamActionProtocol):
 
 
 # ----------------- discussion patterns ----------------------------------- #
+class DiscussionProtocol(ABC):
+    """Drives the order/shape of daytime conversation."""
+
+    @abstractmethod
+    def begin(self, state: GameState) -> None:
+        """Optional hook – initialise timers, round counters…"""
+
+    @property
+    @abstractmethod
+    def discussion_rule(self) -> str:
+        """A string describing the discussion rule in effect."""
+        """Optional hook – initialise timers, round counters…"""
+
+    @abstractmethod
+    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+        """
+        Return the IDs that are *allowed to send a chat action* this tick.
+        Return an empty sequence when the discussion phase is over.
+        """
+
+    @abstractmethod
+    def is_discussion_over(self, state: GameState) -> bool:
+        """Returns True if the entire discussion (including any preliminary phases like bidding) is complete."""
+        pass
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Resets the protocol to its initial state."""
+        pass
+
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+        """
+        Processes a batch of actions. Depending on the protocol's state (e.g., bidding or chatting),
+        it will handle relevant actions (like BidAction or ChatAction) from expected_speakers.
+        """
+        for act in actions:
+            if isinstance(act, ChatAction):
+                all_player_ids = [p.id for p in state.players]
+                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
+                if expected_speakers and act.actor_id in expected_speakers:
+                    data = ChatDataEntry(
+                        actor_id=act.actor_id,
+                        message=act.message,
+                        reasoning=act.reasoning,
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
+                    )
+                    state.add_history_entry(
+                        description=f'Player "{act.actor_id}" (chat): {act.message}',
+                        # Make public for general discussion
+                        entry_type=HistoryEntryType.DISCUSSION,
+                        public=True,
+                        source=act.actor_id,
+                        data=data
+                    )
+                else:
+                    state.add_history_entry(
+                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
+                        entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
+                        visible_to=[act.actor_id],
+                        public=False,
+                        source=act.actor_id
+                    )
+
+    def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
+        """prepare moderator call for action for each player."""
+        return [f'Player "{speaker_id}", it is your turn to speak.' for speaker_id in speakers]
+
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+        """
+        Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
+        This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,
+        and before process_actions().
+        Implementations should use state.add_history_entry() to make announcements.
+        These announcements are typically visible only to the speakers, unless they are general status updates.
+        """
+        call_for_actions = self.call_for_actions(speakers)
+        for speaker_id, call_for_action in zip(speakers, call_for_actions):
+            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
+            state.add_history_entry(
+                description=call_for_action,
+                entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
+                public=False,
+                visible_to=[speaker_id],
+                data=data
+            )
 
 
 class RoundRobinDiscussion(DiscussionProtocol):
@@ -271,47 +358,6 @@ class RoundRobinDiscussion(DiscussionProtocol):
     def speakers_for_tick(self, state):
         return [self._queue.pop(0)] if self._queue else []
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,
-                        source=act.actor_id,
-                        data=data
-                    )
-                else:
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
-                        visible_to=[act.actor_id],
-                        public=False,
-                        source=act.actor_id
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Typically one speaker for RoundRobin
-            for speaker_id in speakers:
-                data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
-                state.add_history_entry(
-                    description=f'Player "{speaker_id}", it is your turn to speak.',
-                    entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
-                    public=False,
-                    visible_to=[speaker_id],
-                    data=data
-                )
-
     def is_discussion_over(self, state: GameState) -> bool:
         return not self._queue  # Over if queue is empty
 
@@ -330,8 +376,6 @@ class RandomOrderDiscussion(DiscussionProtocol):
         return "Players speak in a random order for one full round."
 
     def begin(self, state):
-        import random
-        import itertools
         self._iters = itertools.cycle(random.sample(
             [p.id for p in state.alive_players()],
             k=len(state.alive_players())
@@ -349,42 +393,6 @@ class RandomOrderDiscussion(DiscussionProtocol):
             return []
         self._steps -= 1
         return [next(self._iters)]
-
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,  # Chat should be public
-                        data=data
-                    )
-                else:
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=False,
-                        visible_to=[act.actor_id]
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Typically one speaker
-            speaker_id = speakers[0]
-            state.add_history_entry(
-                description=f'Player "{speaker_id}", it is your turn to speak.',
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                public=False,
-                visible_to=[speaker_id]
-            )
 
     def is_discussion_over(self, state: GameState) -> bool:
         return self._steps == 0
@@ -422,191 +430,136 @@ class ParallelDiscussion(DiscussionProtocol):
         self._remaining -= 1
         return [p.id for p in state.alive_players()]
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                # In parallel, any alive player in expected_speakers can talk
-                if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,  # Parallel chat is usually public
-                        data=data
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Indicates a speaking tick is active; speakers will be all alive players
-            # The begin() method already announces the general start.
-            # This prompt can confirm the active tick and remaining time.
-            state.add_history_entry(
-                description=f"Parallel discussion: All designated players may speak now. "
-                            f"({self._remaining + 1} speaking opportunities remaining, including this one).",
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                public=True  # General status update for parallel discussion
-            )
+    def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
+        return [f"Parallel discussion: All designated players may speak now or remain silent. "
+                f"({self._remaining + 1} speaking opportunities remaining, including this one)."] * len(speakers)
 
     def is_discussion_over(self, state: GameState) -> bool:
         return self._remaining == 0
 
 
-class BidDrivenDiscussion(DiscussionProtocol):
+class TurnByTurnBiddingDiscussion(DiscussionProtocol):
     """
-    Wraps an *inner* DiscussionProtocol.
-    Winner(s) of the auction decide the talk order.
+    A discussion protocol where players bid for the right to speak each turn.
+    This protocol manages the entire bid-speak-bid-speak loop.
     """
+    SPEAKING_PHASE = 'speaking'
+    BIDDING_PHASE = 'bidding'
 
-    def __init__(self,
-                 bidding: BiddingProtocol,
-                 inner: DiscussionProtocol):
+    def __init__(self, bidding: BiddingProtocol, max_turns: int = 8, bid_result_public: bool = True):
         self.bidding = bidding
-        self.inner = inner
-        self._winners: list[str] = []
-        self._is_winner_speaking_now: bool = False  # Added flag
-        self._phase = "bidding"
+        self.max_turns = max_turns
+        self._phase = self.BIDDING_PHASE  # Can be "bidding" or "speaking"
+        self._turns_taken = 0
+        self._speaker: Optional[str] = None
+        self._all_passed = False
+        self._bid_result_public = bid_result_public
 
     def reset(self) -> None:
         self.bidding.reset()
-        self.inner.reset()
-        self._winners = []
-        self._is_winner_speaking_now = False
-        self._phase = "bidding"
+        self._phase = self.BIDDING_PHASE
+        self._turns_taken = 0
+        self._speaker = None
+        self._all_passed = False
 
     @property
     def discussion_rule(self) -> str:
-        return f"Bidding phase to determine initial speaking rights, followed by: {self.inner.discussion_rule}"
+        return "\n".join([
+            f"Players bid for the right to speak each turn for up to {self.max_turns} turns.",
+            f"The bidding rule is: {self.bidding.__class__.__name__}.",
+            self.bidding.bidding_rules,
+            f"If everyone bids 0, moderator will directly move on to day voting and no one speaks."
+        ])
 
-    # -------- life-cycle ------------------------------------- #
-    def begin(self, state):
-        self.bidding.begin(state)
-        self._winners = []  # Reset winners list
-        self._is_winner_speaking_now = False
-        self._phase = "bidding"
-        state.add_history_entry(
-            description="Bidding phase begins. Players may now submit bids.",
-            entry_type=HistoryEntryType.BIDDING_INFO,
-            public=True
-        )
-
-    def speakers_for_tick(self, state):
-        if self._phase == "bidding":
-            # If bidding is not finished, all alive players are potential bidders.
-            if not self.bidding.is_finished(state):
-                self._is_winner_speaking_now = False
-                return [p.id for p in state.alive_players()]
-            
-            # Bidding is finished, transition to discussion
-            self._is_winner_speaking_now = False
-            # During bidding, no one is designated to "speak" via chat.
-            # Bids are submitted as general actions.
-            # Check if bidding is finished to potentially transition phase.
-            # This check is now implicitly handled by the flow above and in process_actions.
-            # This check might be better placed in process_actions after bids are processed.
-            if self.bidding.is_finished(state):
-                self._winners = self.bidding.outcome(state)
-                self._phase = "discussion"
-                state.add_history_entry(
-                    description="Bidding has concluded. Discussion will proceed based on bid winners (if any), then normal discussion.",
-                    entry_type=HistoryEntryType.BIDDING_INFO,
-                    public=True
-                )
-                self.inner.begin(state)
-            return [] # Bidding just finished, next tick will be winner or inner.speakers_for_tick
-
-        # Discussion phase (after bidding)
-        self._is_winner_speaking_now = False  # Reset before checking winners/inner
-        if self._winners:  # If there are winners in the queue to speak
-            speaker_id = self._winners.pop(0)
-            self._is_winner_speaking_now = True
-            return [speaker_id]  # Next winner speaks, remove from queue
-        else:  # No more winners, delegate to inner protocol
-            # self._is_winner_speaking_now remains False
-            return self.inner.speakers_for_tick(state)
-
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        if self._phase == "bidding":
-            bid_actions = [act for act in actions if isinstance(act, BidAction)]
-            self.bidding.process_incoming_bids(bid_actions, state)
-
-            for act in actions:
-                if not isinstance(act, BidAction):  # Log non-bid actions as errors/ignored
-                    state.add_history_entry(
-                        description=f"P{act.actor_id} sent a {act.kind.value} action during bidding phase. Action ignored.",
-                        entry_type=HistoryEntryType.ERROR,
-                        public=False,  # Or true if you want to announce ignored actions
-                        visible_to=[act.actor_id]
-                    )
-
-            if self.bidding.is_finished(state):
-                # Transition to discussion phase (already handled in speakers_for_tick if it's called after bids,
-                # but good to ensure state consistency here too)
-                if self._phase == "bidding":  # Check to prevent re-triggering if already transitioned
-                    self._winners = self.bidding.outcome(state)
-                    self._phase = "discussion"
-                    state.add_history_entry(
-                        description="Bidding has concluded. Discussion will now proceed.",
-                        entry_type=HistoryEntryType.BIDDING_INFO,
-                        public=True
-                    )
-                    self.inner.begin(state)  # Initialize the inner discussion protocol
-
-        elif self._phase == "discussion":
-            # expected_speakers would be a winner if self._winners had an item when speakers_for_tick was called.
-            if expected_speakers:  # A speaker (winner or from inner protocol) was designated
-                speaker_id = expected_speakers[0]
-                processed_action_for_speaker = False
-                for act in actions:
-                    if isinstance(act, ChatAction) and act.actor_id == speaker_id:
-                        # If the speaker was from the _winners list, it's a bid winner's chat.
-                        # Otherwise, it's a chat for the inner protocol.
-                        # The distinction in logging might be useful.
-                        # For now, using generic chat processing.
-                        self.inner.process_actions([act], expected_speakers,
-                                                   state)  # Let inner handle its own chat logic
-                        processed_action_for_speaker = True
-                        break
-                if not processed_action_for_speaker:
-                    state.add_history_entry(
-                        description=f"P{speaker_id} was expected to speak but did not provide a valid chat action.",
-                        entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT, public=True
-                    )
-            else:  # No specific speaker expected this tick (e.g. parallel inner discussion, or end of round)
-                self.inner.process_actions(actions, expected_speakers, state)
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if self._phase == "bidding":
-            if speakers: # Should be all alive players if bidding is active
-                state.add_history_entry(
-                    description="Bidding phase is active. All players may submit a BidAction.",
-                    entry_type=HistoryEntryType.BIDDING_INFO, # Or MODERATOR_ANNOUNCEMENT
-                    public=True
-                    # visible_to=speakers # Or public if everyone should know bidding is open
-                )
-
-        elif self._phase == "discussion":
-            if speakers:  # Ensure there's actually a speaker designated for this tick
-                if self._is_winner_speaking_now:
-                    speaker_id = speakers[0]  # Should be the winner who was just designated
-                    state.add_history_entry(
-                        description=f"P{speaker_id}, as a bid winner, it is your turn to speak.",
-                        entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                        public=False,
-                        visible_to=[speaker_id]
-                    )
-                else:
-                    # Delegate to inner discussion protocol's prompt method
-                    self.inner.prompt_speakers_for_tick(state, speakers)
+    def begin(self, state: GameState) -> None:
+        self.reset()
+        self.bidding.begin(state)  # Initial setup for the first bidding round
 
     def is_discussion_over(self, state: GameState) -> bool:
-        return self._phase == "discussion" and not self._winners and self.inner.is_discussion_over(state)
+        return self._turns_taken >= self.max_turns or self._all_passed
+
+    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+        if self.is_discussion_over(state):
+            return []
+
+        if self._phase == self.BIDDING_PHASE:
+            return [p.id for p in state.alive_players()]
+        elif self._phase == self.SPEAKING_PHASE:
+            return [self._speaker] if self._speaker else []
+        return []
+
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+        if self._phase == self.BIDDING_PHASE:
+            self.bidding.process_incoming_bids(actions, state)
+
+            # Handle players who didn't bid (timed out) by assuming a bid of 0
+            all_alive_player_ids = [p.id for p in state.alive_players()]
+            if hasattr(self.bidding, '_bids'):
+                for player_id in all_alive_player_ids:
+                    if player_id not in self.bidding._bids:
+                        default_bid = BidAction(actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value)
+                        self.bidding.accept(default_bid, state)
+
+            bids = getattr(self.bidding, '_bids', {})
+            if len(bids) >= len(all_alive_player_ids) and all(amount == 0 for amount in bids.values()):
+                self._all_passed = True
+                state.add_history_entry(
+                    description="All players passed on speaking. Discussion ends.",
+                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    public=True
+                )
+                return
+
+            # Once all bids are in (or a timeout, handled by moderator's single tick), determine the winner
+            winner_list = self.bidding.outcome(state)
+            self._speaker = winner_list[0] if winner_list else None
+
+            if self._speaker:
+                data = BidResultDataEntry(
+                    winner_player_ids=[self._speaker],
+                    bid_overview=self.bidding.bids,
+                    mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0]
+                )
+                overview_text = ', '.join([f'{k}: {v}' for k, v in self.bidding.bids.items()])
+                state.add_history_entry(
+                    description=f"Player {self._speaker} won the bid and will speak next.\n"
+                                f"Bid overview - {overview_text}.",
+                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    public=self._bid_result_public,
+                    data=data
+                )
+                self._phase = self.SPEAKING_PHASE
+            else:
+                # No one to speak, advance turn count and bid again
+                self._turns_taken += 1
+                if not self.is_discussion_over(state):
+                    self.bidding.begin(state)  # Prepare for next bidding round
+
+        elif self._phase == self.SPEAKING_PHASE:
+            # Process the chat action from the designated speaker
+            super().process_actions(actions, expected_speakers, state)
+            self._turns_taken += 1
+
+            # After speaking, transition back to bidding for the next turn
+            if not self.is_discussion_over(state):
+                self._phase = self.BIDDING_PHASE
+                self._speaker = None
+                self.bidding.begin(state)  # Reset bids and find new mentioned players
+
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+        if self._phase == self.BIDDING_PHASE:
+            data = {"action_json_schema": json.dumps(BidAction.model_json_schema())}
+            state.add_history_entry(
+                description=(
+                    f"A new round of discussion begins. Place bid for a chance to speak. "
+                    f"{self.max_turns - self._turns_taken} turns left to speak."
+                ),
+                entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
+                public=True,
+                data=data
+            )
+        elif self._phase == self.SPEAKING_PHASE and self._speaker:
+            super().prompt_speakers_for_tick(state, speakers)
 
 
 # ----------------- voting patterns --------------------------------------- #
@@ -875,72 +828,136 @@ class AlphaFirstEliminateResolver(TeamDecisionProtocol):
 
 # ----------------- bidding protocols --------------------------------------- #
 
-class FirstPriceSealed(BiddingProtocol):
-    def begin(self, state):
+class UrgencyBiddingProtocol(BiddingProtocol):
+    """
+    A bidding protocol based on the Werewolf Arena paper.
+    - Agents bid with an urgency level (0-4).
+    - Highest bidder wins.
+    - Ties are broken by prioritizing players mentioned in the previous turn.
+    """
+    @property
+    def bidding_rules(self) -> str:
+        return "\n".join([
+            "Urgency-based bidding. Players bid with an urgency level (0-4).",
+            "0: I would like to observe and listen for now.",
+            "1: I have some general thoughts to share with the group.",
+            "2: I have something critical and specific to contribute to this discussion.",
+            "3: It is absolutely urgent for me to speak next.",
+            "4: Someone has addressed me directly and I must respond.",
+            "Highest bidder wins."
+            "Ties are broken by the following priority: (1) players mentioned in the previous turn's chat, "
+            "(2) the least spoken player, (3) round robin order of the player list."
+        ])
+
+    @property
+    def bids(self) -> Dict[str, int]:
+        return dict(**self._bids)
+
+    def __init__(self):
         self._bids: Dict[str, int] = {}
+        self._mentioned_last_turn: List[str] = []
 
     def reset(self) -> None:
         self._bids = {}
+        self._mentioned_last_turn = []
 
-    def accept(self, bid, state):
-        self._bids[bid.actor_id] = bid.amount
+    def begin(self, state: GameState) -> None:
+        """Called at the start of a bidding round to identify recently mentioned players."""
+        self.reset()
+        # Find the very last chat entry in the history to check for mentions
+        self._mentioned_last_turn, last_chat_message = self.get_last_mentioned(state)
+
+        if last_chat_message:
+            if self._mentioned_last_turn:
+                state.add_history_entry(
+                    description=f"Players mentioned last turn (priority in ties): {self._mentioned_last_turn}",
+                    entry_type=HistoryEntryType.BIDDING_INFO,
+                    public=True  # So everyone knows who has priority
+                )
+
+    def accept(self, bid: BidAction, state: GameState) -> None:
+        if 0 <= bid.amount <= 4:
+            self._bids[bid.actor_id] = bid.amount
+            data = BidDataEntry(
+                actor_id=bid.actor_id,
+                reasoning=bid.reasoning,
+                perceived_threat_level=bid.perceived_threat_level,
+                bid_amount=bid.amount
+            )
+            state.add_history_entry(
+                description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
+                entry_type=HistoryEntryType.BIDDING_INFO,
+                public=False,
+                visible_to=[bid.actor_id],
+                data=data
+            )
+        else:
+            # Invalid bid amount is treated as a bid of 0
+            self._bids[bid.actor_id] = 0
+            state.add_history_entry(
+                description=f"Player {bid.actor_id} submitted an invalid bid amount ({bid.amount}). Treated as 0.",
+                entry_type=HistoryEntryType.ERROR,
+                public=False,
+                visible_to=[bid.actor_id]
+            )
 
     def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
         for act in actions:
             if isinstance(act, BidAction):
-                try:
-                    self.accept(act, state)  # self.accept should handle adding to self._bids
-                except ValueError as e:  # Or other specific exceptions from accept
-                    state.add_history_entry(
-                        description=f"Invalid bid by P{act.actor_id}: {e}",
-                        entry_type=HistoryEntryType.ERROR,  # Or BIDDING_INFO with error status
-                        public=False,
-                        visible_to=[act.actor_id]
-                    )
+                self.accept(act, state)
 
-    def is_finished(self, state):
-        return len(self._bids) == len(state.alive_players())
+    def is_finished(self, state: GameState) -> bool:
+        # This bidding round is considered "finished" when all alive players have bid.
+        return len(self._bids) >= len(state.alive_players())
 
-    def outcome(self, state) -> list[str]:  # Player IDs are strings
+    def outcome(self, state: GameState) -> list[str]:
         if not self._bids:
-            return []
-        top = max(self._bids.values())
-        winners = [pid for pid, amt in self._bids.items() if amt == top]
-        return sorted(winners)  # deterministic tie-break: lowest id
+            # If no one bids, deterministically pick the first alive player to speak.
+            alive_players = state.alive_players()
+            return [alive_players[0].id] if alive_players else []
 
+        max_bid = max(self._bids.values())
+        highest_bidders = sorted([pid for pid, amt in self._bids.items() if amt == max_bid])
 
-class VickreyAuction(BiddingProtocol):
-    def begin(self, state):
-        self._bids: Dict[str, int] = {}
+        if len(highest_bidders) == 1:
+            return highest_bidders
 
-    def reset(self) -> None:
-        self._bids = {}
+        # Tie-breaking logic
+        candidates = highest_bidders
 
-    def accept(self, bid, state):
-        self._bids[bid.actor_id] = bid.amount
+        # Rule 1: Players mentioned in the last turn
+        mentioned_in_tie = [pid for pid in candidates if pid in self._mentioned_last_turn]
+        if mentioned_in_tie:
+            candidates = mentioned_in_tie
 
-    def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, BidAction):
-                try:
-                    self.accept(act, state)
-                except ValueError as e:
-                    state.add_history_entry(
-                        description=f"Invalid bid by P{act.actor_id}: {e}",
-                        entry_type=HistoryEntryType.ERROR  # Or BIDDING_INFO with error status
-                    )
+        if len(candidates) == 1:
+            return candidates
 
-    def is_finished(self, state):
-        return len(self._bids) == len(state.alive_players())
+        # Rule 2: The least spoken individual
+        speech_counts = Counter(
+            entry.data.actor_id
+            for day_history in state.history.values()
+            for entry in day_history
+            if entry.entry_type == HistoryEntryType.DISCUSSION and isinstance(entry.data, ChatDataEntry)
+        )
 
-    def outcome(self, state) -> list[str]:  # Player IDs are strings
-        if not self._bids or len(self._bids) < 1:  # Handle empty or single bid
-            return list(self._bids)  # trivial case
-        (w_id, w_amt), (_, second_price) = sorted(
-            self._bids.items(), key=lambda x: x[1], reverse=True)[:2]
-        # Charge second-highest price:
-        state.wallet[w_id] -= second_price
-        return [w_id]
+        candidate_speech_counts = {pid: speech_counts.get(pid, 0) for pid in candidates}
+        min_spoken = min(candidate_speech_counts.values())
+        least_spoken_candidates = sorted(
+            [pid for pid, count in candidate_speech_counts.items() if count == min_spoken])
+
+        if len(least_spoken_candidates) == 1:
+            return least_spoken_candidates
+
+        candidates = least_spoken_candidates
+
+        # Rule 3: Round robin order of the player list in state
+        for pid in state.all_player_ids:
+            if pid in candidates:
+                return [pid]
+
+        # This part should be unreachable if candidates is a subset of all_player_ids
+        return [candidates[0]] if candidates else []
 
 
 class SequentialVoting(VotingProtocol):
