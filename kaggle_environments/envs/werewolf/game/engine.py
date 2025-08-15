@@ -29,17 +29,23 @@ class DetailedPhase(Enum):
 class Moderator:
     """Drives the finite-state machine for the game."""
 
-    def __init__(self,
-                 state: GameState,
-                 discussion: DiscussionProtocol,
-                 day_voting: VotingProtocol,  # Renamed for clarity
-                 night_voting: VotingProtocol,
-                 allow_doctor_self_save: bool = False):
+    def __init__(
+        self,
+        state: GameState,
+        discussion: DiscussionProtocol,
+        day_voting: VotingProtocol,  # Renamed for clarity
+        night_voting: VotingProtocol,
+        allow_doctor_self_save: bool = False,
+        reveal_night_elimination_role: bool = True,
+        reveal_day_exile_role: bool = True
+    ):
         self.state = state
         self.discussion = discussion
         self.day_voting = day_voting
         self.night_voting = night_voting
         self.allow_doctor_self_save = allow_doctor_self_save
+        self._reveal_night_elimination_role = reveal_night_elimination_role
+        self._reveal_day_exile_role = reveal_day_exile_role
 
         self._player_history_cursors: Dict[str, Tuple[int, int]] = {
             p.id: (0, 0) for p in self.state.players
@@ -439,17 +445,27 @@ class Moderator:
                     else:
                         original_role_name = werewolf_target_player.role.name.value
                         self.state.eliminate_player(werewolf_target_id)
-                        data = WerewolfNightEliminationDataEntry(
-                            eliminated_player_id=werewolf_target_id,
-                            eliminated_player_role_name=original_role_name,
-                        )
-                        self.state.add_history_entry(
-                            description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
-                                        f'Their role was a "{original_role_name}".',
-                            entry_type=HistoryEntryType.ELIMINATION,
-                            public=True,
-                            data=data
-                        )
+                        if self._reveal_night_elimination_role:
+                            data = WerewolfNightEliminationDataEntry(
+                                eliminated_player_id=werewolf_target_id,
+                                eliminated_player_role_name=original_role_name,
+                                eliminated_player_team_name=werewolf_target_player.role.team.value
+                            )
+                            self.state.add_history_entry(
+                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
+                                            f'Their role was a "{original_role_name}".',
+                                entry_type=HistoryEntryType.ELIMINATION,
+                                public=True,
+                                data=data
+                            )
+                        else:
+                            data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
+                            self.state.add_history_entry(
+                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.',
+                                entry_type=HistoryEntryType.ELIMINATION,
+                                public=True,
+                                data=data
+                            )
                 else:
                     self.state.add_history_entry(
                         description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
@@ -571,18 +587,28 @@ class Moderator:
                 if exiled_player:
                     original_role_name = exiled_player.role.name.value
                     self.state.eliminate_player(exiled_player_id)
-                    data = DayExileElectedDataEntry(
-                        elected_player_id=exiled_player_id,
-                        elected_player_role_name=original_role_name,
-                        elected_player_team_name=exiled_player.role.team.value
-                    )
-                    self.state.add_history_entry(
-                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
-                        # Keep description
-                        entry_type=HistoryEntryType.ELIMINATION,
-                        public=True,
-                        data=data
-                    )
+                    if self._reveal_day_exile_role:
+                        data = DayExileElectedDataEntry(
+                            elected_player_id=exiled_player_id,
+                            elected_player_role_name=original_role_name,
+                            elected_player_team_name=exiled_player.role.team.value
+                        )
+                        self.state.add_history_entry(
+                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
+                    else:
+                        data = DayExileElectedDataEntry(
+                            elected_player_id=exiled_player_id
+                        )
+                        self.state.add_history_entry(
+                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
             else:
                 self.state.add_history_entry(
                     description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",

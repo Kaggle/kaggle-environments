@@ -1,8 +1,8 @@
 import json
-from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Set, Optional, List, Dict, Any, Self
+from abc import ABC
 from datetime import datetime
+from enum import Enum
+from typing import Optional, List, Dict, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_serializer, ConfigDict
@@ -65,7 +65,7 @@ class HistoryEntry(BaseModel):
     description: str
     public: bool = False
     visible_to: List[str] = Field(default_factory=list)
-    data: Optional[dict | DataEntry]
+    data: Optional[dict | DataEntry] = None
     source: str
     created_at: str = Field(default_factory=get_utc_now)
 
@@ -165,13 +165,14 @@ class WerewolfNightEliminationElectedDataEntry(DataEntry):
 class WerewolfNightEliminationDataEntry(DataEntry):
     """This record the one eventually got eliminated by werewolves without doctor safe."""
     eliminated_player_id: str
-    eliminated_player_role_name: str
+    eliminated_player_role_name: Optional[str] = None
+    eliminated_player_team_name: Optional[str] = None
 
 
 class DayExileElectedDataEntry(DataEntry):
     elected_player_id: str
-    elected_player_role_name: str
-    elected_player_team_name: str
+    elected_player_role_name: Optional[str] = None
+    elected_player_team_name: Optional[str] = None
 
 
 class ChatDataEntry(DataEntry, ActionDataMixin):

@@ -14,6 +14,16 @@
             "default": true,
             "description": "Whether or not doctors are allowed to save themselves."
         },
+        "reveal_night_elimination_role": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to reveal the night eliminated player's role or not."
+        },
+        "reveal_day_exile_role": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to reveal the day exile player's role or not."
+        },
         "agents": {
             "type": "array",
             "description": "Configuration for each agent playing the game.",

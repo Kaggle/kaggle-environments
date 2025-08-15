@@ -9,15 +9,19 @@ URLS = {
     "grok": "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png"
 }
 
-
 @pytest.fixture
-def env():
+def agents_config():
     roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
     names = [f"player_{i}" for i in range(len(roles))]
     thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
                   URLS['grok']]
     agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
                      zip(roles, names, thumbnails)]
+    return agents_config
+
+
+@pytest.fixture
+def env(agents_config):
     env = make(
         'werewolf',
         debug=True,
@@ -35,17 +39,9 @@ def test_load_env(env):
     for i, state in enumerate(env.steps):
         env.render_step_ind = i
         out = env.renderer(state, env)
-        print(out)
 
 
-def test_discussion_protocol():
-    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
-    names = ["gemini-2.5-pro", "gemini-2.5-flash", "gpt-4.1", "o3", "o4-mini", "claude-4-sonnet", "grok-4"]
-    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
-                  URLS['grok']]
-    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
-                     zip(roles, names, thumbnails)]
-
+def test_discussion_protocol(agents_config):
     env = make(
         'werewolf',
         debug=True,
@@ -64,15 +60,37 @@ def test_discussion_protocol():
     out = env.toJSON()
 
 
+def test_no_reveal_options(agents_config):
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "reveal_night_elimination_role": False,
+            "reveal_day_exile_role": False
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
+def test_disable_doctor_self_save(agents_config):
+    env = make(
+        'werewolf',
+        debug=True,
+        configuration={
+            "agents": agents_config,
+            "allow_doctor_self_save": False
+        }
+    )
+    agents = ['random'] * 7
+    env.run(agents)
+    out = env.toJSON()
+
+
 @pytest.mark.skip('Slow test, meant for manual testing.')
-def test_llm_players():
-    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
-    names = ["gemini-2.5-flash-0", "random-0", "gemini-2.5-flash-1", "gemini-2.5-flash-2", "gemini-2.5-flash-3",
-             "random-1", "random-2"]
-    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
-                  URLS['grok']]
-    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
-                     zip(roles, names, thumbnails)]
+def test_llm_players(agents_config):
     env = make(
         'werewolf',
         debug=True,
@@ -87,7 +105,6 @@ def test_llm_players():
     for i, state in enumerate(env.steps):
         env.render_step_ind = i
         out = env.renderer(state, env)
-        print(out)
 
 
 def test_default_env():
@@ -96,9 +113,11 @@ def test_default_env():
     env.run(agents)
 
 
-def test_html_render(env):
+def test_html_render(env, tmp_path):
     agents = ['random'] * 7
     env.run(agents)
     content = env.render(mode='html', configuration={"allow_doctor_self_save": True})
-    with open('game_replay.html', 'w') as handle:
+    replay_file = tmp_path / "game_replay.html"
+    with open(replay_file, 'w') as handle:
         handle.write(content)
+    assert replay_file.exists()
