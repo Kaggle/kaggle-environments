@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Sequence, Optional  # Added Optional
-import random
+from typing import Dict, List, Sequence, Optional
 from collections import Counter
 import json
 import re
+import random
+import itertools
 
 from .states import GameState
 from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, WerewolfNightVoteDataEntry
@@ -22,56 +23,6 @@ def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> Lis
     # Use a set to automatically handle duplicates found by the regex
     found_ids = set(re.findall(pattern, text))
     return sorted(list(found_ids)) # sorted for deterministic order
-
-
-class DiscussionProtocol(ABC):
-    """Drives the order/shape of daytime conversation."""
-
-    @abstractmethod
-    def begin(self, state: GameState) -> None:
-        """Optional hook – initialise timers, round counters…"""
-
-    @property
-    @abstractmethod
-    def discussion_rule(self) -> str:
-        """A string describing the discussion rule in effect."""
-        """Optional hook – initialise timers, round counters…"""
-
-    @abstractmethod
-    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
-        """
-        Return the IDs that are *allowed to send a chat action* this tick.
-        Return an empty sequence when the discussion phase is over.
-        """
-
-    @abstractmethod
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        """
-        Processes a batch of actions. Depending on the protocol's state (e.g., bidding or chatting),
-        it will handle relevant actions (like BidAction or ChatAction) from expected_speakers.
-        """
-        pass
-
-    @abstractmethod
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        """
-        Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
-        This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,
-        and before process_actions().
-        Implementations should use state.add_history_entry() to make announcements.
-        These announcements are typically visible only to the speakers, unless they are general status updates.
-        """
-        pass
-
-    @abstractmethod
-    def is_discussion_over(self, state: GameState) -> bool:
-        """Returns True if the entire discussion (including any preliminary phases like bidding) is complete."""
-        pass
-
-    @abstractmethod
-    def reset(self) -> None:
-        """Resets the protocol to its initial state."""
-        pass
 
 
 class VotingProtocol(ABC):
@@ -244,6 +195,142 @@ class WerewolfEliminationProtocol(NightTeamActionProtocol):
 
 
 # ----------------- discussion patterns ----------------------------------- #
+class DiscussionProtocol(ABC):
+    """Drives the order/shape of daytime conversation."""
+
+    @abstractmethod
+    def begin(self, state: GameState) -> None:
+        """Optional hook – initialise timers, round counters…"""
+
+    @property
+    @abstractmethod
+    def discussion_rule(self) -> str:
+        """A string describing the discussion rule in effect."""
+        """Optional hook – initialise timers, round counters…"""
+
+    @abstractmethod
+    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+        """
+        Return the IDs that are *allowed to send a chat action* this tick.
+        Return an empty sequence when the discussion phase is over.
+        """
+
+    @abstractmethod
+    def is_discussion_over(self, state: GameState) -> bool:
+        """Returns True if the entire discussion (including any preliminary phases like bidding) is complete."""
+        pass
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Resets the protocol to its initial state."""
+        pass
+
+    @staticmethod
+    def filter_language(text):
+        """Remove inappropriate/violent language."""
+        replacement_map = {
+            # 'kill' variations
+            'kill': 'eliminate',
+            'kills': 'eliminates',
+            'killed': 'eliminated',
+            'killing': 'eliminating',
+            'killer': 'eliminator',
+
+            # 'lynch' variations
+            'lynch': 'exile',
+            'lynches': 'exiles',
+            'lynched': 'exiled',
+            'lynching': 'exiling',
+
+            # 'murder' variations
+            'murder': 'remove',
+            'murders': 'removes',
+            'murdered': 'removed',
+            'murdering': 'removing',
+            'murderer': 'remover'
+        }
+
+        # Create a single, case-insensitive regex pattern from all map keys.
+        pattern = re.compile(r'\b(' + '|'.join(replacement_map.keys()) + r')\b', re.IGNORECASE)
+
+        def replacer(match):
+            """
+            Finds the correct replacement and applies case based on a specific heuristic.
+            """
+            original_word = match.group(0)
+            replacement = replacement_map[original_word.lower()]
+
+            # Rule 1: Preserve ALL CAPS.
+            if original_word.isupper():
+                return replacement.upper()
+
+            # Rule 2: Handle title-cased words with a more specific heuristic.
+            if original_word.istitle():
+                # Preserve title case if it's the first word of the string OR
+                # if it's a form like "-ing" which can start a new clause.
+                return replacement.title()
+
+            # Rule 3: For all other cases (e.g., "Kill" mid-sentence), default to lowercase.
+            return replacement.lower()
+
+        return pattern.sub(replacer, text)
+
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+        """
+        Processes a batch of actions. Depending on the protocol's state (e.g., bidding or chatting),
+        it will handle relevant actions (like BidAction or ChatAction) from expected_speakers.
+        """
+        for act in actions:
+            if isinstance(act, ChatAction):
+                all_player_ids = [p.id for p in state.players]
+                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
+                if expected_speakers and act.actor_id in expected_speakers:
+                    data = ChatDataEntry(
+                        actor_id=act.actor_id,
+                        message=self.filter_language(act.message),
+                        reasoning=self.filter_language(act.reasoning),
+                        mentioned_player_ids=mentioned_ids,
+                        perceived_threat_level=act.perceived_threat_level
+                    )
+                    state.add_history_entry(
+                        description=f'Player "{act.actor_id}" (chat): {act.message}',
+                        # Make public for general discussion
+                        entry_type=HistoryEntryType.DISCUSSION,
+                        public=True,
+                        source=act.actor_id,
+                        data=data
+                    )
+                else:
+                    state.add_history_entry(
+                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
+                        entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
+                        visible_to=[act.actor_id],
+                        public=False,
+                        source=act.actor_id
+                    )
+
+    def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
+        """prepare moderator call for action for each player."""
+        return [f'Player "{speaker_id}", it is your turn to speak.' for speaker_id in speakers]
+
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+        """
+        Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
+        This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,
+        and before process_actions().
+        Implementations should use state.add_history_entry() to make announcements.
+        These announcements are typically visible only to the speakers, unless they are general status updates.
+        """
+        call_for_actions = self.call_for_actions(speakers)
+        for speaker_id, call_for_action in zip(speakers, call_for_actions):
+            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
+            state.add_history_entry(
+                description=call_for_action,
+                entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
+                public=False,
+                visible_to=[speaker_id],
+                data=data
+            )
 
 
 class RoundRobinDiscussion(DiscussionProtocol):
@@ -271,47 +358,6 @@ class RoundRobinDiscussion(DiscussionProtocol):
     def speakers_for_tick(self, state):
         return [self._queue.pop(0)] if self._queue else []
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',  # Make public for general discussion
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,
-                        source=act.actor_id,
-                        data=data
-                    )
-                else:
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
-                        visible_to=[act.actor_id],
-                        public=False,
-                        source=act.actor_id
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Typically one speaker for RoundRobin
-            for speaker_id in speakers:
-                data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
-                state.add_history_entry(
-                    description=f'Player "{speaker_id}", it is your turn to speak.',
-                    entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
-                    public=False,
-                    visible_to=[speaker_id],
-                    data=data
-                )
-
     def is_discussion_over(self, state: GameState) -> bool:
         return not self._queue  # Over if queue is empty
 
@@ -330,8 +376,6 @@ class RandomOrderDiscussion(DiscussionProtocol):
         return "Players speak in a random order for one full round."
 
     def begin(self, state):
-        import random
-        import itertools
         self._iters = itertools.cycle(random.sample(
             [p.id for p in state.alive_players()],
             k=len(state.alive_players())
@@ -349,42 +393,6 @@ class RandomOrderDiscussion(DiscussionProtocol):
             return []
         self._steps -= 1
         return [next(self._iters)]
-
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                if expected_speakers and act.actor_id in expected_speakers:
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,  # Chat should be public
-                        data=data
-                    )
-                else:
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=False,
-                        visible_to=[act.actor_id]
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Typically one speaker
-            speaker_id = speakers[0]
-            state.add_history_entry(
-                description=f'Player "{speaker_id}", it is your turn to speak.',
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                public=False,
-                visible_to=[speaker_id]
-            )
 
     def is_discussion_over(self, state: GameState) -> bool:
         return self._steps == 0
@@ -422,37 +430,9 @@ class ParallelDiscussion(DiscussionProtocol):
         self._remaining -= 1
         return [p.id for p in state.alive_players()]
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        for act in actions:
-            if isinstance(act, ChatAction):
-                all_player_ids = [p.id for p in state.players]
-                mentioned_ids = _extract_player_ids_from_string(act.message, all_player_ids)
-                # In parallel, any alive player in expected_speakers can talk
-                if expected_speakers and act.actor_id in expected_speakers:  # expected_speakers should be all alive players
-                    data = ChatDataEntry(
-                        actor_id=act.actor_id,
-                        message=act.message,
-                        reasoning=act.reasoning,
-                        mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
-                    )
-                    state.add_history_entry(
-                        description=f'Player "{act.actor_id}" (chat): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,
-                        public=True,  # Parallel chat is usually public
-                        data=data
-                    )
-
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if speakers:  # Indicates a speaking tick is active; speakers will be all alive players
-            # The begin() method already announces the general start.
-            # This prompt can confirm the active tick and remaining time.
-            state.add_history_entry(
-                description=f"Parallel discussion: All designated players may speak now. "
-                            f"({self._remaining + 1} speaking opportunities remaining, including this one).",
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                public=True  # General status update for parallel discussion
-            )
+    def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
+        return [f"Parallel discussion: All designated players may speak now or remain silent. "
+                f"({self._remaining + 1} speaking opportunities remaining, including this one)."] * len(speakers)
 
     def is_discussion_over(self, state: GameState) -> bool:
         return self._remaining == 0
