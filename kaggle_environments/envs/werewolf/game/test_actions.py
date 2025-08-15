@@ -2,7 +2,7 @@
 import pytest
 
 
-from kaggle_environments.envs.werewolf.game.protocols import DiscussionProtocol
+from kaggle_environments.envs.werewolf.game.actions import filter_language
 
 
 test_data = [
@@ -42,12 +42,12 @@ def test_clean_script_scenarios(input_text, expected_text):
     """
     Tests the clean_script_preserve_case function with various scenarios.
     """
-    assert DiscussionProtocol.filter_language(input_text) == expected_text
+    assert filter_language(input_text) == expected_text
 
 
 def test_empty_string():
     """
     Tests that an empty string input results in an empty string output.
     """
-    assert DiscussionProtocol.filter_language("") == ""
+    assert filter_language("") == ""
 
