@@ -149,7 +149,8 @@
                                 "type": "object",
                                 "properties": {
                                     "bidding": { "type": "object" },
-                                    "max_turns": { "type": "integer", "minimum": 1, "default": 5 }
+                                    "max_turns": { "type": "integer", "minimum": 1, "default": 5 },
+                                    "bid_result_public": { "type": "boolean", "default": true }
                                 },
                                 "additionalProperties": false
                             }
