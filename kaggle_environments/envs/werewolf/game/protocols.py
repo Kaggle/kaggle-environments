@@ -108,20 +108,29 @@ class TeamDecisionProtocol(ABC):
 
 def _find_mentioned_players(text: str, all_player_ids: List[str]) -> List[str]:
     """
-    Finds player IDs mentioned in a string of text.
-    Example: "I think Player-3 is suspicious, what do you think Player 2?" -> ["Player-3", "Player-2"]
+    Finds player IDs mentioned in a string of text, ordered by their first appearance.
+    Player IDs are treated as whole words.
+    Example: "I think gpt-4 is suspicious, what do you think John?" -> ["gpt-4", "John"]
     """
-    mentioned = set()
-    if not text:
+    if not text or not all_player_ids:
         return []
-    for player_id in all_player_ids:
-        # Extracts the number from player_id, e.g., "Player-3" -> "3"
-        player_num = player_id.split('-')[-1]
-        # Regex to find mentions like "Player-3", "Player 3", or just "P3"
-        pattern = re.compile(f'(player[- ]?{player_num}|p{player_num}\b)', re.IGNORECASE)
-        if pattern.search(text):
-            mentioned.add(player_id)
-    return list(mentioned)
+
+    # Sort by length descending to handle substrings correctly.
+    sorted_player_ids = sorted(all_player_ids, key=len, reverse=True)
+    pattern = r'\b(' + '|'.join(re.escape(pid) for pid in sorted_player_ids) + r')\b'
+
+    matches = re.finditer(pattern, text)
+
+    # Deduplicate while preserving order of first appearance
+    ordered_mentioned_ids = []
+    seen = set()
+    for match in matches:
+        player_id = match.group(1)
+        if player_id not in seen:
+            ordered_mentioned_ids.append(player_id)
+            seen.add(player_id)
+
+    return ordered_mentioned_ids
 
 
 class BiddingProtocol(ABC):
@@ -836,7 +845,8 @@ class UrgencyBiddingProtocol(BiddingProtocol):
             "3: It is absolutely urgent for me to speak next.",
             "4: Someone has addressed me directly and I must respond.",
             "Highest bidder wins."
-            "Ties are broken by prioritizing players mentioned in the previous turn's chat, then randomly."
+            "Ties are broken by the following priority: (1) players mentioned in the previous turn's chat, "
+            "(2) the least spoken player, (3) round robin order of the player list."
         ])
 
     @property
@@ -902,25 +912,52 @@ class UrgencyBiddingProtocol(BiddingProtocol):
 
     def outcome(self, state: GameState) -> list[str]:
         if not self._bids:
-            # If no one bids, pick a random alive player to speak.
-            return [random.choice([p.id for p in state.alive_players()])]
+            # If no one bids, deterministically pick the first alive player to speak.
+            alive_players = state.alive_players()
+            return [alive_players[0].id] if alive_players else []
 
         max_bid = max(self._bids.values())
-        highest_bidders = [pid for pid, amt in self._bids.items() if amt == max_bid]
+        highest_bidders = sorted([pid for pid, amt in self._bids.items() if amt == max_bid])
 
         if len(highest_bidders) == 1:
-            return highest_bidders  # Return as a list with one winner
+            return highest_bidders
 
         # Tie-breaking logic
-        mentioned_winners = [pid for pid in highest_bidders if pid in self._mentioned_last_turn]
+        candidates = highest_bidders
 
-        if mentioned_winners:
-            # If tied players were mentioned, one of them wins randomly.
-            winner = random.choice(mentioned_winners)
-        else:
-            # Otherwise, any of the tied players can win.
-            winner = random.choice(highest_bidders)
-        return [winner]
+        # Rule 1: Players mentioned in the last turn
+        mentioned_in_tie = [pid for pid in candidates if pid in self._mentioned_last_turn]
+        if mentioned_in_tie:
+            candidates = mentioned_in_tie
+
+        if len(candidates) == 1:
+            return candidates
+
+        # Rule 2: The least spoken individual
+        speech_counts = Counter(
+            entry.data.actor_id
+            for day_history in state.history.values()
+            for entry in day_history
+            if entry.entry_type == HistoryEntryType.DISCUSSION and isinstance(entry.data, ChatDataEntry)
+        )
+
+        candidate_speech_counts = {pid: speech_counts.get(pid, 0) for pid in candidates}
+        min_spoken = min(candidate_speech_counts.values())
+        least_spoken_candidates = sorted(
+            [pid for pid, count in candidate_speech_counts.items() if count == min_spoken])
+
+        if len(least_spoken_candidates) == 1:
+            return least_spoken_candidates
+
+        candidates = least_spoken_candidates
+
+        # Rule 3: Round robin order of the player list in state
+        for pid in state.all_player_ids:
+            if pid in candidates:
+                return [pid]
+
+        # This part should be unreachable if candidates is a subset of all_player_ids
+        return [candidates[0]] if candidates else []
 
 
 class SequentialVoting(VotingProtocol):
