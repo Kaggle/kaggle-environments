@@ -89,36 +89,8 @@ def test_disable_doctor_self_save(agents_config):
     out = env.toJSON()
 
 
-def test_simple_bidding_protocol(agents_config):
-    """first bid then roundrobin based on bids."""
-    env = make(
-        'werewolf',
-        debug=True,
-        configuration={
-            "agents": agents_config,
-            "discussion_protocol": {
-                "name": "BidDrivenDiscussion",
-                "params": {
-                    "bidding":{
-                        "name": "FirstPriceSealed"
-                    },
-                    "inner": {
-                        "name": "RoundRobinDiscussion",
-                        "params": {
-                            "max_rounds": 2
-                        }
-                    },
-                }
-            }
-        }
-    )
-    agents = ['random'] * 7
-    env.run(agents)
-    out = env.toJSON()
-
-
-def test_urgency_bidding_protocol(agents_config):
-    """first bid then roundrobin based on bids."""
+def test_turn_by_turn_bidding_discussion(agents_config):
+    """Tests the bidding -> chat -> bidding -> chat ... cycle."""
     env = make(
         'werewolf',
         debug=True,
@@ -127,16 +99,18 @@ def test_urgency_bidding_protocol(agents_config):
             "discussion_protocol": {
                 "name": "TurnByTurnBiddingDiscussion",
                 "params": {
-                    "bidding":{
-                        "name": "FirstPriceSealed"
-                    }
+                    "bidding": {
+                        "name": "UrgencyBiddingProtocol",
+                    },
+                    "max_turns": 16,
+                    "bid_result_public": False
                 }
             }
         }
     )
     agents = ['random'] * 7
     env.run(agents)
-    out = env.toJSON()
+    content = env.render(mode='html')
 
 
 @pytest.mark.skip('Slow test, meant for manual testing.')
@@ -166,7 +140,7 @@ def test_default_env():
 def test_html_render(env, tmp_path):
     agents = ['random'] * 7
     env.run(agents)
-    content = env.render(mode='html', configuration={"allow_doctor_self_save": True})
+    content = env.render(mode='html')
     replay_file = tmp_path / "game_replay.html"
     with open(replay_file, 'w') as handle:
         handle.write(content)
