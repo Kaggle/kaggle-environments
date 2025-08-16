@@ -2804,6 +2804,10 @@ function renderer({
         if (audioState.audioPlayer) {
             audioState.audioPlayer.pause();
         }
+        const chatLog = parent.querySelector('#chat-log');
+        if (chatLog) {
+            chatLog.innerHTML = '';
+        }
     }
 
     const eventsToPlay = gameState.eventLog.filter(entry =>
