@@ -12,8 +12,7 @@ from .game.consts import RoleConst
 from .game.engine import Moderator, DetailedPhase
 from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    BidDrivenDiscussion, TurnByTurnBiddingDiscussion,
-    UrgencyBiddingProtocol
+    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol
 )
 from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_agents_config
@@ -27,13 +26,10 @@ PROTOCOL_REGISTRY = {
     "discussion": {
         "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
         "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
-        "BidDrivenDiscussion": {"class": BidDrivenDiscussion,
-                                "default_params": {"bidding": {"name": "UrgencyBiddingProtocol"},
-                                                   "inner": {"name": "RoundRobinDiscussion"}}},
         "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
                                         "default_params": {
                                             "bidding": {"name": "UrgencyBiddingProtocol"},
-                                            "max_turns": 5
+                                            "max_turns": 8
                                         }},
     },
     "voting": {
@@ -65,12 +61,9 @@ def create_protocol(protocol_type: str, config: dict, default_name: str):
     final_params = {**default_params, **params}
 
     # Handle nested protocols
-    if name == "BidDrivenDiscussion":
-        final_params["bidding"] = create_protocol("bidding", final_params.get("bidding", {}), "FirstPriceSealed")
-        final_params["inner"] = create_protocol("discussion", final_params.get("inner", {}), "RoundRobinDiscussion")
-    elif name == "TurnByTurnBiddingDiscussion":
-        final_params["bidding"] = create_protocol("bidding", final_params.get("bidding", {}), "FirstPriceSealed")
-
+    if name == "TurnByTurnBiddingDiscussion":
+        final_params["bidding"] = create_protocol(
+            "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
     return protocol_class(**final_params)
 
 
@@ -133,7 +126,7 @@ def random_agent(obs):
             if my_id in alive_players:
                 action = BidAction(
                     **common_args,
-                    amount=random.randint(0, 4),
+                    amount=random.randint(1, 4),
                     reasoning="I am bidding randomly.",
                     perceived_threat_level=threat_level
                 )

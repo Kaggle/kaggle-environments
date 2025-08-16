@@ -6,7 +6,7 @@ from typing import List, Dict, Tuple, Type, Sequence
 
 from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
 from .consts import Phase, Team, RoleConst
-from .protocols import BidDrivenDiscussion, TurnByTurnBiddingDiscussion
+from .protocols import TurnByTurnBiddingDiscussion
 from .protocols import DiscussionProtocol, VotingProtocol
 from .records import (
     HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
@@ -104,7 +104,7 @@ class Moderator:
             DetailedPhase.NIGHT_START: self._handle_night_start,
             DetailedPhase.NIGHT_AWAIT_ACTIONS: self._handle_night_await_actions,
             DetailedPhase.DAY_START: self._handle_day_start,
-            DetailedPhase.DAY_BIDDING_AWAIT: self._handle_day_bidding_await,  # New handler
+            DetailedPhase.DAY_BIDDING_AWAIT: self._handle_day_bidding_await,
             DetailedPhase.DAY_CHAT_AWAIT: self._handle_day_chat_await,
             DetailedPhase.DAY_VOTING_AWAIT: self._handle_day_voting_await,
             # DetailedPhase.GAME_OVER: self._handle_game_over,
@@ -538,15 +538,15 @@ class Moderator:
         self.discussion.begin(self.state)
 
         # Check if the protocol starts with bidding
-        if isinstance(self.discussion, BidDrivenDiscussion):
-            self.detailed_phase = DetailedPhase.DAY_BIDDING_AWAIT
+        if isinstance(self.discussion, TurnByTurnBiddingDiscussion):
+            self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
             # In bidding, all alive players can be active
             bidders = self.discussion.speakers_for_tick(self.state)
             self._action_queue.extend(BidAction, bidders)
             self.discussion.prompt_speakers_for_tick(self.state, bidders)
         else:
             # If no bidding, go straight to chatting
-            self.detailed_phase = DetailedPhase.DAY_CHAT_AWAIT
+            self.set_new_phase(DetailedPhase.DAY_CHAT_AWAIT)
             initial_speakers = self.discussion.speakers_for_tick(self.state)
             self._action_queue.extend(ChatAction, initial_speakers)
             self.discussion.prompt_speakers_for_tick(self.state, initial_speakers)
@@ -559,7 +559,7 @@ class Moderator:
         self.discussion.process_actions(list(player_actions.values()), current_bidders, self.state)
 
         # We need to explicitly check if the bidding sub-phase is over
-        # This requires a reference to the bidding protocol within BidDrivenDiscussion
+        # This requires a reference to the bidding protocol within TurnByTurnBiddingDiscussion
         bidding_protocol = self.discussion.bidding
         if bidding_protocol.is_finished(self.state):
             self.state.add_history_entry(
@@ -598,7 +598,7 @@ class Moderator:
             self.set_new_phase(DetailedPhase.DAY_VOTING_AWAIT)
             self.state.add_history_entry(
                 description="Voting phase begins. We will decide who to exile today."
-                            f"\nDay voting Rule: {self.day_voting.voting_rule}."
+                            f"\nDay voting Rule: {self.day_voting.voting_rule}"
                             f"\nCurrent alive players are: {[player.id for player in alive_players]}",
                 entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
                 public=True,

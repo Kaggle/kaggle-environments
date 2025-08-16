@@ -99,7 +99,7 @@
                 "name": {
                     "description": "The name of the discussion protocol to use.",
                     "type": "string",
-                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion", "BidDrivenDiscussion", "TurnByTurnBiddingDiscussion"],
+                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion", "TurnByTurnBiddingDiscussion"],
                     "default": "RoundRobinDiscussion"
                 },
                 "params": {
@@ -135,23 +135,6 @@
                                 "properties": {
                                     "ticks": { "description": "Number of ticks where all players can speak simultaneously.", "type": "integer", "minimum": 1, "default": 3 }
                                 },
-                                "additionalProperties": false
-                            }
-                        }
-                    },
-                    "else": false
-                },
-                {
-                    "if": { "properties": { "name": { "const": "BidDrivenDiscussion" } } },
-                    "then": {
-                        "properties": {
-                            "params": {
-                                "type": "object",
-                                "properties": {
-                                    "bidding": { "type": "object" },
-                                    "inner": { "type": "object" }
-                                },
-                                "required": ["bidding", "inner"],
                                 "additionalProperties": false
                             }
                         }
