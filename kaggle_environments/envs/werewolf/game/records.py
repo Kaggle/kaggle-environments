@@ -182,6 +182,16 @@ class ChatDataEntry(DataEntry, ActionDataMixin):
     mentioned_player_ids: List[str] = Field(default_factory=list)
 
 
+class BidDataEntry(DataEntry, ActionDataMixin):
+    bid_amount: int
+
+
+class BidResultDataEntry(DataEntry):
+    winner_player_ids: List[str]
+    bid_overview: Dict[str, int]
+    mentioned_players_in_previous_turn: List[str] = []
+
+
 # --- Game End and Observation Models (Unchanged) ---
 class GameEndResultsDataEntry(DataEntry):
     model_config = ConfigDict(use_enum_values=True)
