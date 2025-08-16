@@ -702,6 +702,39 @@ function renderer({
                 if (!player) return;
 
                 const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+
+                // Reset to a baseline "alive" state before applying specific statuses, unless the status is 'dead'.
+                if (status !== 'dead') {
+                    orb.material.color.setHex(0x00ff00);
+                    orb.material.emissive.setHex(0x00ff00);
+                    orb.material.emissiveIntensity = 0.8;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0x00ff00);
+                    orbLight.intensity = 0.8;
+                    body.material.color.setHex(0x4466ff);
+                    body.material.emissive.setHex(0x111166);
+                    body.material.emissiveIntensity = 0.2;
+                    shoulders.material.color.setHex(0x4466ff);
+                    shoulders.material.emissive.setHex(0x111166);
+                    shoulders.material.emissiveIntensity = 0.2;
+                    head.material.color.setHex(0xfdbcb4);
+                    head.material.emissive.setHex(0x442211);
+                    head.material.emissiveIntensity = 0.1;
+                    glow.material.color.setHex(0x00ff00);
+                    glow.material.emissive.setHex(0x00ff00);
+                    glow.material.emissiveIntensity = 0.3;
+                    glow.visible = true;
+                    pedestal.material.emissive.setHex(0x111122);
+                    pedestal.material.emissiveIntensity = 0.1;
+                    container.scale.setScalar(1.0);
+                    container.position.y = 0;
+                    container.rotation.x = 0;
+                    if (player.nameplate && player.nameplate.element) {
+                        player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
+                        player.nameplate.element.style.opacity = '1.0';
+                    }
+                    player.isAlive = true;
+                }
                 
                 switch(status) {
                     case 'active':
@@ -792,33 +825,7 @@ function renderer({
                         container.scale.setScalar(1.05);
                         break;
                     default:
-                        // Default green for alive
-                        if (player.isAlive) {
-                            orb.material.color.setHex(0x00ff00);
-                            orb.material.emissive.setHex(0x00ff00);
-                            orb.material.emissiveIntensity = 0.8;
-                            orb.material.opacity = 0.9;
-                            orbLight.color.setHex(0x00ff00);
-                            orbLight.intensity = 0.8;
-                            body.material.color.setHex(0x4466ff);
-                            body.material.emissive.setHex(0x111166);
-                            body.material.emissiveIntensity = 0.2;
-                            shoulders.material.color.setHex(0x4466ff);
-                            shoulders.material.emissive.setHex(0x111166);
-                            shoulders.material.emissiveIntensity = 0.2;
-                            head.material.color.setHex(0xfdbcb4);
-                            head.material.emissive.setHex(0x442211);
-                            head.material.emissiveIntensity = 0.1;
-                            glow.material.color.setHex(0x00ff00);
-                            glow.material.emissive.setHex(0x00ff00);
-                            glow.material.emissiveIntensity = 0.3;
-                            glow.visible = true;
-                            pedestal.material.emissive.setHex(0x111122);
-                            pedestal.material.emissiveIntensity = 0.1;
-                            container.scale.setScalar(1.0);
-                            container.position.y = 0;
-                            container.rotation.x = 0;
-                        }
+                        // This is now covered by the reset block at the top of the function.
                         break;
                 }
               }
