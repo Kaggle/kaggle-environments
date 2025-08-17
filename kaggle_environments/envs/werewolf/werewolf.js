@@ -5,6 +5,65 @@ function renderer({
   height = 700, // Default height
   width = 1100, // Default width
 }) {
+
+  if (!window.werewolfGamePlayer) {
+    window.werewolfGamePlayer = {
+        initialized: false,
+        allEvents: [],
+        eventToKaggleStep: [],
+        originalSteps: environment.steps,
+    };
+    const player = window.werewolfGamePlayer;
+
+    const visibleEventDataTypes = new Set([
+        'ChatDataEntry',
+        'DayExileVoteDataEntry',
+        'WerewolfNightVoteDataEntry',
+        'DoctorHealActionDataEntry',
+        'SeerInspectActionDataEntry',
+        'DayExileElectedDataEntry',
+        'WerewolfNightEliminationDataEntry',
+        'SeerInspectResultDataEntry',
+        'DoctorSaveDataEntry',
+        'GameEndResultsDataEntry',
+    ]);
+
+    (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
+        (stepEvents || []).flat().forEach(dataEntry => {
+            const event = JSON.parse(dataEntry.json_str);
+            
+            const isVisibleDataType = visibleEventDataTypes.has(dataEntry.data_type);
+            const isVisibleEntryType = event.entry_type === 'moderator_announcement' || (event.entry_type === 'vote_action' && !event.data);
+
+            if (!isVisibleDataType && !isVisibleEntryType) {
+                return;
+            }
+
+            // Additional filter for "has begun" system messages which are not displayed
+            if (event.entry_type === "moderator_announcement" && event.description && event.description.includes('has begun')) {
+                return;
+            }
+
+            event.kaggleStep = kaggleStep;
+            event.dataType = dataEntry.data_type;
+            player.allEvents.push(event);
+            player.eventToKaggleStep.push(kaggleStep);
+        });
+    });
+
+    const newSteps = player.allEvents.map((event) => {
+        return player.originalSteps[event.kaggleStep];
+    });
+
+    setTimeout(() => {
+        if (window.kaggle) {
+            window.kaggle.environment.steps = newSteps;
+        }
+        window.postMessage({ setSteps: newSteps }, "*");
+    }, 100); // A small delay to ensure player is ready
+    player.initialized = true;
+  }
+
   // --- THREE.js Scene Setup (Singleton Pattern) ---
   if (!window.werewolfThreeJs) {
     window.werewolfThreeJs = {
@@ -2789,17 +2848,22 @@ function renderer({
     let playerThumbnailsFor3D = {};
 
     // --- State Reconstruction ---
+    const eventStep = step;
+    const kaggleStep = window.werewolfGamePlayer.eventToKaggleStep[eventStep] || 0;
+    const originalSteps = window.werewolfGamePlayer.originalSteps;
+    const allEvents = window.werewolfGamePlayer.allEvents;
+
     let gameState = {
         players: [],
         day: 0,
         phase: 'GAME_SETUP',
-        game_state_phase: 'DAY', // Start with DAY phase
+        game_state_phase: 'DAY',
         gameWinner: null,
         eventLog: [],
         playerThreatLevels: new Map()
     };
 
-    const firstObs = environment.steps[0]?.[0]?.observation?.raw_observation;
+    const firstObs = originalSteps[0]?.[0]?.observation?.raw_observation;
     let allPlayerNamesList;
     let playerThumbnails = {};
 
@@ -2849,10 +2913,6 @@ function renderer({
         if (player) { player.role = info.role; player.team = info.team; }
     });
 
-    const processedEvents = new Set();
-    let lastPhase = null;
-    let lastDay = -1;
-
     function threatStringToLevel(threatString) {
         switch(threatString) {
             case 'SAFE': return 0;
@@ -2862,92 +2922,84 @@ function renderer({
         }
     }
 
-    for (let s = 0; s <= step; s++) {
-        const stepStateList = environment.steps[s];
+    // Reconstruct state up to current kaggleStep
+    for (let s = 0; s <= kaggleStep; s++) {
+        const stepStateList = originalSteps[s];
         if (!stepStateList) continue;
 
         const currentObsForStep = stepStateList[0]?.observation?.raw_observation;
         if (currentObsForStep) {
-            if (currentObsForStep.day > lastDay) {
-                if (currentObsForStep.day > 0) gameState.eventLog.push({ type: 'system', step: s, day: currentObsForStep.day, phase: 'DAY', text: `Day ${currentObsForStep.day} has begun.` });
-            }
-            lastDay = currentObsForStep.day;
-            lastPhase = currentObsForStep.phase;
             gameState.day = currentObsForStep.day;
             gameState.phase = currentObsForStep.phase;
             gameState.game_state_phase = currentObsForStep.game_state_phase;
         }
-
-        const moderatorLogForStep = environment.info?.MODERATOR_OBSERVATION?.[s] || [];
-        moderatorLogForStep.flat().forEach(dataEntry => {
-             const eventKey = dataEntry.json_str;
-             if (processedEvents.has(eventKey)) return;
-             processedEvents.add(eventKey);
-
-             const historyEvent = JSON.parse(dataEntry.json_str);
-             const data = historyEvent.data;
-             const timestamp = historyEvent.created_at;
-
-            if (data && data.actor_id && data.perceived_threat_level) {
-                const threatScore = threatStringToLevel(data.perceived_threat_level);
-                gameState.playerThreatLevels.set(data.actor_id, threatScore);
-            }
-
-            if (!data) {
-                if (historyEvent.entry_type === 'vote_action') {
-                    const match = historyEvent.description.match(/P(player_\d+)/);
-                    if (match) {
-                        const actor_id = match[1];
-                        gameState.eventLog.push({ type: 'timeout', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
-                    }
-                }
-                return;
-            }
-
-             switch (dataEntry.data_type) {
-                case 'ChatDataEntry':
-                    gameState.eventLog.push({ type: 'chat', step: s, day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
-                    break;
-                case 'DayExileVoteDataEntry':
-                    gameState.eventLog.push({ type: 'vote', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
-                    break;
-                case 'WerewolfNightVoteDataEntry':
-                    gameState.eventLog.push({ type: 'night_vote', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
-                    break;
-                case 'DoctorHealActionDataEntry':
-                    gameState.eventLog.push({ type: 'doctor_heal_action', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
-                    break;
-                case 'SeerInspectActionDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection', step: s, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
-                    break;
-                case 'DayExileElectedDataEntry':
-                    gameState.eventLog.push({ type: 'exile', step: s, day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
-                    break;
-                case 'WerewolfNightEliminationDataEntry':
-                    gameState.eventLog.push({ type: 'elimination', step: s, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
-                    break;
-                case 'SeerInspectResultDataEntry':
-                    gameState.eventLog.push({ type: 'seer_inspection_result', step: s, day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
-                    break;
-                case 'DoctorSaveDataEntry':
-                    gameState.eventLog.push({ type: 'save', step: s, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
-                    break;
-                case 'GameEndResultsDataEntry':
-                    gameState.gameWinner = data.winner_team;
-                    const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
-                    const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                    gameState.eventLog.push({ type: 'game_over', step: s, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
-                    break;
-                default:
-                    if (historyEvent.entry_type === "moderator_announcement") {
-                        gameState.eventLog.push({ type: 'system', step: s, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
-                    }
-                    break;
-             }
-        });
     }
 
-    if (step < audioState.lastPlayedStep) {
+    // Populate event log up to current eventStep
+    for (let i = 0; i <= eventStep; i++) {
+        const historyEvent = allEvents[i];
+        const data = historyEvent.data;
+        const timestamp = historyEvent.created_at;
+
+        if (data && data.actor_id && data.perceived_threat_level) {
+            const threatScore = threatStringToLevel(data.perceived_threat_level);
+            gameState.playerThreatLevels.set(data.actor_id, threatScore);
+        }
+
+        if (!data) {
+            if (historyEvent.entry_type === 'vote_action') {
+                const match = historyEvent.description.match(/P(player_\d+)/);
+                if (match) {
+                    const actor_id = match[1];
+                    gameState.eventLog.push({ type: 'timeout', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
+                }
+            }
+            continue;
+        }
+
+         switch (historyEvent.dataType) {
+            case 'ChatDataEntry':
+                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                break;
+            case 'DayExileVoteDataEntry':
+                gameState.eventLog.push({ type: 'vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                break;
+            case 'WerewolfNightVoteDataEntry':
+                gameState.eventLog.push({ type: 'night_vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                break;
+            case 'DoctorHealActionDataEntry':
+                gameState.eventLog.push({ type: 'doctor_heal_action', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                break;
+            case 'SeerInspectActionDataEntry':
+                gameState.eventLog.push({ type: 'seer_inspection', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                break;
+            case 'DayExileElectedDataEntry':
+                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
+                break;
+            case 'WerewolfNightEliminationDataEntry':
+                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
+                break;
+            case 'SeerInspectResultDataEntry':
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                break;
+            case 'DoctorSaveDataEntry':
+                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
+                break;
+            case 'GameEndResultsDataEntry':
+                gameState.gameWinner = data.winner_team;
+                const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
+                const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
+                gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
+                break;
+            default:
+                if (historyEvent.entry_type === "moderator_announcement") {
+                    gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
+                }
+                break;
+         }
+    }
+
+    if (eventStep < audioState.lastPlayedStep) {
         audioState.audioQueue = [];
         audioState.isAudioPlaying = false;
         if (audioState.audioPlayer) {
@@ -2959,9 +3011,7 @@ function renderer({
         }
     }
 
-    const eventsToPlay = gameState.eventLog.filter(entry =>
-        entry.step > audioState.lastPlayedStep && entry.step <= step
-    );
+    const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
 
     if (eventsToPlay.length > 0) {
         eventsToPlay.forEach(entry => {
@@ -3002,7 +3052,7 @@ function renderer({
             playNextInQueue();
         }
     }
-    audioState.lastPlayedStep = step;
+    audioState.lastPlayedStep = eventStep;
 
     gameState.players.forEach(p => { p.is_alive = true; p.status = 'Alive'; });
     gameState.eventLog.forEach(entry => {
@@ -3013,18 +3063,6 @@ function renderer({
                 player.status = entry.type === 'exile' ? 'Exiled' : 'Eliminated';
             }
         }
-    });
-
-    gameState.eventLog.sort((a, b) => {
-        if (a.day !== b.day) return a.day - b.day;
-        const phaseOrder = { 'DAY': 1, 'NIGHT': 2 };
-        const aPhase = (a.phase || '').toUpperCase();
-        const bPhase = (b.phase || '').toUpperCase();
-        const aOrder = phaseOrder[aPhase] || 99;
-        const bOrder = phaseOrder[bPhase] || 99;
-        if (aOrder !== bOrder) return aOrder - bOrder;
-        if (a.timestamp && b.timestamp) return new Date(a.timestamp) - new Date(b.timestamp);
-        return 0;
     });
 
     const lastStepStateList = environment.steps[step];
