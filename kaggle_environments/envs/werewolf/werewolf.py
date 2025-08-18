@@ -207,6 +207,7 @@ LLM_MODEL_NAMES = [
     "gemini/gemini-2.5-pro",
     "gemini/gemini-2.5-flash",
     # OpenAI
+    "gpt-5",
     "gpt-4.1",
     "o3",
     "o4-mini",
@@ -225,7 +226,9 @@ LLM_MODEL_NAMES = [
     "together_ai/deepseek-ai/DeepSeek-R1",
     "together_ai/moonshotai/Kimi-K2-Instruct",
     "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-    "together_ai/openai/gpt-oss-120b"
+    "together_ai/openai/gpt-oss-120b",
+    "together_ai/mistralai/Magistral-Small-2506",
+    "together_ai/zai-org/GLM-4.5-Air-FP8"
 ]
 
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
