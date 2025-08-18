@@ -151,6 +151,7 @@ function renderer({
 
                 this._controls = new OrbitControls(this._camera, this._threejs.domElement);
                 this._controls.target.set(0, 0, 0);
+                this._controls.enableKeys = false;
                 this._controls.update();
 
                 this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
