@@ -201,6 +201,7 @@ function renderer({
                 
                 // Load moon image
                 const moonImage = new Image();
+                moonImage.crossOrigin = 'Anonymous';
                 moonImage.onload = () => {
                     this._moonImage = moonImage;
                     this._updateSkybox(0.0); // Start with day
@@ -304,10 +305,8 @@ function renderer({
                 const canvas = this._skyCanvas;
                 const celestial = this._celestialBody;
                 
-                // Clear canvas with more dramatic color difference
-                const isNight = phase > 0.5;
-                ctx.fillStyle = isNight ? '#000011' : '#87ceeb';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Clear canvas with a transparent background
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 // Create gradient overlay
                 const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -487,6 +486,15 @@ function renderer({
                 this._rimLight = rimLight;
                 this._hemiLight = hemiLight;
                 this._fillLight = fillLight;
+
+                // Create a spotlight for night actions
+                const spotLight = new THREE.SpotLight(0xffffff, 5.0, 50, Math.PI / 4, 0.5, 2);
+                spotLight.position.set(0, 25, 0);
+                spotLight.castShadow = true;
+                spotLight.visible = false;
+                this._scene.add(spotLight);
+                this._spotLight = spotLight;
+                this._scene.add(spotLight.target);
               }
 
               _createMysticalCircles(THREE, radius) {
@@ -510,7 +518,7 @@ function renderer({
                 }
 
                 // Add runic symbols around the outer circle
-                this._createRunicSymbols(THREE, radius);
+                // this._createRunicSymbols(THREE, radius);
               }
 
               _createRunicSymbols(THREE, radius) {
@@ -540,9 +548,8 @@ function renderer({
                   });
                   
                   const symbol = new THREE.Mesh(symbolGeometry, symbolMaterial);
-                  symbol.position.set(x, 0.1, z);
+                  symbol.position.set(x, 0.15, z);
                   symbol.rotation.x = -Math.PI / 2;
-                  symbol.rotation.z = angle;
                   this._scene.add(symbol);
                 }
               }
@@ -1238,29 +1245,55 @@ function renderer({
     // Update phase lighting - use game_state_phase which contains DAY/NIGHT
     threeState.demo.updatePhase(gameState.game_state_phase);
 
-    // Handle recent events for animations
-    const recentEvents = gameState.eventLog.slice(-5); // Last 5 events
-    recentEvents.forEach(event => {
-      if (event.type === 'chat' && playerMap.has(event.speaker)) {
-        threeState.demo.updatePlayerStatus(event.speaker, 'speaking');
-        // Reset after a delay
-        setTimeout(() => {
-          const player = playerMap.get(event.speaker);
-          if (player && player.is_alive && event.speaker !== actingPlayerName) {
-            threeState.demo.updatePlayerStatus(event.speaker, 'default');
-          }
-        }, 2000);
-      } else if (event.type === 'vote' && playerMap.has(event.actor_id)) {
-        threeState.demo.updatePlayerStatus(event.actor_id, 'voting');
-        // Reset after a delay
-        setTimeout(() => {
-          const player = playerMap.get(event.actor_id);
-          if (player && player.is_alive && event.actor_id !== actingPlayerName) {
-            threeState.demo.updatePlayerStatus(event.actor_id, 'default');
-          }
-        }, 1500);
-      }
-    });
+    // Spotlight logic for night actions
+    if (threeState.demo._spotLight) {
+        const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
+        const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id) ? lastEvent.actor_id : null;
+
+        if (nightActor) {
+            const actorPlayer = threeState.demo._playerObjects.get(nightActor);
+            if (actorPlayer) {
+                const targetPosition = actorPlayer.container.position.clone();
+                threeState.demo._spotLight.target.position.copy(targetPosition);
+                threeState.demo._spotLight.position.set(targetPosition.x, targetPosition.y + 20, targetPosition.z + 5);
+                threeState.demo._spotLight.visible = true;
+            } else {
+                threeState.demo._spotLight.visible = false;
+            }
+        } else {
+            threeState.demo._spotLight.visible = false;
+        }
+    }
+
+    // Handle animation for the current event actor
+    const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
+    if (lastEvent) {
+        if (lastEvent.entry_type === 'moderator_announcement') {
+            // Moderator is speaking, expand all alive players
+            gameState.players.forEach(player => {
+                if (player.is_alive) {
+                    threeState.demo.updatePlayerStatus(player.name, 'speaking');
+                    setTimeout(() => {
+                        // Check again if player is still alive before resetting
+                        const currentPlayer = playerMap.get(player.name);
+                        if (currentPlayer && currentPlayer.is_alive) {
+                           threeState.demo.updatePlayerStatus(player.name, 'default');
+                        }
+                    }, 1500);
+                }
+            });
+        } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
+            // A player is the actor
+            const actorName = lastEvent.actor_id;
+            threeState.demo.updatePlayerStatus(actorName, 'speaking');
+            setTimeout(() => {
+                const player = playerMap.get(actorName);
+                if (player && player.is_alive) {
+                    threeState.demo.updatePlayerStatus(actorName, 'default');
+                }
+            }, 1500);
+        }
+    }
   }
 
   // --- CSS for the UI ---
@@ -3158,7 +3191,7 @@ function renderer({
             <div class="scoreboard-value alive">${alivePlayers}</div>
         </div>
         <div class="scoreboard-item">
-            <div class="scoreboard-label">Dead</div>
+            <div class="scoreboard-label">Out</div>
             <div class="scoreboard-value dead">${deadPlayers}</div>
         </div>
         ${werewolves > 0 || villagers > 0 ? `
