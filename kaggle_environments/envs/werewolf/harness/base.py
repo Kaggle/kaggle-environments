@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 import os
 import re
@@ -112,10 +111,10 @@ TARGETED_ACTION_EXEMPLAR = f"""```json
 {json.dumps(dict(reasoning="I chose this target randomly.", target_id="some_player_id", perceived_threat_level="SAFE"))}
 ```"""
 
-AUDIO_EXAMPLE = 'Say in an spooky whisper: \"By the pricking of my thumbs... Something wicked this way comes!\"'
-AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: \"I was stunned. I really suspect John\'s intent of bringing up Tim.\"'
-AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."'
-AUDIO_EXAMPLE_4 = 'Sound amused and relaxed: \"that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say.\"'
+AUDIO_EXAMPLE = 'Say in an spooky whisper: "By the pricking of my thumbs... Something wicked this way comes!"'
+AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: "I was stunned. I really suspect John\'s intent of bringing up Tim."' 
+AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."' 
+AUDIO_EXAMPLE_4 = 'Sound amused and relaxed: "that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say."' 
 CHAT_AUDIO_DICT = {"message": AUDIO_EXAMPLE, "reasoning": "To draw attention to other players ...", "perceived_threat_level": "SAFE"}
 CHAT_AUDIO_DICT_2 = {"message": AUDIO_EXAMPLE_2, "reasoning": "This accusation is uncalled for ...", "perceived_threat_level": "DANGER"}
 CHAT_AUDIO_DICT_3 = {"message": AUDIO_EXAMPLE_3, "reasoning": "I sense there are some suspicion directed towards me ...", "perceived_threat_level": "UNEASY"}
@@ -126,7 +125,7 @@ CHAT_ACTION_EXEMPLAR = f"```json\n{json.dumps(CHAT_AUDIO_DICT_3)}\n```"
 CHAT_ACTION_EXEMPLAR_4 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_4)}\n```"
 
 
-CHAT_ACTION_ADDITIONAL_CONSTRAINTS = [
+CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO = [
     f'- The "message" will be rendered to TTS and shown to other players, so make sure to control the style, tone, '
     f'accent and pace of your message using natural language prompt. e.g.\n{CHAT_ACTION_EXEMPLAR_2}',
     "- Since this is a social game, the script in the message should sound conversational.",
@@ -136,6 +135,18 @@ CHAT_ACTION_ADDITIONAL_CONSTRAINTS = [
     '- [Optional] Be Dynamic: A real chat is never monotonous. Use (voice: ...) instructions to constantly and subtly shift the tone to match the words.',
     # f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, '
     # f'thoughtful, curious, energetic, sarcastic, or conspiratorial. e.g. \n{CHAT_ACTION_EXEMPLAR_4}'
+]
+
+
+CHAT_TEXT_DICT = {"reasoning": "I want to put pressure on Player3 and see how they react. A quiet player is often a werewolf.", "message": "I'm suspicious of Player3. They've been too quiet. What do you all think?", "perceived_threat_level": "UNEASY"}
+CHAT_ACTION_EXEMPLAR_TEXT = f"```json\n{json.dumps(CHAT_TEXT_DICT)}\n```"
+
+
+CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT = [
+    '- The "message" will be displayed as text to other players. Focus on being clear, persuasive, and strategic.',
+    '- Your goal is to convince others to vote with you. Use logic, point out inconsistencies, or form alliances.',
+    '- Refer to players by their ID (e.g., "Player1", "Player3") to avoid ambiguity.',
+    '- Keep your messages concise and to the point.'
 ]
 
 
@@ -193,9 +204,11 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     ):
         """This wrapper only support 1 LLM.
         """
+        agent_config = agent_config or {}
         decoding_kwargs = agent_config.get("llms", [{}])[0].get('parameters')
         self._decoding_kwargs = decoding_kwargs or {}
         self._kaggle_config = kaggle_config or {}
+        self._chat_mode = agent_config.get("chat_mode", "audio")
         self._prompt_tokens = 0
         self._completion_tokens = 0
         self._total_cost = 0.
@@ -444,12 +457,20 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             elif current_phase == DetailedPhase.DAY_CHAT_AWAIT:
                 # All alive players can discuss.
                 if my_id in alive_players:
+                    if self._chat_mode == 'text':
+                        constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT
+                        exemplar = CHAT_ACTION_EXEMPLAR_TEXT
+                    elif self._chat_mode == 'audio':  # audio mode
+                        constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO
+                        exemplar = CHAT_ACTION_EXEMPLAR
+                    else:
+                        raise ValueError(f'Can only select between "text" mode and "audio" mode to prompt the LLM. "{self._chat_mode}" mode detected.')
                     instruction = INSTRUCTION_TEMPLATE.format(**{
                         "role": "It is day time. Participate in the discussion.",
                         "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
-                        "additional_constraints": "\n".join(CHAT_ACTION_ADDITIONAL_CONSTRAINTS),
+                        "additional_constraints": "\n".join(constraints),
                         "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
-                        "exemplar": CHAT_ACTION_EXEMPLAR
+                        "exemplar": exemplar
                     })
                     parsed_out = self.query_parse(instruction, obs)
                     action = ChatAction(**common_args, **parsed_out)
