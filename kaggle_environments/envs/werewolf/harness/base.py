@@ -230,14 +230,9 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._event_log_items_to_keep = 0
 
         if self._is_vertex_ai:
-            file_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-            with open(file_path, 'r') as file:
-                vertex_credentials = json.load(file)
-            vertex_credentials_json = json.dumps(vertex_credentials)
             self._decoding_kwargs.update({
-                "vertex_ai_project": os.environ["VERTEXAI_PROJECT"],
-                "vertex_ai_location": os.environ["VERTEXAI_LOCATION"],
-                "vertex_credentials": vertex_credentials_json
+                "vertex_ai_project": os.environ.get("VERTEXAI_PROJECT",""),
+                "vertex_ai_location": os.environ.get("VERTEXAI_LOCATION",""),
             })
 
     @property
