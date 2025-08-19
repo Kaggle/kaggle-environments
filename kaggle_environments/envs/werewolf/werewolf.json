@@ -68,6 +68,17 @@
                         "description": "The name of the agent harness to use.",
                         "default": ""
                     },
+                    "chat_mode": {
+                        "type": "string",
+                        "description": "Select between chat mode or text mode to prompt the LLM to produce different style of response.",
+                        "default": "text",
+                        "enum": ["text", "audio"]
+                    },
+                    "enable_bid_reasoning": {
+                        "type": "boolean",
+                        "description": "Determine whether to prompt LLM to generate reasoning for bidding or not.",
+                        "default": false
+                    },
                     "llms": {
                         "type": "array",
                         "description": "A list of Language Learning Models to be used by the agent.",

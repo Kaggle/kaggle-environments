@@ -2,7 +2,9 @@ import json
 import logging
 import random
 from os import path, getenv
-from typing import Dict
+from typing import Dict, Optional, List
+
+from pydantic import BaseModel, Field
 
 from .game.actions import (
     Action, VoteAction, HealAction, InspectAction,
@@ -17,7 +19,7 @@ from .game.protocols import (
 from .game.records import WerewolfObservationModel, VisibleRawData
 from .game.roles import create_players_from_agents_config
 from .game.states import GameState, HistoryEntry, HistoryEntryType
-from .harness.base import LLMWerewolfAgent
+from .harness.base import LLMWerewolfAgent, LLMCostTracker
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,26 @@ def create_protocol(protocol_type: str, config: dict, default_name: str):
         final_params["bidding"] = create_protocol(
             "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
     return protocol_class(**final_params)
+
+
+class AgentCost(BaseModel):
+    total_cost: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+class AgentCostSummary(BaseModel):
+    agent_config: Dict
+    costs: AgentCost = Field(default_factory=AgentCost)
+    data: Optional[LLMCostTracker] = None
+
+
+class CostSummary(BaseModel):
+    cost_per_agent: List[AgentCostSummary] = Field(default_factory=list)
+    total_cost: float = 0.0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_tokens: int = 0
 
 
 def random_agent(obs):
@@ -169,8 +191,17 @@ class AgentFactoryWrapper:
 
     def __init__(self, agent_class, **kwargs):
         self._agent_class = agent_class
-        self._kwargs = kwargs
+        self._shared_kwargs = kwargs
+        self._kwargs = {}  # store configs of individual agents
         self._instances = {}
+        self._agent_configs = None
+
+    @property
+    def agent_class(self):
+        return self._agent_class
+
+    def get_instance(self, player_id):
+        return self._instances.get(player_id)
 
     def __call__(self, obs, config):
         """
@@ -191,13 +222,17 @@ class AgentFactoryWrapper:
                 reasoning="AgentFactoryWrapper: No player_id found in observation."
             ).serialize()
 
-        if player_id not in self._instances:
-            agents_dict = {agent_config.id: agent_config for agent_config in config.agents}
-            # Create a new agent instance for this player
-            self._kwargs['agent_config'] = agents_dict.get(player_id)
-            self._instances[player_id] = self._agent_class(**self._kwargs)
+        if not self._agent_configs:
+            self._agent_configs = {agent_config.id: agent_config for agent_config in config.agents}
 
+        if player_id not in self._instances:
+            # Create a new agent instance for this player
+            self._kwargs[player_id] = {"agent_config": self._agent_configs.get(player_id)}
+            self._instances[player_id] = self._agent_class(**self._shared_kwargs, **self._kwargs[player_id])
         return self._instances[player_id](obs)
+
+    def reset(self):
+        self._instances.clear()
 
 
 # --- Agent Registry ---
@@ -222,6 +257,7 @@ LLM_MODEL_NAMES = [
     "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
     "vertex_ai/gemini-2.0-flash",
     "vertex_ai/gemini-2.5-pro",
+    "vertex_ai/"
     # together ai
     "together_ai/deepseek-ai/DeepSeek-R1",
     "together_ai/moonshotai/Kimi-K2-Instruct",
@@ -351,6 +387,40 @@ def interpreter(state, env):
     return state
 
 
+def collect_cost_summary(env) -> CostSummary:
+    cost_summary = CostSummary()
+
+    for agent_config in env.configuration.agents:
+        player_id = agent_config['id']
+        agent_id = agent_config['agent_id']
+
+        agent_cost_summary = AgentCostSummary(agent_config=agent_config)
+
+        if (
+                isinstance(agents.get(agent_id), AgentFactoryWrapper)
+                and issubclass(agents[agent_id].agent_class, LLMWerewolfAgent)
+        ):
+            agent_instance = agents[agent_id].get_instance(player_id)
+            if agent_instance:
+                cost_tracker = agent_instance.cost_tracker
+                agent_cost = AgentCost(
+                    total_cost=cost_tracker.query_token_cost.total_costs_usd,
+                    prompt_tokens=cost_tracker.prompt_token_cost.total_tokens,
+                    completion_tokens=cost_tracker.completion_token_cost.total_tokens
+                )
+                agent_cost_summary.costs = agent_cost
+                agent_cost_summary.data = cost_tracker
+
+                cost_summary.total_cost += agent_cost.total_cost
+                cost_summary.total_prompt_tokens += agent_cost.prompt_tokens
+                cost_summary.total_completion_tokens += agent_cost.completion_tokens
+
+        cost_summary.cost_per_agent.append(agent_cost_summary)
+
+    cost_summary.total_tokens = cost_summary.total_prompt_tokens + cost_summary.total_completion_tokens
+    return cost_summary
+
+
 def record_game_end(state, env, game_state, current_info, agent_error):
     # log game end to env.info using GameEndResultsDataEntry
     game_end_entry = next(iter(game_state.get_history_by_type(HistoryEntryType.GAME_END)), None)
@@ -358,11 +428,16 @@ def record_game_end(state, env, game_state, current_info, agent_error):
         current_info.update(game_end_entry.data.model_dump())
     # Record if terminated with agent error. If so, the game record is invalid.
     current_info['terminated_with_agent_error'] = agent_error
+
+    # Record cost from endpoints if any.
+    current_info['cost_summary'] = collect_cost_summary(env).model_dump()
+
     env.info[EnvInfoKeys.GAME_END] = current_info
     # Determine winner based on game_state.history's GAME_END entry
-    scores = game_end_entry.data.scores
-    for i, player_id in enumerate(env.player_id_str_list):
-        state[i].reward = scores[player_id]
+    if game_end_entry:
+        scores = game_end_entry.data.scores
+        for i, player_id in enumerate(env.player_id_str_list):
+            state[i].reward = scores[player_id]
 
 
 def update_agent_messages(
@@ -480,6 +555,7 @@ def initialize_moderator(state, env):
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
     env.info = {EnvInfoKeys.MODERATOR_OBS: []}
+    env.agents = agents
 
 
 def renderer(state, env):
