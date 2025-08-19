@@ -17,22 +17,22 @@ Install the requirements for kaggle env
 pip install -e kaggle-environments
 ```
 
-[Optional] Set up authentication for connecting to vertex
+[Optional] Set up authentication for connecting to Google Cloud Vertex AI
 ```bash
 gcloud auth application-default login
-gcloud config set project octo-aif-sandbox
+gcloud config set project YOUR_PROJECT_ID
 ```
 
-Set up `.env` under project root for auth, used in base.py
+Set up `.env` under project root for auth, used in base.py for models being used
 ```
-GEMINI_API_KEY=...
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
 TOGETHERAI_API_KEY=...
 XAI_API_KEY=...
-GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json"
+GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json" # Optional if different from default location
 VERTEXAI_PROJECT=my-project-name
 VERTEXAI_LOCATION=us-central1
+GEMINI_API_KEY=... # Optional if using Google Labs API rather than Vertex AI API
 GEMINI_MODEL="gemini-2.5-pro"
 ```
 
@@ -46,12 +46,11 @@ python kaggle_environments/envs/werewolf/scripts/self_play.py --use_random_agent
 # or equivalently
 python kaggle_environments/envs/werewolf/scripts/self_play.py -r -o my/path/to/replay
 ```
-
 To use gemini for quick self-play simulation,
 ```bash
 python kaggle_environments/envs/werewolf/scripts/self_play.py
 # or if you want to use a different model and output_path versus default
-python kaggle_environments/envs/werewolf/scripts/self_play.py --litellm_model_path gemini/gemini-2.5-pro --brand gemini --output_dir my/path/to/replay/dir
+python kaggle_environments/envs/werewolf/scripts/self_play.py --litellm_model_path vertex_ai/gemini-2.0-flash --brand gemini --output_dir my/path/to/replay/dir
 ```
 
 ## End to End Generate Game Play and Audio
