@@ -60,6 +60,10 @@ setup(
         "Chessnut >= 0.4.1",
         "open_spiel >= 1.6.0",
         "pydantic >= 2.11.4",
+        "pytest >= 8.0.0",
+        "litellm >= 1.75.0",
+        "tenacity >= 9.0.0",
+        "google-genai >= 1.0.0"
     ],
     packages=find_packages(),
     include_package_data=True,

@@ -5,3 +5,7 @@ kaggle
 google-generativeai
 python-dotenv
 PyYAML
+pytest
+litellm
+tenacity
+google-genai
