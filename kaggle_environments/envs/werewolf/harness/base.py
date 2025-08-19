@@ -18,7 +18,7 @@ from kaggle_environments.envs.werewolf.game.states import HistoryEntry
 from kaggle_environments.envs.werewolf.game.engine import DetailedPhase
 from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.actions import (
-    NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction
+    NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction, BidAction
 )
 
 logger = logging.getLogger(__name__)
@@ -106,9 +106,16 @@ TARGETED_ACTION_SCHEMA = get_action_subset_fields_schema(
     TargetedAction, "TargetedLLMAction", fields=['target_id', 'reasoning', 'perceived_threat_level'])
 CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
     ChatAction, "ChatLLMAction", fields=['message', 'reasoning', 'perceived_threat_level'])
+BID_ACTION_SCHEMA = get_action_subset_fields_schema(
+    BidAction, "BidLLMAction", fields=['amount', 'reasoning', 'perceived_threat_level'])
+
 
 TARGETED_ACTION_EXEMPLAR = f"""```json
 {json.dumps(dict(reasoning="I chose this target randomly.", target_id="some_player_id", perceived_threat_level="SAFE"))}
+```"""
+
+BID_ACTION_EXEMPLAR = f"""```json
+{json.dumps(dict(reasoning="I have important information to share, so I am bidding high.", amount=4, perceived_threat_level="UNEASY"))}
 ```"""
 
 AUDIO_EXAMPLE = 'Say in an spooky whisper: "By the pricking of my thumbs... Something wicked this way comes!"'
@@ -126,14 +133,14 @@ CHAT_ACTION_EXEMPLAR_4 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_4)}\n```"
 
 
 CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO = [
-    f'- The "message" will be rendered to TTS and shown to other players, so make sure to control the style, tone, '
+    f'- The "message" will be rendered to TTS and shown to other players, so make sure to control the style, tone, ' 
     f'accent and pace of your message using natural language prompt. e.g.\n{CHAT_ACTION_EXEMPLAR_2}',
     "- Since this is a social game, the script in the message should sound conversational.",
     '- Be Informal: Use contractions (like "it\'s," "gonna"), and simple language.',
     '- Be Spontaneous: Vary your sentence length. It\'s okay to have short, incomplete thoughts or to restart a sentence.',
     '- [Optional] If appropriate, you could add natural sounds in (sound: ...) e.g. (sound: chuckles), or (sound: laughs), etc.',
     '- [Optional] Be Dynamic: A real chat is never monotonous. Use (voice: ...) instructions to constantly and subtly shift the tone to match the words.',
-    # f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, '
+    # f'- Be Expressive: Use a variety of descriptive tones. Don\'t just use happy or sad. Try tones like amused, ' 
     # f'thoughtful, curious, energetic, sarcastic, or conspiratorial. e.g. \n{CHAT_ACTION_EXEMPLAR_4}'
 ]
 
@@ -309,7 +316,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
             # 2. Clean the JSON string
             # Remove trailing commas from objects and arrays which is a common mistake
-            json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+            json_str = re.sub(r',\s*([\}\]])', r'\1', json_str)
 
             # 3. Parse the cleaned string
             try:
@@ -453,6 +460,18 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                         })
                         parsed_out = self.query_parse(instruction, obs)
                         action = InspectAction(**common_args, **parsed_out)
+
+            elif current_phase == DetailedPhase.DAY_BIDDING_AWAIT:
+                if my_id in alive_players:
+                    instruction = INSTRUCTION_TEMPLATE.format(**{
+                        "role": "It is bidding time. You can bid to get a chance to speak.",
+                        "task": 'Decide how much to bid for a speaking turn. A higher bid increases your chance of speaking. You can bid from 0 to 4.',
+                        "additional_constraints": "- The 'amount' must be an integer between 0 and 4.",
+                        "json_schema": json.dumps(BID_ACTION_SCHEMA),
+                        "exemplar": BID_ACTION_EXEMPLAR
+                    })
+                    parsed_out = self.query_parse(instruction, obs)
+                    action = BidAction(**common_args, **parsed_out)
 
             elif current_phase == DetailedPhase.DAY_CHAT_AWAIT:
                 # All alive players can discuss.
