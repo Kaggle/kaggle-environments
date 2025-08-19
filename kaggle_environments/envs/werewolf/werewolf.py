@@ -172,6 +172,13 @@ class AgentFactoryWrapper:
         self._kwargs = kwargs
         self._instances = {}
 
+    @property
+    def agent_class(self):
+        return self._agent_class
+
+    def get_instance(self, player_id):
+        return self._instances.get(player_id)
+
     def __call__(self, obs, config):
         """
         The main callable method for the agent. It routes the call to the correct
@@ -222,6 +229,7 @@ LLM_MODEL_NAMES = [
     "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
     "vertex_ai/gemini-2.0-flash",
     "vertex_ai/gemini-2.5-pro",
+    "vertex_ai/"
     # together ai
     "together_ai/deepseek-ai/DeepSeek-R1",
     "together_ai/moonshotai/Kimi-K2-Instruct",
@@ -351,6 +359,42 @@ def interpreter(state, env):
     return state
 
 
+def collect_cost_summary(env):
+    total_cost = 0
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+    agent_cost_list = []
+    for agent_config in env.configuration.agents:
+        player_id = agent_config['id']
+        agent_id = agent_config['agent_id']
+        agent_summary = {
+            "agent_config": agent_config,
+        }
+        if (
+                isinstance(agents[agent_id], AgentFactoryWrapper)
+                and issubclass(agents[agent_id].agent_class, LLMWerewolfAgent)
+                and agents[agent_id].get_instance(player_id) is not None
+        ):
+            agent_instance = agents[agent_id].get_instance(player_id)
+            total_cost += agent_instance.total_cost
+            total_prompt_tokens += agent_instance.prompt_tokens
+            total_completion_tokens += agent_instance.completion_tokens
+            agent_summary['costs'] = {
+                "total_cost": agent_instance.total_cost,
+                "prompt_tokens": agent_instance.prompt_tokens,
+                "completion_tokens": agent_instance.completion_tokens
+            }
+        agent_cost_list.append(agent_summary)
+    out = {
+        "cost_per_agent": agent_cost_list,
+        "total_cost": total_cost,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
+        "total_tokens": total_prompt_tokens + total_completion_tokens
+    }
+    return out
+
+
 def record_game_end(state, env, game_state, current_info, agent_error):
     # log game end to env.info using GameEndResultsDataEntry
     game_end_entry = next(iter(game_state.get_history_by_type(HistoryEntryType.GAME_END)), None)
@@ -358,11 +402,16 @@ def record_game_end(state, env, game_state, current_info, agent_error):
         current_info.update(game_end_entry.data.model_dump())
     # Record if terminated with agent error. If so, the game record is invalid.
     current_info['terminated_with_agent_error'] = agent_error
+
+    # Record cost from endpoints if any.
+    current_info['cost_summary'] = collect_cost_summary(env)
+
     env.info[EnvInfoKeys.GAME_END] = current_info
     # Determine winner based on game_state.history's GAME_END entry
-    scores = game_end_entry.data.scores
-    for i, player_id in enumerate(env.player_id_str_list):
-        state[i].reward = scores[player_id]
+    if game_end_entry:
+        scores = game_end_entry.data.scores
+        for i, player_id in enumerate(env.player_id_str_list):
+            state[i].reward = scores[player_id]
 
 
 def update_agent_messages(
@@ -480,6 +529,7 @@ def initialize_moderator(state, env):
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
     env.info = {EnvInfoKeys.MODERATOR_OBS: []}
+    env.agents = agents
 
 
 def renderer(state, env):

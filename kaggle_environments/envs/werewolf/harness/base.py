@@ -198,6 +198,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._kaggle_config = kaggle_config or {}
         self._prompt_tokens = 0
         self._completion_tokens = 0
+        self._total_cost = 0.
+        self._cur_response_cost = 0.
         self._history_entries = []
         self._model_name = model_name
         self._system_prompt = system_prompt
@@ -218,10 +220,26 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "vertex_credentials": vertex_credentials_json
             })
 
+    @property
+    def prompt_tokens(self):
+        return self._prompt_tokens
+
+    @property
+    def completion_tokens(self):
+        return self._completion_tokens
+
+    @property
+    def total_cost(self):
+        return self._total_cost
+
     def log_token_usage(self) :
         logger.info(
-            f"*** Total prompt tokens: '{self._prompt_tokens}' "
-            f"total completion_tokens: '{self._completion_tokens}'"
+            ", ".join([
+                f"*** Total prompt tokens: {self._prompt_tokens}",
+                f"total completion_tokens: {self._completion_tokens}",
+                f"total query cost: $ {self._total_cost}",
+                f"current query cost: $ {self._cur_response_cost}"
+            ])
         )
 
     def __del__(self):
@@ -239,6 +257,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         msg = response["choices"][0]["message"]["content"]
         self._completion_tokens += response['usage']['completion_tokens']
         self._prompt_tokens += response['usage']['prompt_tokens']
+        self._cur_response_cost = response._hidden_params["response_cost"]
+        self._total_cost += self._cur_response_cost
         return msg
 
     def parse(self, out: str) -> dict:
@@ -421,7 +441,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                         parsed_out = self.query_parse(instruction, obs)
                         action = InspectAction(**common_args, **parsed_out)
 
-            elif current_phase == DetailedPhase.DAY_DISCUSSION_AWAIT_CHAT:
+            elif current_phase == DetailedPhase.DAY_CHAT_AWAIT:
                 # All alive players can discuss.
                 if my_id in alive_players:
                     instruction = INSTRUCTION_TEMPLATE.format(**{
