@@ -1,0 +1,117 @@
+# Settings for the dump_audio.py script
+script_settings:
+  server:
+    port: 7999
+  paths:
+    audio_dir_name: "audio"
+    debug_audio_dir_name: "debug_audio"
+    output_html_filename: "replay.html"
+  voices:
+    moderator: "enceladus"
+    players:
+      gemini-2.5-flash: 'Kore'
+      deepseek-r1: 'Charon'
+      gpt-oss-120b: 'Leda'
+      qwen3: 'Despina'
+      "gpt-4.1": 'Erinome'
+      "o4-mini": 'Gacrux'
+      "gemini-2.5-pro": 'Achird'
+      "grok-4": 'Puck'
+  audio:
+    static_moderator_messages:
+      night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
+      day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
+      discussion_begins: "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]"
+      voting_begins: "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]"
+
+# Configuration for the Werewolf game environment
+game_config:
+  seed: 123
+  actTimeout: 300
+  runTimeout: 3600
+  discussion_protocol:
+    name: "TurnByTurnBiddingDiscussion"
+    params:
+      max_turns: 16
+      bid_result_public: false
+  day_voting_protocol:
+    name: "SequentialVoting"
+  werewolf_night_vote_protocol:
+    name: "SequentialVoting"
+  reveal_night_elimination_role: false
+  reveal_day_exile_role: false
+  allow_doctor_self_save: true
+  agents:
+    - role: "Werewolf"
+      id: "gemini-2.5-flash"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm_harness/gemini/gemini-2.5-flash"
+      display_name: "gemini/gemini-2.5-flash"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "gemini/gemini-2.5-flash"
+    - role: "Werewolf"
+      id: "deepseek-r1"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png"
+      agent_id: "llm_harness/together_ai/deepseek-ai/DeepSeek-R1"
+      display_name: "together_ai/deepseek-ai/DeepSeek-R1"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "together_ai/deepseek-ai/DeepSeek-R1"
+          parameters: { "max_tokens": 163839 }
+    - role: "Doctor"
+      id: "gpt-oss-120b"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/together_ai/openai/gpt-oss-120b"
+      display_name: "together_ai/openai/gpt-oss-120b"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "together_ai/openai/gpt-oss-120b"
+    - role: "Seer"
+      id: "qwen3"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
+      agent_id: "llm_harness/together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+      display_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+    - role: "Villager"
+      id: "gpt-4.1"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/gpt-4.1"
+      display_name: "gpt-4.1"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "gpt-4.1"
+    - role: "Villager"
+      id: "o4-mini"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/o4-mini"
+      display_name: "o4-mini"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "o4-mini"
+    - role: "Villager"
+      id: "gemini-2.5-pro"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm_harness/gemini/gemini-2.5-pro"
+      display_name: "gemini/gemini-2.5-pro"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "gemini/gemini-2.5-pro"
+    - role: "Villager"
+      id: "grok-4"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png"
+      agent_id: "llm_harness/xai/grok-4-latest"
+      display_name: "xai/grok-4-latest"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "xai/grok-4-latest"
