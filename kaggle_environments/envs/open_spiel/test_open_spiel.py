@@ -1,5 +1,8 @@
-from absl.testing import absltest
+import json
+import pathlib
 import sys
+
+from absl.testing import absltest
 from kaggle_environments import make
 import pyspiel
 from . import open_spiel as open_spiel_env
@@ -91,6 +94,87 @@ class OpenSpielEnvTest(absltest.TestCase):
     self.assertEqual(json["rewards"], [None, None])
     self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
 
+  def test_initial_actions(self):
+    open_spiel_env._register_game_envs(["tic_tac_toe"])
+    env = make(
+        "open_spiel_tic_tac_toe",
+        {"initialActions": [0, 1, 3, 4]},
+        debug=True,
+    )
+    env.reset()
+    # Setup step
+    env.step([
+        {"submission": pyspiel.INVALID_ACTION},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    env.step([
+        {"submission": 2},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    env.step([
+        {"submission": pyspiel.INVALID_ACTION},
+        {"submission": 7},
+    ])
+    self.assertTrue(env.done)
+    json_playthrough = env.toJSON()
+    self.assertEqual(json_playthrough["rewards"], [-1, 1])
+
+  def test_chess_openings_manually_configured(self):
+    open_spiel_env._register_game_envs(["chess"])
+    openings_path = pathlib.Path(
+        open_spiel_env.GAMES_DIR,
+        "chess/openings.jsonl",
+    )
+    self.assertTrue(openings_path.is_file())
+    with open(openings_path, "r", encoding="utf-8") as f:
+      for line in f:
+        opening = json.loads(line)
+        config = {
+            "initialActions": opening.pop("initialActions"),
+            "metadata": opening,
+        }
+        env = make(
+            "open_spiel_chess",
+            config,
+            debug=True,
+        )
+        env.reset()
+        # Setup step
+        env.step([
+            {"submission": pyspiel.INVALID_ACTION},
+            {"submission": pyspiel.INVALID_ACTION},
+        ])
+        obs = env.state[0]["observation"]
+        _, state = pyspiel.deserialize_game_and_state(
+            obs["serializedGameAndState"]
+        )
+        self.assertEqual(str(state), opening["fen"])
+        self.assertEqual(str(state),
+                         env.toJSON()["configuration"]["metadata"]["fen"])
+
+  def test_chess_openings_configured_with_seed(self):
+    open_spiel_env._register_game_envs(["chess"])
+    config = {
+        "useOpenings": True,
+        "seed": 0,
+    }
+    env = make(
+        "open_spiel_chess",
+        config,
+        debug=True,
+    )
+    env.reset()
+    # Setup step
+    env.step([
+        {"submission": pyspiel.INVALID_ACTION},
+        {"submission": pyspiel.INVALID_ACTION},
+    ])
+    obs = env.state[0]["observation"]
+    game, state = pyspiel.deserialize_game_and_state(
+        obs["serializedGameAndState"]
+    )
+    # Check that selected opening state does not equal standard start state.
+    self.assertNotEqual(str(state), str(game.new_initial_state()))
 
 if __name__ == '__main__':
   absltest.main()

@@ -1,6 +1,7 @@
 """Kaggle environment wrapper for OpenSpiel games."""
 
 import copy
+import json
 import importlib
 import logging
 import os
@@ -79,6 +80,22 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "description": "Game parameters for Open Spiel game.",
         "type": "object",
         "default": {}
+    },
+    "useOpenings": {
+        "description": "Whether to start from a position in an opening book.",
+        "type": "boolean",
+        "default": False
+    },
+    "seed": {
+      "description": "Integer currently only used for selecting starting position.",
+      "type": "number",
+    },
+    "initialActions": {
+        "description": "Actions applied to initial state before play begins to set up starting position.",
+        "type": "array",
+        "items": {
+            "type": "integer"
+        },
     },
     "metadata": {
         "description": "Arbitrary metadata.",
@@ -159,7 +176,34 @@ ENV_SPEC_TEMPLATE = {
 }
 
 
+def _get_initial_actions(
+    configuration: dict[str, Any],
+) -> tuple[list[int], dict[str, Any]]:
+  initial_actions = configuration.get("initialActions", [])
+  if initial_actions:
+    if configuration.get("useOpenings"):
+      raise ValueError("Cannot set both useOpenings and initialActions.")
+    else:
+      return initial_actions, {}
+  if not configuration.get("useOpenings"):
+    return [], {}
+  seed = configuration.get("seed", None)
+  if seed is None:
+    raise ValueError("Must provide seed if useOpenings is True.")
+  openings_path = pathlib.Path(
+      GAMES_DIR, configuration.get("openSpielGameName"), "openings.jsonl",
+  )
+  if not openings_path.is_file():
+    raise ValueError(f"No opening file found at {openings_path}")
+  with open(openings_path, "r", encoding="utf-8") as f:
+    openings = f.readlines()
+    opening = json.loads(openings[seed % len(openings)])
+    initial_actions = opening.pop("initialActions")
+    return initial_actions, opening
+
+
 # --- Core step logic ---
+
 
 def interpreter(
   state: list[utils.Struct],
@@ -185,6 +229,14 @@ def interpreter(
     env.info['stateHistory'] = [str(env.os_state)]
     env.info['actionHistory'] = []
     env.info['moveDurations'] = []
+    initial_actions, metadata = _get_initial_actions(env.configuration)
+    if initial_actions:
+      env.info["initialActions"] = initial_actions
+      env.info["openingMetadata"] = metadata
+      for action in initial_actions:
+        env.os_state.apply_action(action)
+        env.info["actionHistory"].append(str(action))
+        env.info["stateHistory"].append(str(env.os_state))
   
   os_game = env.os_game
   os_state = env.os_state
