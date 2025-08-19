@@ -169,8 +169,10 @@ class AgentFactoryWrapper:
 
     def __init__(self, agent_class, **kwargs):
         self._agent_class = agent_class
-        self._kwargs = kwargs
+        self._shared_kwargs = kwargs
+        self._kwargs = {}  # store configs of individual agents
         self._instances = {}
+        self._agent_configs = None
 
     @property
     def agent_class(self):
@@ -198,12 +200,13 @@ class AgentFactoryWrapper:
                 reasoning="AgentFactoryWrapper: No player_id found in observation."
             ).serialize()
 
-        if player_id not in self._instances:
-            agents_dict = {agent_config.id: agent_config for agent_config in config.agents}
-            # Create a new agent instance for this player
-            self._kwargs['agent_config'] = agents_dict.get(player_id)
-            self._instances[player_id] = self._agent_class(**self._kwargs)
+        if not self._agent_configs:
+            self._agent_configs = {agent_config.id: agent_config for agent_config in config.agents}
 
+        if player_id not in self._instances:
+            # Create a new agent instance for this player
+            self._kwargs[player_id] = {"agent_config": self._agent_configs.get(player_id)}
+            self._instances[player_id] = self._agent_class(**self._shared_kwargs, **self._kwargs[player_id])
         return self._instances[player_id](obs)
 
 
