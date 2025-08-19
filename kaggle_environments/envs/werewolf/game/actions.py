@@ -7,10 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from .consts import PerceivedThreatLevel
 
-
-def filter_language(text):
-    """Remove inappropriate/violent language."""
-    replacement_map = {
+REPLACEMENT_MAP = {
         # 'kill' variations
         'kill': 'eliminate',
         'kills': 'eliminates',
@@ -32,15 +29,18 @@ def filter_language(text):
         'murderer': 'remover'
     }
 
+def filter_language(text):
+    """Remove inappropriate/violent language."""
+    
     # Create a single, case-insensitive regex pattern from all map keys.
-    pattern = re.compile(r'\b(' + '|'.join(replacement_map.keys()) + r')\b', re.IGNORECASE)
+    pattern = re.compile(r'\b(' + '|'.join(REPLACEMENT_MAP.keys()) + r')\b', re.IGNORECASE)
 
     def replacer(match):
         """
         Finds the correct replacement and applies case based on a specific heuristic.
         """
         original_word = match.group(0)
-        replacement = replacement_map[original_word.lower()]
+        replacement = REPLACEMENT_MAP[original_word.lower()]
 
         # Rule 1: Preserve ALL CAPS.
         if original_word.isupper():
