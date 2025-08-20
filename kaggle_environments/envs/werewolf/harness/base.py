@@ -6,11 +6,12 @@ import traceback
 import ast
 import datetime
 import logging
+from typing import List
 
 import litellm
-from litellm import completion
+from litellm import completion, cost_per_token
 from dotenv import load_dotenv
-from pydantic import create_model
+from pydantic import create_model, BaseModel, Field
 import tenacity
 
 from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel
@@ -66,7 +67,7 @@ def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
 
         logger.warning(
             'RateLimitError detected. Retrying with smaller context. '
-            'Reducing event log from %d to %d items.',
+            'Reducing event log from %d to %d itms.',
             original_count,
             agent_instance._event_log_items_to_keep,
         )
@@ -106,16 +107,22 @@ TARGETED_ACTION_SCHEMA = get_action_subset_fields_schema(
     TargetedAction, "TargetedLLMAction", fields=['target_id', 'reasoning', 'perceived_threat_level'])
 CHAT_ACTION_SCHEMA = get_action_subset_fields_schema(
     ChatAction, "ChatLLMAction", fields=['message', 'reasoning', 'perceived_threat_level'])
+
 BID_ACTION_SCHEMA = get_action_subset_fields_schema(
+    BidAction, "BidLLMAction", fields=['amount', 'perceived_threat_level'])
+BID_ACTION_SCHEMA_REASONING = get_action_subset_fields_schema(
     BidAction, "BidLLMAction", fields=['amount', 'reasoning', 'perceived_threat_level'])
 
 
 TARGETED_ACTION_EXEMPLAR = f"""```json
-{json.dumps(dict(reasoning="I chose this target randomly.", target_id="some_player_id", perceived_threat_level="SAFE"))}
+{json.dumps(dict(perceived_threat_level="SAFE", reasoning="I chose this target randomly.", target_id="some_player_id"))}
 ```"""
 
 BID_ACTION_EXEMPLAR = f"""```json
-{json.dumps(dict(reasoning="I have important information to share, so I am bidding high.", amount=4, perceived_threat_level="UNEASY"))}
+{json.dumps(dict(perceived_threat_level="UNEASY", amount=4))}
+```"""
+BID_ACTION_EXEMPLAR_REASONING = f"""```json
+{json.dumps(dict(perceived_threat_level="UNEASY", reasoning="I have important information to share, so I am bidding high.", amount=4))}
 ```"""
 
 AUDIO_EXAMPLE = 'Say in an spooky whisper: "By the pricking of my thumbs... Something wicked this way comes!"'
@@ -201,13 +208,49 @@ Please format your response as a Markdown JSON code block, which should include 
 """
 
 
+class TokenCost(BaseModel):
+    total_tokens: int = 0
+    total_costs_usd: float = 0.
+    token_count_history: List[int] = []
+    cost_history_usd: List[float] = []
+
+    def update(self, token_count, cost):
+        self.total_tokens += token_count
+        self.total_costs_usd += cost
+        self.token_count_history.append(token_count)
+        self.cost_history_usd.append(cost)
+
+
+class LLMCostTracker(BaseModel):
+    model_name: str
+    query_token_cost: TokenCost = Field(default_factory=TokenCost)
+    prompt_token_cost: TokenCost = Field(default_factory=TokenCost)
+    completion_token_cost: TokenCost = Field(default_factory=TokenCost)
+    usage_history: List[BaseModel] = []
+    """example item from gemini flash model dump: response.usage = {'completion_tokens': 579, 'prompt_tokens': 1112,
+     'total_tokens': 1691, 'completion_tokens_details': {'accepted_prediction_tokens': None, 
+     'audio_tokens': None, 'reasoning_tokens': 483, 'rejected_prediction_tokens': None, 
+     'text_tokens': 96}, 'prompt_tokens_details': {'audio_tokens': None, 'cached_tokens': None, 
+     'text_tokens': 1112, 'image_tokens': None}}"""
+
+    def update(self, response):
+        completion_tokens = response['usage']['completion_tokens']
+        prompt_tokens = response['usage']['prompt_tokens']
+        response_cost = response._hidden_params["response_cost"]
+        prompt_cost, completion_cost = cost_per_token(
+            model=self.model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+
+        self.query_token_cost.update(token_count=prompt_tokens + completion_tokens, cost=response_cost)
+        self.prompt_token_cost.update(token_count=prompt_tokens, cost=prompt_cost)
+        self.completion_token_cost.update(token_count=completion_tokens, cost=completion_cost)
+        self.usage_history.append(response.usage.model_dump())
 
 
 class LLMWerewolfAgent(WerewolfAgentBase):
 
     def __init__(
             self, model_name: str, agent_config: dict = None, system_prompt: str = "",
-            prompt_template: str = DEFAULT_PROMPT_TEMPLATE, kaggle_config=None
+            prompt_template: str = DEFAULT_PROMPT_TEMPLATE, kaggle_config=None,
     ):
         """This wrapper only support 1 LLM.
         """
@@ -216,10 +259,9 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._decoding_kwargs = decoding_kwargs or {}
         self._kaggle_config = kaggle_config or {}
         self._chat_mode = agent_config.get("chat_mode", "audio")
-        self._prompt_tokens = 0
-        self._completion_tokens = 0
-        self._total_cost = 0.
-        self._cur_response_cost = 0.
+        self._enable_bid_reasoning = agent_config.get("enable_bid_reasoning", False)
+        self._cost_tracker = LLMCostTracker(model_name=model_name)
+
         self._history_entries = []
         self._model_name = model_name
         self._system_prompt = system_prompt
@@ -241,31 +283,24 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             })
 
     @property
-    def prompt_tokens(self):
-        return self._prompt_tokens
-
-    @property
-    def completion_tokens(self):
-        return self._completion_tokens
-
-    @property
-    def total_cost(self):
-        return self._total_cost
+    def cost_tracker(self) -> LLMCostTracker:
+        return self._cost_tracker
 
     def log_token_usage(self) :
         logger.info(
             ", ".join([
-                f"*** Total prompt tokens: {self._prompt_tokens}",
-                f"total completion_tokens: {self._completion_tokens}",
-                f"total query cost: $ {self._total_cost}",
-                f"current query cost: $ {self._cur_response_cost}"
+                f"*** Total prompt tokens: {self._cost_tracker.prompt_token_cost.total_tokens}",
+                f"total completion_tokens: {self._cost_tracker.completion_token_cost.total_tokens}",
+                f"total query cost: $ {self._cost_tracker.query_token_cost.total_costs_usd}",
+                f"current query cost: $ {self._cost_tracker.query_token_cost.cost_history_usd[-1]}"
             ])
         )
 
     def __del__(self):
         logger.info(
             f"Instance '{self._model_name}' is being deleted. "
-            f"Prompt tokens: '{self._prompt_tokens}' completion_tokens: '{self._completion_tokens}'."
+            f"Prompt tokens: '{self._cost_tracker.prompt_token_cost.total_tokens}' "
+            f"completion_tokens: '{self._cost_tracker.completion_token_cost.total_tokens}'."
         )
 
     def query(self, prompt):
@@ -275,10 +310,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             **self._decoding_kwargs
         )
         msg = response["choices"][0]["message"]["content"]
-        self._completion_tokens += response['usage']['completion_tokens']
-        self._prompt_tokens += response['usage']['prompt_tokens']
-        self._cur_response_cost = response._hidden_params["response_cost"]
-        self._total_cost += self._cur_response_cost
+        self._cost_tracker.update(response)
         return msg
 
     def parse(self, out: str) -> dict:
@@ -468,7 +500,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                         "task": 'Decide how much to bid for a speaking turn. A higher bid increases your chance of speaking. You can bid from 0 to 4.',
                         "additional_constraints": "- The 'amount' must be an integer between 0 and 4.",
                         "json_schema": json.dumps(BID_ACTION_SCHEMA),
-                        "exemplar": BID_ACTION_EXEMPLAR
+                        "exemplar": BID_ACTION_EXEMPLAR_REASONING if self._enable_bid_reasoning else BID_ACTION_EXEMPLAR
                     })
                     parsed_out = self.query_parse(instruction, obs)
                     action = BidAction(**common_args, **parsed_out)
