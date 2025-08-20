@@ -105,6 +105,11 @@ def build_agent(raw, builtin_agents, environment_name):
     Returns the agent and whether the agent is parallelizable.
     """
     if raw in builtin_agents:
+        agent = builtin_agents[raw]
+        # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
+        #  Kaggle environment should allow more scalable agent initialization and proper agent interface design.
+        if hasattr(agent, "reset"):
+            agent.reset()
         return builtin_agents[raw], False
 
     # Already callable.
