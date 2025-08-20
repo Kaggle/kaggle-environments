@@ -94,11 +94,11 @@ def plot_token_trajectories(trajectories_data, output_dir):
 
         plt.figure(figsize=(12, 8))
         for traj in trajectories:
-            plt.plot(np.arange(len(traj)), traj, marker='o', linestyle='-', alpha=0.5, markersize=4)
+            plt.plot(np.arange(len(traj)), traj, linestyle='-', alpha=0.5)
 
-        plt.title(f'Cumulative {metric.replace("_", " ").title()} Trajectories')
+        plt.title(f'{metric.replace("_", " ").title()} per Query Step Trajectories')
         plt.xlabel("Query Step")
-        plt.ylabel(f'Cumulative {metric.replace("_", " ").title()}')
+        plt.ylabel(f'{metric.replace("_", " ").title()} per Query Step')
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
 
         plot_filename = os.path.join(output_dir, f"{metric}_trajectories.png")
@@ -178,19 +178,19 @@ def main():
                         if agent_summary.data and agent_summary.data.usage_history:
                             total_tokens_traj = [usage.get('total_tokens', 0) for usage in
                                                  agent_summary.data.usage_history]
-                            all_trajectories['total_tokens'].append(np.cumsum(total_tokens_traj))
+                            all_trajectories['total_tokens'].append(total_tokens_traj)
 
                             reasoning_tokens_traj = [
                                 usage.get('completion_tokens_details', {}).get('reasoning_tokens', 0) or 0
                                 for usage in agent_summary.data.usage_history
                             ]
-                            all_trajectories['reasoning_tokens'].append(np.cumsum(reasoning_tokens_traj))
+                            all_trajectories['reasoning_tokens'].append(reasoning_tokens_traj)
 
                             text_tokens_traj = [
                                 usage.get('completion_tokens_details', {}).get('text_tokens', 0) or 0
                                 for usage in agent_summary.data.usage_history
                             ]
-                            all_trajectories['text_tokens'].append(np.cumsum(text_tokens_traj))
+                            all_trajectories['text_tokens'].append(text_tokens_traj)
                 else:
                     logger.error(f"Could not find cost summary for {base_name}.")
 
