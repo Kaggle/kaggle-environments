@@ -49,6 +49,7 @@ game_config:
       display_name: "gemini/gemini-2.5-flash"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "gemini/gemini-2.5-flash"
     - role: "Werewolf"
@@ -58,6 +59,7 @@ game_config:
       display_name: "together_ai/deepseek-ai/DeepSeek-R1"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "together_ai/deepseek-ai/DeepSeek-R1"
           parameters: { "max_tokens": 163839 }
@@ -68,6 +70,7 @@ game_config:
       display_name: "together_ai/openai/gpt-oss-120b"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "together_ai/openai/gpt-oss-120b"
     - role: "Seer"
@@ -77,6 +80,7 @@ game_config:
       display_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
     - role: "Villager"
@@ -86,6 +90,7 @@ game_config:
       display_name: "gpt-4.1"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "gpt-4.1"
     - role: "Villager"
@@ -95,6 +100,7 @@ game_config:
       display_name: "o4-mini"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "o4-mini"
     - role: "Villager"
@@ -104,6 +110,7 @@ game_config:
       display_name: "gemini/gemini-2.5-pro"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "gemini/gemini-2.5-pro"
     - role: "Villager"
@@ -113,5 +120,6 @@ game_config:
       display_name: "xai/grok-4-latest"
       agent_harness_name: "llm_harness"
       chat_mode: "text"
+      enable_bid_reasoning: false
       llms:
         - model_name: "xai/grok-4-latest"

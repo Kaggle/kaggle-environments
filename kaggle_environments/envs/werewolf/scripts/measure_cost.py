@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger
-from kaggle_environments.envs.werewolf.werewolf import LLM_MODEL_NAMES
+from kaggle_environments.envs.werewolf.werewolf import LLM_MODEL_NAMES, CostSummary
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,8 @@ def plot_results(summary_data, output_dir):
     Plots the results and saves them to files.
     """
     max_turns = sorted([int(k) for k in summary_data.keys()])
-    metrics = ['total_cost', 'total_tokens', 'prompt_tokens', 'completion_tokens']
-    
+    metrics = ['total_cost', 'total_tokens', 'total_prompt_tokens', 'total_completion_tokens']
+
     for metric in metrics:
         means = [summary_data[str(t)][metric]['mean'] for t in max_turns]
         stds = [summary_data[str(t)][metric]['std'] for t in max_turns]
@@ -77,11 +77,34 @@ def plot_results(summary_data, output_dir):
         plt.title(f"{metric.replace('_', ' ').title()} vs. Maximum Turns")
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.xticks(max_turns)
-        
+
         plot_filename = os.path.join(output_dir, f"{metric}_vs_max_turns.png")
         plt.savefig(plot_filename)
         plt.close()
         logger.info(f"Saved plot: {plot_filename}")
+
+
+def plot_token_trajectories(trajectories_data, output_dir):
+    """
+    Plots token usage trajectories and saves them to files.
+    """
+    for metric, trajectories in trajectories_data.items():
+        if not trajectories:
+            continue
+
+        plt.figure(figsize=(12, 8))
+        for traj in trajectories:
+            plt.plot(np.arange(len(traj)), traj, marker='o', linestyle='-', alpha=0.5, markersize=4)
+
+        plt.title(f'Cumulative {metric.replace("_", " ").title()} Trajectories')
+        plt.xlabel("Query Step")
+        plt.ylabel(f'Cumulative {metric.replace("_", " ").title()}')
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        plot_filename = os.path.join(output_dir, f"{metric}_trajectories.png")
+        plt.savefig(plot_filename)
+        plt.close()
+        logger.info(f"Saved trajectory plot: {plot_filename}")
 
 
 def main():
@@ -116,8 +139,13 @@ def main():
     max_turns_to_test = [8, 12, 16, 20, 24]
     runs_per_setting = 3
     results = {str(t): {
-        'total_cost': [], 'total_tokens': [], 'prompt_tokens': [], 'completion_tokens': []
+        'total_cost': [], 'total_tokens': [], 'total_prompt_tokens': [], 'total_completion_tokens': []
     } for t in max_turns_to_test}
+    all_trajectories = {
+        'total_tokens': [],
+        'reasoning_tokens': [],
+        'text_tokens': []
+    }
 
     for turns in max_turns_to_test:
         logger.info(f"--- Starting runs for max_turns = {turns} ---")
@@ -137,13 +165,32 @@ def main():
                 )
 
                 # Extract cost summary
-                cost_summary = final_env.info.get('GAME_END', {}).get('cost_summary', {})
-                if cost_summary:
-                    results[str(turns)]['total_cost'].append(cost_summary.get('total_cost', 0))
-                    results[str(turns)]['total_tokens'].append(cost_summary.get('total_tokens', 0))
-                    results[str(turns)]['prompt_tokens'].append(cost_summary.get('total_prompt_tokens', 0))
-                    results[str(turns)]['completion_tokens'].append(cost_summary.get('total_completion_tokens', 0))
-                    logger.info(f"Finished {base_name}. Total Cost: ${cost_summary.get('total_cost', 0):.4f}")
+                cost_summary_dict = final_env.info.get('GAME_END', {}).get('cost_summary', {})
+                if cost_summary_dict:
+                    cost_summary = CostSummary(**cost_summary_dict)
+                    results[str(turns)]['total_cost'].append(cost_summary.total_cost)
+                    results[str(turns)]['total_tokens'].append(cost_summary.total_tokens)
+                    results[str(turns)]['total_prompt_tokens'].append(cost_summary.total_prompt_tokens)
+                    results[str(turns)]['total_completion_tokens'].append(cost_summary.total_completion_tokens)
+                    logger.info(f"Finished {base_name}. Total Cost: ${cost_summary.total_cost:.4f}")
+
+                    for agent_summary in cost_summary.cost_per_agent:
+                        if agent_summary.data and agent_summary.data.usage_history:
+                            total_tokens_traj = [usage.get('total_tokens', 0) for usage in
+                                                 agent_summary.data.usage_history]
+                            all_trajectories['total_tokens'].append(np.cumsum(total_tokens_traj))
+
+                            reasoning_tokens_traj = [
+                                usage.get('completion_tokens_details', {}).get('reasoning_tokens', 0) or 0
+                                for usage in agent_summary.data.usage_history
+                            ]
+                            all_trajectories['reasoning_tokens'].append(np.cumsum(reasoning_tokens_traj))
+
+                            text_tokens_traj = [
+                                usage.get('completion_tokens_details', {}).get('text_tokens', 0) or 0
+                                for usage in agent_summary.data.usage_history
+                            ]
+                            all_trajectories['text_tokens'].append(np.cumsum(text_tokens_traj))
                 else:
                     logger.error(f"Could not find cost summary for {base_name}.")
 
@@ -163,7 +210,7 @@ def main():
                 }
             else:
                 summary_data[turns][metric] = {'mean': 0, 'std': 0, 'raw_values': []}
-    
+
     # Save summary to JSON
     summary_filename = os.path.join(run_output_dir, "cost_analysis_summary.json")
     with open(summary_filename, 'w') as f:
@@ -172,7 +219,8 @@ def main():
 
     # Plot results
     plot_results(summary_data, run_output_dir)
-    
+    plot_token_trajectories(all_trajectories, run_output_dir)
+
     logger.info("--- Cost measurement script finished ---")
 
 
