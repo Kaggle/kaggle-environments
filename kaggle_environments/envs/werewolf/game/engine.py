@@ -518,8 +518,6 @@ class Moderator:
 
     def _handle_day_start(self, player_actions: Dict[str, Action]):
         self._action_queue.clear()
-        self.state.day_count += 1
-        self.state.phase = Phase.DAY
         self.night_step = 0  # Reset night step counter
 
         self.state.add_history_entry(
