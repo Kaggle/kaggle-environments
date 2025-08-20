@@ -231,6 +231,9 @@ class AgentFactoryWrapper:
             self._instances[player_id] = self._agent_class(**self._shared_kwargs, **self._kwargs[player_id])
         return self._instances[player_id](obs)
 
+    def reset(self):
+        self._instances.clear()
+
 
 # --- Agent Registry ---
 
