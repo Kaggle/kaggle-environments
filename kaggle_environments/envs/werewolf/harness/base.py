@@ -13,6 +13,7 @@ from litellm import completion, cost_per_token
 from dotenv import load_dotenv
 from pydantic import create_model, BaseModel, Field
 import tenacity
+from litellm.types.utils import Usage
 
 from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel
 from kaggle_environments.envs.werewolf.game.states import HistoryEntry
@@ -226,7 +227,7 @@ class LLMCostTracker(BaseModel):
     query_token_cost: TokenCost = Field(default_factory=TokenCost)
     prompt_token_cost: TokenCost = Field(default_factory=TokenCost)
     completion_token_cost: TokenCost = Field(default_factory=TokenCost)
-    usage_history: List[BaseModel] = []
+    usage_history: List[Usage] = []
     """example item from gemini flash model dump: response.usage = {'completion_tokens': 579, 'prompt_tokens': 1112,
      'total_tokens': 1691, 'completion_tokens_details': {'accepted_prediction_tokens': None, 
      'audio_tokens': None, 'reasoning_tokens': 483, 'rejected_prediction_tokens': None, 
@@ -243,7 +244,7 @@ class LLMCostTracker(BaseModel):
         self.query_token_cost.update(token_count=prompt_tokens + completion_tokens, cost=response_cost)
         self.prompt_token_cost.update(token_count=prompt_tokens, cost=prompt_cost)
         self.completion_token_cost.update(token_count=completion_tokens, cost=completion_cost)
-        self.usage_history.append(response.usage.model_dump())
+        self.usage_history.append(response.usage)
 
 
 class LLMWerewolfAgent(WerewolfAgentBase):
