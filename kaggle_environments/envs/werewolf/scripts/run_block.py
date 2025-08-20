@@ -172,11 +172,14 @@ def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
 
 
 def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_config_path = os.path.join(script_dir, 'configs', 'run', 'run_config.yaml')
+
     parser = argparse.ArgumentParser(description="Run a block-design experiment for the Werewolf game.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory for game replays and logs.",
                         default="werewolf_block_experiment")
     parser.add_argument("-c", '--config', type=str,
-                        default='kaggle_environments/envs/werewolf/scripts/configs/block_basic.yaml',
+                        default=default_config_path,
                         help="Path to the base configuration YAML file.")
     parser.add_argument("-b", "--num_blocks", type=int, default=10,
                         help="Number of blocks to run in the experiment.")

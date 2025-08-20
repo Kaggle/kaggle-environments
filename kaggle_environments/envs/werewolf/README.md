@@ -69,7 +69,7 @@ For more rigorous testing, the `run_block.py` script allows you to run a series 
 
 Each game is run as an independent process, ensuring that experiments are clean and logs are separated.
 
-To run a block experiment with the default configuration (`block_basic.yaml`):
+To run a block experiment with the default configuration (`run_config.yaml`):
 ```bash
 python kaggle_environments/envs/werewolf/scripts/run_block.py
 ```
