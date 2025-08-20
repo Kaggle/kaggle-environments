@@ -12,6 +12,7 @@ function renderer({
         allEvents: [],
         eventToKaggleStep: [],
         originalSteps: environment.steps,
+        reasoningCounter: 0,
     };
     const player = window.werewolfGamePlayer;
 
@@ -1844,6 +1845,25 @@ function renderer({
             border-left: 2px solid rgba(116, 185, 255, 0.3);
             line-height: 1.4;
             font-family: 'JetBrains Mono', monospace;
+            display: none;
+        }
+        .reasoning-text.visible {
+            display: block;
+        }
+        .reasoning-toggle {
+            cursor: pointer;
+            font-size: 1rem;
+            margin-left: 8px;
+            opacity: 0.6;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+        }
+        .reasoning-toggle:hover {
+            opacity: 1;
+        }
+        .msg-entry .reasoning-toggle {
+            float: right;
         }
         
         /* Enhanced Citations */
@@ -2323,7 +2343,15 @@ function renderer({
         const newEntries = logEntries.slice(currentEntryCount);
         newEntries.forEach(entry => {
             const li = document.createElement('li');
-            let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
+            let reasoningHtml = '';
+            let reasoningToggleHtml = '';
+            if (entry.reasoning) {
+                const reasoningId = `reasoning-${window.werewolfGamePlayer.reasoningCounter++}`;
+                reasoningHtml = `<div class="reasoning-text" id="${reasoningId}">"${entry.reasoning}"</div>`;
+                reasoningToggleHtml = `<span class="reasoning-toggle" title="Show/Hide Reasoning" onclick="event.stopPropagation(); document.getElementById('${reasoningId}').classList.toggle('visible')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </span>`;
+            }
 
             let phase = (entry.phase || 'Day').toUpperCase();
             const entryType = entry.type;
@@ -2361,7 +2389,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${speaker.name} ${timestampHtml}</cite>
+                            <cite>${speaker.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">
                                     <quote>${messageText}</quote>
@@ -2388,7 +2416,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${timestampHtml}</cite>
+                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${seerCap} chose to inspect ${seerTargetCap}'s role.</div>
                                 ${reasoningHtml}
@@ -2421,7 +2449,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Heal by ${doctor.name} (Doctor) ${timestampHtml}</cite>
+                            <cite>Secret Heal by ${doctor.name} (Doctor) ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${docCap} chose to heal ${docTargetCap}.</div>
                                 ${reasoningHtml}
@@ -2433,7 +2461,7 @@ function renderer({
                     if (entry.text && entry.text.includes('has begun')) return;
 
                     let systemText = entry.text;
-                    const listRegex = /\\[(.*?)\\]/g;
+                    const listRegex = /\\\[(.*?)\\\]/g;
                     systemText = systemText.replace(listRegex, (match, listContent) => {
                         return listContent.replace(/'/g, "").replace(/, /g, " ");
                     });
@@ -2474,7 +2502,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${voter.name} ${timestampHtml}</cite>
+                            <cite>${voter.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
                                 ${reasoningHtml}
@@ -2490,7 +2518,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${to_voter.name} ${timestampHtml}</cite>
+                            <cite>${to_voter.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${to_voterCap} timed out and abstained from voting.</div>
                                 ${reasoningHtml}
@@ -2507,7 +2535,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${timestampHtml}</cite>
+                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${nightVoterCap} votes to eliminate ${nightVoteTargetCap}.</div>
                                 ${reasoningHtml}

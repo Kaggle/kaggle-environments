@@ -3,6 +3,8 @@ import collections
 import copy
 import os
 import random
+import subprocess
+import sys
 from itertools import permutations
 from typing import List
 
@@ -44,22 +46,59 @@ def get_rotationally_unique_configs(roles: List[str]) -> List[List[str]]:
     return unique_necklaces
 
 
-def run_single_game(game_dir, base_name, game_config, agents_for_run, debug):
+def run_single_game(game_dir, game_config, use_random_agents, debug):
     """Sets up and runs a single game instance."""
-    setup_logger(output_dir=game_dir, base_name=base_name)
-
     out_config = {"game_config": game_config}
     config_path = os.path.join(game_dir, "config.yaml")
     with open(config_path, 'w') as f:
         yaml.dump(out_config, f, default_flow_style=False)
 
-    run_werewolf(
-        output_dir=game_dir,
-        base_name=base_name,
-        config=game_config,
-        agents=agents_for_run,
-        debug=debug
-    )
+    if debug:
+        # In debug mode, run in-process to allow stepping into the code.
+        print("\nRunning game in-process for debugging...")
+        base_name = "replay"
+        setup_logger(output_dir=game_dir, base_name=base_name)
+
+        agents_for_run = [agent['agent_id'] for agent in game_config['agents']]
+        if use_random_agents:
+            agents_for_run = ['random'] * len(agents_for_run)
+
+        run_werewolf(
+            output_dir=game_dir,
+            base_name=base_name,
+            config=game_config,
+            agents=agents_for_run,
+            debug=debug
+        )
+        print(f"Game finished. Replay and log saved in: {game_dir}")
+    else:
+        # In normal mode, run as a subprocess for isolation.
+        run_py_path = os.path.join(os.path.dirname(__file__), 'run.py')
+
+        cmd = [
+            sys.executable,
+            run_py_path,
+            '--config_path', config_path,
+            '--output_dir', game_dir,
+        ]
+        if use_random_agents:
+            cmd.append('--random_agents')
+
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+        if result.returncode != 0:
+            error_message = (
+                f"Error running game in {game_dir}.\n"
+                f"Return Code: {result.returncode}\n"
+                f"Stdout: {result.stdout}\n"
+                f"Stderr: {result.stderr}"
+            )
+            raise RuntimeError(error_message)
+        else:
+            # Log stdout on success, which contains the path to the replay and log.
+            print(result.stdout)
+            if result.stderr:
+                print(f"Stderr (non-fatal): {result.stderr}")
 
 
 def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
@@ -99,7 +138,6 @@ def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
             for game_in_block in range(len(players_data)):
                 game_dir = os.path.join(block_dir, f"game_{game_in_block}")
                 os.makedirs(game_dir, exist_ok=True)
-                base_name = "replay"
 
                 # Prepare game-specific configurations
                 current_players = list(current_players_deque)
@@ -112,18 +150,14 @@ def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
                 game_config = copy.deepcopy(base_game_config)
                 game_config['agents'] = game_agents_config
 
-                agents_for_run = [agent['agent_id'] for agent in game_agents_config]
-                if use_random_agents:
-                    agents_for_run = ['random'] * len(agents_for_run)
-
                 if debug:
                     # In debug mode, run without try/except to see the full traceback
-                    run_single_game(game_dir, base_name, game_config, agents_for_run, debug)
+                    run_single_game(game_dir, game_config, use_random_agents, debug)
                 else:
                     game_successful = False
                     while not game_successful:
                         try:
-                            run_single_game(game_dir, base_name, game_config, agents_for_run, debug)
+                            run_single_game(game_dir, game_config, use_random_agents, debug)
                             game_successful = True
                         except Exception as e:
                             print(f"\n--- ERROR in block {block_index + 1}, game {game_in_block + 1} ---")
@@ -138,11 +172,14 @@ def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
 
 
 def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_config_path = os.path.join(script_dir, 'configs', 'run', 'run_config.yaml')
+
     parser = argparse.ArgumentParser(description="Run a block-design experiment for the Werewolf game.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory for game replays and logs.",
                         default="werewolf_block_experiment")
     parser.add_argument("-c", '--config', type=str,
-                        default='kaggle_environments/envs/werewolf/scripts/configs/block_basic.yaml',
+                        default=default_config_path,
                         help="Path to the base configuration YAML file.")
     parser.add_argument("-b", "--num_blocks", type=int, default=10,
                         help="Number of blocks to run in the experiment.")

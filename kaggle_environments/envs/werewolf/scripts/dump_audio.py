@@ -280,7 +280,7 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--base_name", type=str, help="the base file name of .html, .json and .log",
                         default="out")
     parser.add_argument("-c", '--config', type=str,
-                        default='kaggle_environments/envs/werewolf/scripts/configs/standard.yaml',
+                        default='kaggle_environments/envs/werewolf/scripts/configs/audio/standard.yaml',
                         help="Path to the configuration YAML file.")
     parser.add_argument('--debug-audio', action='store_true',
                         help="Generate a single debug audio file for UI testing.")
