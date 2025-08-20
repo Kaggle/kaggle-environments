@@ -86,20 +86,30 @@ def plot_results(summary_data, output_dir):
 
 def plot_token_trajectories(trajectories_data, output_dir):
     """
-    Plots token usage trajectories and saves them to files.
+    Plots token usage trajectories, grouped by max_turns, and saves them to files.
     """
-    for metric, trajectories in trajectories_data.items():
-        if not trajectories:
+    for metric, trajectories_by_turns in trajectories_data.items():
+        if not trajectories_by_turns:
             continue
 
         plt.figure(figsize=(12, 8))
-        for traj in trajectories:
-            plt.plot(np.arange(len(traj)), traj, linestyle='-', alpha=0.5)
+        
+        # Create a color map for the different turn settings
+        turn_keys = sorted(trajectories_by_turns.keys(), key=int)
+        colors = plt.cm.viridis(np.linspace(0, 1, len(turn_keys)))
+        color_map = {turns: color for turns, color in zip(turn_keys, colors)}
+
+        for turns, trajectories in sorted(trajectories_by_turns.items(), key=lambda item: int(item[0])):
+            for i, traj in enumerate(trajectories):
+                # Only add a label to the first trajectory of each group for a clean legend
+                label = f'Max Turns: {turns}' if i == 0 else None
+                plt.plot(np.arange(len(traj)), traj, linestyle='-', alpha=0.4, color=color_map[turns], label=label)
 
         plt.title(f'{metric.replace("_", " ").title()} per Query Step Trajectories')
         plt.xlabel("Query Step")
         plt.ylabel(f'{metric.replace("_", " ").title()} per Query Step')
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.legend()
 
         plot_filename = os.path.join(output_dir, f"{metric}_trajectories.png")
         plt.savefig(plot_filename)
@@ -142,9 +152,9 @@ def main():
         'total_cost': [], 'total_tokens': [], 'total_prompt_tokens': [], 'total_completion_tokens': []
     } for t in max_turns_to_test}
     all_trajectories = {
-        'total_tokens': [],
-        'reasoning_tokens': [],
-        'text_tokens': []
+        'total_tokens': {str(t): [] for t in max_turns_to_test},
+        'reasoning_tokens': {str(t): [] for t in max_turns_to_test},
+        'text_tokens': {str(t): [] for t in max_turns_to_test}
     }
 
     for turns in max_turns_to_test:
@@ -176,21 +186,22 @@ def main():
 
                     for agent_summary in cost_summary.cost_per_agent:
                         if agent_summary.data and agent_summary.data.usage_history:
-                            total_tokens_traj = [usage.get('total_tokens', 0) for usage in
-                                                 agent_summary.data.usage_history]
-                            all_trajectories['total_tokens'].append(total_tokens_traj)
+                            usage_history_dicts = [usage.model_dump() for usage in agent_summary.data.usage_history]
+                            
+                            total_tokens_traj = [usage.get('total_tokens', 0) or 0 for usage in usage_history_dicts]
+                            all_trajectories['total_tokens'][str(turns)].append(total_tokens_traj)
 
                             reasoning_tokens_traj = [
                                 usage.get('completion_tokens_details', {}).get('reasoning_tokens', 0) or 0
-                                for usage in agent_summary.data.usage_history
+                                for usage in usage_history_dicts
                             ]
-                            all_trajectories['reasoning_tokens'].append(reasoning_tokens_traj)
+                            all_trajectories['reasoning_tokens'][str(turns)].append(reasoning_tokens_traj)
 
                             text_tokens_traj = [
-                                usage.get('completion_tokens_details', {}).get('text_tokens', 0) or 0
-                                for usage in agent_summary.data.usage_history
+                                (u.get('completion_tokens', 0) or 0) - (u.get('completion_tokens_details', {}).get('reasoning_tokens', 0) or 0)
+                                for u in usage_history_dicts
                             ]
-                            all_trajectories['text_tokens'].append(text_tokens_traj)
+                            all_trajectories['text_tokens'][str(turns)].append(text_tokens_traj)
                 else:
                     logger.error(f"Could not find cost summary for {base_name}.")
 
