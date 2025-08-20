@@ -121,7 +121,7 @@ def main():
     parser = argparse.ArgumentParser(description="Measure LLM cost for the Werewolf game.")
     parser.add_argument(
         "-c", "--config_path", type=str,
-        default=os.path.join(os.path.dirname(__file__), "configs/comprehensive.yaml"),
+        default=os.path.join(os.path.dirname(__file__), "configs/run/comprehensive.yaml"),
         help="Path to the base YAML configuration file."
     )
     parser.add_argument("-o", "--output_dir", type=str, default="cost_measurement", help="Output directory for logs, replays, and results.")

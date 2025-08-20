@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run a single Werewolf game.")
     parser.add_argument(
         "-c", "--config_path", type=str,
-        default=os.path.join(os.path.dirname(__file__), "configs/run_config.yaml"),
+        default=os.path.join(os.path.dirname(__file__), "configs/run/run_config.yaml"),
         help="Path to the YAML configuration file."
     )
     parser.add_argument(

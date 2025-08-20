@@ -1,29 +1,3 @@
-# Settings for the dump_audio.py script
-script_settings:
-  server:
-    port: 7999
-  paths:
-    audio_dir_name: "audio"
-    debug_audio_dir_name: "debug_audio"
-    output_html_filename: "replay.html"
-  voices:
-    moderator: "enceladus"
-    players:
-      gemini-2.5-flash: 'Kore'
-      deepseek-r1: 'Charon'
-      gpt-oss-120b: 'Leda'
-      qwen3: 'Despina'
-      "gpt-4.1": 'Erinome'
-      "o4-mini": 'Gacrux'
-      "gemini-2.5-pro": 'Achird'
-      "grok-4": 'Puck'
-  audio:
-    static_moderator_messages:
-      night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
-      day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
-      discussion_begins: "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]"
-      voting_begins: "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]"
-
 # Configuration for the Werewolf game environment
 game_config:
   seed: 123
