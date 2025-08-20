@@ -36,7 +36,69 @@ VERTEXAI_LOCATION=us-central1
 GEMINI_MODEL="gemini-2.5-pro"
 ```
 
-## Simple Self Play
+## Running a Game
+
+The primary way to run a game is by using the `run.py` script, which uses a YAML configuration file to define all the game parameters, including the agents.
+
+To run a game with the default configuration (`run_config.yaml`):
+```bash
+python kaggle_environments/envs/werewolf/scripts/run.py
+```
+The output, including a log file and an HTML replay, will be saved in a timestamped subdirectory inside `werewolf_run/`.
+
+### Customizing a Run
+
+- **Use a different configuration file:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run.py -c path/to/your/config.yaml
+  ```
+
+- **Use random agents for a quick test:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run.py -r
+  ```
+
+- **Enable debug mode for more verbose logging:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run.py -d
+  ```
+
+## Running an Experiment Block
+
+For more rigorous testing, the `run_block.py` script allows you to run a series of games in a structured block experiment. This is useful for evaluating agent performance across different role assignments and player rotations.
+
+Each game is run as an independent process, ensuring that experiments are clean and logs are separated.
+
+To run a block experiment with the default configuration (`block_basic.yaml`):
+```bash
+python kaggle_environments/envs/werewolf/scripts/run_block.py
+```
+The output will be saved in `werewolf_block_experiment/`, with subdirectories for each block and game.
+
+### Customizing an Experiment
+
+- **Specify the number of blocks:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -b 5  # Runs 5 blocks
+  ```
+
+- **Use a different master configuration file:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -c path/to/your/block_config.yaml
+  ```
+
+- **Use random agents for a quick test:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -r
+  ```
+
+- **Enable debug mode to run games in the main process:**
+  This is useful for stepping through code with a debugger.
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -d
+  ```
+
+## Simple Self Play (Legacy)
 
 Run example program. Should be able to view out.html in a standard web browser
 
