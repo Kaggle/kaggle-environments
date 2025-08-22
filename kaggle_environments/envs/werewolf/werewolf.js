@@ -1232,14 +1232,12 @@ function renderer({
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
-      if (!player.is_alive) {
-        threeState.demo.updatePlayerStatus(player.name, 'dead');
-      } else if (player.name === actingPlayerName) {
-        threeState.demo.updatePlayerStatus(player.name, 'active');
-      } else if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
+      if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
-      } else {
+      } else if (player.is_alive) {
         threeState.demo.updatePlayerStatus(player.name, 'default');
+      } else {
+        threeState.demo.updatePlayerStatus(player.name, 'dead');
       }
     });
 
@@ -1249,7 +1247,7 @@ function renderer({
     // Spotlight logic for night actions
     if (threeState.demo._spotLight) {
         const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
-        const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id) ? lastEvent.actor_id : null;
+        const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id && ['WerewolfNightVoteDataEntry', 'DoctorHealActionDataEntry', 'SeerInspectActionDataEntry'].includes(lastEvent.dataType)) ? lastEvent.actor_id : null;
 
         if (nightActor) {
             const actorPlayer = threeState.demo._playerObjects.get(nightActor);
@@ -1273,26 +1271,13 @@ function renderer({
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
                 if (player.is_alive) {
-                    threeState.demo.updatePlayerStatus(player.name, 'speaking');
-                    setTimeout(() => {
-                        // Check again if player is still alive before resetting
-                        const currentPlayer = playerMap.get(player.name);
-                        if (currentPlayer && currentPlayer.is_alive) {
-                           threeState.demo.updatePlayerStatus(player.name, 'default');
-                        }
-                    }, 1500);
+                    threeState.demo.updatePlayerStatus(player.name, 'active');
                 }
             });
         } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
             // A player is the actor
             const actorName = lastEvent.actor_id;
-            threeState.demo.updatePlayerStatus(actorName, 'speaking');
-            setTimeout(() => {
-                const player = playerMap.get(actorName);
-                if (player && player.is_alive) {
-                    threeState.demo.updatePlayerStatus(actorName, 'default');
-                }
-            }, 1500);
+            threeState.demo.updatePlayerStatus(actorName, 'active');
         }
     }
   }
@@ -3021,7 +3006,7 @@ function renderer({
 
          switch (historyEvent.dataType) {
             case 'ChatDataEntry':
-                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
                 break;
             case 'DayExileVoteDataEntry':
                 gameState.eventLog.push({ type: 'vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
@@ -3042,7 +3027,7 @@ function renderer({
                 gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                 break;
             case 'SeerInspectResultDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
                 break;
             case 'DoctorSaveDataEntry':
                 gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
