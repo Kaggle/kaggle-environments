@@ -909,7 +909,7 @@ function renderer({
                 }
               }
 
-              _createVoteParticleTrail(voterName, targetName) {
+              _createVoteParticleTrail(voterName, targetName, color = 0x00ffff) {
                 const voter = this._playerObjects.get(voterName);
                 const target = this._playerObjects.get(targetName);
                 if (!voter || !target) return;
@@ -930,7 +930,7 @@ function renderer({
                 particleGeometry.setAttribute('position', new this._THREE.BufferAttribute(positions, 3));
 
                 const particleMaterial = new this._THREE.PointsMaterial({
-                    color: 0x00ffff,
+                    color: color,
                     size: 0.3,
                     transparent: true,
                     opacity: 0.8,
@@ -944,7 +944,6 @@ function renderer({
                 const trail = {
                     particles,
                     curve,
-                    progress: 0,
                     target: targetName,
                     startTime: Date.now(),
                     update: () => {
@@ -1020,24 +1019,32 @@ function renderer({
 
 
                   // Update existing arcs or create new ones
-                  votes.forEach((targetName, voterName) => {
+                  votes.forEach((voteData, voterName) => {
+                      const { target: targetName, type } = voteData;
                       const existingTrail = this._activeVoteArcs.get(voterName);
+
+                      let color = 0x00ffff; // Default to cyan
+                      if (type === 'night_vote') color = 0xff0000; // Red
+                      else if (type === 'doctor_heal_action') color = 0x00ff00; // Green
+                      else if (type === 'seer_inspection') color = 0x800080; // Purple
+
                       if (existingTrail) {
                           if (existingTrail.target !== targetName) {
                               this._votingArcsGroup.remove(existingTrail.particles);
                                if (this._animatingTrails) {
                                   this._animatingTrails = this._animatingTrails.filter(t => t !== existingTrail);
                               }
-                              this._createVoteParticleTrail(voterName, targetName);
+                              this._createVoteParticleTrail(voterName, targetName, color);
                           }
                       } else {
-                          this._createVoteParticleTrail(voterName, targetName);
+                          this._createVoteParticleTrail(voterName, targetName, color);
                       }
                   });
 
                   // Update target rings
                   const targetVoteCounts = new Map();
-                  votes.forEach((targetName) => {
+                  votes.forEach((voteData) => {
+                      const { target: targetName } = voteData;
                       targetVoteCounts.set(targetName, (targetVoteCounts.get(targetName) || 0) + 1);
                   });
 
@@ -1441,7 +1448,7 @@ function renderer({
         for (const event of relevantEvents) {
             // Capture all actions that should have a visual
             if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
-                currentVotes.set(event.actor_id, event.target);
+                currentVotes.set(event.actor_id, { target: event.target, type: event.type });
             } else if (event.type === 'timeout') {
                 currentVotes.delete(event.actor_id);
             }
