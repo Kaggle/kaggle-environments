@@ -909,34 +909,62 @@ function renderer({
                 }
               }
 
-              _createVoteArc(voterName, targetName) {
+              _createVoteParticleTrail(voterName, targetName) {
                 const voter = this._playerObjects.get(voterName);
                 const target = this._playerObjects.get(targetName);
-
                 if (!voter || !target) return;
 
                 const startPos = voter.container.position.clone();
+                startPos.y += 1.5; // Start above the voter's head
                 const endPos = target.container.position.clone();
-
-                startPos.y = 0.2;
-                endPos.y = 0.2;
+                endPos.y += 1.5; // End above the target's head
 
                 const midPos = new this._THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
                 const dist = startPos.distanceTo(endPos);
-                midPos.y += dist * 0.25; // Arc height
+                midPos.y += dist * 0.3; // Arc height
 
                 const curve = new this._THREE.CatmullRomCurve3([startPos, midPos, endPos]);
+                const particleCount = 50;
+                const particleGeometry = new this._THREE.BufferGeometry();
+                const positions = new Float32Array(particleCount * 3);
+                particleGeometry.setAttribute('position', new this._THREE.BufferAttribute(positions, 3));
 
-                const geometry = new this._THREE.TubeGeometry(curve, 20, 0.05, 8, false);
-                const material = new this._THREE.MeshBasicMaterial({
-                    color: 0x00ffff, // Pale Cyan
+                const particleMaterial = new this._THREE.PointsMaterial({
+                    color: 0x00ffff,
+                    size: 0.3,
                     transparent: true,
-                    opacity: 0.6,
+                    opacity: 0.8,
+                    blending: this._THREE.AdditiveBlending,
+                    sizeAttenuation: true,
                 });
 
-                const arc = new this._THREE.Mesh(geometry, material);
-                this._votingArcsGroup.add(arc);
-                this._activeVoteArcs.set(voterName, { arc, target: targetName });
+                const particles = new this._THREE.Points(particleGeometry, particleMaterial);
+                this._votingArcsGroup.add(particles);
+
+                const trail = {
+                    particles,
+                    curve,
+                    progress: 0,
+                    target: targetName,
+                    startTime: Date.now(),
+                    update: () => {
+                        const elapsedTime = (Date.now() - trail.startTime) / 1000;
+                        const positions = trail.particles.geometry.attributes.position.array;
+                        for (let i = 0; i < particleCount; i++) {
+                            const t = (elapsedTime * 0.2 + (i / particleCount)) % 1;
+                            const pos = trail.curve.getPointAt(t);
+                            positions[i * 3] = pos.x;
+                            positions[i * 3 + 1] = pos.y;
+                            positions[i * 3 + 2] = pos.z;
+                        }
+                        trail.particles.geometry.attributes.position.needsUpdate = true;
+                    }
+                };
+                this._activeVoteArcs.set(voterName, trail);
+
+                // Also add to a separate list for animation updates
+                if (!this._animatingTrails) this._animatingTrails = [];
+                this._animatingTrails.push(trail);
               }
 
               _updateTargetRing(targetName, voteCount) {
@@ -959,52 +987,63 @@ function renderer({
                       ring.rotation.x = -Math.PI / 2;
 
                       this._targetRingsGroup.add(ring);
-                      ringData = { ring, material };
+                      ringData = { ring, material, targetOpacity: 0 };
                       this._activeTargetRings.set(targetName, ringData);
                   }
 
-                  if (voteCount > 0 && ringData) {
-                      const targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
-                      ringData.material.opacity = targetOpacity;
-                  } else if (voteCount === 0 && ringData) {
-                      this._targetRingsGroup.remove(ringData.ring);
-                      this._activeTargetRings.delete(targetName);
+                  if (ringData) {
+                      if (voteCount > 0) {
+                          ringData.targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
+                      } else {
+                          ringData.targetOpacity = 0;
+                      }
                   }
               }
 
-              updateVoteVisuals(votes) { // votes is a Map of {voter -> target}
+              updateVoteVisuals(votes, clearAll = false) {
                   if (!this._playerObjects || this._playerObjects.size === 0) return;
 
-                  // Remove arcs from players who are no longer voting
-                  for (const [voterName, arcData] of this._activeVoteArcs.entries()) {
-                      if (!votes.has(voterName)) {
-                          this._votingArcsGroup.remove(arcData.arc);
-                          this._activeVoteArcs.delete(voterName);
-                      }
+                  if (clearAll) {
+                      votes.clear();
                   }
 
+                  // Remove arcs from players who are no longer voting or if clearing all
+                  this._activeVoteArcs.forEach((trail, voterName) => {
+                      if (!votes.has(voterName)) {
+                          this._votingArcsGroup.remove(trail.particles);
+                          this._activeVoteArcs.delete(voterName);
+                          if (this._animatingTrails) {
+                              this._animatingTrails = this._animatingTrails.filter(t => t !== trail);
+                          }
+                      }
+                  });
+
+
                   // Update existing arcs or create new ones
-                  for (const [voterName, targetName] of votes.entries()) {
-                      const existingArc = this._activeVoteArcs.get(voterName);
-                      if (existingArc) {
-                          if (existingArc.target !== targetName) {
-                              this._votingArcsGroup.remove(existingArc.arc);
-                              this._createVoteArc(voterName, targetName);
+                  votes.forEach((targetName, voterName) => {
+                      const existingTrail = this._activeVoteArcs.get(voterName);
+                      if (existingTrail) {
+                          if (existingTrail.target !== targetName) {
+                              this._votingArcsGroup.remove(existingTrail.particles);
+                               if (this._animatingTrails) {
+                                  this._animatingTrails = this._animatingTrails.filter(t => t !== existingTrail);
+                              }
+                              this._createVoteParticleTrail(voterName, targetName);
                           }
                       } else {
-                          this._createVoteArc(voterName, targetName);
+                          this._createVoteParticleTrail(voterName, targetName);
                       }
-                  }
+                  });
 
                   // Update target rings
                   const targetVoteCounts = new Map();
-                  for (const targetName of votes.values()) {
+                  votes.forEach((targetName) => {
                       targetVoteCounts.set(targetName, (targetVoteCounts.get(targetName) || 0) + 1);
-                  }
+                  });
 
-                  for (const playerName of this._playerObjects.keys()) {
+                  this._playerObjects.forEach((player, playerName) => {
                       this._updateTargetRing(playerName, targetVoteCounts.get(playerName) || 0);
-                  }
+                  });
               }
 
               updatePhase(phase) {
@@ -1305,6 +1344,24 @@ function renderer({
                     });
                   }
 
+                  // Animate voting trails
+                  if (this._animatingTrails) {
+                      this._animatingTrails.forEach(trail => trail.update());
+                  }
+
+                  // Animate target rings
+                  if (this._activeTargetRings) {
+                      this._activeTargetRings.forEach((ringData, targetName) => {
+                          const diff = ringData.targetOpacity - ringData.material.opacity;
+                          if (Math.abs(diff) > 0.01) {
+                              ringData.material.opacity += diff * 0.1;
+                          } else if (ringData.targetOpacity === 0 && ringData.material.opacity > 0) {
+                              this._targetRingsGroup.remove(ringData.ring);
+                              this._activeTargetRings.delete(targetName);
+                          }
+                      });
+                  }
+
                   // Use post-processing composer if available, otherwise fallback to direct render
                   if (this._composer) {
                     this._composer.render();
@@ -1356,25 +1413,33 @@ function renderer({
     // --- Vote Visualization Logic ---
     const currentVotes = new Map();
     const logUpToCurrentStep = gameState.eventLog;
+    let clearVotingVisuals = false;
 
-    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('night has begun'));
-    const lastVotingStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
-    const lastDiscussionStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('discussion has begun'));
+    // Detect if a vote has just concluded in the latest event
+    const lastEvent = logUpToCurrentStep[logUpToCurrentStep.length - 1];
+    if (lastEvent && (lastEvent.type === 'exile' || lastEvent.type === 'elimination' || lastEvent.type === 'save')) {
+        clearVotingVisuals = true;
+    }
 
-    const sessionStartIndex = Math.max(lastNightStart, lastVotingStart, lastDiscussionStart);
+    // Find the start of the current voting/action session
+    const lastNightActionStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && (e.text.toLowerCase().includes('werewolves to vote') || e.text.toLowerCase().includes('doctor to save') || e.text.toLowerCase().includes('seer to inspect')));
+    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
+
+    const sessionStartIndex = Math.max(lastNightActionStart, lastDayVoteStart);
     let isVotingSession = false;
 
-    if (sessionStartIndex > -1) {
+    if (sessionStartIndex > -1 && !clearVotingVisuals) {
         const lastPhaseEvent = logUpToCurrentStep[sessionStartIndex];
         const phaseText = lastPhaseEvent.text.toLowerCase();
-        if (phaseText.includes('night has begun') || phaseText.includes('voting phase begins')) {
+        if (phaseText.includes('vote') || phaseText.includes('save') || phaseText.includes('inspect')) {
             isVotingSession = true;
         }
     }
 
-    if (isVotingSession && !gameState.gameWinner) {
+    if (isVotingSession) {
         const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
         for (const event of relevantEvents) {
+            // Capture all actions that should have a visual
             if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
                 currentVotes.set(event.actor_id, event.target);
             } else if (event.type === 'timeout') {
@@ -1383,7 +1448,7 @@ function renderer({
         }
     }
     
-    threeState.demo.updateVoteVisuals(currentVotes);
+    threeState.demo.updateVoteVisuals(currentVotes, clearVotingVisuals);
 
 
     // Spotlight logic for night actions
@@ -1407,7 +1472,6 @@ function renderer({
     }
 
     // Handle animation for the current event actor
-    const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
     if (lastEvent) {
         if (lastEvent.entry_type === 'moderator_announcement') {
             // Moderator is speaking, expand all alive players
