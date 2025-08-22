@@ -1429,9 +1429,10 @@ function renderer({
     // --- Vote Visualization Logic ---
     const currentVotes = new Map();
 
-    const lastNightActionStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && (e.text.toLowerCase().includes('werewolves to vote') || e.text.toLowerCase().includes('doctor to save') || e.text.toLowerCase().includes('seer to inspect')));
+    // Find the start of the current voting/action session
+    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('night') && e.text.toLowerCase().includes('begins'));
     const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
-    const sessionStartIndex = Math.max(lastNightActionStart, lastDayVoteStart);
+    const sessionStartIndex = Math.max(lastNightStart, lastDayVoteStart);
 
     let isVotingSession = false;
     if (sessionStartIndex > -1) {
@@ -1443,10 +1444,13 @@ function renderer({
     }
 
     if (isVotingSession) {
+        const alivePlayerNames = new Set(gameState.players.filter(p => p.is_alive).map(p => p.name));
         const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
         for (const event of relevantEvents) {
             if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
-                currentVotes.set(event.actor_id, { target: event.target, type: event.type });
+                if (alivePlayerNames.has(event.actor_id)) {
+                    currentVotes.set(event.actor_id, { target: event.target, type: event.type });
+                }
             } else if (event.type === 'timeout') {
                 currentVotes.delete(event.actor_id);
             }
