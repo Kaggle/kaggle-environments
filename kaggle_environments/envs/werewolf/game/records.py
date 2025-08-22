@@ -17,6 +17,7 @@ def get_utc_now():
 class HistoryEntryType(str, Enum):
     GAME_START = "game_start"
     PHASE_CHANGE = "phase_change"
+    PHASE_DIVIDER = "phase_divider"
     ACTION_RESULT = "action_result"
     ELIMINATION = "elimination"
     VOTE_ACTION = "vote_action"
@@ -28,6 +29,10 @@ class HistoryEntryType(str, Enum):
     MODERATOR_ANNOUNCEMENT = "moderator_announcement"
     PROMPT_FOR_ACTION = "prompt_for_action"
     ERROR = "error"
+    NIGHT_START = "night_start"
+    DAY_START = "day_start"
+    NIGHT_END = "night_end"
+    DAY_END = "day_end"
 
 
 class DataEntry(BaseModel, ABC):
@@ -98,6 +103,14 @@ class GameStartRoleDataEntry(DataEntry):
     team: str
     role: str
     rule_of_role: str
+
+
+class SetNewPhaseDataEntry(DataEntry):
+    new_detailed_phase: str
+
+
+class PhaseDividerDataEntry(DataEntry):
+    divider_type: str
 
 
 # --- Request for Action Data Entries ---

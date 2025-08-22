@@ -10,7 +10,9 @@ function renderer({
     window.werewolfGamePlayer = {
         initialized: false,
         allEvents: [],
+        displayEvents: [],
         eventToKaggleStep: [],
+        displayStepToAllEventsIndex: [],
         originalSteps: environment.steps,
         reasoningCounter: 0,
     };
@@ -27,9 +29,12 @@ function renderer({
         'SeerInspectResultDataEntry',
         'DoctorSaveDataEntry',
         'GameEndResultsDataEntry',
+        'PhaseDividerDataEntry'
     ]);
 
+    let allEventsIndex = 0;
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
+        const processedInStep = new Set();
         (stepEvents || []).flat().forEach(dataEntry => {
             const event = JSON.parse(dataEntry.json_str);
             
@@ -45,14 +50,25 @@ function renderer({
                 return;
             }
 
+            if (processedInStep.has(dataEntry.json_str)) {
+                return;
+            }
+            processedInStep.add(dataEntry.json_str);
+
             event.kaggleStep = kaggleStep;
             event.dataType = dataEntry.data_type;
             player.allEvents.push(event);
             player.eventToKaggleStep.push(kaggleStep);
+
+            if (event.dataType !== 'PhaseDividerDataEntry') {
+                player.displayEvents.push(event);
+                player.displayStepToAllEventsIndex.push(allEventsIndex);
+            }
+            allEventsIndex++;
         });
     });
 
-    const newSteps = player.allEvents.map((event) => {
+    const newSteps = player.displayEvents.map((event) => {
         return player.originalSteps[event.kaggleStep];
     });
 
@@ -154,6 +170,17 @@ function renderer({
                 this._controls.target.set(0, 0, 0);
                 this._controls.enableKeys = false;
                 this._controls.update();
+
+                this._votingArcsGroup = new THREE.Group();
+                this._votingArcsGroup.name = 'votingArcs';
+                this._scene.add(this._votingArcsGroup);
+
+                this._targetRingsGroup = new THREE.Group();
+                this._targetRingsGroup.name = 'targetRings';
+                this._scene.add(this._targetRingsGroup);
+
+                this._activeVoteArcs = new Map();
+                this._activeTargetRings = new Map();
 
                 this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
                 this._RAF();
@@ -442,8 +469,6 @@ function renderer({
                 if (celestial) {
                     celestial.phase = phase;
                 }
-                
-                console.log(`Skybox updated for phase: ${phase.toFixed(2)} (${phase > 0.5 ? 'NIGHT' : 'DAY'})`);
               }
 
               _createAdvancedLighting(THREE) {
@@ -772,7 +797,7 @@ function renderer({
                 const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
 
                 // Reset to a baseline "alive" state before applying specific statuses, unless the status is 'dead'.
-                if (status !== 'dead') {
+                if (status !== 'dead' && status !== 'active') {
                     orb.material.color.setHex(0x00ff00);
                     orb.material.emissive.setHex(0x00ff00);
                     orb.material.emissiveIntensity = 0.8;
@@ -898,6 +923,150 @@ function renderer({
                 }
               }
 
+              _createVoteParticleTrail(voterName, targetName, color = 0x00ffff) {
+                const voter = this._playerObjects.get(voterName);
+                const target = this._playerObjects.get(targetName);
+                if (!voter || !target) return;
+
+                const startPos = voter.container.position.clone();
+                startPos.y += 1.5; // Start above the voter's head
+                const endPos = target.container.position.clone();
+                endPos.y += 1.5; // End above the target's head
+
+                const midPos = new this._THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+                const dist = startPos.distanceTo(endPos);
+                midPos.y += dist * 0.3; // Arc height
+
+                const curve = new this._THREE.CatmullRomCurve3([startPos, midPos, endPos]);
+                const particleCount = 50;
+                const particleGeometry = new this._THREE.BufferGeometry();
+                const positions = new Float32Array(particleCount * 3);
+                particleGeometry.setAttribute('position', new this._THREE.BufferAttribute(positions, 3));
+
+                const particleMaterial = new this._THREE.PointsMaterial({
+                    color: color,
+                    size: 0.3,
+                    transparent: true,
+                    opacity: 0.8,
+                    blending: this._THREE.AdditiveBlending,
+                    sizeAttenuation: true,
+                });
+
+                const particles = new this._THREE.Points(particleGeometry, particleMaterial);
+                this._votingArcsGroup.add(particles);
+
+                const trail = {
+                    particles,
+                    curve,
+                    target: targetName,
+                    startTime: Date.now(),
+                    update: () => {
+                        const elapsedTime = (Date.now() - trail.startTime) / 1000;
+                        const positions = trail.particles.geometry.attributes.position.array;
+                        for (let i = 0; i < particleCount; i++) {
+                            const t = (elapsedTime * 0.2 + (i / particleCount)) % 1;
+                            const pos = trail.curve.getPointAt(t);
+                            positions[i * 3] = pos.x;
+                            positions[i * 3 + 1] = pos.y;
+                            positions[i * 3 + 2] = pos.z;
+                        }
+                        trail.particles.geometry.attributes.position.needsUpdate = true;
+                    }
+                };
+                this._activeVoteArcs.set(voterName, trail);
+
+                // Also add to a separate list for animation updates
+                if (!this._animatingTrails) this._animatingTrails = [];
+                this._animatingTrails.push(trail);
+              }
+
+              _updateTargetRing(targetName, voteCount) {
+                  const target = this._playerObjects.get(targetName);
+                  if (!target) return;
+
+                  let ringData = this._activeTargetRings.get(targetName);
+
+                  if (voteCount > 0 && !ringData) {
+                      const geometry = new this._THREE.RingGeometry(2, 2.2, 32);
+                      const material = new this._THREE.MeshBasicMaterial({
+                          color: 0x00ffff,
+                          transparent: true,
+                          opacity: 0, // Start invisible, fade in
+                          side: this._THREE.DoubleSide,
+                      });
+                      const ring = new this._THREE.Mesh(geometry, material);
+                      ring.position.copy(target.container.position);
+                      ring.position.y = 0.1;
+                      ring.rotation.x = -Math.PI / 2;
+
+                      this._targetRingsGroup.add(ring);
+                      ringData = { ring, material, targetOpacity: 0 };
+                      this._activeTargetRings.set(targetName, ringData);
+                  }
+
+                  if (ringData) {
+                      if (voteCount > 0) {
+                          ringData.targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
+                      } else {
+                          ringData.targetOpacity = 0;
+                      }
+                  }
+              }
+
+              updateVoteVisuals(votes, clearAll = false) {
+                  if (!this._playerObjects || this._playerObjects.size === 0) return;
+
+                  if (clearAll) {
+                      votes.clear();
+                  }
+
+                  // Remove arcs from players who are no longer voting or if clearing all
+                  this._activeVoteArcs.forEach((trail, voterName) => {
+                      if (!votes.has(voterName)) {
+                          this._votingArcsGroup.remove(trail.particles);
+                          this._activeVoteArcs.delete(voterName);
+                          if (this._animatingTrails) {
+                              this._animatingTrails = this._animatingTrails.filter(t => t !== trail);
+                          }
+                      }
+                  });
+
+
+                  // Update existing arcs or create new ones
+                  votes.forEach((voteData, voterName) => {
+                      const { target: targetName, type } = voteData;
+                      const existingTrail = this._activeVoteArcs.get(voterName);
+
+                      let color = 0x00ffff; // Default to cyan
+                      if (type === 'night_vote') color = 0xff0000; // Red
+                      else if (type === 'doctor_heal_action') color = 0x00ff00; // Green
+                      else if (type === 'seer_inspection') color = 0x800080; // Purple
+
+                      if (existingTrail) {
+                          if (existingTrail.target !== targetName) {
+                              this._votingArcsGroup.remove(existingTrail.particles);
+                               if (this._animatingTrails) {
+                                  this._animatingTrails = this._animatingTrails.filter(t => t !== existingTrail);
+                              }
+                              this._createVoteParticleTrail(voterName, targetName, color);
+                          }
+                      } else {
+                          this._createVoteParticleTrail(voterName, targetName, color);
+                      }
+                  });
+
+                  // Update target rings
+                  const targetVoteCounts = new Map();
+                  votes.forEach((voteData) => {
+                      const { target: targetName } = voteData;
+                      targetVoteCounts.set(targetName, (targetVoteCounts.get(targetName) || 0) + 1);
+                  });
+
+                  this._playerObjects.forEach((player, playerName) => {
+                      this._updateTargetRing(playerName, targetVoteCounts.get(playerName) || 0);
+                  });
+              }
+
               updatePhase(phase) {
                 if (!this._scene) return;
                 
@@ -916,11 +1085,9 @@ function renderer({
                     };
                     // Immediately set to target on first call
                     this._updateSceneForPhase(targetPhase);
-                    console.log(`Phase transition initialized: ${normalizedPhase} (value: ${targetPhase})`);
                 } else if (this._phaseTransition.target !== targetPhase) {
                     // Only update if phase actually changed
                     this._phaseTransition.target = targetPhase;
-                    console.log(`Phase transition started: ${normalizedPhase} (from ${this._phaseTransition.current.toFixed(2)} to ${targetPhase})`);
                 }
               }
               
@@ -1023,7 +1190,7 @@ function renderer({
                 }
               }
 
-              _createNameplate(name, imageUrl, CSS2DObject) {
+              _createNameplate(name, displayName, imageUrl, CSS2DObject) {
                 const container = document.createElement('div');
                 container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
                 container.style.padding = '6px 10px';  // Slightly smaller padding
@@ -1043,15 +1210,31 @@ function renderer({
                 img.style.backgroundColor = 'white';
                 img.style.border = '2px solid rgba(255, 255, 255, 0.3)';
 
-                const text = document.createElement('div');
-                text.textContent = name;
-                text.style.color = 'white';
-                text.style.fontFamily = 'Arial, sans-serif';
-                text.style.fontSize = '14px';  // Slightly smaller text
-                text.style.fontWeight = '500';
+                const textContainer = document.createElement('div');
+                textContainer.style.display = 'flex';
+                textContainer.style.flexDirection = 'column';
+                textContainer.style.alignItems = 'center';
+
+                const nameText = document.createElement('div');
+                nameText.textContent = name;
+                nameText.style.color = 'white';
+                nameText.style.fontFamily = 'Arial, sans-serif';
+                nameText.style.fontSize = '14px';
+                nameText.style.fontWeight = '500';
+                textContainer.appendChild(nameText);
+
+                if (displayName && displayName !== "" && displayName !== name) {
+                    const displayNameText = document.createElement('div');
+                    displayNameText.textContent = displayName;
+                    displayNameText.style.color = 'grey';
+                    displayNameText.style.fontSize = '12px';
+                    displayNameText.style.fontFamily = 'Arial, sans-serif';
+                    displayNameText.style.marginTop = '4px';
+                    textContainer.appendChild(displayNameText);
+                }
 
                 container.appendChild(img);
-                container.appendChild(text);
+                container.appendChild(textContainer);
 
                 const label = new CSS2DObject(container);
                 return label;
@@ -1101,9 +1284,9 @@ function renderer({
                       this._updateSceneForPhase(this._phaseTransition.current);
                       
                       // Log transition progress occasionally
-                      if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
-                        console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
-                      }
+                        //   if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
+                        //     console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
+                        //   }
                     }
                   }
                   
@@ -1196,6 +1379,24 @@ function renderer({
                     });
                   }
 
+                  // Animate voting trails
+                  if (this._animatingTrails) {
+                      this._animatingTrails.forEach(trail => trail.update());
+                  }
+
+                  // Animate target rings
+                  if (this._activeTargetRings) {
+                      this._activeTargetRings.forEach((ringData, targetName) => {
+                          const diff = ringData.targetOpacity - ringData.material.opacity;
+                          if (Math.abs(diff) > 0.01) {
+                              ringData.material.opacity += diff * 0.1;
+                          } else if (ringData.targetOpacity === 0 && ringData.material.opacity > 0) {
+                              this._targetRingsGroup.remove(ringData.ring);
+                              this._activeTargetRings.delete(targetName);
+                          }
+                      });
+                  }
+
                   // Use post-processing composer if available, otherwise fallback to direct render
                   if (this._composer) {
                     this._composer.render();
@@ -1224,8 +1425,17 @@ function renderer({
     threeState.initialized = true;
   }
 
-  function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
+    function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
+
+    const logUpToCurrentStep = gameState.eventLog;
+    const lastEvent = logUpToCurrentStep.length > 0 ? logUpToCurrentStep[logUpToCurrentStep.length - 1] : null;
+
+    // Determine correct phase from the last event log entry
+    let phase = gameState.game_state_phase; // Default
+    if (lastEvent && lastEvent.phase) {
+        phase = lastEvent.phase;
+    }
 
     // Update player statuses
     gameState.players.forEach(player => {
@@ -1234,22 +1444,55 @@ function renderer({
 
       if (!player.is_alive) {
         threeState.demo.updatePlayerStatus(player.name, 'dead');
-      } else if (player.name === actingPlayerName) {
-        threeState.demo.updatePlayerStatus(player.name, 'active');
-      } else if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
+      } else if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
       } else {
         threeState.demo.updatePlayerStatus(player.name, 'default');
       }
     });
 
-    // Update phase lighting - use game_state_phase which contains DAY/NIGHT
-    threeState.demo.updatePhase(gameState.game_state_phase);
+    // Update phase lighting
+    threeState.demo.updatePhase(phase);
+
+    // --- Vote Visualization Logic ---
+    const currentVotes = new Map();
+
+    // Find the start of the current voting/action session
+    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'NIGHT START');
+    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'DAY VOTE START');
+    const sessionStartIndex = Math.max(lastNightStart, lastDayVoteStart);
+
+    let isVotingSession = false;
+    if (sessionStartIndex > -1) {
+        const lastOutcomeEventIndex = logUpToCurrentStep.findLastIndex(e => e.type === 'exile' || e.type === 'elimination' || e.type === 'save');
+        // A session is active if it started after the last outcome, OR if the outcome is the current event.
+        if (sessionStartIndex > lastOutcomeEventIndex || (lastOutcomeEventIndex > -1 && lastOutcomeEventIndex === logUpToCurrentStep.length - 1)) {
+            isVotingSession = true;
+        }
+    }
+
+    if (isVotingSession) {
+        const alivePlayerNames = new Set(gameState.players.filter(p => p.is_alive).map(p => p.name));
+        const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
+        for (const event of relevantEvents) {
+            if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
+                if (alivePlayerNames.has(event.actor_id)) {
+                    currentVotes.set(event.actor_id, { target: event.target, type: event.type });
+                }
+            } else if (event.type === 'timeout') {
+                currentVotes.delete(event.actor_id);
+            }
+        }
+    }
+    
+    const clearVotingVisuals = !isVotingSession;
+    threeState.demo.updateVoteVisuals(currentVotes, clearVotingVisuals);
+
 
     // Spotlight logic for night actions
     if (threeState.demo._spotLight) {
         const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
-        const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id) ? lastEvent.actor_id : null;
+        const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id && ['WerewolfNightVoteDataEntry', 'DoctorHealActionDataEntry', 'SeerInspectActionDataEntry'].includes(lastEvent.dataType)) ? lastEvent.actor_id : null;
 
         if (nightActor) {
             const actorPlayer = threeState.demo._playerObjects.get(nightActor);
@@ -1267,32 +1510,18 @@ function renderer({
     }
 
     // Handle animation for the current event actor
-    const lastEvent = gameState.eventLog[gameState.eventLog.length - 1];
     if (lastEvent) {
         if (lastEvent.entry_type === 'moderator_announcement') {
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
                 if (player.is_alive) {
-                    threeState.demo.updatePlayerStatus(player.name, 'speaking');
-                    setTimeout(() => {
-                        // Check again if player is still alive before resetting
-                        const currentPlayer = playerMap.get(player.name);
-                        if (currentPlayer && currentPlayer.is_alive) {
-                           threeState.demo.updatePlayerStatus(player.name, 'default');
-                        }
-                    }, 1500);
+                    threeState.demo.updatePlayerStatus(player.name, 'active');
                 }
             });
         } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
             // A player is the actor
             const actorName = lastEvent.actor_id;
-            threeState.demo.updatePlayerStatus(actorName, 'speaking');
-            setTimeout(() => {
-                const player = playerMap.get(actorName);
-                if (player && player.is_alive) {
-                    threeState.demo.updatePlayerStatus(actorName, 'default');
-                }
-            }, 1500);
+            threeState.demo.updatePlayerStatus(actorName, 'active');
         }
     }
   }
@@ -1619,8 +1848,8 @@ function renderer({
         /* Enhanced Avatar */
         .avatar-container {
             position: relative;
-            width: 56px;
-            height: 56px;
+            width: 40px;
+            height: 40px;
             margin-right: 16px;
             flex-shrink: 0;
         }
@@ -1681,6 +1910,12 @@ function renderer({
         .player-role.villager { color: var(--villager-color); }
         .player-role.doctor { color: var(--doctor-color); }
         .player-role.seer { color: var(--seer-color); }
+
+        .display-name {
+            font-size: 0.8em;
+            color: #888;
+            margin-left: 5px;
+        }
         
         /* Enhanced Threat Indicator */
         .threat-indicator {
@@ -1752,6 +1987,7 @@ function renderer({
             flex-shrink: 0;
             border: 2px solid rgba(116, 185, 255, 0.2);
             transition: all 0.3s ease;
+            background-color: #ffffff;
         }
         
         .chat-entry:hover .chat-avatar {
@@ -1939,6 +2175,7 @@ function renderer({
             margin-right: 6px;
             object-fit: cover;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: #ffffff;
         }
         
         /* Enhanced TTS Button */
@@ -2250,12 +2487,22 @@ function renderer({
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
         // Update content
+        console.log("player:");
+        console.log(player);
+
+        let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`
+        if (player.display_name && player.display_name !== player.name) {
+            player_name_element = `<div class="player-name" title="${player.name}">
+                ${player.name}<span class="display-name"> (${player.display_name})</span>
+            </div>`
+        }
+
         li.innerHTML = `
             <div class="avatar-container">
                 <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
             </div>
             <div class="player-info">
-                <div class="player-name" title="${player.name}">${player.name}</div>
+                ${player_name_element}
                 <div class="player-role">${roleText}</div>
             </div>
             <div class="threat-indicator"></div>
@@ -2309,39 +2556,19 @@ function renderer({
   }
 
   function updateEventLog(container, gameState, playerMap) {
-    // Get or create header
-    let header = container.querySelector('h1');
-    if (!header) {
-        header = document.createElement('h1');
-        header.textContent = 'Event Log';
-        container.appendChild(header);
-    }
-
-    // Get or create log container
-    let logUl = container.querySelector('#chat-log');
-    if (!logUl) {
-        logUl = document.createElement('ul');
-        logUl.id = 'chat-log';
-        container.appendChild(logUl);
-    }
+    container.innerHTML = '<h1>Event Log</h1>';
+    const logUl = document.createElement('ul');
+    logUl.id = 'chat-log';
 
     const logEntries = gameState.eventLog;
-    
-    // Store current scroll position
-    const wasScrolledToBottom = logUl.scrollHeight - logUl.clientHeight <= logUl.scrollTop + 1;
 
-    // Only add new entries, don't rebuild the entire log
-    const currentEntryCount = logUl.children.length;
-    
-    if (logEntries.length === 0 && currentEntryCount === 0) {
+    if (logEntries.length === 0) {
         const li = document.createElement('li');
         li.className = 'msg-entry';
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
-    } else if (logEntries.length > currentEntryCount) {
-        // Only process new entries
-        const newEntries = logEntries.slice(currentEntryCount);
-        newEntries.forEach(entry => {
+    } else {
+        logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = '';
             let reasoningToggleHtml = '';
@@ -2357,17 +2584,6 @@ function renderer({
             const entryType = entry.type;
             const systemText = (entry.text || '').toLowerCase();
 
-            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
-                phase = 'DAY';
-            } else if (
-                entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
-                entryType === 'seer_inspection' || entryType === 'seer_inspection_result' ||
-                entryType === 'doctor_heal_action' ||
-                (entryType === 'system' && (systemText.includes('werewolf vote request') || systemText.includes('doctor save request') || systemText.includes('seer inspect request') || systemText.includes('night has begun')))
-            ) {
-                phase = 'NIGHT';
-            }
-
             const phaseClass = `event-${phase.toLowerCase()}`;
 
             let phaseEmoji = phase;
@@ -2377,7 +2593,7 @@ function renderer({
                 phaseEmoji = '&#x1F319;';
             }
 
-            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
+            const dayPhaseString = entry.day !== Infinity ? `[${phaseEmoji} ${entry.day}]` : '';
             const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
 
             switch (entry.type) {
@@ -2556,21 +2772,13 @@ function renderer({
                         </div>
                     `;
                     break;
-                default:
-                    // Handle other message types here if needed
-                    break;
             }
-            
-            if (li.innerHTML) {
-                logUl.appendChild(li);
-            }
+            if (li.innerHTML) logUl.appendChild(li);
         });
-
-        // Maintain scroll position
-        if (wasScrolledToBottom) {
-            logUl.scrollTop = logUl.scrollHeight;
-        }
     }
+
+    container.appendChild(logUl);
+    logUl.scrollTop = logUl.scrollHeight;
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
@@ -2655,234 +2863,6 @@ function renderer({
     });
   }
 
-  function renderEventLog(container, gameState, playerMap) {
-    container.innerHTML = '<h1>Event Log</h1>';
-    const logUl = document.createElement('ul');
-    logUl.id = 'chat-log';
-
-    const logEntries = gameState.eventLog;
-
-    if (logEntries.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'msg-entry';
-        li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
-        logUl.appendChild(li);
-    } else {
-        logEntries.forEach(entry => {
-            const li = document.createElement('li');
-            let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-
-            let phase = (entry.phase || 'Day').toUpperCase();
-            const entryType = entry.type;
-            const systemText = (entry.text || '').toLowerCase();
-
-            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
-                phase = 'DAY';
-            } else if (
-                entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
-                entryType === 'seer_inspection' || entryType === 'seer_inspection_result' ||
-                entryType === 'doctor_heal_action' ||
-                (entryType === 'system' && (systemText.includes('werewolf vote request') || systemText.includes('doctor save request') || systemText.includes('seer inspect request') || systemText.includes('night has begun')))
-            ) {
-                phase = 'NIGHT';
-            }
-
-            const phaseClass = `event-${phase.toLowerCase()}`;
-
-            let phaseEmoji = phase;
-            if (phase === 'DAY') {
-                phaseEmoji = '&#x2600;&#xFE0F;';
-            } else if (phase === 'NIGHT') {
-                phaseEmoji = '&#x1F319;';
-            }
-
-            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
-            const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
-
-            switch (entry.type) {
-                case 'chat':
-                    const speaker = playerMap.get(entry.speaker);
-                    if (!speaker) return;
-                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${speaker.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">
-                                    <quote>${messageText}</quote>
-                                </div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    const balloonText = li.querySelector('.balloon-text');
-                    if (balloonText) {
-                        const ttsButton = document.createElement('span');
-                        ttsButton.className = 'tts-button';
-                        ttsButton.innerHTML = '&#x1F50A;';
-                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
-                        balloonText.appendChild(ttsButton);
-                    }
-                    break;
-                case 'seer_inspection':
-                    const seerInspector = playerMap.get(entry.actor_id);
-                    if (!seerInspector) return;
-                    const seerTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    const seerCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${seerCap} chose to inspect ${seerTargetCap}'s role.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'seer_inspection_result':
-                    const seerResultViewer = playerMap.get(entry.seer);
-                    if (!seerResultViewer) return;
-                    const seerCap_ = createPlayerCapsule(playerMap.get(entry.seer));
-                    const seerResultTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry ${phaseClass}`;
-                    li.innerHTML = `
-                        <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${entry.seer} (Seer) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${seerCap_} saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'doctor_heal_action':
-                    const doctor = playerMap.get(entry.actor_id);
-                    if (!doctor) return;
-                    const docTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    const docCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Heal by ${doctor.name} (Doctor) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${docCap} chose to heal ${docTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'system':
-                    if (entry.text && entry.text.includes('has begun')) return;
-
-                    let systemText = entry.text;
-                    const listRegex = /\\\\[(.*?)\\\\]/g;
-                    systemText = systemText.replace(listRegex, (match, listContent) => {
-                        return listContent.replace(/'/g, "").replace(/, /g, " ");
-                    });
-
-                    const allPlayerIdsForSystem = Array.from(playerMap.keys());
-                    const finalSystemText = replacePlayerIdsWithCapsules(systemText, allPlayerIdsForSystem, playerMap);
-
-                    li.className = `moderator-announcement`;
-                    li.innerHTML = `
-                        <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
-                        <div class="moderator-announcement-content ${phaseClass}">
-                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
-                        </div>
-                    `;
-                    break;
-                case 'exile':
-                    const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
-                    break;
-                case 'elimination':
-                    const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-night`;
-                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
-                    break;
-                case 'save':
-                     const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
-                     li.className = `msg-entry event-night`;
-                     li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
-                    break;
-                case 'vote':
-                    const voter = playerMap.get(entry.actor_id);
-                    if (!voter) return;
-                    const voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${voter.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                     `;
-                     break;
-                case 'timeout':
-                    const to_voter = playerMap.get(entry.actor_id);
-                    if (!to_voter) return;
-                    const to_voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${to_voter.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${to_voterCap} timed out and abstained from voting.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                     `;
-                     break;
-                case 'night_vote':
-                    const nightVoter = playerMap.get(entry.actor_id);
-                    if (!nightVoter) return;
-                    const nightVoterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    const nightVoteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${nightVoterCap} votes to eliminate ${nightVoteTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'game_over':
-                    const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    const losersText = entry.losers.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    li.className = `msg-entry game-win ${phaseClass}`;
-                    li.innerHTML = `
-                        <cite>Game Over ${timestampHtml}</cite>
-                        <div class="msg-text">
-                            <div>The <strong>${entry.winner}</strong> team has won!</div><br>
-                            <div><strong>Winning Team:</strong> ${winnersText}</div>
-                            <div><strong>Losing Team:</strong> ${losersText}</div>
-                        </div>
-                    `;
-                    break;
-            }
-            if (li.innerHTML) logUl.appendChild(li);
-        });
-    }
-
-    container.appendChild(logUl);
-    logUl.scrollTop = logUl.scrollHeight;
-  }
-
     // --- Main Rendering Logic (Incremental) ---
     // Only create UI elements if they don't exist
     let mainContainer = parent.querySelector('.main-container');
@@ -2910,10 +2890,16 @@ function renderer({
     let playerThumbnailsFor3D = {};
 
     // --- State Reconstruction ---
-    const eventStep = step;
-    const kaggleStep = window.werewolfGamePlayer.eventToKaggleStep[eventStep] || 0;
-    const originalSteps = window.werewolfGamePlayer.originalSteps;
-    const allEvents = window.werewolfGamePlayer.allEvents;
+    const player = window.werewolfGamePlayer;
+    const { allEvents, displayStepToAllEventsIndex, originalSteps, eventToKaggleStep } = player;
+
+    if (step >= displayStepToAllEventsIndex.length) {
+      console.error("Step is out of bounds for displayStepToAllEventsIndex", step, displayStepToAllEventsIndex.length);
+      return;
+    }
+    const allEventsIndex = displayStepToAllEventsIndex[step];
+    const eventStep = allEventsIndex; // for clarity
+    const kaggleStep = eventToKaggleStep[eventStep] || 0;
 
     let gameState = {
         players: [],
@@ -2953,9 +2939,10 @@ function renderer({
         return;
     }
 
-    gameState.players = allPlayerNamesList.map(name => ({
-        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
-        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
+    gameState.players = environment.configuration.agents.map( agent => ({
+        name: agent.id, is_alive: true, role: agent.role, team: 'Unknown',
+        status: 'Alive', thumbnail: agent.thumbnail || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${agent.id.charAt(0)}`,
+        display_name: agent.display_name
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
@@ -3021,7 +3008,7 @@ function renderer({
 
          switch (historyEvent.dataType) {
             case 'ChatDataEntry':
-                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
                 break;
             case 'DayExileVoteDataEntry':
                 gameState.eventLog.push({ type: 'vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
@@ -3036,16 +3023,19 @@ function renderer({
                 gameState.eventLog.push({ type: 'seer_inspection', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                 break;
             case 'DayExileElectedDataEntry':
-                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
                 break;
             case 'WerewolfNightEliminationDataEntry':
-                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                 break;
             case 'SeerInspectResultDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
                 break;
             case 'DoctorSaveDataEntry':
-                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
+                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, saved_player: data.saved_player_id, timestamp });
+                break;
+            case 'PhaseDividerDataEntry':
+                gameState.eventLog.push({ type: 'phase_divider', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, divider: data.divider_type, timestamp });
                 break;
             case 'GameEndResultsDataEntry':
                 gameState.gameWinner = data.winner_team;
@@ -3150,13 +3140,19 @@ function renderer({
     }
     
     // Update phase indicator based on current game state
-    const currentPhase = gameState.game_state_phase || 'DAY';
+    const currentPhase = allEvents[eventStep].phase.toUpperCase() || 'DAY';
     const isNight = currentPhase === 'NIGHT';
     phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
-    phaseIndicator.innerHTML = `
+    if (allEvents[eventStep]?.entry_type == 'game_end') {
+        phaseIndicator.innerHTML = `
         <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
-        <span>${isNight ? 'NIGHT' : 'DAY'} ${gameState.day > 0 ? gameState.day : ''}</span>
-    `;
+        `;
+    } else {
+        phaseIndicator.innerHTML = `
+        <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
+        <span>${allEvents[eventStep].day}</span>
+        `;
+    }
     
     // Create or update game scoreboard
     let scoreboard = parent.querySelector('.game-scoreboard');
@@ -3266,18 +3262,13 @@ function renderer({
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, actingPlayerName);
     
-    // Debug: Log current phase state
-    if (step % 10 === 0) { // Log every 10 steps to avoid spam
-        console.log(`Step ${step}: Phase=${gameState.phase}, GameStatePhase=${gameState.game_state_phase}, Day=${gameState.day}`);
-    }
-    
     // Initialize 3D players if needed
     if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
-        initializePlayers3D(playerNamesFor3D, playerThumbnailsFor3D, threeState);
+        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState);
     }
 }
 
-function initializePlayers3D(playerNames, playerThumbnails, threeState) {
+function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
     
     // Clear existing player objects
@@ -3334,6 +3325,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
     });
     
     playerNames.forEach((name, i) => {
+        const displayName = gameState.players[i].display_name || '';
         const playerContainer = new THREE.Group();
         // Use full circle (360 degrees)
         const angle = (i / numPlayers) * Math.PI * 2;
@@ -3465,7 +3457,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
-        const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
+        const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
         nameplate.position.set(0, playerHeight * 2.0, 0);
         playerContainer.add(nameplate);
         
