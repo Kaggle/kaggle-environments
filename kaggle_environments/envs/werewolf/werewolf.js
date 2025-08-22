@@ -1400,12 +1400,21 @@ function renderer({
     function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
 
+    const logUpToCurrentStep = gameState.eventLog;
+    const lastEvent = logUpToCurrentStep.length > 0 ? logUpToCurrentStep[logUpToCurrentStep.length - 1] : null;
+
+    // Determine correct phase from the last event log entry
+    let phase = gameState.game_state_phase; // Default
+    if (lastEvent && lastEvent.phase) {
+        phase = lastEvent.phase;
+    }
+
     // Update player statuses
     gameState.players.forEach(player => {
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
-      if (player.role === 'Werewolf' && gameState.phase === 'NIGHT') {
+      if (player.role === 'Werewolf' && phase === 'NIGHT') {
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
       } else if (player.is_alive) {
         threeState.demo.updatePlayerStatus(player.name, 'default');
@@ -1414,31 +1423,21 @@ function renderer({
       }
     });
 
-    // Update phase lighting - use game_state_phase which contains DAY/NIGHT
-    threeState.demo.updatePhase(gameState.game_state_phase);
+    // Update phase lighting
+    threeState.demo.updatePhase(phase);
 
     // --- Vote Visualization Logic ---
     const currentVotes = new Map();
-    const logUpToCurrentStep = gameState.eventLog;
-    let clearVotingVisuals = false;
 
-    // Detect if a vote has just concluded in the latest event
-    const lastEvent = logUpToCurrentStep[logUpToCurrentStep.length - 1];
-    if (lastEvent && (lastEvent.type === 'exile' || lastEvent.type === 'elimination' || lastEvent.type === 'save')) {
-        clearVotingVisuals = true;
-    }
-
-    // Find the start of the current voting/action session
     const lastNightActionStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && (e.text.toLowerCase().includes('werewolves to vote') || e.text.toLowerCase().includes('doctor to save') || e.text.toLowerCase().includes('seer to inspect')));
     const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
-
     const sessionStartIndex = Math.max(lastNightActionStart, lastDayVoteStart);
-    let isVotingSession = false;
 
-    if (sessionStartIndex > -1 && !clearVotingVisuals) {
-        const lastPhaseEvent = logUpToCurrentStep[sessionStartIndex];
-        const phaseText = lastPhaseEvent.text.toLowerCase();
-        if (phaseText.includes('vote') || phaseText.includes('save') || phaseText.includes('inspect')) {
+    let isVotingSession = false;
+    if (sessionStartIndex > -1) {
+        const lastOutcomeEventIndex = logUpToCurrentStep.findLastIndex(e => e.type === 'exile' || e.type === 'elimination' || e.type === 'save');
+        // A session is active if it started after the last outcome, OR if the outcome is the current event.
+        if (sessionStartIndex > lastOutcomeEventIndex || (lastOutcomeEventIndex > -1 && lastOutcomeEventIndex === logUpToCurrentStep.length - 1)) {
             isVotingSession = true;
         }
     }
@@ -1446,7 +1445,6 @@ function renderer({
     if (isVotingSession) {
         const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
         for (const event of relevantEvents) {
-            // Capture all actions that should have a visual
             if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
                 currentVotes.set(event.actor_id, { target: event.target, type: event.type });
             } else if (event.type === 'timeout') {
@@ -1455,6 +1453,7 @@ function renderer({
         }
     }
     
+    const clearVotingVisuals = !isVotingSession;
     threeState.demo.updateVoteVisuals(currentVotes, clearVotingVisuals);
 
 
