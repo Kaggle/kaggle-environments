@@ -155,6 +155,17 @@ function renderer({
                 this._controls.enableKeys = false;
                 this._controls.update();
 
+                this._votingArcsGroup = new THREE.Group();
+                this._votingArcsGroup.name = 'votingArcs';
+                this._scene.add(this._votingArcsGroup);
+
+                this._targetRingsGroup = new THREE.Group();
+                this._targetRingsGroup.name = 'targetRings';
+                this._scene.add(this._targetRingsGroup);
+
+                this._activeVoteArcs = new Map();
+                this._activeTargetRings = new Map();
+
                 this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
                 this._RAF();
               }
@@ -898,6 +909,104 @@ function renderer({
                 }
               }
 
+              _createVoteArc(voterName, targetName) {
+                const voter = this._playerObjects.get(voterName);
+                const target = this._playerObjects.get(targetName);
+
+                if (!voter || !target) return;
+
+                const startPos = voter.container.position.clone();
+                const endPos = target.container.position.clone();
+
+                startPos.y = 0.2;
+                endPos.y = 0.2;
+
+                const midPos = new this._THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+                const dist = startPos.distanceTo(endPos);
+                midPos.y += dist * 0.25; // Arc height
+
+                const curve = new this._THREE.CatmullRomCurve3([startPos, midPos, endPos]);
+
+                const geometry = new this._THREE.TubeGeometry(curve, 20, 0.05, 8, false);
+                const material = new this._THREE.MeshBasicMaterial({
+                    color: 0x00ffff, // Pale Cyan
+                    transparent: true,
+                    opacity: 0.6,
+                });
+
+                const arc = new this._THREE.Mesh(geometry, material);
+                this._votingArcsGroup.add(arc);
+                this._activeVoteArcs.set(voterName, { arc, target: targetName });
+              }
+
+              _updateTargetRing(targetName, voteCount) {
+                  const target = this._playerObjects.get(targetName);
+                  if (!target) return;
+
+                  let ringData = this._activeTargetRings.get(targetName);
+
+                  if (voteCount > 0 && !ringData) {
+                      const geometry = new this._THREE.RingGeometry(2, 2.2, 32);
+                      const material = new this._THREE.MeshBasicMaterial({
+                          color: 0x00ffff,
+                          transparent: true,
+                          opacity: 0, // Start invisible, fade in
+                          side: this._THREE.DoubleSide,
+                      });
+                      const ring = new this._THREE.Mesh(geometry, material);
+                      ring.position.copy(target.container.position);
+                      ring.position.y = 0.1;
+                      ring.rotation.x = -Math.PI / 2;
+
+                      this._targetRingsGroup.add(ring);
+                      ringData = { ring, material };
+                      this._activeTargetRings.set(targetName, ringData);
+                  }
+
+                  if (voteCount > 0 && ringData) {
+                      const targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
+                      ringData.material.opacity = targetOpacity;
+                  } else if (voteCount === 0 && ringData) {
+                      this._targetRingsGroup.remove(ringData.ring);
+                      this._activeTargetRings.delete(targetName);
+                  }
+              }
+
+              updateVoteVisuals(votes) { // votes is a Map of {voter -> target}
+                  if (!this._playerObjects || this._playerObjects.size === 0) return;
+
+                  // Remove arcs from players who are no longer voting
+                  for (const [voterName, arcData] of this._activeVoteArcs.entries()) {
+                      if (!votes.has(voterName)) {
+                          this._votingArcsGroup.remove(arcData.arc);
+                          this._activeVoteArcs.delete(voterName);
+                      }
+                  }
+
+                  // Update existing arcs or create new ones
+                  for (const [voterName, targetName] of votes.entries()) {
+                      const existingArc = this._activeVoteArcs.get(voterName);
+                      if (existingArc) {
+                          if (existingArc.target !== targetName) {
+                              this._votingArcsGroup.remove(existingArc.arc);
+                              this._createVoteArc(voterName, targetName);
+                          }
+                      } else {
+                          this._createVoteArc(voterName, targetName);
+                      }
+                  }
+
+                  // Update target rings
+                  const targetVoteCounts = new Map();
+                  for (const targetName of votes.values()) {
+                      targetVoteCounts.set(targetName, (targetVoteCounts.get(targetName) || 0) + 1);
+                  }
+
+                  for (const playerName of this._playerObjects.keys()) {
+                      this._updateTargetRing(playerName, targetVoteCounts.get(playerName) || 0);
+                  }
+              }
+
               updatePhase(phase) {
                 if (!this._scene) return;
                 
@@ -1224,7 +1333,7 @@ function renderer({
     threeState.initialized = true;
   }
 
-  function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
+    function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
 
     // Update player statuses
@@ -1243,6 +1352,39 @@ function renderer({
 
     // Update phase lighting - use game_state_phase which contains DAY/NIGHT
     threeState.demo.updatePhase(gameState.game_state_phase);
+
+    // --- Vote Visualization Logic ---
+    const currentVotes = new Map();
+    const logUpToCurrentStep = gameState.eventLog;
+
+    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('night has begun'));
+    const lastVotingStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
+    const lastDiscussionStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('discussion has begun'));
+
+    const sessionStartIndex = Math.max(lastNightStart, lastVotingStart, lastDiscussionStart);
+    let isVotingSession = false;
+
+    if (sessionStartIndex > -1) {
+        const lastPhaseEvent = logUpToCurrentStep[sessionStartIndex];
+        const phaseText = lastPhaseEvent.text.toLowerCase();
+        if (phaseText.includes('night has begun') || phaseText.includes('voting phase begins')) {
+            isVotingSession = true;
+        }
+    }
+
+    if (isVotingSession && !gameState.gameWinner) {
+        const relevantEvents = logUpToCurrentStep.slice(sessionStartIndex);
+        for (const event of relevantEvents) {
+            if (event.type === 'vote' || event.type === 'night_vote' || event.type === 'doctor_heal_action' || event.type === 'seer_inspection') {
+                currentVotes.set(event.actor_id, event.target);
+            } else if (event.type === 'timeout') {
+                currentVotes.delete(event.actor_id);
+            }
+        }
+    }
+    
+    threeState.demo.updateVoteVisuals(currentVotes);
+
 
     // Spotlight logic for night actions
     if (threeState.demo._spotLight) {
