@@ -27,6 +27,7 @@ function renderer({
         'SeerInspectResultDataEntry',
         'DoctorSaveDataEntry',
         'GameEndResultsDataEntry',
+        'PhaseDividerDataEntry'
     ]);
 
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
@@ -1430,8 +1431,8 @@ function renderer({
     const currentVotes = new Map();
 
     // Find the start of the current voting/action session
-    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('night') && e.text.toLowerCase().includes('begins'));
-    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'system' && e.text && e.text.toLowerCase().includes('voting phase begins'));
+    const lastNightStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'NIGHT START');
+    const lastDayVoteStart = logUpToCurrentStep.findLastIndex(e => e.type === 'phase_divider' && e.divider === 'DAY VOTE START');
     const sessionStartIndex = Math.max(lastNightStart, lastDayVoteStart);
 
     let isVotingSession = false;
@@ -3247,6 +3248,9 @@ function renderer({
                 break;
             case 'DoctorSaveDataEntry':
                 gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
+                break;
+            case 'PhaseDividerDataEntry':
+                gameState.eventLog.push({ type: 'phase_divider', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, divider: data.divider_type, timestamp });
                 break;
             case 'GameEndResultsDataEntry':
                 gameState.gameWinner = data.winner_team;

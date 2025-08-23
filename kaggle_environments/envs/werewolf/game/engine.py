@@ -5,14 +5,14 @@ from enum import Enum
 from typing import List, Dict, Tuple, Type, Sequence
 
 from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
-from .consts import Phase, Team, RoleConst
+from .consts import Phase, Team, RoleConst, PhaseDivider
 from .protocols import TurnByTurnBiddingDiscussion
 from .protocols import DiscussionProtocol, VotingProtocol
 from .records import (
     HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
     RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry,
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry,
-    GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry
+    GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry, SetNewPhaseDataEntry
 )
 
 from .roles import Player
@@ -175,6 +175,14 @@ class Moderator:
         if add_one_day:
             self.state.day_count += 1
 
+        data = SetNewPhaseDataEntry(new_detailed_phase=new_detailed_phase)
+        self.state.add_history_entry(
+            description=f"{new_detailed_phase} begins.",
+            entry_type=HistoryEntryType.PHASE_CHANGE,
+            public=False,
+            data=data
+        )
+
     def get_active_player_ids(self) -> List[str]:
         return self._action_queue.get_active_player_ids()
 
@@ -247,6 +255,8 @@ class Moderator:
 
     def _handle_night_start(self, player_actions: Dict[str, Action]):
         self._action_queue.clear()
+        self.state.add_phase_divider(PhaseDivider.NIGHT_START)
+        self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_START)
         self.state.add_history_entry(
             description=f"Night {self.state.day_count} begins.",
             entry_type=HistoryEntryType.PHASE_CHANGE,
@@ -288,6 +298,7 @@ class Moderator:
             )
 
         # initialize werewolves voting
+        self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_START)
         alive_werewolves = self.state.alive_players_by_role(RoleConst.WEREWOLF)
         alive_werewolf_ids = list({p.id for p in alive_werewolves})
         potential_targets = self.state.alive_players_by_team(Team.VILLAGERS)  # Target non-werewolves
@@ -513,16 +524,19 @@ class Moderator:
 
             self.night_voting.reset()
             self._night_save_queue = {}
+            self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_END)
+            self.state.add_phase_divider(PhaseDivider.NIGHT_END)
             if not self.is_game_over():
                 self.set_new_phase(DetailedPhase.DAY_START, add_one_day=True)
 
     def _handle_day_start(self, player_actions: Dict[str, Action]):
+        self.state.add_phase_divider(PhaseDivider.DAY_START)
         self._action_queue.clear()
         self.night_step = 0  # Reset night step counter
 
         self.state.add_history_entry(
             description=f"Day {self.state.day_count} begins.",
-            entry_type=HistoryEntryType.PHASE_CHANGE,
+            entry_type=HistoryEntryType.DAY_START,
             public=True
         )
 
@@ -533,6 +547,7 @@ class Moderator:
             data={'discussion_rule': self.discussion.discussion_rule}
         )
 
+        self.state.add_phase_divider(PhaseDivider.DAY_CHAT_START)
         self.discussion.begin(self.state)
 
         # Check if the protocol starts with bidding
@@ -591,6 +606,9 @@ class Moderator:
                 public=True
             )
             self.discussion.reset()
+
+            self.state.add_phase_divider(PhaseDivider.DAY_CHAT_END)
+            self.state.add_phase_divider(PhaseDivider.DAY_VOTE_START)
             alive_players = self.state.alive_players()
             self.day_voting.begin_voting(self.state, alive_players, alive_players)
             self.set_new_phase(DetailedPhase.DAY_VOTING_AWAIT)
@@ -674,6 +692,8 @@ class Moderator:
                 )
 
             self.day_voting.reset()
+            self.state.add_phase_divider(PhaseDivider.DAY_VOTE_END)
+            self.state.add_phase_divider(PhaseDivider.DAY_END)
             if not self.is_game_over():
                 self.set_new_phase(DetailedPhase.NIGHT_START)
         else:
