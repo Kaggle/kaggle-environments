@@ -4,9 +4,9 @@ from functools import cached_property
 
 from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
-from .records import HistoryEntryType, DataEntry, HistoryEntry
+from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry
 from .roles import Player, Role
-from .consts import Phase, Team, RoleConst, MODERATOR_ID
+from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider
 
 
 class GameState(BaseModel):
@@ -116,6 +116,17 @@ class GameState(BaseModel):
                 player = self.get_player_by_id(player_id)
                 if player:
                     player.update(public_entry)
+    
+    def add_phase_divider(self, divider: PhaseDivider):
+        """The phase divider is used to clearly separate phase boundary. This is very useful 
+            for visualizer updates, where some updates naturally takes a time slice of events as input.
+        """
+        self.add_history_entry(
+            description=divider.value,
+            entry_type=HistoryEntryType.PHASE_DIVIDER,
+            public=False,
+            data=PhaseDividerDataEntry(divider_type=divider.value)
+        )
 
     def eliminate_player(self, pid: str):
         player = self.get_player_by_id(pid)

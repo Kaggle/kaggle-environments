@@ -9,6 +9,19 @@ class Phase(str, Enum):
     NIGHT = "Night"
 
 
+class PhaseDivider(str, Enum):
+    NIGHT_START = "NIGHT START"
+    NIGHT_END = "NIGHT END"
+    DAY_START = "DAY START"
+    DAY_END = "DAY END"
+    NIGHT_VOTE_START = "NIGHT VOTE START"
+    NIGHT_VOTE_END = "NIGHT VOTE END"
+    DAY_CHAT_START = "DAY CHAT START"
+    DAY_CHAT_END = "DAY CHAT END"
+    DAY_VOTE_START = "DAY VOTE START"
+    DAY_VOTE_END = "DAY VOTE END"
+
+
 class Team(str, Enum):
     VILLAGERS = "Villagers"
     WEREWOLVES = "Werewolves"
