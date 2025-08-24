@@ -1419,12 +1419,15 @@ function renderer({
         phase = lastEvent.phase;
     }
 
+    console.log(`update scene for phase: ${phase}`);
+
+
     // Update player statuses
     gameState.players.forEach(player => {
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
-      if (player.role === 'Werewolf' && phase === 'NIGHT') {
+      if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
       } else if (player.is_alive) {
         threeState.demo.updatePlayerStatus(player.name, 'default');
@@ -3253,16 +3256,16 @@ function renderer({
                 gameState.eventLog.push({ type: 'seer_inspection', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
                 break;
             case 'DayExileElectedDataEntry':
-                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'DAY', name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
                 break;
             case 'WerewolfNightEliminationDataEntry':
-                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                 break;
             case 'SeerInspectResultDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
                 break;
             case 'DoctorSaveDataEntry':
-                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: 'NIGHT', saved_player: data.saved_player_id, timestamp });
+                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, saved_player: data.saved_player_id, timestamp });
                 break;
             case 'PhaseDividerDataEntry':
                 gameState.eventLog.push({ type: 'phase_divider', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, divider: data.divider_type, timestamp });
