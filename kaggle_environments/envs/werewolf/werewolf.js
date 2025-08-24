@@ -793,7 +793,7 @@ function renderer({
                 const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
 
                 // Reset to a baseline "alive" state before applying specific statuses, unless the status is 'dead'.
-                if (status !== 'dead') {
+                if (status !== 'dead' && status !== 'active') {
                     orb.material.color.setHex(0x00ff00);
                     orb.material.emissive.setHex(0x00ff00);
                     orb.material.emissiveIntensity = 0.8;
@@ -1427,12 +1427,12 @@ function renderer({
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
-      if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
-        threeState.demo.updatePlayerStatus(player.name, 'werewolf');
-      } else if (player.is_alive) {
-        threeState.demo.updatePlayerStatus(player.name, 'default');
-      } else {
+      if (!player.is_alive) {
         threeState.demo.updatePlayerStatus(player.name, 'dead');
+      } else if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
+        threeState.demo.updatePlayerStatus(player.name, 'werewolf');
+      } else {
+        threeState.demo.updatePlayerStatus(player.name, 'default');
       }
     });
 
