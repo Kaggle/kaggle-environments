@@ -10,7 +10,9 @@ function renderer({
     window.werewolfGamePlayer = {
         initialized: false,
         allEvents: [],
+        displayEvents: [],
         eventToKaggleStep: [],
+        displayStepToAllEventsIndex: [],
         originalSteps: environment.steps,
         reasoningCounter: 0,
     };
@@ -30,6 +32,7 @@ function renderer({
         'PhaseDividerDataEntry'
     ]);
 
+    let allEventsIndex = 0;
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
         (stepEvents || []).flat().forEach(dataEntry => {
             const event = JSON.parse(dataEntry.json_str);
@@ -50,10 +53,16 @@ function renderer({
             event.dataType = dataEntry.data_type;
             player.allEvents.push(event);
             player.eventToKaggleStep.push(kaggleStep);
+
+            if (event.dataType !== 'PhaseDividerDataEntry') {
+                player.displayEvents.push(event);
+                player.displayStepToAllEventsIndex.push(allEventsIndex);
+            }
+            allEventsIndex++;
         });
     });
 
-    const newSteps = player.allEvents.map((event) => {
+    const newSteps = player.displayEvents.map((event) => {
         return player.originalSteps[event.kaggleStep];
     });
 
@@ -3112,10 +3121,16 @@ function renderer({
     let playerThumbnailsFor3D = {};
 
     // --- State Reconstruction ---
-    const eventStep = step;
-    const kaggleStep = window.werewolfGamePlayer.eventToKaggleStep[eventStep] || 0;
-    const originalSteps = window.werewolfGamePlayer.originalSteps;
-    const allEvents = window.werewolfGamePlayer.allEvents;
+    const player = window.werewolfGamePlayer;
+    const { allEvents, displayStepToAllEventsIndex, originalSteps, eventToKaggleStep } = player;
+
+    if (step >= displayStepToAllEventsIndex.length) {
+      console.error("Step is out of bounds for displayStepToAllEventsIndex", step, displayStepToAllEventsIndex.length);
+      return;
+    }
+    const allEventsIndex = displayStepToAllEventsIndex[step];
+    const eventStep = allEventsIndex; // for clarity
+    const kaggleStep = eventToKaggleStep[eventStep] || 0;
 
     let gameState = {
         players: [],
