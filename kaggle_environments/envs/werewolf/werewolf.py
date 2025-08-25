@@ -380,7 +380,6 @@ def interpreter(state, env):
     global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
     env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
-    logger.info(f"detailed_phase = {moderator.detailed_phase.value}")
     # 4.2. Update observations for individual agents
     update_agent_messages(
         state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error)

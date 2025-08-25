@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import yaml
+import logging
 from datetime import datetime
 
 # Add the project root to the Python path to allow importing from kaggle_environments
@@ -10,6 +11,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger
+
+
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -27,12 +31,18 @@ def main():
     parser.add_argument("-d", "--debug", action="store_true", help='Enable debug mode.')
     parser.add_argument("-r", "--random_agents", action="store_true",
                         help='Use random agents for all players for fast testing.')
+    parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
+                        help="Append a timestamp to the output directory.")
 
     args = parser.parse_args()
 
     # Create a unique subdirectory for this run
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_output_dir = os.path.join(args.output_dir, f"run_{timestamp}")
+    if args.append_timestamp_to_dir:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_output_dir = args.output_dir + f"_{timestamp}"
+    else:
+        run_output_dir = args.output_dir
+    
     os.makedirs(run_output_dir, exist_ok=True)
 
     base_name = "werewolf_game"
@@ -47,10 +57,10 @@ def main():
     agents = [agent.get('agent_id', 'random') for agent in game_config.get('agents', [])]
 
     if args.random_agents:
-        print("Using random agents for all players.")
+        logger.info("Using random agents for all players.")
         agents = ['random'] * len(agents)
 
-    print(f"Starting Werewolf game run. Output will be saved to: {run_output_dir}")
+    logger.info(f"Starting Werewolf game run. Output will be saved to: {run_output_dir}")
     run_werewolf(
         output_dir=run_output_dir,
         base_name=base_name,
@@ -58,7 +68,7 @@ def main():
         agents=agents,
         debug=args.debug
     )
-    print(f"Game finished. Replay and log saved in: {run_output_dir}")
+    logger.info(f"Game finished. Replay and log saved in: {run_output_dir}")
 
 
 if __name__ == "__main__":
