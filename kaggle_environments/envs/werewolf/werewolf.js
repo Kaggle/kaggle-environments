@@ -3373,12 +3373,12 @@ function renderer({
     }
     
     // Update phase indicator based on current game state
-    const currentPhase = gameState.game_state_phase || 'DAY';
+    const currentPhase = allEvents[eventStep].phase.toUpperCase() || 'DAY';
     const isNight = currentPhase === 'NIGHT';
     phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
     phaseIndicator.innerHTML = `
         <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
-        <span>${isNight ? 'NIGHT' : 'DAY'} ${gameState.day > 0 ? gameState.day : ''}</span>
+        <span>${allEvents[eventStep].day}</span>
     `;
     
     // Create or update game scoreboard
