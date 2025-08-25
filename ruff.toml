@@ -1,0 +1,4 @@
+target-version = "py311"
+line-length = 120
+[format]
+quote-style = "double"
