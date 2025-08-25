@@ -69,7 +69,7 @@ For more rigorous testing, the `run_block.py` script allows you to run a series 
 
 Each game is run as an independent process, ensuring that experiments are clean and logs are separated.
 
-To run a block experiment with the default configuration (`run_config.yaml`):
+To run a block experiment with the default configuration:
 ```bash
 python kaggle_environments/envs/werewolf/scripts/run_block.py
 ```
@@ -77,14 +77,20 @@ The output will be saved in `werewolf_block_experiment/`, with subdirectories fo
 
 ### Customizing an Experiment
 
+- **Use a different configuration file:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -c path/to/your/config.yaml
+  ```
+
 - **Specify the number of blocks:**
+  Each block runs a full rotation of roles for the given players.
   ```bash
   python kaggle_environments/envs/werewolf/scripts/run_block.py -b 5  # Runs 5 blocks
   ```
 
-- **Use a different master configuration file:**
+- **Shuffle player IDs to mitigate name bias:**
   ```bash
-  python kaggle_environments/envs/werewolf/scripts/run_block.py -c path/to/your/block_config.yaml
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -s
   ```
 
 - **Use random agents for a quick test:**
@@ -92,7 +98,24 @@ The output will be saved in `werewolf_block_experiment/`, with subdirectories fo
   python kaggle_environments/envs/werewolf/scripts/run_block.py -r
   ```
 
-- **Enable debug mode to run games in the main process:**
+### Parallel Execution
+
+- **Run games in parallel to speed up the experiment:**
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -p
+  ```
+
+- **Specify the number of parallel processes:**
+  If not specified, the script will calculate a reasonable default.
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run_block.py -p -n 4
+  ```
+
+Note that kaggle environment by default use multiprocessing to run each agent in a separate process if debug mode is disabled. This means that the main processes you can use for each game would be greatly reduced. If you use sequential protocols e.g. round robin discussion, sequential voting, etc, we would recommend to enable debug mode `-d` to have sequential execution of each game and enable parallel processing of `run_block.py` script.
+
+### Debugging
+
+- **Enable debug mode to run games sequentially in the main process:**
   This is useful for stepping through code with a debugger.
   ```bash
   python kaggle_environments/envs/werewolf/scripts/run_block.py -d
