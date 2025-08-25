@@ -10,6 +10,49 @@ from kaggle_environments import make
 logger = logging.getLogger(__name__)
 
 
+class LogExecutionTime:
+    """
+    A context manager to log the execution time of a code block.
+    The elapsed time is stored in the `elapsed_time` attribute.
+
+    Example:
+        logger = logging.getLogger(__name__)
+        with LogExecutionTime(logger, "My Task") as timer:
+            # Code to be timed
+            time.sleep(1)
+        print(f"Task took {timer.elapsed_time:.2f} seconds.")
+        print(f"Formatted time: {timer.elapsed_time_formatted()}")
+    """
+    def __init__(self, logger_obj: logging.Logger, task_str: str):
+        """
+        Initializes the context manager.
+
+        Args:
+            logger_obj: The logger instance to use for output.
+            task_str: A descriptive string for the task being timed.
+        """
+        self.logger = logger_obj
+        self.task_str = task_str
+        self.start_time = None
+        self.elapsed_time = 0.0
+
+    def __enter__(self):
+        """Records the start time when entering the context."""
+        self.start_time = time.time()
+        self.logger.info(f"Starting: {self.task_str}")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Calculates and logs the elapsed time upon exiting the context."""
+        end_time = time.time()
+        self.elapsed_time = end_time - self.start_time
+        self.logger.info(f"Finished: {self.task_str} in {self.elapsed_time_formatted()}.")
+
+    def elapsed_time_formatted(self) -> str:
+        """Returns the elapsed time as a formatted string (HH:MM:SS)."""
+        return time.strftime("%H:%M:%S", time.gmtime(self.elapsed_time))
+
+
 def append_timestamp_to_dir(dir_path, append=True):
     if not append: return dir_path
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -42,12 +85,17 @@ def run_werewolf(output_dir, base_name, config, agents, debug):
     html_file = os.path.join(output_dir, f"{base_name}.html")
     json_file = os.path.join(output_dir, f"{base_name}.json")
 
-    env = make(
-        'werewolf',
-        debug=debug,
-        configuration=config
-    )
-    env.run(agents)
+    with LogExecutionTime(logger_obj=logger, task_str="env run") as timer:
+        env = make(
+            'werewolf',
+            debug=debug,
+            configuration=config
+        )
+        env.run(agents)
+    
+    env.info['total_run_time'] = timer.elapsed_time
+    env.info['total_run_time_formatted'] = timer.elapsed_time_formatted()
+
     logger.info("Game finished")
     env_out = env.render(mode='html')
     with open(html_file, 'w') as out:

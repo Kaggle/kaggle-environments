@@ -10,7 +10,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, append_timestamp_to_dir
+from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, append_timestamp_to_dir, LogExecutionTime
 
 
 logger = logging.getLogger(__name__)
@@ -57,13 +57,14 @@ def main():
         agents = ['random'] * len(agents)
 
     logger.info(f"Starting Werewolf game run. Output will be saved to: {run_output_dir}")
-    run_werewolf(
-        output_dir=run_output_dir,
-        base_name=base_name,
-        config=game_config,
-        agents=agents,
-        debug=args.debug
-    )
+    with LogExecutionTime(logger_obj=logger, task_str="single game"):
+        run_werewolf(
+            output_dir=run_output_dir,
+            base_name=base_name,
+            config=game_config,
+            agents=agents,
+            debug=args.debug
+        )
     logger.info(f"Game finished. Replay and log saved in: {run_output_dir}")
 
 

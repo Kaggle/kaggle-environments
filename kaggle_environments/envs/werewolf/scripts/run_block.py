@@ -14,7 +14,7 @@ import tenacity
 import yaml
 from tqdm import tqdm
 
-from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir
+from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir, LogExecutionTime
 
 # Initialize a placeholder logger
 logger = logging.getLogger(__name__)
@@ -235,16 +235,17 @@ def main():
     logger.info(f"Use Random Agents: {args.use_random_agents}")
     logger.info(f"Shuffle Player IDs: {args.shuffle_player_ids}")
 
-    run_experiment(
-        output_dir=output_dir,
-        num_blocks=args.num_blocks,
-        config=config,
-        use_random_agents=args.use_random_agents,
-        debug=args.debug,
-        parallel=args.parallel,
-        num_processes=num_processes,
-        shuffle_player_ids=args.shuffle_player_ids
-    )
+    with LogExecutionTime(logger_obj=logger, task_str="block experiment") as timer:
+        run_experiment(
+            output_dir=output_dir,
+            num_blocks=args.num_blocks,
+            config=config,
+            use_random_agents=args.use_random_agents,
+            debug=args.debug,
+            parallel=args.parallel,
+            num_processes=num_processes,
+            shuffle_player_ids=args.shuffle_player_ids
+        )
     logger.info("Experiment finished successfully.")
 
 
