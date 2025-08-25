@@ -31,8 +31,8 @@ ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 
 
-# install kaggle-environments
-RUN pip install Flask bitsandbytes accelerate vec-noise jax gymnax==0.0.8 litellm && pip install . && pytest
+# install kaggle-environments. vec-noise cannot be installed with uv's more stringent checks.
+RUN pip install vec-noise && uv pip install Flask bitsandbytes accelerate jax gymnax==0.0.8 litellm && uv pip install . && pytest
 
 # SET UP KAGGLE-ENVIRONMENTS CHESS
 # minimal package to reduce memory footprint
@@ -51,6 +51,6 @@ RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./setup.py
 RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./MANIFEST.in
 
 # install kaggle-environments-chess
-RUN pip install . && pytest
+RUN uv pip install . && pytest
 
 CMD kaggle-environments

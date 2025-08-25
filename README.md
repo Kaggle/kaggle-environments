@@ -1,7 +1,7 @@
 # [<img src="https://kaggle.com/static/images/site-logo.png" height="50" style="margin-bottom:-15px" />](https://kaggle.com) Environments
 
 ```bash
-pip install kaggle-environments
+uv pip install kaggle-environments
 ```
 
 # TLDR;
