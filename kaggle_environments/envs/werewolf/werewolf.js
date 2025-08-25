@@ -3115,10 +3115,16 @@ function renderer({
     const currentPhase = allEvents[eventStep].phase.toUpperCase() || 'DAY';
     const isNight = currentPhase === 'NIGHT';
     phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
-    phaseIndicator.innerHTML = `
+    if (allEvents[eventStep]?.entry_type == 'game_end') {
+        phaseIndicator.innerHTML = `
+        <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
+        `;
+    } else {
+        phaseIndicator.innerHTML = `
         <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
         <span>${allEvents[eventStep].day}</span>
-    `;
+        `;
+    }
     
     // Create or update game scoreboard
     let scoreboard = parent.querySelector('.game-scoreboard');
