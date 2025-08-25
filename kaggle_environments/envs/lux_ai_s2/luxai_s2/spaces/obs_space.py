@@ -24,9 +24,7 @@ class DynamicArray(spaces.Space):
     def contains(self, x: Any) -> bool:
         if isinstance(x, list) and len(x) > self.max_length:
             return False
-        elif (
-            isinstance(x, np.ndarray) and len(x.shape) == 2 and len(x) > self.max_length
-        ):
+        elif isinstance(x, np.ndarray) and len(x.shape) == 2 and len(x) > self.max_length:
             return False
         elif isinstance(x, np.ndarray) and len(x.shape) == 1:
             x = [x]
@@ -97,9 +95,7 @@ def get_obs_space(config: EnvConfig, agent_names: List[str], agent: int = 0):
             water=spaces.Discrete(max_space),
             metal=spaces.Discrete(max_space),
             factories_to_place=spaces.Discrete(config.MAX_FACTORIES),
-            factory_strains=DynamicArray(
-                spaces.Discrete(max_space), max_length=(config.MAX_FACTORIES + 1)
-            ),
+            factory_strains=DynamicArray(spaces.Discrete(max_space), max_length=(config.MAX_FACTORIES + 1)),
             place_first=spaces.Discrete(2),
             bid=spaces.Discrete(150),
         )
@@ -111,9 +107,7 @@ def get_obs_space(config: EnvConfig, agent_names: List[str], agent: int = 0):
         ice=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         ore=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         rubble=spaces.Box(low=0, high=config.MAX_RUBBLE, shape=map_shape, dtype=int),
-        lichen=spaces.Box(
-            low=0, high=config.MAX_LICHEN_PER_TILE, shape=map_shape, dtype=int
-        ),
+        lichen=spaces.Box(low=0, high=config.MAX_LICHEN_PER_TILE, shape=map_shape, dtype=int),
         lichen_strains=spaces.Box(low=-1, high=99999, shape=map_shape, dtype=int),
         valid_spawns_mask=spaces.Box(low=0, high=1, shape=map_shape, dtype=int),
         factories_per_team=spaces.Discrete(config.MAX_FACTORIES),

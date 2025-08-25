@@ -4097,21 +4097,18 @@ def board_shuffle_agent(obs):
     return random.choice(moves) if moves else None
 
 
-agents = {
-    "random": random_agent,
-    "king_shuffle": king_shuffle_agent,
-    "board_shuffle": board_shuffle_agent}
+agents = {"random": random_agent, "king_shuffle": king_shuffle_agent, "board_shuffle": board_shuffle_agent}
 
 
 def sufficient_material(pieces):
     """Checks if the given pieces are sufficient for checkmate."""
-    if pieces['q'] > 0 or pieces['r'] > 0 or pieces['p'] > 0:
+    if pieces["q"] > 0 or pieces["r"] > 0 or pieces["p"] > 0:
         return True
     # we only have knights and bishops left on this team
-    knight_bishop_count = pieces['n'] + pieces['b']
+    knight_bishop_count = pieces["n"] + pieces["b"]
     if knight_bishop_count >= 3:
         return True
-    if knight_bishop_count == 2 and pieces['b'] >= 1:
+    if knight_bishop_count == 2 and pieces["b"] >= 1:
         return True
 
     return False
@@ -4129,8 +4126,7 @@ def is_insufficient_material(board):
             else:
                 black_pieces[piece.lower()] += 1
 
-    if not sufficient_material(
-            white_pieces) and not sufficient_material(black_pieces):
+    if not sufficient_material(white_pieces) and not sufficient_material(black_pieces):
         return True
 
     return False
@@ -4138,12 +4134,11 @@ def is_insufficient_material(board):
 
 def square_str_to_int(square_str):
     """Converts a square string (e.g., "a2") to an integer index (0-63)."""
-    if len(square_str) != 2 or not (
-            'a' <= square_str[0] <= 'h' and '1' <= square_str[1] <= '8'):
+    if len(square_str) != 2 or not ("a" <= square_str[0] <= "h" and "1" <= square_str[1] <= "8"):
         raise ValueError("Invalid square string")
 
-    col = ord(square_str[0]) - ord('a')  # Get column index (0-7)
-    row = int(square_str[1]) - 1        # Get row index (0-7)
+    col = ord(square_str[0]) - ord("a")  # Get column index (0-7)
+    row = int(square_str[1]) - 1  # Get row index (0-7)
     return row * 8 + col
 
 
@@ -4173,7 +4168,7 @@ def interpreter(state, env):
     # The board is shared, only update the first state.
     board = state[0].observation.board
 
-   # Create a Chessnut game object from the FEN string
+    # Create a Chessnut game object from the FEN string
     game = Game(board)
 
     # Get the action (move) from the agent
@@ -4190,7 +4185,7 @@ def interpreter(state, env):
     fen = game.get_fen()
     # board, player turn, en passant, and castling status form board status
     # for 3-fold draws
-    board_position = ' '.join(fen.split()[:4])
+    board_position = " ".join(fen.split()[:4])
     seen_positions[board_position] += 1
 
     # Update the board in the observation
@@ -4205,13 +4200,16 @@ def interpreter(state, env):
     state[0].observation.lastMove = action
     state[1].observation.lastMove = action
 
-    pawn_or_capture_move_count = int(
-        fen.split(" ")[4])  # fen keeps track of this
+    pawn_or_capture_move_count = int(fen.split(" ")[4])  # fen keeps track of this
     # Check for game end conditions
-    if pawn_or_capture_move_count == 100 or is_insufficient_material(
-            game.board) or seen_positions[board_position] >= 3 or game.status == Game.STALEMATE:
-        active.reward += .5
-        inactive.reward += .5
+    if (
+        pawn_or_capture_move_count == 100
+        or is_insufficient_material(game.board)
+        or seen_positions[board_position] >= 3
+        or game.status == Game.STALEMATE
+    ):
+        active.reward += 0.5
+        inactive.reward += 0.5
         active.status = DONE
         inactive.status = DONE
     elif game.status == Game.CHECKMATE:

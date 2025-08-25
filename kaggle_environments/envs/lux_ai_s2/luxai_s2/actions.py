@@ -61,9 +61,7 @@ resource_to_name = ["ice", "ore", "water", "metal", "power"]
 
 
 class MoveAction(Action):
-    def __init__(
-        self, move_dir: int, dist: int = 1, repeat: int = 0, n: int = 1
-    ) -> None:
+    def __init__(self, move_dir: int, dist: int = 1, repeat: int = 0, n: int = 1) -> None:
         super().__init__("move")
         # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
         self.move_dir = move_dir
@@ -98,25 +96,14 @@ class TransferAction(Action):
         self.power_cost = 0
 
     def state_dict(self):
-        return np.array(
-            [
-                1,
-                self.transfer_dir,
-                self.resource,
-                self.transfer_amount,
-                self.repeat,
-                self.n
-            ]
-        )
+        return np.array([1, self.transfer_dir, self.resource, self.transfer_amount, self.repeat, self.n])
 
     def __str__(self) -> str:
         return f"{self.act_type} {resource_to_name[self.resource]} {direction_to_name[self.transfer_dir]} (n: {self.n}, r: {self.repeat})"
 
 
 class PickupAction(Action):
-    def __init__(
-        self, resource: int, pickup_amount: int, repeat: int = 0, n: int = 1
-    ) -> None:
+    def __init__(self, resource: int, pickup_amount: int, repeat: int = 0, n: int = 1) -> None:
         super().__init__("pickup")
         # a[2] = R = resource type (0 = ice, 1 = ore, 2 = water, 3 = metal, 4 power)
         self.resource = resource
@@ -196,17 +183,16 @@ def format_action_vec(a: np.ndarray):
     elif a_type == 1:
         act = TransferAction(a[1], a[2], a[3], repeat=a[4], n=a[5])
     elif a_type == 2:
-        act =  PickupAction(a[2], a[3], repeat=a[4], n=a[5])
+        act = PickupAction(a[2], a[3], repeat=a[4], n=a[5])
     elif a_type == 3:
         act = DigAction(repeat=a[4], n=a[5])
     elif a_type == 4:
         act = SelfDestructAction(repeat=a[4], n=a[5])
     elif a_type == 5:
-        act =  RechargeAction(a[3], repeat=a[4], n=a[5])
+        act = RechargeAction(a[3], repeat=a[4], n=a[5])
     else:
         raise ValueError(f"Action {a} is invalid type, {a[0]} is not valid")
     return act
-    
 
 
 # a[1] = direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
@@ -259,15 +245,11 @@ def validate_actions(env_cfg: EnvConfig, state: "State", actions_by_type, verbos
         dig_action: DigAction
         dig_cost = unit.unit_cfg.DIG_COST
         if dig_cost > unit.power:
-            invalidate_action(
-                f"Invalid Dig Action for unit {unit} - Tried to dig requiring {dig_cost} power"
-            )
+            invalidate_action(f"Invalid Dig Action for unit {unit} - Tried to dig requiring {dig_cost} power")
             continue
         # verify not digging over a factory which is not allowed
         if state.board.factory_occupancy_map[unit.pos.x, unit.pos.y] != -1:
-            invalidate_action(
-                f"Invalid Dig Action for unit {unit} - Tried to dig on top of a factory"
-            )
+            invalidate_action(f"Invalid Dig Action for unit {unit} - Tried to dig on top of a factory")
             continue
         if valid_action:
             actions_by_type_validated["dig"].append((unit, dig_action))
@@ -286,9 +268,7 @@ def validate_actions(env_cfg: EnvConfig, state: "State", actions_by_type, verbos
     for unit, move_action in actions_by_type["move"]:
         valid_action = True
         move_action: MoveAction
-        target_pos: Position = (
-            unit.pos + move_action.dist * move_deltas[move_action.move_dir]
-        )
+        target_pos: Position = unit.pos + move_action.dist * move_deltas[move_action.move_dir]
         if (
             target_pos.x < 0
             or target_pos.y < 0
@@ -308,9 +288,7 @@ def validate_actions(env_cfg: EnvConfig, state: "State", actions_by_type, verbos
                 )
                 continue
         rubble = state.board.rubble[target_pos.x, target_pos.y]
-        power_required = (
-            0 if move_action.move_dir == 0 else unit.move_power_cost(rubble)
-        )
+        power_required = 0 if move_action.move_dir == 0 else unit.move_power_cost(rubble)
 
         if power_required > unit.power:
             invalidate_action(
@@ -332,9 +310,7 @@ def validate_actions(env_cfg: EnvConfig, state: "State", actions_by_type, verbos
             continue
         if valid_action:
             self_destruct_action.power_cost = power_required
-            actions_by_type_validated["self_destruct"].append(
-                (unit, self_destruct_action)
-            )
+            actions_by_type_validated["self_destruct"].append((unit, self_destruct_action))
 
     for unit, recharge_action in actions_by_type["recharge"]:
         actions_by_type_validated["recharge"].append((unit, recharge_action))

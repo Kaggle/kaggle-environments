@@ -22,9 +22,21 @@ from . import errors
 
 __version__ = "1.17.12"
 
-__all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
-           "make", "register", "utils", "__version__",
-           "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
+__all__ = [
+    "Agent",
+    "environments",
+    "errors",
+    "evaluate",
+    "http_request",
+    "make",
+    "register",
+    "utils",
+    "__version__",
+    "get_episode_replay",
+    "list_episodes",
+    "list_episodes_for_team",
+    "list_episodes_for_submission",
+]
 
 # Register Environments.
 
@@ -33,21 +45,27 @@ for name in listdir(utils.envs_path):
         env = import_module(f".envs.{name}.{name}", __name__)
         if name == "open_spiel":
             for env_name, env_dict in env.ENV_REGISTRY.items():
-                register(env_name, {
-                    "agents": env_dict.get("agents"),
-                    "html_renderer": env_dict.get("html_renderer"),
-                    "interpreter": env_dict.get("interpreter"),
-                    "renderer": env_dict.get("renderer"),
-                    "specification": env_dict.get("specification"),
-                })
+                register(
+                    env_name,
+                    {
+                        "agents": env_dict.get("agents"),
+                        "html_renderer": env_dict.get("html_renderer"),
+                        "interpreter": env_dict.get("interpreter"),
+                        "renderer": env_dict.get("renderer"),
+                        "specification": env_dict.get("specification"),
+                    },
+                )
         else:
-          register(name, {
-              "agents": getattr(env, "agents", []),
-              "html_renderer": getattr(env, "html_renderer", None),
-              "interpreter": getattr(env, "interpreter"),
-              "renderer": getattr(env, "renderer"),
-              "specification": getattr(env, "specification"),
-          })
+            register(
+                name,
+                {
+                    "agents": getattr(env, "agents", []),
+                    "html_renderer": getattr(env, "html_renderer", None),
+                    "interpreter": getattr(env, "interpreter"),
+                    "renderer": getattr(env, "renderer"),
+                    "specification": getattr(env, "specification"),
+                },
+            )
     except Exception as e:
         if "football" not in name:
             print("Loading environment %s failed: %s" % (name, e))

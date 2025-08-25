@@ -1,15 +1,17 @@
 import ctypes
 import os
 
+
 class SerialData(ctypes.Structure):
     _fields_ = [
         ("json", ctypes.c_char_p),
         ("data", ctypes.POINTER(ctypes.c_ubyte)),
         ("count", ctypes.c_int),
-        ("selectPlayer", ctypes.c_int)
+        ("selectPlayer", ctypes.c_int),
     ]
 
-if os.name == 'nt':
+
+if os.name == "nt":
     lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cg.dll")
 else:
     lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libcg.so")
@@ -30,6 +32,7 @@ lib.Select.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.c_i
 
 lib.VisualizeData.restype = ctypes.c_char_p
 lib.VisualizeData.argtypes = [ctypes.c_void_p]
+
 
 class Battle:
     battle_ptr = None

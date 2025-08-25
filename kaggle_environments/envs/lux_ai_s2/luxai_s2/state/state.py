@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List
 
 try:
-    from typing import TypedDict    
+    from typing import TypedDict
 except:
     from typing_extensions import TypedDict
 
@@ -18,8 +18,7 @@ from luxai_s2.map.board import Board, BoardStateDict
 from luxai_s2.map_generator.generator import GameMap
 from luxai_s2.state.stats import StatsStateDict
 from luxai_s2.team import Team, TeamStateDict
-from luxai_s2.unit import (FactionTypes, Unit, UnitCargo, UnitStateDict,
-                           UnitType)
+from luxai_s2.unit import FactionTypes, Unit, UnitCargo, UnitStateDict, UnitType
 
 
 class SparseBoardStateDict(TypedDict):
@@ -132,9 +131,7 @@ class State:
             del data["board"]["valid_spawns_mask"]
         return data
 
-    def get_change_obs(
-        self, prev_state: ObservationStateDict
-    ) -> DeltaObservationStateDict:
+    def get_change_obs(self, prev_state: ObservationStateDict) -> DeltaObservationStateDict:
         """
         returns sparse dicts for large matrices of where values change only by comparing against a given previous observation/state
         """
@@ -151,14 +148,10 @@ class State:
         for ind in change_indices:
             x, y = ind[0], ind[1]
             data["board"]["lichen"][f"{x},{y}"] = self.board.lichen[x, y]
-        change_indices = np.argwhere(
-            self.board.lichen_strains != prev_state["board"]["lichen_strains"]
-        )
+        change_indices = np.argwhere(self.board.lichen_strains != prev_state["board"]["lichen_strains"])
         for ind in change_indices:
             x, y = ind[0], ind[1]
-            data["board"]["lichen_strains"][f"{x},{y}"] = self.board.lichen_strains[
-                x, y
-            ]
+            data["board"]["lichen_strains"][f"{x},{y}"] = self.board.lichen_strains[x, y]
         return data
 
     @staticmethod
@@ -211,15 +204,11 @@ class State:
             for unit_id in obs["units"][agent]:
                 unit_data = obs["units"][agent][unit_id]
                 cargo = UnitCargo(**unit_data["cargo"])
-                unit = Unit(
-                    teams[agent], UnitType[unit_data["unit_type"]], unit_id, env_cfg
-                )
+                unit = Unit(teams[agent], UnitType[unit_data["unit_type"]], unit_id, env_cfg)
                 unit.pos.pos = np.array(unit_data["pos"])
                 unit.cargo = cargo
                 unit.power = unit_data["power"]
-                unit.action_queue = [
-                    format_action_vec(a) for a in unit_data["action_queue"]
-                ]
+                unit.action_queue = [format_action_vec(a) for a in unit_data["action_queue"]]
 
                 units[agent][unit_id] = unit
                 board.units_map[board.pos_hash(unit.pos)].append(unit)
@@ -244,12 +233,7 @@ class State:
 
                 invalid_spawn_indices = factory.min_dist_slice
                 for x, y in invalid_spawn_indices:
-                    if (
-                        x < 0
-                        or y < 0
-                        or x >= board.rubble.shape[0]
-                        or y >= board.rubble.shape[1]
-                    ):
+                    if x < 0 or y < 0 or x >= board.rubble.shape[0] or y >= board.rubble.shape[1]:
                         continue
                     board.valid_spawns_mask[x, y] = False
 

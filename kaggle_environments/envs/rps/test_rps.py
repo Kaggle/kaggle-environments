@@ -37,7 +37,10 @@ def test_all_agents():
 def test_tie():
     env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 1})
     env.run([rock, rock])
-    assert env.render(mode='ansi') == "Round 1: Rock vs Rock, Score: 0 to 0\nRound 2: Rock vs Rock, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
+    assert (
+        env.render(mode="ansi")
+        == "Round 1: Rock vs Rock, Score: 0 to 0\nRound 2: Rock vs Rock, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
+    )
     json = env.toJSON()
     assert json["rewards"] == [0, 0]
     assert json["statuses"] == ["DONE", "DONE"]
@@ -46,7 +49,10 @@ def test_tie():
 def test_threshold_tie():
     env = make("rps", configuration={"episodeSteps": 3, "tieRewardThreshold": 4})
     env.run([rock, paper])
-    assert env.render(mode='ansi') == "Round 1: Rock vs Paper, Score: -1.0 to 1.0\nRound 2: Rock vs Paper, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
+    assert (
+        env.render(mode="ansi")
+        == "Round 1: Rock vs Paper, Score: -1.0 to 1.0\nRound 2: Rock vs Paper, Score: 0 to 0\nGame ended on round 2, final score: 0 to 0\n"
+    )
     json = env.toJSON()
     assert json["rewards"] == [0, 0]
     assert json["statuses"] == ["DONE", "DONE"]
@@ -74,7 +80,7 @@ def test_negative_move():
     env.run([negative_move_agent, rock])
     json = env.toJSON()
     assert json["rewards"] == [None, 1]
-    assert json["statuses"] == ['INVALID', 'DONE']
+    assert json["statuses"] == ["INVALID", "DONE"]
 
 
 def test_non_integer_move():
@@ -82,7 +88,7 @@ def test_non_integer_move():
     env.run([non_integer_agent, rock])
     json = env.toJSON()
     assert json["rewards"] == [None, 1]
-    assert json["statuses"] == ['INVALID', 'DONE']
+    assert json["statuses"] == ["INVALID", "DONE"]
 
 
 def test_too_big_move():
@@ -90,7 +96,8 @@ def test_too_big_move():
     env.run([paper, too_big_sign_agent])
     json = env.toJSON()
     assert json["rewards"] == [1, None]
-    assert json["statuses"] == ['DONE', 'INVALID']
+    assert json["statuses"] == ["DONE", "INVALID"]
+
 
 def test_agent_reward():
     env = make("rps", configuration={"episodeSteps": 2, "tieRewardThreshold": 1})

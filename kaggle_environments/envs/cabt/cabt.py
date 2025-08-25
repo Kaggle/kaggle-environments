@@ -9,8 +9,10 @@ from .cg.game import battle_start, battle_finish, battle_select, visualize_data
 def random_agent(obs: dict) -> list[int]:
     return random.sample(list(range(len(obs["select"]["option"]))), obs["select"]["maxCount"])
 
+
 def first_agent(obs: dict) -> list[int]:
     return list(range(obs["select"]["maxCount"]))
+
 
 agents = {"random": random_agent, "first": first_agent}
 
@@ -19,6 +21,7 @@ def finish(env):
     if len(env.steps) > 0:
         env.steps[0][0]["visualize"] = json.loads(visualize_data())
     battle_finish()
+
 
 def interpreter(state, env):
     if env.done:
@@ -69,8 +72,10 @@ def interpreter(state, env):
         o["search_begin_input"] = obs["search_begin_input"]
     return state
 
+
 def renderer(state, env):
     return json.dumps(Battle.obs)
+
 
 def html_renderer():
     jspath = os.path.abspath(os.path.join(os.path.dirname(__file__), "cabt.js"))

@@ -22,10 +22,10 @@ ACTIVE = "ACTIVE"
 TIMEOUT = "TIMEOUT"
 INVALID = "INVALID"
 
-_log = logging.getLogger(__name__) 
-_log.setLevel(logging.INFO) 
-_handler = logging.StreamHandler(sys.stdout) 
-_formatter = logging.Formatter('[%(name)s] %(levelname)s: %(message)s')
+_log = logging.getLogger(__name__)
+_log.setLevel(logging.INFO)
+_handler = logging.StreamHandler(sys.stdout)
+_formatter = logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
 _handler.setFormatter(_formatter)
 _log.addHandler(_handler)
 
@@ -33,13 +33,13 @@ _log.addHandler(_handler)
 _log.debug("Auto-importing OpenSpiel game proxies...")
 GAMES_DIR = pathlib.Path(__file__).parent / "games"
 for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
-  try:
-    relative_path = proxy_file.relative_to(GAMES_DIR.parent)
-    module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
-    importlib.import_module("." + module_path, package=__package__)
-    _log.debug(f"  - Imported: {module_path}")
-  except Exception as e:  # pylint: disable=broad-exception-caught
-    _log.debug(f"  - FAILED to import proxy from {proxy_file.name}: {e}")
+    try:
+        relative_path = proxy_file.relative_to(GAMES_DIR.parent)
+        module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
+        importlib.import_module("." + module_path, package=__package__)
+        _log.debug(f"  - Imported: {module_path}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        _log.debug(f"  - FAILED to import proxy from {proxy_file.name}: {e}")
 
 
 # --- Constants ---
@@ -51,8 +51,8 @@ DEFAULT_INVALID_ACTION_REWARD = -1
 # Can be used by agents to signal an internal error to the environement.
 AGENT_ERROR_ACTION = -2
 
-DEFAULT_ACT_TIMEOUT = 60 * 60 # sixty minutes
-DEFAULT_RUN_TIMEOUT = 60 * 60 * 48 # thirty hours
+DEFAULT_ACT_TIMEOUT = 60 * 60  # sixty minutes
+DEFAULT_RUN_TIMEOUT = 60 * 60 * 48  # thirty hours
 # Buffer in addition to max game length to account for timeouts, retrys, etc.
 DEFAULT_STEP_BUFFER = 100
 # TODO(jhtschultz): Add individual game descriptions.
@@ -69,95 +69,63 @@ CONFIGURATION_SPEC_TEMPLATE = {
     "openSpielGameString": {
         "description": "The full game string including parameters.",
         "type": "string",
-        "default": "PLACEHOLDER_GAME_STRING"
+        "default": "PLACEHOLDER_GAME_STRING",
     },
     "openSpielGameName": {
         "description": "The short_name of the OpenSpiel game to load.",
         "type": "string",
-        "default": "PLACEHOLDER_GAME_SHORT_NAME"
+        "default": "PLACEHOLDER_GAME_SHORT_NAME",
     },
-    "openSpielGameParameters": {
-        "description": "Game parameters for Open Spiel game.",
-        "type": "object",
-        "default": {}
-    },
+    "openSpielGameParameters": {"description": "Game parameters for Open Spiel game.", "type": "object", "default": {}},
     "useOpenings": {
         "description": "Whether to start from a position in an opening book.",
         "type": "boolean",
-        "default": False
+        "default": False,
     },
     "seed": {
-      "description": "Integer currently only used for selecting starting position.",
-      "type": "number",
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number",
     },
     "initialActions": {
         "description": "Actions applied to initial state before play begins to set up starting position.",
         "type": "array",
-        "items": {
-            "type": "integer"
-        },
+        "items": {"type": "integer"},
     },
-    "metadata": {
-        "description": "Arbitrary metadata.",
-        "type": "object",
-        "default": {}
-    },
+    "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
 }
 
 OBSERVATION_SPEC_TEMPLATE = {
     "properties": {
-        "openSpielGameString": {
-            "description": "Full game string including parameters.",
-            "type": "string"
-        },
-        "openSpielGameName": {
-            "description": "Short name of the OpenSpiel game.",
-            "type": "string"
-        },
-        "observationString": {
-            "description": "String representation of state.",
-            "type": "string"
-        },
+        "openSpielGameString": {"description": "Full game string including parameters.", "type": "string"},
+        "openSpielGameName": {"description": "Short name of the OpenSpiel game.", "type": "string"},
+        "observationString": {"description": "String representation of state.", "type": "string"},
         "legalActions": {
             "description": "List of OpenSpiel legal action integers.",
             "type": "array",
-            "items": {
-                "type": "integer"
-            }
+            "items": {"type": "integer"},
         },
         "legalActionStrings": {
             "description": "List of OpenSpiel legal actions strings.",
             "type": "array",
-            "items": {
-                "type": "string"
-            }
+            "items": {"type": "string"},
         },
-        "currentPlayer": {
-            "description": "ID of player whose turn it is.",
-            "type": "integer"
-        },
-        "playerId": {
-            "description": "ID of the agent receiving this observation.",
-            "type": "integer"
-        },
-        "isTerminal": {
-            "description": "Boolean indicating game end.",
-            "type": "boolean"
-        },
+        "currentPlayer": {"description": "ID of player whose turn it is.", "type": "integer"},
+        "playerId": {"description": "ID of the agent receiving this observation.", "type": "integer"},
+        "isTerminal": {"description": "Boolean indicating game end.", "type": "boolean"},
         "serializedGameAndState": {
             "description": "Enables reconstructing the Game and State objects.",
-            "type": "string"
+            "type": "string",
         },
         "remainingOverageTime": 60,
-        "step": 0
+        "step": 0,
     },
-    "default": {}
+    "default": {},
 }
 
 ACTION_SPEC_TEMPLATE = {
     "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
     "type": "object",
-    "default": {"submission": -1}
+    "default": {"submission": -1},
 }
 
 ENV_SPEC_TEMPLATE = {
@@ -169,229 +137,218 @@ ENV_SPEC_TEMPLATE = {
     "configuration": CONFIGURATION_SPEC_TEMPLATE,
     "observation": OBSERVATION_SPEC_TEMPLATE,
     "action": ACTION_SPEC_TEMPLATE,
-    "reward": {
-        "type": ["number"],
-        "default": 0.0
-    },
+    "reward": {"type": ["number"], "default": 0.0},
 }
 
 
 def _get_initial_actions(
     configuration: dict[str, Any],
 ) -> tuple[list[int], dict[str, Any]]:
-  initial_actions = configuration.get("initialActions", [])
-  if initial_actions:
-    if configuration.get("useOpenings"):
-      raise ValueError("Cannot set both useOpenings and initialActions.")
-    else:
-      return initial_actions, {}
-  if not configuration.get("useOpenings"):
-    return [], {}
-  seed = configuration.get("seed", None)
-  if seed is None:
-    raise ValueError("Must provide seed if useOpenings is True.")
-  openings_path = pathlib.Path(
-      GAMES_DIR, configuration.get("openSpielGameName"), "openings.jsonl",
-  )
-  if not openings_path.is_file():
-    raise ValueError(f"No opening file found at {openings_path}")
-  with open(openings_path, "r", encoding="utf-8") as f:
-    openings = f.readlines()
-    opening = json.loads(openings[seed % len(openings)])
-    initial_actions = opening.pop("initialActions")
-    return initial_actions, opening
+    initial_actions = configuration.get("initialActions", [])
+    if initial_actions:
+        if configuration.get("useOpenings"):
+            raise ValueError("Cannot set both useOpenings and initialActions.")
+        else:
+            return initial_actions, {}
+    if not configuration.get("useOpenings"):
+        return [], {}
+    seed = configuration.get("seed", None)
+    if seed is None:
+        raise ValueError("Must provide seed if useOpenings is True.")
+    openings_path = pathlib.Path(
+        GAMES_DIR,
+        configuration.get("openSpielGameName"),
+        "openings.jsonl",
+    )
+    if not openings_path.is_file():
+        raise ValueError(f"No opening file found at {openings_path}")
+    with open(openings_path, "r", encoding="utf-8") as f:
+        openings = f.readlines()
+        opening = json.loads(openings[seed % len(openings)])
+        initial_actions = opening.pop("initialActions")
+        return initial_actions, opening
 
 
 # --- Core step logic ---
 
 
 def interpreter(
-  state: list[utils.Struct],
-  env: core.Environment,
-  logs: list[dict[str, Any]],
+    state: list[utils.Struct],
+    env: core.Environment,
+    logs: list[dict[str, Any]],
 ) -> list[utils.Struct]:
-  """Updates environment using player responses and returns new observations."""
-  kaggle_state = state  # Not to be confused with OpenSpiel state.
-  del state
+    """Updates environment using player responses and returns new observations."""
+    kaggle_state = state  # Not to be confused with OpenSpiel state.
+    del state
 
-  # TODO(jhtschultz): Test reset behavior. Currently containers are restarted
-  # after each episode.
-  if env.done:
-    return kaggle_state
+    # TODO(jhtschultz): Test reset behavior. Currently containers are restarted
+    # after each episode.
+    if env.done:
+        return kaggle_state
 
-  # --- Get and maybe initialize game and state on the env object ---
-  if not hasattr(env, 'os_game'):
-    game_string = env.configuration.get("openSpielGameString")
-    env.os_game = pyspiel.load_game(game_string)
-  if not hasattr(env, 'os_state'):
-    env.os_state = env.os_game.new_initial_state()
-  if "stateHistory" not in env.info:
-    env.info['stateHistory'] = [str(env.os_state)]
-    env.info['actionHistory'] = []
-    env.info['moveDurations'] = []
-    initial_actions, metadata = _get_initial_actions(env.configuration)
-    if initial_actions:
-      env.info["initialActions"] = initial_actions
-      env.info["openingMetadata"] = metadata
-      for action in initial_actions:
-        env.os_state.apply_action(action)
-        env.info["actionHistory"].append(str(action))
-        env.info["stateHistory"].append(str(env.os_state))
-  
-  os_game = env.os_game
-  os_state = env.os_state
-  num_players = os_game.num_players()
+    # --- Get and maybe initialize game and state on the env object ---
+    if not hasattr(env, "os_game"):
+        game_string = env.configuration.get("openSpielGameString")
+        env.os_game = pyspiel.load_game(game_string)
+    if not hasattr(env, "os_state"):
+        env.os_state = env.os_game.new_initial_state()
+    if "stateHistory" not in env.info:
+        env.info["stateHistory"] = [str(env.os_state)]
+        env.info["actionHistory"] = []
+        env.info["moveDurations"] = []
+        initial_actions, metadata = _get_initial_actions(env.configuration)
+        if initial_actions:
+            env.info["initialActions"] = initial_actions
+            env.info["openingMetadata"] = metadata
+            for action in initial_actions:
+                env.os_state.apply_action(action)
+                env.info["actionHistory"].append(str(action))
+                env.info["stateHistory"].append(str(env.os_state))
 
-  # TODO(jhtschultz): Test reset behavior.
-  is_initial_step = len(env.steps) == 1
-  if is_initial_step and os_state.is_terminal():
-    env.os_state = os_game.new_initial_state()
+    os_game = env.os_game
     os_state = env.os_state
+    num_players = os_game.num_players()
 
-  # --- Apply agent action ---
-  acting_agent = os_state.current_player()
-  action_submitted: int | None = None
-  action_submitted_to_string: str | None = None
-  action_applied: int | None = None
-  move_duration: float | None = None
-  if is_initial_step:
-    pass
-  elif 0 <= acting_agent < num_players:
-    if kaggle_state[acting_agent]["status"] != "ACTIVE":
-      pass
-    else:
-      action_submitted = kaggle_state[acting_agent]["action"]["submission"]
-      if action_submitted in os_state.legal_actions():
-        action_submitted_to_string = os_state.action_to_string(action_submitted)
-        os_state.apply_action(action_submitted)
-        action_applied = action_submitted
-        env.info['actionHistory'].append(str(action_applied))
-        env.info['stateHistory'].append(str(os_state))
-      elif action_submitted == AGENT_ERROR_ACTION:
-        kaggle_state[acting_agent]["status"] = "ERROR"
-      else:
-        kaggle_state[acting_agent]["status"] = "INVALID"
-      try:
-        if "duration" in logs[acting_agent]:
-          move_duration = round(logs[acting_agent]["duration"], 3)
-          env.info["moveDurations"].append(move_duration)
+    # TODO(jhtschultz): Test reset behavior.
+    is_initial_step = len(env.steps) == 1
+    if is_initial_step and os_state.is_terminal():
+        env.os_state = os_game.new_initial_state()
+        os_state = env.os_state
+
+    # --- Apply agent action ---
+    acting_agent = os_state.current_player()
+    action_submitted: int | None = None
+    action_submitted_to_string: str | None = None
+    action_applied: int | None = None
+    move_duration: float | None = None
+    if is_initial_step:
+        pass
+    elif 0 <= acting_agent < num_players:
+        if kaggle_state[acting_agent]["status"] != "ACTIVE":
+            pass
         else:
-          env.info["moveDurations"].append(None)
-      except Exception:
-        pass  # No logs when stepping the env manually.
+            action_submitted = kaggle_state[acting_agent]["action"]["submission"]
+            if action_submitted in os_state.legal_actions():
+                action_submitted_to_string = os_state.action_to_string(action_submitted)
+                os_state.apply_action(action_submitted)
+                action_applied = action_submitted
+                env.info["actionHistory"].append(str(action_applied))
+                env.info["stateHistory"].append(str(os_state))
+            elif action_submitted == AGENT_ERROR_ACTION:
+                kaggle_state[acting_agent]["status"] = "ERROR"
+            else:
+                kaggle_state[acting_agent]["status"] = "INVALID"
+            try:
+                if "duration" in logs[acting_agent]:
+                    move_duration = round(logs[acting_agent]["duration"], 3)
+                    env.info["moveDurations"].append(move_duration)
+                else:
+                    env.info["moveDurations"].append(None)
+            except Exception:
+                pass  # No logs when stepping the env manually.
 
-  elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
-    raise NotImplementedError
-  elif acting_agent == pyspiel.PlayerId.TERMINAL:
-    pass
-  elif acting_agent == pyspiel.PlayerId.CHANCE:
-    raise ValueError("Interpreter should not be called at chance nodes.")
-  else:
-    raise ValueError(f"Unknown OpenSpiel player ID: {acting_agent}")
-
-  # --- Step chance nodes ---
-  while os_state.is_chance_node():
-    outcomes, probs = zip(*os_state.chance_outcomes())
-    chance_action = np.random.choice(outcomes, p=probs)
-    os_state.apply_action(chance_action)
-    env.info['actionHistory'].append(str(chance_action))
-    env.info['stateHistory'].append(str(os_state))
-
-  # --- Update agent states ---
-  agent_error = any(
-    kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"]
-    for player_id in range(num_players)
-  )
-  if agent_error:
-    _log.info("AGENT ERROR DETECTED")
-  
-  invalid_action = any(
-    kaggle_state[player_id]["status"] == "INVALID"
-    for player_id in range(num_players)
-  )
-  if invalid_action:
-    _log.info("INVALID ACTION DETECTED")
-
-  status: str | None = None
-  for player_id, agent_state in enumerate(kaggle_state):
-    reward = None
-    if agent_error:
-      # Set all agent statuses to ERROR in order not to score episode. Preserve
-      # TIMEOUT which has the same effect.
-      if agent_state["status"] == "TIMEOUT":
-        status = "TIMEOUT"
-      else:
-        status = "ERROR"
-    elif invalid_action:
-      if agent_state["status"] == "INVALID":
-        reward = DEFAULT_INVALID_ACTION_REWARD
-      else:
-        reward = -DEFAULT_INVALID_ACTION_REWARD
-      status = "DONE"
-    elif os_state.is_terminal():
-      status = "DONE"
-      reward = os_state.returns()[player_id]
-    elif os_state.current_player() == player_id:
-      status = "ACTIVE"
-      if not os_state.legal_actions(player_id):
-        raise ValueError(
-          f"Active agent {i} has no legal actions in state {os_state}."
-        )
+    elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
+        raise NotImplementedError
+    elif acting_agent == pyspiel.PlayerId.TERMINAL:
+        pass
+    elif acting_agent == pyspiel.PlayerId.CHANCE:
+        raise ValueError("Interpreter should not be called at chance nodes.")
     else:
-      status = "INACTIVE"
-    assert status is not None
+        raise ValueError(f"Unknown OpenSpiel player ID: {acting_agent}")
 
-    info_dict = {}
-    if acting_agent == player_id:
-      info_dict["actionSubmitted"] = action_submitted
-      info_dict["actionSubmittedToString"] = action_submitted_to_string
-      info_dict["actionApplied"] = action_applied
-      info_dict["timeTaken"] = move_duration
-      info_dict[
-        "agentSelfReportedStatus"
-      ] = kaggle_state[acting_agent]["action"].get("status") if kaggle_state[acting_agent]["action"] else "unknown"
+    # --- Step chance nodes ---
+    while os_state.is_chance_node():
+        outcomes, probs = zip(*os_state.chance_outcomes())
+        chance_action = np.random.choice(outcomes, p=probs)
+        os_state.apply_action(chance_action)
+        env.info["actionHistory"].append(str(chance_action))
+        env.info["stateHistory"].append(str(os_state))
 
-    obs_update_dict = {
-      "observationString": os_state.observation_string(player_id),
-      "legalActions": os_state.legal_actions(player_id),
-      "legalActionStrings": [
-          os_state.action_to_string(action) for action
-          in os_state.legal_actions(player_id)
-      ],
-      "currentPlayer": os_state.current_player(),
-      "playerId": player_id,
-      "isTerminal": os_state.is_terminal(),
-      "serializedGameAndState": pyspiel.serialize_game_and_state(
-          os_game, os_state
-      ),
-    }
+    # --- Update agent states ---
+    agent_error = any(kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"] for player_id in range(num_players))
+    if agent_error:
+        _log.info("AGENT ERROR DETECTED")
 
-    # Apply updates
-    for k, v in obs_update_dict.items():
-      setattr(agent_state.observation, k, v)
-    agent_state["reward"] = reward
-    agent_state["info"] = info_dict
-    agent_state["status"] = status
+    invalid_action = any(kaggle_state[player_id]["status"] == "INVALID" for player_id in range(num_players))
+    if invalid_action:
+        _log.info("INVALID ACTION DETECTED")
 
-  return kaggle_state
+    status: str | None = None
+    for player_id, agent_state in enumerate(kaggle_state):
+        reward = None
+        if agent_error:
+            # Set all agent statuses to ERROR in order not to score episode. Preserve
+            # TIMEOUT which has the same effect.
+            if agent_state["status"] == "TIMEOUT":
+                status = "TIMEOUT"
+            else:
+                status = "ERROR"
+        elif invalid_action:
+            if agent_state["status"] == "INVALID":
+                reward = DEFAULT_INVALID_ACTION_REWARD
+            else:
+                reward = -DEFAULT_INVALID_ACTION_REWARD
+            status = "DONE"
+        elif os_state.is_terminal():
+            status = "DONE"
+            reward = os_state.returns()[player_id]
+        elif os_state.current_player() == player_id:
+            status = "ACTIVE"
+            if not os_state.legal_actions(player_id):
+                raise ValueError(f"Active agent {i} has no legal actions in state {os_state}.")
+        else:
+            status = "INACTIVE"
+        assert status is not None
+
+        info_dict = {}
+        if acting_agent == player_id:
+            info_dict["actionSubmitted"] = action_submitted
+            info_dict["actionSubmittedToString"] = action_submitted_to_string
+            info_dict["actionApplied"] = action_applied
+            info_dict["timeTaken"] = move_duration
+            info_dict["agentSelfReportedStatus"] = (
+                kaggle_state[acting_agent]["action"].get("status")
+                if kaggle_state[acting_agent]["action"]
+                else "unknown"
+            )
+
+        obs_update_dict = {
+            "observationString": os_state.observation_string(player_id),
+            "legalActions": os_state.legal_actions(player_id),
+            "legalActionStrings": [os_state.action_to_string(action) for action in os_state.legal_actions(player_id)],
+            "currentPlayer": os_state.current_player(),
+            "playerId": player_id,
+            "isTerminal": os_state.is_terminal(),
+            "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
+        }
+
+        # Apply updates
+        for k, v in obs_update_dict.items():
+            setattr(agent_state.observation, k, v)
+        agent_state["reward"] = reward
+        agent_state["info"] = info_dict
+        agent_state["status"] = status
+
+    return kaggle_state
 
 
 # --- Rendering ---
 
+
 def renderer(state: list[utils.Struct], env: core.Environment) -> str:
-  """Kaggle environment text renderer."""
-  if hasattr(env, 'os_state'):
-    return str(env.os_state)
-  else:
-    return "Game state uninitialized."
+    """Kaggle environment text renderer."""
+    if hasattr(env, "os_state"):
+        return str(env.os_state)
+    else:
+        return "Game state uninitialized."
 
 
 # TODO(jhtschultz): Use custom player.html that replays from env.info instead
 # of player steps. The full game state is stored in env.info, player steps only
 # contain player observations.
 def _default_html_renderer() -> str:
-  """Provides the JavaScript string for the default HTML renderer."""
-  return """
+    """Provides the JavaScript string for the default HTML renderer."""
+    return """
 function renderer(context) {
     const { parent, environment, step } = context;
     parent.innerHTML = '';  // Clear previous rendering
@@ -436,127 +393,129 @@ function renderer(context) {
 }
 """
 
+
 def _get_html_renderer_content(
-    open_spiel_short_name: str,
-    base_path_for_custom_renderers: pathlib.Path,
-    default_renderer_func: Callable[[], str]
+    open_spiel_short_name: str, base_path_for_custom_renderers: pathlib.Path, default_renderer_func: Callable[[], str]
 ) -> str:
-  """Tries to load a custom JS renderer for the game, falls back to default."""
-  custom_renderer_js_path = pathlib.Path(
-      base_path_for_custom_renderers,
-      open_spiel_short_name,
-      f"{open_spiel_short_name}.js",
-  )
-  if custom_renderer_js_path.is_file():
-    try:
-      with open(custom_renderer_js_path, "r", encoding="utf-8") as f:
-        content = f.read()
-      _log.debug(f"Using custom HTML renderer for {open_spiel_short_name} from {custom_renderer_js_path}")
-      return content
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      _log.debug(e)
-  return default_renderer_func()
+    """Tries to load a custom JS renderer for the game, falls back to default."""
+    custom_renderer_js_path = pathlib.Path(
+        base_path_for_custom_renderers,
+        open_spiel_short_name,
+        f"{open_spiel_short_name}.js",
+    )
+    if custom_renderer_js_path.is_file():
+        try:
+            with open(custom_renderer_js_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            _log.debug(f"Using custom HTML renderer for {open_spiel_short_name} from {custom_renderer_js_path}")
+            return content
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            _log.debug(e)
+    return default_renderer_func()
 
 
 # --- Agents ---
 
+
 def random_agent(
-  observation: dict[str, Any],
-  configuration: dict[str, Any],
+    observation: dict[str, Any],
+    configuration: dict[str, Any],
 ) -> int:
-  """A built-in random agent specifically for OpenSpiel environments."""
-  del configuration
-  legal_actions = observation.get("legalActions")
-  if not legal_actions:
-    return None
-  action = random.choice(legal_actions)
-  return {"submission": int(action)}
+    """A built-in random agent specifically for OpenSpiel environments."""
+    del configuration
+    legal_actions = observation.get("legalActions")
+    if not legal_actions:
+        return None
+    action = random.choice(legal_actions)
+    return {"submission": int(action)}
 
 
 AGENT_REGISTRY = {
-  "random": random_agent,
+    "random": random_agent,
 }
 
 
-# --- Build and register environments --- 
+# --- Build and register environments ---
+
 
 def _build_env(game_string: str) -> dict[str, Any]:
-  game = pyspiel.load_game(game_string)
-  short_name = game.get_type().short_name
+    game = pyspiel.load_game(game_string)
+    short_name = game.get_type().short_name
 
-  proxy_path = GAMES_DIR / short_name / f"{short_name}_proxy.py"
-  if proxy_path.is_file():
-    game = pyspiel.load_game(short_name + "_proxy", game.get_parameters())
+    proxy_path = GAMES_DIR / short_name / f"{short_name}_proxy.py"
+    if proxy_path.is_file():
+        game = pyspiel.load_game(short_name + "_proxy", game.get_parameters())
 
-  game_type = game.get_type()
-  if not game_type.provides_observation_string:
-    raise ValueError(f"No observation string for game: {game_string}")
+    game_type = game.get_type()
+    if not game_type.provides_observation_string:
+        raise ValueError(f"No observation string for game: {game_string}")
 
-  env_spec = copy.deepcopy(ENV_SPEC_TEMPLATE)
-  env_spec["name"] = f"open_spiel_{short_name}"
-  env_spec["title"] = f"Open Spiel: {short_name}"
-  env_spec["agents"] = [game.num_players()]
+    env_spec = copy.deepcopy(ENV_SPEC_TEMPLATE)
+    env_spec["name"] = f"open_spiel_{short_name}"
+    env_spec["title"] = f"Open Spiel: {short_name}"
+    env_spec["agents"] = [game.num_players()]
 
-  env_config = env_spec["configuration"]
-  env_config["episodeSteps"] = game.max_history_length() + DEFAULT_STEP_BUFFER
-  env_config["openSpielGameString"]["default"] = str(game)
-  env_config["openSpielGameName"]["default"] = short_name
-  env_config["openSpielGameParameters"]["default"] = game.get_parameters()
+    env_config = env_spec["configuration"]
+    env_config["episodeSteps"] = game.max_history_length() + DEFAULT_STEP_BUFFER
+    env_config["openSpielGameString"]["default"] = str(game)
+    env_config["openSpielGameName"]["default"] = short_name
+    env_config["openSpielGameParameters"]["default"] = game.get_parameters()
 
-  env_obs = env_spec["observation"]
-  env_obs["properties"]["openSpielGameString"]["default"] = str(game)
-  env_obs["properties"]["openSpielGameName"]["default"] = short_name
+    env_obs = env_spec["observation"]
+    env_obs["properties"]["openSpielGameString"]["default"] = str(game)
+    env_obs["properties"]["openSpielGameName"]["default"] = short_name
 
-  # Building html_renderer_callable is a bit convoluted but other approaches
-  # fail for a variety of reasons. Returning a simple lambda function
-  # doesn't work because of late-binding -- the last env registered will
-  # overwrite all previous renderers.
-  js_string_content = _get_html_renderer_content(
-      open_spiel_short_name=short_name,
-      base_path_for_custom_renderers=GAMES_DIR,
-      default_renderer_func=_default_html_renderer,
-  )
+    # Building html_renderer_callable is a bit convoluted but other approaches
+    # fail for a variety of reasons. Returning a simple lambda function
+    # doesn't work because of late-binding -- the last env registered will
+    # overwrite all previous renderers.
+    js_string_content = _get_html_renderer_content(
+        open_spiel_short_name=short_name,
+        base_path_for_custom_renderers=GAMES_DIR,
+        default_renderer_func=_default_html_renderer,
+    )
 
-  def create_html_renderer_closure(captured_content):
-      def html_renderer_callable_no_args():
-          return captured_content
-      return html_renderer_callable_no_args
+    def create_html_renderer_closure(captured_content):
+        def html_renderer_callable_no_args():
+            return captured_content
 
-  html_renderer_callable = create_html_renderer_closure(js_string_content)
+        return html_renderer_callable_no_args
 
-  return {
-      "specification": env_spec,
-      "interpreter": interpreter,
-      "renderer": renderer,
-      "html_renderer": html_renderer_callable,
-      "agents": AGENT_REGISTRY,
-  }
+    html_renderer_callable = create_html_renderer_closure(js_string_content)
+
+    return {
+        "specification": env_spec,
+        "interpreter": interpreter,
+        "renderer": renderer,
+        "html_renderer": html_renderer_callable,
+        "agents": AGENT_REGISTRY,
+    }
 
 
 def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
-  skipped_games = []
-  registered_envs = {}
-  for game_string in games_list:
-    try:
-      env_config = _build_env(game_string)
-      if env_config is None:
-        continue
-      env_name = env_config["specification"]["name"]
-      if env_name in registered_envs:
-        raise ValueError(f"Attempting to overwrite existing env: {env_name}")
-      registered_envs[env_name] = env_config
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      _log.debug(e)
-      skipped_games.append(game_string)
+    skipped_games = []
+    registered_envs = {}
+    for game_string in games_list:
+        try:
+            env_config = _build_env(game_string)
+            if env_config is None:
+                continue
+            env_name = env_config["specification"]["name"]
+            if env_name in registered_envs:
+                raise ValueError(f"Attempting to overwrite existing env: {env_name}")
+            registered_envs[env_name] = env_config
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            _log.debug(e)
+            skipped_games.append(game_string)
 
-  _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
-  for env_name in registered_envs:
-    _log.info(f"   {env_name}")
-  _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
-  for game_string in skipped_games:
-    _log.info(f"   {game_string}")
+    _log.info(f"Successfully loaded OpenSpiel environments: {len(registered_envs)}.")
+    for env_name in registered_envs:
+        _log.info(f"   {env_name}")
+    _log.info(f"OpenSpiel games skipped: {len(skipped_games)}.")
+    for game_string in skipped_games:
+        _log.info(f"   {game_string}")
 
-  return registered_envs
+    return registered_envs
 
 
 GAMES_LIST = [

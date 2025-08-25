@@ -68,9 +68,7 @@ class GameMap(object):
                 ]
             )
         if not symmetry:
-            symmetry = noise.random.choice(
-                ["horizontal", "vertical", "rotational", "/", "\\"]
-            )
+            symmetry = noise.random.choice(["horizontal", "vertical", "rotational", "/", "\\"])
         noise.update_symmetry(symmetry)
         return eval(map_type)(
             width,
@@ -219,9 +217,7 @@ class Craters(GameMap):
         mask = np.zeros((height, width))
         x = np.linspace(0, 1, width)
         y = np.linspace(0, 1, height)
-        crater_noise = (
-            noise(x, y, frequency=10) * 0.5 + 0.75
-        )  # Don't want perfectly circular craters.
+        crater_noise = noise(x, y, frequency=10) * 0.5 + 0.75  # Don't want perfectly circular craters.
         xx, yy = np.mgrid[:width, :height]
 
         # ice should be around edges of crater
@@ -388,9 +384,7 @@ class Mountain(GameMap):
         det = 16 * Dxx * Dyy - Dxy**2  # Hessian determinant
         det = det.astype(np.csingle)  # complex
 
-        cond = (
-            Lap * (2 * Lap - np.sqrt(4 * Lap**2 - det)) / det - 0.25
-        )  # ratio of eigenvalues
+        cond = Lap * (2 * Lap - np.sqrt(4 * Lap**2 - det)) / det - 0.25  # ratio of eigenvalues
         cond = abs(cond)  # should already be real except for floating point errors
         cond = np.maximum(cond, 1 / cond)
         # symmetrize(cond, symmetry) # for floating point errors
@@ -570,8 +564,6 @@ if __name__ == "__main__":
         seed = int(args["seed"])
     else:
         seed = None
-    game_map = GameMap.random_map(
-        seed=seed, symmetry=symmetry, map_type=map_type, width=width, height=height
-    )
+    game_map = GameMap.random_map(seed=seed, symmetry=symmetry, map_type=map_type, width=width, height=height)
     viz(game_map)
     input()

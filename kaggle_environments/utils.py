@@ -180,15 +180,11 @@ def get_player(window_kaggle, renderer):
         value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
         """
-        return read_file(renderer[1]).replace(
-            key, value
-        )
+        return read_file(renderer[1]).replace(key, value)
 
     key = "/*window.kaggle*/"
     value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
 window.kaggle.renderer = {renderer.strip()};\n\n
     """
-    return read_file(Path.joinpath(root_path, "static", "player.html")).replace(
-        key, value
-    )
+    return read_file(Path.joinpath(root_path, "static", "player.html")).replace(key, value)

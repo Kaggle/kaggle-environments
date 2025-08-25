@@ -161,8 +161,7 @@ def test_can_step_through_agents():
     before_each()
     while not env.done:
         action1 = env.agents.random(env.state[0].observation)
-        action2 = env.agents.reaction(
-            utils.structify({"board": env.state[0].observation.board, "mark": 2}))
+        action2 = env.agents.reaction(utils.structify({"board": env.state[0].observation.board, "mark": 2}))
         env.step([action1, action2])
     assert env.state[0].reward + env.state[1].reward == 0
 
@@ -175,8 +174,7 @@ def test_can_run_agents():
 
 def test_can_evaluate():
     rewards = evaluate("tictactoe", ["random", "reaction"], num_episodes=2)
-    assert (rewards[0][0] + rewards[0][1] ==
-            0) and rewards[1][0] + rewards[1][1] == 0
+    assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
 
 
 def test_can_run_custom_agents():
@@ -225,7 +223,6 @@ def test_run_timeout():
         assert False, "should fail with deadline exceeded"
     else:
         assert False, "Should fail when runtimeout is reached"
-    
 
 
 def test_agents_can_error():

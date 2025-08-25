@@ -29,6 +29,7 @@ def test_halite_exception_action_has_error_status():
 
     def error_agent(obs, config):
         raise Exception("An exception occurred!")
+
     env.run([error_agent, random_agent])
     json = env.toJSON()
     assert json["name"] == "halite"
@@ -53,11 +54,7 @@ def test_halite_helpers():
 
 
 def create_board(size=3, starting_halite=0, agent_count=2, random_seed=0):
-    env = make("halite", configuration={
-        "size": size,
-        "startingHalite": starting_halite,
-        "randomSeed": random_seed
-    })
+    env = make("halite", configuration={"size": size, "startingHalite": starting_halite, "randomSeed": random_seed})
     return Board(env.reset(agent_count)[0].observation, env.configuration)
 
 
@@ -134,7 +131,7 @@ def test_cells_regen_halite():
     next_cell = next_board[cell.position]
     expected_regen = round(cell.halite * board.configuration.regen_rate, 3)
     # We compare to a floating point value here to handle float rounding errors
-    assert next_cell.halite - cell.halite - expected_regen < .000001
+    assert next_cell.halite - cell.halite - expected_regen < 0.000001
 
 
 def test_no_move_on_halite_gathers_halite():

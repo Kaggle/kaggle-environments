@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List
+
 try:
-    from typing import TypedDict    
+    from typing import TypedDict
 except:
     from typing_extensions import TypedDict
 
@@ -32,9 +33,7 @@ class BoardStateDict(TypedDict):
 
 
 class Board:
-    def __init__(
-        self, seed=None, env_cfg: EnvConfig = None, existing_map: GameMap = None
-    ) -> None:
+    def __init__(self, seed=None, env_cfg: EnvConfig = None, existing_map: GameMap = None) -> None:
         self.env_cfg = env_cfg
         self.height = self.env_cfg.map_size
         self.width = self.env_cfg.map_size
@@ -47,7 +46,6 @@ class Board:
         self.post_map_gen(env_cfg, rng)
 
     def gen_map(self, seed, rng, env_cfg):
-
         map_type = rng.choice(["Cave", "Mountain"])
         map_distribution_type = rng.choice(
             [
@@ -72,9 +70,7 @@ class Board:
         self.map.ice = self.map.ice.astype(int)
 
     def post_map_gen(self, env_cfg, rng):
-        self.factories_per_team = rng.randint(
-            env_cfg.MIN_FACTORIES, env_cfg.MAX_FACTORIES + 1
-        )
+        self.factories_per_team = rng.randint(env_cfg.MIN_FACTORIES, env_cfg.MAX_FACTORIES + 1)
 
         self.lichen = np.zeros((self.height, self.width), dtype=int)
         # ownership of lichen by factory id, a simple mask

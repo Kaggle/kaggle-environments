@@ -13,11 +13,7 @@ def interpreter(state, env):
         return state
 
     def is_valid_action(player, sign_count):
-        return (
-            player.action is not None and
-            isinstance(player.action, int) and
-            0 <= player.action < sign_count
-        )
+        return player.action is not None and isinstance(player.action, int) and 0 <= player.action < sign_count
 
     # Check for validity of actions
     is_player1_valid = is_valid_action(player1, env.configuration.signs)

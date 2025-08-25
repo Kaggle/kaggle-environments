@@ -135,13 +135,11 @@ def build_agent(raw, builtin_agents, environment_name):
             agent = get_last_callable(raw_agent, path=raw) or raw_agent
         configuration["__raw_path__"] = raw
         args = [observation, configuration]
-        args = args[:agent.__code__.co_argcount]
-        return \
-            agent(*args) \
-            if callable(agent) \
-            else agent
+        args = args[: agent.__code__.co_argcount]
+        return agent(*args) if callable(agent) else agent
 
     return callable_agent, False
+
 
 class Agent:
     def __init__(self, raw, environment):
@@ -153,17 +151,19 @@ class Agent:
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
 
     def act(self, observation):
-        args = [
-            structify(observation),
-            structify(self.configuration)
-        ]
+        args = [structify(observation), structify(self.configuration)]
 
         if hasattr(self.agent, "__code__"):
-            args = args[:self.agent.__code__.co_argcount]
+            args = args[: self.agent.__code__.co_argcount]
 
         # Start the timer.
 
-        with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+        with (
+            StringIO() as out_buffer,
+            StringIO() as err_buffer,
+            redirect_stdout(out_buffer),
+            redirect_stderr(err_buffer),
+        ):
             try:
                 start = perf_counter()
                 action = self.agent(*args)
@@ -175,7 +175,7 @@ class Agent:
             err = err_buffer.getvalue()
             # Get the maximum log length
             # Allow up to 10k (default) log characters per step which is ~10MB per 600 step episode
-            max_log_length = self.configuration.get('maxLogLength', 10000)
+            max_log_length = self.configuration.get("maxLogLength", 10000)
 
             # truncate if max_log_length is set to None, do not truncate
             if max_log_length is not None:
