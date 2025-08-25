@@ -1,6 +1,8 @@
 import argparse
 import collections
-import copy
+import logging
+import math
+import multiprocessing
 import os
 import random
 import subprocess
@@ -8,10 +10,14 @@ import sys
 from itertools import permutations
 from typing import List
 
+import tenacity
 import yaml
 from tqdm import tqdm
 
-from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger
+from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir, LogExecutionTime
+
+# Initialize a placeholder logger
+logger = logging.getLogger(__name__)
 
 
 def load_config(config_path):
@@ -20,187 +26,216 @@ def load_config(config_path):
         return yaml.safe_load(f)
 
 
-def get_rotationally_unique_configs(roles: List[str]) -> List[List[str]]:
+def get_all_unique_role_configs(roles: List[str]) -> List[List[str]]:
     """
-    Generates all unique permutations of roles, filtering out any that are
-    rotational duplicates. This creates a set of 'necklaces'.
+    Generates all unique permutations of roles.
     """
-    # Get all unique linear permutations first.
     all_perms = list(set(permutations(roles)))
-
-    seen_configs = set()
-    unique_necklaces = []
-
-    for perm in all_perms:
-        if perm not in seen_configs:
-            # This is a new, unique arrangement we haven't seen.
-            unique_necklaces.append(list(perm))
-
-            # Now, add all of its rotations to the 'seen' set so we can
-            # ignore them if we encounter them later.
-            temp_deque = collections.deque(perm)
-            for _ in range(len(perm)):
-                temp_deque.rotate(1)
-                seen_configs.add(tuple(temp_deque))
-
-    return unique_necklaces
+    return [list(p) for p in all_perms]
 
 
-def run_single_game(game_dir, game_config, use_random_agents, debug):
-    """Sets up and runs a single game instance."""
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
+    stop=tenacity.stop_after_attempt(3),
+    before_sleep=tenacity.before_sleep_log(logger, logging.INFO)
+)
+def run_single_game_with_retry(game_dir, game_config, use_random_agents, debug):
+    """
+    Sets up and runs a single game instance by calling run.py.
+    Uses tenacity to retry on failure.
+    """
     out_config = {"game_config": game_config}
     config_path = os.path.join(game_dir, "config.yaml")
     with open(config_path, 'w') as f:
         yaml.dump(out_config, f, default_flow_style=False)
 
+    run_py_path = os.path.join(os.path.dirname(__file__), 'run.py')
+    cmd = [
+        sys.executable,
+        run_py_path,
+        '--config_path', config_path,
+        '--output_dir', game_dir,
+    ]
+    if use_random_agents:
+        cmd.append('--random_agents')
     if debug:
-        # In debug mode, run in-process to allow stepping into the code.
-        print("\nRunning game in-process for debugging...")
-        base_name = "replay"
-        setup_logger(output_dir=game_dir, base_name=base_name)
+        cmd.append('--debug')
 
-        agents_for_run = [agent['agent_id'] for agent in game_config['agents']]
-        if use_random_agents:
-            agents_for_run = ['random'] * len(agents_for_run)
-
-        run_werewolf(
-            output_dir=game_dir,
-            base_name=base_name,
-            config=game_config,
-            agents=agents_for_run,
-            debug=debug
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        logger.info(f"Game in {game_dir} completed successfully.")
+        if result.stdout:
+            logger.info(result.stdout)
+        if result.stderr:
+            logger.warning(f"Stderr (non-fatal) from game in {game_dir}: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        error_message = (
+            f"Error running game in {game_dir}.\n"
+            f"Return Code: {e.returncode}\n"
+            f"Stdout: {e.stdout}\n"
+            f"Stderr: {e.stderr}"
         )
-        print(f"Game finished. Replay and log saved in: {game_dir}")
-    else:
-        # In normal mode, run as a subprocess for isolation.
-        run_py_path = os.path.join(os.path.dirname(__file__), 'run.py')
-
-        cmd = [
-            sys.executable,
-            run_py_path,
-            '--config_path', config_path,
-            '--output_dir', game_dir,
-        ]
-        if use_random_agents:
-            cmd.append('--random_agents')
-
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-        if result.returncode != 0:
-            error_message = (
-                f"Error running game in {game_dir}.\n"
-                f"Return Code: {result.returncode}\n"
-                f"Stdout: {result.stdout}\n"
-                f"Stderr: {result.stderr}"
-            )
-            raise RuntimeError(error_message)
-        else:
-            # Log stdout on success, which contains the path to the replay and log.
-            print(result.stdout)
-            if result.stderr:
-                print(f"Stderr (non-fatal): {result.stderr}")
+        logger.error(error_message)
+        raise RuntimeError(error_message) from e
 
 
-def run_experiment(output_dir, num_blocks, config, use_random_agents, debug):
+def game_runner_wrapper(args):
+    """Wrapper to unpack arguments for the multiprocessing pool."""
+    game_dir, game_config, use_random_agents, debug, _, _ = args
+    run_single_game_with_retry(game_dir, game_config, use_random_agents, debug)
+
+
+def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug, shuffle_player_ids):
     """
-    Runs a tournament using a stratified block design, sampling from
-    rotationally unique role configurations. Retries individual games on failure.
+    Generates all game configurations for the entire experiment.
     """
     base_game_config = config['game_config']
     players_data = base_game_config['agents']
     base_roles = [agent['role'] for agent in players_data]
 
-    print("Generating unique role configurations (filtering rotations)...")
-    all_role_configs = get_rotationally_unique_configs(base_roles)
-    print(f"Found {len(all_role_configs)} rotationally unique arrangements.")
+    logger.info("Generating all unique role configurations...")
+    all_role_configs = get_all_unique_role_configs(base_roles)
+    logger.info(f"Found {len(all_role_configs)} unique arrangements.")
 
     available_role_configs = []
 
+    for block_index in range(num_blocks):
+        block_dir = os.path.join(output_dir, f"block_{block_index}")
+        os.makedirs(block_dir, exist_ok=True)
+
+        if not available_role_configs:
+            if num_blocks > len(all_role_configs):
+                logger.warning("Sampling with replacement as num_blocks > unique configurations.")
+            available_role_configs = list(all_role_configs)
+            random.shuffle(available_role_configs)
+
+        block_role_config = available_role_configs.pop()
+        random.shuffle(players_data)
+        current_players_deque = collections.deque(players_data)
+
+        for game_in_block in range(len(players_data)):
+            game_dir = os.path.join(block_dir, f"game_{game_in_block}")
+            os.makedirs(game_dir, exist_ok=True)
+
+            current_players = list(current_players_deque)
+            game_agents_config = [
+                {**player_config, 'role': block_role_config[i]}
+                for i, player_config in enumerate(current_players)
+            ]
+
+            if shuffle_player_ids:
+                player_ids = [agent['id'] for agent in game_agents_config]
+                random.shuffle(player_ids)
+                for i, agent in enumerate(game_agents_config):
+                    agent['id'] = player_ids[i]
+
+            game_config = {**base_game_config, 'agents': game_agents_config}
+            yield (game_dir, game_config, use_random_agents, debug, block_index, game_in_block)
+            current_players_deque.rotate(1)
+
+
+def run_experiment(
+        output_dir, num_blocks, config, use_random_agents, debug, parallel, num_processes, shuffle_player_ids):
+    """
+    Runs a tournament by generating all game tasks and processing them,
+    potentially in parallel.
+    """
+    if debug:
+        logger.warning("Debug mode is enabled. Forcing sequential execution.")
+
+    base_game_config = config['game_config']
+    players_data = base_game_config['agents']
     total_games = num_blocks * len(players_data)
 
+    if parallel:
+        logger.info(f"Running games in parallel with up to {num_processes} processes.")
+
+    game_tasks = generate_game_tasks(
+        output_dir, num_blocks, config, use_random_agents, debug, shuffle_player_ids
+    )
+
     with tqdm(total=total_games, desc="Processing Games") as pbar:
-        for block_index in range(num_blocks):
-            block_dir = os.path.join(output_dir, f"block_{block_index}")
-            os.makedirs(block_dir, exist_ok=True)
-            print(f"\n--- Starting block {block_index + 1}/{num_blocks} (Output: {block_dir}) ---")
-
-            if not available_role_configs:
-                if num_blocks > len(all_role_configs):
-                    print("Warning: Sampling with replacement as num_blocks > unique configurations.")
-                available_role_configs = list(all_role_configs)
-                random.shuffle(available_role_configs)
-
-            block_role_config = available_role_configs.pop()
-
-            random.shuffle(players_data)
-            current_players_deque = collections.deque(players_data)
-
-            for game_in_block in range(len(players_data)):
-                game_dir = os.path.join(block_dir, f"game_{game_in_block}")
-                os.makedirs(game_dir, exist_ok=True)
-
-                # Prepare game-specific configurations
-                current_players = list(current_players_deque)
-                game_agents_config = []
-                for i, player_config in enumerate(current_players):
-                    new_config = copy.deepcopy(player_config)
-                    new_config['role'] = block_role_config[i]
-                    game_agents_config.append(new_config)
-
-                game_config = copy.deepcopy(base_game_config)
-                game_config['agents'] = game_agents_config
-
-                if debug:
-                    # In debug mode, run without try/except to see the full traceback
-                    run_single_game(game_dir, game_config, use_random_agents, debug)
-                else:
-                    game_successful = False
-                    while not game_successful:
-                        try:
-                            run_single_game(game_dir, game_config, use_random_agents, debug)
-                            game_successful = True
-                        except Exception as e:
-                            print(f"\n--- ERROR in block {block_index + 1}, game {game_in_block + 1} ---")
-                            print(f"Error: {e}")
-                            print(f"Logs and config for the failed game are in: {game_dir}")
-                            print("Retrying game...")
-
+        if parallel:
+            with multiprocessing.Pool(processes=num_processes) as pool:
+                for _ in pool.imap_unordered(game_runner_wrapper, game_tasks):
+                    pbar.update(1)
+        else:
+            for task_args in game_tasks:
+                game_runner_wrapper(task_args)
                 pbar.update(1)
-                current_players_deque.rotate(1)
 
-            print(f"--- Block {block_index + 1} completed successfully. ---")
+    logger.info("All game tasks have been processed.")
 
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     default_config_path = os.path.join(script_dir, 'configs', 'run', 'run_config.yaml')
 
-    parser = argparse.ArgumentParser(description="Run a block-design experiment for the Werewolf game.")
+    parser = argparse.ArgumentParser(
+        description="Run a block-design experiment for the Werewolf game, "
+                    "where each block is a complete role rotation amongst the players."
+    )
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory for game replays and logs.",
                         default="werewolf_block_experiment")
-    parser.add_argument("-c", '--config', type=str,
-                        default=default_config_path,
+    parser.add_argument("-c", '--config', type=str, default=default_config_path,
                         help="Path to the base configuration YAML file.")
     parser.add_argument("-b", "--num_blocks", type=int, default=10,
-                        help="Number of blocks to run in the experiment.")
+                        help="Number of blocks to run. Each block is a complete role rotation.")
     parser.add_argument("-r", "--use_random_agents", action="store_true",
                         help='Use random agents for all players for fast testing.')
     parser.add_argument("-d", "--debug", action="store_true",
-                        help='Enable debug mode for the game environment.')
+                        help='Enable debug mode for the game environment. '\
+                             'Note that you can use debug mode to enable intra game sequential execution.')
+    parser.add_argument("-p", "--parallel", action="store_true",
+                        help='Run games in parallel using multiple processes.')
+    parser.add_argument("-n", "--num_processes", type=int, default=None,
+                        help="Number of processes for parallel execution.")
+    parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
+                        help="Append a timestamp to the output directory.")
+    parser.add_argument("-s", "--shuffle_player_ids", action="store_true",
+                        help="Shuffle player ids for each game to account for name bias.")
 
     args = parser.parse_args()
 
-    # General setup, logger will be configured per-game
-    os.makedirs(args.output_dir, exist_ok=True)
+    output_dir = append_timestamp_to_dir(args.output_dir, append=args.append_timestamp_to_dir)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    setup_logger(output_dir, 'run_block')
 
     config = load_config(args.config)
-    run_experiment(
-        output_dir=args.output_dir,
-        num_blocks=args.num_blocks,
-        config=config,
-        use_random_agents=args.use_random_agents,
-        debug=args.debug
-    )
+
+    num_players = len(config.get('game_config', {}).get('agents', []))
+    if args.num_processes is None:
+        num_processes = multiprocessing.cpu_count() * 0.9
+        if not args.debug:
+            num_processes /= num_players
+        num_processes = max(1, math.floor(num_processes))
+    else:
+        num_processes = args.num_processes
+
+    logger.info("Starting experiment with the following settings:")
+    logger.info(f"Output Directory: {output_dir}")
+    logger.info(f"Number of Blocks: {args.num_blocks}")
+    logger.info(f"Parallel Execution: {args.parallel}")
+    if args.parallel:
+        logger.info(f"Number of Processes: {num_processes}")
+    logger.info(f"Debug Mode: {args.debug}")
+    logger.info(f"Use Random Agents: {args.use_random_agents}")
+    logger.info(f"Shuffle Player IDs: {args.shuffle_player_ids}")
+
+    with LogExecutionTime(logger_obj=logger, task_str="block experiment") as timer:
+        run_experiment(
+            output_dir=output_dir,
+            num_blocks=args.num_blocks,
+            config=config,
+            use_random_agents=args.use_random_agents,
+            debug=args.debug,
+            parallel=args.parallel,
+            num_processes=num_processes,
+            shuffle_player_ids=args.shuffle_player_ids
+        )
+    logger.info("Experiment finished successfully.")
 
 
 if __name__ == '__main__':

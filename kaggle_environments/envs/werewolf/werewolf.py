@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from os import path, getenv
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 
 from pydantic import BaseModel, Field
 
@@ -158,7 +158,7 @@ def random_agent(obs):
                     **common_args,
                     message=random.choice([
                         "Hello everyone!",
-                        f"I think {random.choice(all_player_names)} is suspicious.",
+                        f"I suspect {random.choice(all_player_names)}.",
                         "Any information to share?",
                         "I am a simple Villager just trying to survive.",
                         "Let's think carefully before voting."
@@ -236,37 +236,6 @@ class AgentFactoryWrapper:
 
 
 # --- Agent Registry ---
-
-LLM_MODEL_NAMES = [
-    # Google
-    "gemini/gemini-2.5-pro",
-    "gemini/gemini-2.5-flash",
-    # OpenAI
-    "gpt-5",
-    "gpt-4.1",
-    "o3",
-    "o4-mini",
-    # Anthropic
-    "claude-4-sonnet-20250514",
-    "claude-4-opus-20250514",
-    "claude-3-5-haiku-latest",
-    # xai
-    "xai/grok-4-0709",
-    "xai/grok-4-latest",
-    # vertex AI
-    "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
-    "vertex_ai/gemini-2.0-flash",
-    "vertex_ai/gemini-2.5-pro",
-    "vertex_ai/"
-    # together ai
-    "together_ai/deepseek-ai/DeepSeek-R1",
-    "together_ai/moonshotai/Kimi-K2-Instruct",
-    "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-    "together_ai/openai/gpt-oss-120b",
-    "together_ai/mistralai/Magistral-Small-2506",
-    "together_ai/zai-org/GLM-4.5-Air-FP8"
-]
-
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
 
 
@@ -277,26 +246,20 @@ class EnvInfoKeys:
 
 # *Package variable required by Kaggle Environments framework*
 # These are base agents that the calling framework can choose from
-# Provides a random_agent for testing,  a convenient default 'llm' agent, 
-# and agents powered by the various specific models
+# Provides a random_agent for testing and a convenient default 'llm' agent.
+
 agents = {
     "random": random_agent,
     "llm": AgentFactoryWrapper(
         LLMWerewolfAgent,
         model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
         system_prompt=LLM_SYSTEM_PROMPT
-    ),
-    # Register all specific LLM models. The AgentFactoryWrapper ensures each
-    # player gets a unique, stateful agent instance.
-    **{
-        f"llm/{model_name}": AgentFactoryWrapper(
-            LLMWerewolfAgent,
-            model_name=model_name,
-            system_prompt=LLM_SYSTEM_PROMPT
-        )
-        for model_name in LLM_MODEL_NAMES
-    }
+    )
 }
+
+
+def register_agents(agent_dict: Dict[str, Callable]):
+    agents.update(agent_dict)
 
 
 def log_error(status_code, state, env):
@@ -380,7 +343,6 @@ def interpreter(state, env):
     global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
     env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
-    logger.info(f"detailed_phase = {moderator.detailed_phase.value}")
     # 4.2. Update observations for individual agents
     update_agent_messages(
         state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error)
@@ -514,7 +476,12 @@ def initialize_moderator(state, env):
 
     players = create_players_from_agents_config(agents_from_config)
 
-    env.game_state = GameState(players=players, history={})
+    env.game_state = GameState(
+        players=players,
+        history={},
+        reveal_night_elimination_role=env.configuration.reveal_night_elimination_role,
+        reveal_day_exile_role=env.configuration.reveal_day_exile_role
+    )
 
     env.player_ids_map = {i: p.id for i, p in enumerate(players)}
     env.player_id_str_list = [p.id for p in players]

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field, field_serializer, ConfigDict
 
 from kaggle_environments.envs.werewolf.game.consts import Phase
+from kaggle_environments.envs.werewolf.game.actions import Action
 
 
 def get_utc_now():
@@ -23,7 +24,9 @@ class HistoryEntryType(str, Enum):
     VOTE_ACTION = "vote_action"
     HEAL_ACTION = "heal_action"
     VOTE_RESULT = "vote_result"
+    VOTE_ORDER = "vote_order"
     DISCUSSION = "discussion"
+    DISCUSSION_ORDER = "discussion_order"
     BIDDING_INFO = "bidding_info"
     GAME_END = "game_end"
     MODERATOR_ANNOUNCEMENT = "moderator_announcement"
@@ -54,13 +57,14 @@ class ActionDataMixin(BaseModel):
     actor_id: str
     reasoning: Optional[str] = Field(default=None, description="Private reasoning for moderator analysis.")
     perceived_threat_level: Optional[str] = 'SAFE'
+    action: Optional[Action] = None
 
     def public_view(self) -> Self:
         """
         Returns a public view of the action, excluding private reasoning.
         This overrides the default behavior from the DataEntry base class.
         """
-        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None}, deep=True)
+        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None, 'action': None}, deep=True)
 
 
 class HistoryEntry(BaseModel):
@@ -170,6 +174,10 @@ class DoctorSaveDataEntry(DataEntry):
     saved_player_id: str
 
 
+class VoteOrderDataEntry(DataEntry):
+    vote_order_of_player_ids: List[str]
+
+
 class WerewolfNightEliminationElectedDataEntry(DataEntry):
     """This record the elected elimination target by werewolves."""
     elected_target_player_id: str
@@ -186,6 +194,10 @@ class DayExileElectedDataEntry(DataEntry):
     elected_player_id: str
     elected_player_role_name: Optional[str] = None
     elected_player_team_name: Optional[str] = None
+
+
+class DiscussionOrderDataEntry(DataEntry):
+    chat_order_of_player_ids: List[str]
 
 
 class ChatDataEntry(DataEntry, ActionDataMixin):

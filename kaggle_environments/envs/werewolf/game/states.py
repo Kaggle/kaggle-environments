@@ -1,12 +1,16 @@
 from typing import List, Dict, Optional, Any, Union, Deque
 from collections import defaultdict, deque
 from functools import cached_property
+import logging
 
 from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
 from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry
 from .roles import Player, Role
 from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider
+
+
+logger = logging.getLogger(__name__)
 
 
 class GameState(BaseModel):
@@ -17,10 +21,14 @@ class GameState(BaseModel):
     day_count: int = 0
     history: Dict[int, List[HistoryEntry]] = Field(default_factory=dict)
     wallet: dict[str, int] = Field(default_factory=dict)
+    reveal_night_elimination_role: bool = True
+    reveal_day_exile_role: bool = True
     _id_to_player: Dict[str, Player] = PrivateAttr(default_factory=dict)
     _history_entry_by_type: Dict[HistoryEntryType, List[HistoryEntry]] = PrivateAttr(
         default_factory=lambda: defaultdict(list))
     _history_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+    _night_elimination_player_ids: List[str] = PrivateAttr(default_factory=list)
+    _day_exile_player_ids: List[str] = PrivateAttr(default_factory=list)
 
     @computed_field
     @cached_property
@@ -49,7 +57,17 @@ class GameState(BaseModel):
         return [p for p in self.players if not p.alive]
     
     def revealed_players(self):
-        return {p.id: p.role.name for p in self.players if not p.alive}
+        revealed = {p.id: p.role.name for p in self.players if not p.alive}
+        if not self.reveal_day_exile_role:
+            for pid in self._day_exile_player_ids:
+                revealed.pop(pid, None)
+        if not self.reveal_night_elimination_role:
+            for pid in self._night_elimination_player_ids:
+                revealed.pop(pid, None)
+        return revealed
+
+    def is_alive(self, player_id: str):
+        return self.get_player_by_id(player_id).alive
 
     def alive_players_by_role(self, role: RoleConst):
         return [p for p in self.alive_players() if p.role.name == role]
@@ -129,7 +147,14 @@ class GameState(BaseModel):
         )
 
     def eliminate_player(self, pid: str):
+        if pid not in self.all_player_ids:
+            logger.warning(f"Tried to eliminate {pid} who is not within valid player ids {self.all_player_ids}.")
+            return
         player = self.get_player_by_id(pid)
+        if self.phase == Phase.NIGHT:
+            self._night_elimination_player_ids.append(pid)
+        else:
+            self._day_exile_player_ids.append(pid)
         if player:
             player.eliminate(day=self.day_count, phase=self.phase)
 

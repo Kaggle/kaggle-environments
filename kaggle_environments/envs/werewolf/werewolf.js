@@ -182,6 +182,8 @@ function renderer({
                 this._activeVoteArcs = new Map();
                 this._activeTargetRings = new Map();
 
+                this._speakingAnimations = [];
+
                 this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
                 this._RAF();
               }
@@ -790,76 +792,169 @@ function renderer({
                 this._controls.update();
               }
 
-              updatePlayerStatus(playerName, status) {
+              focusOnPlayer(playerName, leftPanelWidth = 0, rightPanelWidth = 0) {
+                if (!this._playerGroup || this._playerGroup.children.length === 0 || !this._THREE || !this._playerObjects) {
+                    return;
+                }
+                const player = this._playerObjects.get(playerName);
+                if (!player) return;
+
+                // --- 1. Calculate the required camera distance ---
+                
+                // First, determine the real viewport size, excluding the UI panels
+                const effectiveWidth = this._width - leftPanelWidth - rightPanelWidth;
+                const effectiveHeight = this._height;
+                
+                // Get the bounding box of the entire group of players
+                const viewBox = new this._THREE.Box3().setFromObject(this._playerGroup);
+                const viewSize = viewBox.getSize(new this._THREE.Vector3());
+                const viewCenter = viewBox.getCenter(new this._THREE.Vector3());
+
+                // Calculate the camera's field of view in radians
+                const fov = this._camera.fov * (Math.PI / 180);
+                const aspect = effectiveWidth / effectiveHeight;
+                
+                // Derive the horizontal FoV from the vertical FoV and the new aspect ratio
+                const horizontalFov = 2 * Math.atan(Math.tan(fov / 2) * aspect);
+                
+                // Calculate the distance needed to fit the content vertically and horizontally
+                const distV = (viewSize.y / 2) / Math.tan(fov / 2);
+                const distH = (viewSize.x / 2) / Math.tan(horizontalFov / 2);
+                
+                // The required distance is the larger of the two, plus some padding
+                let distance = Math.max(distV, distH) * 1.05;
+                
+                // --- 2. Position the camera using the calculated distance ---
+
+                const playerPosition = player.container.position.clone();
+                const direction = playerPosition.clone().normalize();
+                
+                // We preserve the angle you liked by scaling the position based on the new distance.
+                // The camera is positioned on the line extending from the center through the player.
+                const endPos = playerPosition.clone().add(direction.multiplyScalar(distance * 0.6));
+                endPos.y = playerPosition.y + distance * 0.5; // Elevate based on distance
+
+                // The target remains the center of the action
+                const endTarget = viewCenter;
+                
+                // --- 3. Animate the transition ---
+
+                this._cameraAnimation = {
+                    startTime: performance.now(),
+                    duration: 1200,
+                    startPos: this._camera.position.clone(),
+                    endPos: endPos,
+                    startTarget: this._controls.target.clone(),
+                    endTarget: endTarget,
+                    ease: t => 1 - Math.pow(1 - t, 3)
+                };
+              }
+
+              resetCameraView() {
+                if (!this._playerGroup || this._playerGroup.children.length === 0 || !this._THREE) {
+                    return; // Can't frame an empty group
+                }
+
+                // Calculate the bounding box that contains all players
+                const box = new this._THREE.Box3().setFromObject(this._playerGroup);
+                const size = box.getSize(new this._THREE.Vector3());
+                const center = box.getCenter(new this._THREE.Vector3());
+
+                // Determine the maximum dimension of the box
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = this._camera.fov * (Math.PI / 180);
+                
+                // Calculate the distance the camera needs to be to fit the box
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                
+                // Add some padding so the players aren't right at the edge of the screen
+                // cameraZ *= 1.4; 
+                cameraZ *= 1.1;
+
+                // Set a nice isometric-style camera position
+                const endPos = new this._THREE.Vector3(
+                    center.x,
+                    center.y + cameraZ / 2, // Elevate the camera
+                    center.z + cameraZ       // Pull it back
+                );
+
+                // The target is the center of the player group
+                const endTarget = center;
+
+                // Use the same animation system as focusOnPlayer
+                this._cameraAnimation = {
+                    startTime: performance.now(),
+                    duration: 1200,
+                    startPos: this._camera.position.clone(),
+                    endPos: endPos,
+                    startTarget: this._controls.target.clone(),
+                    endTarget: endTarget,
+                    ease: t => 1 - Math.pow(1 - t, 3)
+                };
+              }
+
+              updatePlayerActive(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player) return;
+                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                
+                orb.material.emissiveIntensity = 1.;
+                orbLight.intensity = 1.;
+                glow.material.emissiveIntensity = 0.5;
+                // Slight scale up animation
+                container.scale.setScalar(1.1);
+                pedestal.material.emissiveIntensity = 0.3;
+              }
+
+              updatePlayerStatus(playerName, status, threatLevel = 0, is_active = false) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
                 const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
 
-                // Reset to a baseline "alive" state before applying specific statuses, unless the status is 'dead'.
-                if (status !== 'dead' && status !== 'active') {
-                    orb.material.color.setHex(0x00ff00);
-                    orb.material.emissive.setHex(0x00ff00);
-                    orb.material.emissiveIntensity = 0.8;
-                    orb.material.opacity = 0.9;
-                    orbLight.color.setHex(0x00ff00);
-                    orbLight.intensity = 0.8;
-                    body.material.color.setHex(0x4466ff);
-                    body.material.emissive.setHex(0x111166);
-                    body.material.emissiveIntensity = 0.2;
-                    shoulders.material.color.setHex(0x4466ff);
-                    shoulders.material.emissive.setHex(0x111166);
-                    shoulders.material.emissiveIntensity = 0.2;
-                    head.material.color.setHex(0xfdbcb4);
-                    head.material.emissive.setHex(0x442211);
-                    head.material.emissiveIntensity = 0.1;
-                    glow.material.color.setHex(0x00ff00);
-                    glow.material.emissive.setHex(0x00ff00);
-                    glow.material.emissiveIntensity = 0.3;
-                    glow.visible = true;
-                    pedestal.material.emissive.setHex(0x111122);
-                    pedestal.material.emissiveIntensity = 0.1;
-                    container.scale.setScalar(1.0);
-                    container.position.y = 0;
-                    container.rotation.x = 0;
-                    if (player.nameplate && player.nameplate.element) {
-                        player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
-                        player.nameplate.element.style.opacity = '1.0';
-                    }
-                    player.isAlive = true;
+                orb.material.color.setHex(0x00ff00);
+                orb.material.emissive.setHex(0x00ff00);
+                orb.material.emissiveIntensity = 0.8;
+                orb.material.opacity = 0.9;
+                orb.visible = true;
+                orbLight.color.setHex(0x00ff00);
+                orbLight.intensity = 0.8;
+                orbLight.visible = true;
+                body.material.color.setHex(0x4466ff);
+                body.material.emissive.setHex(0x111166);
+                body.material.emissiveIntensity = 0.2;
+                shoulders.material.color.setHex(0x4466ff);
+                shoulders.material.emissive.setHex(0x111166);
+                shoulders.material.emissiveIntensity = 0.2;
+                head.material.color.setHex(0xfdbcb4);
+                head.material.emissive.setHex(0x442211);
+                head.material.emissiveIntensity = 0.1;
+                glow.material.color.setHex(0x00ff00);
+                glow.material.emissive.setHex(0x00ff00);
+                glow.material.emissiveIntensity = 0.3;
+                glow.visible = true;
+                pedestal.material.emissive.setHex(0x111122);
+                pedestal.material.emissiveIntensity = 0.1;
+                container.scale.setScalar(1.0);
+                container.position.y = 0;
+                container.rotation.x = 0;
+                if (player.nameplate && player.nameplate.element) {
+                    player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
+                    player.nameplate.element.style.opacity = '1.0';
                 }
+                player.isAlive = true;
                 
                 switch(status) {
-                    case 'active':
-                        // Yellow glow for active player
-                        orb.material.color.setHex(0xffff00);
-                        orb.material.emissive.setHex(0xffff00);
-                        orbLight.color.setHex(0xffff00);
-                        orbLight.intensity = 1.5;
-                        glow.material.color.setHex(0xffff00);
-                        glow.material.emissive.setHex(0xffff00);
-                        glow.material.emissiveIntensity = 0.5;
-                        glow.visible = true;
-                        // Slight scale up animation
-                        container.scale.setScalar(1.1);
-                        pedestal.material.emissive.setHex(0x444400);
-                        pedestal.material.emissiveIntensity = 0.3;
-                        break;
                     case 'dead':
-                        // Gray out dead players
-                        orb.material.color.setHex(0x333333);
-                        orb.material.emissive.setHex(0x111111);
-                        orb.material.emissiveIntensity = 0.1;
-                        orb.material.opacity = 0.3;
-                        orbLight.color.setHex(0x333333);
-                        orbLight.intensity = 0.1;
+                        orb.visible = false;
+                        orbLight.visible = false;
+                        glow.visible = false;
                         body.material.color.setHex(0x444444);
                         body.material.emissive.setHex(0x000000);
                         shoulders.material.color.setHex(0x444444);
                         shoulders.material.emissive.setHex(0x000000);
                         head.material.color.setHex(0x666666);
                         head.material.emissive.setHex(0x000000);
-                        glow.visible = false;
                         pedestal.material.emissive.setHex(0x000000);
                         // Sink into ground
                         container.position.y = -1.5;
@@ -873,12 +968,6 @@ function renderer({
                         player.isAlive = false;
                         break;
                     case 'werewolf':
-                        // Red/purple glow for werewolves
-                        orb.material.color.setHex(0xff0000);
-                        orb.material.emissive.setHex(0xff0000);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0xff0000);
-                        orbLight.intensity = 1.2;
                         body.material.color.setHex(0x880000);
                         body.material.emissive.setHex(0x440000);
                         body.material.emissiveIntensity = 0.3;
@@ -892,35 +981,102 @@ function renderer({
                         pedestal.material.emissive.setHex(0x440000);
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
-                    case 'voting':
-                        // Orange pulse for voting
-                        orb.material.color.setHex(0xff8800);
-                        orb.material.emissive.setHex(0xff8800);
-                        orb.material.emissiveIntensity = 0.9;
-                        orbLight.color.setHex(0xff8800);
-                        orbLight.intensity = 1.0;
-                        glow.material.color.setHex(0xff8800);
-                        glow.material.emissive.setHex(0xff8800);
-                        glow.material.emissiveIntensity = 0.3;
-                        glow.visible = true;
-                        break;
-                    case 'speaking':
-                        // Blue pulse for speaking
-                        orb.material.color.setHex(0x00aaff);
-                        orb.material.emissive.setHex(0x00aaff);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0x00aaff);
-                        orbLight.intensity = 1.5;
-                        glow.material.color.setHex(0x00aaff);
-                        glow.material.emissive.setHex(0x00aaff);
+                    case 'doctor':
+                        body.material.color.setHex(0x008800);
+                        body.material.emissive.setHex(0x004400);
+                        body.material.emissiveIntensity = 0.3;
+                        shoulders.material.color.setHex(0x008800);
+                        shoulders.material.emissive.setHex(0x004400);
+                        shoulders.material.emissiveIntensity = 0.3;
+                        glow.material.color.setHex(0x00ff00);
+                        glow.material.emissive.setHex(0x00ff00);
                         glow.material.emissiveIntensity = 0.4;
                         glow.visible = true;
-                        container.scale.setScalar(1.05);
+                        pedestal.material.emissive.setHex(0x004400);
+                        pedestal.material.emissiveIntensity = 0.2;
+                        break;
+                    case 'seer':
+                        body.material.color.setHex(0x4B0082);
+                        body.material.emissive.setHex(0x3A005A);
+                        body.material.emissiveIntensity = 0.3;
+                        shoulders.material.color.setHex(0x4B0082);
+                        shoulders.material.emissive.setHex(0x3A005A);
+                        shoulders.material.emissiveIntensity = 0.3;
+                        glow.material.color.setHex(0x9932CC);
+                        glow.material.emissive.setHex(0x9932CC);
+                        glow.material.emissiveIntensity = 0.4;
+                        glow.visible = true;
+                        pedestal.material.emissive.setHex(0x3A005A);
+                        pedestal.material.emissiveIntensity = 0.2;
                         break;
                     default:
                         // This is now covered by the reset block at the top of the function.
                         break;
                 }
+
+                if (threatLevel >= 1.0) { // DANGER
+                    orb.material.color.setHex(0xff0000); // Red
+                    orb.material.emissive.setHex(0xff0000);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0xff0000);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0xff0000);
+                    glow.material.emissive.setHex(0xff0000);
+                    glow.material.emissiveIntensity = 0.3;
+                } else if (threatLevel >= 0.5) { // UNEASY
+                    orb.material.color.setHex(0xffff00); // Yellow
+                    orb.material.emissive.setHex(0xffff00);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0xffff00);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0xffff00);
+                    glow.material.emissive.setHex(0xffff00);
+                    glow.material.emissiveIntensity = 0.3;
+                } else { // SAFE
+                    // orb.material.color.setHex(0x00ff00); // Green
+                    orb.material.color.setHex(0x00ff00);
+                    orb.material.emissive.setHex(0x00ff00);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0x00ff00);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0x00ff00);
+                    glow.material.emissive.setHex(0x00ff00);
+                    glow.material.emissiveIntensity = 0.3;
+                }
+              }
+
+              triggerSpeakingAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.isAlive) return;
+
+                const wave = this._createSoundWave(this._THREE);
+                player.container.add(wave);
+
+                // Add the wave to our animation manager array
+                this._speakingAnimations.push({
+                    mesh: wave,
+                    startTime: performance.now(),
+                    duration: 1800, // Animation duration in milliseconds
+                });
+              }
+
+              _createSoundWave(THREE) {
+                const waveGeometry = new THREE.RingGeometry(0.5, 0.7, 32);
+                const waveMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8,
+                    side: THREE.DoubleSide,
+                });
+                const wave = new THREE.Mesh(waveGeometry, waveMaterial);
+
+                // Position the wave horizontally at the player's feet
+                wave.rotation.x = -Math.PI / 2;
+                wave.position.y = 0.25; // Slightly above the pedestal
+                return wave;
               }
 
               _createVoteParticleTrail(voterName, targetName, color = 0x00ffff) {
@@ -1325,6 +1481,52 @@ function renderer({
                     }
                     this._stars.geometry.attributes.size.needsUpdate = true;
                   }
+
+                  // Use performance.now() for more precise animation timing
+                  const now = performance.now();
+
+                  if (this._cameraAnimation) {
+                    const anim = this._cameraAnimation;
+                    const elapsed = now - anim.startTime;
+                    let progress = Math.min(elapsed / anim.duration, 1.0);
+                    
+                    // Apply easing function
+                    const easedProgress = anim.ease(progress);
+
+                    // Interpolate camera position and controls target
+                    this._camera.position.lerpVectors(anim.startPos, anim.endPos, easedProgress);
+                    this._controls.target.lerpVectors(anim.startTarget, anim.endTarget, easedProgress);
+                    this._controls.update();
+
+                    // If animation is complete, clear it
+                    if (progress >= 1.0) {
+                        this._cameraAnimation = null;
+                    }
+                  }
+
+                  // Animate speaking sound waves
+                  this._speakingAnimations = this._speakingAnimations.filter(anim => {
+                    const elapsedTime = now - anim.startTime;
+                    if (elapsedTime >= anim.duration) {
+                    // Animation is over, remove the mesh from the scene
+                    if (anim.mesh.parent) {
+                        anim.mesh.parent.remove(anim.mesh);
+                    }
+                    // Clean up Three.js objects to free memory
+                    anim.mesh.geometry.dispose();
+                    anim.mesh.material.dispose();
+                    return false; // Remove from the animations array
+                    }
+
+                    // Calculate animation progress (from 0.0 to 1.0)
+                    const progress = elapsedTime / anim.duration;
+
+                    // Make the wave expand and fade out
+                    anim.mesh.scale.setScalar(1 + progress * 5);
+                    anim.mesh.material.opacity = 0.8 * (1 - progress);
+
+                    return true; // Keep the animation in the array
+                  });
                   
                   // Animate player objects with enhanced effects
                   if (this._playerObjects) {
@@ -1442,13 +1644,20 @@ function renderer({
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
+      const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
+
+      let primaryStatus = 'default'; // Default for alive players in daytime.
       if (!player.is_alive) {
-        threeState.demo.updatePlayerStatus(player.name, 'dead');
+        primaryStatus = 'dead';
       } else if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
-        threeState.demo.updatePlayerStatus(player.name, 'werewolf');
-      } else {
-        threeState.demo.updatePlayerStatus(player.name, 'default');
+        primaryStatus = 'werewolf';
+      } else if (player.role === 'Doctor' && phase.toUpperCase() === 'NIGHT') {
+        primaryStatus = 'doctor';
+      } else if (player.role === 'Seer' && phase.toUpperCase() === 'NIGHT') {
+        primaryStatus = 'seer';
       }
+
+      threeState.demo.updatePlayerStatus(player.name, primaryStatus, threatLevel);
     });
 
     // Update phase lighting
@@ -1515,13 +1724,18 @@ function renderer({
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
                 if (player.is_alive) {
-                    threeState.demo.updatePlayerStatus(player.name, 'active');
+                    threeState.demo.updatePlayerActive(player.name);
                 }
             });
         } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
             // A player is the actor
             const actorName = lastEvent.actor_id;
-            threeState.demo.updatePlayerStatus(actorName, 'active');
+            threeState.demo.updatePlayerActive(actorName);
+
+            // If the action was speaking, trigger the sound wave animation
+            if (lastEvent.type === 'chat' && threeState.demo.triggerSpeakingAnimation) {
+                threeState.demo.triggerSpeakingAnimation(actorName);
+            }
         }
     }
   }
@@ -1730,17 +1944,23 @@ function renderer({
         /* Enhanced Headers */
         .right-panel h1, #player-list-area h1 {
             margin: 0 0 20px 0;
-            text-align: center;
             font-size: 1.75rem;
             font-weight: 600;
             color: var(--text-primary);
+            position: relative;
+            padding-bottom: 15px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .right-panel h1 > span, #player-list-area h1 > span {
             background: linear-gradient(135deg, #74b9ff, #0984e3);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            position: relative;
-            padding-bottom: 15px;
-            flex-shrink: 0;
         }
         
         .right-panel h1::after, #player-list-area h1::after {
@@ -1753,6 +1973,51 @@ function renderer({
             height: 3px;
             background: linear-gradient(90deg, transparent, #74b9ff, transparent);
             border-radius: 2px;
+        }
+
+        #global-reasoning-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+        #global-reasoning-toggle:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        #global-reasoning-toggle svg {
+            stroke: currentColor;
+            width: 20px;
+            height: 20px;
+        }
+
+        .reset-view-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            margin-left: 8px; /* Add some space */
+        }
+        .reset-view-btn:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        .reset-view-btn svg {
+            stroke: currentColor;
+            width: 20px;
+            height: 20px;
         }
         
         /* Enhanced Player List */
@@ -2177,6 +2442,12 @@ function renderer({
             border: 1px solid rgba(255, 255, 255, 0.2);
             background-color: #ffffff;
         }
+
+        .capsule-display-name {
+            font-size: 0.9em;
+            color: #888;
+            margin-left: 5px;
+        }
         
         /* Enhanced TTS Button */
         .tts-button {
@@ -2386,31 +2657,85 @@ function renderer({
     }
   }
 
+  /**
+  * Creates a memoized function to replace player IDs with HTML capsules.
+  * This function pre-computes and caches sorted player data for efficiency.
+  * @param {Map<string, object>} playerMap - A map from player ID to player object.
+  * @returns {function(string): string} A function that takes text and returns it with player IDs replaced.
+  */
+  function createPlayerIdReplacer(playerMap) {
+    // Cache for already processed text strings (memoization)
+    const textCache = new Map();
+
+    // --- Pre-computation Cache ---
+    const sortedPlayerReplacements = [...playerMap.keys()]
+        .sort((a, b) => b.length - a.length) // Sort by length to match longest names first
+        .map(playerId => {
+            const player = playerMap.get(playerId);
+            if (!player) return null;
+
+            return {
+                capsule: createPlayerCapsule(player),
+                // IMPROVEMENT: This new regex correctly handles both internal periods in names (e.g., 'gemini-1.5-pro')
+                // and sentence-ending periods (e.g., '... says Kai.').
+                // Breakdown:
+                // 1. (^|[^\w.-])       - The prefix boundary must not be a name character. This is unchanged.
+                // 2. (PLAYER_ID)       - The player's name.
+                // 3. (\.?)             - Optionally captures a single trailing period.
+                // 4. (?![-\w])          - A negative lookahead asserts that the name is not followed by another name character (a-z, 0-9, _, -).
+                //                        This is the key part that allows a trailing period to be treated as a boundary.
+                regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})(\\.?)(?![\\w-])`, 'g')
+            };
+        }).filter(Boolean);
+
+    return function (text) {
+        if (!text) return '';
+        if (textCache.has(text)) {
+            return textCache.get(text);
+        }
+
+        let newText = text;
+        for (const replacement of sortedPlayerReplacements) {
+            // The replacement string now uses $3 to append the optionally captured period after the capsule.
+            newText = newText.replace(replacement.regex, `$1${replacement.capsule}$3`);
+        }
+
+        textCache.set(text, newText);
+        return newText;
+    };
+  }
+
   function createPlayerCapsule(player) {
     if (!player) return '';
+    let display_name_elem = (player.display_name && (player.name !== player.display_name)) ? `<span class="capsule-display-name">${player.display_name}</span>` : "";
     return `<span class="player-capsule" title="${player.name}">
         <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
-        <span class="capsule-name">${player.name}</span>
+        <span class="capsule-name">${player.name}</span>${display_name_elem}
     </span>`;
   }
 
   function replacePlayerIdsWithCapsules(text, playerIds, playerMap) {
-      if (!text) return '';
-      if (!playerIds || playerIds.length === 0) {
-          return text;
-      }
-      let newText = text;
-      const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
+    if (!text) return '';
+    if (!playerIds || playerIds.length === 0) {
+        return text;
+    }
+    let newText = text;
+    const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
-      sortedPlayerIds.forEach(playerId => {
-          const player = playerMap.get(playerId);
-          if (player) {
-              const capsule = createPlayerCapsule(player);
-              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
-              newText = newText.replace(regex, capsule);
-          }
-      });
-      return newText;
+    sortedPlayerIds.forEach(playerId => {
+        const player = playerMap.get(playerId);
+        if (player) {
+            const capsule = createPlayerCapsule(player);
+            const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+            // Using the same improved regex as in the factory function.
+            const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})(\\.?)(?![\\w-])`, 'g');
+
+            // The replacement correctly places the captured prefix ($1) and optional period ($3) around the capsule.
+            newText = newText.replace(regex, `$1${capsule}$3`);
+        }
+    });
+    return newText;
   }
 
   function replacePlayerIdsWithBold(text, playerIds) {
@@ -2440,8 +2765,27 @@ function renderer({
     let header = container.querySelector('h1');
     if (!header) {
         header = document.createElement('h1');
-        header.textContent = 'Players';
+        // Create a span for the title to sit next to the button
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = 'Players';
+        header.appendChild(titleSpan);
+
+        // Create the reset button
+        const resetButton = document.createElement('button');
+        resetButton.id = 'reset-view-btn';
+        resetButton.className = 'reset-view-btn';
+        resetButton.title = 'Reset Camera View';
+        resetButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>`;
+        
+        header.appendChild(resetButton);
         container.appendChild(header);
+
+        // Add the click listener only once, when the button is created
+        resetButton.onclick = () => {
+            if (threeState && threeState.demo) {
+                threeState.demo.resetCameraView();
+            }
+        };
     }
 
     // Get or create list container
@@ -2468,6 +2812,21 @@ function renderer({
             playerUl.appendChild(li);
         }
 
+        // Add the onclick handler of player's first person perspective
+        // This will call the focus function on the Three.js demo instance
+        li.onclick = () => {
+            if (threeState && threeState.demo) {
+                // Get the current widths of the UI panels
+                const leftPanel = parent.querySelector('.left-panel');
+                const rightPanel = parent.querySelector('.right-panel');
+                const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+                const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+                
+                // Pass the panel widths to the focus function
+                threeState.demo.focusOnPlayer(player.name, leftPanelWidth, rightPanelWidth);
+            }
+        };
+
         // Update player card classes
         li.className = 'player-card';
         if (!player.is_alive) li.classList.add('dead');
@@ -2487,9 +2846,6 @@ function renderer({
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
         // Update content
-        console.log("player:");
-        console.log(player);
-
         let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`
         if (player.display_name && player.display_name !== player.name) {
             player_name_element = `<div class="player-name" title="${player.name}">
@@ -2556,7 +2912,14 @@ function renderer({
   }
 
   function updateEventLog(container, gameState, playerMap) {
-    container.innerHTML = '<h1>Event Log</h1>';
+    container.innerHTML = `
+        <h1>
+            <span>Event Log</span>
+            <button id="global-reasoning-toggle" title="Toggle All Reasoning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+        </h1>
+    `;
     const logUl = document.createElement('ul');
     logUl.id = 'chat-log';
 
@@ -2600,7 +2963,7 @@ function renderer({
                 case 'chat':
                     const speaker = playerMap.get(entry.speaker);
                     if (!speaker) return;
-                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
+                    const messageText = window.werewolfGamePlayer.playerIdReplacer(entry.message);
                     li.className = `chat-entry event-day`;
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
@@ -2677,13 +3040,26 @@ function renderer({
                     if (entry.text && entry.text.includes('has begun')) return;
 
                     let systemText = entry.text;
-                    const listRegex = /\\\[(.*?)\\\]/g;
-                    systemText = systemText.replace(listRegex, (match, listContent) => {
-                        return listContent.replace(/'/g, "").replace(/, /g, " ");
+
+                    // This enhanced regex captures the list content (group 1) and any optional
+                    // trailing punctuation like a period or comma (group 2).
+                    const listRegex = /\[(.*?)\](\s*[.,?!])?/g;
+
+                    systemText = systemText.replace(listRegex, (match, listContent, punctuation) => {
+                        // Clean the list content as before
+                        const cleanedContent = listContent.replace(/'/g, "").replace(/, /g, " ").trim();
+                        
+                        // If punctuation was captured, return the content with a space before the punctuation
+                        if (punctuation) {
+                            return cleanedContent + " " + punctuation.trim();
+                        }
+                        
+                        // Otherwise, just return the cleaned content
+                        return cleanedContent;
                     });
 
-                    const allPlayerIdsForSystem = Array.from(playerMap.keys());
-                    const finalSystemText = replacePlayerIdsWithCapsules(systemText, allPlayerIdsForSystem, playerMap);
+                    // NOW, run the efficient replacer on the cleaned-up string.
+                    const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
@@ -2697,12 +3073,14 @@ function renderer({
                 case 'exile':
                     const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
+                    let role_text = (entry.role) ? ` (${entry.role})` : "";
+                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap}${role_text} was exiled by vote.</div>`;
                     break;
                 case 'elimination':
                     const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-night`;
-                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
+                    let elim_role_text = (entry.role) ? ` Their role was a ${entry.role}.` : "";
+                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated.${elim_role_text}</div>`;
                     break;
                 case 'save':
                      const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
@@ -2779,6 +3157,22 @@ function renderer({
 
     container.appendChild(logUl);
     logUl.scrollTop = logUl.scrollHeight;
+
+    const globalToggle = container.querySelector('#global-reasoning-toggle');
+    if (globalToggle) {
+        globalToggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const reasoningTexts = logUl.querySelectorAll('.reasoning-text');
+            if (reasoningTexts.length === 0) return;
+
+            // Determine if we should show or hide all. If any are visible, we hide all. Otherwise, show all.
+            const shouldShow = ![...reasoningTexts].some(el => el.classList.contains('visible'));
+
+            reasoningTexts.forEach(el => {
+                el.classList.toggle('visible', shouldShow);
+            });
+        });
+    }
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
@@ -2946,6 +3340,11 @@ function renderer({
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
+    // Initialize and cache the replacer function if it doesn't exist
+    if (!player.playerIdReplacer) {
+        player.playerIdReplacer = createPlayerIdReplacer(playerMap);
+    }
+
     gameState.players.forEach(p => gameState.playerThreatLevels.set(p.name, 0));
 
     const roleAndTeamMap = new Map();
@@ -2966,7 +3365,7 @@ function renderer({
         switch(threatString) {
             case 'SAFE': return 0;
             case 'UNEASY': return 0.5;
-            case 'IN_DANGER': return 1.0;
+            case 'DANGER': return 1.0;
             default: return 0;
         }
     }

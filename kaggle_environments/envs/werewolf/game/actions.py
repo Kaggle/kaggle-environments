@@ -1,61 +1,69 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Optional, Dict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, create_model
 
 from .consts import PerceivedThreatLevel
 
 
+_REPLACEMENT_MAP = {
+    # 'kill' variations
+    'kill': 'eliminate',
+    'kills': 'eliminates',
+    'killed': 'eliminated',
+    'killing': 'eliminating',
+    'killer': 'eliminator',
+
+    # 'lynch' variations
+    'lynch': 'exile',
+    'lynches': 'exiles',
+    'lynched': 'exiled',
+    'lynching': 'exiling',
+
+    # 'mislynch' variations
+    'mislynch': 'mis-exile',
+    'mislynches': 'mis-exiles',
+    'mislynched': 'mis-exiled',
+    'mislynching': 'mis-exiling',
+
+    # 'murder' variations
+    'murder': 'remove',
+    'murders': 'removes',
+    'murdered': 'removed',
+    'murdering': 'removing',
+    'murderer': 'remover'
+}
+
+_CENSOR_PATTERN = re.compile(r'\b(' + '|'.join(_REPLACEMENT_MAP.keys()) + r')\b', re.IGNORECASE)
+
+
+# Create a single, case-insensitive regex pattern from all map keys.
+def replacer(match):
+    """
+    Finds the correct replacement and applies case based on a specific heuristic.
+    """
+    original_word = match.group(0)
+    replacement = _REPLACEMENT_MAP[original_word.lower()]
+
+    # Rule 1: Preserve ALL CAPS.
+    if original_word.isupper():
+        return replacement.upper()
+
+    # Rule 2: Handle title-cased words with a more specific heuristic.
+    if original_word.istitle():
+        # Preserve title case if it's the first word of the string OR
+        # if it's a form like "-ing" which can start a new clause.
+        return replacement.title()
+
+    # Rule 3: For all other cases (e.g., "Kill" mid-sentence), default to lowercase.
+    return replacement.lower()
+
+
 def filter_language(text):
     """Remove inappropriate/violent language."""
-    replacement_map = {
-        # 'kill' variations
-        'kill': 'eliminate',
-        'kills': 'eliminates',
-        'killed': 'eliminated',
-        'killing': 'eliminating',
-        'killer': 'eliminator',
-
-        # 'lynch' variations
-        'lynch': 'exile',
-        'lynches': 'exiles',
-        'lynched': 'exiled',
-        'lynching': 'exiling',
-
-        # 'murder' variations
-        'murder': 'remove',
-        'murders': 'removes',
-        'murdered': 'removed',
-        'murdering': 'removing',
-        'murderer': 'remover'
-    }
-
-    # Create a single, case-insensitive regex pattern from all map keys.
-    pattern = re.compile(r'\b(' + '|'.join(replacement_map.keys()) + r')\b', re.IGNORECASE)
-
-    def replacer(match):
-        """
-        Finds the correct replacement and applies case based on a specific heuristic.
-        """
-        original_word = match.group(0)
-        replacement = replacement_map[original_word.lower()]
-
-        # Rule 1: Preserve ALL CAPS.
-        if original_word.isupper():
-            return replacement.upper()
-
-        # Rule 2: Handle title-cased words with a more specific heuristic.
-        if original_word.istitle():
-            # Preserve title case if it's the first word of the string OR
-            # if it's a form like "-ing" which can start a new clause.
-            return replacement.title()
-
-        # Rule 3: For all other cases (e.g., "Kill" mid-sentence), default to lowercase.
-        return replacement.lower()
-
-    return pattern.sub(replacer, text)
+    return _CENSOR_PATTERN.sub(replacer, text)
 
 
 # ------------------------------------------------------------------ #
@@ -74,6 +82,10 @@ class Action(BaseModel):
         description="The self perceived threat level you are currently experiencing from other players. "
                     "The assessment will be invisible to other players."
     )
+    error: Optional[str] = None
+    raw_prompt: Optional[str] = None
+    raw_completion: Optional[str] = None
+    observation: Optional[Dict] = None
 
     @field_validator('reasoning', mode='before')
     @classmethod
@@ -85,10 +97,36 @@ class Action(BaseModel):
     def serialize(self):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
 
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        """Many of the fields are for internal game record. This method is used to convert the response schema
+        to a format friendly for players.
+        """
+        fields = fields or []
+        if not new_cls_name:
+            new_cls_name = cls.__name__ + 'Data'
+        field_definitions = {
+            field: (
+                cls.model_fields[field].annotation,
+                # Pass the entire FieldInfo object, not just the default value
+                cls.model_fields[field]
+            )
+            for field in fields
+            if field in cls.model_fields
+        }
+        sub_cls = create_model(new_cls_name, **field_definitions)
+        subset_schema = sub_cls.model_json_schema()
+        return subset_schema
+
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
     target_id: str = Field(description="The target player's id.")
+
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
+        return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
 
 
 # ——— Concrete leaf classes --------------------------------------- #
@@ -116,6 +154,11 @@ class ChatAction(Action):
     def filter_message(cls, v):
         return filter_language(v)
 
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'reasoning', 'message']
+        return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
+
 
 class NoOpAction(Action):
     pass
@@ -128,6 +171,11 @@ class BidAction(Action):
     Currency unit can be generic 'chips' or role-specific.
     """
     amount: int = Field(ge=0)
+
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
+        return super(BidAction, cls).schema_for_player(fields, new_cls_name)
 
 
 ACTIONS = [

@@ -129,7 +129,12 @@
                             "params": {
                                 "type": "object",
                                 "properties": {
-                                    "max_rounds": { "description": "Number of full rounds of discussion.", "type": "integer", "minimum": 1, "default": 1 }
+                                    "max_rounds": { "description": "Number of full rounds of discussion.", "type": "integer", "minimum": 1, "default": 1 },
+                                    "assign_random_first_speaker": {
+                                        "description":  "Wether to assign a random player as the first speaker",
+                                        "type":  "boolean",
+                                        "default":  true
+                                    }
                                 },
                                 "additionalProperties": false
                             }
@@ -194,7 +199,7 @@
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
                         }
                     },
                     "else": false
@@ -203,7 +208,7 @@
                     "if": { "properties": { "name": { "const": "SequentialVoting" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
                         }
                     },
                     "else": false
@@ -233,7 +238,7 @@
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
                         }
                     },
                     "else": false
@@ -242,7 +247,7 @@
                     "if": { "properties": { "name": { "const": "SequentialVoting" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": false }
+                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
                         }
                     },
                     "else": false

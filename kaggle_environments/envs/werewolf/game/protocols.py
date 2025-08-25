@@ -3,13 +3,13 @@ import json
 import random
 import re
 from abc import ABC, abstractmethod
-from collections import Counter
+from collections import Counter, deque
 from typing import Dict, List, Sequence, Optional, Tuple
 
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
 from .consts import Team, Phase
 from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
-    WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry
+    WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry, DiscussionOrderDataEntry, VoteOrderDataEntry
 from .roles import Player
 from .states import GameState
 
@@ -290,7 +290,8 @@ class DiscussionProtocol(ABC):
                         message=act.message,
                         reasoning=act.reasoning,
                         mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
+                        perceived_threat_level=act.perceived_threat_level,
+                        action=act
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
@@ -323,7 +324,7 @@ class DiscussionProtocol(ABC):
         """
         call_for_actions = self.call_for_actions(speakers)
         for speaker_id, call_for_action in zip(speakers, call_for_actions):
-            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
+            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.schema_for_player()))
             state.add_history_entry(
                 description=call_for_action,
                 entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
@@ -334,29 +335,51 @@ class DiscussionProtocol(ABC):
 
 
 class RoundRobinDiscussion(DiscussionProtocol):
-    def __init__(self, max_rounds: int = 1):
+    def __init__(self, max_rounds: int = 1, assign_random_first_speaker: bool = True):
+        """
+
+        Args:
+            max_rounds: rounds of discussion
+            assign_random_first_speaker: If true, the first speaker will be determined at the beginning of
+                the game randomly, while the order follow that of the player list. Otherwise, will start from the
+                0th player from player list.
+        """
         self.max_rounds = max_rounds
-        self._queue: list[str] = []
+        self._queue: deque[str] = deque()
+        self._assign_random_first_speaker = assign_random_first_speaker
+        self._player_ids = None
+        self._first_player_idx = None
 
     def reset(self) -> None:
-        self._queue = []
+        self._queue = deque()
 
     @property
     def discussion_rule(self) -> str:
         return f"Players speak in round-robin order for {self.max_rounds} round(s)."
 
     def begin(self, state):
+        if self._player_ids is None:
+            # initialize player_ids once.
+            self._player_ids = deque(state.all_player_ids)
+            if self._assign_random_first_speaker:
+                self._player_ids.rotate(random.randrange(len(self._player_ids)))
+
         # Reset queue
-        self._queue = [p.id for p in state.alive_players()] * self.max_rounds
+        player_order = [pid for pid in self._player_ids if state.is_alive(pid)]
+        self._queue = deque(player_order * self.max_rounds)
         if self.max_rounds > 0 and self._queue:
+            data = DiscussionOrderDataEntry(chat_order_of_player_ids=player_order)
             state.add_history_entry(
-                description="Discussion phase begins. Players will speak in round-robin order.",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
-                public=True
+                description="Discussion phase begins. Players will speak in round-robin order. "
+                            f"Starting from player {player_order[0]} with the following order: {player_order} "
+                            f"for {self.max_rounds} round(s).",
+                entry_type=HistoryEntryType.DISCUSSION_ORDER,
+                public=True,
+                data=data
             )
 
     def speakers_for_tick(self, state):
-        return [self._queue.pop(0)] if self._queue else []
+        return [self._queue.popleft()] if self._queue else []
 
     def is_discussion_over(self, state: GameState) -> bool:
         return not self._queue  # Over if queue is empty
@@ -548,7 +571,7 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
         if self._phase == self.BIDDING_PHASE:
-            data = {"action_json_schema": json.dumps(BidAction.model_json_schema())}
+            data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
             state.add_history_entry(
                 description=(
                     f"A new round of discussion begins. Place bid for a chance to speak. "
@@ -623,7 +646,8 @@ class SimultaneousMajority(VotingProtocol):
             actor_id=vote_action.actor_id,
             target_id=vote_action.target_id,
             reasoning=vote_action.reasoning,
-            perceived_threat_level=vote_action.perceived_threat_level
+            perceived_threat_level=vote_action.perceived_threat_level,
+            action=vote_action
         )
 
         # Voter must be expected and alive at the moment of casting vote
@@ -770,13 +794,13 @@ class SequentialFirstToK(VotingProtocol):
         # Assuming the Moderator handles whose turn it is.
         current_tally = self.get_current_tally_info(state)
         tally_str_parts = []
-        for target_id, votes in current_tally.items():
-            target_player = next((p for p in state.players if p.id == target_id), None)
-            target_name = f"P{target_id}" if not target_player else f"P{target_id} ({target_player.role.name if hasattr(target_player.role, 'name') else 'Unknown'})"
-            tally_str_parts.append(f"{target_name}: {votes} votes")
+        for target_id, votes in sorted(current_tally.items(), key=lambda x: x[1],
+                                       reverse=True):  # Sort for consistent display
+            tally_str_parts.append(f"{target_id}: {votes} vote(s)")
         tally_str = "; ".join(tally_str_parts) if tally_str_parts else "No votes yet."
-        target_names = [f"P{p.id}" for p in state.alive_players() if p.id in self._potential_targets]
-        return f"P{player_id}, it's your turn to vote. Current tally: {tally_str}. Options: {', '.join(target_names)} or Abstain ('-1'). {self.threshold} votes needed to exile."
+        target_names = [f"{p.id}" for p in state.alive_players() if p.id in self._potential_targets]
+        return (f"{player_id}, it's your turn to vote. Current tally: {tally_str}. "
+                f"Options: {', '.join(target_names)} or Abstain ('-1'). {self.threshold} votes needed to exile.")
 
     def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
         return Counter(tgt for tgt in self._ballots.values() if tgt != "-1")  # Excludes abstentions
@@ -882,7 +906,8 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 actor_id=bid.actor_id,
                 reasoning=bid.reasoning,
                 perceived_threat_level=bid.perceived_threat_level,
-                bid_amount=bid.amount
+                bid_amount=bid.amount,
+                action=bid
             )
             state.add_history_entry(
                 description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
@@ -967,7 +992,7 @@ class SequentialVoting(VotingProtocol):
     voters get a turn.
     """
 
-    def __init__(self):
+    def __init__(self, assign_random_first_voter: bool = True):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._potential_targets: List[str] = []
         self._voter_queue: List[str] = []  # Order of players to vote
@@ -976,6 +1001,8 @@ class SequentialVoting(VotingProtocol):
         self._current_game_state: Optional[GameState] = None # To store state from begin_voting
         self._elected = None
         self._done_tallying = False
+        self._assign_random_first_voter = assign_random_first_voter
+        self._player_ids = None
 
     def reset(self) -> None:
         self._ballots = {}
@@ -989,40 +1016,57 @@ class SequentialVoting(VotingProtocol):
 
     @property
     def voting_rule(self) -> str:
-        return "Sequential voting. Players vote one by one. Player with the most votes after all have voted is exiled. Ties are broken randomly."
+        return ("Sequential voting. Players vote one by one. Player with the most votes after all have voted is exiled."
+                " Ties are broken randomly.")
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
+        if self._player_ids is None:
+            # initialize player_ids once.
+            self._player_ids = deque(state.all_player_ids)
+            if self._assign_random_first_voter:
+                self._player_ids.rotate(random.randrange(len(self._player_ids)))
+        alive_voter_ids = [p.id for p in alive_voters]
+        alive_voter_ids_set = set(alive_voter_ids)
         self._ballots = {}
-        self._expected_voters = [p.id for p in alive_voters if p.alive]
+        self._expected_voters = [pid for pid in self._player_ids if pid in alive_voter_ids_set]
         self._potential_targets = [p.id for p in potential_targets]
         # The order of voting can be based on player ID, a random shuffle, or the order in alive_voters
         # For simplicity, using the order from alive_voters.
-        self._voter_queue = [p.id for p in alive_voters if p.alive]
+        self._voter_queue = list(self._expected_voters)
         self._current_voter_index = 0
         self._current_game_state = state # Store the game state reference
+
+        if self._expected_voters:
+            data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
+            state.add_history_entry(
+                description=f"Voting starts from player {self._expected_voters[0]} "
+                            f"with the following order: {self._expected_voters}",
+                entry_type=HistoryEntryType.VOTE_ORDER,
+                public=False,
+                visible_to=alive_voter_ids,
+                data=data
+            )
 
     def get_voting_prompt(self, state: GameState, player_id: str) -> str:
         """
         Generates a prompt for the given player_id, assuming it's their turn.
         """
         current_tally = self.get_current_tally_info(state)
+
+        # Sort for consistent display
         tally_str_parts = []
-        for target_id, votes in sorted(current_tally.items()):  # Sort for consistent display
-            target_player_obj = next((p for p in state.players if p.id == target_id), None)
-            target_name_display = f"P{target_id}"
-            if target_player_obj and hasattr(target_player_obj.role, 'name'):
-                target_name_display += f" ({target_player_obj.role.name})"
-            tally_str_parts.append(f"{target_name_display}: {votes} vote(s)")
+        for target_id, votes in sorted(current_tally.items(), key=lambda x: x[1], reverse=True):
+            tally_str_parts.append(f"{target_id}: {votes} vote(s)")
 
         tally_str = "; ".join(tally_str_parts) if tally_str_parts else "No votes cast yet."
 
         options_str_parts = []
         for p_target in state.alive_players():  # Iterate through all alive players for options
             if p_target.id in self._potential_targets:
-                options_str_parts.append(f"P{p_target.id}")
+                options_str_parts.append(f"{p_target.id}")
         options_str = ", ".join(options_str_parts)
 
-        return (f"P{player_id}, it is your turn to vote. "
+        return (f"{player_id}, it is your turn to vote. "
                 f"Current tally: {tally_str}. "
                 f"Options: {options_str} or Abstain (vote for -1).")
 
@@ -1055,7 +1099,7 @@ class SequentialVoting(VotingProtocol):
 
         if self.done():
             state.add_history_entry(
-                description=f"Action ({vote_action.kind}) received from P{vote_action.actor_id}, but voting is already complete.",
+                description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, but voting is already complete.",
                 entry_type=HistoryEntryType.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id]
@@ -1065,7 +1109,7 @@ class SequentialVoting(VotingProtocol):
         expected_voter_id = self._voter_queue[self._current_voter_index]
         if vote_action.actor_id != expected_voter_id:
             state.add_history_entry(
-                description=f"Action ({vote_action.kind}) received from P{vote_action.actor_id}, but it is P{expected_voter_id}'s turn.",
+                description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, but it is {expected_voter_id}'s turn.",
                 entry_type=HistoryEntryType.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
                 visible_to=[vote_action.actor_id, expected_voter_id]
@@ -1079,7 +1123,7 @@ class SequentialVoting(VotingProtocol):
             data = None
             if isinstance(vote_action, NoOpAction):
                 self._ballots[vote_action.actor_id] = "-1"  # Treat NoOp as abstain
-                description_for_history = f"P{vote_action.actor_id} chose to NoOp (treated as Abstain)."
+                description_for_history = f"{vote_action.actor_id} chose to NoOp (treated as Abstain)."
 
             elif isinstance(vote_action, VoteAction):  # This must be true if not NoOpAction
                 target_display: str
@@ -1087,24 +1131,24 @@ class SequentialVoting(VotingProtocol):
                 if vote_action.target_id != "-1" and vote_action.target_id not in self._potential_targets:
                     # Invalid target chosen for VoteAction
                     state.add_history_entry(
-                        description=f"P{vote_action.actor_id} attempted to vote for P{vote_action.target_id} (invalid target). Vote recorded as Abstain.",
+                        description=f"{vote_action.actor_id} attempted to vote for {vote_action.target_id} (invalid target). Vote recorded as Abstain.",
                         entry_type=HistoryEntryType.ERROR,
                         public=False,
                         visible_to=[vote_action.actor_id]
                     )
                     recorded_target_id = "-1"  # Treat invalid target as abstain
-                    target_display = f"Invalid Target (P{vote_action.target_id}), recorded as Abstain"
+                    target_display = f"Invalid Target ({vote_action.target_id}), recorded as Abstain"
                 elif vote_action.target_id == "-1":
                     # Explicit Abstain via VoteAction
                     target_display = "Abstain"
                     # recorded_target_id is already "-1"
                 else:
                     # Valid target chosen for VoteAction
-                    target_display = f"P{vote_action.target_id}"
+                    target_display = f"{vote_action.target_id}"
                     involved_players_list.append(vote_action.target_id)  # Add valid target to involved
 
                 self._ballots[vote_action.actor_id] = recorded_target_id
-                description_for_history = f"P{vote_action.actor_id} has voted for {target_display}."
+                description_for_history = f"{vote_action.actor_id} has voted for {target_display}."
 
                 # Add data entry for the vote
                 data_entry_class = DayExileVoteDataEntry if state.phase == Phase.DAY else WerewolfNightVoteDataEntry
@@ -1112,7 +1156,8 @@ class SequentialVoting(VotingProtocol):
                     actor_id=vote_action.actor_id,
                     target_id=recorded_target_id,
                     reasoning=vote_action.reasoning,
-                    perceived_threat_level=vote_action.perceived_threat_level
+                    perceived_threat_level=vote_action.perceived_threat_level,
+                    action=vote_action
                 )
 
             state.add_history_entry(
@@ -1125,7 +1170,7 @@ class SequentialVoting(VotingProtocol):
             self._current_voter_index += 1
         else:  # Player not found, not alive, or (redundantly) not their turn
             state.add_history_entry(
-                description=f"Invalid action ({vote_action.kind}) attempt by P{vote_action.actor_id} (player not found, not alive, or not their turn). Action not counted.",
+                description=f"Invalid action ({vote_action.kind}) attempt by {vote_action.actor_id} (player not found, not alive, or not their turn). Action not counted.",
                 entry_type=HistoryEntryType.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id]
