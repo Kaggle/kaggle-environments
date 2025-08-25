@@ -1190,7 +1190,7 @@ function renderer({
                 }
               }
 
-              _createNameplate(name, imageUrl, CSS2DObject) {
+              _createNameplate(name, displayName, imageUrl, CSS2DObject) {
                 const container = document.createElement('div');
                 container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
                 container.style.padding = '6px 10px';  // Slightly smaller padding
@@ -1210,15 +1210,31 @@ function renderer({
                 img.style.backgroundColor = 'white';
                 img.style.border = '2px solid rgba(255, 255, 255, 0.3)';
 
-                const text = document.createElement('div');
-                text.textContent = name;
-                text.style.color = 'white';
-                text.style.fontFamily = 'Arial, sans-serif';
-                text.style.fontSize = '14px';  // Slightly smaller text
-                text.style.fontWeight = '500';
+                const textContainer = document.createElement('div');
+                textContainer.style.display = 'flex';
+                textContainer.style.flexDirection = 'column';
+                textContainer.style.alignItems = 'center';
+
+                const nameText = document.createElement('div');
+                nameText.textContent = name;
+                nameText.style.color = 'white';
+                nameText.style.fontFamily = 'Arial, sans-serif';
+                nameText.style.fontSize = '14px';
+                nameText.style.fontWeight = '500';
+                textContainer.appendChild(nameText);
+
+                if (displayName && displayName !== "" && displayName !== name) {
+                    const displayNameText = document.createElement('div');
+                    displayNameText.textContent = displayName;
+                    displayNameText.style.color = 'grey';
+                    displayNameText.style.fontSize = '12px';
+                    displayNameText.style.fontFamily = 'Arial, sans-serif';
+                    displayNameText.style.marginTop = '4px';
+                    textContainer.appendChild(displayNameText);
+                }
 
                 container.appendChild(img);
-                container.appendChild(text);
+                container.appendChild(textContainer);
 
                 const label = new CSS2DObject(container);
                 return label;
@@ -3248,11 +3264,11 @@ function renderer({
     
     // Initialize 3D players if needed
     if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
-        initializePlayers3D(playerNamesFor3D, playerThumbnailsFor3D, threeState);
+        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState);
     }
 }
 
-function initializePlayers3D(playerNames, playerThumbnails, threeState) {
+function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
     
     // Clear existing player objects
@@ -3309,6 +3325,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
     });
     
     playerNames.forEach((name, i) => {
+        const displayName = gameState.players[i].display_name || '';
         const playerContainer = new THREE.Group();
         // Use full circle (360 degrees)
         const angle = (i / numPlayers) * Math.PI * 2;
@@ -3440,7 +3457,7 @@ function initializePlayers3D(playerNames, playerThumbnails, threeState) {
         
         // Create nameplate with actual player thumbnail
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
-        const nameplate = threeState.demo._createNameplate(name, thumbnailUrl, CSS2DObject);
+        const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
         nameplate.position.set(0, playerHeight * 2.0, 0);
         playerContainer.add(nameplate);
         
