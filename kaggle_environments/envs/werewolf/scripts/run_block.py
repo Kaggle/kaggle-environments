@@ -14,7 +14,7 @@ import tenacity
 import yaml
 from tqdm import tqdm
 
-from kaggle_environments.envs.werewolf.runner import setup_logger
+from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir
 
 # Initialize a placeholder logger
 logger = logging.getLogger(__name__)
@@ -194,11 +194,16 @@ def main():
                         help='Run games in parallel using multiple processes.')
     parser.add_argument("-n", "--num_processes", type=int, default=None,
                         help="Number of processes for parallel execution.")
+    parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
+                        help="Append a timestamp to the output directory.")
 
     args = parser.parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
 
-    setup_logger(args.output_dir, 'run_block')
+    output_dir = append_timestamp_to_dir(args.output_dir, append=args.append_timestamp_to_dir)
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    setup_logger(output_dir, 'run_block')
 
     config = load_config(args.config)
 
@@ -212,7 +217,7 @@ def main():
         num_processes = args.num_processes
 
     logger.info("Starting experiment with the following settings:")
-    logger.info(f"Output Directory: {args.output_dir}")
+    logger.info(f"Output Directory: {output_dir}")
     logger.info(f"Number of Blocks: {args.num_blocks}")
     logger.info(f"Parallel Execution: {args.parallel}")
     if args.parallel:
@@ -221,7 +226,7 @@ def main():
     logger.info(f"Use Random Agents: {args.use_random_agents}")
 
     run_experiment(
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         num_blocks=args.num_blocks,
         config=config,
         use_random_agents=args.use_random_agents,

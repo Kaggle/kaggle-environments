@@ -10,7 +10,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger
+from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, append_timestamp_to_dir
 
 
 logger = logging.getLogger(__name__)
@@ -37,12 +37,8 @@ def main():
     args = parser.parse_args()
 
     # Create a unique subdirectory for this run
-    if args.append_timestamp_to_dir:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_output_dir = args.output_dir + f"_{timestamp}"
-    else:
-        run_output_dir = args.output_dir
-    
+    run_output_dir = append_timestamp_to_dir(args.output_dir, append=args.append_timestamp_to_dir)
+
     os.makedirs(run_output_dir, exist_ok=True)
 
     base_name = "werewolf_game"
