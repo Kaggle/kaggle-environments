@@ -34,6 +34,7 @@ function renderer({
 
     let allEventsIndex = 0;
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
+        const processedInStep = new Set();
         (stepEvents || []).flat().forEach(dataEntry => {
             const event = JSON.parse(dataEntry.json_str);
             
@@ -48,6 +49,11 @@ function renderer({
             if (event.entry_type === "moderator_announcement" && event.description && event.description.includes('has begun')) {
                 return;
             }
+
+            if (processedInStep.has(dataEntry.json_str)) {
+                return;
+            }
+            processedInStep.add(dataEntry.json_str);
 
             event.kaggleStep = kaggleStep;
             event.dataType = dataEntry.data_type;
@@ -2571,17 +2577,6 @@ function renderer({
             const entryType = entry.type;
             const systemText = (entry.text || '').toLowerCase();
 
-            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
-                phase = 'DAY';
-            } else if (
-                entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
-                entryType === 'seer_inspection' || entryType === 'seer_inspection_result' ||
-                entryType === 'doctor_heal_action' ||
-                (entryType === 'system' && (systemText.includes('werewolf vote request') || systemText.includes('doctor save request') || systemText.includes('seer inspect request') || systemText.includes('night has begun')))
-            ) {
-                phase = 'NIGHT';
-            }
-
             const phaseClass = `event-${phase.toLowerCase()}`;
 
             let phaseEmoji = phase;
@@ -2591,7 +2586,7 @@ function renderer({
                 phaseEmoji = '&#x1F319;';
             }
 
-            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
+            const dayPhaseString = entry.day !== Infinity ? `[${phaseEmoji} ${entry.day}]` : '';
             const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
 
             switch (entry.type) {
@@ -2867,234 +2862,6 @@ function renderer({
     pauseButton.addEventListener('click', () => {
         togglePause();
     });
-  }
-
-  function renderEventLog(container, gameState, playerMap) {
-    container.innerHTML = '<h1>Event Log</h1>';
-    const logUl = document.createElement('ul');
-    logUl.id = 'chat-log';
-
-    const logEntries = gameState.eventLog;
-
-    if (logEntries.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'msg-entry';
-        li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
-        logUl.appendChild(li);
-    } else {
-        logEntries.forEach(entry => {
-            const li = document.createElement('li');
-            let reasoningHtml = entry.reasoning ? `<div class="reasoning-text">"${entry.reasoning}"</div>` : '';
-
-            let phase = (entry.phase || 'Day').toUpperCase();
-            const entryType = entry.type;
-            const systemText = (entry.text || '').toLowerCase();
-
-            if (entryType === 'exile' || entryType === 'vote' || entryType === 'timeout' || (entryType === 'system' && (systemText.includes('discussion') || systemText.includes('voting for exile')))) {
-                phase = 'DAY';
-            } else if (
-                entryType === 'elimination' || entryType === 'save' || entryType === 'night_vote' ||
-                entryType === 'seer_inspection' || entryType === 'seer_inspection_result' ||
-                entryType === 'doctor_heal_action' ||
-                (entryType === 'system' && (systemText.includes('werewolf vote request') || systemText.includes('doctor save request') || systemText.includes('seer inspect request') || systemText.includes('night has begun')))
-            ) {
-                phase = 'NIGHT';
-            }
-
-            const phaseClass = `event-${phase.toLowerCase()}`;
-
-            let phaseEmoji = phase;
-            if (phase === 'DAY') {
-                phaseEmoji = '&#x2600;&#xFE0F;';
-            } else if (phase === 'NIGHT') {
-                phaseEmoji = '&#x1F319;';
-            }
-
-            const dayPhaseString = entry.day !== Infinity ? `[D${entry.day} ${phaseEmoji}]` : '';
-            const timestampHtml = `<span class="timestamp">${dayPhaseString} ${formatTimestamp(entry.timestamp)}</span>`;
-
-            switch (entry.type) {
-                case 'chat':
-                    const speaker = playerMap.get(entry.speaker);
-                    if (!speaker) return;
-                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${speaker.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">
-                                    <quote>${messageText}</quote>
-                                </div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    const balloonText = li.querySelector('.balloon-text');
-                    if (balloonText) {
-                        const ttsButton = document.createElement('span');
-                        ttsButton.className = 'tts-button';
-                        ttsButton.innerHTML = '&#x1F50A;';
-                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
-                        balloonText.appendChild(ttsButton);
-                    }
-                    break;
-                case 'seer_inspection':
-                    const seerInspector = playerMap.get(entry.actor_id);
-                    if (!seerInspector) return;
-                    const seerTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    const seerCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${seerCap} chose to inspect ${seerTargetCap}'s role.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'seer_inspection_result':
-                    const seerResultViewer = playerMap.get(entry.seer);
-                    if (!seerResultViewer) return;
-                    const seerCap_ = createPlayerCapsule(playerMap.get(entry.seer));
-                    const seerResultTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry ${phaseClass}`;
-                    li.innerHTML = `
-                        <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${entry.seer} (Seer) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${seerCap_} saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'doctor_heal_action':
-                    const doctor = playerMap.get(entry.actor_id);
-                    if (!doctor) return;
-                    const docTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    const docCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Heal by ${doctor.name} (Doctor) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${docCap} chose to heal ${docTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'system':
-                    if (entry.text && entry.text.includes('has begun')) return;
-
-                    let systemText = entry.text;
-                    const listRegex = /\\\\[(.*?)\\\\]/g;
-                    systemText = systemText.replace(listRegex, (match, listContent) => {
-                        return listContent.replace(/'/g, "").replace(/, /g, " ");
-                    });
-
-                    const allPlayerIdsForSystem = Array.from(playerMap.keys());
-                    const finalSystemText = replacePlayerIdsWithCapsules(systemText, allPlayerIdsForSystem, playerMap);
-
-                    li.className = `moderator-announcement`;
-                    li.innerHTML = `
-                        <cite>Moderator \u{1F4E2} ${timestampHtml}</cite>
-                        <div class="moderator-announcement-content ${phaseClass}">
-                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
-                        </div>
-                    `;
-                    break;
-                case 'exile':
-                    const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
-                    break;
-                case 'elimination':
-                    const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
-                    li.className = `msg-entry game-event event-night`;
-                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
-                    break;
-                case 'save':
-                     const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
-                     li.className = `msg-entry event-night`;
-                     li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
-                    break;
-                case 'vote':
-                    const voter = playerMap.get(entry.actor_id);
-                    if (!voter) return;
-                    const voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${voter.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                     `;
-                     break;
-                case 'timeout':
-                    const to_voter = playerMap.get(entry.actor_id);
-                    if (!to_voter) return;
-                    const to_voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    li.className = `chat-entry event-day`;
-                    li.innerHTML = `
-                        <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>${to_voter.name} ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${to_voterCap} timed out and abstained from voting.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                     `;
-                     break;
-                case 'night_vote':
-                    const nightVoter = playerMap.get(entry.actor_id);
-                    if (!nightVoter) return;
-                    const nightVoterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
-                    const nightVoteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
-                    li.className = `chat-entry event-night`;
-                    li.innerHTML = `
-                        <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
-                        <div class="message-content">
-                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${timestampHtml}</cite>
-                            <div class="balloon">
-                                <div class="balloon-text">${nightVoterCap} votes to eliminate ${nightVoteTargetCap}.</div>
-                                ${reasoningHtml}
-                            </div>
-                        </div>
-                    `;
-                    break;
-                case 'game_over':
-                    const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    const losersText = entry.losers.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
-                    li.className = `msg-entry game-win ${phaseClass}`;
-                    li.innerHTML = `
-                        <cite>Game Over ${timestampHtml}</cite>
-                        <div class="msg-text">
-                            <div>The <strong>${entry.winner}</strong> team has won!</div><br>
-                            <div><strong>Winning Team:</strong> ${winnersText}</div>
-                            <div><strong>Losing Team:</strong> ${losersText}</div>
-                        </div>
-                    `;
-                    break;
-            }
-            if (li.innerHTML) logUl.appendChild(li);
-        });
-    }
-
-    container.appendChild(logUl);
-    logUl.scrollTop = logUl.scrollHeight;
   }
 
     // --- Main Rendering Logic (Incremental) ---
