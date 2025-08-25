@@ -469,8 +469,6 @@ function renderer({
                 if (celestial) {
                     celestial.phase = phase;
                 }
-                
-                console.log(`Skybox updated for phase: ${phase.toFixed(2)} (${phase > 0.5 ? 'NIGHT' : 'DAY'})`);
               }
 
               _createAdvancedLighting(THREE) {
@@ -1087,11 +1085,9 @@ function renderer({
                     };
                     // Immediately set to target on first call
                     this._updateSceneForPhase(targetPhase);
-                    console.log(`Phase transition initialized: ${normalizedPhase} (value: ${targetPhase})`);
                 } else if (this._phaseTransition.target !== targetPhase) {
                     // Only update if phase actually changed
                     this._phaseTransition.target = targetPhase;
-                    console.log(`Phase transition started: ${normalizedPhase} (from ${this._phaseTransition.current.toFixed(2)} to ${targetPhase})`);
                 }
               }
               
@@ -1272,9 +1268,9 @@ function renderer({
                       this._updateSceneForPhase(this._phaseTransition.current);
                       
                       // Log transition progress occasionally
-                      if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
-                        console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
-                      }
+                        //   if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
+                        //     console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
+                        //   }
                     }
                   }
                   
@@ -1424,9 +1420,6 @@ function renderer({
     if (lastEvent && lastEvent.phase) {
         phase = lastEvent.phase;
     }
-
-    console.log(`update scene for phase: ${phase}`);
-
 
     // Update player statuses
     gameState.players.forEach(player => {
@@ -1839,8 +1832,8 @@ function renderer({
         /* Enhanced Avatar */
         .avatar-container {
             position: relative;
-            width: 56px;
-            height: 56px;
+            width: 40px;
+            height: 40px;
             margin-right: 16px;
             flex-shrink: 0;
         }
@@ -3233,11 +3226,6 @@ function renderer({
 
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, actingPlayerName);
-    
-    // Debug: Log current phase state
-    if (step % 10 === 0) { // Log every 10 steps to avoid spam
-        console.log(`Step ${step}: Phase=${gameState.phase}, GameStatePhase=${gameState.game_state_phase}, Day=${gameState.day}`);
-    }
     
     // Initialize 3D players if needed
     if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
