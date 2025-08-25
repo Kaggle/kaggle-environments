@@ -2529,39 +2529,19 @@ function renderer({
   }
 
   function updateEventLog(container, gameState, playerMap) {
-    // Get or create header
-    let header = container.querySelector('h1');
-    if (!header) {
-        header = document.createElement('h1');
-        header.textContent = 'Event Log';
-        container.appendChild(header);
-    }
-
-    // Get or create log container
-    let logUl = container.querySelector('#chat-log');
-    if (!logUl) {
-        logUl = document.createElement('ul');
-        logUl.id = 'chat-log';
-        container.appendChild(logUl);
-    }
+    container.innerHTML = '<h1>Event Log</h1>';
+    const logUl = document.createElement('ul');
+    logUl.id = 'chat-log';
 
     const logEntries = gameState.eventLog;
-    
-    // Store current scroll position
-    const wasScrolledToBottom = logUl.scrollHeight - logUl.clientHeight <= logUl.scrollTop + 1;
 
-    // Only add new entries, don't rebuild the entire log
-    const currentEntryCount = logUl.children.length;
-    
-    if (logEntries.length === 0 && currentEntryCount === 0) {
+    if (logEntries.length === 0) {
         const li = document.createElement('li');
         li.className = 'msg-entry';
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
-    } else if (logEntries.length > currentEntryCount) {
-        // Only process new entries
-        const newEntries = logEntries.slice(currentEntryCount);
-        newEntries.forEach(entry => {
+    } else {
+        logEntries.forEach(entry => {
             const li = document.createElement('li');
             let reasoningHtml = '';
             let reasoningToggleHtml = '';
@@ -2765,21 +2745,13 @@ function renderer({
                         </div>
                     `;
                     break;
-                default:
-                    // Handle other message types here if needed
-                    break;
             }
-            
-            if (li.innerHTML) {
-                logUl.appendChild(li);
-            }
+            if (li.innerHTML) logUl.appendChild(li);
         });
-
-        // Maintain scroll position
-        if (wasScrolledToBottom) {
-            logUl.scrollTop = logUl.scrollHeight;
-        }
     }
+
+    container.appendChild(logUl);
+    logUl.scrollTop = logUl.scrollHeight;
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
