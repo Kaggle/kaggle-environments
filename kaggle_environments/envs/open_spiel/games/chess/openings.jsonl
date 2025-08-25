@@ -1,32 +1,20 @@
-{"name": "Sicilian", "pgn": "1.e4 c5", "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1258]}
-{"name": "French ", "pgn": "1.e4 e6", "fen": "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 2425]}
-{"name": "Ruy Lopez", "pgn": "1.e4 e5 2.Nf3 Nc6 3.Bb5", "fen": "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "initialActions": [2426, 2426, 3572, 656, 2974]}
-{"name": "Caro Kann", "pgn": "1.e4 c6", "fen": "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1257]}
-{"name": "Italian", "pgn": "1.e4 e5 2.Nf3 Nc6 3.Bc4", "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "initialActions": [2426, 2426, 3572, 656, 2975]}
-{"name": "Scandiavian", "pgn": "1.e4 d5", "fen": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1842]}
-{"name": "Pirc", "pgn": "1.e4 d6 2.d4 Nf6", "fen": "rnbqkb1r/ppp1pppp/3p1n2/8/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 1 3", "initialActions": [2426, 1841, 1842, 3572]}
-{"name": "Alekhine", "pgn": "1.e4 Nf6", "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", "initialActions": [2426, 3572]}
-{"name": "King's Gambit", "pgn": "1.e4 e5 2.f4", "fen": "rnbqkbnr/pppp1ppp/8/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 2", "initialActions": [2426, 2426, 3010]}
-{"name": "Scotch", "pgn": "1.e4 e5 2.Nf3 Nc6 3.d4", "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 3", "initialActions": [2426, 2426, 3572, 656, 1842]}
-{"name": "Vienna", "pgn": "1.e4 e5 2.Nc3", "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2", "initialActions": [2426, 2426, 656]}
-{"name": "Queens Gambit", "pgn": "1.d4 d5 2.c4", "fen": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2", "initialActions": [1842, 1842, 1258]}
-{"name": "Slav", "pgn": "1.d4 d5 2.c4 c6", "fen": "rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3", "initialActions": [1842, 1842, 1258, 1257]}
-{"name": "King's Indian Defence", "pgn": "1.d4 Nf6 2.c4 g6", "fen": "rnbqkb1r/pppppp1p/5np1/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3", "initialActions": [1842, 3572, 1258, 3593]}
-{"name": "Nimzo Indian", "pgn": "1.d4 Nf6 2.c4 e6 3.Nc3 Bb4", "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4", "initialActions": [1842, 3572, 1258, 2425, 656, 2974]}
-{"name": "Queen's Indian Defence", "pgn": "1.d4 Nf6 2.c4 e6 3.Nf3 b6", "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 0 4", "initialActions": [1842, 3572, 1258, 2425, 3572, 673]}
-{"name": "Catalan", "pgn": "1.d4 Nf6 2.c4 e6 3.g3", "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/6P1/PP2PP1P/RNBQKBNR b KQkq - 0 3", "initialActions": [1842, 3572, 1258, 2425, 3593]}
-{"name": "Bogo Indian", "pgn": "1.d4 Nf6 2.c4 e6 3.Nf3 Bb4+", "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 2 4", "initialActions": [1842, 3572, 1258, 2425, 3572, 2974]}
-{"name": "Grunfeld", "pgn": "1.d4 Nf6 2.c4 g6 3.Nc3 d5", "fen": "rnbqkb1r/ppp1pp1p/5np1/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 4", "initialActions": [1842, 3572, 1258, 3593, 656, 1842]}
-{"name": "Dutch", "pgn": "1.d4 f5", "fen": "rnbqkbnr/ppppp1pp/8/5p2/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 3010]}
-{"name": "Trompowsky", "pgn": "1.d4 Nf6 2.Bg5", "fen": "rnbqkb1r/pppppppp/5n2/6B1/3P4/8/PPP1PPPP/RN1QKBNR b KQkq - 2 2", "initialActions": [1842, 3572, 1215]}
-{"name": "Benko", "pgn": "1.d4 Nf6 2.c4 c5 3.d5 b5", "fen": "rnbqkb1r/p2ppppp/5n2/1ppP4/2P5/8/PP2PPPP/RNBQKBNR w KQkq - 0 4", "initialActions": [1842, 3572, 1258, 1258, 1987, 674]}
-{"name": "London", "pgn": "1.d4 d5 2.Nf3 Nf6 3.Bf4", "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/5N2/PPP1PPPP/RN1QKB1R b KQkq - 3 3", "initialActions": [1842, 1842, 3572, 3572, 1214]}
-{"name": "Benoni", "pgn": "1.d4 Nf6 2.c4 c5 3.d5 e6 4.Nc3 exd5 5.cxd5 d6", "fen": "rnbqkb1r/pp3ppp/3p1n2/2pP4/8/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 6", "initialActions": [1842, 3572, 1258, 1258, 1987, 2425, 656, 2539, 1431, 1841]}
-{"name": "Reti", "pgn": "1.Nf3", "fen": "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1", "initialActions": [3572]}
-{"name": "English", "pgn": "1.c4", "fen": "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1", "initialActions": [1258]}
-{"name": "Birds", "pgn": "1.f4", "fen": "rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq - 0 1", "initialActions": [3010]}
-{"name": "King's Indian Attack", "pgn": "1.Nf3 d5 2.g3", "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/5NP1/PPPPPP1P/RNBQKB1R b KQkq - 0 2", "initialActions": [3572, 1842, 3593]}
-{"name": "King's Fianchetto Opening", "pgn": "1.g3", "fen": "rnbqkbnr/pppppppp/8/8/8/6P1/PPPPPP1P/RNBQKBNR b KQkq - 0 1", "initialActions": [3593]}
-{"name": "Nimzowitsch-Larsen Attack", "pgn": "1.b3", "fen": "rnbqkbnr/pppppppp/8/8/8/1P6/P1PPPPPP/RNBQKBNR b KQkq - 0 1", "initialActions": [673]}
-{"name": "Polish Opening", "pgn": "1.b4", "fen": "rnbqkbnr/pppppppp/8/8/1P6/8/P1PPPPPP/RNBQKBNR b KQkq - 0 1", "initialActions": [674]}
-{"name": "Grob Opening", "pgn": "1.g4", "fen": "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq - 0 1", "initialActions": [3594]}
+{"name": "Sicilian Defense", "eco": "B20", "pgn": "1. e4 c5", "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1258]}
+{"name": "King's Pawn Game", "eco": "C20", "pgn": "1. e4 e5", "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 2426]}
+{"name": "Indian Defense", "eco": "A45", "pgn": "1. d4 Nf6", "fen": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2", "initialActions": [1842, 3572]}
+{"name": "Queen's Pawn Game", "eco": "D00", "pgn": "1. d4 d5", "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 1842]}
+{"name": "French Defense", "eco": "C00", "pgn": "1. e4 e6", "fen": "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 2425]}
+{"name": "Scandinavian Defense", "eco": "B01", "pgn": "1. e4 d5", "fen": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1842]}
+{"name": "Caro-Kann Defense", "eco": "B10", "pgn": "1. e4 c6", "fen": "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1257]}
+{"name": "Horwitz Defense", "eco": "A40", "pgn": "1. d4 e6", "fen": "rnbqkbnr/pppp1ppp/4p3/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 2425]}
+{"name": "Pirc Defense", "eco": "B00", "pgn": "1. e4 d6", "fen": "rnbqkbnr/ppp1pppp/3p4/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 1841]}
+{"name": "Modern Defense", "eco": "B06", "pgn": "1. e4 g6", "fen": "rnbqkbnr/pppppp1p/6p1/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "initialActions": [2426, 3593]}
+{"name": "Benoni Defense: Old Benoni", "eco": "A43", "pgn": "1. d4 c5", "fen": "rnbqkbnr/pp1ppppp/8/2p5/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 1258]}
+{"name": "Alekhine Defense", "eco": "B02", "pgn": "1. e4 Nf6", "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", "initialActions": [2426, 3572]}
+{"name": "Zukertort Opening", "eco": "A06", "pgn": "1. Nf3 d5", "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2", "initialActions": [3572, 1842]}
+{"name": "Queen's Pawn Game: Modern Defense", "eco": "A40", "pgn": "1. d4 g6", "fen": "rnbqkbnr/pppppp1p/6p1/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 3593]}
+{"name": "Queen's Pawn Game", "eco": "A41", "pgn": "1. d4 d6", "fen": "rnbqkbnr/ppp1pppp/3p4/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 1841]}
+{"name": "Zukertort Opening", "eco": "A05", "pgn": "1. Nf3 Nf6", "fen": "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 2 2", "initialActions": [3572, 3572]}
+{"name": "Queen's Pawn Game", "eco": "A40", "pgn": "1. d4 c6", "fen": "rnbqkbnr/pp1ppppp/2p5/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1842, 1257]}
+{"name": "English Opening: Anglo-Indian Defense", "eco": "A15", "pgn": "1. c4 Nf6", "fen": "rnbqkb1r/pppppppp/5n2/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 1 2", "initialActions": [1258, 3572]}
+{"name": "English Opening: King's English Variation", "eco": "A20", "pgn": "1. c4 e5", "fen": "rnbqkbnr/pppp1ppp/8/4p3/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 0 2", "initialActions": [1258, 2426]}
+{"name": "Nimzowitsch Defense", "eco": "B00", "pgn": "1. e4 Nc6", "fen": "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", "initialActions": [2426, 656]}
