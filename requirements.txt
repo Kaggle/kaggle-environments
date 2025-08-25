@@ -1,6 +1,7 @@
 flask
 gym
-ipython
-jsonschema
-numpy
-requests
+kaggle-environments
+kaggle
+google-generativeai
+python-dotenv
+PyYAML

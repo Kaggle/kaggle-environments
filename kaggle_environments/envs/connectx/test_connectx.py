@@ -21,7 +21,7 @@ def before_each(state=None, configuration=None):
     global env
     steps = [] if state == None else [state]
     env = make("connectx", steps=steps,
-               configuration=configuration, debug=True)
+               configuration=configuration, debug=False)
 
 
 def test_has_correct_timeouts():
