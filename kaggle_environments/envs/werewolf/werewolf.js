@@ -1894,6 +1894,12 @@ function renderer({
         .player-role.villager { color: var(--villager-color); }
         .player-role.doctor { color: var(--doctor-color); }
         .player-role.seer { color: var(--seer-color); }
+
+        .display-name {
+            font-size: 0.8em;
+            color: #888;
+            margin-left: 5px;
+        }
         
         /* Enhanced Threat Indicator */
         .threat-indicator {
@@ -1965,6 +1971,7 @@ function renderer({
             flex-shrink: 0;
             border: 2px solid rgba(116, 185, 255, 0.2);
             transition: all 0.3s ease;
+            background-color: #ffffff;
         }
         
         .chat-entry:hover .chat-avatar {
@@ -2152,6 +2159,7 @@ function renderer({
             margin-right: 6px;
             object-fit: cover;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: #ffffff;
         }
         
         /* Enhanced TTS Button */
@@ -2463,12 +2471,22 @@ function renderer({
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
         // Update content
+        console.log("player:");
+        console.log(player);
+
+        let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`
+        if (player.display_name && player.display_name !== player.name) {
+            player_name_element = `<div class="player-name" title="${player.name}">
+                ${player.name}<span class="display-name"> (${player.display_name})</span>
+            </div>`
+        }
+
         li.innerHTML = `
             <div class="avatar-container">
                 <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
             </div>
             <div class="player-info">
-                <div class="player-name" title="${player.name}">${player.name}</div>
+                ${player_name_element}
                 <div class="player-role">${roleText}</div>
             </div>
             <div class="threat-indicator"></div>
@@ -2905,9 +2923,10 @@ function renderer({
         return;
     }
 
-    gameState.players = allPlayerNamesList.map(name => ({
-        name: name, is_alive: true, role: 'Unknown', team: 'Unknown', status: 'Alive',
-        thumbnail: playerThumbnails[name] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${name.charAt(0)}`
+    gameState.players = environment.configuration.agents.map( agent => ({
+        name: agent.id, is_alive: true, role: agent.role, team: 'Unknown',
+        status: 'Alive', thumbnail: agent.thumbnail || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${agent.id.charAt(0)}`,
+        display_name: agent.display_name
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
