@@ -96,7 +96,7 @@ def game_runner_wrapper(args):
     run_single_game_with_retry(game_dir, game_config, use_random_agents, debug)
 
 
-def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug):
+def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug, shuffle_player_ids):
     """
     Generates all game configurations for the entire experiment.
     """
@@ -134,12 +134,19 @@ def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug
                 for i, player_config in enumerate(current_players)
             ]
 
+            if shuffle_player_ids:
+                player_ids = [agent['id'] for agent in game_agents_config]
+                random.shuffle(player_ids)
+                for i, agent in enumerate(game_agents_config):
+                    agent['id'] = player_ids[i]
+
             game_config = {**base_game_config, 'agents': game_agents_config}
             yield (game_dir, game_config, use_random_agents, debug, block_index, game_in_block)
             current_players_deque.rotate(1)
 
 
-def run_experiment(output_dir, num_blocks, config, use_random_agents, debug, parallel, num_processes):
+def run_experiment(
+        output_dir, num_blocks, config, use_random_agents, debug, parallel, num_processes, shuffle_player_ids):
     """
     Runs a tournament by generating all game tasks and processing them,
     potentially in parallel.
@@ -155,7 +162,7 @@ def run_experiment(output_dir, num_blocks, config, use_random_agents, debug, par
         logger.info(f"Running games in parallel with up to {num_processes} processes.")
 
     game_tasks = generate_game_tasks(
-        output_dir, num_blocks, config, use_random_agents, debug
+        output_dir, num_blocks, config, use_random_agents, debug, shuffle_player_ids
     )
 
     with tqdm(total=total_games, desc="Processing Games") as pbar:
@@ -188,7 +195,7 @@ def main():
     parser.add_argument("-r", "--use_random_agents", action="store_true",
                         help='Use random agents for all players for fast testing.')
     parser.add_argument("-d", "--debug", action="store_true",
-                        help='Enable debug mode for the game environment. ' \
+                        help='Enable debug mode for the game environment. '\
                              'Note that you can use debug mode to enable intra game sequential execution.')
     parser.add_argument("-p", "--parallel", action="store_true",
                         help='Run games in parallel using multiple processes.')
@@ -196,6 +203,8 @@ def main():
                         help="Number of processes for parallel execution.")
     parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
                         help="Append a timestamp to the output directory.")
+    parser.add_argument("-s", "--shuffle_player_ids", action="store_true",
+                        help="Shuffle player ids for each game to account for name bias.")
 
     args = parser.parse_args()
 
@@ -224,6 +233,7 @@ def main():
         logger.info(f"Number of Processes: {num_processes}")
     logger.info(f"Debug Mode: {args.debug}")
     logger.info(f"Use Random Agents: {args.use_random_agents}")
+    logger.info(f"Shuffle Player IDs: {args.shuffle_player_ids}")
 
     run_experiment(
         output_dir=output_dir,
@@ -232,7 +242,8 @@ def main():
         use_random_agents=args.use_random_agents,
         debug=args.debug,
         parallel=args.parallel,
-        num_processes=num_processes
+        num_processes=num_processes,
+        shuffle_player_ids=args.shuffle_player_ids
     )
     logger.info("Experiment finished successfully.")
 
