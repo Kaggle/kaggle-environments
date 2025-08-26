@@ -21,9 +21,11 @@ import setuptools
 from packaging.version import Version
 
 
-if Version(setuptools.__version__) < Version("60"):
+# See https://setuptools.pypa.io/en/stable/history.html#id210
+min_setuptools_version = "70.2.0"
+if Version(setuptools.__version__) < Version(min_setuptools_version):
     raise AssertionError(
-        f"Your setuptools version {setuptools.__version__} is below the minimum of v60 required by PEP 625 & enforced by PyPy."
+        f"Your setuptools version {setuptools.__version__} is below the minimum of {min_setuptools_version} required by PEP 625 & enforced by PyPy."
     )
 
 
