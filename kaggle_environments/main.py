@@ -15,7 +15,7 @@
 import argparse
 import json
 import traceback
-from typing import *
+from typing import Optional
 from . import errors, utils
 from .agent import Agent
 from .core import environments, evaluate, make
@@ -27,12 +27,9 @@ parser.add_argument(
     choices=["list", "evaluate", "run", "step", "load", "act", "dispose", "http-server"],
     help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Start http server.",
 )
-parser.add_argument("--environment", type=str,
-                    help="Environment to run against.")
+parser.add_argument("--environment", type=str, help="Environment to run against.")
 parser.add_argument("--debug", type=bool, help="Print debug statements.")
-parser.add_argument(
-    "--agents", type=str, nargs="*", help="Agent(s) to run with the environment."
-)
+parser.add_argument("--agents", type=str, nargs="*", help="Agent(s) to run with the environment.")
 parser.add_argument(
     "--configuration",
     type=json.loads,
@@ -58,9 +55,7 @@ parser.add_argument(
     type=json.loads,
     help="Single agent state used for evaluation (default={}).",
 )
-parser.add_argument(
-    "--episodes", type=int, help="Number of episodes to evaluate (default=1)"
-)
+parser.add_argument("--episodes", type=int, help="Number of episodes to evaluate (default=1)")
 parser.add_argument(
     "--render",
     type=json.loads,
@@ -71,28 +66,21 @@ parser.add_argument(
     type=str,
     help="Shortcut to the --render {mode=''} argument (default json).",
 )
-parser.add_argument(
-    "--port", type=int, help="http-server Port (default=8000)."
-)
-parser.add_argument(
-    "--host", type=str, help="http-server Host (default=127.0.0.1)."
-)
-parser.add_argument(
-    "--in", type=str, help="Episode replay file to load. Only works when the action is load."
-)
+parser.add_argument("--port", type=int, help="http-server Port (default=8000).")
+parser.add_argument("--host", type=str, help="http-server Host (default=127.0.0.1).")
+parser.add_argument("--in", type=str, help="Episode replay file to load. Only works when the action is load.")
 parser.add_argument(
     "--out", type=str, help="Output file to write the results of the episode. Does nothing in http-server mode."
 )
 parser.add_argument(
-    "--log", type=str, help="Agent log file to write the std out, resource, and step timing for each agent. Also used to load logs from a file with the load action."
+    "--log",
+    type=str,
+    help="Agent log file to write the std out, resource, and step timing for each agent. Also used to load logs from a file with the load action.",
 )
 
 
 def render(args, env):
-    mode = \
-        args.display \
-        if args.display is not None \
-        else utils.get(args.render, str, "json", path=["mode"])
+    mode = args.display if args.display is not None else utils.get(args.render, str, "json", path=["mode"])
 
     if mode == "human" or mode == "ansi" or mode == "txt":
         args.render["mode"] = "ansi"
@@ -111,11 +99,7 @@ def action_list(args):
 
 
 def action_evaluate(args):
-    return json.dumps(
-        evaluate(
-            args.environment, args.agents, args.configuration, args.steps, args.episodes
-        )
-    )
+    return json.dumps(evaluate(args.environment, args.agents, args.configuration, args.steps, args.episodes))
 
 
 cached_agent = None
@@ -183,7 +167,9 @@ def action_load(args):
     if args.in_path is not None:
         with open(args.in_path, mode="r") as replay_file:
             json_args = json.load(replay_file)
-        env = make(json_args["name"], json_args["configuration"], json_args["info"], json_args["steps"], args.logs, args.debug)
+        env = make(
+            json_args["name"], json_args["configuration"], json_args["info"], json_args["steps"], args.logs, args.debug
+        )
     else:
         env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
     return render(args, env)
@@ -229,7 +215,7 @@ def parse_args(args):
         }
     )
 
-  
+
 def action_handler(args):
     try:
         if args.action == "list":
@@ -269,21 +255,20 @@ def action_http(args):
         log_path = args.log_path
 
     # Setup logging to console for Flask
-    dictConfig({
-        'version': 1,
-        'formatters': {'default': {
-            'format': '%(levelname)s: %(message)s',
-        }},
-        'handlers': {'wsgi': {
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout',
-            'formatter': 'default'
-        }},
-        'root': {
-            'level': 'INFO',
-            'handlers': ['wsgi']
+    dictConfig(
+        {
+            "version": 1,
+            "formatters": {
+                "default": {
+                    "format": "%(levelname)s: %(message)s",
+                }
+            },
+            "handlers": {
+                "wsgi": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout", "formatter": "default"}
+            },
+            "root": {"level": "INFO", "handlers": ["wsgi"]},
         }
-    })
+    )
 
     app = Flask(__name__, static_url_path="", static_folder="")
     app.route("/", methods=["GET", "POST"])(lambda: http_request(request))

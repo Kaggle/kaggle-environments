@@ -1,8 +1,7 @@
 import operator
-import math
-from enum import Enum, auto
 import random
-from typing import *
+from enum import Enum, auto
+from typing import Any, Callable, Dict, Generic, Iterable, List, Tuple, Type, TypeVar, Union
 
 
 class Point(tuple):
@@ -14,7 +13,8 @@ class Point(tuple):
     Note that operators in this class do not constrain points to the board.
     You can generally constrain a point to the board by calling point % board.configuration.size.
     """
-    def __new__(cls: Type['Point'], x: int, y: int):
+
+    def __new__(cls: Type["Point"], x: int, y: int):
         return super(Point, cls).__new__(cls, tuple((x, y)))
 
     @property
@@ -25,22 +25,22 @@ class Point(tuple):
     def y(self):
         return self[1]
 
-    def map(self, f: Callable[[int], int]) -> 'Point':
+    def map(self, f: Callable[[int], int]) -> "Point":
         return Point(f(self[0]), f(self[1]))
 
-    def map2(self, other: Union[Tuple[int, int], 'Point'], f: Callable[[int, int], int]) -> 'Point':
+    def map2(self, other: Union[Tuple[int, int], "Point"], f: Callable[[int, int], int]) -> "Point":
         return Point(f(self[0], other[0]), f(self[1], other[1]))
 
-    def translate(self, offset: 'Point', size: int):
+    def translate(self, offset: "Point", size: int):
         """Translates the current point by offset and wraps it around a board of width and height size"""
         return (self + offset) % size
 
-    def distance_to(self, other: 'Point', size: int):
+    def distance_to(self, other: "Point", size: int):
         """Computes total distance (manhattan) to travel to other Point"""
         abs_x = abs(self.x - other.x)
-        dist_x = abs_x if abs_x < size/2 else size - abs_x
+        dist_x = abs_x if abs_x < size / 2 else size - abs_x
         abs_y = abs(self.y - other.y)
-        dist_y = abs_y if abs_y < size/2 else size - abs_y
+        dist_y = abs_y if abs_y < size / 2 else size - abs_y
         return dist_x + dist_y
 
     def to_index(self, size: int):
@@ -51,7 +51,7 @@ class Point(tuple):
         return (size - self.y - 1) * size + self.x
 
     @staticmethod
-    def from_index(index: int, size: int) -> 'Point':
+    def from_index(index: int, size: int) -> "Point":
         """
         Converts an index in the observation.halite list to a 2d position in the form (x, y).
         See Point method to_index for the inverse.
@@ -59,37 +59,37 @@ class Point(tuple):
         y, x = divmod(index, size)
         return Point(x, (size - y - 1))
 
-    def __abs__(self) -> 'Point':
+    def __abs__(self) -> "Point":
         return self.map(operator.abs)
 
-    def __add__(self, other: Union[Tuple[int, int], 'Point']) -> 'Point':
+    def __add__(self, other: Union[Tuple[int, int], "Point"]) -> "Point":
         return self.map2(other, operator.add)
 
-    def __eq__(self, other: Union[Tuple[int, int], 'Point']) -> bool:
+    def __eq__(self, other: Union[Tuple[int, int], "Point"]) -> bool:
         try:
             return self[0] == other[0] and self[1] == other[1]
         except (TypeError, IndexError):
             return False
 
-    def __floordiv__(self, denominator: int) -> 'Point':
+    def __floordiv__(self, denominator: int) -> "Point":
         return self.map(lambda x: x // denominator)
 
     def __hash__(self) -> int:
         return hash((self.x, self.y))
 
-    def __mod__(self, mod: int) -> 'Point':
+    def __mod__(self, mod: int) -> "Point":
         return self.map(lambda x: x % mod)
 
-    def __mul__(self, factor: int) -> 'Point':
+    def __mul__(self, factor: int) -> "Point":
         return self.map(lambda x: x * factor)
 
-    def __neg__(self) -> 'Point':
+    def __neg__(self) -> "Point":
         return self.map(operator.neg)
 
     def __str__(self):
         return f"({self.x}, {self.y})"
 
-    def __sub__(self, other: Union[Tuple[int, int], 'Point']) -> 'Point':
+    def __sub__(self, other: Union[Tuple[int, int], "Point"]) -> "Point":
         return self.map2(other, operator.sub)
 
 
@@ -101,18 +101,22 @@ class Direction(Enum):
 
     def to_point(self) -> Point:
         """
-        This returns the position offset associated with a particular action 
+        This returns the position offset associated with a particular action
         NORTH -> (0, 1)
         EAST -> (1, 0)
         SOUTH -> (0, -1)
         WEST -> (-1, 0)
         """
         return (
-            Point(0, 1) if self == Direction.NORTH else
-            Point(1, 0) if self == Direction.EAST else
-            Point(0, -1) if self == Direction.SOUTH else
-            Point(-1, 0) if self == Direction.WEST else
-            None
+            Point(0, 1)
+            if self == Direction.NORTH
+            else Point(1, 0)
+            if self == Direction.EAST
+            else Point(0, -1)
+            if self == Direction.SOUTH
+            else Point(-1, 0)
+            if self == Direction.WEST
+            else None
         )
 
     def __str__(self) -> str:
@@ -120,93 +124,125 @@ class Direction(Enum):
 
     def to_index(self) -> int:
         return (
-            0 if self == Direction.NORTH else
-            1 if self == Direction.EAST else
-            2 if self == Direction.SOUTH else
-            3 if self == Direction.WEST else
-            None
+            0
+            if self == Direction.NORTH
+            else 1
+            if self == Direction.EAST
+            else 2
+            if self == Direction.SOUTH
+            else 3
+            if self == Direction.WEST
+            else None
         )
 
     def to_char(self) -> str:
         return (
-            "N" if self == Direction.NORTH else
-            "E" if self == Direction.EAST else
-            "S" if self == Direction.SOUTH else
-            "W" if self == Direction.WEST else
-            None
+            "N"
+            if self == Direction.NORTH
+            else "E"
+            if self == Direction.EAST
+            else "S"
+            if self == Direction.SOUTH
+            else "W"
+            if self == Direction.WEST
+            else None
         )
 
-    def opposite(self) -> 'Direction':
+    def opposite(self) -> "Direction":
         return (
-            Direction.SOUTH if self == Direction.NORTH else
-            Direction.WEST if self == Direction.EAST else
-            Direction.NORTH if self == Direction.SOUTH else
-            Direction.EAST if self == Direction.WEST else
-            None
+            Direction.SOUTH
+            if self == Direction.NORTH
+            else Direction.WEST
+            if self == Direction.EAST
+            else Direction.NORTH
+            if self == Direction.SOUTH
+            else Direction.EAST
+            if self == Direction.WEST
+            else None
         )
 
-    def rotate_left(self) -> 'Direction':
+    def rotate_left(self) -> "Direction":
         return (
-            Direction.WEST if self == Direction.NORTH else
-            Direction.NORTH if self == Direction.EAST else
-            Direction.EAST if self == Direction.SOUTH else
-            Direction.SOUTH if self == Direction.WEST else
-            None
+            Direction.WEST
+            if self == Direction.NORTH
+            else Direction.NORTH
+            if self == Direction.EAST
+            else Direction.EAST
+            if self == Direction.SOUTH
+            else Direction.SOUTH
+            if self == Direction.WEST
+            else None
         )
 
-    def rotate_right(self) -> 'Direction':
+    def rotate_right(self) -> "Direction":
         return (
-            Direction.EAST if self == Direction.NORTH else
-            Direction.SOUTH if self == Direction.EAST else
-            Direction.WEST if self == Direction.SOUTH else
-            Direction.NORTH if self == Direction.WEST else
-            None
+            Direction.EAST
+            if self == Direction.NORTH
+            else Direction.SOUTH
+            if self == Direction.EAST
+            else Direction.WEST
+            if self == Direction.SOUTH
+            else Direction.NORTH
+            if self == Direction.WEST
+            else None
         )
 
     @staticmethod
     def from_str(str_dir: str):
-        return  (
-            Direction.NORTH if str_dir == "NORTH" else
-            Direction.EAST if str_dir == "EAST" else
-            Direction.SOUTH if str_dir == "SOUTH" else
-            Direction.WEST if str_dir == "WEST" else
-            None
+        return (
+            Direction.NORTH
+            if str_dir == "NORTH"
+            else Direction.EAST
+            if str_dir == "EAST"
+            else Direction.SOUTH
+            if str_dir == "SOUTH"
+            else Direction.WEST
+            if str_dir == "WEST"
+            else None
         )
 
     @staticmethod
     def from_char(str_char: str):
-        return  (
-            Direction.NORTH if str_char == "N" else
-            Direction.EAST if str_char == "E" else
-            Direction.SOUTH if str_char == "S" else
-            Direction.WEST if str_char == "W" else
-            None
+        return (
+            Direction.NORTH
+            if str_char == "N"
+            else Direction.EAST
+            if str_char == "E"
+            else Direction.SOUTH
+            if str_char == "S"
+            else Direction.WEST
+            if str_char == "W"
+            else None
         )
 
     @staticmethod
     def from_index(idx: int):
         return (
-            Direction.NORTH if idx == 0 else
-            Direction.EAST if idx == 1 else
-            Direction.SOUTH if idx == 2 else
-            Direction.WEST if idx == 3 else
-            None
+            Direction.NORTH
+            if idx == 0
+            else Direction.EAST
+            if idx == 1
+            else Direction.SOUTH
+            if idx == 2
+            else Direction.WEST
+            if idx == 3
+            else None
         )
 
     @staticmethod
-    def random_direction() -> 'Direction':
+    def random_direction() -> "Direction":
         rand = random.random()
-        if rand <= .25:
+        if rand <= 0.25:
             return Direction.NORTH
-        elif rand <= .5:
+        elif rand <= 0.5:
             return Direction.EAST
-        elif rand <= .75:
+        elif rand <= 0.75:
             return Direction.SOUTH
         else:
             return Direction.WEST
 
     @staticmethod
-    def list_directions() -> List['Direction']:
+    def list_directions() -> List["Direction"]:
         return [
             Direction.NORTH,
             Direction.EAST,
@@ -215,8 +251,8 @@ class Direction(Enum):
         ]
 
 
-TItem = TypeVar('TItem')
-THash = TypeVar('THash')
+TItem = TypeVar("TItem")
+THash = TypeVar("THash")
 
 
 def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict[THash, List[TItem]]:
@@ -250,6 +286,7 @@ class Observation(Dict[str, any]):
     """
     Observation provides access to per-step parameters in the environment.
     """
+
     @property
     def step(self) -> int:
         """Current step within the episode."""
@@ -265,6 +302,7 @@ class Configuration(Dict[str, any]):
     """
     Configuration provides access to tunable parameters in the environment.
     """
+
     @property
     def episode_steps(self) -> int:
         """Total number of steps/turns in the run."""
@@ -281,9 +319,9 @@ class Configuration(Dict[str, any]):
         return self["runTimeout"]
 
 
-TConfiguration = TypeVar('TConfiguration', bound=Configuration)
-TObservation = TypeVar('TObservation', bound=Observation)
-TAction = TypeVar('TAction')
+TConfiguration = TypeVar("TConfiguration", bound=Configuration)
+TObservation = TypeVar("TObservation", bound=Observation)
+TAction = TypeVar("TAction")
 Agent = Callable[[TObservation, TConfiguration], TAction]
 
 
@@ -319,17 +357,19 @@ class AgentState(Generic[TObservation, TAction], Dict[str, any]):
 
 class Environment(Generic[TConfiguration, TObservation, TAction]):
     @property
-    def specification(self) -> Dict[str, any]:
-        raise NotImplemented()
+    def specification(self) -> Dict[str, Any]:
+        raise NotImplementedError()
 
-    def interpret(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> List[AgentState[TObservation, TAction]]:
-        raise NotImplemented()
+    def interpret(
+        self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]
+    ) -> List[AgentState[TObservation, TAction]]:
+        raise NotImplementedError()
 
     def render_html(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def render_text(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @property
     def builtin_agents(self) -> Dict[str, Agent]:
