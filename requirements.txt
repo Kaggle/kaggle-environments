@@ -1,5 +1,5 @@
 Flask
-gym
+gymnasium
 ipython
 jsonschema
 numpy
