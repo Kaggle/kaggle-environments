@@ -1,6 +1,7 @@
 import itertools
 import json
 import random
+import logging
 import re
 from abc import ABC, abstractmethod
 from collections import Counter
@@ -13,6 +14,7 @@ from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExile
 from .roles import Player
 from .states import GameState
 
+logger = logging.getLogger(__name__)
 
 def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> List[str]:
     """Extracts player IDs mentioned in a string."""
@@ -348,6 +350,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
     def begin(self, state):
         # Reset queue
         self._queue = [p.id for p in state.alive_players()] * self.max_rounds
+        logger.info(f"**queue size: {len(self._queue)}")
         if self.max_rounds > 0 and self._queue:
             state.add_history_entry(
                 description="Discussion phase begins. Players will speak in round-robin order.",
