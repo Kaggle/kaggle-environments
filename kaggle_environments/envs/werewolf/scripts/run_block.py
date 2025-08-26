@@ -26,23 +26,12 @@ def load_config(config_path):
         return yaml.safe_load(f)
 
 
-def get_rotationally_unique_configs(roles: List[str]) -> List[List[str]]:
+def get_all_unique_role_configs(roles: List[str]) -> List[List[str]]:
     """
-    Generates all unique permutations of roles, filtering out any that are
-    rotational duplicates. This creates a set of 'necklaces'.
+    Generates all unique permutations of roles.
     """
     all_perms = list(set(permutations(roles)))
-    seen_configs = set()
-    unique_necklaces = []
-
-    for perm in all_perms:
-        if perm not in seen_configs:
-            unique_necklaces.append(list(perm))
-            temp_deque = collections.deque(perm)
-            for _ in range(len(perm)):
-                temp_deque.rotate(1)
-                seen_configs.add(tuple(temp_deque))
-    return unique_necklaces
+    return [list(p) for p in all_perms]
 
 
 @tenacity.retry(
@@ -104,9 +93,9 @@ def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug
     players_data = base_game_config['agents']
     base_roles = [agent['role'] for agent in players_data]
 
-    logger.info("Generating unique role configurations (filtering rotations)...")
-    all_role_configs = get_rotationally_unique_configs(base_roles)
-    logger.info(f"Found {len(all_role_configs)} rotationally unique arrangements.")
+    logger.info("Generating all unique role configurations...")
+    all_role_configs = get_all_unique_role_configs(base_roles)
+    logger.info(f"Found {len(all_role_configs)} unique arrangements.")
 
     available_role_configs = []
 
