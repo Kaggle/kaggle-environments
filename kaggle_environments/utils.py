@@ -49,11 +49,11 @@ def has(o, classinfo=None, default=None, path=None, is_callable=None):
         for p in path:
             cur = cur[p]
         if classinfo is not None and not isinstance(cur, classinfo):
-            raise "Not a match"
-        if is_callable == True and not callable(cur):
-            raise "Not callable"
-        if is_callable == False and callable(cur):
-            raise "Is callable"
+            raise ValueError("Not a match")
+        if is_callable and not callable(cur):
+            raise ValueError("Not callable")
+        if not is_callable and callable(cur):
+            raise ValueError("Is callable")
         return True
     except:
         if default is not None and o is not None and len(path) > 0:
@@ -137,7 +137,7 @@ def default_schema(schema, data):
         else:
             obj = data
             for k, v in default.items():
-                if not k in obj:
+                if k not in obj:
                     obj[k] = v
         properties = get(schema, dict, {}, ["properties"])
         for key, prop_schema in properties.items():
@@ -180,15 +180,11 @@ def get_player(window_kaggle, renderer):
         value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
         """
-        return read_file(renderer[1]).replace(
-            key, value
-        )
+        return read_file(renderer[1]).replace(key, value)
 
     key = "/*window.kaggle*/"
     value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
 window.kaggle.renderer = {renderer.strip()};\n\n
     """
-    return read_file(Path.joinpath(root_path, "static", "player.html")).replace(
-        key, value
-    )
+    return read_file(Path.joinpath(root_path, "static", "player.html")).replace(key, value)
