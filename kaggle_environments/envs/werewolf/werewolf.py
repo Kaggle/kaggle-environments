@@ -476,7 +476,12 @@ def initialize_moderator(state, env):
 
     players = create_players_from_agents_config(agents_from_config)
 
-    env.game_state = GameState(players=players, history={})
+    env.game_state = GameState(
+        players=players,
+        history={},
+        reveal_night_elimination_role=env.configuration.reveal_night_elimination_role,
+        reveal_day_exile_role=env.configuration.reveal_day_exile_role
+    )
 
     env.player_ids_map = {i: p.id for i, p in enumerate(players)}
     env.player_id_str_list = [p.id for p in players]
