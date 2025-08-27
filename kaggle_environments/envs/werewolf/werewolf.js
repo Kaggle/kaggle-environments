@@ -2697,12 +2697,14 @@ function renderer({
                 case 'exile':
                     const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-day`;
-                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap} (${entry.role}) was exiled by vote.</div>`;
+                    let role_text = (entry.role) ? ` (${entry.role})` : "";
+                    li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap}${role_text} was exiled by vote.</div>`;
                     break;
                 case 'elimination':
                     const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-night`;
-                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated. Their role was a ${entry.role}.</div>`;
+                    let elim_role_text = (entry.role) ? ` Their role was a ${entry.role}.` : "";
+                    li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated.${elim_role_text}</div>`;
                     break;
                 case 'save':
                      const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
