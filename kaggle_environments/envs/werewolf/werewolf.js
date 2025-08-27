@@ -2177,6 +2177,12 @@ function renderer({
             border: 1px solid rgba(255, 255, 255, 0.2);
             background-color: #ffffff;
         }
+
+        .capsule-display-name {
+            font-size: 0.9em;
+            color: #888;
+            margin-left: 5px;
+        }
         
         /* Enhanced TTS Button */
         .tts-button {
@@ -2388,9 +2394,10 @@ function renderer({
 
   function createPlayerCapsule(player) {
     if (!player) return '';
+    let display_name_elem = (player.display_name && (player.name !== player.display_name)) ? `<span class="capsule-display-name">${player.display_name}</span>` : "";
     return `<span class="player-capsule" title="${player.name}">
         <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
-        <span class="capsule-name">${player.name}</span>
+        <span class="capsule-name">${player.name}</span>${display_name_elem}
     </span>`;
   }
 
