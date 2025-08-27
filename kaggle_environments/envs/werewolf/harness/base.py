@@ -7,6 +7,7 @@ import ast
 import datetime
 import logging
 from typing import List
+import yaml
 
 import litellm
 from litellm import completion, cost_per_token
@@ -22,6 +23,13 @@ from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction, BidAction
 )
+
+_LITELLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'litellm_models.yaml')
+litellm.config_path = _LITELLM_CONFIG_PATH
+with open(_LITELLM_CONFIG_PATH, 'r') as _file:
+    _MODEL_COST_DICT = yaml.safe_load(_file)
+litellm.register_model(_MODEL_COST_DICT)
+
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +246,14 @@ class LLMCostTracker(BaseModel):
         completion_tokens = response['usage']['completion_tokens']
         prompt_tokens = response['usage']['prompt_tokens']
         response_cost = response._hidden_params["response_cost"]
-        prompt_cost, completion_cost = cost_per_token(
-            model=self.model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+
+        try:
+            prompt_cost, completion_cost = cost_per_token(
+                model=self.model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+            logger.info(f"Used litellm cost for {self.model_name}")
+        except Exception as exception:
+            raise Exception(f"Could not find cost for {self.model_name} in litellm or custom dict. "
+                            f"You can register the cost in \"litellm_models.yaml\"") from exception
 
         self.query_token_cost.update(token_count=prompt_tokens + completion_tokens, cost=response_cost)
         self.prompt_token_cost.update(token_count=prompt_tokens, cost=prompt_cost)
