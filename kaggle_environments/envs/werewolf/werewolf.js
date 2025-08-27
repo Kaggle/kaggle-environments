@@ -2392,6 +2392,54 @@ function renderer({
     }
   }
 
+  /**
+  * Creates a memoized function to replace player IDs with HTML capsules.
+  * This function pre-computes and caches sorted player data for efficiency.
+  * @param {Map<string, object>} playerMap - A map from player ID to player object.
+  * @returns {function(string): string} A function that takes text and returns it with player IDs replaced.
+  */
+  function createPlayerIdReplacer(playerMap) {
+    // Cache for already processed text strings (memoization)
+    const textCache = new Map();
+
+    // --- Pre-computation Cache ---
+    // This is created only once when the factory is called.
+    const sortedPlayerReplacements = [...playerMap.keys()]
+        .sort((a, b) => b.length - a.length) // Sort player IDs by length once
+        .map(playerId => {
+            const player = playerMap.get(playerId);
+            if (!player) return null;
+
+            // Pre-build the regex and the replacement capsule HTML for each player
+            return {
+                capsule: createPlayerCapsule(player),
+                regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})([^\\w.-]|$)`, 'g')
+            };
+        }).filter(Boolean); // Filter out any nulls if a player wasn't found
+
+    // The factory returns this efficient, memoized replacer function
+    return function (text) {
+        if (!text) {
+            return '';
+        }
+
+        // 1. Check the memoization cache first for the full text
+        if (textCache.has(text)) {
+            return textCache.get(text);
+        }
+
+        // 2. If not found, perform the replacement using the pre-computed data
+        let newText = text;
+        for (const replacement of sortedPlayerReplacements) {
+            newText = newText.replace(replacement.regex, `$1${replacement.capsule}$3`);
+        }
+
+        // 3. Store the result in the cache and return it
+        textCache.set(text, newText);
+        return newText;
+    };
+  }
+
   function createPlayerCapsule(player) {
     if (!player) return '';
     let display_name_elem = (player.display_name && (player.name !== player.display_name)) ? `<span class="capsule-display-name">${player.display_name}</span>` : "";
@@ -2402,22 +2450,32 @@ function renderer({
   }
 
   function replacePlayerIdsWithCapsules(text, playerIds, playerMap) {
-      if (!text) return '';
-      if (!playerIds || playerIds.length === 0) {
-          return text;
-      }
-      let newText = text;
-      const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
+    if (!text) return '';
+    if (!playerIds || playerIds.length === 0) {
+        return text;
+    }
+    let newText = text;
+    // Sort player IDs by length, descending, to ensure longer names are replaced first.
+    // This prevents 'player-1' from matching in 'player-10'.
+    const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
-      sortedPlayerIds.forEach(playerId => {
-          const player = playerMap.get(playerId);
-          if (player) {
-              const capsule = createPlayerCapsule(player);
-              const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
-              newText = newText.replace(regex, capsule);
-          }
-      });
-      return newText;
+    sortedPlayerIds.forEach(playerId => {
+        const player = playerMap.get(playerId);
+        if (player) {
+            const capsule = createPlayerCapsule(player);
+            // Escape any special regex characters in the player ID.
+            const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+            // Define a boundary as the start/end of the string or any character that is NOT
+            // a word character, a dot, or a hyphen. This correctly handles IDs with special characters.
+            // We capture these boundaries to preserve them in the output.
+            const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})([^\\w.-]|$)`, 'g');
+
+            // Replace the playerId with the capsule, putting back the captured boundaries ($1 and $3).
+            newText = newText.replace(regex, `$1${capsule}$3`);
+        }
+    });
+    return newText;
   }
 
   function replacePlayerIdsWithBold(text, playerIds) {
@@ -2607,7 +2665,7 @@ function renderer({
                 case 'chat':
                     const speaker = playerMap.get(entry.speaker);
                     if (!speaker) return;
-                    const messageText = replacePlayerIdsWithBold(entry.message, entry.mentioned_player_ids);
+                    const messageText = window.werewolfGamePlayer.playerIdReplacer(entry.message);
                     li.className = `chat-entry event-day`;
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
@@ -2684,13 +2742,26 @@ function renderer({
                     if (entry.text && entry.text.includes('has begun')) return;
 
                     let systemText = entry.text;
-                    const listRegex = /\\\[(.*?)\\\]/g;
-                    systemText = systemText.replace(listRegex, (match, listContent) => {
-                        return listContent.replace(/'/g, "").replace(/, /g, " ");
+
+                    // This enhanced regex captures the list content (group 1) and any optional
+                    // trailing punctuation like a period or comma (group 2).
+                    const listRegex = /\[(.*?)\](\s*[.,?!])?/g;
+
+                    systemText = systemText.replace(listRegex, (match, listContent, punctuation) => {
+                        // Clean the list content as before
+                        const cleanedContent = listContent.replace(/'/g, "").replace(/, /g, " ").trim();
+                        
+                        // If punctuation was captured, return the content with a space before the punctuation
+                        if (punctuation) {
+                            return cleanedContent + " " + punctuation.trim();
+                        }
+                        
+                        // Otherwise, just return the cleaned content
+                        return cleanedContent;
                     });
 
-                    const allPlayerIdsForSystem = Array.from(playerMap.keys());
-                    const finalSystemText = replacePlayerIdsWithCapsules(systemText, allPlayerIdsForSystem, playerMap);
+                    // NOW, run the efficient replacer on the cleaned-up string.
+                    const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 
                     li.className = `moderator-announcement`;
                     li.innerHTML = `
@@ -2954,6 +3025,11 @@ function renderer({
         display_name: agent.display_name
     }));
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
+
+    // Initialize and cache the replacer function if it doesn't exist
+    if (!player.playerIdReplacer) {
+        player.playerIdReplacer = createPlayerIdReplacer(playerMap);
+    }
 
     gameState.players.forEach(p => gameState.playerThreatLevels.set(p.name, 0));
 
