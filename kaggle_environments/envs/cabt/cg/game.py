@@ -1,7 +1,7 @@
 import ctypes
 import json
 
-from .sim import lib, Battle
+from .sim import StartData, lib, Battle
 
 def _get_battle_data() -> dict:
     """Retrieve the current state.
@@ -14,7 +14,7 @@ def _get_battle_data() -> dict:
     Battle.obs["search_begin_input"] = ctypes.string_at(sd.data, sd.count).decode('ascii')
     return Battle.obs
 
-def battle_start(deck0: list[int], deck1: list[int]) -> dict:
+def battle_start(deck0: list[int], deck1: list[int]) -> tuple[dict, StartData]:
     """Start the battle.
     
     Args:
@@ -22,16 +22,20 @@ def battle_start(deck0: list[int], deck1: list[int]) -> dict:
         deck1: List of card IDs included in the second player’s deck.
 
     Returns:
-        dict: First observation.
+        tuple: A tuple containing:
+            - dict: First observation.
+            - StartData: Battle start data.
     """
     if len(deck0) != 60 or len(deck1) != 60:
         raise ValueError("The deck must contain 60 cards.")
     cards = deck0 + deck1
     arg = (ctypes.c_int*len(cards))(*cards)
-    Battle.battle_ptr = lib.BattleStart(arg)
-    if Battle.battle_ptr == 0:
-        raise ValueError("Invalid deck.")
-    return _get_battle_data()
+    start_data = lib.BattleStart(arg)
+    Battle.battle_ptr = start_data.battlePtr
+    if Battle.battle_ptr == None or Battle.battle_ptr == 0:
+        return (None, start_data)
+    else:
+        return (_get_battle_data(), start_data)
 
 def battle_finish():
     """End the battle and free the memory used during it."""
