@@ -21,43 +21,55 @@ function renderer(context) {
     canvas.height = 700
     container.appendChild(canvas)
 
-    for (let k = 0; k < 2; k++) {
-      const button = document.createElement("button")
-      button.style.width = "120px"
-      button.style.height = "50px"
-      button.style.left = k == 0 ? "240px" : "380px"
-      button.style.top = "10px"
-      button.style.position = "absolute"
-      button.style.zIndex = 1
-      button.innerHTML = "Open Visualizer<br>" + players[k]
-      button.addEventListener("click", (e) => {
-        for (let i = 0; i < visList.length; i++) {
-          for (let j = 0; j < 2; j++) {
-            visList[i].current.players[j].ramainingTime = context.environment.steps[i][j].observation.remainingOverageTime
+    if (visList) {
+      for (let k = 0; k < 2; k++) {
+        const button = document.createElement("button")
+        button.style.width = "120px"
+        button.style.height = "50px"
+        button.style.left = k == 0 ? "240px" : "380px"
+        button.style.top = "10px"
+        button.style.position = "absolute"
+        button.style.zIndex = 1
+        button.innerHTML = "Open Visualizer<br>" + players[k]
+        button.addEventListener("click", (e) => {
+          for (let i = 0; i < visList.length; i++) {
+            for (let j = 0; j < 2; j++) {
+              visList[i].current.players[j].ramainingTime = context.environment.steps[i][j].observation.remainingOverageTime
+            }
           }
-        }
-        visList[0].ps = players
+          visList[0].ps = players
 
-        const input = document.createElement("input")
-        input.type = "hidden"
-        input.name = "json"
-        input.value = JSON.stringify(visList)
+          const input = document.createElement("input")
+          input.type = "hidden"
+          input.name = "json"
+          input.value = JSON.stringify(visList)
 
-        const form = document.createElement("form")
-        form.method = "POST"
-        form.action = "https://ptcgvis.heroz.jp/Visualizer/Replay/"
-        if (info.EpisodeId == null) {
-          form.action += k
-        } else {
-          form.action += info.EpisodeId + "/" + k
-        }
-        form.target = "_blank"
-        form.appendChild(input)
+          const form = document.createElement("form")
+          form.method = "POST"
+          form.action = "https://ptcgvis.heroz.jp/Visualizer/Replay/"
+          if (info.EpisodeId == null) {
+            form.action += k
+          } else {
+            form.action += info.EpisodeId + "/" + k
+          }
+          form.target = "_blank"
+          form.appendChild(input)
 
-        document.body.appendChild(form)
-        form.submit()
-      })
-      container.appendChild(button)
+          document.body.appendChild(form)
+          form.submit()
+        })
+        container.appendChild(button)
+      }
+    } else {
+      const ctx = canvas.getContext("2d")
+      ctx.strokeStyle = "#ccc"
+      ctx.fillStyle = "#fff"
+      ctx.font = "30px sans-serif"
+      ctx.fillText("No visualize data.", 10, 100)
+      const error = context.environment.steps[0][0].error
+      if (error) {
+        ctx.fillText(error, 10, 150)
+      }
     }
   }
 

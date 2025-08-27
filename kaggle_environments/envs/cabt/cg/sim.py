@@ -1,5 +1,12 @@
 import ctypes
 import os
+    
+class StartData(ctypes.Structure):
+    _fields_ = [
+        ("battlePtr", ctypes.c_void_p),
+        ("errorPlayer", ctypes.c_int),
+        ("errorType", ctypes.c_int),
+    ]
 
 class SerialData(ctypes.Structure):
     _fields_ = [
@@ -17,7 +24,7 @@ lib = ctypes.cdll.LoadLibrary(lib_path)
 
 lib.GameInitialize()
 
-lib.BattleStart.restype = ctypes.c_void_p
+lib.BattleStart.restype = StartData
 lib.BattleStart.argtypes = [ctypes.POINTER(ctypes.c_int)]
 
 lib.BattleFinish.argtypes = [ctypes.c_void_p]
