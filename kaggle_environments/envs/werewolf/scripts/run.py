@@ -11,7 +11,8 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, append_timestamp_to_dir, LogExecutionTime
-
+from kaggle_environments.envs.werewolf.werewolf import AgentFactoryWrapper, agents, LLM_SYSTEM_PROMPT, register_agents
+from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +50,22 @@ def main():
         config = yaml.safe_load(f)
         game_config = config.get('game_config', {})
 
-    # Extract agent harnesses from the config
-    agents = [agent.get('agent_id', 'random') for agent in game_config.get('agents', [])]
+    # Extract agent harnesses from the config and register the agents
+    agents_ = [agent.get('agent_id', 'random') for agent in game_config.get('agents', [])]
+    agent_dict = {}
+    for agent_name in agents_:
+        if agent_name.startswith('llm/'):
+            model_name = agent_name.lstrip('llm/')
+            agent_dict[agent_name] = AgentFactoryWrapper(
+                LLMWerewolfAgent,
+                model_name=model_name,
+                system_prompt=LLM_SYSTEM_PROMPT
+            )
+    register_agents(agent_dict)
 
     if args.random_agents:
         logger.info("Using random agents for all players.")
-        agents = ['random'] * len(agents)
+        agents_ = ['random'] * len(agents_)
 
     logger.info(f"Starting Werewolf game run. Output will be saved to: {run_output_dir}")
     with LogExecutionTime(logger_obj=logger, task_str="single game"):
@@ -62,7 +73,7 @@ def main():
             output_dir=run_output_dir,
             base_name=base_name,
             config=game_config,
-            agents=agents,
+            agents=agents_,
             debug=args.debug
         )
     logger.info(f"Game finished. Replay and log saved in: {run_output_dir}")

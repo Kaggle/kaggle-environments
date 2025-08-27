@@ -2,7 +2,7 @@ import json
 import logging
 import random
 from os import path, getenv
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 
 from pydantic import BaseModel, Field
 
@@ -236,37 +236,6 @@ class AgentFactoryWrapper:
 
 
 # --- Agent Registry ---
-
-LLM_MODEL_NAMES = [
-    # Google
-    "gemini/gemini-2.5-pro",
-    "gemini/gemini-2.5-flash",
-    # OpenAI
-    "gpt-5",
-    "gpt-4.1",
-    "o3",
-    "o4-mini",
-    # Anthropic
-    "claude-4-sonnet-20250514",
-    "claude-4-opus-20250514",
-    "claude-3-5-haiku-latest",
-    # xai
-    "xai/grok-4-0709",
-    "xai/grok-4-latest",
-    # vertex AI
-    "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
-    "vertex_ai/gemini-2.0-flash",
-    "vertex_ai/gemini-2.5-pro",
-    "vertex_ai/"
-    # together ai
-    "together_ai/deepseek-ai/DeepSeek-R1",
-    "together_ai/moonshotai/Kimi-K2-Instruct",
-    "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-    "together_ai/openai/gpt-oss-120b",
-    "together_ai/mistralai/Magistral-Small-2506",
-    "together_ai/zai-org/GLM-4.5-Air-FP8"
-]
-
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
 
 
@@ -277,26 +246,20 @@ class EnvInfoKeys:
 
 # *Package variable required by Kaggle Environments framework*
 # These are base agents that the calling framework can choose from
-# Provides a random_agent for testing,  a convenient default 'llm' agent, 
-# and agents powered by the various specific models
+# Provides a random_agent for testing and a convenient default 'llm' agent.
+
 agents = {
     "random": random_agent,
     "llm": AgentFactoryWrapper(
         LLMWerewolfAgent,
         model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
         system_prompt=LLM_SYSTEM_PROMPT
-    ),
-    # Register all specific LLM models. The AgentFactoryWrapper ensures each
-    # player gets a unique, stateful agent instance.
-    **{
-        f"llm/{model_name}": AgentFactoryWrapper(
-            LLMWerewolfAgent,
-            model_name=model_name,
-            system_prompt=LLM_SYSTEM_PROMPT
-        )
-        for model_name in LLM_MODEL_NAMES
-    }
+    )
 }
+
+
+def register_agents(agent_dict: Dict[str, Callable]):
+    agents.update(agent_dict)
 
 
 def log_error(status_code, state, env):
