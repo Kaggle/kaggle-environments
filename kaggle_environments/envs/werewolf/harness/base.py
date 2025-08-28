@@ -138,10 +138,10 @@ AUDIO_EXAMPLE = 'Say in an spooky whisper: "By the pricking of my thumbs... Some
 AUDIO_EXAMPLE_2 = 'Deliver in a thoughtful tone: "I was stunned. I really suspect John\'s intent of bringing up Tim."' 
 AUDIO_EXAMPLE_3 = 'Read this in as fast as possible while remaining intelligible: "My nomination for Jack was purely incidental."' 
 AUDIO_EXAMPLE_4 = 'Sound amused and relaxed: "that was a very keen observation, AND a classic wolf play.\n(voice: curious)\nI\'m wondering what the seer might say."' 
-CHAT_AUDIO_DICT = {"message": AUDIO_EXAMPLE, "reasoning": "To draw attention to other players ...", "perceived_threat_level": "SAFE"}
-CHAT_AUDIO_DICT_2 = {"message": AUDIO_EXAMPLE_2, "reasoning": "This accusation is uncalled for ...", "perceived_threat_level": "DANGER"}
-CHAT_AUDIO_DICT_3 = {"message": AUDIO_EXAMPLE_3, "reasoning": "I sense there are some suspicion directed towards me ...", "perceived_threat_level": "UNEASY"}
-CHAT_AUDIO_DICT_4 = {"message": AUDIO_EXAMPLE_4, "reasoning": "I am redirecting the attention to other leads ...", "perceived_threat_level": "UNEASY"}
+CHAT_AUDIO_DICT = {"perceived_threat_level": "SAFE", "reasoning": "To draw attention to other players ...", "message": AUDIO_EXAMPLE}
+CHAT_AUDIO_DICT_2 = {"perceived_threat_level": "DANGER", "reasoning": "This accusation is uncalled for ...", "message": AUDIO_EXAMPLE_2}
+CHAT_AUDIO_DICT_3 = {"perceived_threat_level": "UNEASY", "reasoning": "I sense there are some suspicion directed towards me ...", "message": AUDIO_EXAMPLE_3}
+CHAT_AUDIO_DICT_4 = {"perceived_threat_level": "UNEASY", "reasoning": "I am redirecting the attention to other leads ...", "message": AUDIO_EXAMPLE_4}
 CHAT_ACTION_EXEMPLAR_2 = f"```json\n{json.dumps(CHAT_AUDIO_DICT)}\n```"
 CHAT_ACTION_EXEMPLAR_3 = f"```json\n{json.dumps(CHAT_AUDIO_DICT_2)}\n```"
 CHAT_ACTION_EXEMPLAR = f"```json\n{json.dumps(CHAT_AUDIO_DICT_3)}\n```"
@@ -161,15 +161,16 @@ CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO = [
 ]
 
 
-CHAT_TEXT_DICT = {"reasoning": "I want to put pressure on Player3 and see how they react. A quiet player is often a werewolf.", "message": "I'm suspicious of Player3. They've been too quiet. What do you all think?", "perceived_threat_level": "UNEASY"}
+CHAT_TEXT_DICT = {"perceived_threat_level": "UNEASY", "reasoning": "I want to put pressure on Player3 and see how they react. A quiet player is often a werewolf.", "message": "I'm suspicious of Player3. They've been too quiet. What do you all think?"}
 CHAT_ACTION_EXEMPLAR_TEXT = f"```json\n{json.dumps(CHAT_TEXT_DICT)}\n```"
 
 
 CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT = [
-    '- The "message" will be displayed as text to other players. Focus on being clear, persuasive, and strategic.',
-    '- Your goal is to convince others to vote with you. Use logic, point out inconsistencies, or form alliances.',
+    '- The "message" will be displayed as text to other players. Focus on being clear and persuasive',
+    '- Your goal is to win the game as a team. Think about how to reach that goal strategically.',
     '- Refer to players by their ID (e.g., "Player1", "Player3") to avoid ambiguity.',
-    '- Keep your messages concise and to the point.'
+    '- Keep your messages concise and to the point. ',
+    '- You can simply say "Pass!", if you have nothing valuable you would like to share.'
 ]
 
 
@@ -191,6 +192,7 @@ This is the history of events that have happened so far. You can see what action
 
 ### Your Instruction
 Based on the game state and event log, please respond to the following instruction.
+
 {instruction}
 """
 
@@ -411,7 +413,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         raw_obs = obs.get('raw_observation')
         obs_model = WerewolfObservationModel(**raw_obs)
         content = {
-            "your_name": obs_model.role,
+            "your_name": obs_model.player_id,
             "your_team": obs_model.team,
             "your_role_name": obs_model.role,
             "all_player_ids": obs_model.all_player_ids,
