@@ -3,13 +3,13 @@ import json
 import random
 import re
 from abc import ABC, abstractmethod
-from collections import Counter
+from collections import Counter, deque
 from typing import Dict, List, Sequence, Optional, Tuple
 
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
 from .consts import Team, Phase
 from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
-    WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry
+    WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry, DiscussionOrderDataEntry, VoteOrderDataEntry
 from .roles import Player
 from .states import GameState
 
@@ -334,29 +334,51 @@ class DiscussionProtocol(ABC):
 
 
 class RoundRobinDiscussion(DiscussionProtocol):
-    def __init__(self, max_rounds: int = 1):
+    def __init__(self, max_rounds: int = 1, assign_random_first_speaker: bool = True):
+        """
+
+        Args:
+            max_rounds: rounds of discussion
+            assign_random_first_speaker: If true, the first speaker will be determined at the beginning of
+                the game randomly, while the order follow that of the player list. Otherwise, will start from the
+                0th player from player list.
+        """
         self.max_rounds = max_rounds
-        self._queue: list[str] = []
+        self._queue: deque[str] = deque()
+        self._assign_random_first_speaker = assign_random_first_speaker
+        self._player_ids = None
+        self._first_player_idx = None
 
     def reset(self) -> None:
-        self._queue = []
+        self._queue = deque()
 
     @property
     def discussion_rule(self) -> str:
         return f"Players speak in round-robin order for {self.max_rounds} round(s)."
 
     def begin(self, state):
+        if self._player_ids is None:
+            # initialize player_ids once.
+            self._player_ids = deque(state.all_player_ids)
+            if self._assign_random_first_speaker:
+                self._player_ids.rotate(random.randrange(len(self._player_ids)))
+
         # Reset queue
-        self._queue = [p.id for p in state.alive_players()] * self.max_rounds
+        player_order = [pid for pid in self._player_ids if state.is_alive(pid)]
+        self._queue = deque(player_order * self.max_rounds)
         if self.max_rounds > 0 and self._queue:
+            data = DiscussionOrderDataEntry(chat_order_of_player_ids=player_order)
             state.add_history_entry(
-                description="Discussion phase begins. Players will speak in round-robin order.",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
-                public=True
+                description="Discussion phase begins. Players will speak in round-robin order. "
+                            f"Starting from player {player_order[0]} with the following order: {player_order} "
+                            f"for {self.max_rounds} round(s).",
+                entry_type=HistoryEntryType.DISCUSSION_ORDER,
+                public=True,
+                data=data
             )
 
     def speakers_for_tick(self, state):
-        return [self._queue.pop(0)] if self._queue else []
+        return [self._queue.popleft()] if self._queue else []
 
     def is_discussion_over(self, state: GameState) -> bool:
         return not self._queue  # Over if queue is empty
@@ -967,7 +989,7 @@ class SequentialVoting(VotingProtocol):
     voters get a turn.
     """
 
-    def __init__(self):
+    def __init__(self, assign_random_first_voter: bool = True):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._potential_targets: List[str] = []
         self._voter_queue: List[str] = []  # Order of players to vote
@@ -976,6 +998,8 @@ class SequentialVoting(VotingProtocol):
         self._current_game_state: Optional[GameState] = None # To store state from begin_voting
         self._elected = None
         self._done_tallying = False
+        self._assign_random_first_voter = assign_random_first_voter
+        self._player_ids = None
 
     def reset(self) -> None:
         self._ballots = {}
@@ -989,17 +1013,33 @@ class SequentialVoting(VotingProtocol):
 
     @property
     def voting_rule(self) -> str:
-        return "Sequential voting. Players vote one by one. Player with the most votes after all have voted is exiled. Ties are broken randomly."
+        return ("Sequential voting. Players vote one by one. Player with the most votes after all have voted is exiled."
+                " Ties are broken randomly.")
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
+        if self._player_ids is None:
+            # initialize player_ids once.
+            self._player_ids = deque(state.all_player_ids)
+            if self._assign_random_first_voter:
+                self._player_ids.rotate(random.randrange(len(self._player_ids)))
         self._ballots = {}
-        self._expected_voters = [p.id for p in alive_voters if p.alive]
+        self._expected_voters = [pid for pid in self._player_ids if state.is_alive(pid)]
         self._potential_targets = [p.id for p in potential_targets]
         # The order of voting can be based on player ID, a random shuffle, or the order in alive_voters
         # For simplicity, using the order from alive_voters.
-        self._voter_queue = [p.id for p in alive_voters if p.alive]
+        self._voter_queue = list(self._expected_voters)
         self._current_voter_index = 0
         self._current_game_state = state # Store the game state reference
+
+        if self._expected_voters:
+            data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
+            state.add_history_entry(
+                description=f"Voting starts from player {self._expected_voters[0]} "
+                            f"with the following order: {self._expected_voters}",
+                entry_type=HistoryEntryType.VOTE_ORDER,
+                public=True,
+                data=data
+            )
 
     def get_voting_prompt(self, state: GameState, player_id: str) -> str:
         """

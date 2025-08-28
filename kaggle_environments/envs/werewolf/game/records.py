@@ -23,7 +23,9 @@ class HistoryEntryType(str, Enum):
     VOTE_ACTION = "vote_action"
     HEAL_ACTION = "heal_action"
     VOTE_RESULT = "vote_result"
+    VOTE_ORDER = "vote_order"
     DISCUSSION = "discussion"
+    DISCUSSION_ORDER = "discussion_order"
     BIDDING_INFO = "bidding_info"
     GAME_END = "game_end"
     MODERATOR_ANNOUNCEMENT = "moderator_announcement"
@@ -170,6 +172,10 @@ class DoctorSaveDataEntry(DataEntry):
     saved_player_id: str
 
 
+class VoteOrderDataEntry(DataEntry):
+    vote_order_of_player_ids: List[str]
+
+
 class WerewolfNightEliminationElectedDataEntry(DataEntry):
     """This record the elected elimination target by werewolves."""
     elected_target_player_id: str
@@ -186,6 +192,10 @@ class DayExileElectedDataEntry(DataEntry):
     elected_player_id: str
     elected_player_role_name: Optional[str] = None
     elected_player_team_name: Optional[str] = None
+
+
+class DiscussionOrderDataEntry(DataEntry):
+    chat_order_of_player_ids: List[str]
 
 
 class ChatDataEntry(DataEntry, ActionDataMixin):

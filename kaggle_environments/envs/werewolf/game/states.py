@@ -66,6 +66,9 @@ class GameState(BaseModel):
                 revealed.pop(pid, None)
         return revealed
 
+    def is_alive(self, player_id: str):
+        return self.get_player_by_id(player_id).alive
+
     def alive_players_by_role(self, role: RoleConst):
         return [p for p in self.alive_players() if p.role.name == role]
 
