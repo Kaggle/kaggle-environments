@@ -892,6 +892,46 @@ function renderer({
                         pedestal.material.emissive.setHex(0x440000);
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
+                    case 'doctor':
+                        // Green glow for Doctor at night
+                        orb.material.color.setHex(0x00ff00);
+                        orb.material.emissive.setHex(0x00ff00);
+                        orb.material.emissiveIntensity = 1.0;
+                        orbLight.color.setHex(0x00ff00);
+                        orbLight.intensity = 1.2;
+                        body.material.color.setHex(0x008800);
+                        body.material.emissive.setHex(0x004400);
+                        body.material.emissiveIntensity = 0.3;
+                        shoulders.material.color.setHex(0x008800);
+                        shoulders.material.emissive.setHex(0x004400);
+                        shoulders.material.emissiveIntensity = 0.3;
+                        glow.material.color.setHex(0x00ff00);
+                        glow.material.emissive.setHex(0x00ff00);
+                        glow.material.emissiveIntensity = 0.4;
+                        glow.visible = true;
+                        pedestal.material.emissive.setHex(0x004400);
+                        pedestal.material.emissiveIntensity = 0.2;
+                        break;
+                    case 'seer':
+                        // Purple glow for Seer at night
+                        orb.material.color.setHex(0x9932CC);
+                        orb.material.emissive.setHex(0x9932CC);
+                        orb.material.emissiveIntensity = 1.0;
+                        orbLight.color.setHex(0x9932CC);
+                        orbLight.intensity = 1.2;
+                        body.material.color.setHex(0x4B0082);
+                        body.material.emissive.setHex(0x3A005A);
+                        body.material.emissiveIntensity = 0.3;
+                        shoulders.material.color.setHex(0x4B0082);
+                        shoulders.material.emissive.setHex(0x3A005A);
+                        shoulders.material.emissiveIntensity = 0.3;
+                        glow.material.color.setHex(0x9932CC);
+                        glow.material.emissive.setHex(0x9932CC);
+                        glow.material.emissiveIntensity = 0.4;
+                        glow.visible = true;
+                        pedestal.material.emissive.setHex(0x3A005A);
+                        pedestal.material.emissiveIntensity = 0.2;
+                        break;
                     case 'voting':
                         // Orange pulse for voting
                         orb.material.color.setHex(0xff8800);
@@ -1446,6 +1486,10 @@ function renderer({
         threeState.demo.updatePlayerStatus(player.name, 'dead');
       } else if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
         threeState.demo.updatePlayerStatus(player.name, 'werewolf');
+      } else if (player.role === 'Doctor' && phase.toUpperCase() === 'NIGHT') {
+        threeState.demo.updatePlayerStatus(player.name, 'doctor');
+      } else if (player.role === 'Seer' && phase.toUpperCase() === 'NIGHT') {
+        threeState.demo.updatePlayerStatus(player.name, 'seer');
       } else {
         threeState.demo.updatePlayerStatus(player.name, 'default');
       }
