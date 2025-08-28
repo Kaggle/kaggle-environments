@@ -1022,8 +1022,10 @@ class SequentialVoting(VotingProtocol):
             self._player_ids = deque(state.all_player_ids)
             if self._assign_random_first_voter:
                 self._player_ids.rotate(random.randrange(len(self._player_ids)))
+        alive_voter_ids = [p.id for p in alive_voters]
+        alive_voter_ids_set = set(alive_voter_ids)
         self._ballots = {}
-        self._expected_voters = [pid for pid in self._player_ids if state.is_alive(pid)]
+        self._expected_voters = [pid for pid in self._player_ids if pid in alive_voter_ids_set]
         self._potential_targets = [p.id for p in potential_targets]
         # The order of voting can be based on player ID, a random shuffle, or the order in alive_voters
         # For simplicity, using the order from alive_voters.
@@ -1037,7 +1039,8 @@ class SequentialVoting(VotingProtocol):
                 description=f"Voting starts from player {self._expected_voters[0]} "
                             f"with the following order: {self._expected_voters}",
                 entry_type=HistoryEntryType.VOTE_ORDER,
-                public=True,
+                public=False,
+                visible_to=alive_voter_ids,
                 data=data
             )
 
