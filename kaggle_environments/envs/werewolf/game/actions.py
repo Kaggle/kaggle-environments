@@ -8,54 +8,62 @@ from pydantic import BaseModel, Field, field_validator
 from .consts import PerceivedThreatLevel
 
 
+_REPLACEMENT_MAP = {
+    # 'kill' variations
+    'kill': 'eliminate',
+    'kills': 'eliminates',
+    'killed': 'eliminated',
+    'killing': 'eliminating',
+    'killer': 'eliminator',
+
+    # 'lynch' variations
+    'lynch': 'exile',
+    'lynches': 'exiles',
+    'lynched': 'exiled',
+    'lynching': 'exiling',
+
+    # 'mislynch' variations
+    'mislynch': 'mis-exile',
+    'mislynches': 'mis-exiles',
+    'mislynched': 'mis-exiled',
+    'mislynching': 'mis-exiling',
+
+    # 'murder' variations
+    'murder': 'remove',
+    'murders': 'removes',
+    'murdered': 'removed',
+    'murdering': 'removing',
+    'murderer': 'remover'
+}
+
+_CENSOR_PATTERN = re.compile(r'\b(' + '|'.join(_REPLACEMENT_MAP.keys()) + r')\b', re.IGNORECASE)
+
+
+# Create a single, case-insensitive regex pattern from all map keys.
+def replacer(match):
+    """
+    Finds the correct replacement and applies case based on a specific heuristic.
+    """
+    original_word = match.group(0)
+    replacement = _REPLACEMENT_MAP[original_word.lower()]
+
+    # Rule 1: Preserve ALL CAPS.
+    if original_word.isupper():
+        return replacement.upper()
+
+    # Rule 2: Handle title-cased words with a more specific heuristic.
+    if original_word.istitle():
+        # Preserve title case if it's the first word of the string OR
+        # if it's a form like "-ing" which can start a new clause.
+        return replacement.title()
+
+    # Rule 3: For all other cases (e.g., "Kill" mid-sentence), default to lowercase.
+    return replacement.lower()
+
+
 def filter_language(text):
     """Remove inappropriate/violent language."""
-    replacement_map = {
-        # 'kill' variations
-        'kill': 'eliminate',
-        'kills': 'eliminates',
-        'killed': 'eliminated',
-        'killing': 'eliminating',
-        'killer': 'eliminator',
-
-        # 'lynch' variations
-        'lynch': 'exile',
-        'lynches': 'exiles',
-        'lynched': 'exiled',
-        'lynching': 'exiling',
-
-        # 'murder' variations
-        'murder': 'remove',
-        'murders': 'removes',
-        'murdered': 'removed',
-        'murdering': 'removing',
-        'murderer': 'remover'
-    }
-
-    # Create a single, case-insensitive regex pattern from all map keys.
-    pattern = re.compile(r'\b(' + '|'.join(replacement_map.keys()) + r')\b', re.IGNORECASE)
-
-    def replacer(match):
-        """
-        Finds the correct replacement and applies case based on a specific heuristic.
-        """
-        original_word = match.group(0)
-        replacement = replacement_map[original_word.lower()]
-
-        # Rule 1: Preserve ALL CAPS.
-        if original_word.isupper():
-            return replacement.upper()
-
-        # Rule 2: Handle title-cased words with a more specific heuristic.
-        if original_word.istitle():
-            # Preserve title case if it's the first word of the string OR
-            # if it's a form like "-ing" which can start a new clause.
-            return replacement.title()
-
-        # Rule 3: For all other cases (e.g., "Kill" mid-sentence), default to lowercase.
-        return replacement.lower()
-
-    return pattern.sub(replacer, text)
+    return _CENSOR_PATTERN.sub(replacer, text)
 
 
 # ------------------------------------------------------------------ #
