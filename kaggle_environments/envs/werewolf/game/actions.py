@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Optional, Dict
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -82,6 +82,10 @@ class Action(BaseModel):
         description="The self perceived threat level you are currently experiencing from other players. "
                     "The assessment will be invisible to other players."
     )
+    error: Optional[str] = None
+    raw_prompt: Optional[str] = None
+    raw_completion: Optional[str] = None
+    observation: Optional[Dict] = None
 
     @field_validator('reasoning', mode='before')
     @classmethod

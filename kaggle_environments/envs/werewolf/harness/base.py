@@ -3,11 +3,11 @@ import os
 import re
 import json
 import traceback
-import ast
-import datetime
 import logging
-from typing import List
+from typing import List, Optional
 import yaml
+import pyjson5
+import functools
 
 import litellm
 from litellm import completion, cost_per_token
@@ -39,13 +39,32 @@ litellm.drop_params = True
 load_dotenv()
 
 
+class LLMActionException(Exception):
+    """Custom exception to carry context from a failed LLM action."""
+    def __init__(self, message, original_exception, raw_out=None, prompt=None):
+        super().__init__(message)
+        self.original_exception = original_exception
+        self.raw_out = raw_out
+        self.prompt = prompt
+
+    def __str__(self):
+        return f"{super().__str__()} | Raw Output: '{self.raw_out}'"
+
+
 def _log_retry_warning(retry_state: tenacity.RetryCallState):
   assert retry_state.outcome is not None
   exception = retry_state.outcome.exception()
   traceback_str = ''.join(traceback.format_exception(exception))
-  logging.warning(
-      'Attempting retry # %d. Traceback: %s. Retry state: %s',
+  if retry_state.attempt_number < 1:
+      loglevel = logging.INFO
+  else:
+      loglevel = logging.WARNING
+  logging.log(
+      loglevel,
+      'Retrying: $s attempt # %s ended with: $s Traceback: %s Retry state: %s',
+      retry_state.fn,
       retry_state.attempt_number,
+      retry_state.outcome,
       traceback_str,
       retry_state,
   )
@@ -59,6 +78,17 @@ def _is_rate_limit_error(exception) -> bool:
     is_openai_rate_limit = "RateLimitError" in str(type(exception))
     is_http_429 = hasattr(exception, 'status_code') and exception.status_code == 429
     return is_openai_rate_limit or is_http_429
+
+
+def _is_context_window_exceeded_error(exception) -> bool:
+    """"""
+    is_error = "ContextWindowExceededError" in str(type(exception))
+    return is_error
+
+
+def _is_json_parsing_error(exception) -> bool:
+    out = True if isinstance(exception, pyjson5.Json5Exception) else False
+    return out
 
 
 def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
@@ -75,7 +105,7 @@ def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
         agent_instance._event_log_items_to_keep = int(original_count * 0.75)
 
         logger.warning(
-            'RateLimitError detected. Retrying with smaller context. '
+            'ContextWindowExceededError detected. Retrying with smaller context. '
             'Reducing event log from %d to %d itms.',
             original_count,
             agent_instance._event_log_items_to_keep,
@@ -85,12 +115,21 @@ def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
     _log_retry_warning(retry_state)
 
 
-_retry_decorator = tenacity.retry(
-    wait=tenacity.wait_random_exponential(min=1, max=60),
-    stop=tenacity.stop_after_delay(datetime.timedelta(minutes=15)),
-    before_sleep=_log_retry_warning,
-    reraise=True,
-)
+def _add_error_entry_on_retry(retry_state: tenacity.RetryCallState):
+    last_exception_wrapper = retry_state.outcome.exception()
+    if isinstance(last_exception_wrapper, LLMActionException):
+        last_exception = last_exception_wrapper.original_exception
+        # You can also access the failed output here if needed for logging
+        raw_out = last_exception_wrapper.raw_out
+        prompt = last_exception_wrapper.prompt
+        logger.warning(f"Retrying due to JSON parsing error. Failed output: {raw_out} Failed prompt: {prompt}")
+    else:
+        last_exception = last_exception_wrapper
+
+    stack_trace_list = traceback.format_exception(last_exception)
+    stack_trace_str = "".join(stack_trace_list)
+    retry_state.kwargs['error_stack_trace'] = stack_trace_str
+    _log_retry_warning(retry_state)
 
 
 def get_action_subset_fields_schema(model_cls, new_cls_name, fields):
@@ -193,7 +232,7 @@ This is the history of events that have happened so far. You can see what action
 ### Your Instruction
 Based on the game state and event log, please respond to the following instruction.
 
-{instruction}
+{instruction}{error_instruction}
 """
 
 INSTRUCTION_TEMPLATE = """#### ROLE
@@ -263,7 +302,35 @@ class LLMCostTracker(BaseModel):
         self.usage_history.append(response.usage)
 
 
+class ActionRegistry:
+    """A registry for action handler based on phase and role."""
+    def __init__(self):
+        self._registry = {}
+
+    def register(self, phase: DetailedPhase, role: Optional[RoleConst] = None):
+        """If an action is not role specific, role can be left as None, in which case all roles will be
+        pointing to the same handler.
+        """
+        def decorator(func):
+            self._registry.setdefault(phase, {})
+            if role is not None:
+                self._registry[phase][role] = func
+            else:
+                for item in RoleConst:
+                    self._registry[phase][item] = func
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator
+
+    def get(self, phase: DetailedPhase, role: RoleConst):
+        func = self._registry[phase][role]
+        return func
+
+
 class LLMWerewolfAgent(WerewolfAgentBase):
+    action_registry = ActionRegistry()
 
     def __init__(
             self, model_name: str, agent_config: dict = None, system_prompt: str = "",
@@ -322,6 +389,12 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             f"completion_tokens: '{self._cost_tracker.completion_token_cost.total_tokens}'."
         )
 
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception(_is_rate_limit_error),
+        stop=tenacity.stop_after_attempt(5),
+        wait=tenacity.wait_random_exponential(min=1, max=60),
+        reraise=True
+    )
     def query(self, prompt):
         logger.info(f"prompt for {self._model_name}: {prompt}")
         response = completion(
@@ -372,21 +445,19 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             json_str = re.sub(r',\s*([\}\]])', r'\1', json_str)
 
             # 3. Parse the cleaned string
-            try:
-                return json.loads(json_str)
-            except json.JSONDecodeError:
-                # Fallback for models that output python dicts with single quotes.
-                return ast.literal_eval(json_str)
+            return pyjson5.loads(json_str)
         except Exception:
             # Catch any other unexpected errors during string manipulation or parsing
             error_trace = traceback.format_exc()
             logger.error("An error occurred:\n%s", error_trace)
             logger.error(f"The model out failed to parse is model_name=\"{self._model_name}\".")
             logger.error(f"Failed to parse out={out}")
-        return {}
+            # reraise the error
+            raise
 
-
-    def render_prompt(self, instruction: str, obs, max_log_items: int = -1):
+    def render_prompt(
+            self, instruction: str, obs, max_log_items: int = -1,
+            error_stack_trace=None, error_prompt=None):
         """
         Renders the final prompt, optionally truncating the event log
         to include only the last 'max_log_items' events.
@@ -404,11 +475,17 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         else:
             event_log = "\n\n".join(all_descriptions)
 
+        error_instruction = ""
+        if error_stack_trace:
+            error_instruction = \
+                f"\n\nYour previous attempt resulted in the following error:\n{error_stack_trace}\n\n{error_prompt}"
+
         content = {
             "system_prompt": self._system_prompt,
             "current_state": json.dumps(current_state, indent=2, sort_keys=True),
             "event_log": event_log,
-            "instruction": instruction
+            "instruction": instruction,
+            "error_instruction": error_instruction,
         }
         return self._prompt_template.format(**content)
 
@@ -427,17 +504,165 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         return content
 
     @tenacity.retry(
-        retry=tenacity.retry_if_exception(_is_rate_limit_error),
+        retry=tenacity.retry_if_exception(_is_context_window_exceeded_error),
         stop=tenacity.stop_after_attempt(5),
-        wait=tenacity.wait_random_exponential(min=1, max=60),
+        wait=tenacity.wait_fixed(0.5),
         before_sleep=_truncate_and_log_on_retry,
         reraise=True,
     )
-    def query_parse(self, instruction, obs):
-        prompt = self.render_prompt(instruction=instruction, obs=obs, max_log_items=self._event_log_items_to_keep)
+    def render_prompt_query(self, instruction, obs, error_stack_trace=None, error_prompt=None):
+        prompt = self.render_prompt(
+            instruction=instruction,
+            obs=obs,
+            max_log_items=self._event_log_items_to_keep,
+            error_stack_trace=error_stack_trace,
+            error_prompt=error_prompt
+        )
         out = self.query(prompt)
-        parsed_out = self.parse(out)
-        return parsed_out
+        return out, prompt
+
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception(_is_json_parsing_error),
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_fixed(0.5),
+        before_sleep=_add_error_entry_on_retry,
+        reraise=True,
+    )
+    def query_parse(self, instruction, obs, error_stack_trace=None, error_prompt=None):
+        raw_out, prompt = self.render_prompt_query(instruction, obs, error_stack_trace, error_prompt)
+        try:
+            parsed_out = self.parse(raw_out)
+            # Add the raw_out and prompt to the output dict
+            parsed_out['raw_prompt'] = prompt
+            parsed_out['raw_completion'] = raw_out
+            return parsed_out
+        except pyjson5.Json5Exception as e:
+            # Catch the parsing error, wrap it with context, and re-raise.
+            # Tenacity will catch this and decide whether to retry.
+            raise LLMActionException(
+                message="Failed to parse LLM output.",
+                original_exception=e,
+                raw_out=raw_out,
+                prompt=prompt
+            )
+
+    @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.WEREWOLF)
+    def _night_werewolf_vote(self, entries, obs, common_args):
+        # Werewolves target other alive players.
+        history_entry = next((entry for entry in entries
+                              if entry.data and entry.data.get('valid_targets')), None)
+        action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
+        if history_entry:
+            valid_targets = history_entry.data.get('valid_targets')
+            instruction = INSTRUCTION_TEMPLATE.format(**{
+                "role": "You are a Werewolf.",
+                "task": "Vote for a player to eliminate.",
+                "additional_constraints": f"- Valid targets are: `{valid_targets}`.",
+                "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                "exemplar": TARGETED_ACTION_EXEMPLAR
+            })
+            parsed_out, raw_out, prompt = self.query_parse(
+                instruction, obs,
+                error_prompt="Your previous attempt failed. Please vote again."
+            )
+            action = EliminateProposalAction(**common_args, **parsed_out)
+        return action
+
+    @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.SEER)
+    def _night_seer_inspect(self, entries, obs, common_args):
+        # Seers can inspect any alive player.
+        history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                             None)
+        action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
+        if history_entry:
+            valid_targets = history_entry.data['valid_candidates']
+            instruction = INSTRUCTION_TEMPLATE.format(**{
+                "role": "You are a Seer.",
+                "task": "Choose a player to inspect and reveal their role.",
+                "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+                "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                "exemplar": TARGETED_ACTION_EXEMPLAR
+            })
+            parsed_out = self.query_parse(
+                instruction, obs,
+                error_prompt="Your previous attempt failed. Please choose one player to inspect again."
+            )
+            action = InspectAction(**common_args, **parsed_out)
+        return action
+
+    @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.DOCTOR)
+    def _night_doctor_heal(self, entries, obs, common_args):
+        action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
+        history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
+                             None)
+        if history_entry:
+            valid_targets = history_entry.data['valid_candidates']
+            instruction = INSTRUCTION_TEMPLATE.format(**{
+                "role": "You are a Doctor.",
+                "task": "Choose a player to save from the werewolf attack.",
+                "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+                "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+                "exemplar": TARGETED_ACTION_EXEMPLAR
+            })
+            parsed_out = self.query_parse(
+                instruction, obs,
+                error_prompt="Your previous attempt failed. Please choose one player to heal again."
+            )
+            action = HealAction(**common_args, **parsed_out)
+        return action
+
+    @action_registry.register(DetailedPhase.DAY_BIDDING_AWAIT)
+    def _day_bid(self, entries, obs, common_args):
+        instruction = INSTRUCTION_TEMPLATE.format(**{
+            "role": "It is bidding time. You can bid to get a chance to speak.",
+            "task": 'Decide how much to bid for a speaking turn. A higher bid increases your chance of speaking. You can bid from 0 to 4.',
+            "additional_constraints": "- The 'amount' must be an integer between 0 and 4.",
+            "json_schema": json.dumps(BID_ACTION_SCHEMA),
+            "exemplar": BID_ACTION_EXEMPLAR_REASONING if self._enable_bid_reasoning else BID_ACTION_EXEMPLAR
+        })
+        parsed_out = self.query_parse(instruction, obs)
+        action = BidAction(**common_args, **parsed_out)
+        return action
+
+    @action_registry.register(DetailedPhase.DAY_CHAT_AWAIT)
+    def _day_chat(self, entries, obs, common_args):
+        # All alive players can discuss.
+        if self._chat_mode == 'text':
+            constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT
+            exemplar = CHAT_ACTION_EXEMPLAR_TEXT
+        elif self._chat_mode == 'audio':  # audio mode
+            constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO
+            exemplar = CHAT_ACTION_EXEMPLAR
+        else:
+            raise ValueError(
+                f'Can only select between "text" mode and "audio" mode to prompt the LLM. "{self._chat_mode}" mode detected.')
+        instruction = INSTRUCTION_TEMPLATE.format(**{
+            "role": "It is day time. Participate in the discussion.",
+            "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
+            "additional_constraints": "\n".join(constraints),
+            "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
+            "exemplar": exemplar
+        })
+        parsed_out = self.query_parse(instruction, obs)
+        action = ChatAction(**common_args, **parsed_out)
+        return action
+
+    @action_registry.register(DetailedPhase.DAY_VOTING_AWAIT)
+    def _day_vote(self, entries, obs, common_args):
+        raw_obs = obs.get('raw_observation')
+        alive_players = raw_obs['alive_players']
+        my_id = raw_obs['player_id']
+        valid_targets = [p for p in alive_players if p != my_id]
+        instruction = INSTRUCTION_TEMPLATE.format(**{
+            "role": "It is day time. It is time to vote.",
+            "task": 'Choose a player to exile.',
+            "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
+            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
+            "exemplar": TARGETED_ACTION_EXEMPLAR
+        })
+        parsed_out = self.query_parse(instruction, obs)
+        action = VoteAction(**common_args, **parsed_out)
+        return action
 
     def __call__(self, obs):
         raw_obs = obs.get('raw_observation')
@@ -456,122 +681,31 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         my_role = RoleConst(raw_obs['role'])
 
         my_id = raw_obs['player_id']
-        alive_players = raw_obs['alive_players']
-
         day = raw_obs['day']
-        common_args = {"day": day, "phase": phase, "actor_id": my_id}
+        common_args = {"day": day, "phase": phase, "actor_id": my_id, "observation": obs}
 
-        action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
-        instruction = None
-        parsed_out = None
+        handler = self.action_registry.get(phase=current_phase, role=my_role)
+
         try:
-            if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
-                if my_role == RoleConst.WEREWOLF:
-                    # Werewolves target other alive players.
-                    history_entry = next((entry for entry in entries
-                                          if entry.data and entry.data.get('valid_targets')), None)
-                    if history_entry:
-                        valid_targets = history_entry.data.get('valid_targets')
-                        instruction = INSTRUCTION_TEMPLATE.format(**{
-                            "role": "You are a Werewolf.",
-                            "task": "Vote for a player to eliminate.",
-                            "additional_constraints": f"- Valid targets are: `{valid_targets}`.",
-                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
-                            "exemplar": TARGETED_ACTION_EXEMPLAR
-                        })
-                        parsed_out = self.query_parse(instruction, obs)
-                        action = EliminateProposalAction(**common_args, **parsed_out)
+            action = handler(self, entries, obs, common_args)
+        except LLMActionException as e:
+            # Catch the specific exception after all retries have failed
+            error_trace = traceback.format_exc()
+            logger.error("An LLMActionException occurred after all retries:\n%s", error_trace)
+            logger.error(f"The model failed to act is model_name=\"{self._model_name}\".")
 
-                elif my_role == RoleConst.DOCTOR:
-                    # Doctors can save any alive player (including themselves).
-                    history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                         None)
-                    if history_entry:
-                        valid_targets = history_entry.data['valid_candidates']
-                        instruction = INSTRUCTION_TEMPLATE.format(**{
-                            "role": "You are a Doctor.",
-                            "task": "Choose a player to save from the werewolf attack.",
-                            "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
-                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
-                            "exemplar": TARGETED_ACTION_EXEMPLAR
-                        })
-                        parsed_out = self.query_parse(instruction, obs)
-                        action = HealAction(**common_args, **parsed_out)
-
-                elif my_role == RoleConst.SEER:
-                    # Seers can inspect any alive player.
-                    history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                         None)
-                    if history_entry:
-                        valid_targets = history_entry.data['valid_candidates']
-                        instruction = INSTRUCTION_TEMPLATE.format(**{
-                            "role": "You are a Seer.",
-                            "task": "Choose a player to inspect and reveal their role.",
-                            "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
-                            "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
-                            "exemplar": TARGETED_ACTION_EXEMPLAR
-                        })
-                        parsed_out = self.query_parse(instruction, obs)
-                        action = InspectAction(**common_args, **parsed_out)
-
-            elif current_phase == DetailedPhase.DAY_BIDDING_AWAIT:
-                if my_id in alive_players:
-                    instruction = INSTRUCTION_TEMPLATE.format(**{
-                        "role": "It is bidding time. You can bid to get a chance to speak.",
-                        "task": 'Decide how much to bid for a speaking turn. A higher bid increases your chance of speaking. You can bid from 0 to 4.',
-                        "additional_constraints": "- The 'amount' must be an integer between 0 and 4.",
-                        "json_schema": json.dumps(BID_ACTION_SCHEMA),
-                        "exemplar": BID_ACTION_EXEMPLAR_REASONING if self._enable_bid_reasoning else BID_ACTION_EXEMPLAR
-                    })
-                    parsed_out = self.query_parse(instruction, obs)
-                    action = BidAction(**common_args, **parsed_out)
-
-            elif current_phase == DetailedPhase.DAY_CHAT_AWAIT:
-                # All alive players can discuss.
-                if my_id in alive_players:
-                    if self._chat_mode == 'text':
-                        constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT
-                        exemplar = CHAT_ACTION_EXEMPLAR_TEXT
-                    elif self._chat_mode == 'audio':  # audio mode
-                        constraints = CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO
-                        exemplar = CHAT_ACTION_EXEMPLAR
-                    else:
-                        raise ValueError(f'Can only select between "text" mode and "audio" mode to prompt the LLM. "{self._chat_mode}" mode detected.')
-                    instruction = INSTRUCTION_TEMPLATE.format(**{
-                        "role": "It is day time. Participate in the discussion.",
-                        "task": 'Discuss with other players to decide who to vote out. Formulate a "message" to persuade others.',
-                        "additional_constraints": "\n".join(constraints),
-                        "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
-                        "exemplar": exemplar
-                    })
-                    parsed_out = self.query_parse(instruction, obs)
-                    action = ChatAction(**common_args, **parsed_out)
-
-            elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
-                # Only alive players can vote. They cannot vote for themselves.
-                if my_id in alive_players:
-                    valid_targets = [p for p in alive_players if p != my_id]
-                    instruction = INSTRUCTION_TEMPLATE.format(**{
-                        "role": "It is day time. It is time to vote.",
-                        "task": 'Choose a player to exile.',
-                        "additional_constraints": f'- The "target_id" must be in this list: `{valid_targets}`.',
-                        "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
-                        "exemplar": TARGETED_ACTION_EXEMPLAR
-                    })
-                    parsed_out = self.query_parse(instruction, obs)
-                    action = VoteAction(**common_args, **parsed_out)
-
-            elif current_phase == DetailedPhase.GAME_OVER:
-                # No action needed when the game is over.
-                action = NoOpAction(**common_args, reasoning="Game over.")
+            # Now you can access the preserved data!
+            action = NoOpAction(
+                **common_args,
+                reasoning="Fell back to NoOp after multiple parsing failures.",
+                error=error_trace,
+                raw_completion=e.raw_out,  # <-- Preserved data
+                raw_prompt=e.prompt  # <-- Preserved data
+            )
         except Exception:
             error_trace = traceback.format_exc()
             logger.error("An error occurred:\n%s", error_trace)
             logger.error(f"The model failed to act is model_name=\"{self._model_name}\".")
-            logger.error(f"instruction=\"{instruction}\"")
-            logger.error(f'parsed_out="{parsed_out}"')
-        logger.info(f"model_name={self._model_name}")
-        logger.info(f'instruction="{instruction}"')
-        logger.info(f'action="{action.model_dump()}"')
+            action = NoOpAction(**common_args, reasoning="", error=error_trace)
         self.log_token_usage()
         return action.serialize()
