@@ -3,7 +3,7 @@ import os
 import sys
 import yaml
 import logging
-from datetime import datetime
+import random
 
 # Add the project root to the Python path to allow importing from kaggle_environments
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
@@ -34,6 +34,8 @@ def main():
                         help='Use random agents for all players for fast testing.')
     parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
                         help="Append a timestamp to the output directory.")
+    parser.add_argument("-s", "--shuffle_roles", action="store_true",
+                        help="If provided, shuffle the roles provided in the config.")
 
     args = parser.parse_args()
 
@@ -49,6 +51,13 @@ def main():
     with open(args.config_path, 'r') as f:
         config = yaml.safe_load(f)
         game_config = config.get('game_config', {})
+
+    # shuffle roles
+    if args.shuffle_roles:
+        roles = [agent['role'] for agent in game_config['agents']]
+        random.shuffle(roles)
+        for agent, new_role in zip(game_config['agents'], roles):
+            agent['role'] = new_role
 
     # Extract agent harnesses from the config and register the agents
     agents_ = [agent.get('agent_id', 'random') for agent in game_config.get('agents', [])]
