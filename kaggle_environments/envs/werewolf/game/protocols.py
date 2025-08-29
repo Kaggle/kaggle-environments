@@ -792,13 +792,13 @@ class SequentialFirstToK(VotingProtocol):
         # Assuming the Moderator handles whose turn it is.
         current_tally = self.get_current_tally_info(state)
         tally_str_parts = []
-        for target_id, votes in current_tally.items():
-            target_player = next((p for p in state.players if p.id == target_id), None)
-            target_name = f"{target_id}" if not target_player else f"{target_id} ({target_player.role.name if hasattr(target_player.role, 'name') else 'Unknown'})"
-            tally_str_parts.append(f"{target_name}: {votes} votes")
+        for target_id, votes in sorted(current_tally.items(), key=lambda x: x[1],
+                                       reverse=True):  # Sort for consistent display
+            tally_str_parts.append(f"{target_id}: {votes} vote(s)")
         tally_str = "; ".join(tally_str_parts) if tally_str_parts else "No votes yet."
         target_names = [f"{p.id}" for p in state.alive_players() if p.id in self._potential_targets]
-        return f"{player_id}, it's your turn to vote. Current tally: {tally_str}. Options: {', '.join(target_names)} or Abstain ('-1'). {self.threshold} votes needed to exile."
+        return (f"{player_id}, it's your turn to vote. Current tally: {tally_str}. "
+                f"Options: {', '.join(target_names)} or Abstain ('-1'). {self.threshold} votes needed to exile.")
 
     def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
         return Counter(tgt for tgt in self._ballots.values() if tgt != "-1")  # Excludes abstentions
@@ -1049,13 +1049,11 @@ class SequentialVoting(VotingProtocol):
         Generates a prompt for the given player_id, assuming it's their turn.
         """
         current_tally = self.get_current_tally_info(state)
+
+        # Sort for consistent display
         tally_str_parts = []
-        for target_id, votes in sorted(current_tally.items()):  # Sort for consistent display
-            target_player_obj = next((p for p in state.players if p.id == target_id), None)
-            target_name_display = f"{target_id}"
-            if target_player_obj and hasattr(target_player_obj.role, 'name'):
-                target_name_display += f" ({target_player_obj.role.name})"
-            tally_str_parts.append(f"{target_name_display}: {votes} vote(s)")
+        for target_id, votes in sorted(current_tally.items(), key=lambda x: x[1], reverse=True):
+            tally_str_parts.append(f"{target_id}: {votes} vote(s)")
 
         tally_str = "; ".join(tally_str_parts) if tally_str_parts else "No votes cast yet."
 
