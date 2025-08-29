@@ -303,13 +303,15 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     def cost_tracker(self) -> LLMCostTracker:
         return self._cost_tracker
 
-    def log_token_usage(self) :
+    def log_token_usage(self):
+        cost_history = self._cost_tracker.query_token_cost.cost_history_usd
+        query_cost = cost_history[-1] if cost_history else None
         logger.info(
             ", ".join([
                 f"*** Total prompt tokens: {self._cost_tracker.prompt_token_cost.total_tokens}",
                 f"total completion_tokens: {self._cost_tracker.completion_token_cost.total_tokens}",
                 f"total query cost: $ {self._cost_tracker.query_token_cost.total_costs_usd}",
-                f"current query cost: $ {self._cost_tracker.query_token_cost.cost_history_usd[-1]}"
+                f"current query cost: $ {query_cost}"
             ])
         )
 
@@ -321,6 +323,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         )
 
     def query(self, prompt):
+        logger.info(f"prompt for {self._model_name}: {prompt}")
         response = completion(
             model=self._model_name,
             messages=[{"content": prompt, "role": "user"}],
@@ -328,6 +331,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         )
         msg = response["choices"][0]["message"]["content"]
         self._cost_tracker.update(response)
+        logger.info(f"message from {self._model_name}: {msg}")
         return msg
 
     def parse(self, out: str) -> dict:
