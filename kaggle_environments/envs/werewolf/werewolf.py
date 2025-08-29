@@ -158,7 +158,7 @@ def random_agent(obs):
                     **common_args,
                     message=random.choice([
                         "Hello everyone!",
-                        f"I think {random.choice(all_player_names)} is suspicious.",
+                        f"I suspect {random.choice(all_player_names)}.",
                         "Any information to share?",
                         "I am a simple Villager just trying to survive.",
                         "Let's think carefully before voting."
