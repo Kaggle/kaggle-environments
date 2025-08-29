@@ -182,6 +182,8 @@ function renderer({
                 this._activeVoteArcs = new Map();
                 this._activeTargetRings = new Map();
 
+                this._speakingAnimations = [];
+
                 this._LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject);
                 this._RAF();
               }
@@ -945,6 +947,37 @@ function renderer({
                 }
               }
 
+              triggerSpeakingAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.isAlive) return;
+
+                const wave = this._createSoundWave(this._THREE);
+                player.container.add(wave);
+
+                // Add the wave to our animation manager array
+                this._speakingAnimations.push({
+                    mesh: wave,
+                    startTime: performance.now(),
+                    duration: 1800, // Animation duration in milliseconds
+                });
+              }
+
+              _createSoundWave(THREE) {
+                const waveGeometry = new THREE.RingGeometry(0.5, 0.7, 32);
+                const waveMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.8,
+                    side: THREE.DoubleSide,
+                });
+                const wave = new THREE.Mesh(waveGeometry, waveMaterial);
+
+                // Position the wave horizontally at the player's feet
+                wave.rotation.x = -Math.PI / 2;
+                wave.position.y = 0.25; // Slightly above the pedestal
+                return wave;
+              }
+
               _createVoteParticleTrail(voterName, targetName, color = 0x00ffff) {
                 const voter = this._playerObjects.get(voterName);
                 const target = this._playerObjects.get(targetName);
@@ -1347,6 +1380,33 @@ function renderer({
                     }
                     this._stars.geometry.attributes.size.needsUpdate = true;
                   }
+
+                  // Use performance.now() for more precise animation timing
+                  const now = performance.now();
+
+                  // Animate speaking sound waves
+                  this._speakingAnimations = this._speakingAnimations.filter(anim => {
+                    const elapsedTime = now - anim.startTime;
+                    if (elapsedTime >= anim.duration) {
+                    // Animation is over, remove the mesh from the scene
+                    if (anim.mesh.parent) {
+                        anim.mesh.parent.remove(anim.mesh);
+                    }
+                    // Clean up Three.js objects to free memory
+                    anim.mesh.geometry.dispose();
+                    anim.mesh.material.dispose();
+                    return false; // Remove from the animations array
+                    }
+
+                    // Calculate animation progress (from 0.0 to 1.0)
+                    const progress = elapsedTime / anim.duration;
+
+                    // Make the wave expand and fade out
+                    anim.mesh.scale.setScalar(1 + progress * 5);
+                    anim.mesh.material.opacity = 0.8 * (1 - progress);
+
+                    return true; // Keep the animation in the array
+                  });
                   
                   // Animate player objects with enhanced effects
                   if (this._playerObjects) {
@@ -1551,6 +1611,11 @@ function renderer({
             // A player is the actor
             const actorName = lastEvent.actor_id;
             threeState.demo.updatePlayerActive(actorName);
+
+            // If the action was speaking, trigger the sound wave animation
+            if (lastEvent.type === 'chat' && threeState.demo.triggerSpeakingAnimation) {
+                threeState.demo.triggerSpeakingAnimation(actorName);
+            }
         }
     }
   }
