@@ -3090,7 +3090,7 @@ function renderer({
         switch(threatString) {
             case 'SAFE': return 0;
             case 'UNEASY': return 0.5;
-            case 'IN_DANGER': return 1.0;
+            case 'DANGER': return 1.0;
             default: return 0;
         }
     }
