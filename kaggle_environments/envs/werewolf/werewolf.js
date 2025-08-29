@@ -790,76 +790,68 @@ function renderer({
                 this._controls.update();
               }
 
-              updatePlayerStatus(playerName, status) {
+              updatePlayerActive(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player) return;
+                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                
+                orb.material.emissiveIntensity = 1.;
+                orbLight.intensity = 1.;
+                glow.material.emissiveIntensity = 0.5;
+                // Slight scale up animation
+                container.scale.setScalar(1.1);
+                pedestal.material.emissiveIntensity = 0.3;
+              }
+
+              updatePlayerStatus(playerName, status, threatLevel = 0, is_active = false) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
                 const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
 
-                // Reset to a baseline "alive" state before applying specific statuses, unless the status is 'dead'.
-                if (status !== 'dead' && status !== 'active') {
-                    orb.material.color.setHex(0x00ff00);
-                    orb.material.emissive.setHex(0x00ff00);
-                    orb.material.emissiveIntensity = 0.8;
-                    orb.material.opacity = 0.9;
-                    orbLight.color.setHex(0x00ff00);
-                    orbLight.intensity = 0.8;
-                    body.material.color.setHex(0x4466ff);
-                    body.material.emissive.setHex(0x111166);
-                    body.material.emissiveIntensity = 0.2;
-                    shoulders.material.color.setHex(0x4466ff);
-                    shoulders.material.emissive.setHex(0x111166);
-                    shoulders.material.emissiveIntensity = 0.2;
-                    head.material.color.setHex(0xfdbcb4);
-                    head.material.emissive.setHex(0x442211);
-                    head.material.emissiveIntensity = 0.1;
-                    glow.material.color.setHex(0x00ff00);
-                    glow.material.emissive.setHex(0x00ff00);
-                    glow.material.emissiveIntensity = 0.3;
-                    glow.visible = true;
-                    pedestal.material.emissive.setHex(0x111122);
-                    pedestal.material.emissiveIntensity = 0.1;
-                    container.scale.setScalar(1.0);
-                    container.position.y = 0;
-                    container.rotation.x = 0;
-                    if (player.nameplate && player.nameplate.element) {
-                        player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
-                        player.nameplate.element.style.opacity = '1.0';
-                    }
-                    player.isAlive = true;
+                orb.material.color.setHex(0x00ff00);
+                orb.material.emissive.setHex(0x00ff00);
+                orb.material.emissiveIntensity = 0.8;
+                orb.material.opacity = 0.9;
+                orb.visible = true;
+                orbLight.color.setHex(0x00ff00);
+                orbLight.intensity = 0.8;
+                orbLight.visible = true;
+                body.material.color.setHex(0x4466ff);
+                body.material.emissive.setHex(0x111166);
+                body.material.emissiveIntensity = 0.2;
+                shoulders.material.color.setHex(0x4466ff);
+                shoulders.material.emissive.setHex(0x111166);
+                shoulders.material.emissiveIntensity = 0.2;
+                head.material.color.setHex(0xfdbcb4);
+                head.material.emissive.setHex(0x442211);
+                head.material.emissiveIntensity = 0.1;
+                glow.material.color.setHex(0x00ff00);
+                glow.material.emissive.setHex(0x00ff00);
+                glow.material.emissiveIntensity = 0.3;
+                glow.visible = true;
+                pedestal.material.emissive.setHex(0x111122);
+                pedestal.material.emissiveIntensity = 0.1;
+                container.scale.setScalar(1.0);
+                container.position.y = 0;
+                container.rotation.x = 0;
+                if (player.nameplate && player.nameplate.element) {
+                    player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
+                    player.nameplate.element.style.opacity = '1.0';
                 }
+                player.isAlive = true;
                 
                 switch(status) {
-                    case 'active':
-                        // Yellow glow for active player
-                        orb.material.color.setHex(0xffff00);
-                        orb.material.emissive.setHex(0xffff00);
-                        orbLight.color.setHex(0xffff00);
-                        orbLight.intensity = 1.5;
-                        glow.material.color.setHex(0xffff00);
-                        glow.material.emissive.setHex(0xffff00);
-                        glow.material.emissiveIntensity = 0.5;
-                        glow.visible = true;
-                        // Slight scale up animation
-                        container.scale.setScalar(1.1);
-                        pedestal.material.emissive.setHex(0x444400);
-                        pedestal.material.emissiveIntensity = 0.3;
-                        break;
                     case 'dead':
-                        // Gray out dead players
-                        orb.material.color.setHex(0x333333);
-                        orb.material.emissive.setHex(0x111111);
-                        orb.material.emissiveIntensity = 0.1;
-                        orb.material.opacity = 0.3;
-                        orbLight.color.setHex(0x333333);
-                        orbLight.intensity = 0.1;
+                        orb.visible = false;
+                        orbLight.visible = false;
+                        glow.visible = false;
                         body.material.color.setHex(0x444444);
                         body.material.emissive.setHex(0x000000);
                         shoulders.material.color.setHex(0x444444);
                         shoulders.material.emissive.setHex(0x000000);
                         head.material.color.setHex(0x666666);
                         head.material.emissive.setHex(0x000000);
-                        glow.visible = false;
                         pedestal.material.emissive.setHex(0x000000);
                         // Sink into ground
                         container.position.y = -1.5;
@@ -873,12 +865,6 @@ function renderer({
                         player.isAlive = false;
                         break;
                     case 'werewolf':
-                        // Red/purple glow for werewolves
-                        orb.material.color.setHex(0xff0000);
-                        orb.material.emissive.setHex(0xff0000);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0xff0000);
-                        orbLight.intensity = 1.2;
                         body.material.color.setHex(0x880000);
                         body.material.emissive.setHex(0x440000);
                         body.material.emissiveIntensity = 0.3;
@@ -893,12 +879,6 @@ function renderer({
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'doctor':
-                        // Green glow for Doctor at night
-                        orb.material.color.setHex(0x00ff00);
-                        orb.material.emissive.setHex(0x00ff00);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0x00ff00);
-                        orbLight.intensity = 1.2;
                         body.material.color.setHex(0x008800);
                         body.material.emissive.setHex(0x004400);
                         body.material.emissiveIntensity = 0.3;
@@ -913,12 +893,6 @@ function renderer({
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'seer':
-                        // Purple glow for Seer at night
-                        orb.material.color.setHex(0x9932CC);
-                        orb.material.emissive.setHex(0x9932CC);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0x9932CC);
-                        orbLight.intensity = 1.2;
                         body.material.color.setHex(0x4B0082);
                         body.material.emissive.setHex(0x3A005A);
                         body.material.emissiveIntensity = 0.3;
@@ -932,34 +906,42 @@ function renderer({
                         pedestal.material.emissive.setHex(0x3A005A);
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
-                    case 'voting':
-                        // Orange pulse for voting
-                        orb.material.color.setHex(0xff8800);
-                        orb.material.emissive.setHex(0xff8800);
-                        orb.material.emissiveIntensity = 0.9;
-                        orbLight.color.setHex(0xff8800);
-                        orbLight.intensity = 1.0;
-                        glow.material.color.setHex(0xff8800);
-                        glow.material.emissive.setHex(0xff8800);
-                        glow.material.emissiveIntensity = 0.3;
-                        glow.visible = true;
-                        break;
-                    case 'speaking':
-                        // Blue pulse for speaking
-                        orb.material.color.setHex(0x00aaff);
-                        orb.material.emissive.setHex(0x00aaff);
-                        orb.material.emissiveIntensity = 1.0;
-                        orbLight.color.setHex(0x00aaff);
-                        orbLight.intensity = 1.5;
-                        glow.material.color.setHex(0x00aaff);
-                        glow.material.emissive.setHex(0x00aaff);
-                        glow.material.emissiveIntensity = 0.4;
-                        glow.visible = true;
-                        container.scale.setScalar(1.05);
-                        break;
                     default:
                         // This is now covered by the reset block at the top of the function.
                         break;
+                }
+
+                if (threatLevel >= 1.0) { // DANGER
+                    orb.material.color.setHex(0xff0000); // Red
+                    orb.material.emissive.setHex(0xff0000);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0xff0000);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0xff0000);
+                    glow.material.emissive.setHex(0xff0000);
+                    glow.material.emissiveIntensity = 0.3;
+                } else if (threatLevel >= 0.5) { // UNEASY
+                    orb.material.color.setHex(0xffff00); // Yellow
+                    orb.material.emissive.setHex(0xffff00);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0xffff00);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0xffff00);
+                    glow.material.emissive.setHex(0xffff00);
+                    glow.material.emissiveIntensity = 0.3;
+                } else { // SAFE
+                    // orb.material.color.setHex(0x00ff00); // Green
+                    orb.material.color.setHex(0x00ff00);
+                    orb.material.emissive.setHex(0x00ff00);
+                    orb.material.emissiveIntensity = 1.0;
+                    orb.material.opacity = 0.9;
+                    orbLight.color.setHex(0x00ff00);
+                    orbLight.intensity = 1.2;
+                    glow.material.color.setHex(0x00ff00);
+                    glow.material.emissive.setHex(0x00ff00);
+                    glow.material.emissiveIntensity = 0.3;
                 }
               }
 
@@ -1482,17 +1464,20 @@ function renderer({
       const playerObj = threeState.demo._playerObjects.get(player.name);
       if (!playerObj) return;
 
+      const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
+
+      let primaryStatus = 'default'; // Default for alive players in daytime.
       if (!player.is_alive) {
-        threeState.demo.updatePlayerStatus(player.name, 'dead');
+        primaryStatus = 'dead';
       } else if (player.role === 'Werewolf' && phase.toUpperCase() === 'NIGHT') {
-        threeState.demo.updatePlayerStatus(player.name, 'werewolf');
+        primaryStatus = 'werewolf';
       } else if (player.role === 'Doctor' && phase.toUpperCase() === 'NIGHT') {
-        threeState.demo.updatePlayerStatus(player.name, 'doctor');
+        primaryStatus = 'doctor';
       } else if (player.role === 'Seer' && phase.toUpperCase() === 'NIGHT') {
-        threeState.demo.updatePlayerStatus(player.name, 'seer');
-      } else {
-        threeState.demo.updatePlayerStatus(player.name, 'default');
+        primaryStatus = 'seer';
       }
+
+      threeState.demo.updatePlayerStatus(player.name, primaryStatus, threatLevel);
     });
 
     // Update phase lighting
@@ -1559,13 +1544,13 @@ function renderer({
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
                 if (player.is_alive) {
-                    threeState.demo.updatePlayerStatus(player.name, 'active');
+                    threeState.demo.updatePlayerActive(player.name);
                 }
             });
         } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
             // A player is the actor
             const actorName = lastEvent.actor_id;
-            threeState.demo.updatePlayerStatus(actorName, 'active');
+            threeState.demo.updatePlayerActive(actorName);
         }
     }
   }
@@ -2591,9 +2576,6 @@ function renderer({
         const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
         // Update content
-        console.log("player:");
-        console.log(player);
-
         let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`
         if (player.display_name && player.display_name !== player.name) {
             player_name_element = `<div class="player-name" title="${player.name}">
