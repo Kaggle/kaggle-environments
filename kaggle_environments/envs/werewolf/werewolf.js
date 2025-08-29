@@ -2447,38 +2447,38 @@ function renderer({
     const textCache = new Map();
 
     // --- Pre-computation Cache ---
-    // This is created only once when the factory is called.
     const sortedPlayerReplacements = [...playerMap.keys()]
-        .sort((a, b) => b.length - a.length) // Sort player IDs by length once
+        .sort((a, b) => b.length - a.length) // Sort by length to match longest names first
         .map(playerId => {
             const player = playerMap.get(playerId);
             if (!player) return null;
 
-            // Pre-build the regex and the replacement capsule HTML for each player
             return {
                 capsule: createPlayerCapsule(player),
-                regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})([^\\w.-]|$)`, 'g')
+                // IMPROVEMENT: This new regex correctly handles both internal periods in names (e.g., 'gemini-1.5-pro')
+                // and sentence-ending periods (e.g., '... says Kai.').
+                // Breakdown:
+                // 1. (^|[^\w.-])       - The prefix boundary must not be a name character. This is unchanged.
+                // 2. (PLAYER_ID)       - The player's name.
+                // 3. (\.?)             - Optionally captures a single trailing period.
+                // 4. (?![-\w])          - A negative lookahead asserts that the name is not followed by another name character (a-z, 0-9, _, -).
+                //                        This is the key part that allows a trailing period to be treated as a boundary.
+                regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})(\\.?)(?![\\w-])`, 'g')
             };
-        }).filter(Boolean); // Filter out any nulls if a player wasn't found
+        }).filter(Boolean);
 
-    // The factory returns this efficient, memoized replacer function
     return function (text) {
-        if (!text) {
-            return '';
-        }
-
-        // 1. Check the memoization cache first for the full text
+        if (!text) return '';
         if (textCache.has(text)) {
             return textCache.get(text);
         }
 
-        // 2. If not found, perform the replacement using the pre-computed data
         let newText = text;
         for (const replacement of sortedPlayerReplacements) {
+            // The replacement string now uses $3 to append the optionally captured period after the capsule.
             newText = newText.replace(replacement.regex, `$1${replacement.capsule}$3`);
         }
 
-        // 3. Store the result in the cache and return it
         textCache.set(text, newText);
         return newText;
     };
@@ -2499,23 +2499,18 @@ function renderer({
         return text;
     }
     let newText = text;
-    // Sort player IDs by length, descending, to ensure longer names are replaced first.
-    // This prevents 'player-1' from matching in 'player-10'.
     const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
     sortedPlayerIds.forEach(playerId => {
         const player = playerMap.get(playerId);
         if (player) {
             const capsule = createPlayerCapsule(player);
-            // Escape any special regex characters in the player ID.
             const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-            // Define a boundary as the start/end of the string or any character that is NOT
-            // a word character, a dot, or a hyphen. This correctly handles IDs with special characters.
-            // We capture these boundaries to preserve them in the output.
-            const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})([^\\w.-]|$)`, 'g');
+            // Using the same improved regex as in the factory function.
+            const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})(\\.?)(?![\\w-])`, 'g');
 
-            // Replace the playerId with the capsule, putting back the captured boundaries ($1 and $3).
+            // The replacement correctly places the captured prefix ($1) and optional period ($3) around the capsule.
             newText = newText.replace(regex, `$1${capsule}$3`);
         }
     });
