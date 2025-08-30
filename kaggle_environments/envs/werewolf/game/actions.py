@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Optional, Dict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, create_model
 
 from .consts import PerceivedThreatLevel
 
@@ -97,10 +97,36 @@ class Action(BaseModel):
     def serialize(self):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
 
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        """Many of the fields are for internal game record. This method is used to convert the response schema
+        to a format friendly for players.
+        """
+        fields = fields or []
+        if not new_cls_name:
+            new_cls_name = cls.__name__ + 'Data'
+        field_definitions = {
+            field: (
+                cls.model_fields[field].annotation,
+                # Pass the entire FieldInfo object, not just the default value
+                cls.model_fields[field]
+            )
+            for field in fields
+            if field in cls.model_fields
+        }
+        sub_cls = create_model(new_cls_name, **field_definitions)
+        subset_schema = sub_cls.model_json_schema()
+        return subset_schema
+
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
     target_id: str = Field(description="The target player's id.")
+
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'target_id']
+        super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
 
 
 # ——— Concrete leaf classes --------------------------------------- #
@@ -128,6 +154,11 @@ class ChatAction(Action):
     def filter_message(cls, v):
         return filter_language(v)
 
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'reasoning', 'message']
+        super(ChatAction, cls).schema_for_player(fields, new_cls_name)
+
 
 class NoOpAction(Action):
     pass
@@ -140,6 +171,11 @@ class BidAction(Action):
     Currency unit can be generic 'chips' or role-specific.
     """
     amount: int = Field(ge=0)
+
+    @classmethod
+    def schema_for_player(cls, fields=None, new_cls_name=None):
+        fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
+        super(BidAction, cls).schema_for_player(fields, new_cls_name)
 
 
 ACTIONS = [
