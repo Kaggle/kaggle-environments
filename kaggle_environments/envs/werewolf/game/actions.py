@@ -125,8 +125,8 @@ class TargetedAction(Action):
 
     @classmethod
     def schema_for_player(cls, fields=None, new_cls_name=None):
-        fields = fields or ['perceived_threat_level', 'target_id']
-        super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
+        fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
+        return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
 
 
 # ——— Concrete leaf classes --------------------------------------- #
@@ -157,7 +157,7 @@ class ChatAction(Action):
     @classmethod
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'message']
-        super(ChatAction, cls).schema_for_player(fields, new_cls_name)
+        return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
 
 
 class NoOpAction(Action):
@@ -175,7 +175,7 @@ class BidAction(Action):
     @classmethod
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
-        super(BidAction, cls).schema_for_player(fields, new_cls_name)
+        return super(BidAction, cls).schema_for_player(fields, new_cls_name)
 
 
 ACTIONS = [
