@@ -1824,17 +1824,23 @@ function renderer({
         /* Enhanced Headers */
         .right-panel h1, #player-list-area h1 {
             margin: 0 0 20px 0;
-            text-align: center;
             font-size: 1.75rem;
             font-weight: 600;
             color: var(--text-primary);
+            position: relative;
+            padding-bottom: 15px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .right-panel h1 > span, #player-list-area h1 > span {
             background: linear-gradient(135deg, #74b9ff, #0984e3);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            position: relative;
-            padding-bottom: 15px;
-            flex-shrink: 0;
         }
         
         .right-panel h1::after, #player-list-area h1::after {
@@ -1847,6 +1853,28 @@ function renderer({
             height: 3px;
             background: linear-gradient(90deg, transparent, #74b9ff, transparent);
             border-radius: 2px;
+        }
+
+        #global-reasoning-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+        #global-reasoning-toggle:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        #global-reasoning-toggle svg {
+            stroke: currentColor;
+            width: 20px;
+            height: 20px;
         }
         
         /* Enhanced Player List */
@@ -2707,7 +2735,14 @@ function renderer({
   }
 
   function updateEventLog(container, gameState, playerMap) {
-    container.innerHTML = '<h1>Event Log</h1>';
+    container.innerHTML = `
+        <h1>
+            <span>Event Log</span>
+            <button id="global-reasoning-toggle" title="Toggle All Reasoning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+        </h1>
+    `;
     const logUl = document.createElement('ul');
     logUl.id = 'chat-log';
 
@@ -2945,6 +2980,22 @@ function renderer({
 
     container.appendChild(logUl);
     logUl.scrollTop = logUl.scrollHeight;
+
+    const globalToggle = container.querySelector('#global-reasoning-toggle');
+    if (globalToggle) {
+        globalToggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const reasoningTexts = logUl.querySelectorAll('.reasoning-text');
+            if (reasoningTexts.length === 0) return;
+
+            // Determine if we should show or hide all. If any are visible, we hide all. Otherwise, show all.
+            const shouldShow = ![...reasoningTexts].some(el => el.classList.contains('visible'));
+
+            reasoningTexts.forEach(el => {
+                el.classList.toggle('visible', shouldShow);
+            });
+        });
+    }
   }
 
   function renderPlayerList(container, gameState, actingPlayerName) {
