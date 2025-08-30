@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Dict
+from typing import Optional, Tuple
+from functools import lru_cache
 
 from pydantic import BaseModel, Field, field_validator, create_model
 
 from .consts import PerceivedThreatLevel
-
 
 _REPLACEMENT_MAP = {
     # 'kill' variations
@@ -85,7 +85,6 @@ class Action(BaseModel):
     error: Optional[str] = None
     raw_prompt: Optional[str] = None
     raw_completion: Optional[str] = None
-    observation: Optional[Dict] = None
 
     @field_validator('reasoning', mode='before')
     @classmethod
@@ -98,7 +97,7 @@ class Action(BaseModel):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
 
     @classmethod
-    def schema_for_player(cls, fields=None, new_cls_name=None):
+    def schema_for_player(cls, fields: Tuple = None, new_cls_name=None):
         """Many of the fields are for internal game record. This method is used to convert the response schema
         to a format friendly for players.
         """
@@ -118,15 +117,24 @@ class Action(BaseModel):
         subset_schema = sub_cls.model_json_schema()
         return subset_schema
 
+    @property
+    def action_field(self) -> Optional[str]:
+        return None
+
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
     target_id: str = Field(description="The target player's id.")
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
         return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
+
+    @property
+    def action_field(self):
+        return "target_id"
 
 
 # ——— Concrete leaf classes --------------------------------------- #
@@ -155,9 +163,14 @@ class ChatAction(Action):
         return filter_language(v)
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'message']
         return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
+
+    @property
+    def action_field(self):
+        return "message"
 
 
 class NoOpAction(Action):
@@ -173,9 +186,14 @@ class BidAction(Action):
     amount: int = Field(ge=0)
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
         return super(BidAction, cls).schema_for_player(fields, new_cls_name)
+
+    @property
+    def action_field(self):
+        return "amount"
 
 
 ACTIONS = [

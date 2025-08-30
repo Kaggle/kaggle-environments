@@ -1,28 +1,28 @@
-from abc import ABC, abstractmethod
+import functools
+import json
+import logging
 import os
 import re
-import json
 import traceback
-import logging
+from abc import ABC, abstractmethod
+from collections import namedtuple
 from typing import List, Optional
-import yaml
-import pyjson5
-import functools
 
 import litellm
-from litellm import completion, cost_per_token
-from dotenv import load_dotenv
-from pydantic import create_model, BaseModel, Field
+import pyjson5
 import tenacity
+import yaml
+from dotenv import load_dotenv
+from litellm import completion, cost_per_token
 from litellm.types.utils import Usage
+from pydantic import BaseModel, Field
 
-from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel
-from kaggle_environments.envs.werewolf.game.states import HistoryEntry
-from kaggle_environments.envs.werewolf.game.engine import DetailedPhase
-from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction, BidAction
 )
+from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType, DetailedPhase
+from kaggle_environments.envs.werewolf.game.records import HistoryEntryType, get_raw_observation
+from kaggle_environments.envs.werewolf.game.states import get_last_action_request
 
 _LITELLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'litellm_models.yaml')
 litellm.config_path = _LITELLM_CONFIG_PATH
@@ -136,7 +136,7 @@ TARGETED_ACTION_SCHEMA = TargetedAction.schema_for_player()
 CHAT_ACTION_SCHEMA = ChatAction.schema_for_player()
 
 BID_ACTION_SCHEMA = BidAction.schema_for_player()
-BID_ACTION_SCHEMA_REASONING = BidAction.schema_for_player(['perceived_threat_level', 'reasoning', 'target_id'])
+BID_ACTION_SCHEMA_REASONING = BidAction.schema_for_player(('perceived_threat_level', 'reasoning', 'target_id'))
 
 
 TARGETED_ACTION_EXEMPLAR = f"""```json
@@ -199,11 +199,10 @@ class WerewolfAgentBase(ABC):
 DEFAULT_PROMPT_TEMPLATE = """{system_prompt}
 
 ### Current Game State
-This is the current state of the game. Use this information to make your decision.
 {current_state}
 
-### Game Event Log
-This is the history of events that have happened so far. You can see what actions were taken and what was said.
+### Game Timeline
+This is the complete, chronological timeline of all public events and your private actions.
 {event_log}
 
 ### Your Instruction
@@ -306,6 +305,14 @@ class ActionRegistry:
         return func
 
 
+class EventLogKeys:
+    PUBLIC_EVENT = "public_event"
+    PRIVATE_ACTION = "private_action"
+
+
+EventLogItem = namedtuple('EventLogItem', ['event_log_key', 'day', 'phase', 'log_item'])
+
+
 class LLMWerewolfAgent(WerewolfAgentBase):
     action_registry = ActionRegistry()
 
@@ -323,11 +330,13 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         self._enable_bid_reasoning = agent_config.get("enable_bid_reasoning", False)
         self._cost_tracker = LLMCostTracker(model_name=model_name)
 
-        self._history_entries = []
         self._model_name = model_name
         self._system_prompt = system_prompt
         self._prompt_template = prompt_template
         self._is_vertex_ai = "vertex_ai" in self._model_name
+
+        # storing all events including internal and external
+        self._event_logs: List[EventLogItem] = []
 
         # This new attribute will track how much history to include for each retry attempt
         self._event_log_items_to_keep = 0
@@ -440,17 +449,33 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         to include only the last 'max_log_items' events.
         """
         current_state = self.current_state(obs)
-        all_descriptions = [
-            entry.description
-            for entry_list in self._history_entries
-            for entry in entry_list
-        ]
 
         # Greedily take the last n items from the event log if a limit is set
-        if max_log_items >= 0 and len(all_descriptions) > max_log_items:
-            event_log = "\n\n".join(all_descriptions[-max_log_items:])
+        if 0 <= max_log_items < len(self._event_logs):
+            event_logs = self._event_logs[-max_log_items:]
         else:
-            event_log = "\n\n".join(all_descriptions)
+            event_logs = self._event_logs
+
+        # Build the unified, tagged event logs
+        log_parts = []
+        day_phase = (None, None)
+        for log_key, day, phase, log_item in event_logs:
+            if (day, phase) != day_phase:
+                day_phase = (day, phase)
+                log_parts.append(f"**--- {phase} {day} ---**")
+            if log_key == EventLogKeys.PUBLIC_EVENT:
+                log_parts.append(f"[EVENT] {log_item.description}")
+            elif log_key == EventLogKeys.PRIVATE_ACTION:
+                text_parts = [f"[YOUR ACTION & REASONING] You decided to use {type(log_item).__name__} "]
+                # account for NOOP
+                if log_item.action_field:
+                    action_field_item = f" - {log_item.action_field.capitalize()}: {getattr(log_item, log_item.action_field)}"
+                    text_parts.append(action_field_item)
+                text_parts.append(f" - Reasoning: {log_item.reasoning}")
+                text_parts.append(f" - Perceived threat level: {log_item.perceived_threat_level}")
+                log_parts.append("\n".join(text_parts))
+
+        event_log = "\n\n".join(log_parts)
 
         error_instruction = ""
         if error_stack_trace:
@@ -468,8 +493,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @staticmethod
     def current_state(obs):
-        raw_obs = obs.get('raw_observation')
-        obs_model = WerewolfObservationModel(**raw_obs)
+        obs_model = get_raw_observation(obs)
         content = {
             "your_name": obs_model.player_id,
             "your_team": obs_model.team,
@@ -526,8 +550,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.WEREWOLF)
     def _night_werewolf_vote(self, entries, obs, common_args):
         # Werewolves target other alive players.
-        history_entry = next((entry for entry in entries
-                              if entry.data and entry.data.get('valid_targets')), None)
+        history_entry = get_last_action_request(entries, HistoryEntryType.VOTE_REQUEST)
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
         if history_entry:
             valid_targets = history_entry.data.get('valid_targets')
@@ -548,8 +571,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.SEER)
     def _night_seer_inspect(self, entries, obs, common_args):
         # Seers can inspect any alive player.
-        history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                             None)
+        history_entry = get_last_action_request(entries, HistoryEntryType.INSPECT_REQUEST)
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
         if history_entry:
             valid_targets = history_entry.data['valid_candidates']
@@ -570,8 +592,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.DOCTOR)
     def _night_doctor_heal(self, entries, obs, common_args):
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
-        history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                             None)
+        history_entry = get_last_action_request(entries, HistoryEntryType.HEAL_REQUEST)
         if history_entry:
             valid_targets = history_entry.data['valid_candidates']
             instruction = INSTRUCTION_TEMPLATE.format(**{
@@ -597,7 +618,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(BID_ACTION_SCHEMA),
             "exemplar": BID_ACTION_EXEMPLAR_REASONING if self._enable_bid_reasoning else BID_ACTION_EXEMPLAR
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please place your bid again."
+        )
         action = BidAction(**common_args, **parsed_out)
         return action
 
@@ -620,15 +644,18 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
             "exemplar": exemplar
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please prepare your message again."
+        )
         action = ChatAction(**common_args, **parsed_out)
         return action
 
     @action_registry.register(DetailedPhase.DAY_VOTING_AWAIT)
     def _day_vote(self, entries, obs, common_args):
-        raw_obs = obs.get('raw_observation')
-        alive_players = raw_obs['alive_players']
-        my_id = raw_obs['player_id']
+        raw_obs = get_raw_observation(obs)
+        alive_players = raw_obs.alive_players
+        my_id = raw_obs.player_id
         valid_targets = [p for p in alive_players if p != my_id]
         instruction = INSTRUCTION_TEMPLATE.format(**{
             "role": "It is day time. It is time to vote.",
@@ -637,29 +664,32 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
             "exemplar": TARGETED_ACTION_EXEMPLAR
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please cast your vote again."
+        )
         action = VoteAction(**common_args, **parsed_out)
         return action
 
     def __call__(self, obs):
-        raw_obs = obs.get('raw_observation')
-        entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json')]
+        raw_obs = get_raw_observation(obs)
+        entries = raw_obs.new_player_history_entry_views
 
-        self._history_entries.append(entries)
+        for entry in entries:
+            self._event_logs.append(
+                EventLogItem(EventLogKeys.PUBLIC_EVENT, day=entry.day, phase=entry.phase, log_item=entry)
+            )
 
         # Default to NO_OP if observation is missing or agent cannot act
         if not raw_obs or not entries:
             return {"action_type": ActionType.NO_OP.value, "target_idx": None, "message": None}
 
-        self._event_log_items_to_keep = sum(len(entry_list) for entry_list in self._history_entries)
+        self._event_log_items_to_keep = len(self._event_logs)
 
-        phase = raw_obs['game_state_phase']
-        current_phase = DetailedPhase(raw_obs['phase'])
-        my_role = RoleConst(raw_obs['role'])
+        current_phase = DetailedPhase(raw_obs.phase)
+        my_role = RoleConst(raw_obs.role)
 
-        my_id = raw_obs['player_id']
-        day = raw_obs['day']
-        common_args = {"day": day, "phase": phase, "actor_id": my_id}
+        common_args = {"day": raw_obs.day, "phase": raw_obs.phase, "actor_id": raw_obs.player_id}
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 
@@ -685,4 +715,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             logger.error(f"The model failed to act is model_name=\"{self._model_name}\".")
             action = NoOpAction(**common_args, reasoning="", error=error_trace)
         self.log_token_usage()
+        # record self action
+        self._event_logs.append(
+            EventLogItem(EventLogKeys.PRIVATE_ACTION, day=raw_obs.day, phase=raw_obs.game_state_phase, log_item=action))
         return action.serialize()

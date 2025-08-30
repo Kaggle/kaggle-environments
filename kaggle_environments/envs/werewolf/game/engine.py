@@ -1,15 +1,14 @@
 
 
 import json
-from enum import Enum
 from typing import List, Dict, Tuple, Type, Sequence
 
 from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
-from .consts import Phase, Team, RoleConst, PhaseDivider
+from .consts import Phase, Team, RoleConst, PhaseDivider, DetailedPhase
 from .protocols import TurnByTurnBiddingDiscussion
 from .protocols import DiscussionProtocol, VotingProtocol
 from .records import (
-    HistoryEntryType, HistoryEntry, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
+    HistoryEntryType, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
     RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry,
     WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry, DayExileElectedDataEntry,
     GameEndResultsDataEntry, DoctorHealActionDataEntry, SeerInspectActionDataEntry, SetNewPhaseDataEntry
@@ -17,18 +16,6 @@ from .records import (
 
 from .roles import Player
 from .states import GameState
-
-
-class DetailedPhase(Enum):
-    # Night Phases
-    NIGHT_START = "NIGHT_START"
-    NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
-    # Day Phases
-    DAY_START = "DAY_START"
-    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT"
-    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
-    DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
-    GAME_OVER = "GAME_OVER"
 
 
 class ActionQueue:
@@ -176,6 +163,7 @@ class Moderator:
 
     def set_new_phase(self, new_detailed_phase, add_one_day=False):
         self.detailed_phase = new_detailed_phase
+        self.state.detailed_phase = new_detailed_phase
         if new_detailed_phase == DetailedPhase.NIGHT_START or new_detailed_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
             self.state.phase = Phase.NIGHT
         else:
@@ -193,41 +181,6 @@ class Moderator:
 
     def get_active_player_ids(self) -> List[str]:
         return self._action_queue.get_active_player_ids()
-
-    def get_observation(self, player_id: str) -> Tuple[List[HistoryEntry], Tuple[int, int]]:
-        """
-        Retrieves new history entries for a player since their last call.
-        Returns the entries and the new potential cursor position.
-        Does NOT update the player's history cursor itself.
-        """
-        read_from_day, read_from_idx_in_day = self._player_history_cursors.get(player_id, (0, 0))
-        newly_visible_entries: List[HistoryEntry] = []
-
-        # These will store the position of the next entry to be read after this call
-        updated_cursor_day = read_from_day
-        updated_cursor_idx_in_day = read_from_idx_in_day
-
-        sorted_days = sorted(self.state.history.keys())
-
-        for day_num in sorted_days:
-            if day_num < read_from_day:
-                continue
-
-            day_entries = self.state.history[day_num]
-            current_processing_idx = 0
-            if day_num == read_from_day:
-                current_processing_idx = read_from_idx_in_day
-
-            while current_processing_idx < len(day_entries):
-                entry = day_entries[current_processing_idx]
-                if entry.public or player_id in entry.visible_to:
-                    newly_visible_entries.append(entry)
-
-                current_processing_idx += 1
-                updated_cursor_day = day_num
-                updated_cursor_idx_in_day = current_processing_idx  # Next index to read
-
-        return newly_visible_entries, (updated_cursor_day, updated_cursor_idx_in_day)
 
     def update_player_cursor(self, player_id: str, new_cursor: Tuple[int, int]):
         """
@@ -284,7 +237,7 @@ class Moderator:
             self.state.add_history_entry(
                 description=f"Wake up Doctor. Who would you like to save? "
                             f"The options are {data_entry.valid_candidates}.\n{self.doctor_special_msg}",
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                entry_type=HistoryEntryType.HEAL_REQUEST,
                 public=False,
                 visible_to=[doctor.id],
                 data=data_entry
@@ -299,7 +252,7 @@ class Moderator:
             )
             self.state.add_history_entry(
                 description=f"Wake up Seer. Who would you like to see their true role? The options are {data_entry.valid_candidates}.",
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                entry_type=HistoryEntryType.INSPECT_REQUEST,
                 public=False,
                 visible_to=[seer.id],
                 data=data_entry
@@ -323,7 +276,7 @@ class Moderator:
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
                             f"Choose one target player to eliminate tonight. The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule} "
                             f"Who would you like to eliminate tonight? Options: {data.valid_targets}.",
-                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                entry_type=HistoryEntryType.VOTE_REQUEST,
                 public=False,
                 visible_to=alive_werewolf_ids,
                 data=data
@@ -374,7 +327,8 @@ class Moderator:
                         entry_type=HistoryEntryType.HEAL_ACTION,
                         public=False,
                         visible_to=[actor_id],
-                        data=data
+                        data=data,
+                        source=actor_id
                     )
                     target_id = action.target_id
                     if target_id not in self._night_save_queue:
@@ -391,10 +345,11 @@ class Moderator:
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
-                        entry_type=HistoryEntryType.ACTION_RESULT,
+                        entry_type=HistoryEntryType.INSPECT_ACTION,
                         public=False,
                         visible_to=[actor_id],
-                        data=action_data
+                        data=action_data,
+                        source=actor_id
                     )
                     target_player = self.state.get_player_by_id(action.target_id)
                     if target_player:  # Ensure target exists
@@ -408,7 +363,7 @@ class Moderator:
                             description=f'Player "{actor_id}", you inspected {target_player.id}. '
                                         f'Their role is a "{target_player.role.name}" in team '
                                         f'"{target_player.role.team.value}".',
-                            entry_type=HistoryEntryType.ACTION_RESULT,
+                            entry_type=HistoryEntryType.INSPECT_RESULT,
                             public=False,
                             visible_to=[actor_id],
                             data=data
@@ -449,7 +404,7 @@ class Moderator:
                     prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id)  # Use protocol's prompt
                     self.state.add_history_entry(
                         description=prompt,
-                        entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                        entry_type=HistoryEntryType.VOTE_REQUEST,
                         public=False,
                         visible_to=[ww_voter.id]
                     )
@@ -461,7 +416,7 @@ class Moderator:
             data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
             self.state.add_history_entry(
                 description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
-                entry_type=HistoryEntryType.ACTION_RESULT,
+                entry_type=HistoryEntryType.VOTE_RESULT,
                 public=False,
                 visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
                 data=data
@@ -477,7 +432,7 @@ class Moderator:
                         # Private message to doctor(s) with data for the renderer
                         self.state.add_history_entry(
                             description=f"Your heal on player \"{werewolf_target_id}\" was successful!",
-                            entry_type=HistoryEntryType.ACTION_RESULT,
+                            entry_type=HistoryEntryType.HEAL_RESULT,
                             public=False,
                             data=save_data,
                             visible_to=saving_doctor_ids
@@ -640,7 +595,7 @@ class Moderator:
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
                         self.state.add_history_entry(
-                            description=prompt, entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                            description=prompt, entry_type=HistoryEntryType.VOTE_REQUEST,
                             public=False, visible_to=[voter_id]
                         )
         else:
@@ -715,7 +670,7 @@ class Moderator:
                     if player and player.alive:
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
                         self.state.add_history_entry(
-                            description=prompt, entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                            description=prompt, entry_type=HistoryEntryType.VOTE_REQUEST,
                             public=False, visible_to=[voter_id]
                         )
             # Stay in DetailedPhase.DAY_VOTING_AWAIT

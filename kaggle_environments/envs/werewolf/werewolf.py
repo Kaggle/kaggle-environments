@@ -6,19 +6,20 @@ from typing import Dict, Optional, List, Callable
 
 from pydantic import BaseModel, Field
 
+from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, DetailedPhase
 from .game.actions import (
     Action, VoteAction, HealAction, InspectAction,
     BidAction, ChatAction, NoOpAction, create_action
 )
 from .game.consts import RoleConst
-from .game.engine import Moderator, DetailedPhase
+from .game.engine import Moderator
 from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
     TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol
 )
-from .game.records import WerewolfObservationModel, VisibleRawData
+from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
-from .game.states import GameState, HistoryEntry, HistoryEntryType
+from .game.states import GameState, HistoryEntryType, get_last_action_request
 from .harness.base import LLMWerewolfAgent, LLMCostTracker
 
 logger = logging.getLogger(__name__)
@@ -90,22 +91,16 @@ class CostSummary(BaseModel):
 
 
 def random_agent(obs):
-    raw_obs = obs.get('raw_observation')
-    if not raw_obs:
-        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
+    raw_obs = get_raw_observation(obs)
 
-    entries = [HistoryEntry(**entry) for entry in obs.get('new_history_entries_json', [])]
-    current_phase_str = raw_obs.get('phase')
-    if not current_phase_str:
-        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
-
-    current_phase = DetailedPhase(current_phase_str)
-    my_role = RoleConst(raw_obs['role'])
-    all_player_names = raw_obs['all_player_ids']
-    my_id = raw_obs['player_id']
-    alive_players = raw_obs['alive_players']
-    day = raw_obs['day']
-    phase = raw_obs['game_state_phase']
+    entries = raw_obs.new_player_history_entry_views
+    current_phase = DetailedPhase(raw_obs.phase)
+    my_role = raw_obs.role
+    all_player_names = raw_obs.all_player_ids
+    my_id = raw_obs.player_id
+    alive_players = raw_obs.alive_players
+    day = raw_obs.day
+    phase = raw_obs.game_state_phase
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
@@ -113,8 +108,7 @@ def random_agent(obs):
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
-            history_entry = next((entry for entry in entries
-                                  if entry.data and entry.data.get('valid_targets')), None)
+            history_entry = get_last_action_request(entries, HistoryEntryType.VOTE_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data.get('valid_targets')
                 if valid_targets:
@@ -123,8 +117,7 @@ def random_agent(obs):
                                         perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.DOCTOR:
-            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                 None)
+            history_entry = get_last_action_request(entries, HistoryEntryType.HEAL_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 if valid_targets:
@@ -133,8 +126,7 @@ def random_agent(obs):
                                         perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.SEER:
-            history_entry = next((entry for entry in entries if entry.data and entry.data.get('valid_candidates')),
-                                 None)
+            history_entry = get_last_action_request(entries, HistoryEntryType.INSPECT_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 if valid_targets:
@@ -208,16 +200,15 @@ class AgentFactoryWrapper:
         The main callable method for the agent. It routes the call to the correct
         player-specific agent instance.
         """
-        # In werewolf, obs['raw_observation']['player_id'] is the unique ID for a player.
-        player_id = obs.get('raw_observation', {}).get('player_id')
+        raw_obs = get_raw_observation(obs)
+        player_id = raw_obs.player_id  # get the current active player id
 
         if not player_id:
             # This could happen on initial steps or for an inactive agent.
             # Returning a NO_OP action is a safe fallback.
-            raw_obs = obs.get('raw_observation', {})
             return NoOpAction(
-                day=raw_obs.get('day', 0),
-                phase=raw_obs.get('phase', 'unknown'),
+                day=raw_obs.day,
+                phase=raw_obs.phase,
                 actor_id="unknown_fallback",
                 reasoning="AgentFactoryWrapper: No player_id found in observation."
             ).serialize()
@@ -237,11 +228,6 @@ class AgentFactoryWrapper:
 
 # --- Agent Registry ---
 LLM_SYSTEM_PROMPT = "You are a master strategist playing the game of Werewolf. Your goal is to win. You win as a team and not as individuals."
-
-
-class EnvInfoKeys:
-    MODERATOR_OBS = "MODERATOR_OBSERVATION"
-    GAME_END = "GAME_END"
 
 
 # *Package variable required by Kaggle Environments framework*
@@ -340,7 +326,7 @@ def interpreter(state, env):
 
     # 4.1. Accumulate God mode observations from env for rendering
     global_messages = env.game_state.consume_messages()
-    global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
+    global_data = [rec.serialize() for rec in global_messages if rec.data]
     env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
     # 4.2. Update observations for individual agents
@@ -419,8 +405,6 @@ def update_agent_messages(
         # Observation processing
         new_history_entries = player_obj.consume_messages()
 
-        player_state.observation['new_history_entries_json'] = [msg.model_dump() for msg in new_history_entries]
-
         obs = WerewolfObservationModel(
             player_id=player_obj.id,
             role=player_obj.role.name,
@@ -433,11 +417,11 @@ def update_agent_messages(
             alive_players=[p.id for p in game_state.alive_players()],
             revealed_players_by_role=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
-            new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
+            new_player_history_entry_views=new_history_entries,
             game_state_phase=game_state.phase.value
         )
 
-        player_state.observation["raw_observation"] = obs.model_dump()
+        set_raw_observation(player_state, raw_obs=obs)
 
         # Status
         if is_game_done or agent_error:
