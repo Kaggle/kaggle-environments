@@ -822,7 +822,7 @@ function renderer({
                 const distH = (viewSize.x / 2) / Math.tan(horizontalFov / 2);
                 
                 // The required distance is the larger of the two, plus some padding
-                let distance = Math.max(distV, distH) * 1.15; // 15% padding
+                let distance = Math.max(distV, distH) * 1.05;
                 
                 // --- 2. Position the camera using the calculated distance ---
 
@@ -832,13 +832,56 @@ function renderer({
                 // We preserve the angle you liked by scaling the position based on the new distance.
                 // The camera is positioned on the line extending from the center through the player.
                 const endPos = playerPosition.clone().add(direction.multiplyScalar(distance * 0.6));
-                endPos.y = playerPosition.y + distance * 0.7; // Elevate based on distance
+                endPos.y = playerPosition.y + distance * 0.5; // Elevate based on distance
 
                 // The target remains the center of the action
                 const endTarget = viewCenter;
                 
                 // --- 3. Animate the transition ---
 
+                this._cameraAnimation = {
+                    startTime: performance.now(),
+                    duration: 1200,
+                    startPos: this._camera.position.clone(),
+                    endPos: endPos,
+                    startTarget: this._controls.target.clone(),
+                    endTarget: endTarget,
+                    ease: t => 1 - Math.pow(1 - t, 3)
+                };
+              }
+
+              resetCameraView() {
+                if (!this._playerGroup || this._playerGroup.children.length === 0 || !this._THREE) {
+                    return; // Can't frame an empty group
+                }
+
+                // Calculate the bounding box that contains all players
+                const box = new this._THREE.Box3().setFromObject(this._playerGroup);
+                const size = box.getSize(new this._THREE.Vector3());
+                const center = box.getCenter(new this._THREE.Vector3());
+
+                // Determine the maximum dimension of the box
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = this._camera.fov * (Math.PI / 180);
+                
+                // Calculate the distance the camera needs to be to fit the box
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                
+                // Add some padding so the players aren't right at the edge of the screen
+                // cameraZ *= 1.4; 
+                cameraZ *= 1.1;
+
+                // Set a nice isometric-style camera position
+                const endPos = new this._THREE.Vector3(
+                    center.x,
+                    center.y + cameraZ / 2, // Elevate the camera
+                    center.z + cameraZ       // Pull it back
+                );
+
+                // The target is the center of the player group
+                const endTarget = center;
+
+                // Use the same animation system as focusOnPlayer
                 this._cameraAnimation = {
                     startTime: performance.now(),
                     duration: 1200,
@@ -1953,6 +1996,29 @@ function renderer({
             width: 20px;
             height: 20px;
         }
+
+        .reset-view-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            margin-left: 8px; /* Add some space */
+        }
+        .reset-view-btn:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        .reset-view-btn svg {
+            stroke: currentColor;
+            width: 20px;
+            height: 20px;
+        }
         
         /* Enhanced Player List */
         #player-list-area {
@@ -2699,8 +2765,27 @@ function renderer({
     let header = container.querySelector('h1');
     if (!header) {
         header = document.createElement('h1');
-        header.textContent = 'Players';
+        // Create a span for the title to sit next to the button
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = 'Players';
+        header.appendChild(titleSpan);
+
+        // Create the reset button
+        const resetButton = document.createElement('button');
+        resetButton.id = 'reset-view-btn';
+        resetButton.className = 'reset-view-btn';
+        resetButton.title = 'Reset Camera View';
+        resetButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>`;
+        
+        header.appendChild(resetButton);
         container.appendChild(header);
+
+        // Add the click listener only once, when the button is created
+        resetButton.onclick = () => {
+            if (threeState && threeState.demo) {
+                threeState.demo.resetCameraView();
+            }
+        };
     }
 
     // Get or create list container
