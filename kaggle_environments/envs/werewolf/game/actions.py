@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Dict
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, create_model
 
 from .consts import PerceivedThreatLevel
-
 
 _REPLACEMENT_MAP = {
     # 'kill' variations
