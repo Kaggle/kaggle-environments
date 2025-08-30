@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field, field_serializer, ConfigDict
 
 from kaggle_environments.envs.werewolf.game.consts import Phase
+from kaggle_environments.envs.werewolf.game.actions import Action
 
 
 def get_utc_now():
@@ -56,13 +57,14 @@ class ActionDataMixin(BaseModel):
     actor_id: str
     reasoning: Optional[str] = Field(default=None, description="Private reasoning for moderator analysis.")
     perceived_threat_level: Optional[str] = 'SAFE'
+    action: Optional[Action] = None
 
     def public_view(self) -> Self:
         """
         Returns a public view of the action, excluding private reasoning.
         This overrides the default behavior from the DataEntry base class.
         """
-        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None}, deep=True)
+        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None, 'action': None}, deep=True)
 
 
 class HistoryEntry(BaseModel):

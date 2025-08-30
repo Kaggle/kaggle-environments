@@ -290,7 +290,8 @@ class DiscussionProtocol(ABC):
                         message=act.message,
                         reasoning=act.reasoning,
                         mentioned_player_ids=mentioned_ids,
-                        perceived_threat_level=act.perceived_threat_level
+                        perceived_threat_level=act.perceived_threat_level,
+                        action=act
                     )
                     state.add_history_entry(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
@@ -645,7 +646,8 @@ class SimultaneousMajority(VotingProtocol):
             actor_id=vote_action.actor_id,
             target_id=vote_action.target_id,
             reasoning=vote_action.reasoning,
-            perceived_threat_level=vote_action.perceived_threat_level
+            perceived_threat_level=vote_action.perceived_threat_level,
+            action=vote_action
         )
 
         # Voter must be expected and alive at the moment of casting vote
@@ -904,7 +906,8 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 actor_id=bid.actor_id,
                 reasoning=bid.reasoning,
                 perceived_threat_level=bid.perceived_threat_level,
-                bid_amount=bid.amount
+                bid_amount=bid.amount,
+                action=bid
             )
             state.add_history_entry(
                 description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
@@ -1153,7 +1156,8 @@ class SequentialVoting(VotingProtocol):
                     actor_id=vote_action.actor_id,
                     target_id=recorded_target_id,
                     reasoning=vote_action.reasoning,
-                    perceived_threat_level=vote_action.perceived_threat_level
+                    perceived_threat_level=vote_action.perceived_threat_level,
+                    action=vote_action
                 )
 
             state.add_history_entry(
