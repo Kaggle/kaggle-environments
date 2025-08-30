@@ -85,7 +85,6 @@ class Action(BaseModel):
     error: Optional[str] = None
     raw_prompt: Optional[str] = None
     raw_completion: Optional[str] = None
-    observation: Optional[Dict] = None
 
     @field_validator('reasoning', mode='before')
     @classmethod
