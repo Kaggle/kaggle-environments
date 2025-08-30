@@ -132,7 +132,12 @@ class Moderator:
              for role in self.state.all_unique_roles])
         self.doctor_special_msg = "Doctor is allowed to save themselves during night time." if allow_doctor_self_save \
             else "Doctor is NOT allowed to save themselves during night time."
-        description = "\n".join([
+        day_exile_reveal_msg = "If a player is exiled in the day, their role will be revealed." if reveal_day_exile_role \
+            else "If a player is exiled in the day, their role will NOT be revealed."
+        night_elimination_reveal_msg = "If a player is eliminated at night, their role will be revealed." \
+            if reveal_night_elimination_role else "If a player is eliminated at night, their role will NOT be revealed."
+
+        description = "\n - ".join([
             "Werewolf game begins.",
             f"All player ids: {data.player_ids}",
             f"Number of alive players: {data.number_of_players}.",
@@ -142,7 +147,9 @@ class Moderator:
             f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
             f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
             role_msg,
-            self.doctor_special_msg
+            self.doctor_special_msg,
+            day_exile_reveal_msg,
+            night_elimination_reveal_msg
         ])
         self.state.add_history_entry(
             description=description,
@@ -272,7 +279,7 @@ class Moderator:
                 if self.allow_doctor_self_save else [f"{p.id}" for p in self.state.alive_players() if p != doctor]
             data_entry = RequestDoctorSaveDataEntry(
                 valid_candidates=self.valid_doctor_save_ids[doctor.id],
-                action_json_schema=json.dumps(HealAction.model_json_schema())
+                action_json_schema=json.dumps(HealAction.schema_for_player())
             )
             self.state.add_history_entry(
                 description=f"Wake up Doctor. Who would you like to save? "
@@ -288,7 +295,7 @@ class Moderator:
             self._action_queue.append(InspectAction, seer.id)
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in self.state.alive_players() if p != seer],
-                action_json_schema=json.dumps(InspectAction.model_json_schema())
+                action_json_schema=json.dumps(InspectAction.schema_for_player())
             )
             self.state.add_history_entry(
                 description=f"Wake up Seer. Who would you like to see their true role? The options are {data_entry.valid_candidates}.",
@@ -310,7 +317,7 @@ class Moderator:
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
                 voting_protocol_rule=self.night_voting.voting_rule,
-                action_json_schema=json.dumps(VoteAction.model_json_schema()),
+                action_json_schema=json.dumps(VoteAction.schema_for_player()),
             )
             self.state.add_history_entry(
                 description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
