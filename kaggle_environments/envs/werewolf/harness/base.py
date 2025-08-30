@@ -538,7 +538,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
                 "exemplar": TARGETED_ACTION_EXEMPLAR
             })
-            parsed_out, raw_out, prompt = self.query_parse(
+            parsed_out = self.query_parse(
                 instruction, obs,
                 error_prompt="Your previous attempt failed. Please vote again."
             )
@@ -659,7 +659,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         my_id = raw_obs['player_id']
         day = raw_obs['day']
-        common_args = {"day": day, "phase": phase, "actor_id": my_id, "observation": obs}
+        common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 
