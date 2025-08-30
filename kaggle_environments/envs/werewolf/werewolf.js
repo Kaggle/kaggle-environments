@@ -792,6 +792,64 @@ function renderer({
                 this._controls.update();
               }
 
+              focusOnPlayer(playerName, leftPanelWidth = 0, rightPanelWidth = 0) {
+                if (!this._playerGroup || this._playerGroup.children.length === 0 || !this._THREE || !this._playerObjects) {
+                    return;
+                }
+                const player = this._playerObjects.get(playerName);
+                if (!player) return;
+
+                // --- 1. Calculate the required camera distance ---
+                
+                // First, determine the real viewport size, excluding the UI panels
+                const effectiveWidth = this._width - leftPanelWidth - rightPanelWidth;
+                const effectiveHeight = this._height;
+                
+                // Get the bounding box of the entire group of players
+                const viewBox = new this._THREE.Box3().setFromObject(this._playerGroup);
+                const viewSize = viewBox.getSize(new this._THREE.Vector3());
+                const viewCenter = viewBox.getCenter(new this._THREE.Vector3());
+
+                // Calculate the camera's field of view in radians
+                const fov = this._camera.fov * (Math.PI / 180);
+                const aspect = effectiveWidth / effectiveHeight;
+                
+                // Derive the horizontal FoV from the vertical FoV and the new aspect ratio
+                const horizontalFov = 2 * Math.atan(Math.tan(fov / 2) * aspect);
+                
+                // Calculate the distance needed to fit the content vertically and horizontally
+                const distV = (viewSize.y / 2) / Math.tan(fov / 2);
+                const distH = (viewSize.x / 2) / Math.tan(horizontalFov / 2);
+                
+                // The required distance is the larger of the two, plus some padding
+                let distance = Math.max(distV, distH) * 1.15; // 15% padding
+                
+                // --- 2. Position the camera using the calculated distance ---
+
+                const playerPosition = player.container.position.clone();
+                const direction = playerPosition.clone().normalize();
+                
+                // We preserve the angle you liked by scaling the position based on the new distance.
+                // The camera is positioned on the line extending from the center through the player.
+                const endPos = playerPosition.clone().add(direction.multiplyScalar(distance * 0.6));
+                endPos.y = playerPosition.y + distance * 0.7; // Elevate based on distance
+
+                // The target remains the center of the action
+                const endTarget = viewCenter;
+                
+                // --- 3. Animate the transition ---
+
+                this._cameraAnimation = {
+                    startTime: performance.now(),
+                    duration: 1200,
+                    startPos: this._camera.position.clone(),
+                    endPos: endPos,
+                    startTarget: this._controls.target.clone(),
+                    endTarget: endTarget,
+                    ease: t => 1 - Math.pow(1 - t, 3)
+                };
+              }
+
               updatePlayerActive(playerName) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
@@ -1383,6 +1441,25 @@ function renderer({
 
                   // Use performance.now() for more precise animation timing
                   const now = performance.now();
+
+                  if (this._cameraAnimation) {
+                    const anim = this._cameraAnimation;
+                    const elapsed = now - anim.startTime;
+                    let progress = Math.min(elapsed / anim.duration, 1.0);
+                    
+                    // Apply easing function
+                    const easedProgress = anim.ease(progress);
+
+                    // Interpolate camera position and controls target
+                    this._camera.position.lerpVectors(anim.startPos, anim.endPos, easedProgress);
+                    this._controls.target.lerpVectors(anim.startTarget, anim.endTarget, easedProgress);
+                    this._controls.update();
+
+                    // If animation is complete, clear it
+                    if (progress >= 1.0) {
+                        this._cameraAnimation = null;
+                    }
+                  }
 
                   // Animate speaking sound waves
                   this._speakingAnimations = this._speakingAnimations.filter(anim => {
@@ -2649,6 +2726,21 @@ function renderer({
             li = document.createElement('li');
             playerUl.appendChild(li);
         }
+
+        // Add the onclick handler of player's first person perspective
+        // This will call the focus function on the Three.js demo instance
+        li.onclick = () => {
+            if (threeState && threeState.demo) {
+                // Get the current widths of the UI panels
+                const leftPanel = parent.querySelector('.left-panel');
+                const rightPanel = parent.querySelector('.right-panel');
+                const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+                const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+                
+                // Pass the panel widths to the focus function
+                threeState.demo.focusOnPlayer(player.name, leftPanelWidth, rightPanelWidth);
+            }
+        };
 
         // Update player card classes
         li.className = 'player-card';
