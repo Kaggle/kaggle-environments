@@ -323,7 +323,7 @@ class DiscussionProtocol(ABC):
         """
         call_for_actions = self.call_for_actions(speakers)
         for speaker_id, call_for_action in zip(speakers, call_for_actions):
-            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.model_json_schema()))
+            data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.schema_for_player()))
             state.add_history_entry(
                 description=call_for_action,
                 entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
@@ -570,7 +570,7 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
         if self._phase == self.BIDDING_PHASE:
-            data = {"action_json_schema": json.dumps(BidAction.model_json_schema())}
+            data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
             state.add_history_entry(
                 description=(
                     f"A new round of discussion begins. Place bid for a chance to speak. "
