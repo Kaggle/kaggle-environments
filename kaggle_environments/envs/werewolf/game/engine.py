@@ -366,7 +366,8 @@ class Moderator:
                         actor_id=actor_id,
                         target_id=action.target_id,
                         reasoning=action.reasoning,
-                        perceived_threat_level=action.perceived_threat_level
+                        perceived_threat_level=action.perceived_threat_level,
+                        action=action
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
@@ -385,7 +386,8 @@ class Moderator:
                         actor_id=actor_id,
                         target_id=action.target_id,
                         reasoning=action.reasoning,
-                        perceived_threat_level=action.perceived_threat_level
+                        perceived_threat_level=action.perceived_threat_level,
+                        action=action
                     )
                     self.state.add_history_entry(
                         description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
