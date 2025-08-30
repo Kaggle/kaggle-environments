@@ -149,7 +149,7 @@ class SeerInspectResultDataEntry(DataEntry):
     team: str
 
 
-class TargetedActionDataEntry(DataEntry, ActionDataMixin):
+class TargetedActionDataEntry(ActionDataMixin, DataEntry):
     target_id: str
 
 
@@ -200,14 +200,14 @@ class DiscussionOrderDataEntry(DataEntry):
     chat_order_of_player_ids: List[str]
 
 
-class ChatDataEntry(DataEntry, ActionDataMixin):
+class ChatDataEntry(ActionDataMixin, DataEntry):
     """Records a chat message from a player, including private reasoning."""
     # actor_id and reasoning are inherited from ActionDataMixin
     message: str
     mentioned_player_ids: List[str] = Field(default_factory=list)
 
 
-class BidDataEntry(DataEntry, ActionDataMixin):
+class BidDataEntry(ActionDataMixin, DataEntry):
     bid_amount: int
 
 
@@ -243,10 +243,9 @@ class VisibleRawData(BaseModel):
     """json dump"""
 
     @classmethod
-    def from_entry(cls, entry: dict | DataEntry):
+    def from_history_entry(cls, entry: HistoryEntry):
         if not entry: return
-        if isinstance(entry, dict):
-            return cls(data_type=entry.__class__.__name__, json_str=json.dumps(entry))
+        # TODO: RED FLAG here! Check security vulnerability of public data
         return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
 
 

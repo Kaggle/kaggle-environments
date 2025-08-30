@@ -340,7 +340,7 @@ def interpreter(state, env):
 
     # 4.1. Accumulate God mode observations from env for rendering
     global_messages = env.game_state.consume_messages()
-    global_data = [VisibleRawData.from_entry(rec).model_dump() for rec in global_messages if rec.data]
+    global_data = [VisibleRawData.from_history_entry(rec).model_dump() for rec in global_messages if rec.data]
     env.info[EnvInfoKeys.MODERATOR_OBS].append(global_data)
 
     # 4.2. Update observations for individual agents
@@ -433,7 +433,7 @@ def update_agent_messages(
             alive_players=[p.id for p in game_state.alive_players()],
             revealed_players_by_role=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
-            new_visible_raw_data=[VisibleRawData.from_entry(entry) for entry in new_history_entries if entry.data],
+            new_visible_raw_data=[VisibleRawData.from_history_entry(entry) for entry in new_history_entries if entry.data],
             game_state_phase=game_state.phase.value
         )
 
