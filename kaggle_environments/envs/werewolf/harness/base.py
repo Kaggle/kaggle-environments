@@ -597,7 +597,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(BID_ACTION_SCHEMA),
             "exemplar": BID_ACTION_EXEMPLAR_REASONING if self._enable_bid_reasoning else BID_ACTION_EXEMPLAR
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please place your bid again."
+        )
         action = BidAction(**common_args, **parsed_out)
         return action
 
@@ -620,7 +623,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(CHAT_ACTION_SCHEMA),
             "exemplar": exemplar
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please prepare your message again."
+        )
         action = ChatAction(**common_args, **parsed_out)
         return action
 
@@ -637,7 +643,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "json_schema": json.dumps(TARGETED_ACTION_SCHEMA),
             "exemplar": TARGETED_ACTION_EXEMPLAR
         })
-        parsed_out = self.query_parse(instruction, obs)
+        parsed_out = self.query_parse(
+            instruction, obs,
+            error_prompt="Your previous attempt failed. Please cast your vote again."
+        )
         action = VoteAction(**common_args, **parsed_out)
         return action
 
