@@ -128,7 +128,7 @@ class Moderator:
 
         role_msg = "\n".join(
             ["The following explain the function of each role."] +
-            [f"Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
+            [f"  * Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
              for role in self.state.all_unique_roles])
         self.doctor_special_msg = "Doctor is allowed to save themselves during night time." if allow_doctor_self_save \
             else "Doctor is NOT allowed to save themselves during night time."
