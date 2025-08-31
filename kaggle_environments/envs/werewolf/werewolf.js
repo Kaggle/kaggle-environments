@@ -5,6 +5,17 @@ function renderer({
   height = 700, // Default height
   width = 1100, // Default width
 }) {
+  const systemEntryTypeSet = new Set([
+        'moderator_announcement',
+        'elimination',
+        'vote_request',
+        'heal_request',
+        'heal_result',
+        'inspect_request',
+        'inspect_result',
+        'bidding_info',
+        'bid_result'
+  ]);
 
   if (!window.werewolfGamePlayer) {
     window.werewolfGamePlayer = {
@@ -39,7 +50,7 @@ function renderer({
             const event = JSON.parse(dataEntry.json_str);
             
             const isVisibleDataType = visibleEventDataTypes.has(dataEntry.data_type);
-            const isVisibleEntryType = event.entry_type === 'moderator_announcement' || (event.entry_type === 'vote_action' && !event.data);
+            const isVisibleEntryType = systemEntryTypeSet.has(event.entry_type) || (event.entry_type === 'vote_action' && !event.data);
 
             if (!isVisibleDataType && !isVisibleEntryType) {
                 return;
@@ -3443,7 +3454,7 @@ function renderer({
                 gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
                 break;
             default:
-                if (historyEvent.entry_type === "moderator_announcement") {
+                if (systemEntryTypeSet.has(historyEvent.entry_type)) {
                     gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
                 }
                 break;
