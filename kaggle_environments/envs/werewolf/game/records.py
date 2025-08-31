@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
 
 from kaggle_environments.envs.werewolf.game.actions import Action
-from kaggle_environments.envs.werewolf.game.consts import Phase
+from kaggle_environments.envs.werewolf.game.consts import Phase, ObsKeys
 
 
 def get_utc_now():
@@ -328,3 +328,28 @@ class WerewolfObservationModel(BaseModel):
     def get_human_readable(self) -> str:
         # This is a placeholder implementation. A real implementation would format this nicely.
         return json.dumps(self.model_dump(), indent=2)
+
+
+def set_raw_observation(kaggle_player_state, raw_obs: WerewolfObservationModel):
+    """Persist raw observations for players in kaggle's player state
+
+    Args:
+        kaggle_player_state: Kaggle's interpreter state is a list of player state. This arg is one player state item.
+        raw_obs: the raw observation for a player extracted from game engine.
+
+    Note: using raw_obs.model_dump_json() will greatly increase rendering speed (due to kaggle environment's use
+        of deepcopy for serialization) at the expense of harder to parse JSON rendering, since we are getting a json
+        string instead of human-readable dump. We choose raw_obs.model_dump() for clarity.
+    """
+    kaggle_player_state.observation[ObsKeys.RAW_OBSERVATION] = raw_obs.model_dump()
+
+
+def get_raw_observation(kaggle_observation) -> WerewolfObservationModel:
+    """
+
+    Args:
+        kaggle_observation:
+
+    Returns: a dict of WerewolfObservationModel dump
+    """
+    return WerewolfObservationModel(**kaggle_observation[ObsKeys.RAW_OBSERVATION])

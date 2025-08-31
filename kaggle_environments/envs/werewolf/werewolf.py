@@ -6,7 +6,7 @@ from typing import Dict, Optional, List, Callable
 
 from pydantic import BaseModel, Field
 
-from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, ObsKeys
+from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys
 from .game.actions import (
     Action, VoteAction, HealAction, InspectAction,
     BidAction, ChatAction, NoOpAction, create_action
@@ -17,7 +17,7 @@ from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
     TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol
 )
-from .game.records import WerewolfObservationModel, PlayerHistoryEntryView
+from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
 from .game.states import GameState, HistoryEntryType, get_last_action_request
 from .harness.base import LLMWerewolfAgent, LLMCostTracker
@@ -91,22 +91,16 @@ class CostSummary(BaseModel):
 
 
 def random_agent(obs):
-    raw_obs = obs[ObsKeys.RAW_OBSERVATION]
-    if not raw_obs:
-        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
+    raw_obs = get_raw_observation(obs)
 
-    entries = [PlayerHistoryEntryView(**entry) for entry in raw_obs.get('new_player_history_entry_views', [])]
-    current_phase_str = raw_obs.get('phase')
-    if not current_phase_str:
-        return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
-
-    current_phase = DetailedPhase(current_phase_str)
-    my_role = RoleConst(raw_obs['role'])
-    all_player_names = raw_obs['all_player_ids']
-    my_id = raw_obs['player_id']
-    alive_players = raw_obs['alive_players']
-    day = raw_obs['day']
-    phase = raw_obs['game_state_phase']
+    entries = raw_obs.new_player_history_entry_views
+    current_phase = DetailedPhase(raw_obs.phase)
+    my_role = raw_obs.role
+    all_player_names = raw_obs.all_player_ids
+    my_id = raw_obs.player_id
+    alive_players = raw_obs.alive_players
+    day = raw_obs.day
+    phase = raw_obs.game_state_phase
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
@@ -206,15 +200,15 @@ class AgentFactoryWrapper:
         The main callable method for the agent. It routes the call to the correct
         player-specific agent instance.
         """
-        player_id = obs[ObsKeys.RAW_OBSERVATION].get('player_id')  # get the current active player id
+        raw_obs = get_raw_observation(obs)
+        player_id = raw_obs.player_id  # get the current active player id
 
         if not player_id:
             # This could happen on initial steps or for an inactive agent.
             # Returning a NO_OP action is a safe fallback.
-            raw_obs = obs[ObsKeys.RAW_OBSERVATION]
             return NoOpAction(
-                day=raw_obs.get('day', 0),
-                phase=raw_obs.get('phase', 'unknown'),
+                day=raw_obs.day,
+                phase=raw_obs.phase,
                 actor_id="unknown_fallback",
                 reasoning="AgentFactoryWrapper: No player_id found in observation."
             ).serialize()
@@ -427,7 +421,7 @@ def update_agent_messages(
             game_state_phase=game_state.phase.value
         )
 
-        player_state.observation[ObsKeys.RAW_OBSERVATION] = obs.model_dump()
+        set_raw_observation(player_state, raw_obs=obs)
 
         # Status
         if is_game_done or agent_error:
