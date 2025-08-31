@@ -1,11 +1,11 @@
-from typing import List, Deque, Optional, Dict
 import logging
 from collections import deque, Counter
+from typing import List, Deque, Optional, Dict
 
 from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
 
 from .consts import Team, RoleConst, Phase
-from .records import HistoryEntry
+from .records import PlayerHistoryEntryView
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +100,12 @@ class Player(BaseModel):
 
     eliminated_during_phase: Optional[str] = None
 
-    _message_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+    _message_queue: Deque[PlayerHistoryEntryView] = PrivateAttr(default_factory=deque)
 
-    def update(self, entry: HistoryEntry):
+    def update(self, entry: PlayerHistoryEntryView):
         self._message_queue.append(entry)
     
-    def consume_messages(self) -> List[HistoryEntry]:
+    def consume_messages(self) -> List[PlayerHistoryEntryView]:
         messages = list(self._message_queue)
         self._message_queue.clear()
         return messages

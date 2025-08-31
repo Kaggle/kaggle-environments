@@ -1,14 +1,14 @@
-from typing import List, Dict, Optional, Any, Union, Deque
+import logging
 from collections import defaultdict, deque
 from functools import cached_property
-import logging
+from typing import List, Dict, Optional, Any, Union, Deque, Sequence
 
 from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
-from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry
-from .roles import Player, Role
 from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider
-
+from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry, DataAccessLevel, \
+    PlayerHistoryEntryView
+from .roles import Player, Role
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +99,8 @@ class GameState(BaseModel):
         return self._history_entry_by_type[entry_type]
 
     def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
-                          visible_to: Optional[List[str]] = None, data: Optional[Union[
-                DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
+                          visible_to: Optional[List[str]] = None,
+                          data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
         visible_to = visible_to or []
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
@@ -115,25 +115,24 @@ class GameState(BaseModel):
         self._history_entry_by_type[entry_type].append(sys_entry)
         self._history_queue.append(sys_entry)
 
-        public_data = data.public_view() if isinstance(data, DataEntry) else data
-
-        public_entry = HistoryEntry(
-            day=day_key, phase=self.phase, entry_type=entry_type,
-            description=description, public=public,
-            visible_to=visible_to or [],
-            data=public_data,
-            source=source
-        )
+        public_view = sys_entry.view_by_access(user_level=DataAccessLevel.PUBLIC)
+        personal_view = sys_entry.view_by_access(user_level=DataAccessLevel.PERSONAL)
 
         # observers message pushing below
         if public:
             for player in self.players:
-                player.update(public_entry)
+                if player.id == source:
+                    player.update(personal_view)
+                else:
+                    player.update(public_view)
         else:
             for player_id in visible_to:
                 player = self.get_player_by_id(player_id)
                 if player:
-                    player.update(public_entry)
+                    if player.id == source:
+                        player.update(personal_view)
+                    else:
+                        player.update(public_view)
     
     def add_phase_divider(self, divider: PhaseDivider):
         """The phase divider is used to clearly separate phase boundary. This is very useful 
@@ -165,3 +164,11 @@ class GameState(BaseModel):
 
     def get_elimination_info(self):
         return [player.report_elimination() for player in self.players]
+
+
+def get_last_action_request(
+        history_entries: Sequence[PlayerHistoryEntryView],
+        entry_type: HistoryEntryType
+) -> None | PlayerHistoryEntryView:
+    """Get the action request from the new player history entry view updates."""
+    return next((entry for entry in history_entries if entry.entry_type == entry_type), None)

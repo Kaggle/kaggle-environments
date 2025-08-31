@@ -327,7 +327,7 @@ class DiscussionProtocol(ABC):
             data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.schema_for_player()))
             state.add_history_entry(
                 description=call_for_action,
-                entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
+                entry_type=HistoryEntryType.CHAT_REQUEST,
                 public=False,
                 visible_to=[speaker_id],
                 data=data
@@ -547,7 +547,7 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
                 state.add_history_entry(
                     description=f"Player {self._speaker} won the bid and will speak next.\n"
                                 f"Bid overview - {overview_text}.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    entry_type=HistoryEntryType.BID_RESULT,
                     public=self._bid_result_public,
                     data=data
                 )
@@ -577,7 +577,7 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
                     f"A new round of discussion begins. Place bid for a chance to speak. "
                     f"{self.max_turns - self._turns_taken} turns left to speak."
                 ),
-                entry_type=HistoryEntryType.PROMPT_FOR_ACTION,
+                entry_type=HistoryEntryType.BID_REQEUST,
                 public=True,
                 data=data
             )
@@ -911,7 +911,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
             )
             state.add_history_entry(
                 description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
-                entry_type=HistoryEntryType.BIDDING_INFO,
+                entry_type=HistoryEntryType.BID_ACTION,
                 public=False,
                 visible_to=[bid.actor_id],
                 data=data
