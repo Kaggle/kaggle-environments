@@ -117,6 +117,10 @@ class Action(BaseModel):
         subset_schema = sub_cls.model_json_schema()
         return subset_schema
 
+    @property
+    def action_field(self) -> Optional[str]:
+        return None
+
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
@@ -127,6 +131,10 @@ class TargetedAction(Action):
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
         return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
+
+    @property
+    def action_field(self):
+        return "target_id"
 
 
 # ——— Concrete leaf classes --------------------------------------- #
@@ -160,6 +168,10 @@ class ChatAction(Action):
         fields = fields or ['perceived_threat_level', 'reasoning', 'message']
         return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
 
+    @property
+    def action_field(self):
+        return "message"
+
 
 class NoOpAction(Action):
     pass
@@ -178,6 +190,10 @@ class BidAction(Action):
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
         return super(BidAction, cls).schema_for_player(fields, new_cls_name)
+
+    @property
+    def action_field(self):
+        return "amount"
 
 
 ACTIONS = [
