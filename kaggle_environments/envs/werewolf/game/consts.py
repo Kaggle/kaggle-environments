@@ -4,17 +4,17 @@ from enum import Enum
 MODERATOR_ID = "MODERATOR"
 
 
-class StrEnum(Enum):
+class StrEnum(str, Enum):
     def __str__(self):
         return str(self.value)
 
 
-class Phase(str, StrEnum):
+class Phase(StrEnum):
     DAY = "Day"
     NIGHT = "Night"
 
 
-class PhaseDivider(str, StrEnum):
+class PhaseDivider(StrEnum):
     NIGHT_START = "NIGHT START"
     NIGHT_END = "NIGHT END"
     DAY_START = "DAY START"
@@ -27,19 +27,19 @@ class PhaseDivider(str, StrEnum):
     DAY_VOTE_END = "DAY VOTE END"
 
 
-class Team(str, StrEnum):
+class Team(StrEnum):
     VILLAGERS = "Villagers"
     WEREWOLVES = "Werewolves"
 
 
-class RoleConst(str, StrEnum):
+class RoleConst(StrEnum):
     VILLAGER = "Villager"
     WEREWOLF = "Werewolf"
     DOCTOR = "Doctor"
     SEER = "Seer"
 
 
-class ActionType(str, StrEnum):
+class ActionType(StrEnum):
     NO_OP = "NO_OP"
     NIGHT_KILL_VOTE = "NIGHT_KILL_VOTE"
     NIGHT_SAVE_TARGET = "NIGHT_SAVE_TARGET"
@@ -48,7 +48,7 @@ class ActionType(str, StrEnum):
     DAY_LYNCH_VOTE = "DAY_LYNCH_VOTE"
 
 
-class PerceivedThreatLevel(str, StrEnum):
+class PerceivedThreatLevel(StrEnum):
     SAFE = "SAFE"
     UNEASY = "UNEASY"
     DANGER = "DANGER"

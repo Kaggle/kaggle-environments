@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
 
 from kaggle_environments.envs.werewolf.game.actions import Action
-from kaggle_environments.envs.werewolf.game.consts import Phase, ObsKeys
+from kaggle_environments.envs.werewolf.game.consts import Phase, ObsKeys, DetailedPhase, RoleConst, Team
 
 
 def get_utc_now():
@@ -84,6 +84,7 @@ class VisibleRawData(BaseModel):
 class PlayerHistoryEntryView(BaseModel):
     day: int
     phase: Phase
+    detailed_phase: DetailedPhase
     entry_type: HistoryEntryType
     description: str
     data: Optional[dict | DataEntry] = None
@@ -99,6 +100,7 @@ class PlayerHistoryEntryView(BaseModel):
         return dict(
             day=self.day,
             phase=self.phase,
+            detailed_phase=self.detailed_phase,
             entry_type=self.entry_type,
             description=self.description,
             data=data,
@@ -110,6 +112,7 @@ class PlayerHistoryEntryView(BaseModel):
 class HistoryEntry(BaseModel):
     day: int  # Day number, 0 for initial night
     phase: Phase
+    detailed_phase: DetailedPhase
     entry_type: HistoryEntryType
     description: str
     public: bool = False
@@ -152,6 +155,7 @@ class HistoryEntry(BaseModel):
         out = PlayerHistoryEntryView(
             day=self.day,
             phase=self.phase,
+            detailed_phase=self.detailed_phase,
             entry_type=self.entry_type,
             description=self.description,
             data=data,
@@ -177,8 +181,8 @@ class GameStartDataEntry(DataEntry):
 
 class GameStartRoleDataEntry(DataEntry):
     player_id: str
-    team: str
-    role: str
+    team: Team
+    role: RoleConst
     rule_of_role: str
 
 
@@ -218,8 +222,8 @@ class RequestVillagerToSpeakDataEntry(RequestForActionDataEntry):
 class SeerInspectResultDataEntry(DataEntry):
     actor_id: str
     target_id: str
-    role: str
-    team: str
+    role: RoleConst
+    team: Team
 
 
 class TargetedActionDataEntry(ActionDataMixin, DataEntry):
@@ -294,13 +298,13 @@ class BidResultDataEntry(DataEntry):
 class GameEndResultsDataEntry(DataEntry):
     model_config = ConfigDict(use_enum_values=True)
 
-    winner_team: str
+    winner_team: Team
     winner_ids: List[str]
     loser_ids: List[str]
     scores: Dict[str, int | float]
     reason: str
     last_day: int
-    last_phase: str
+    last_phase: Phase
     survivors_until_last_round_and_role: Dict[str, str]
     all_players_and_role: Dict[str, str]
     elimination_info: List[Dict]
@@ -312,20 +316,18 @@ class GameEndResultsDataEntry(DataEntry):
 
 class WerewolfObservationModel(BaseModel):
     player_id: str
-    role: str
-    team: str
+    role: RoleConst
+    team: Team
     is_alive: bool
     day: int
-    phase: str
-    """DetailedPhase, use str to be json serializable."""
+    phase: DetailedPhase
     all_player_ids: List[str]
     player_thumbnails: Dict[str, str] = {}
     alive_players: List[str]
     revealed_players_by_role: Dict[str, str] = {}
     new_visible_announcements: List[str]
     new_player_history_entry_views: List[PlayerHistoryEntryView]
-    game_state_phase: str
-    """Phase, use str to be json serializable."""
+    game_state_phase: Phase
 
     def get_human_readable(self) -> str:
         # This is a placeholder implementation. A real implementation would format this nicely.
