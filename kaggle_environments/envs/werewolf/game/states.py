@@ -5,7 +5,7 @@ from typing import List, Dict, Optional, Any, Union, Deque, Sequence
 
 from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
 
-from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider
+from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase
 from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry, DataAccessLevel, \
     PlayerHistoryEntryView
 from .roles import Player, Role
@@ -18,6 +18,7 @@ class GameState(BaseModel):
 
     players: List[Player]
     phase: Phase = Phase.NIGHT
+    detailed_phase: DetailedPhase = DetailedPhase.NIGHT_START
     day_count: int = 0
     history: Dict[int, List[HistoryEntry]] = Field(default_factory=dict)
     wallet: dict[str, int] = Field(default_factory=dict)
@@ -105,11 +106,17 @@ class GameState(BaseModel):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
-        sys_entry = HistoryEntry(day=day_key, phase=self.phase, entry_type=entry_type,
-                                 description=description, public=public,
-                                 visible_to=visible_to or [],
-                                 data=data,
-                                 source=source)
+        sys_entry = HistoryEntry(
+            day=day_key,
+            phase=self.phase,
+            detailed_phase=self.detailed_phase,
+            entry_type=entry_type,
+            description=description,
+            public=public,
+            visible_to=visible_to or [],
+            data=data,
+            source=source
+        )
 
         self.history[day_key].append(sys_entry)
         self._history_entry_by_type[entry_type].append(sys_entry)

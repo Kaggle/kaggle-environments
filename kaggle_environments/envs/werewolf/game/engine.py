@@ -163,6 +163,7 @@ class Moderator:
 
     def set_new_phase(self, new_detailed_phase, add_one_day=False):
         self.detailed_phase = new_detailed_phase
+        self.state.detailed_phase = new_detailed_phase
         if new_detailed_phase == DetailedPhase.NIGHT_START or new_detailed_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
             self.state.phase = Phase.NIGHT
         else:
