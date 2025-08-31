@@ -339,7 +339,8 @@ class Moderator:
                         entry_type=HistoryEntryType.HEAL_ACTION,
                         public=False,
                         visible_to=[actor_id],
-                        data=data
+                        data=data,
+                        source=actor_id
                     )
                     target_id = action.target_id
                     if target_id not in self._night_save_queue:
@@ -359,7 +360,8 @@ class Moderator:
                         entry_type=HistoryEntryType.INSPECT_ACTION,
                         public=False,
                         visible_to=[actor_id],
-                        data=action_data
+                        data=action_data,
+                        source=actor_id
                     )
                     target_player = self.state.get_player_by_id(action.target_id)
                     if target_player:  # Ensure target exists

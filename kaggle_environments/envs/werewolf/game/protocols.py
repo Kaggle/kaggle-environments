@@ -672,7 +672,8 @@ class SimultaneousMajority(VotingProtocol):
                     entry_type=HistoryEntryType.VOTE_ACTION,
                     public=False,
                     visible_to=self._expected_voters,
-                    data=data
+                    data=data,
+                    source=vote_action.actor_id
                 )
             else:
                 self._ballots[vote_action.actor_id] = "-1"
@@ -914,7 +915,8 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 entry_type=HistoryEntryType.BID_ACTION,
                 public=False,
                 visible_to=[bid.actor_id],
-                data=data
+                data=data,
+                source=bid.actor_id
             )
         else:
             # Invalid bid amount is treated as a bid of 0
@@ -1165,7 +1167,8 @@ class SequentialVoting(VotingProtocol):
                 entry_type=HistoryEntryType.VOTE_ACTION,
                 public=False,
                 visible_to=self._expected_voters,
-                data=data
+                data=data,
+                source=vote_action.actor_id
             )
             self._current_voter_index += 1
         else:  # Player not found, not alive, or (redundantly) not their turn
