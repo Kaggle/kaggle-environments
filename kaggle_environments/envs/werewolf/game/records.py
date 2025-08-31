@@ -317,6 +317,7 @@ class WerewolfObservationModel(BaseModel):
     is_alive: bool
     day: int
     phase: str
+    """DetailedPhase, use str to be json serializable."""
     all_player_ids: List[str]
     player_thumbnails: Dict[str, str] = {}
     alive_players: List[str]
@@ -324,6 +325,7 @@ class WerewolfObservationModel(BaseModel):
     new_visible_announcements: List[str]
     new_player_history_entry_views: List[PlayerHistoryEntryView]
     game_state_phase: str
+    """Phase, use str to be json serializable."""
 
     def get_human_readable(self) -> str:
         # This is a placeholder implementation. A real implementation would format this nicely.

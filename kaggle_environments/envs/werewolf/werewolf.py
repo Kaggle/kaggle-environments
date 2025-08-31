@@ -6,13 +6,13 @@ from typing import Dict, Optional, List, Callable
 
 from pydantic import BaseModel, Field
 
-from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys
+from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, DetailedPhase
 from .game.actions import (
     Action, VoteAction, HealAction, InspectAction,
     BidAction, ChatAction, NoOpAction, create_action
 )
 from .game.consts import RoleConst
-from .game.engine import Moderator, DetailedPhase
+from .game.engine import Moderator
 from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
     TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol

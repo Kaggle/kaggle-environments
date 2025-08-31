@@ -1,11 +1,10 @@
 
 
 import json
-from enum import Enum
 from typing import List, Dict, Tuple, Type, Sequence
 
 from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
-from .consts import Phase, Team, RoleConst, PhaseDivider
+from .consts import Phase, Team, RoleConst, PhaseDivider, DetailedPhase
 from .protocols import TurnByTurnBiddingDiscussion
 from .protocols import DiscussionProtocol, VotingProtocol
 from .records import (
@@ -17,18 +16,6 @@ from .records import (
 
 from .roles import Player
 from .states import GameState
-
-
-class DetailedPhase(Enum):
-    # Night Phases
-    NIGHT_START = "NIGHT_START"
-    NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
-    # Day Phases
-    DAY_START = "DAY_START"
-    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT"
-    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
-    DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
-    GAME_OVER = "GAME_OVER"
 
 
 class ActionQueue:
