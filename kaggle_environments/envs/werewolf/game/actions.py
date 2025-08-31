@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Optional, Tuple
+from functools import lru_cache
 
 from pydantic import BaseModel, Field, field_validator, create_model
 
@@ -96,7 +97,7 @@ class Action(BaseModel):
         return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
 
     @classmethod
-    def schema_for_player(cls, fields=None, new_cls_name=None):
+    def schema_for_player(cls, fields: Tuple = None, new_cls_name=None):
         """Many of the fields are for internal game record. This method is used to convert the response schema
         to a format friendly for players.
         """
@@ -122,6 +123,7 @@ class TargetedAction(Action):
     target_id: str = Field(description="The target player's id.")
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
         return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
@@ -153,6 +155,7 @@ class ChatAction(Action):
         return filter_language(v)
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'message']
         return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
@@ -171,6 +174,7 @@ class BidAction(Action):
     amount: int = Field(ge=0)
 
     @classmethod
+    @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
         fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
         return super(BidAction, cls).schema_for_player(fields, new_cls_name)
