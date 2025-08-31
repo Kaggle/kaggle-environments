@@ -1,14 +1,14 @@
 import json
 from abc import ABC
 from datetime import datetime
-from enum import Enum
-from typing import Optional, List, Dict, Self
+from enum import Enum, IntEnum
+from typing import Optional, List, Dict
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field, field_serializer, ConfigDict
+from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
 
-from kaggle_environments.envs.werewolf.game.consts import Phase
 from kaggle_environments.envs.werewolf.game.actions import Action
+from kaggle_environments.envs.werewolf.game.consts import Phase
 
 
 def get_utc_now():
@@ -19,18 +19,32 @@ class HistoryEntryType(str, Enum):
     GAME_START = "game_start"
     PHASE_CHANGE = "phase_change"
     PHASE_DIVIDER = "phase_divider"
-    ACTION_RESULT = "action_result"
     ELIMINATION = "elimination"
+
+    VOTE_REQUEST = "vote_request"
     VOTE_ACTION = "vote_action"
-    HEAL_ACTION = "heal_action"
     VOTE_RESULT = "vote_result"
     VOTE_ORDER = "vote_order"
+
+    HEAL_REQUEST = "heal_request"
+    HEAL_ACTION = "heal_action"
+    HEAL_RESULT = "heal_result"
+
+    INSPECT_REQUEST = "inspect_request"
+    INSPECT_ACTION = "inspect_action"
+    INSPECT_RESULT = "inspect_result"
+
+    CHAT_REQUEST = "chat_request"
     DISCUSSION = "discussion"
     DISCUSSION_ORDER = "discussion_order"
+
+    BID_REQEUST = "bid_request"
+    BID_RESULT = "bid_result"
+    BID_ACTION = "bid_action"
     BIDDING_INFO = "bidding_info"
+
     GAME_END = "game_end"
     MODERATOR_ANNOUNCEMENT = "moderator_announcement"
-    PROMPT_FOR_ACTION = "prompt_for_action"
     ERROR = "error"
     NIGHT_START = "night_start"
     DAY_START = "day_start"
@@ -38,15 +52,16 @@ class HistoryEntryType(str, Enum):
     DAY_END = "day_end"
 
 
+# TODO: model serializer customize for all general dumps, customize only for god mode view with other methods
+
+class DataAccessLevel(IntEnum):
+    PUBLIC = 0
+    PERSONAL = 1
+
+
 class DataEntry(BaseModel, ABC):
     """Abstract base class for all data entry types."""
-    def public_view(self) -> Self:
-        """
-        Returns a public-facing dictionary representation of the data.
-        By default, this includes all fields. Subclasses with private
-        data should override this method to exclude sensitive information.
-        """
-        return self.model_copy(deep=True)
+    pass
 
 
 class ActionDataMixin(BaseModel):
@@ -55,16 +70,41 @@ class ActionDataMixin(BaseModel):
     Includes the actor performing the action and their private reasoning.
     """
     actor_id: str
-    reasoning: Optional[str] = Field(default=None, description="Private reasoning for moderator analysis.")
-    perceived_threat_level: Optional[str] = 'SAFE'
-    action: Optional[Action] = None
+    reasoning: Optional[str] = Field(
+        default=None, description="Private reasoning for moderator analysis.", access=DataAccessLevel.PERSONAL)
+    perceived_threat_level: Optional[str] = Field(default='SAFE', access=DataAccessLevel.PERSONAL)
+    action: Optional[Action] = Field(default=None, access=DataAccessLevel.PERSONAL)
 
-    def public_view(self) -> Self:
-        """
-        Returns a public view of the action, excluding private reasoning.
-        This overrides the default behavior from the DataEntry base class.
-        """
-        return self.model_copy(update={'reasoning': None, 'perceived_threat_level': None, 'action': None}, deep=True)
+
+class VisibleRawData(BaseModel):
+    data_type: str
+    json_str: str
+
+
+class PlayerHistoryEntryView(BaseModel):
+    day: int
+    phase: Phase
+    entry_type: HistoryEntryType
+    description: str
+    data: Optional[dict | DataEntry] = None
+    source: str
+    created_at: str
+
+    @model_serializer
+    def serialize(self) -> dict:
+        if isinstance(self.data, DataEntry):
+            data = self.data.model_dump()
+        else:
+            data = self.data
+        return dict(
+            day=self.day,
+            phase=self.phase,
+            entry_type=self.entry_type,
+            description=self.description,
+            data=data,
+            source=self.source,
+            created_at=self.created_at
+        )
 
 
 class HistoryEntry(BaseModel):
@@ -86,6 +126,39 @@ class HistoryEntry(BaseModel):
         if isinstance(data, BaseModel):
             return data.model_dump()
         return None
+
+    def serialize(self):
+        # TODO: this is purely constructed for compatibility with html renderer. Need to refactor werewolf.js to handle
+        #    a direct model_dump of HistoryEntry
+        data_dict = self.model_dump()
+        return VisibleRawData(data_type=self.data.__class__.__name__, json_str=json.dumps(data_dict)).model_dump()
+
+    def view_by_access(self, user_level: DataAccessLevel) -> PlayerHistoryEntryView:
+        if isinstance(self.data, ActionDataMixin):
+            fields_to_include = set()
+            fields_to_exclude = set()
+            for name, info in self.data.__class__.model_fields.items():
+                if info.json_schema_extra:
+                    if user_level >= info.json_schema_extra.get('access', DataAccessLevel.PUBLIC):
+                        fields_to_include.add(name)
+                    else:
+                        fields_to_exclude.add(name)
+                else:
+                    fields_to_include.add(name)
+            # data = self.data.__class__(**self.data.model_dump(include=fields_to_include, exclude=fields_to_exclude))
+            data = self.data.model_dump(include=fields_to_include, exclude=fields_to_exclude)
+        else:
+            data = self.data
+        out = PlayerHistoryEntryView(
+            day=self.day,
+            phase=self.phase,
+            entry_type=self.entry_type,
+            description=self.description,
+            data=data,
+            source=self.source,
+            created_at=self.created_at
+        )
+        return out
 
 
 # --- Game State and Setup Data Entries ---
@@ -237,18 +310,6 @@ class GameEndResultsDataEntry(DataEntry):
     """provide the info dump for each player"""
 
 
-class VisibleRawData(BaseModel):
-    data_type: str
-    json_str: str
-    """json dump"""
-
-    @classmethod
-    def from_history_entry(cls, entry: HistoryEntry):
-        if not entry: return
-        # TODO: RED FLAG here! Check security vulnerability of public data
-        return cls(data_type=entry.data.__class__.__name__, json_str=entry.model_dump_json())
-
-
 class WerewolfObservationModel(BaseModel):
     player_id: str
     role: str
@@ -261,7 +322,7 @@ class WerewolfObservationModel(BaseModel):
     alive_players: List[str]
     revealed_players_by_role: Dict[str, str] = {}
     new_visible_announcements: List[str]
-    new_visible_raw_data: List[VisibleRawData]
+    new_player_history_entry_views: List[PlayerHistoryEntryView]
     game_state_phase: str
 
     def get_human_readable(self) -> str:

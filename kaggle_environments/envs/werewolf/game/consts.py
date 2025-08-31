@@ -47,3 +47,12 @@ class PerceivedThreatLevel(str, Enum):
     SAFE = "SAFE"
     UNEASY = "UNEASY"
     DANGER = "DANGER"
+
+
+class EnvInfoKeys:
+    MODERATOR_OBS = "MODERATOR_OBSERVATION"
+    GAME_END = "GAME_END"
+
+
+class ObsKeys:
+    WEREWOLF_OBSERVATION = "werewolf_observation"
