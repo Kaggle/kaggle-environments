@@ -469,7 +469,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @staticmethod
     def current_state(obs):
-        raw_obs = obs.get('raw_observation')
+        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
         obs_model = WerewolfObservationModel(**raw_obs)
         content = {
             "your_name": obs_model.player_id,
@@ -630,7 +630,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @action_registry.register(DetailedPhase.DAY_VOTING_AWAIT)
     def _day_vote(self, entries, obs, common_args):
-        raw_obs = obs.get('raw_observation')
+        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
         alive_players = raw_obs['alive_players']
         my_id = raw_obs['player_id']
         valid_targets = [p for p in alive_players if p != my_id]
@@ -649,7 +649,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         return action
 
     def __call__(self, obs):
-        raw_obs = obs[ObsKeys.WEREWOLF_OBSERVATION]
+        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
         entries = [PlayerHistoryEntryView(**entry) for entry in raw_obs.get('new_player_history_entry_views', [])]
 
         self._history_entries.append(entries)

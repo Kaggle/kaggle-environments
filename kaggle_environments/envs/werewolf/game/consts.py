@@ -55,4 +55,4 @@ class EnvInfoKeys:
 
 
 class ObsKeys:
-    WEREWOLF_OBSERVATION = "werewolf_observation"
+    RAW_OBSERVATION = "raw_observation"

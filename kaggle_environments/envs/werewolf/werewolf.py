@@ -91,7 +91,7 @@ class CostSummary(BaseModel):
 
 
 def random_agent(obs):
-    raw_obs = obs[ObsKeys.WEREWOLF_OBSERVATION]
+    raw_obs = obs[ObsKeys.RAW_OBSERVATION]
     if not raw_obs:
         return NoOpAction(day=0, phase="unknown", actor_id="unknown").serialize()
 
@@ -206,13 +206,12 @@ class AgentFactoryWrapper:
         The main callable method for the agent. It routes the call to the correct
         player-specific agent instance.
         """
-        # In werewolf, obs['raw_observation']['player_id'] is the unique ID for a player.
-        player_id = obs.get('raw_observation', {}).get('player_id')
+        player_id = obs[ObsKeys.RAW_OBSERVATION].get('player_id')  # get the current active player id
 
         if not player_id:
             # This could happen on initial steps or for an inactive agent.
             # Returning a NO_OP action is a safe fallback.
-            raw_obs = obs.get('raw_observation', {})
+            raw_obs = obs[ObsKeys.RAW_OBSERVATION]
             return NoOpAction(
                 day=raw_obs.get('day', 0),
                 phase=raw_obs.get('phase', 'unknown'),
@@ -428,7 +427,7 @@ def update_agent_messages(
             game_state_phase=game_state.phase.value
         )
 
-        player_state.observation[ObsKeys.WEREWOLF_OBSERVATION] = obs.model_dump()
+        player_state.observation[ObsKeys.RAW_OBSERVATION] = obs.model_dump()
 
         # Status
         if is_game_done or agent_error:
