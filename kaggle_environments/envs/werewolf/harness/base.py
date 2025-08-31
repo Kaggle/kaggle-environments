@@ -19,10 +19,9 @@ from pydantic import BaseModel, Field
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction, BidAction
 )
-from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType, ObsKeys
+from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType
 from kaggle_environments.envs.werewolf.game.engine import DetailedPhase
-from kaggle_environments.envs.werewolf.game.records import WerewolfObservationModel, PlayerHistoryEntryView, \
-    HistoryEntryType
+from kaggle_environments.envs.werewolf.game.records import HistoryEntryType, get_raw_observation
 from kaggle_environments.envs.werewolf.game.states import get_last_action_request
 
 _LITELLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'litellm_models.yaml')
@@ -137,7 +136,7 @@ TARGETED_ACTION_SCHEMA = TargetedAction.schema_for_player()
 CHAT_ACTION_SCHEMA = ChatAction.schema_for_player()
 
 BID_ACTION_SCHEMA = BidAction.schema_for_player()
-BID_ACTION_SCHEMA_REASONING = BidAction.schema_for_player(['perceived_threat_level', 'reasoning', 'target_id'])
+BID_ACTION_SCHEMA_REASONING = BidAction.schema_for_player(('perceived_threat_level', 'reasoning', 'target_id'))
 
 
 TARGETED_ACTION_EXEMPLAR = f"""```json
@@ -469,8 +468,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @staticmethod
     def current_state(obs):
-        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
-        obs_model = WerewolfObservationModel(**raw_obs)
+        obs_model = get_raw_observation(obs)
         content = {
             "your_name": obs_model.player_id,
             "your_team": obs_model.team,
@@ -630,9 +628,9 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @action_registry.register(DetailedPhase.DAY_VOTING_AWAIT)
     def _day_vote(self, entries, obs, common_args):
-        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
-        alive_players = raw_obs['alive_players']
-        my_id = raw_obs['player_id']
+        raw_obs = get_raw_observation(obs)
+        alive_players = raw_obs.alive_players
+        my_id = raw_obs.player_id
         valid_targets = [p for p in alive_players if p != my_id]
         instruction = INSTRUCTION_TEMPLATE.format(**{
             "role": "It is day time. It is time to vote.",
@@ -649,8 +647,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         return action
 
     def __call__(self, obs):
-        raw_obs = obs[ObsKeys.RAW_OBSERVATION]
-        entries = [PlayerHistoryEntryView(**entry) for entry in raw_obs.get('new_player_history_entry_views', [])]
+        raw_obs = get_raw_observation(obs)
+        entries = raw_obs.new_player_history_entry_views
 
         self._history_entries.append(entries)
 
@@ -660,13 +658,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         self._event_log_items_to_keep = sum(len(entry_list) for entry_list in self._history_entries)
 
-        phase = raw_obs['game_state_phase']
-        current_phase = DetailedPhase(raw_obs['phase'])
-        my_role = RoleConst(raw_obs['role'])
+        current_phase = DetailedPhase(raw_obs.phase)
+        my_role = RoleConst(raw_obs.role)
 
-        my_id = raw_obs['player_id']
-        day = raw_obs['day']
-        common_args = {"day": day, "phase": phase, "actor_id": my_id}
+        common_args = {"day": raw_obs.day, "phase": raw_obs.phase, "actor_id": raw_obs.player_id}
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 
