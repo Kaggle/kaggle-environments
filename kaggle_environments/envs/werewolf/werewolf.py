@@ -7,6 +7,7 @@ from typing import Dict, Optional, List, Callable
 from pydantic import BaseModel, Field
 
 from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, DetailedPhase
+from .game.base import PlayerID
 from .game.actions import (
     Action, VoteAction, HealAction, InspectAction,
     BidAction, ChatAction, NoOpAction, create_action
@@ -15,11 +16,11 @@ from .game.consts import RoleConst
 from .game.engine import Moderator
 from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol
+    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol, RoundByRoundBiddingDiscussion,
 )
 from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
-from .game.states import GameState, HistoryEntryType, get_last_action_request
+from .game.states import GameState, EventName, get_last_action_request
 from .harness.base import LLMWerewolfAgent, LLMCostTracker
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,12 @@ PROTOCOL_REGISTRY = {
                                         "default_params": {
                                             "bidding": {"name": "UrgencyBiddingProtocol"},
                                             "max_turns": 8
+                                        }},
+        "RoundByRoundBiddingDiscussion": {"class": RoundByRoundBiddingDiscussion,
+                                        "default_params": {
+                                            "bidding": {"name": "SimpleBiddingProtocol"},
+                                            "max_rounds": 2,
+                                            "bid_result_public": True
                                         }},
     },
     "voting": {
@@ -64,7 +71,7 @@ def create_protocol(protocol_type: str, config: dict, default_name: str):
     final_params = {**default_params, **params}
 
     # Handle nested protocols
-    if name == "TurnByTurnBiddingDiscussion":
+    if name in {"TurnByTurnBiddingDiscussion", "RoundByRoundBiddingDiscussion"}:
         final_params["bidding"] = create_protocol(
             "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
     return protocol_class(**final_params)
@@ -108,7 +115,7 @@ def random_agent(obs):
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
-            history_entry = get_last_action_request(entries, HistoryEntryType.VOTE_REQUEST)
+            history_entry = get_last_action_request(entries, EventName.VOTE_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data.get('valid_targets')
                 if valid_targets:
@@ -117,7 +124,7 @@ def random_agent(obs):
                                         perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.DOCTOR:
-            history_entry = get_last_action_request(entries, HistoryEntryType.HEAL_REQUEST)
+            history_entry = get_last_action_request(entries, EventName.HEAL_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 if valid_targets:
@@ -126,7 +133,7 @@ def random_agent(obs):
                                         perceived_threat_level=threat_level)
 
         elif my_role == RoleConst.SEER:
-            history_entry = get_last_action_request(entries, HistoryEntryType.INSPECT_REQUEST)
+            history_entry = get_last_action_request(entries, EventName.INSPECT_REQUEST)
             if history_entry:
                 valid_targets = history_entry.data['valid_candidates']
                 if valid_targets:
@@ -192,7 +199,7 @@ class AgentFactoryWrapper:
     def agent_class(self):
         return self._agent_class
 
-    def get_instance(self, player_id):
+    def get_instance(self, player_id: PlayerID):
         return self._instances.get(player_id)
 
     def __call__(self, obs, config):
@@ -208,7 +215,7 @@ class AgentFactoryWrapper:
             # Returning a NO_OP action is a safe fallback.
             return NoOpAction(
                 day=raw_obs.day,
-                phase=raw_obs.phase,
+                phase=raw_obs.game_state_phase,
                 actor_id="unknown_fallback",
                 reasoning="AgentFactoryWrapper: No player_id found in observation."
             ).serialize()
@@ -371,7 +378,7 @@ def collect_cost_summary(env) -> CostSummary:
 
 def record_game_end(state, env, game_state, current_info, agent_error):
     # log game end to env.info using GameEndResultsDataEntry
-    game_end_entry = next(iter(game_state.get_history_by_type(HistoryEntryType.GAME_END)), None)
+    game_end_entry = next(iter(game_state.get_event_by_name(EventName.GAME_END)), None)
     if game_end_entry and game_end_entry.data:
         current_info.update(game_end_entry.data.model_dump())
     # Record if terminated with agent error. If so, the game record is invalid.

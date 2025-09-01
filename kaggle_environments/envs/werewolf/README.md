@@ -20,20 +20,24 @@ pip install -e kaggle-environments
 [Optional] Set up authentication for connecting to vertex
 ```bash
 gcloud auth application-default login
-gcloud config set project octo-aif-sandbox
+gcloud config set project YOUR_PROJECT_ID
 ```
 
 Set up `.env` under project root for auth, used in base.py
 ```
-GEMINI_API_KEY=...
+
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
 TOGETHERAI_API_KEY=...
 XAI_API_KEY=...
-GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json"
-VERTEXAI_PROJECT=my-project-name
-VERTEXAI_LOCATION=us-central1
 GEMINI_MODEL="gemini-2.5-pro"
+# Note for gemini can access via Google Labs API via GEMNI_API_KEY or
+# via Google Cloud Vertex API by setting VERTEXAI_PROJECT and VERTEXAI_LOCATION
+# and authenticating to vertex project with gcloud command above.
+GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json" # Optional if different from default location
+VERTEXAI_PROJECT=MY_PROJECT_ID # name of your poject
+VERTEXAI_LOCATION=LOCATION # e.g. us-central1
+GEMINI_API_KEY=..
 ```
 
 ## Running a Game

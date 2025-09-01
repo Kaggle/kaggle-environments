@@ -9,3 +9,9 @@ litellm
 tenacity
 pygame
 termcolor
+python-dotenv
+PyYAML
+pyjson5
+pydantic
+litellm
+tenacity

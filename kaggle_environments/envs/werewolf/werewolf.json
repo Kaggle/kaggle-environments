@@ -110,7 +110,7 @@
                 "name": {
                     "description": "The name of the discussion protocol to use.",
                     "type": "string",
-                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion", "TurnByTurnBiddingDiscussion"],
+                    "enum": ["RoundRobinDiscussion", "ParallelDiscussion", "TurnByTurnBiddingDiscussion", "RoundByRoundBiddingDiscussion"],
                     "default": "RoundRobinDiscussion"
                 },
                 "params": {
@@ -166,6 +166,23 @@
                                 "properties": {
                                     "bidding": { "type": "object" },
                                     "max_turns": { "type": "integer", "minimum": 1, "default": 5 },
+                                    "bid_result_public": { "type": "boolean", "default": true }
+                                },
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "else": false
+                },
+                {
+                    "if": { "properties": { "name": { "const": "RoundByRoundBiddingDiscussion" } } },
+                    "then": {
+                        "properties": {
+                            "params": {
+                                "type": "object",
+                                "properties": {
+                                    "bidding": { "type": "object" },
+                                    "max_rounds": { "type": "integer", "minimum": 1, "default": 2 },
                                     "bid_result_public": { "type": "boolean", "default": true }
                                 },
                                 "additionalProperties": false

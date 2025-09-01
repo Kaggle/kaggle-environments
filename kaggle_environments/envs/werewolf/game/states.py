@@ -1,19 +1,36 @@
 import logging
 from collections import defaultdict, deque
 from functools import cached_property
-from typing import List, Dict, Optional, Any, Union, Deque, Sequence
+from typing import List, Dict, Optional, Any, Union, Deque, Sequence, DefaultDict
 
-from pydantic import BaseModel, PrivateAttr, Field, computed_field, ConfigDict
+from pydantic import PrivateAttr, Field, computed_field, ConfigDict
 
-from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase
-from .records import HistoryEntryType, DataEntry, HistoryEntry, PhaseDividerDataEntry, DataAccessLevel, \
+from .base import BaseState, EventHandler, PlayerID, BaseRole
+from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase, EventName
+from .records import DataEntry, HistoryEntry, PhaseDividerDataEntry, DataAccessLevel, \
     PlayerHistoryEntryView
-from .roles import Player, Role
+from .roles import Player
 
 logger = logging.getLogger(__name__)
 
 
-class GameState(BaseModel):
+class EventBus:
+    def __init__(self):
+        self._subs: DefaultDict[EventName, List[EventHandler]] = defaultdict(list)
+    
+    def register(
+            self,
+            event_name: EventName,
+            handler: EventHandler
+    ):
+        self._subs[event_name].append(handler)
+    
+    def dispatch(self, entry: HistoryEntry):
+        for handler in self._subs[entry.event_name]:
+            handler(entry)
+
+
+class GameState(BaseState):
     model_config = ConfigDict(use_enum_values=True)
 
     players: List[Player]
@@ -21,15 +38,16 @@ class GameState(BaseModel):
     detailed_phase: DetailedPhase = DetailedPhase.NIGHT_START
     day_count: int = 0
     history: Dict[int, List[HistoryEntry]] = Field(default_factory=dict)
-    wallet: dict[str, int] = Field(default_factory=dict)
+    wallet: dict[PlayerID, int] = Field(default_factory=dict)
     reveal_night_elimination_role: bool = True
     reveal_day_exile_role: bool = True
-    _id_to_player: Dict[str, Player] = PrivateAttr(default_factory=dict)
-    _history_entry_by_type: Dict[HistoryEntryType, List[HistoryEntry]] = PrivateAttr(
+    _id_to_player: Dict[PlayerID, Player] = PrivateAttr(default_factory=dict)
+    _history_entry_by_type: Dict[EventName, List[HistoryEntry]] = PrivateAttr(
         default_factory=lambda: defaultdict(list))
     _history_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
-    _night_elimination_player_ids: List[str] = PrivateAttr(default_factory=list)
-    _day_exile_player_ids: List[str] = PrivateAttr(default_factory=list)
+    _night_elimination_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
+    _day_exile_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
+    _event_bus: EventBus = PrivateAttr(default_factory=EventBus)
 
     @computed_field
     @cached_property
@@ -38,15 +56,18 @@ class GameState(BaseModel):
     
     @computed_field
     @cached_property
-    def all_unique_roles(self) -> List[Role]:
+    def all_unique_roles(self) -> List[BaseRole]:
         role_dict = {player.role.name: player.role for player in self.players}
         return list(role_dict.values())
 
     def model_post_init(self, context: Any, /) -> None:
         self._id_to_player = {p.id: p for p in self.players}
 
-    def get_player_by_id(self, pid: str):
+    def get_player_by_id(self, pid: PlayerID):
         return self._id_to_player.get(pid)
+
+    def get_players_by_role(self, role: RoleConst):
+        return [p for p in self.players if p.role.name == role]
 
     def get_players_by_team(self, team: Team):
         return [p for p in self.players if p.role.team == team]
@@ -67,7 +88,7 @@ class GameState(BaseModel):
                 revealed.pop(pid, None)
         return revealed
 
-    def is_alive(self, player_id: str):
+    def is_alive(self, player_id: PlayerID):
         return self.get_player_by_id(player_id).alive
 
     def alive_players_by_role(self, role: RoleConst):
@@ -83,7 +104,7 @@ class GameState(BaseModel):
     def alive_player_counts_per_team(self):
         return {team: len(self.alive_players_by_team(team)) for team in Team}
 
-    _night_eliminate_queue: List[str] = PrivateAttr(default_factory=list)
+    _night_eliminate_queue: List[PlayerID] = PrivateAttr(default_factory=list)
 
     def queue_eliminate(self, target: Player):
         self._night_eliminate_queue.append(target.id)
@@ -91,17 +112,20 @@ class GameState(BaseModel):
     def clear_eliminate_queue(self):
         self._night_eliminate_queue.clear()
 
-    _night_doctor_save_queue: List[str] = PrivateAttr(default_factory=list)
+    _night_doctor_save_queue: List[PlayerID] = PrivateAttr(default_factory=list)
 
     def queue_doctor_save(self, target: Player):
         self._night_doctor_save_queue.append(target.id)
 
-    def get_history_by_type(self, entry_type: HistoryEntryType) -> List[HistoryEntry]:
-        return self._history_entry_by_type[entry_type]
+    def get_event_by_name(self, event_name: EventName) -> List[HistoryEntry]:
+        return self._history_entry_by_type[event_name]
 
-    def add_history_entry(self, description: str, entry_type: HistoryEntryType, public: bool,
-                          visible_to: Optional[List[str]] = None,
-                          data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
+    def push_event(self,
+                   description: str,
+                   event_name: EventName,
+                   public: bool,
+                   visible_to: Optional[List[PlayerID]] = None,
+                   data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
         visible_to = visible_to or []
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
@@ -110,7 +134,7 @@ class GameState(BaseModel):
             day=day_key,
             phase=self.phase,
             detailed_phase=self.detailed_phase,
-            entry_type=entry_type,
+            event_name=event_name,
             description=description,
             public=public,
             visible_to=visible_to or [],
@@ -119,7 +143,7 @@ class GameState(BaseModel):
         )
 
         self.history[day_key].append(sys_entry)
-        self._history_entry_by_type[entry_type].append(sys_entry)
+        self._history_entry_by_type[event_name].append(sys_entry)
         self._history_queue.append(sys_entry)
 
         public_view = sys_entry.view_by_access(user_level=DataAccessLevel.PUBLIC)
@@ -140,19 +164,22 @@ class GameState(BaseModel):
                         player.update(personal_view)
                     else:
                         player.update(public_view)
+
+        # publish events
+        self._event_bus.dispatch(sys_entry)
     
     def add_phase_divider(self, divider: PhaseDivider):
         """The phase divider is used to clearly separate phase boundary. This is very useful 
             for visualizer updates, where some updates naturally takes a time slice of events as input.
         """
-        self.add_history_entry(
+        self.push_event(
             description=divider.value,
-            entry_type=HistoryEntryType.PHASE_DIVIDER,
+            event_name=EventName.PHASE_DIVIDER,
             public=False,
             data=PhaseDividerDataEntry(divider_type=divider.value)
         )
 
-    def eliminate_player(self, pid: str):
+    def eliminate_player(self, pid: PlayerID):
         if pid not in self.all_player_ids:
             logger.warning(f"Tried to eliminate {pid} who is not within valid player ids {self.all_player_ids}.")
             return
@@ -172,10 +199,13 @@ class GameState(BaseModel):
     def get_elimination_info(self):
         return [player.report_elimination() for player in self.players]
 
+    def register_event_handler(self, event_name: EventName, handler: EventHandler):
+        self._event_bus.register(event_name, handler)
+
 
 def get_last_action_request(
         history_entries: Sequence[PlayerHistoryEntryView],
-        entry_type: HistoryEntryType
+        event_name: EventName
 ) -> None | PlayerHistoryEntryView:
     """Get the action request from the new player history entry view updates."""
-    return next((entry for entry in history_entries if entry.entry_type == entry_type), None)
+    return next((entry for entry in history_entries if entry.event_name == event_name), None)
