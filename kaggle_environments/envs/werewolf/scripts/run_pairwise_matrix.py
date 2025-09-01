@@ -166,6 +166,10 @@ def run_tournament(
         output_dir, num_tournaments, config, use_random_agents, debug
     )
 
+    # the following shuffle is to reduce the load of a particular LLM api
+    game_tasks = [*game_tasks]
+    random.shuffle(game_tasks)
+
     with tqdm(total=total_games, desc="Processing Games") as pbar:
         if parallel:
             with multiprocessing.Pool(processes=num_processes) as pool:
