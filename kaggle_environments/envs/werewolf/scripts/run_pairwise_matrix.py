@@ -8,8 +8,6 @@ import math
 import multiprocessing
 import os
 import random
-import subprocess
-import sys
 from typing import List
 from copy import deepcopy
 
@@ -19,6 +17,7 @@ from tqdm import tqdm
 
 from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir, LogExecutionTime
 from kaggle_environments.envs.werewolf.game.consts import RoleConst
+from kaggle_environments.envs.werewolf.scripts.utils import run_single_game_cli
 
 # Initialize a placeholder logger
 logger = logging.getLogger(__name__)
@@ -43,49 +42,11 @@ def get_team_roles(base_roles: List[str]) -> (List[str], List[str]):
     return villager_roles, werewolf_roles
 
 
-@tenacity.retry(
+run_single_game_with_retry = tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     stop=tenacity.stop_after_attempt(3),
     before_sleep=tenacity.before_sleep_log(logger, logging.INFO)
-)
-def run_single_game_with_retry(game_dir, game_config, use_random_agents, debug):
-    """
-    Sets up and runs a single game instance by calling run.py.
-    Uses tenacity to retry on failure.
-    """
-    out_config = {"game_config": game_config}
-    config_path = os.path.join(game_dir, "config.yaml")
-    with open(config_path, 'w') as f:
-        yaml.dump(out_config, f, default_flow_style=False)
-
-    run_py_path = os.path.join(os.path.dirname(__file__), 'run.py')
-    cmd = [
-        sys.executable,
-        run_py_path,
-        '--config_path', config_path,
-        '--output_dir', game_dir,
-    ]
-    if use_random_agents:
-        cmd.append('--random_agents')
-    if debug:
-        cmd.append('--debug')
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        logger.info(f"Game in {game_dir} completed successfully.")
-        if result.stdout:
-            logger.info(result.stdout)
-        if result.stderr:
-            logger.warning(f"Stderr (non-fatal) from game in {game_dir}: {result.stderr}")
-    except subprocess.CalledProcessError as e:
-        error_message = (
-            f"Error running game in {game_dir}.\n"
-            f"Return Code: {e.returncode}\n"
-            f"Stdout: {e.stdout}\n"
-            f"Stderr: {e.stderr}"
-        )
-        logger.error(error_message)
-        raise RuntimeError(error_message) from e
+)(run_single_game_cli)
 
 
 def game_runner_wrapper(args):
