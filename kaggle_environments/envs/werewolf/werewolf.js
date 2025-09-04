@@ -2365,7 +2365,7 @@ function renderer({
         .reasoning-toggle {
             cursor: pointer;
             font-size: 1rem;
-            margin-left: 8px;
+            margin-left: 5;
             opacity: 0.6;
             transition: all 0.3s ease;
             display: inline-flex;
@@ -2384,10 +2384,15 @@ function renderer({
             font-weight: 600;
             display: flex;
             align-items: center;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
             color: var(--text-primary);
             margin-bottom: 6px;
             gap: 8px;
+        }
+
+        .cite-text-wrapper {
+            display: flex;
+            flex-direction: column;
         }
         
         /* Enhanced Moderator Announcements */
@@ -2860,7 +2865,7 @@ function renderer({
         let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`
         if (player.display_name && player.display_name !== player.name) {
             player_name_element = `<div class="player-name" title="${player.name}">
-                ${player.name}<span class="display-name"> (${player.display_name})</span>
+                ${player.name}<span class="display-name">${player.display_name}</span>
             </div>`
         }
 
@@ -2979,7 +2984,12 @@ function renderer({
                     li.innerHTML = `
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${speaker.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
+                            <cite>
+                                <span> <span>${speaker.name}</span>
+                                    ${speaker.display_name && speaker.name !== speaker.display_name ? `<span class="display-name">${speaker.display_name}</span>` : ''}
+                                </span> ${reasoningToggleHtml}
+                                ${timestampHtml}
+                            </cite>
                             <div class="balloon">
                                 <div class="balloon-text">
                                     <quote>${messageText}</quote>
@@ -3006,7 +3016,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Inspect by ${seerInspector.name} (Seer) ${reasoningToggleHtml} ${timestampHtml}</cite>
+                            <cite>Seer Secret Inspect ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${seerCap} chose to inspect ${seerTargetCap}'s role.</div>
                                 ${reasoningHtml}
@@ -3023,7 +3033,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${entry.seer} (Seer) ${timestampHtml}</cite>
+                            <cite>Seer Inspect Result ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${seerCap_} saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
                             </div>
@@ -3039,7 +3049,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Heal by ${doctor.name} (Doctor) ${reasoningToggleHtml} ${timestampHtml}</cite>
+                            <cite>Doctor Secret Heal ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${docCap} chose to heal ${docTargetCap}.</div>
                                 ${reasoningHtml}
@@ -3107,7 +3117,12 @@ function renderer({
                     li.innerHTML = `
                         <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>${voter.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
+                            <cite>
+                                <span> <span>${voter.name}</span>
+                                    ${voter.display_name && voter.name !== voter.display_name ? `<span class="display-name">${voter.display_name}</span>` : ''}
+                                </span> ${reasoningToggleHtml}
+                                ${timestampHtml}
+                            </cite>
                             <div class="balloon">
                                 <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
                                 ${reasoningHtml}
@@ -3140,7 +3155,7 @@ function renderer({
                     li.innerHTML = `
                         <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
                         <div class="message-content">
-                            <cite>Secret Vote by ${nightVoter.name} (Werewolf) ${reasoningToggleHtml} ${timestampHtml}</cite>
+                            <cite>Werewolf Secret Vote ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
                                 <div class="balloon-text">${nightVoterCap} votes to eliminate ${nightVoteTargetCap}.</div>
                                 ${reasoningHtml}
