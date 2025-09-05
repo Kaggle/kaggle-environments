@@ -15,7 +15,7 @@ from .game.consts import RoleConst
 from .game.engine import Moderator
 from .game.protocols import (
     RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol
+    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol, RoundByRoundBiddingDiscussion,
 )
 from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
@@ -33,6 +33,12 @@ PROTOCOL_REGISTRY = {
                                         "default_params": {
                                             "bidding": {"name": "UrgencyBiddingProtocol"},
                                             "max_turns": 8
+                                        }},
+        "RoundByRoundBiddingDiscussion": {"class": RoundByRoundBiddingDiscussion,
+                                        "default_params": {
+                                            "bidding": {"name": "SimpleBiddingProtocol"},
+                                            "max_rounds": 2,
+                                            "bid_result_public": True
                                         }},
     },
     "voting": {
@@ -64,7 +70,7 @@ def create_protocol(protocol_type: str, config: dict, default_name: str):
     final_params = {**default_params, **params}
 
     # Handle nested protocols
-    if name == "TurnByTurnBiddingDiscussion":
+    if name in {"TurnByTurnBiddingDiscussion", "RoundByRoundBiddingDiscussion"}:
         final_params["bidding"] = create_protocol(
             "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
     return protocol_class(**final_params)

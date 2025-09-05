@@ -5,8 +5,7 @@ from typing import List, Dict, Tuple, Type, Sequence
 
 from .actions import Action, VoteAction, HealAction, InspectAction, ChatAction, BidAction
 from .consts import Phase, Team, RoleConst, PhaseDivider, DetailedPhase
-from .protocols import TurnByTurnBiddingDiscussion
-from .protocols import DiscussionProtocol, VotingProtocol
+from .protocols import DiscussionProtocol, VotingProtocol, BiddingDiscussion
 from .records import (
     HistoryEntryType, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
     RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, RequestWerewolfVotingDataEntry, SeerInspectResultDataEntry,
@@ -516,7 +515,7 @@ class Moderator:
         self.discussion.begin(self.state)
 
         # Check if the protocol starts with bidding
-        if isinstance(self.discussion, TurnByTurnBiddingDiscussion):
+        if isinstance(self.discussion, BiddingDiscussion):
             self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
             # In bidding, all alive players can be active
             bidders = self.discussion.speakers_for_tick(self.state)
@@ -537,7 +536,8 @@ class Moderator:
         self.discussion.process_actions(list(player_actions.values()), current_bidders, self.state)
 
         # We need to explicitly check if the bidding sub-phase is over
-        # This requires a reference to the bidding protocol within TurnByTurnBiddingDiscussion
+        # This requires a reference to the bidding protocol within BiddingDiscussion
+        assert isinstance(self.discussion, BiddingDiscussion)
         bidding_protocol = self.discussion.bidding
         if bidding_protocol.is_finished(self.state):
             self.state.add_history_entry(
@@ -601,7 +601,7 @@ class Moderator:
         else:
             # Discussion is not over. Check if we need to go back to bidding action and phase.
             action_cls = ChatAction
-            if isinstance(self.discussion, TurnByTurnBiddingDiscussion) and self.discussion._phase == "bidding":
+            if isinstance(self.discussion, BiddingDiscussion) and self.discussion.is_bidding_phase():
                 self.set_new_phase(DetailedPhase.DAY_BIDDING_AWAIT)
                 action_cls = BidAction
 

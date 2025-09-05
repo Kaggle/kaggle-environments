@@ -461,18 +461,38 @@ class ParallelDiscussion(DiscussionProtocol):
         return self._remaining == 0
 
 
-class TurnByTurnBiddingDiscussion(DiscussionProtocol):
+class BiddingDiscussionPhase(StrEnum):
+    BIDDING_PHASE = 'bidding_phase'
+    SPEAKING_PHASE = 'speaking_phase'
+
+
+class BiddingDiscussion(DiscussionProtocol, ABC):
+    def __init__(self, bidding: BiddingProtocol):
+        self.bidding = bidding
+        self._phase = BiddingDiscussionPhase.BIDDING_PHASE
+
+    @property
+    def phase(self):
+        return self._phase
+
+    def is_bidding_phase(self):
+        return self._phase == BiddingDiscussionPhase.BIDDING_PHASE
+
+    def is_speaking_phase(self):
+        return self._phase == BiddingDiscussionPhase.SPEAKING_PHASE
+
+    def set_phase(self, phase: BiddingDiscussionPhase):
+        self._phase = phase
+
+
+class TurnByTurnBiddingDiscussion(BiddingDiscussion):
     """
     A discussion protocol where players bid for the right to speak each turn.
     This protocol manages the entire bid-speak-bid-speak loop.
     """
-    SPEAKING_PHASE = 'speaking'
-    BIDDING_PHASE = 'bidding'
-
     def __init__(self, bidding: BiddingProtocol, max_turns: int = 8, bid_result_public: bool = True):
-        self.bidding = bidding
+        super().__init__(bidding=bidding)
         self.max_turns = max_turns
-        self._phase = self.BIDDING_PHASE  # Can be "bidding" or "speaking"
         self._turns_taken = 0
         self._speaker: Optional[str] = None
         self._all_passed = False
@@ -480,7 +500,7 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
 
     def reset(self) -> None:
         self.bidding.reset()
-        self._phase = self.BIDDING_PHASE
+        self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
         self._turns_taken = 0
         self._speaker = None
         self._all_passed = False
@@ -505,14 +525,14 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
         if self.is_discussion_over(state):
             return []
 
-        if self._phase == self.BIDDING_PHASE:
+        if self.is_bidding_phase():
             return [p.id for p in state.alive_players()]
-        elif self._phase == self.SPEAKING_PHASE:
+        elif self.is_speaking_phase():
             return [self._speaker] if self._speaker else []
         return []
 
     def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
-        if self._phase == self.BIDDING_PHASE:
+        if self.is_bidding_phase():
             self.bidding.process_incoming_bids(actions, state)
 
             # Handle players who didn't bid (timed out) by assuming a bid of 0
@@ -551,26 +571,26 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
                     public=self._bid_result_public,
                     data=data
                 )
-                self._phase = self.SPEAKING_PHASE
+                self.set_phase(BiddingDiscussionPhase.SPEAKING_PHASE)
             else:
                 # No one to speak, advance turn count and bid again
                 self._turns_taken += 1
                 if not self.is_discussion_over(state):
                     self.bidding.begin(state)  # Prepare for next bidding round
 
-        elif self._phase == self.SPEAKING_PHASE:
+        elif self.is_speaking_phase():
             # Process the chat action from the designated speaker
             super().process_actions(actions, expected_speakers, state)
             self._turns_taken += 1
 
             # After speaking, transition back to bidding for the next turn
             if not self.is_discussion_over(state):
-                self._phase = self.BIDDING_PHASE
+                self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
                 self._speaker = None
                 self.bidding.begin(state)  # Reset bids and find new mentioned players
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
-        if self._phase == self.BIDDING_PHASE:
+        if self.is_bidding_phase():
             data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
             state.add_history_entry(
                 description=(
@@ -581,7 +601,144 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
                 public=True,
                 data=data
             )
-        elif self._phase == self.SPEAKING_PHASE and self._speaker:
+        elif self.is_speaking_phase() and self._speaker:
+            super().prompt_speakers_for_tick(state, speakers)
+
+
+class RoundByRoundBiddingDiscussion(BiddingDiscussion):
+    """
+    A discussion protocol where players bid at the start of each round to
+    determine the speaking order for that round.
+
+    In each of the N rounds:
+    1. A bidding phase occurs where all alive players submit a bid (0-4).
+    2. The speaking order is determined by sorting players by their bid amount
+       (descending) and then by player ID (ascending) as a tie-breaker.
+    3. A speaking phase occurs where each player speaks once according to the
+       determined order.
+    """
+    def __init__(self, bidding: BiddingProtocol, max_rounds: int = 2, bid_result_public: bool = True):
+        """
+        Args:
+            bidding: The bidding protocol to use for determining speaking order.
+            max_rounds: The total number of discussion rounds.
+            bid_result_public: Whether to make the bidding results public.
+        """
+        super().__init__(bidding=bidding)
+        self.max_rounds = max_rounds
+        self._bid_result_public = bid_result_public
+        self._current_round = 0
+        self._speaking_queue: deque[str] = deque()
+        self.reset()
+
+    def reset(self) -> None:
+        """Resets the protocol to its initial state."""
+        self.bidding.reset()
+        self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
+        self._current_round = 0
+        self._speaking_queue = deque()
+
+    @property
+    def discussion_rule(self) -> str:
+        """A string describing the discussion rule in effect."""
+        return "\n".join([
+            f"Players speak in an order determined by bidding at the start of each of {self.max_rounds} round(s).",
+            "In each round, all players speak once.",
+            f"The bidding rule is: {self.bidding.__class__.__name__}.",
+            self.bidding.bidding_rules
+        ])
+
+    def begin(self, state: GameState) -> None:
+        """Initializes the protocol for the first round."""
+        self.reset()
+        self.bidding.begin(state)
+
+    def is_discussion_over(self, state: GameState) -> bool:
+        """Checks if all rounds have been completed."""
+        return self._current_round >= self.max_rounds
+
+    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+        """Returns the players who are allowed to act in the current tick."""
+        if self.is_discussion_over(state):
+            return []
+
+        if self.is_bidding_phase():
+            # In the bidding phase, all alive players can bid.
+            return [p.id for p in state.alive_players()]
+        elif self.is_speaking_phase():
+            # In the speaking phase, the next player in the queue speaks.
+            return [self._speaking_queue.popleft()] if self._speaking_queue else []
+        return []
+
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+        """Processes incoming actions from players."""
+        if self.is_bidding_phase():
+            self.bidding.process_incoming_bids(actions, state)
+
+            # Assume a bid of 0 for any players who timed out.
+            all_alive_player_ids = [p.id for p in state.alive_players()]
+            if hasattr(self.bidding, '_bids'):
+                for player_id in all_alive_player_ids:
+                    if player_id not in self.bidding.bids:
+                        default_bid = BidAction(actor_id=player_id, amount=0, day=state.day_count,
+                                                phase=state.phase.value)
+                        self.bidding.accept(default_bid, state)
+
+            # Determine speaking order based on bids.
+            # Sort by bid amount (desc) and then player ID (asc).
+            bids = self.bidding.bids
+            sorted_bidders = sorted(bids.items(), key=lambda item: (-item[1], item[0]))
+
+            self._speaking_queue = deque([player_id for player_id, bid_amount in sorted_bidders])
+
+            # Announce the speaking order for the round.
+            data = DiscussionOrderDataEntry(chat_order_of_player_ids=list(self._speaking_queue))
+            speaking_order_text = ", ".join([f"{pid} ({amount})" for pid, amount in sorted_bidders])
+
+            state.add_history_entry(
+                description=f"Bidding for round {self._current_round + 1} has concluded. The speaking order, "
+                            f"with bid amounts in parentheses, is: {speaking_order_text}.",
+                entry_type=HistoryEntryType.BID_RESULT,
+                public=self._bid_result_public,
+                data=data,
+            )
+
+            # Transition to the speaking phase.
+            self.set_phase(BiddingDiscussionPhase.SPEAKING_PHASE)
+
+        elif self.is_speaking_phase():
+            # Process the chat action from the current speaker.
+            super().process_actions(actions, expected_speakers, state)
+
+            # Check if the round is over (i.e., the speaking queue is empty).
+            if not self._speaking_queue:
+                self._current_round += 1
+                state.add_history_entry(
+                    description=f"End of discussion round {self._current_round}.",
+                    entry_type=HistoryEntryType.PHASE_CHANGE,
+                    public=True
+                )
+
+                # If the game isn't over, prepare for the next round's bidding.
+                if not self.is_discussion_over(state):
+                    self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
+                    self.bidding.begin(state)
+
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+        """Prompts the active players for their next action."""
+        if self.is_bidding_phase():
+            data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
+            state.add_history_entry(
+                description=(
+                    f"Round {self._current_round + 1} of {self.max_rounds} begins. "
+                    "Place your bid to determine speaking order."
+                ),
+                entry_type=HistoryEntryType.BID_REQEUST,
+                public=True,
+                data=data
+            )
+        elif self.is_speaking_phase():
+            # The default prompt from the base class is sufficient for speaking.
             super().prompt_speakers_for_tick(state, speakers)
 
 
@@ -876,6 +1033,96 @@ class AlphaFirstEliminateResolver(TeamDecisionProtocol):
 
 
 # ----------------- bidding protocols --------------------------------------- #
+
+
+class SimpleBiddingProtocol(BiddingProtocol):
+    """
+    A straightforward bidding protocol where speaking priority is determined
+    solely by the bid amount.
+    - Agents bid with a numerical amount.
+    - Higher bids result in earlier speaking turns.
+    - Ties are broken deterministically by player ID (ascending).
+    """
+
+    def __init__(self):
+        self._bids: Dict[str, int] = {}
+        self._max_bid = 4
+        self.reset()
+
+    def reset(self) -> None:
+        """Resets the bids for a new round."""
+        self._bids = {}
+
+    @property
+    def bidding_rules(self) -> str:
+        """Provides a description of the bidding rules."""
+        return "\n".join((
+            "Players bid with an urgency level (0-4) to determine speaking order.",
+            "0: I would like to observe and listen for now.",
+            "1: I have some general thoughts to share with the group.",
+            "2: I have something critical and specific to contribute to this discussion.",
+            "3: It is absolutely urgent for me to speak next.",
+            "4: I must respond.",
+            "Higher bids speak earlier. Ties are broken by player name (A-Z)."
+        ))
+
+    @property
+    def bids(self) -> Dict[str, int]:
+        """Returns a copy of the current bids."""
+        return dict(**self._bids)
+
+    def begin(self, state: GameState) -> None:
+        """Initializes a new bidding round."""
+        self.reset()
+
+    def accept(self, bid: BidAction, state: GameState) -> None:
+        """Accepts and records a single bid from a player."""
+        bid_amount = min(max(0, bid.amount), self._max_bid)
+        self._bids[bid.actor_id] = bid_amount
+
+        data = BidDataEntry(
+            actor_id=bid.actor_id,
+            reasoning=bid.reasoning,
+            perceived_threat_level=bid.perceived_threat_level,
+            bid_amount=bid_amount,
+            action=bid
+        )
+        state.add_history_entry(
+            description=f"Player {bid.actor_id} submitted a bid of {bid_amount}.",
+            entry_type=HistoryEntryType.BID_ACTION,
+            public=False,  # Bids are private until the outcome is announced
+            visible_to=[bid.actor_id],
+            data=data,
+            source=bid.actor_id
+        )
+
+    def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
+        """Processes a list of actions, handling any BidActions."""
+        for act in actions:
+            if isinstance(act, BidAction):
+                self.accept(act, state)
+
+    def is_finished(self, state: GameState) -> bool:
+        """
+        Checks if the bidding phase is complete (i.e., all alive players have bid).
+        """
+        return len(self._bids) >= len(state.alive_players())
+
+    def outcome(self, state: GameState) -> list[str]:
+        """
+        Determines the final speaking order based on bids.
+
+        Returns:
+            A list of player IDs sorted by bid (descending) and then player ID (ascending).
+        """
+        if not self._bids:
+            # If no bids were made, return alive players in their default order.
+            return sorted([p.id for p in state.alive_players()])
+
+        # Sort by bid amount (descending) and then by player ID (ascending) for tie-breaking.
+        sorted_bidders = sorted(self._bids.items(), key=lambda item: (-item[1], item[0]))
+        return [player_id for player_id, bid_amount in sorted_bidders]
+
 
 class UrgencyBiddingProtocol(BiddingProtocol):
     """

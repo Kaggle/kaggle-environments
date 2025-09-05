@@ -40,7 +40,8 @@ function renderer({
         'SeerInspectResultDataEntry',
         'DoctorSaveDataEntry',
         'GameEndResultsDataEntry',
-        'PhaseDividerDataEntry'
+        'PhaseDividerDataEntry',
+        'DiscussionOrderDataEntry'
     ]);
 
     let allEventsIndex = 0;
