@@ -60,3 +60,8 @@ python kaggle_environments/envs/werewolf/scripts/dump_audio.py -o werewolf_repla
 # full llm game play and audio
 python kaggle_environments/envs/werewolf/scripts/dump_audio.py --output_dir werewolf_replay_audio --shuffle_roles
 ```
+
+## Simple example of two models playing each other, one as werewolfs and other as villagers
+```bash
+python kaggle_environments/envs/werewolf/scripts/werewolf_play.py -c kaggle_environments/envs/werewolf/scripts/configs/simple_config.yaml -o output_dir
+```
