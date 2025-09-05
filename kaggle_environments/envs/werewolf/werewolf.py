@@ -230,7 +230,10 @@ LLM_MODEL_NAMES = [
     "xai/grok-4-latest",
     # vertex AI
     "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+    "vertex_ai/gemini-1.5-flash-002",
+    "vertex_ai/gemini-2.0-flash-lite-001",
     "vertex_ai/gemini-2.0-flash",
+    "vertex_ai/gemini-2.5-flash",
     "vertex_ai/gemini-2.5-pro",
     "vertex_ai/"
     # together ai
@@ -367,6 +370,7 @@ def collect_cost_summary(env):
     total_prompt_tokens = 0
     total_completion_tokens = 0
     agent_cost_list = []
+
     for agent_config in env.configuration.agents:
         player_id = agent_config['id']
         agent_id = agent_config['agent_id']
