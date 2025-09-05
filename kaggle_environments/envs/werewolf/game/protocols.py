@@ -7,7 +7,7 @@ from collections import Counter, deque
 from typing import Dict, List, Sequence, Optional, Tuple
 
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
-from .consts import Team, Phase
+from .consts import Team, Phase, StrEnum
 from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
     WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry, DiscussionOrderDataEntry, VoteOrderDataEntry
 from .roles import Player
@@ -586,14 +586,27 @@ class TurnByTurnBiddingDiscussion(DiscussionProtocol):
 
 
 # ----------------- voting patterns --------------------------------------- #
+
+class TieExile(StrEnum):
+    RANDOM = 'random'
+    """Randomly select from top ties."""
+
+    NO_EXILE = 'no_exile'
+    """Tie result in no exile. Advantage for werewolf, since werewolf can decide next one to kill at night."""
+
+
 class SimultaneousMajority(VotingProtocol):
-    def __init__(self):
+    def __init__(self, tie_exile=TieExile.RANDOM):
         self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
         self._expected_voters: List[str] = []
         self._potential_targets: List[str] = []
         self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
         self._elected = None
         self._done_tallying = False
+        self._tie_exile = tie_exile
+
+        if tie_exile not in TieExile:
+            raise ValueError(f"Invalid tie_exile value: {tie_exile}. Must be one of {TieExile}.")
 
     def reset(self) -> None:
         self._ballots = {}
@@ -605,10 +618,14 @@ class SimultaneousMajority(VotingProtocol):
 
     @property
     def voting_rule(self) -> str:
-        return ("Simultaneous majority vote. Player with the most votes is exiled. "
-                "Ties result in random selection amongst the top ties. "
-                "If no valid vote available (if all casted abstained votes), "
-                "will result in random elimination of one player.")
+        rule = "Simultaneous majority vote. Player with the most votes is exiled. "
+        if self._tie_exile == TieExile.RANDOM:
+            rule += ("Ties result in random selection amongst the top ties. "
+                     "If no valid vote available (if all casted abstained votes), "
+                     "will result in random elimination of one player.")
+        elif self._tie_exile == TieExile.NO_EXILE:
+            rule += "Ties result in no exile."
+        return rule
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         self._ballots = {}
@@ -702,11 +719,18 @@ class SimultaneousMajority(VotingProtocol):
             return self._elected
         self._done_tallying = True
         counts = Counter(v for v in self._ballots.values() if v is not None and v != "-1").most_common()
+        self._elected = None
         if not counts:
-            self._elected = random.choice(self._potential_targets)
+            if self._tie_exile == TieExile.RANDOM:
+                self._elected = random.choice(self._potential_targets)
         else:
             _, top_votes = counts[0]
-            self._elected = random.choice([v for v, c in counts if c == top_votes])
+            top_candidates = [v for v, c in counts if c == top_votes]
+            if len(top_candidates) == 1:
+                self._elected = top_candidates[0]
+            else:  # tie
+                if self._tie_exile == TieExile.RANDOM:
+                    self._elected = random.choice(top_candidates)
         return self._elected
 
     def get_voting_prompt(self, state: GameState, player_id: str) -> str:
