@@ -292,89 +292,187 @@ class Moderator:
         self.set_new_phase(DetailedPhase.NIGHT_AWAIT_ACTIONS)
         self.night_step = 1  # Mark that initial night roles (doc, seer) + first WW vote are expected
 
+    def _handle_doctor_seer_night_await(self, player_actions: Dict[str, Action]):
+        for actor_id, action in player_actions.items():
+            player = self.state.get_player_by_id(actor_id)
+            if not player or not player.alive:
+                continue
+
+            if player.role.name == RoleConst.DOCTOR and isinstance(action, HealAction):
+                if not self.allow_doctor_self_save:
+                    if action.target_id == actor_id:
+                        self.state.add_history_entry(
+                            description=f'Player "{actor_id}", doctor is not allowed to self save. '
+                                        f'Your target is {action.target_id}, which is your own id.',
+                            entry_type=HistoryEntryType.ERROR,
+                            public=False,
+                            visible_to=[actor_id]
+                        )
+                        # skip since doctor can't self save
+                        continue
+                data = DoctorHealActionDataEntry(
+                    actor_id=actor_id,
+                    target_id=action.target_id,
+                    reasoning=action.reasoning,
+                    perceived_threat_level=action.perceived_threat_level,
+                    action=action
+                )
+                self.state.add_history_entry(
+                    description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
+                    entry_type=HistoryEntryType.HEAL_ACTION,
+                    public=False,
+                    visible_to=[actor_id],
+                    data=data,
+                    source=actor_id
+                )
+                target_id = action.target_id
+                if target_id not in self._night_save_queue:
+                    self._night_save_queue[target_id] = []
+                self._night_save_queue[target_id].append(actor_id)
+            elif player.role.name == RoleConst.SEER and isinstance(action, InspectAction):
+
+                action_data = SeerInspectActionDataEntry(
+                    actor_id=actor_id,
+                    target_id=action.target_id,
+                    reasoning=action.reasoning,
+                    perceived_threat_level=action.perceived_threat_level,
+                    action=action
+                )
+                self.state.add_history_entry(
+                    description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
+                    entry_type=HistoryEntryType.INSPECT_ACTION,
+                    public=False,
+                    visible_to=[actor_id],
+                    data=action_data,
+                    source=actor_id
+                )
+                target_player = self.state.get_player_by_id(action.target_id)
+                if target_player:  # Ensure target exists
+                    data = SeerInspectResultDataEntry(
+                        actor_id=actor_id,
+                        target_id=action.target_id,
+                        role=target_player.role.name,
+                        team=target_player.role.team.value
+                    )
+                    self.state.add_history_entry(
+                        description=f'Player "{actor_id}", you inspected {target_player.id}. '
+                                    f'Their role is a "{target_player.role.name}" in team '
+                                    f'"{target_player.role.team.value}".',
+                        entry_type=HistoryEntryType.INSPECT_RESULT,
+                        public=False,
+                        visible_to=[actor_id],
+                        data=data
+                    )
+                else:
+                    self.state.add_history_entry(
+                        description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
+                                    f' but this player could not be found.',
+                        entry_type=HistoryEntryType.ERROR,
+                        public=False,
+                        visible_to=[actor_id]
+                    )
+
+    def _handle_werewolf_await(self): 
+        next_ww_voters = self.night_voting.get_next_voters()
+        self._action_queue.extend(VoteAction, next_ww_voters)
+
+        # Re-prompt only the werewolves whose turn it is now
+        vote_action_queue = self._action_queue.get(VoteAction)
+        alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
+                                            p.id in vote_action_queue]
+        if alive_werewolves_still_to_vote:
+            for ww_voter in alive_werewolves_still_to_vote:
+                prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id)  # Use protocol's prompt
+                self.state.add_history_entry(
+                    description=prompt,
+                    entry_type=HistoryEntryType.VOTE_REQUEST,
+                    public=False,
+                    visible_to=[ww_voter.id]
+                )
+                
+    def _handle_werewolf_vote_results(self) :
+        werewolf_target_id = self.night_voting.get_elected()
+
+        data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
+        self.state.add_history_entry(
+            description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
+            entry_type=HistoryEntryType.VOTE_RESULT,
+            public=False,
+            visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
+            data=data
+        )
+
+        if werewolf_target_id:
+            werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
+            if werewolf_target_player:
+                if werewolf_target_id in self._night_save_queue:
+                    saving_doctor_ids = self._night_save_queue[werewolf_target_id]
+                    save_data = DoctorSaveDataEntry(saved_player_id=werewolf_target_id)
+
+                    # Private message to doctor(s) with data for the renderer
+                    self.state.add_history_entry(
+                        description=f"Your heal on player \"{werewolf_target_id}\" was successful!",
+                        entry_type=HistoryEntryType.HEAL_RESULT,
+                        public=False,
+                        data=save_data,
+                        visible_to=saving_doctor_ids
+                    )
+
+                    # Generic public announcement for all other players
+                    self.state.add_history_entry(
+                        description=f"A player was attacked but was saved by the Doctor!",
+                        entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                        public=True
+                    )
+                else:
+                    original_role_name = werewolf_target_player.role.name.value
+                    self.state.eliminate_player(werewolf_target_id)
+                    if self._reveal_night_elimination_role:
+                        data = WerewolfNightEliminationDataEntry(
+                            eliminated_player_id=werewolf_target_id,
+                            eliminated_player_role_name=original_role_name,
+                            eliminated_player_team_name=werewolf_target_player.role.team.value
+                        )
+                        self.state.add_history_entry(
+                            description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
+                                        f'Their role was a "{original_role_name}".',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
+                    else:
+                        data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
+                        self.state.add_history_entry(
+                            description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.',
+                            entry_type=HistoryEntryType.ELIMINATION,
+                            public=True,
+                            data=data
+                        )
+            else:
+                self.state.add_history_entry(
+                    description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
+                                f'but this player could not be found. No one was eliminated by werewolves.',
+                    entry_type=HistoryEntryType.ERROR,
+                    public=True
+                )
+        else:
+            # TODO: add fail over if no consensus can be reached (all werewolf action failed) for several voting rounds.
+            self.state.add_history_entry(
+                description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
+                entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,  # This could also be a VOTE_RESULT type
+                data={
+                    "outcome": "no_elimination",
+                    "reason": "no_consensus_werewolves"
+                },
+                public=True
+            )
+
     def _handle_night_await_actions(self, player_actions: Dict[str, Action]):
         # Process actions from Doctor, Seer (if it's the first step of night actions)
         # and Werewolves (always processed if they send votes)
 
         if self.night_step == 1:
-            for actor_id, action in player_actions.items():
-                player = self.state.get_player_by_id(actor_id)
-                if not player or not player.alive:
-                    continue
-
-                if player.role.name == RoleConst.DOCTOR and isinstance(action, HealAction):
-                    if not self.allow_doctor_self_save:
-                        if action.target_id == actor_id:
-                            self.state.add_history_entry(
-                                description=f'Player "{actor_id}", doctor is not allowed to self save. '
-                                            f'Your target is {action.target_id}, which is your own id.',
-                                entry_type=HistoryEntryType.ERROR,
-                                public=False,
-                                visible_to=[actor_id]
-                            )
-                            # skip since doctor can't self save
-                            continue
-                    data = DoctorHealActionDataEntry(
-                        actor_id=actor_id,
-                        target_id=action.target_id,
-                        reasoning=action.reasoning,
-                        perceived_threat_level=action.perceived_threat_level,
-                        action=action
-                    )
-                    self.state.add_history_entry(
-                        description=f'Player "{actor_id}", you chose to heal player "{action.target_id}".',
-                        entry_type=HistoryEntryType.HEAL_ACTION,
-                        public=False,
-                        visible_to=[actor_id],
-                        data=data,
-                        source=actor_id
-                    )
-                    target_id = action.target_id
-                    if target_id not in self._night_save_queue:
-                        self._night_save_queue[target_id] = []
-                    self._night_save_queue[target_id].append(actor_id)
-                elif player.role.name == RoleConst.SEER and isinstance(action, InspectAction):
-
-                    action_data = SeerInspectActionDataEntry(
-                        actor_id=actor_id,
-                        target_id=action.target_id,
-                        reasoning=action.reasoning,
-                        perceived_threat_level=action.perceived_threat_level,
-                        action=action
-                    )
-                    self.state.add_history_entry(
-                        description=f'Player "{actor_id}", you chose to inspect player "{action.target_id}".',
-                        entry_type=HistoryEntryType.INSPECT_ACTION,
-                        public=False,
-                        visible_to=[actor_id],
-                        data=action_data,
-                        source=actor_id
-                    )
-                    target_player = self.state.get_player_by_id(action.target_id)
-                    if target_player:  # Ensure target exists
-                        data = SeerInspectResultDataEntry(
-                            actor_id=actor_id,
-                            target_id=action.target_id,
-                            role=target_player.role.name,
-                            team=target_player.role.team.value
-                        )
-                        self.state.add_history_entry(
-                            description=f'Player "{actor_id}", you inspected {target_player.id}. '
-                                        f'Their role is a "{target_player.role.name}" in team '
-                                        f'"{target_player.role.team.value}".',
-                            entry_type=HistoryEntryType.INSPECT_RESULT,
-                            public=False,
-                            visible_to=[actor_id],
-                            data=data
-                        )
-                    else:
-                        self.state.add_history_entry(
-                            description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
-                                        f' but this player could not be found.',
-                            entry_type=HistoryEntryType.ERROR,
-                            public=False,
-                            visible_to=[actor_id]
-                        )
+            self._handle_doctor_seer_night_await(player_actions)
 
         # Process werewolf votes
         werewolf_voters_expected = self._action_queue.get(VoteAction)
@@ -391,100 +489,11 @@ class Moderator:
 
         if not self.night_voting.done():
             # Werewolf voting is not complete (e.g., sequential voting)
-            next_ww_voters = self.night_voting.get_next_voters()
-            self._action_queue.extend(VoteAction, next_ww_voters)
-
-            # Re-prompt only the werewolves whose turn it is now
-            vote_action_queue = self._action_queue.get(VoteAction)
-            alive_werewolves_still_to_vote = [p for p in self.state.alive_players_by_role(RoleConst.WEREWOLF) if
-                                              p.id in vote_action_queue]
-            if alive_werewolves_still_to_vote:
-                for ww_voter in alive_werewolves_still_to_vote:
-                    prompt = self.night_voting.get_voting_prompt(self.state, ww_voter.id)  # Use protocol's prompt
-                    self.state.add_history_entry(
-                        description=prompt,
-                        entry_type=HistoryEntryType.VOTE_REQUEST,
-                        public=False,
-                        visible_to=[ww_voter.id]
-                    )
+            self._handle_werewolf_await()
             # Stay in NIGHT_AWAIT_ACTIONS
         else:
             # All werewolf votes are in, or voting is otherwise complete
-            werewolf_target_id = self.night_voting.get_elected()
-
-            data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
-            self.state.add_history_entry(
-                description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
-                entry_type=HistoryEntryType.VOTE_RESULT,
-                public=False,
-                visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
-                data=data
-            )
-
-            if werewolf_target_id:
-                werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
-                if werewolf_target_player:
-                    if werewolf_target_id in self._night_save_queue:
-                        saving_doctor_ids = self._night_save_queue[werewolf_target_id]
-                        save_data = DoctorSaveDataEntry(saved_player_id=werewolf_target_id)
-
-                        # Private message to doctor(s) with data for the renderer
-                        self.state.add_history_entry(
-                            description=f"Your heal on player \"{werewolf_target_id}\" was successful!",
-                            entry_type=HistoryEntryType.HEAL_RESULT,
-                            public=False,
-                            data=save_data,
-                            visible_to=saving_doctor_ids
-                        )
-
-                        # Generic public announcement for all other players
-                        self.state.add_history_entry(
-                            description=f"A player was attacked but was saved by the Doctor!",
-                            entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
-                            public=True
-                        )
-                    else:
-                        original_role_name = werewolf_target_player.role.name.value
-                        self.state.eliminate_player(werewolf_target_id)
-                        if self._reveal_night_elimination_role:
-                            data = WerewolfNightEliminationDataEntry(
-                                eliminated_player_id=werewolf_target_id,
-                                eliminated_player_role_name=original_role_name,
-                                eliminated_player_team_name=werewolf_target_player.role.team.value
-                            )
-                            self.state.add_history_entry(
-                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
-                                            f'Their role was a "{original_role_name}".',
-                                entry_type=HistoryEntryType.ELIMINATION,
-                                public=True,
-                                data=data
-                            )
-                        else:
-                            data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
-                            self.state.add_history_entry(
-                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.',
-                                entry_type=HistoryEntryType.ELIMINATION,
-                                public=True,
-                                data=data
-                            )
-                else:
-                    self.state.add_history_entry(
-                        description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
-                                    f'but this player could not be found. No one was eliminated by werewolves.',
-                        entry_type=HistoryEntryType.ERROR,
-                        public=True
-                    )
-            else:
-                # TODO: add fail over if no consensus can be reached (all werewolf action failed) for several voting rounds.
-                self.state.add_history_entry(
-                    description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,  # This could also be a VOTE_RESULT type
-                    data={
-                        "outcome": "no_elimination",
-                        "reason": "no_consensus_werewolves"
-                    },
-                    public=True
-                )
+            self._handle_werewolf_vote_results()
 
             self.night_voting.reset()
             self._night_save_queue = {}
