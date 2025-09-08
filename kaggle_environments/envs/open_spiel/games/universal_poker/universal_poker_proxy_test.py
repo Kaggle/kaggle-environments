@@ -16,14 +16,14 @@ class UniversalPokerTest(parameterized.TestCase):
     self.assertIsInstance(game, universal_poker.UniversalPokerGame)
 
   def test_game_parameters(self):
-    game = pyspiel.load_game("universal_poker_proxy(betting=nolimit,numPlayers=2,stack=20000 20000,numRounds=4,blind=50 100,firstPlayer=2 1 1 1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 1,bettingAbstraction=fullgame)")
+    game = pyspiel.load_game(pyspiel.hunl_game_string("fullgame"))
     game_params = game.get_parameters()
     self.assertEqual(
         game_params,
         {
             'betting': 'nolimit',
             'bettingAbstraction': 'fullgame',
-            'blind': '50 100',
+            'blind': '100 50',
             'boardCards': '',
             'firstPlayer': '2 1 1 1',
             'handReaches': '',
@@ -35,7 +35,6 @@ class UniversalPokerTest(parameterized.TestCase):
             'numRounds': 4,
             'numSuits': 4,
             'potSize': 0,
-            'raiseSize': '100 100',
             'stack': '20000 20000',
         }
     )
