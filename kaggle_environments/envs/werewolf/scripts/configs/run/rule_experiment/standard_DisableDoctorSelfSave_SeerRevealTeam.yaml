@@ -9,9 +9,9 @@ game_config:
       max_rounds: 2
       assign_random_first_speaker: true
   day_voting_protocol:
-    name: "SimultaneousMajority"
+    name: "SequentialVoting"
     params:
-      tie_break: 'no_elected'
+      assign_random_first_voter: true
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
     params:
@@ -41,7 +41,7 @@ game_config:
         - model_name: "openrouter/deepseek/deepseek-chat-v3.1"
     - role: "Doctor"
       role_params:
-        allow_self_save: true
+        allow_self_save: false
       id: "Charlie"
       thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
       agent_id: "llm/openrouter/openai/gpt-4o-mini"
@@ -52,6 +52,8 @@ game_config:
       llms:
         - model_name: "openrouter/openai/gpt-4o-mini"
     - role: "Seer"
+      role_params:
+        reveal_level: "team"
       id: "Taylor"
       thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
       agent_id: "llm/openrouter/qwen/qwen3-235b-a22b-2507"

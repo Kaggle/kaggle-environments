@@ -8,10 +8,16 @@ class StrEnum(str, Enum):
     def __str__(self):
         return str(self.value)
 
+    def __repr__(self):
+        return str(self.value)
+
 
 class Phase(StrEnum):
     DAY = "Day"
     NIGHT = "Night"
+    GAME_OVER = "Game Over"
+
+DAY, NIGHT, GAME_OVER = Phase
 
 
 class PhaseDivider(StrEnum):
@@ -64,15 +70,35 @@ class ObsKeys:
 
 
 class DetailedPhase(StrEnum):
+    def __new__(cls, value, category: Phase):
+        # This creates the string object from the value
+        obj = str.__new__(cls, value)
+        # This sets the _value_ attribute, which is what Enum uses internally
+        obj._value_ = value
+        # Now, attach your custom category attribute
+        obj.category = category
+        return obj
+
     # Night Phases
-    NIGHT_START = "NIGHT_START"
-    NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS"
+    NIGHT_START = "NIGHT_START", NIGHT
+    NIGHT_AWAIT_ACTIONS = "NIGHT_AWAIT_ACTIONS", NIGHT
+    NIGHT_CONCLUDE = "NIGHT_CONCLUDE", NIGHT
+
     # Day Phases
-    DAY_START = "DAY_START"
-    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT"
-    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
-    DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
-    GAME_OVER = "GAME_OVER"
+    DAY_START = "DAY_START", DAY
+
+    DAY_BIDDING_AWAIT = "DAY_BIDDING_AWAIT", DAY
+    DAY_BIDDING_CONCLUDE = "DAY_BIDDING_CONCLUDE", DAY
+
+    DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT", DAY
+    DAY_CHAT_CONCLUDE = "DAY_CHAT_CONCLUDE", DAY
+
+    DAY_VOTING_START = "DAY_VOTING_START", DAY
+    DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT", DAY
+    DAY_VOTING_CONCLUDE = "DAY_VOTING_CONCLUDE", DAY
+
+    # Game Over
+    GAME_OVER = "GAME_OVER", GAME_OVER
 
 
 EVENT_HANDLER_FOR_ATTR_NAME = '_event_handler_for'
@@ -117,3 +143,14 @@ class EventName(str, Enum):
     DAY_START = "day_start"
     NIGHT_END = "night_end"
     DAY_END = "day_end"
+
+
+class RevealLevel(StrEnum):
+    NO_REVEAL = "no_reveal"
+    """No reveal during elimination."""
+
+    TEAM = "team"
+    """Only reveal team during elimination."""
+
+    ROLE = "role"
+    """Reveal detailed role information during elimination."""

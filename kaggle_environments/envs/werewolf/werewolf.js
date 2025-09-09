@@ -3030,13 +3030,17 @@ function renderer({
                     if (!seerResultViewer) return;
                     const seerCap_ = createPlayerCapsule(playerMap.get(entry.seer));
                     const seerResultTargetCap = createPlayerCapsule(playerMap.get(entry.target));
+                    const resultString = entry.role
+                        ? `role is a <strong>${entry.role}</strong>`
+                        : `team is <strong>${entry.team}</strong>`;
+
                     li.className = `chat-entry ${phaseClass}`;
                     li.innerHTML = `
                         <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
                         <div class="message-content">
                             <cite>Seer Inspect Result ${timestampHtml}</cite>
                             <div class="balloon">
-                                <div class="balloon-text">${seerCap_} saw ${seerResultTargetCap}'s role is a <strong>${entry.role}</strong>.</div>
+                                <div class="balloon-text">${seerCap_} saw ${seerResultTargetCap}'s ${resultString}.</div>
                             </div>
                         </div>
                     `;
@@ -3455,7 +3459,7 @@ function renderer({
                 gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
                 break;
             case 'SeerInspectResultDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, team: data.team, timestamp });
                 break;
             case 'DoctorSaveDataEntry':
                 gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, saved_player: data.saved_player_id, timestamp });

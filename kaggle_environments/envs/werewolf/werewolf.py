@@ -14,10 +14,7 @@ from .game.actions import (
 )
 from .game.consts import RoleConst
 from .game.engine import Moderator
-from .game.protocols import (
-    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol, RoundByRoundBiddingDiscussion,
-)
+from .game.protocols.factory import create_protocol
 from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
 from .game.states import GameState, EventName, get_last_action_request
@@ -26,55 +23,9 @@ from .harness.base import LLMWerewolfAgent, LLMCostTracker
 logger = logging.getLogger(__name__)
 
 # --- Protocol Factory ---
-PROTOCOL_REGISTRY = {
-    "discussion": {
-        "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
-        "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
-        "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
-                                        "default_params": {
-                                            "bidding": {"name": "UrgencyBiddingProtocol"},
-                                            "max_turns": 8
-                                        }},
-        "RoundByRoundBiddingDiscussion": {"class": RoundByRoundBiddingDiscussion,
-                                        "default_params": {
-                                            "bidding": {"name": "SimpleBiddingProtocol"},
-                                            "max_rounds": 2,
-                                            "bid_result_public": True
-                                        }},
-    },
-    "voting": {
-        "SimultaneousMajority": {"class": SimultaneousMajority, "default_params": {}},
-        "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
-    },
-    "bidding": {
-        "UrgencyBiddingProtocol": {"class": UrgencyBiddingProtocol, "default_params": {}},
-    }
-}
-
 DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
 DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
-
-
-def create_protocol(protocol_type: str, config: dict, default_name: str):
-    name = config.get("name", default_name)
-    params = config.get("params", {})
-
-    registry = PROTOCOL_REGISTRY[protocol_type]
-    protocol_info = registry.get(name)
-    if not protocol_info:
-        logger.warning(f"Protocol '{name}' not found in {protocol_type} registry. Using default '{default_name}'.")
-        protocol_info = registry[default_name]
-        name = default_name
-
-    protocol_class = protocol_info["class"]
-    default_params = protocol_info["default_params"]
-    final_params = {**default_params, **params}
-
-    # Handle nested protocols
-    if name in {"TurnByTurnBiddingDiscussion", "RoundByRoundBiddingDiscussion"}:
-        final_params["bidding"] = create_protocol(
-            "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
-    return protocol_class(**final_params)
+DEFAULT_BIDDING_PROTOCOL_NAME = "UrgencyBiddingProtocol"
 
 
 class AgentCost(BaseModel):
@@ -100,8 +51,8 @@ class CostSummary(BaseModel):
 def random_agent(obs):
     raw_obs = get_raw_observation(obs)
 
-    entries = raw_obs.new_player_history_entry_views
-    current_phase = DetailedPhase(raw_obs.phase)
+    entries = raw_obs.new_player_event_views
+    current_phase = DetailedPhase(raw_obs.detailed_phase)
     my_role = raw_obs.role
     all_player_names = raw_obs.all_player_ids
     my_id = raw_obs.player_id
@@ -297,7 +248,7 @@ def interpreter(state, env):
     for the game.
 
     Note - env framework assumes that there is an action to be done by player, but 
-    for werewolf there are places where moderator is the one taking the action (e.g
+    for werewolf there are places where moderator is the one taking the action (e.g.
     counting votes and performing exile) so some game 'ticks' are larger than others.
 
     state: list of dictionaries, one for each agent.
@@ -418,13 +369,13 @@ def update_agent_messages(
             team=player_obj.role.team.value,
             is_alive=player_obj.alive,
             day=game_state.day_count,
-            phase=moderator.detailed_phase.value,
+            detailed_phase=moderator.detailed_phase.value,
             all_player_ids=game_state.all_player_ids,
             player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],
-            revealed_players_by_role=game_state.revealed_players(),
+            revealed_players=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
-            new_player_history_entry_views=new_history_entries,
+            new_player_event_views=new_history_entries,
             game_state_phase=game_state.phase.value
         )
 
@@ -470,8 +421,8 @@ def initialize_moderator(state, env):
     env.game_state = GameState(
         players=players,
         history={},
-        reveal_night_elimination_role=env.configuration.reveal_night_elimination_role,
-        reveal_day_exile_role=env.configuration.reveal_day_exile_role
+        night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level
     )
 
     env.player_ids_map = {i: p.id for i, p in enumerate(players)}
@@ -480,19 +431,16 @@ def initialize_moderator(state, env):
     env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
     # Initialize protocols from configuration or defaults
     discussion_protocol = create_protocol(
-        "discussion",
         env.configuration.get("discussion_protocol", {}),
-        DEFAULT_DISCUSSION_PROTOCOL_NAME
+        default_name=DEFAULT_DISCUSSION_PROTOCOL_NAME
     )
     day_voting_protocol = create_protocol(
-        "voting",
         env.configuration.get("day_voting_protocol", {}),
-        DEFAULT_VOTING_PROTOCOL_NAME
+        default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
     night_voting_protocol = create_protocol(
-        "voting",
         env.configuration.get("werewolf_night_vote_protocol", {}),
-        DEFAULT_VOTING_PROTOCOL_NAME
+        default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
 
     logger.info(
@@ -506,9 +454,8 @@ def initialize_moderator(state, env):
         discussion=discussion_protocol,
         day_voting=day_voting_protocol,
         night_voting=night_voting_protocol,
-        allow_doctor_self_save=env.configuration['allow_doctor_self_save'],
-        reveal_night_elimination_role=env.configuration['reveal_night_elimination_role'],
-        reveal_day_exile_role=env.configuration['reveal_day_exile_role']
+        night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level
     )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
@@ -529,11 +476,11 @@ def renderer(state, env):
 
 
 def html_renderer():
-    jspath = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
-    with open(jspath, encoding="utf-8") as f:
-        return f.read()
+    js_path = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
+    with open(js_path, encoding="utf-8") as buff:
+        return buff.read()
 
 
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
-with open(jsonpath) as f:
-    specification = json.load(f)
+with open(jsonpath) as handle:
+    specification = json.load(handle)

@@ -373,7 +373,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_rate_limit_error),
         stop=tenacity.stop_after_attempt(5),
-        wait=tenacity.wait_random_exponential(min=1, max=60),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         reraise=True
     )
     def query(self, prompt):
@@ -479,7 +479,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         content = {
             "system_prompt": self._system_prompt,
-            "current_state": json.dumps(current_state, indent=2, sort_keys=True),
+            "current_state": json.dumps(current_state, sort_keys=True),
             "event_log": event_log,
             "instruction": instruction,
             "error_instruction": error_instruction,
@@ -495,14 +495,14 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "your_role_name": obs_model.role,
             "all_player_ids": obs_model.all_player_ids,
             "alive_players": obs_model.alive_players,
-            "revealed_players_by_role": obs_model.revealed_players_by_role,
+            "revealed_players": obs_model.revealed_players,
         }
         return content
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_context_window_exceeded_error),
         stop=tenacity.stop_after_attempt(5),
-        wait=tenacity.wait_fixed(0.5),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         before_sleep=_truncate_and_log_on_retry,
         reraise=True,
     )
@@ -520,7 +520,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_json_parsing_error),
         stop=tenacity.stop_after_attempt(3),
-        wait=tenacity.wait_fixed(0.5),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         before_sleep=_add_error_entry_on_retry,
         reraise=True,
     )
@@ -668,7 +668,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     def __call__(self, obs):
         raw_obs = get_raw_observation(obs)
-        entries = raw_obs.new_player_history_entry_views
+        entries = raw_obs.new_player_event_views
 
         for entry in entries:
             self._event_logs.append(
@@ -681,10 +681,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         self._event_log_items_to_keep = len(self._event_logs)
 
-        current_phase = DetailedPhase(raw_obs.phase)
+        current_phase = DetailedPhase(raw_obs.detailed_phase)
         my_role = RoleConst(raw_obs.role)
 
-        common_args = {"day": raw_obs.day, "phase": raw_obs.phase, "actor_id": raw_obs.player_id}
+        common_args = {"day": raw_obs.day, "phase": raw_obs.game_state_phase, "actor_id": raw_obs.player_id}
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 

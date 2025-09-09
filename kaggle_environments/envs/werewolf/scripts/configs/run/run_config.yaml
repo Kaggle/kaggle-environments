@@ -11,9 +11,8 @@ game_config:
     name: "SequentialVoting"
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
-  reveal_night_elimination_role: false
-  reveal_day_exile_role: false
-  allow_doctor_self_save: true
+  night_elimination_reveal_level: no_reveal
+  day_exile_reveal_level: no_reveal
   agents:
     - role: "Werewolf"
       id: "Player1"
@@ -32,6 +31,8 @@ game_config:
       llms:
         - model_name: "gemini/gemini-2.5-pro"
     - role: "Doctor"
+      role_params:
+        allow_self_save: true
       id: "Player3"
       agent_id: "random"
       display_name: "Player3 (Random)"

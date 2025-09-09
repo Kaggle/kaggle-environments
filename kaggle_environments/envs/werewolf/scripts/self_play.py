@@ -5,8 +5,8 @@ This is useful for example to evaluate the game rule balance.
 import argparse
 import copy
 import logging
-import math
 import multiprocessing
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import random
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 run_single_game_with_retry = tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
+    wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
     stop=tenacity.stop_after_attempt(3),
     before_sleep=tenacity.before_sleep_log(logger, logging.INFO)
 )(run_single_game_cli)
@@ -66,8 +66,15 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
 
         if shuffle_roles:
             logger.info(f"Shuffling roles for game {i}")
-            shuffle_field(game_config['agents'], 'role')
-        
+            role_configs = [
+                {'role': agent['role'], 'role_params': agent.get('role_params', {})}
+                for agent in game_config['agents']
+            ]
+            random.shuffle(role_configs)
+            for agent, role_config in zip(game_config['agents'], role_configs):
+                agent['role'] = role_config['role']
+                agent['role_params'] = role_config['role_params']
+
         # shuffle player ids
         logger.info(f"Shuffling player ids for game {i}")
         shuffle_field(game_config['agents'], 'id')
@@ -78,8 +85,10 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
 
     with tqdm(total=num_games, desc="Running Self-Play Games") as pbar:
         if parallel:
-            with multiprocessing.Pool(processes=num_processes) as pool:
-                for _ in pool.imap_unordered(game_runner_wrapper, game_tasks):
+            with ThreadPoolExecutor(max_workers=num_processes) as executor:
+                futures = [executor.submit(game_runner_wrapper, task) for task in game_tasks]
+                for future in as_completed(futures):
+                    # You could also add error handling here by checking future.exception()
                     pbar.update(1)
         else:
             for task in game_tasks:
@@ -130,7 +139,8 @@ def main():
 
     num_processes = args.num_processes
     if args.parallel and num_processes is None:
-        num_processes = max(1, math.floor(multiprocessing.cpu_count() * 0.8))
+        # Default to 4x the number of CPUs for I/O bound tasks
+        num_processes = multiprocessing.cpu_count() * 4
 
     logger.info("Starting self-play with the following settings:")
     logger.info(f"Model Name: {args.model_name}")

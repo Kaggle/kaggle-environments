@@ -137,12 +137,13 @@ class Action(BaseAction):
         return None
 
     def push_event(self, state: BaseState):
+        # The following is just for internal record keeping.
         data = self.model_dump()
         state.push_event(
             description=f"Player {self.actor_id}, you submitted {data}",
             event_name=ACTION_EVENT_MAP[self.__class__.__name__],
             public=False,
-            visible_to=[self.actor_id],
+            visible_to=[],
             data=data
         )
 
