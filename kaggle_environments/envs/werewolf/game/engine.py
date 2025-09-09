@@ -1,16 +1,15 @@
-
-
 import json
-from typing import List, Dict, Tuple, Type, Sequence, Protocol
+from typing import List, Dict, Type, Sequence, Protocol
 
 from .actions import Action, VoteAction, ChatAction, BidAction
 from .base import BaseModerator, PlayerID
 from .consts import Phase, Team, RoleConst, PhaseDivider, DetailedPhase
-from .protocols import DiscussionProtocol, VotingProtocol, BiddingDiscussion
+from .night_elimination_manager import NightEliminationManager
+from .protocols.base import VotingProtocol, DiscussionProtocol
+from .protocols.chat import BiddingDiscussion
 from .records import (
-    EventName, GameStartDataEntry, GameStartRoleDataEntry, DoctorSaveDataEntry,
-    RequestWerewolfVotingDataEntry, WerewolfNightEliminationElectedDataEntry, WerewolfNightEliminationDataEntry,
-    DayExileElectedDataEntry,
+    EventName, GameStartDataEntry, GameStartRoleDataEntry, RequestWerewolfVotingDataEntry,
+    WerewolfNightEliminationElectedDataEntry, DayExileElectedDataEntry,
     GameEndResultsDataEntry
 )
 from .roles import Player
@@ -30,8 +29,7 @@ class ActionQueue:
         action_type = action_cls.__name__
         self._action_queue.setdefault(action_type, [])
         if player_id in self._action_queue[action_type]:
-            raise ValueError(f'player {player_id} is already in the action queue. '
-                             'One turn only one action is allowed in the queue.')
+            raise ValueError(f'player {player_id} is already in the action queue. ')
         self._action_queue[action_type].append(player_id)
 
     def extend(self, action_cls: Type[Action], player_ids: Sequence[PlayerID]):
@@ -86,7 +84,7 @@ class Moderator(BaseModerator):
         self._reveal_day_exile_role = reveal_day_exile_role
 
         self._active_night_roles_queue: List[Player] = []
-        self._night_save_queue: Dict[str, List[str]] = {}
+        self._night_elimination_manager = NightEliminationManager(self._state, self._reveal_night_elimination_role)
         self._action_queue = ActionQueue()
 
         # This is for registering role specific event handling
@@ -186,7 +184,8 @@ class Moderator(BaseModerator):
                     self.state.register_event_handler(event_name, handler)
 
     def request_action(
-            self, action_cls: Type[Action], player_id: str, prompt: str, data=None,
+            self,
+            action_cls: Type[Action], player_id: PlayerID, prompt: str, data=None,
             event_name=EventName.MODERATOR_ANNOUNCEMENT
         ):
         """A public method for listeners to add a player to the action queue."""
@@ -228,7 +227,7 @@ class Moderator(BaseModerator):
         return self._action_queue.get_active_player_ids()
 
     def record_night_save(self, doctor_id: PlayerID, target_id: PlayerID):
-        self._night_save_queue.setdefault(target_id, []).append(doctor_id)
+        self._night_elimination_manager.record_save(doctor_id, target_id)
 
     def advance(self, player_actions: Dict[PlayerID, Action]):
         self.confirm_action(player_actions)
@@ -339,73 +338,11 @@ class Moderator(BaseModerator):
                 data=data
             )
 
-            if werewolf_target_id:
-                werewolf_target_player = self.state.get_player_by_id(werewolf_target_id)
-                if werewolf_target_player:
-                    if werewolf_target_id in self._night_save_queue:
-                        saving_doctor_ids = self._night_save_queue[werewolf_target_id]
-                        save_data = DoctorSaveDataEntry(saved_player_id=werewolf_target_id)
-
-                        # Private message to doctor(s) with data for the renderer
-                        self.state.push_event(
-                            description=f"Your heal on player \"{werewolf_target_id}\" was successful!",
-                            event_name=EventName.HEAL_RESULT,
-                            public=False,
-                            data=save_data,
-                            visible_to=saving_doctor_ids
-                        )
-
-                        # Generic public announcement for all other players
-                        self.state.push_event(
-                            description=f"A player was attacked but was saved by the Doctor!",
-                            event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                            public=True
-                        )
-                    else:
-                        original_role_name = werewolf_target_player.role.name.value
-                        self.state.eliminate_player(werewolf_target_id)
-                        if self._reveal_night_elimination_role:
-                            data = WerewolfNightEliminationDataEntry(
-                                eliminated_player_id=werewolf_target_id,
-                                eliminated_player_role_name=original_role_name,
-                                eliminated_player_team_name=werewolf_target_player.role.team.value
-                            )
-                            self.state.push_event(
-                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
-                                            f'Their role was a "{original_role_name}".',
-                                event_name=EventName.ELIMINATION,
-                                public=True,
-                                data=data
-                            )
-                        else:
-                            data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
-                            self.state.push_event(
-                                description=f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.',
-                                event_name=EventName.ELIMINATION,
-                                public=True,
-                                data=data
-                            )
-                else:
-                    self.state.push_event(
-                        description=f'Last night, werewolves targeted player "{werewolf_target_id}", '
-                                    f'but this player could not be found. No one was eliminated by werewolves.',
-                        event_name=EventName.ERROR,
-                        public=True
-                    )
-            else:
-                # TODO: add fail over if no consensus can be reached (all werewolf action failed) for several voting rounds.
-                self.state.push_event(
-                    description="Last night, the werewolves did not reach a consensus (or no valid target was chosen). No one was eliminated by werewolves.",
-                    event_name=EventName.MODERATOR_ANNOUNCEMENT,  # This could also be a VOTE_RESULT type
-                    data={
-                        "outcome": "no_elimination",
-                        "reason": "no_consensus_werewolves"
-                    },
-                    public=True
-                )
+            self._night_elimination_manager.resolve_elimination(werewolf_target_id)
 
             self.night_voting.reset()
-            self._night_save_queue = {}
+            self._night_elimination_manager.reset()
+
             self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_END)
             self.state.add_phase_divider(PhaseDivider.NIGHT_END)
             if not self.is_game_over():

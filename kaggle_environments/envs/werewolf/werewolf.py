@@ -14,10 +14,7 @@ from .game.actions import (
 )
 from .game.consts import RoleConst
 from .game.engine import Moderator
-from .game.protocols import (
-    RoundRobinDiscussion, SimultaneousMajority, ParallelDiscussion, SequentialVoting,
-    TurnByTurnBiddingDiscussion, UrgencyBiddingProtocol, RoundByRoundBiddingDiscussion,
-)
+from .game.protocols.factory import create_protocol
 from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
 from .game.roles import create_players_from_agents_config
 from .game.states import GameState, EventName, get_last_action_request
@@ -26,55 +23,9 @@ from .harness.base import LLMWerewolfAgent, LLMCostTracker
 logger = logging.getLogger(__name__)
 
 # --- Protocol Factory ---
-PROTOCOL_REGISTRY = {
-    "discussion": {
-        "RoundRobinDiscussion": {"class": RoundRobinDiscussion, "default_params": {"max_rounds": 1}},
-        "ParallelDiscussion": {"class": ParallelDiscussion, "default_params": {"ticks": 3}},
-        "TurnByTurnBiddingDiscussion": {"class": TurnByTurnBiddingDiscussion,
-                                        "default_params": {
-                                            "bidding": {"name": "UrgencyBiddingProtocol"},
-                                            "max_turns": 8
-                                        }},
-        "RoundByRoundBiddingDiscussion": {"class": RoundByRoundBiddingDiscussion,
-                                        "default_params": {
-                                            "bidding": {"name": "SimpleBiddingProtocol"},
-                                            "max_rounds": 2,
-                                            "bid_result_public": True
-                                        }},
-    },
-    "voting": {
-        "SimultaneousMajority": {"class": SimultaneousMajority, "default_params": {}},
-        "SequentialVoting": {"class": SequentialVoting, "default_params": {}},
-    },
-    "bidding": {
-        "UrgencyBiddingProtocol": {"class": UrgencyBiddingProtocol, "default_params": {}},
-    }
-}
-
 DEFAULT_DISCUSSION_PROTOCOL_NAME = "RoundRobinDiscussion"
 DEFAULT_VOTING_PROTOCOL_NAME = "SimultaneousMajority"
-
-
-def create_protocol(protocol_type: str, config: dict, default_name: str):
-    name = config.get("name", default_name)
-    params = config.get("params", {})
-
-    registry = PROTOCOL_REGISTRY[protocol_type]
-    protocol_info = registry.get(name)
-    if not protocol_info:
-        logger.warning(f"Protocol '{name}' not found in {protocol_type} registry. Using default '{default_name}'.")
-        protocol_info = registry[default_name]
-        name = default_name
-
-    protocol_class = protocol_info["class"]
-    default_params = protocol_info["default_params"]
-    final_params = {**default_params, **params}
-
-    # Handle nested protocols
-    if name in {"TurnByTurnBiddingDiscussion", "RoundByRoundBiddingDiscussion"}:
-        final_params["bidding"] = create_protocol(
-            "bidding", final_params.get("bidding", {}), "UrgencyBiddingProtocol")
-    return protocol_class(**final_params)
+DEFAULT_BIDDING_PROTOCOL_NAME = "UrgencyBiddingProtocol"
 
 
 class AgentCost(BaseModel):
@@ -480,19 +431,16 @@ def initialize_moderator(state, env):
     env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
     # Initialize protocols from configuration or defaults
     discussion_protocol = create_protocol(
-        "discussion",
         env.configuration.get("discussion_protocol", {}),
-        DEFAULT_DISCUSSION_PROTOCOL_NAME
+        default_name=DEFAULT_DISCUSSION_PROTOCOL_NAME
     )
     day_voting_protocol = create_protocol(
-        "voting",
         env.configuration.get("day_voting_protocol", {}),
-        DEFAULT_VOTING_PROTOCOL_NAME
+        default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
     night_voting_protocol = create_protocol(
-        "voting",
         env.configuration.get("werewolf_night_vote_protocol", {}),
-        DEFAULT_VOTING_PROTOCOL_NAME
+        default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
 
     logger.info(
