@@ -1,55 +1,18 @@
 import json
 from abc import ABC
 from datetime import datetime
-from enum import Enum, IntEnum
+from enum import IntEnum
 from typing import Optional, List, Dict
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
 
-from kaggle_environments.envs.werewolf.game.actions import Action
-from kaggle_environments.envs.werewolf.game.consts import Phase, ObsKeys, DetailedPhase, RoleConst, Team
+from .base import BaseHistoryEntry, BaseAction, PlayerID
+from .consts import Phase, ObsKeys, DetailedPhase, RoleConst, Team, EventName, PerceivedThreatLevel, PhaseDivider
 
 
 def get_utc_now():
     return str(datetime.now(ZoneInfo("UTC")))
-
-
-class HistoryEntryType(str, Enum):
-    GAME_START = "game_start"
-    PHASE_CHANGE = "phase_change"
-    PHASE_DIVIDER = "phase_divider"
-    ELIMINATION = "elimination"
-
-    VOTE_REQUEST = "vote_request"
-    VOTE_ACTION = "vote_action"
-    VOTE_RESULT = "vote_result"
-    VOTE_ORDER = "vote_order"
-
-    HEAL_REQUEST = "heal_request"
-    HEAL_ACTION = "heal_action"
-    HEAL_RESULT = "heal_result"
-
-    INSPECT_REQUEST = "inspect_request"
-    INSPECT_ACTION = "inspect_action"
-    INSPECT_RESULT = "inspect_result"
-
-    CHAT_REQUEST = "chat_request"
-    DISCUSSION = "discussion"
-    DISCUSSION_ORDER = "discussion_order"
-
-    BID_REQEUST = "bid_request"
-    BID_RESULT = "bid_result"
-    BID_ACTION = "bid_action"
-    BIDDING_INFO = "bidding_info"
-
-    GAME_END = "game_end"
-    MODERATOR_ANNOUNCEMENT = "moderator_announcement"
-    ERROR = "error"
-    NIGHT_START = "night_start"
-    DAY_START = "day_start"
-    NIGHT_END = "night_end"
-    DAY_END = "day_end"
 
 
 # TODO: model serializer customize for all general dumps, customize only for god mode view with other methods
@@ -69,11 +32,12 @@ class ActionDataMixin(BaseModel):
     A mixin for action-related DataEntry models.
     Includes the actor performing the action and their private reasoning.
     """
-    actor_id: str
+    actor_id: PlayerID
     reasoning: Optional[str] = Field(
         default=None, description="Private reasoning for moderator analysis.", access=DataAccessLevel.PERSONAL)
-    perceived_threat_level: Optional[str] = Field(default='SAFE', access=DataAccessLevel.PERSONAL)
-    action: Optional[Action] = Field(default=None, access=DataAccessLevel.PERSONAL)
+    perceived_threat_level: Optional[PerceivedThreatLevel] = Field(
+        default=PerceivedThreatLevel.SAFE, access=DataAccessLevel.PERSONAL)
+    action: Optional[BaseAction] = Field(default=None, access=DataAccessLevel.PERSONAL)
 
 
 class VisibleRawData(BaseModel):
@@ -85,7 +49,7 @@ class PlayerHistoryEntryView(BaseModel):
     day: int
     phase: Phase
     detailed_phase: DetailedPhase
-    entry_type: HistoryEntryType
+    event_name: EventName
     description: str
     data: Optional[dict | DataEntry] = None
     source: str
@@ -101,7 +65,7 @@ class PlayerHistoryEntryView(BaseModel):
             day=self.day,
             phase=self.phase,
             detailed_phase=self.detailed_phase,
-            entry_type=self.entry_type,
+            event_name=self.event_name,
             description=self.description,
             data=data,
             source=self.source,
@@ -109,11 +73,11 @@ class PlayerHistoryEntryView(BaseModel):
         )
 
 
-class HistoryEntry(BaseModel):
+class HistoryEntry(BaseHistoryEntry):
     day: int  # Day number, 0 for initial night
     phase: Phase
     detailed_phase: DetailedPhase
-    entry_type: HistoryEntryType
+    event_name: EventName
     description: str
     public: bool = False
     visible_to: List[str] = Field(default_factory=list)
@@ -156,7 +120,7 @@ class HistoryEntry(BaseModel):
             day=self.day,
             phase=self.phase,
             detailed_phase=self.detailed_phase,
-            entry_type=self.entry_type,
+            event_name=self.event_name,
             description=self.description,
             data=data,
             source=self.source,
@@ -167,10 +131,10 @@ class HistoryEntry(BaseModel):
 
 # --- Game State and Setup Data Entries ---
 class GameStartDataEntry(DataEntry):
-    player_ids: List[str]
+    player_ids: List[PlayerID]
     number_of_players: int
-    role_counts: Dict[str, int]
-    team_member_counts: Dict[str, int]
+    role_counts: Dict[RoleConst, int]
+    team_member_counts: Dict[Team, int]
     day_discussion_protocol_name: str
     day_discussion_protocol_rule: str
     night_werewolf_discussion_protocol_name: str
@@ -180,18 +144,18 @@ class GameStartDataEntry(DataEntry):
 
 
 class GameStartRoleDataEntry(DataEntry):
-    player_id: str
+    player_id: PlayerID
     team: Team
     role: RoleConst
     rule_of_role: str
 
 
 class SetNewPhaseDataEntry(DataEntry):
-    new_detailed_phase: str
+    new_detailed_phase: DetailedPhase
 
 
 class PhaseDividerDataEntry(DataEntry):
-    divider_type: str
+    divider_type: PhaseDivider
 
 
 # --- Request for Action Data Entries ---
@@ -200,16 +164,16 @@ class RequestForActionDataEntry(DataEntry):
 
 
 class RequestDoctorSaveDataEntry(RequestForActionDataEntry):
-    valid_candidates: List[str]
+    valid_candidates: List[PlayerID]
 
 
 class RequestSeerRevealDataEntry(RequestForActionDataEntry):
-    valid_candidates: List[str]
+    valid_candidates: List[PlayerID]
 
 
 class RequestWerewolfVotingDataEntry(RequestForActionDataEntry):
-    valid_targets: List[str]
-    alive_werewolve_player_ids: List[str]
+    valid_targets: List[PlayerID]
+    alive_werewolve_player_ids: List[PlayerID]
     voting_protocol_name: str
     voting_protocol_rule: str
 
@@ -220,14 +184,14 @@ class RequestVillagerToSpeakDataEntry(RequestForActionDataEntry):
 
 # --- Action and Result Data Entries ---
 class SeerInspectResultDataEntry(DataEntry):
-    actor_id: str
-    target_id: str
+    actor_id: PlayerID
+    target_id: PlayerID
     role: RoleConst
     team: Team
 
 
 class TargetedActionDataEntry(ActionDataMixin, DataEntry):
-    target_id: str
+    target_id: PlayerID
 
 
 class SeerInspectActionDataEntry(TargetedActionDataEntry):
@@ -248,40 +212,40 @@ class DayExileVoteDataEntry(TargetedActionDataEntry):
 
 class DoctorSaveDataEntry(DataEntry):
     """This records that a player was successfully saved by a doctor."""
-    saved_player_id: str
+    saved_player_id: PlayerID
 
 
 class VoteOrderDataEntry(DataEntry):
-    vote_order_of_player_ids: List[str]
+    vote_order_of_player_ids: List[PlayerID]
 
 
 class WerewolfNightEliminationElectedDataEntry(DataEntry):
     """This record the elected elimination target by werewolves."""
-    elected_target_player_id: str
+    elected_target_player_id: PlayerID
 
 
 class WerewolfNightEliminationDataEntry(DataEntry):
     """This record the one eventually got eliminated by werewolves without doctor safe."""
-    eliminated_player_id: str
-    eliminated_player_role_name: Optional[str] = None
-    eliminated_player_team_name: Optional[str] = None
+    eliminated_player_id: PlayerID
+    eliminated_player_role_name: Optional[RoleConst] = None
+    eliminated_player_team_name: Optional[Team] = None
 
 
 class DayExileElectedDataEntry(DataEntry):
-    elected_player_id: str
-    elected_player_role_name: Optional[str] = None
-    elected_player_team_name: Optional[str] = None
+    elected_player_id: PlayerID
+    elected_player_role_name: Optional[RoleConst] = None
+    elected_player_team_name: Optional[Team] = None
 
 
 class DiscussionOrderDataEntry(DataEntry):
-    chat_order_of_player_ids: List[str]
+    chat_order_of_player_ids: List[PlayerID]
 
 
 class ChatDataEntry(ActionDataMixin, DataEntry):
     """Records a chat message from a player, including private reasoning."""
     # actor_id and reasoning are inherited from ActionDataMixin
     message: str
-    mentioned_player_ids: List[str] = Field(default_factory=list)
+    mentioned_player_ids: List[PlayerID] = Field(default_factory=list)
 
 
 class BidDataEntry(ActionDataMixin, DataEntry):
@@ -289,9 +253,9 @@ class BidDataEntry(ActionDataMixin, DataEntry):
 
 
 class BidResultDataEntry(DataEntry):
-    winner_player_ids: List[str]
-    bid_overview: Dict[str, int]
-    mentioned_players_in_previous_turn: List[str] = []
+    winner_player_ids: List[PlayerID]
+    bid_overview: Dict[PlayerID, int]
+    mentioned_players_in_previous_turn: List[PlayerID] = []
 
 
 # --- Game End and Observation Models (Unchanged) ---
@@ -299,14 +263,14 @@ class GameEndResultsDataEntry(DataEntry):
     model_config = ConfigDict(use_enum_values=True)
 
     winner_team: Team
-    winner_ids: List[str]
-    loser_ids: List[str]
+    winner_ids: List[PlayerID]
+    loser_ids: List[PlayerID]
     scores: Dict[str, int | float]
     reason: str
     last_day: int
     last_phase: Phase
-    survivors_until_last_round_and_role: Dict[str, str]
-    all_players_and_role: Dict[str, str]
+    survivors_until_last_round_and_role: Dict[PlayerID, RoleConst]
+    all_players_and_role: Dict[PlayerID, RoleConst]
     elimination_info: List[Dict]
     """list each player's elimination status, see GameState.get_elimination_info"""
 
@@ -315,16 +279,16 @@ class GameEndResultsDataEntry(DataEntry):
 
 
 class WerewolfObservationModel(BaseModel):
-    player_id: str
+    player_id: PlayerID
     role: RoleConst
     team: Team
     is_alive: bool
     day: int
     phase: DetailedPhase
-    all_player_ids: List[str]
-    player_thumbnails: Dict[str, str] = {}
-    alive_players: List[str]
-    revealed_players_by_role: Dict[str, str] = {}
+    all_player_ids: List[PlayerID]
+    player_thumbnails: Dict[PlayerID, str] = {}
+    alive_players: List[PlayerID]
+    revealed_players_by_role: Dict[PlayerID, RoleConst] = {}
     new_visible_announcements: List[str]
     new_player_history_entry_views: List[PlayerHistoryEntryView]
     game_state_phase: Phase

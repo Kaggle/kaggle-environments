@@ -73,3 +73,47 @@ class DetailedPhase(StrEnum):
     DAY_CHAT_AWAIT = "DAY_CHAT_AWAIT"
     DAY_VOTING_AWAIT = "DAY_VOTING_AWAIT"
     GAME_OVER = "GAME_OVER"
+
+
+EVENT_HANDLER_FOR_ATTR_NAME = '_event_handler_for'
+
+
+class EventName(str, Enum):
+    GAME_START = "game_start"
+    PHASE_CHANGE = "phase_change"
+    PHASE_DIVIDER = "phase_divider"
+    ELIMINATION = "elimination"
+
+    VOTE_REQUEST = "vote_request"
+    VOTE_ACTION = "vote_action"
+    VOTE_RESULT = "vote_result"
+    VOTE_ORDER = "vote_order"
+
+    HEAL_REQUEST = "heal_request"
+    HEAL_ACTION = "heal_action"
+    HEAL_RESULT = "heal_result"
+
+    INSPECT_REQUEST = "inspect_request"
+    INSPECT_ACTION = "inspect_action"
+    INSPECT_RESULT = "inspect_result"
+
+    CHAT_REQUEST = "chat_request"
+    DISCUSSION = "discussion"
+    DISCUSSION_ORDER = "discussion_order"
+
+    BID_REQEUST = "bid_request"
+    BID_RESULT = "bid_result"
+    BID_ACTION = "bid_action"
+    BIDDING_INFO = "bidding_info"
+
+    ELIMINATE_PROPOSAL_ACTION = "eliminate_proposal_action"
+    NOOP_ACTION = "no_op_action"
+
+    GAME_END = "game_end"
+    MODERATOR_ANNOUNCEMENT = "moderator_announcement"
+    ACTION_CONFIRMATION = "action_confirmation"
+    ERROR = "error"
+    NIGHT_START = "night_start"
+    DAY_START = "day_start"
+    NIGHT_END = "night_end"
+    DAY_END = "day_end"

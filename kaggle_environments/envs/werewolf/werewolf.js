@@ -51,14 +51,14 @@ function renderer({
             const event = JSON.parse(dataEntry.json_str);
             
             const isVisibleDataType = visibleEventDataTypes.has(dataEntry.data_type);
-            const isVisibleEntryType = systemEntryTypeSet.has(event.entry_type) || (event.entry_type === 'vote_action' && !event.data);
+            const isVisibleEntryType = systemEntryTypeSet.has(event.event_name) || (event.event_name === 'vote_action' && !event.data);
 
             if (!isVisibleDataType && !isVisibleEntryType) {
                 return;
             }
 
             // Additional filter for "has begun" system messages which are not displayed
-            if (event.entry_type === "moderator_announcement" && event.description && event.description.includes('has begun')) {
+            if (event.event_name === "moderator_announcement" && event.description && event.description.includes('has begun')) {
                 return;
             }
 
@@ -1732,7 +1732,7 @@ function renderer({
 
     // Handle animation for the current event actor
     if (lastEvent) {
-        if (lastEvent.entry_type === 'moderator_announcement') {
+        if (lastEvent.event_name === 'moderator_announcement') {
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
                 if (player.is_alive) {
@@ -3422,7 +3422,7 @@ function renderer({
         }
 
         if (!data) {
-            if (historyEvent.entry_type === 'vote_action') {
+            if (historyEvent.event_name === 'vote_action') {
                 const match = historyEvent.description.match(/P(player_\d+)/);
                 if (match) {
                     const actor_id = match[1];
@@ -3470,7 +3470,7 @@ function renderer({
                 gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
                 break;
             default:
-                if (systemEntryTypeSet.has(historyEvent.entry_type)) {
+                if (systemEntryTypeSet.has(historyEvent.event_name)) {
                     gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
                 }
                 break;
@@ -3569,7 +3569,7 @@ function renderer({
     const currentPhase = allEvents[eventStep].phase.toUpperCase() || 'DAY';
     const isNight = currentPhase === 'NIGHT';
     phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
-    if (allEvents[eventStep]?.entry_type == 'game_end') {
+    if (allEvents[eventStep]?.event_name == 'game_end') {
         phaseIndicator.innerHTML = `
         <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
         `;
