@@ -4,13 +4,14 @@ from abc import ABC, abstractmethod
 from typing import Sequence, Dict, List, Optional, Tuple
 
 from kaggle_environments.envs.werewolf.game.actions import Action, BidAction, ChatAction
+from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import EventName
 from kaggle_environments.envs.werewolf.game.records import ChatDataEntry, RequestVillagerToSpeakDataEntry
 from kaggle_environments.envs.werewolf.game.roles import Player
 from kaggle_environments.envs.werewolf.game.states import GameState
 
 
-def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> List[str]:
+def _extract_player_ids_from_string(text: str, all_player_ids: List[PlayerID]) -> List[PlayerID]:
     """Extracts player IDs mentioned in a string."""
     if not all_player_ids:
         return []
@@ -22,7 +23,7 @@ def _extract_player_ids_from_string(text: str, all_player_ids: List[str]) -> Lis
     return sorted(list(found_ids)) # sorted for deterministic order
 
 
-def _find_mentioned_players(text: str, all_player_ids: List[str]) -> List[str]:
+def _find_mentioned_players(text: str, all_player_ids: List[PlayerID]) -> List[PlayerID]:
     """
     Finds player IDs mentioned in a string of text, ordered by their first appearance.
     Player IDs are treated as whole words.
@@ -62,7 +63,7 @@ class VotingProtocol(ABC):
         """Initialize for a new voting round."""
 
     @abstractmethod
-    def get_voting_prompt(self, state: GameState, player_id: str) -> str:
+    def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
         """
         Returns a string prompt for the specified player, potentially including current tally.
         """
@@ -72,24 +73,24 @@ class VotingProtocol(ABC):
         """Collect an individual vote."""
 
     @abstractmethod
-    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[PlayerID]):
         """Collect a batch of votes."""
 
     @abstractmethod
-    def _tally_votes(self, state: GameState) -> str | None:
+    def _tally_votes(self, state: GameState) -> PlayerID | None:
         """
         Return exiled `player_id`, or None if no one is exiled
         (e.g. no majority rule / tied vote behaviour).
         """
 
     @abstractmethod
-    def get_current_tally_info(self, state: GameState) -> Dict[str, str]:
+    def get_current_tally_info(self, state: GameState) -> Dict[PlayerID, PlayerID]:
         """
         Return the current tally by a map, where key is player, value is target.
         """
 
     @abstractmethod
-    def get_next_voters(self) -> List[str]:
+    def get_next_voters(self) -> List[PlayerID]:
         """get the next batch of voters"""
 
     @abstractmethod
@@ -97,11 +98,11 @@ class VotingProtocol(ABC):
         """Check if voting is done."""
 
     @abstractmethod
-    def get_valid_targets(self) -> List[str]:
+    def get_valid_targets(self) -> List[PlayerID]:
         """get a list of targets"""
 
     @abstractmethod
-    def get_elected(self) -> Optional[str]:
+    def get_elected(self) -> Optional[PlayerID]:
         """get the final elected individual, or None if no one was elected."""
 
     @abstractmethod
@@ -119,11 +120,11 @@ class BiddingProtocol(ABC):
 
     @property
     @abstractmethod
-    def bids(self) -> Dict[str, int]:
+    def bids(self) -> Dict[PlayerID, int]:
         """return a snapshot of the current bids"""
 
     @staticmethod
-    def get_last_mentioned(state: GameState) -> Tuple[List[str], str]:
+    def get_last_mentioned(state: GameState) -> Tuple[List[PlayerID], str]:
         """get the players that were mentioned in last player message."""
         last_chat_message = ""
         sorted_days = sorted(state.history.keys(), reverse=True)
@@ -151,8 +152,8 @@ class BiddingProtocol(ABC):
     def is_finished(self, state: GameState) -> bool: ...
 
     @abstractmethod
-    def outcome(self, state: GameState) -> list[str]:
-        """ # Return type should be list[str] for player IDs
+    def outcome(self, state: GameState) -> list[PlayerID]:
+        """
         Return list of player-ids, ordered by bid strength.
         Could be 1 winner (sealed-bid) or a full ranking (Dutch auction).
         """
@@ -175,7 +176,7 @@ class DiscussionProtocol(ABC):
         """A string describing the discussion rule in effect."""
 
     @abstractmethod
-    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+    def speakers_for_tick(self, state: GameState) -> Sequence[PlayerID]:
         """
         Return the IDs that are *allowed to send a chat action* this tick.
         Return an empty sequence when the discussion phase is over.
@@ -191,7 +192,7 @@ class DiscussionProtocol(ABC):
         """Resets the protocol to its initial state."""
         pass
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[PlayerID], state: GameState) -> None:
         """
         Processes a batch of actions. Depending on the protocol's state (e.g., bidding or chatting),
         it will handle relevant actions (like BidAction or ChatAction) from expected_speakers.
@@ -226,11 +227,11 @@ class DiscussionProtocol(ABC):
                         source=act.actor_id
                     )
 
-    def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
+    def call_for_actions(self, speakers: Sequence[PlayerID]) -> List[str]:
         """prepare moderator call for action for each player."""
         return [f'Player "{speaker_id}", it is your turn to speak.' for speaker_id in speakers]
 
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[PlayerID]) -> None:
         """
         Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
         This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,

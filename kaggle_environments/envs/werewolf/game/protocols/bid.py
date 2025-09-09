@@ -2,6 +2,7 @@ from collections import Counter
 from typing import Dict, List
 
 from kaggle_environments.envs.werewolf.game.actions import BidAction, Action
+from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import EventName
 from kaggle_environments.envs.werewolf.game.protocols.base import BiddingProtocol
 from kaggle_environments.envs.werewolf.game.records import BidDataEntry, ChatDataEntry
@@ -20,7 +21,7 @@ class SimpleBiddingProtocol(BiddingProtocol):
     """
 
     def __init__(self):
-        self._bids: Dict[str, int] = {}
+        self._bids: Dict[PlayerID, int] = {}
         self._max_bid = 4
         self.reset()
 
@@ -42,7 +43,7 @@ class SimpleBiddingProtocol(BiddingProtocol):
         ))
 
     @property
-    def bids(self) -> Dict[str, int]:
+    def bids(self) -> Dict[PlayerID, int]:
         """Returns a copy of the current bids."""
         return dict(**self._bids)
 
@@ -122,12 +123,12 @@ class UrgencyBiddingProtocol(BiddingProtocol):
         ])
 
     @property
-    def bids(self) -> Dict[str, int]:
+    def bids(self) -> Dict[PlayerID, int]:
         return dict(**self._bids)
 
     def __init__(self):
-        self._bids: Dict[str, int] = {}
-        self._mentioned_last_turn: List[str] = []
+        self._bids: Dict[PlayerID, int] = {}
+        self._mentioned_last_turn: List[PlayerID] = []
 
     def reset(self) -> None:
         self._bids = {}

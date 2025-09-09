@@ -3,6 +3,7 @@ from collections import Counter, deque
 from typing import Dict, List, Optional, Sequence
 
 from kaggle_environments.envs.werewolf.game.actions import Action, VoteAction, NoOpAction
+from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import StrEnum, EventName, Phase
 from kaggle_environments.envs.werewolf.game.protocols.base import VotingProtocol
 from kaggle_environments.envs.werewolf.game.records import WerewolfNightVoteDataEntry, DayExileVoteDataEntry, \
@@ -23,9 +24,9 @@ class TieExile(StrEnum):
 @register_protocol()
 class SimultaneousMajority(VotingProtocol):
     def __init__(self, tie_exile=TieExile.RANDOM):
-        self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
-        self._expected_voters: List[str] = []
-        self._potential_targets: List[str] = []
+        self._ballots: Dict[PlayerID, PlayerID] = {}  # actor_id (str) -> target_id (str)
+        self._expected_voters: List[PlayerID] = []
+        self._potential_targets: List[PlayerID] = []
         self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
         self._elected = None
         self._done_tallying = False
@@ -60,7 +61,7 @@ class SimultaneousMajority(VotingProtocol):
         self._potential_targets = [p.id for p in potential_targets if p.alive]
         self._current_game_state = state  # Store the game state reference
 
-    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+    def collect_votes(self, player_actions: Dict[PlayerID, Action], state: GameState, expected_voters: List[PlayerID]):
         for actor_id, action in player_actions.items():
             self.collect_vote(action, state)
         # set default for all expected voter
@@ -161,15 +162,15 @@ class SimultaneousMajority(VotingProtocol):
                     self._elected = random.choice(top_candidates)
         return self._elected
 
-    def get_voting_prompt(self, state: GameState, player_id: str) -> str:
+    def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
         target_options = [p_id for p_id in self._potential_targets if
                           state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive]
         return f'Player "{player_id}", please cast your vote. Options: {target_options} or Abstain ("-1").'
 
-    def get_current_tally_info(self, state: GameState) -> Dict[str, int]:
+    def get_current_tally_info(self, state: GameState) -> Dict[PlayerID, int]:
         return Counter(self._ballots.values())
 
-    def get_next_voters(self) -> List[str]:
+    def get_next_voters(self) -> List[PlayerID]:
         # For simultaneous, all expected voters vote at once, and only once.
         return [voter for voter in self._expected_voters if voter not in self._ballots]
 
@@ -178,11 +179,11 @@ class SimultaneousMajority(VotingProtocol):
         # The moderator will then call tally_votes.
         return all(voter in self._ballots for voter in self._expected_voters)
 
-    def get_valid_targets(self) -> List[str]:
+    def get_valid_targets(self) -> List[PlayerID]:
         # Return a copy of targets that were valid (alive) at the start of voting.
         return list(self._potential_targets)
 
-    def get_elected(self) -> str | None:  # Return type matches tally_votes
+    def get_elected(self) -> PlayerID | None:  # Return type matches tally_votes
         if not self.done():
             raise Exception("Voting is not done yet.")
         return self._tally_votes(self._current_game_state)
@@ -197,10 +198,10 @@ class SequentialVoting(VotingProtocol):
     """
 
     def __init__(self, assign_random_first_voter: bool = True):
-        self._ballots: Dict[str, str] = {}  # actor_id (str) -> target_id (str)
-        self._potential_targets: List[str] = []
-        self._voter_queue: List[str] = []  # Order of players to vote
-        self._expected_voters: List[str] = []
+        self._ballots: Dict[PlayerID, PlayerID] = {}  # actor_id (str) -> target_id (str)
+        self._potential_targets: List[PlayerID] = []
+        self._voter_queue: List[PlayerID] = []  # Order of players to vote
+        self._expected_voters: List[PlayerID] = []
         self._current_voter_index: int = 0  # Index for _voter_queue
         self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
         self._elected = None
@@ -251,7 +252,7 @@ class SequentialVoting(VotingProtocol):
                 data=data
             )
 
-    def get_voting_prompt(self, state: GameState, player_id: str) -> str:
+    def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
         """
         Generates a prompt for the given player_id, assuming it's their turn.
         """
@@ -274,7 +275,7 @@ class SequentialVoting(VotingProtocol):
                 f"Current tally: {tally_str}. "
                 f"Options: {options_str} or Abstain (vote for -1).")
 
-    def collect_votes(self, player_actions: Dict[str, Action], state: GameState, expected_voters: List[str]):
+    def collect_votes(self, player_actions: Dict[PlayerID, Action], state: GameState, expected_voters: List[PlayerID]):
         if self.done():
             return
 
@@ -412,7 +413,7 @@ class SequentialVoting(VotingProtocol):
             if target_id != "-1" and target_id in self._potential_targets
         )
 
-    def get_next_voters(self) -> List[str]:
+    def get_next_voters(self) -> List[PlayerID]:
         if not self.done():
             # Ensure _current_voter_index is within bounds before accessing
             if self._current_voter_index < len(self._voter_queue):
@@ -424,10 +425,10 @@ class SequentialVoting(VotingProtocol):
             return True
         return self._current_voter_index >= len(self._voter_queue)
 
-    def get_valid_targets(self) -> List[str]:
+    def get_valid_targets(self) -> List[PlayerID]:
         return list(self._potential_targets)
 
-    def get_elected(self) -> Optional[str]:
+    def get_elected(self) -> Optional[PlayerID]:
         if not self.done():
             raise Exception("Voting is not done yet.")
         return self._tally_votes(self._current_game_state)

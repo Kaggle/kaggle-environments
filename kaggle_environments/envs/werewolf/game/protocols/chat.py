@@ -6,6 +6,7 @@ from collections import deque
 from typing import Sequence, List, Optional
 
 from kaggle_environments.envs.werewolf.game.actions import Action, BidAction
+from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import EventName, StrEnum
 from kaggle_environments.envs.werewolf.game.protocols.base import DiscussionProtocol, BiddingProtocol
 from kaggle_environments.envs.werewolf.game.records import DiscussionOrderDataEntry, BidResultDataEntry
@@ -207,7 +208,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
     def is_discussion_over(self, state: GameState) -> bool:
         return self._turns_taken >= self.max_turns or self._all_passed
 
-    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+    def speakers_for_tick(self, state: GameState) -> Sequence[PlayerID]:
         if self.is_discussion_over(state):
             return []
 
@@ -217,7 +218,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
             return [self._speaker] if self._speaker else []
         return []
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[PlayerID], state: GameState) -> None:
         if self.is_bidding_phase():
             self.bidding.process_incoming_bids(actions, state)
 
@@ -275,7 +276,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                 self._speaker = None
                 self.bidding.begin(state)  # Reset bids and find new mentioned players
 
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[PlayerID]) -> None:
         if self.is_bidding_phase():
             data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
             state.push_event(
@@ -344,7 +345,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
         """Checks if all rounds have been completed."""
         return self._current_round >= self.max_rounds
 
-    def speakers_for_tick(self, state: GameState) -> Sequence[str]:
+    def speakers_for_tick(self, state: GameState) -> Sequence[PlayerID]:
         """Returns the players who are allowed to act in the current tick."""
         if self.is_discussion_over(state):
             return []
@@ -357,7 +358,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
             return [self._speaking_queue.popleft()] if self._speaking_queue else []
         return []
 
-    def process_actions(self, actions: List[Action], expected_speakers: Sequence[str], state: GameState) -> None:
+    def process_actions(self, actions: List[Action], expected_speakers: Sequence[PlayerID], state: GameState) -> None:
         """Processes incoming actions from players."""
         if self.is_bidding_phase():
             self.bidding.process_incoming_bids(actions, state)
@@ -411,7 +412,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
                     self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
                     self.bidding.begin(state)
 
-    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
+    def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[PlayerID]) -> None:
         """Prompts the active players for their next action."""
         if self.is_bidding_phase():
             data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
