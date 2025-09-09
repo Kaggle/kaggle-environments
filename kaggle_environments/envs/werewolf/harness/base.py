@@ -20,8 +20,8 @@ from pydantic import BaseModel, Field
 from kaggle_environments.envs.werewolf.game.actions import (
     NoOpAction, EliminateProposalAction, HealAction, InspectAction, ChatAction, VoteAction, TargetedAction, BidAction
 )
-from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType, DetailedPhase
-from kaggle_environments.envs.werewolf.game.records import HistoryEntryType, get_raw_observation
+from kaggle_environments.envs.werewolf.game.consts import RoleConst, ActionType, DetailedPhase, EventName
+from kaggle_environments.envs.werewolf.game.records import get_raw_observation
 from kaggle_environments.envs.werewolf.game.states import get_last_action_request
 
 _LITELLM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'litellm_models.yaml')
@@ -550,7 +550,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.WEREWOLF)
     def _night_werewolf_vote(self, entries, obs, common_args):
         # Werewolves target other alive players.
-        history_entry = get_last_action_request(entries, HistoryEntryType.VOTE_REQUEST)
+        history_entry = get_last_action_request(entries, EventName.VOTE_REQUEST)
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
         if history_entry:
             valid_targets = history_entry.data.get('valid_targets')
@@ -571,7 +571,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.SEER)
     def _night_seer_inspect(self, entries, obs, common_args):
         # Seers can inspect any alive player.
-        history_entry = get_last_action_request(entries, HistoryEntryType.INSPECT_REQUEST)
+        history_entry = get_last_action_request(entries, EventName.INSPECT_REQUEST)
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
         if history_entry:
             valid_targets = history_entry.data['valid_candidates']
@@ -592,7 +592,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @action_registry.register(DetailedPhase.NIGHT_AWAIT_ACTIONS, RoleConst.DOCTOR)
     def _night_doctor_heal(self, entries, obs, common_args):
         action = NoOpAction(**common_args, reasoning="There's nothing to be done.")
-        history_entry = get_last_action_request(entries, HistoryEntryType.HEAL_REQUEST)
+        history_entry = get_last_action_request(entries, EventName.HEAL_REQUEST)
         if history_entry:
             valid_targets = history_entry.data['valid_candidates']
             instruction = INSTRUCTION_TEMPLATE.format(**{

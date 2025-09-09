@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Tuple
 from functools import lru_cache
+from typing import Optional, Tuple
 
-from pydantic import BaseModel, Field, field_validator, create_model
+from pydantic import Field, field_validator, create_model
 
-from .consts import PerceivedThreatLevel
+from .base import BaseAction, BaseState, PlayerID
+from .consts import PerceivedThreatLevel, EventName, Phase
+from .records import SeerInspectActionDataEntry, DoctorHealActionDataEntry
+
+
+ACTION_EVENT_MAP = {}
+
+
+def register_event(event_name: EventName):
+    """A class decorator to register an EventName for an Action class."""
+    def decorator(cls):
+        ACTION_EVENT_MAP[cls.__name__] = event_name
+        setattr(cls, 'event_name', event_name)
+        return cls
+    return decorator
+
 
 _REPLACEMENT_MAP = {
     # 'kill' variations
@@ -67,11 +82,11 @@ def filter_language(text):
 
 
 # ------------------------------------------------------------------ #
-class Action(BaseModel):
+class Action(BaseAction):
     """Root of the discriminated-union tree."""
     day: int
-    phase: str
-    actor_id: str
+    phase: Phase
+    actor_id: PlayerID
     reasoning: Optional[str] = Field(
         default=None, max_length=4096,
         description="The self monologue that illustrate how you arrived at the action. "
@@ -121,10 +136,20 @@ class Action(BaseModel):
     def action_field(self) -> Optional[str]:
         return None
 
+    def push_event(self, state: BaseState):
+        data = self.model_dump()
+        state.push_event(
+            description=f"Player {self.actor_id}, you submitted {data}",
+            event_name=ACTION_EVENT_MAP[self.__class__.__name__],
+            public=False,
+            visible_to=[self.actor_id],
+            data=data
+        )
+
 
 # ——— Mix-in for actions that need a target ------------------------ #
 class TargetedAction(Action):
-    target_id: str = Field(description="The target player's id.")
+    target_id: PlayerID = Field(description="The target player's id.")
 
     @classmethod
     @lru_cache(maxsize=10)
@@ -138,22 +163,55 @@ class TargetedAction(Action):
 
 
 # ——— Concrete leaf classes --------------------------------------- #
+@register_event(EventName.HEAL_ACTION)
 class HealAction(TargetedAction):
-    pass
+    def push_event(self, state: BaseState):
+        action_data = DoctorHealActionDataEntry(
+            actor_id=self.actor_id,
+            target_id=self.target_id,
+            reasoning=self.reasoning,
+            perceived_threat_level=self.perceived_threat_level,
+            action=self
+        )
+        state.push_event(
+            description=f"Player {self.actor_id}, you chose to heal player {self.target_id}.",
+            event_name=EventName.HEAL_ACTION,
+            public=False,
+            visible_to=[self.actor_id],
+            data=action_data
+        )
 
 
+@register_event(EventName.INSPECT_ACTION)
 class InspectAction(TargetedAction):
-    pass
+    def push_event(self, state: BaseState):
+        action_data = SeerInspectActionDataEntry(
+            actor_id=self.actor_id,
+            target_id=self.target_id,
+            reasoning=self.reasoning,
+            perceived_threat_level=self.perceived_threat_level,
+            action=self
+        )
+        state.push_event(
+            description=f"Player {self.actor_id}, you chose to inspect player {self.target_id}.",
+            event_name=EventName.INSPECT_ACTION,
+            public=False,
+            visible_to=[self.actor_id],
+            data=action_data
+        )
 
 
+@register_event(EventName.VOTE_ACTION)
 class VoteAction(TargetedAction):
     pass
 
 
+@register_event(EventName.ELIMINATE_PROPOSAL_ACTION)
 class EliminateProposalAction(VoteAction):
     pass
 
 
+@register_event(EventName.DISCUSSION)
 class ChatAction(Action):
     message: str = Field(default="", max_length=4096)
 
@@ -173,11 +231,13 @@ class ChatAction(Action):
         return "message"
 
 
+@register_event(EventName.NOOP_ACTION)
 class NoOpAction(Action):
     pass
 
 
 # ------------------------------------------------------------ #
+@register_event(EventName.BID_ACTION)
 class BidAction(Action):
     """
     An amount the actor is willing to pay this round.

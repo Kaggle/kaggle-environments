@@ -1,16 +1,23 @@
+import json
 import logging
-from collections import deque, Counter
+from collections import deque, Counter, defaultdict
+from functools import partial
 from typing import List, Deque, Optional, Dict
 
 from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
 
-from .consts import Team, RoleConst, Phase
-from .records import PlayerHistoryEntryView
+from .actions import HealAction, InspectAction
+from .base import BasePlayer, BaseModerator, BaseRole, EventHandler, on_event, PlayerID
+from .consts import Team, RoleConst, Phase, EventName
+from .records import (
+    HistoryEntry,
+    PlayerHistoryEntryView, RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, SeerInspectResultDataEntry
+)
 
 logger = logging.getLogger(__name__)
 
 
-class Role(BaseModel):
+class Role(BaseRole):
     model_config = ConfigDict(use_enum_values=True)
 
     name: RoleConst = Field(..., frozen=True)
@@ -18,21 +25,12 @@ class Role(BaseModel):
     night_priority: int = 100  # lower number acts earlier
     descriptions: str
 
-    def night_action(self, actor, target, state):
-        pass
-    
-    def obs(self, state):
-        pass
-
 
 class Werewolf(Role):
     name: RoleConst = RoleConst.WEREWOLF
     team: Team = Team.WEREWOLVES
     night_priority: int = 2
     descriptions: str = "A member of the Werewolf team. At night, works with other werewolves to vote on eliminating one player."
-
-    def night_action(self, actor, target, state):
-        state.queue_eliminate_vote(target) # Assuming queue_eliminate_vote will be the new name or similar
 
 
 class Villager(Role):
@@ -44,10 +42,44 @@ class Villager(Role):
 class Doctor(Role):
     name: RoleConst = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
+    allow_self_save: bool = False
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
 
-    def night_action(self, actor, target, state):
-        state.queue_save_vote(target)
+    @on_event(EventName.NIGHT_START)
+    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+        if me.alive:
+            valid_candidates = [f"{p.id}" for p in moderator.state.alive_players()] \
+                if self.allow_self_save else [f"{p.id}" for p in moderator.state.alive_players() if p != me]
+            data_entry = RequestDoctorSaveDataEntry(
+                valid_candidates=valid_candidates,
+                action_json_schema=json.dumps(HealAction.schema_for_player())
+            )
+            moderator.request_action(
+                action_cls=HealAction,
+                player_id=me.id,
+                prompt=f"Wake up Doctor. Who would you like to save? "
+                       f"The options are {data_entry.valid_candidates}.",
+                data=data_entry,
+                event_name=EventName.HEAL_REQUEST,
+            )
+
+    @on_event(EventName.HEAL_ACTION)
+    def on_heal_action(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+        if not me.alive or event.data.actor_id != me.id:
+            return
+
+        action = event.data.action
+        if isinstance(action, HealAction):
+            if not self.allow_self_save and action.target_id == me.id:
+                moderator.state.push_event(
+                    description=f'Player "{me.id}", doctor is not allowed to self save. '
+                                f'Your target is {action.target_id}, which is your own id.',
+                    event_name=EventName.ERROR,
+                    public=False,
+                    visible_to=[me.id]
+                )
+                return
+            moderator.record_night_save(me.id, action.target_id)
 
 
 class Seer(Role):
@@ -55,8 +87,52 @@ class Seer(Role):
     team: Team = Team.VILLAGERS
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
 
-    def night_action(self, actor, target, state):
-        state.queue_seer_action(actor, target)
+    @on_event(EventName.NIGHT_START)
+    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+        if me.alive:
+            data_entry = RequestSeerRevealDataEntry(
+                valid_candidates=[p.id for p in moderator.state.alive_players() if p != me],
+                action_json_schema=json.dumps(InspectAction.schema_for_player())
+            )
+            moderator.request_action(
+                action_cls=InspectAction,
+                player_id=me.id,
+                prompt=f"Wake up Seer. Who would you like to see their true role? The options are {data_entry.valid_candidates}.",
+                data=data_entry,
+                event_name=EventName.INSPECT_REQUEST,
+            )
+
+    @on_event(EventName.INSPECT_ACTION)
+    def on_inspect_action(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+        action = event.data.action
+        if not me.alive or action.actor_id != me.id:
+            return
+        actor_id = me.id
+        target_player = moderator.state.get_player_by_id(action.target_id)
+        if target_player:  # Ensure target exists
+            data = SeerInspectResultDataEntry(
+                actor_id=actor_id,
+                target_id=action.target_id,
+                role=target_player.role.name,
+                team=target_player.role.team.value
+            )
+            moderator.state.push_event(
+                description=f'Player "{actor_id}", you inspected {target_player.id}. '
+                            f'Their role is a "{target_player.role.name}" in team '
+                            f'"{target_player.role.team.value}".',
+                event_name=EventName.INSPECT_RESULT,
+                public=False,
+                visible_to=[actor_id],
+                data=data
+            )
+        else:
+            moderator.state.push_event(
+                description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
+                            f' but this player could not be found.',
+                event_name=EventName.ERROR,
+                public=False,
+                visible_to=[actor_id]
+            )
 
 
 class LLM(BaseModel):
@@ -65,7 +141,7 @@ class LLM(BaseModel):
 
 
 class Agent(BaseModel):
-    id: str
+    id: PlayerID
     """The unique name of the player."""
 
     agent_id: str
@@ -89,22 +165,29 @@ class Agent(BaseModel):
 class Player(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
-    id: str
+    id: PlayerID
     """The unique name of the player."""
 
     agent: Agent
-    role: Role
+    role: BaseRole
     alive: bool = True
     eliminated_during_day: int = -1
     """game starts at night 0, then day 1, night 1, day 2, ..."""
 
-    eliminated_during_phase: Optional[str] = None
+    eliminated_during_phase: Optional[Phase] = None
 
     _message_queue: Deque[PlayerHistoryEntryView] = PrivateAttr(default_factory=deque)
 
+    def get_event_handlers(self, moderator: BaseModerator) -> Dict[EventName, List[EventHandler]]:
+        handlers = defaultdict(list)
+        for event_type, handler in self.role.get_event_handlers().items():
+            event_handler = partial(handler, self, moderator)
+            handlers[event_type].append(event_handler)
+        return handlers
+
     def update(self, entry: PlayerHistoryEntryView):
         self._message_queue.append(entry)
-    
+
     def consume_messages(self) -> List[PlayerHistoryEntryView]:
         messages = list(self._message_queue)
         self._message_queue.clear()

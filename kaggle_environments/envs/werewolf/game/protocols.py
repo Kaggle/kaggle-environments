@@ -8,7 +8,7 @@ from typing import Dict, List, Sequence, Optional, Tuple
 
 from .actions import EliminateProposalAction, BidAction, Action, ChatAction, VoteAction, NoOpAction
 from .consts import Team, Phase, StrEnum
-from .records import HistoryEntryType, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
+from .records import EventName, RequestVillagerToSpeakDataEntry, DayExileVoteDataEntry, ChatDataEntry, \
     WerewolfNightVoteDataEntry, BidDataEntry, BidResultDataEntry, DiscussionOrderDataEntry, VoteOrderDataEntry
 from .roles import Player
 from .states import GameState
@@ -152,7 +152,7 @@ class BiddingProtocol(ABC):
         sorted_days = sorted(state.history.keys(), reverse=True)
         for day in sorted_days:
             for entry in reversed(state.history[day]):
-                if entry.entry_type == HistoryEntryType.DISCUSSION and isinstance(entry.data, ChatDataEntry):
+                if entry.event_name == EventName.DISCUSSION and isinstance(entry.data, ChatDataEntry):
                     last_chat_message = entry.data.message
                     break
             if last_chat_message:
@@ -293,18 +293,18 @@ class DiscussionProtocol(ABC):
                         perceived_threat_level=act.perceived_threat_level,
                         action=act
                     )
-                    state.add_history_entry(
+                    state.push_event(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
                         # Make public for general discussion
-                        entry_type=HistoryEntryType.DISCUSSION,
+                        event_name=EventName.DISCUSSION,
                         public=True,
                         source=act.actor_id,
                         data=data
                     )
                 else:
-                    state.add_history_entry(
+                    state.push_event(
                         description=f'Player "{act.actor_id}" (chat, out of turn): {act.message}',
-                        entry_type=HistoryEntryType.DISCUSSION,  # Or a specific "INVALID_CHAT" type
+                        event_name=EventName.DISCUSSION,  # Or a specific "INVALID_CHAT" type
                         visible_to=[act.actor_id],
                         public=False,
                         source=act.actor_id
@@ -319,15 +319,15 @@ class DiscussionProtocol(ABC):
         Allows the protocol to make specific announcements or prompts to the current speakers for this tick.
         This method is called by the Moderator after speakers_for_tick() returns a non-empty list of speakers,
         and before process_actions().
-        Implementations should use state.add_history_entry() to make announcements.
+        Implementations should use state.push_event() to make announcements.
         These announcements are typically visible only to the speakers, unless they are general status updates.
         """
         call_for_actions = self.call_for_actions(speakers)
         for speaker_id, call_for_action in zip(speakers, call_for_actions):
             data = RequestVillagerToSpeakDataEntry(action_json_schema=json.dumps(ChatAction.schema_for_player()))
-            state.add_history_entry(
+            state.push_event(
                 description=call_for_action,
-                entry_type=HistoryEntryType.CHAT_REQUEST,
+                event_name=EventName.CHAT_REQUEST,
                 public=False,
                 visible_to=[speaker_id],
                 data=data
@@ -369,11 +369,11 @@ class RoundRobinDiscussion(DiscussionProtocol):
         self._queue = deque(player_order * self.max_rounds)
         if self.max_rounds > 0 and self._queue:
             data = DiscussionOrderDataEntry(chat_order_of_player_ids=player_order)
-            state.add_history_entry(
+            state.push_event(
                 description="Discussion phase begins. Players will speak in round-robin order. "
                             f"Starting from player {player_order[0]} with the following order: {player_order} "
                             f"for {self.max_rounds} round(s).",
-                entry_type=HistoryEntryType.DISCUSSION_ORDER,
+                event_name=EventName.DISCUSSION_ORDER,
                 public=True,
                 data=data
             )
@@ -405,9 +405,9 @@ class RandomOrderDiscussion(DiscussionProtocol):
         ))
         self._steps = len(state.alive_players())  # one full round
         if self._steps > 0:
-            state.add_history_entry(
+            state.push_event(
                 description="Discussion phase begins. Players will speak in random order.",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
+                event_name=EventName.PHASE_CHANGE,
                 public=True
             )
 
@@ -441,9 +441,9 @@ class ParallelDiscussion(DiscussionProtocol):
     def begin(self, state):
         self._remaining = self.ticks
         if self.ticks > 0:
-            state.add_history_entry(
+            state.push_event(
                 description="Parallel discussion phase begins. All players may speak.",
-                entry_type=HistoryEntryType.PHASE_CHANGE,
+                event_name=EventName.PHASE_CHANGE,
                 public=True
             )
 
@@ -546,9 +546,9 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
             bids = getattr(self.bidding, '_bids', {})
             if len(bids) >= len(all_alive_player_ids) and all(amount == 0 for amount in bids.values()):
                 self._all_passed = True
-                state.add_history_entry(
+                state.push_event(
                     description="All players passed on speaking. Discussion ends.",
-                    entry_type=HistoryEntryType.MODERATOR_ANNOUNCEMENT,
+                    event_name=EventName.MODERATOR_ANNOUNCEMENT,
                     public=True
                 )
                 return
@@ -564,10 +564,10 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                     mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0]
                 )
                 overview_text = ', '.join([f'{k}: {v}' for k, v in self.bidding.bids.items()])
-                state.add_history_entry(
+                state.push_event(
                     description=f"Player {self._speaker} won the bid and will speak next.\n"
                                 f"Bid overview - {overview_text}.",
-                    entry_type=HistoryEntryType.BID_RESULT,
+                    event_name=EventName.BID_RESULT,
                     public=self._bid_result_public,
                     data=data
                 )
@@ -592,12 +592,12 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[str]) -> None:
         if self.is_bidding_phase():
             data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
-            state.add_history_entry(
+            state.push_event(
                 description=(
                     f"A new round of discussion begins. Place bid for a chance to speak. "
                     f"{self.max_turns - self._turns_taken} turns left to speak."
                 ),
-                entry_type=HistoryEntryType.BID_REQEUST,
+                event_name=EventName.BID_REQEUST,
                 public=True,
                 data=data
             )
@@ -695,10 +695,10 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
             data = DiscussionOrderDataEntry(chat_order_of_player_ids=list(self._speaking_queue))
             speaking_order_text = ", ".join([f"{pid} ({amount})" for pid, amount in sorted_bidders])
 
-            state.add_history_entry(
+            state.push_event(
                 description=f"Bidding for round {self._current_round + 1} has concluded. The speaking order, "
                             f"with bid amounts in parentheses, is: {speaking_order_text}.",
-                entry_type=HistoryEntryType.BID_RESULT,
+                event_name=EventName.BID_RESULT,
                 public=self._bid_result_public,
                 data=data,
             )
@@ -713,9 +713,9 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
             # Check if the round is over (i.e., the speaking queue is empty).
             if not self._speaking_queue:
                 self._current_round += 1
-                state.add_history_entry(
+                state.push_event(
                     description=f"End of discussion round {self._current_round}.",
-                    entry_type=HistoryEntryType.PHASE_CHANGE,
+                    event_name=EventName.PHASE_CHANGE,
                     public=True
                 )
 
@@ -728,12 +728,12 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
         """Prompts the active players for their next action."""
         if self.is_bidding_phase():
             data = {"action_json_schema": json.dumps(BidAction.schema_for_player())}
-            state.add_history_entry(
+            state.push_event(
                 description=(
                     f"Round {self._current_round + 1} of {self.max_rounds} begins. "
                     "Place your bid to determine speaking order."
                 ),
-                entry_type=HistoryEntryType.BID_REQEUST,
+                event_name=EventName.BID_REQEUST,
                 public=True,
                 data=data
             )
@@ -801,9 +801,9 @@ class SimultaneousMajority(VotingProtocol):
     def collect_vote(self, vote_action: Action, state: GameState):
         actor_player = state.get_player_by_id(vote_action.actor_id)
         if not isinstance(vote_action, VoteAction):
-            state.add_history_entry(
+            state.push_event(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". Not a VoteAction; submitted {vote_action.__class__.__name__} instead. Cast as abstained vote.',
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,
                 visible_to=self._expected_voters,
                 data={}
@@ -828,9 +828,9 @@ class SimultaneousMajority(VotingProtocol):
         if actor_player and actor_player.alive and vote_action.actor_id in self._expected_voters:
             # Prevent re-voting
             if vote_action.actor_id in self._ballots:
-                state.add_history_entry(
+                state.push_event(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}", already voted.',
-                    entry_type=HistoryEntryType.ERROR,
+                    event_name=EventName.ERROR,
                     public=False,
                     visible_to=self._expected_voters,
                     data=data
@@ -841,9 +841,9 @@ class SimultaneousMajority(VotingProtocol):
                 self._ballots[vote_action.actor_id] = vote_action.target_id
 
                 # Determine DataEntry type based on game phase
-                state.add_history_entry(
+                state.push_event(
                     description=f'Player "{data.actor_id}" voted to eliminate "{data.target_id}". ',
-                    entry_type=HistoryEntryType.VOTE_ACTION,
+                    event_name=EventName.VOTE_ACTION,
                     public=False,
                     visible_to=self._expected_voters,
                     data=data,
@@ -851,18 +851,18 @@ class SimultaneousMajority(VotingProtocol):
                 )
             else:
                 self._ballots[vote_action.actor_id] = "-1"
-                state.add_history_entry(
+                state.push_event(
                     description=f'Invalid vote attempt by "{vote_action.actor_id}".',
-                    entry_type=HistoryEntryType.ERROR,
+                    event_name=EventName.ERROR,
                     public=False,
                     visible_to=self._expected_voters,
                     data=data
                 )
                 return
         else:
-            state.add_history_entry(
+            state.push_event(
                 description=f"Invalid vote attempt by {vote_action.actor_id}.",
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,
                 data=data
             )
@@ -1087,9 +1087,9 @@ class SimpleBiddingProtocol(BiddingProtocol):
             bid_amount=bid_amount,
             action=bid
         )
-        state.add_history_entry(
+        state.push_event(
             description=f"Player {bid.actor_id} submitted a bid of {bid_amount}.",
-            entry_type=HistoryEntryType.BID_ACTION,
+            event_name=EventName.BID_ACTION,
             public=False,  # Bids are private until the outcome is announced
             visible_to=[bid.actor_id],
             data=data,
@@ -1165,9 +1165,9 @@ class UrgencyBiddingProtocol(BiddingProtocol):
 
         if last_chat_message:
             if self._mentioned_last_turn:
-                state.add_history_entry(
+                state.push_event(
                     description=f"Players mentioned last turn (priority in ties): {self._mentioned_last_turn}",
-                    entry_type=HistoryEntryType.BIDDING_INFO,
+                    event_name=EventName.BIDDING_INFO,
                     public=True  # So everyone knows who has priority
                 )
 
@@ -1181,9 +1181,9 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 bid_amount=bid.amount,
                 action=bid
             )
-            state.add_history_entry(
+            state.push_event(
                 description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
-                entry_type=HistoryEntryType.BID_ACTION,
+                event_name=EventName.BID_ACTION,
                 public=False,
                 visible_to=[bid.actor_id],
                 data=data,
@@ -1192,9 +1192,9 @@ class UrgencyBiddingProtocol(BiddingProtocol):
         else:
             # Invalid bid amount is treated as a bid of 0
             self._bids[bid.actor_id] = 0
-            state.add_history_entry(
+            state.push_event(
                 description=f"Player {bid.actor_id} submitted an invalid bid amount ({bid.amount}). Treated as 0.",
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,
                 visible_to=[bid.actor_id]
             )
@@ -1236,7 +1236,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
             entry.data.actor_id
             for day_history in state.history.values()
             for entry in day_history
-            if entry.entry_type == HistoryEntryType.DISCUSSION and isinstance(entry.data, ChatDataEntry)
+            if entry.event_name == EventName.DISCUSSION and isinstance(entry.data, ChatDataEntry)
         )
 
         candidate_speech_counts = {pid: speech_counts.get(pid, 0) for pid in candidates}
@@ -1311,10 +1311,10 @@ class SequentialVoting(VotingProtocol):
 
         if self._expected_voters:
             data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
-            state.add_history_entry(
+            state.push_event(
                 description=f"Voting starts from player {self._expected_voters[0]} "
                             f"with the following order: {self._expected_voters}",
-                entry_type=HistoryEntryType.VOTE_ORDER,
+                event_name=EventName.VOTE_ORDER,
                 public=False,
                 visible_to=alive_voter_ids,
                 data=data
@@ -1371,9 +1371,9 @@ class SequentialVoting(VotingProtocol):
             return
 
         if self.done():
-            state.add_history_entry(
+            state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, but voting is already complete.",
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id]
             )
@@ -1381,9 +1381,9 @@ class SequentialVoting(VotingProtocol):
 
         expected_voter_id = self._voter_queue[self._current_voter_index]
         if vote_action.actor_id != expected_voter_id:
-            state.add_history_entry(
+            state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, but it is {expected_voter_id}'s turn.",
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
                 visible_to=[vote_action.actor_id, expected_voter_id]
             )
@@ -1403,9 +1403,9 @@ class SequentialVoting(VotingProtocol):
                 recorded_target_id = vote_action.target_id
                 if vote_action.target_id != "-1" and vote_action.target_id not in self._potential_targets:
                     # Invalid target chosen for VoteAction
-                    state.add_history_entry(
+                    state.push_event(
                         description=f"{vote_action.actor_id} attempted to vote for {vote_action.target_id} (invalid target). Vote recorded as Abstain.",
-                        entry_type=HistoryEntryType.ERROR,
+                        event_name=EventName.ERROR,
                         public=False,
                         visible_to=[vote_action.actor_id]
                     )
@@ -1433,9 +1433,9 @@ class SequentialVoting(VotingProtocol):
                     action=vote_action
                 )
 
-            state.add_history_entry(
+            state.push_event(
                 description=description_for_history,
-                entry_type=HistoryEntryType.VOTE_ACTION,
+                event_name=EventName.VOTE_ACTION,
                 public=False,
                 visible_to=self._expected_voters,
                 data=data,
@@ -1443,9 +1443,9 @@ class SequentialVoting(VotingProtocol):
             )
             self._current_voter_index += 1
         else:  # Player not found, not alive, or (redundantly) not their turn
-            state.add_history_entry(
+            state.push_event(
                 description=f"Invalid action ({vote_action.kind}) attempt by {vote_action.actor_id} (player not found, not alive, or not their turn). Action not counted.",
-                entry_type=HistoryEntryType.ERROR,
+                event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id]
             )
