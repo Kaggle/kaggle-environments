@@ -36,7 +36,11 @@ class RoundRobinDiscussion(DiscussionProtocol):
         self._queue = deque()
 
     @property
-    def discussion_rule(self) -> str:
+    def display_name(self) -> str:
+        return "Roundrobin"
+
+    @property
+    def rule(self) -> str:
         return f"Players speak in round-robin order for {self.max_rounds} round(s)."
 
     def begin(self, state):
@@ -78,7 +82,11 @@ class RandomOrderDiscussion(DiscussionProtocol):
         self._steps = 0
 
     @property
-    def discussion_rule(self) -> str:
+    def display_name(self) -> str:
+        return "Random Order Discussion"
+
+    @property
+    def rule(self) -> str:
         return "Players speak in a random order for one full round."
 
     def begin(self, state):
@@ -119,7 +127,11 @@ class ParallelDiscussion(DiscussionProtocol):
         self._remaining = 0
 
     @property
-    def discussion_rule(self) -> str:
+    def display_name(self) -> str:
+        return "Parallel Discussion"
+
+    @property
+    def rule(self) -> str:
         return f"All players may speak simultaneously for {self.ticks} tick(s)."
 
     def begin(self, state):
@@ -193,11 +205,14 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
         self._all_passed = False
 
     @property
-    def discussion_rule(self) -> str:
+    def display_name(self) -> str:
+        return "Turn-by-turn Bidding Driven Discussion"
+
+    @property
+    def rule(self) -> str:
         return "\n".join([
             f"Players bid for the right to speak each turn for up to {self.max_turns} turns.",
-            f"The bidding rule is: {self.bidding.__class__.__name__}.",
-            self.bidding.bidding_rules,
+            f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}",
             f"If everyone bids 0, moderator will directly move on to day voting and no one speaks."
         ])
 
@@ -327,13 +342,17 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
         self._speaking_queue = deque()
 
     @property
-    def discussion_rule(self) -> str:
+    def display_name(self) -> str:
+        return "Round-by-round Bidding Driven Discussion"
+
+    @property
+    def rule(self) -> str:
         """A string describing the discussion rule in effect."""
         return "\n".join([
-            f"Players speak in an order determined by bidding at the start of each of {self.max_rounds} round(s).",
-            "In each round, all players speak once.",
-            f"The bidding rule is: {self.bidding.__class__.__name__}.",
-            self.bidding.bidding_rules
+            "Players speak in an order determined by bidding at the beginning of each round. "
+            f"There will be {self.max_rounds} round(s) per day.",
+            "In each round, all players may speak once.",
+            f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}"
         ])
 
     def begin(self, state: GameState) -> None:

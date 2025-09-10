@@ -110,11 +110,14 @@ class Moderator(BaseModerator):
             role_counts=self.state.alive_player_counts_per_role(),
             team_member_counts=self.state.alive_player_counts_per_team(),
             day_discussion_protocol_name=self.discussion.__class__.__name__,
-            day_discussion_protocol_rule=self.discussion.discussion_rule,
+            day_discussion_display_name=self.discussion.display_name,
+            day_discussion_protocol_rule=self.discussion.rule,
             night_werewolf_discussion_protocol_name=self.night_voting.__class__.__name__,
-            night_werewolf_discussion_protocol_rule=self.night_voting.voting_rule,
+            night_werewolf_discussion_display_name=self.night_voting.display_name,
+            night_werewolf_discussion_protocol_rule=self.night_voting.rule,
             day_voting_protocol_name=self.day_voting.__class__.__name__,
-            day_voting_protocol_rule=self.day_voting.voting_rule
+            day_voting_display_name=self.day_voting.display_name,
+            day_voting_protocol_rule=self.day_voting.rule
         )
 
         role_msg = "\n".join(
@@ -130,13 +133,13 @@ class Moderator(BaseModerator):
 
         description = "\n - ".join([
             "Werewolf game begins.",
-            f"All player ids: {data.player_ids}",
-            f"Number of alive players: {data.number_of_players}.",
-            f"Role counts: {data.role_counts}.",
-            f"Alive team member counts: {data.team_member_counts}",
-            f"Day discussion protocol ({data.day_discussion_protocol_name}): {data.day_discussion_protocol_name}",
-            f"Day voting protocol ({data.day_voting_protocol_name}): {data.day_voting_protocol_rule}",
-            f"Night werewolf voting protocol ({data.night_werewolf_discussion_protocol_name}): {data.night_werewolf_discussion_protocol_rule}",
+            f"**Player Roster:** {data.player_ids}",
+            f"**Alive Players:** {data.number_of_players}.",
+            f"**Role Counts:** {data.role_counts}.",
+            f"**Alive Team Member:** {data.team_member_counts}",
+            f"**Day Discussion:** {data.day_discussion_display_name}. {data.day_discussion_protocol_rule}",
+            f"**Day Exile Vote:** {data.day_voting_display_name}. {data.day_voting_protocol_rule}",
+            f"**Night Werewolf Vote:** {data.night_werewolf_discussion_display_name}. {data.night_werewolf_discussion_protocol_rule}",
             role_msg,
             self.doctor_special_msg,
             day_exile_reveal_msg,
@@ -278,7 +281,7 @@ class Moderator(BaseModerator):
                 valid_targets=[f"{p.id}" for p in potential_targets],
                 alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
                 voting_protocol_name=self.night_voting.__class__.__name__,
-                voting_protocol_rule=self.night_voting.voting_rule,
+                voting_protocol_rule=self.night_voting.rule,
                 action_json_schema=json.dumps(VoteAction.schema_for_player()),
             )
             self.state.push_event(
@@ -361,10 +364,10 @@ class Moderator(BaseModerator):
         )
 
         self.state.push_event(
-            description=f"Villagers, let's decide who to exile. The discussion rule is: {self.discussion.discussion_rule}",
+            description=f"Villagers, let's decide who to exile. The discussion rule is: {self.discussion.rule}",
             event_name=EventName.MODERATOR_ANNOUNCEMENT,
             public=True,
-            data={'discussion_rule': self.discussion.discussion_rule}
+            data={'discussion_rule': self.discussion.rule}
         )
 
         self.state.add_phase_divider(PhaseDivider.DAY_CHAT_START)
@@ -437,11 +440,11 @@ class Moderator(BaseModerator):
             self.set_next_phase(DetailedPhase.DAY_VOTING_AWAIT)
             self.state.push_event(
                 description="Voting phase begins. We will decide who to exile today."
-                            f"\nDay voting Rule: {self.day_voting.voting_rule}"
+                            f"\nDay voting Rule: {self.day_voting.rule}"
                             f"\nCurrent alive players are: {[player.id for player in alive_players]}",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=True,
-                data={"voting_rule": self.day_voting.voting_rule}
+                data={"voting_rule": self.day_voting.rule}
             )
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(VoteAction, next_voters_ids)

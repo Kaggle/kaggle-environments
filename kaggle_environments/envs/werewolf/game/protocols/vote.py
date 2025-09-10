@@ -44,8 +44,12 @@ class SimultaneousMajority(VotingProtocol):
         self._done_tallying = False
 
     @property
-    def voting_rule(self) -> str:
-        rule = "Simultaneous majority vote. Player with the most votes is exiled. "
+    def display_name(self) -> str:
+        return "Simultaneous Majority Voting"
+
+    @property
+    def rule(self) -> str:
+        rule = "Player with the most votes is exiled. "
         if self._tie_exile == TieExile.RANDOM:
             rule += ("Ties result in random selection amongst the top ties. "
                      "If no valid vote available (if all casted abstained votes), "
@@ -220,8 +224,12 @@ class SequentialVoting(VotingProtocol):
         self._done_tallying = False
 
     @property
-    def voting_rule(self) -> str:
-        return ("Sequential voting. Players vote one by one. Player with the most votes after all have voted is exiled."
+    def display_name(self) -> str:
+        return "Sequential Voting"
+
+    @property
+    def rule(self) -> str:
+        return ("Players vote one by one. Player with the most votes after all have voted is exiled."
                 " Ties are broken randomly.")
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):

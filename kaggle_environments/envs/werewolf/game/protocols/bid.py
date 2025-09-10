@@ -30,7 +30,11 @@ class SimpleBiddingProtocol(BiddingProtocol):
         self._bids = {}
 
     @property
-    def bidding_rules(self) -> str:
+    def display_name(self):
+        return "Simple Bidding"
+
+    @property
+    def rule(self) -> str:
         """Provides a description of the bidding rules."""
         return "\n".join((
             "Players bid with an urgency level (0-4) to determine speaking order.",
@@ -109,7 +113,11 @@ class UrgencyBiddingProtocol(BiddingProtocol):
     - Ties are broken by prioritizing players mentioned in the previous turn.
     """
     @property
-    def bidding_rules(self) -> str:
+    def display_name(self) -> str:
+        return "Urgency Bidding"
+
+    @property
+    def rule(self) -> str:
         return "\n".join([
             "Urgency-based bidding. Players bid with an urgency level (0-4).",
             "0: I would like to observe and listen for now.",

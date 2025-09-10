@@ -50,13 +50,20 @@ def _find_mentioned_players(text: str, all_player_ids: List[PlayerID]) -> List[P
     return ordered_mentioned_ids
 
 
-class VotingProtocol(ABC):
-    """Collects, validates, and tallies votes."""
-
+class GameProtocol(ABC):
+    @property
+    def display_name(self) -> str:
+        return self.__class__.__name__
+    
     @property
     @abstractmethod
-    def voting_rule(self) -> str:
-        """A string describing the voting rule in effect."""
+    def rule(self) -> str:
+        """Human-readable format of rule."""
+        
+
+
+class VotingProtocol(GameProtocol):
+    """Collects, validates, and tallies votes."""
 
     @abstractmethod
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
@@ -111,13 +118,8 @@ class VotingProtocol(ABC):
         pass
 
 
-class BiddingProtocol(ABC):
+class BiddingProtocol(GameProtocol):
     """Drives one auction round and returns the winner(s)."""
-    @property
-    @abstractmethod
-    def bidding_rules(self) -> str:
-        """Specify the bidding rules"""
-
     @property
     @abstractmethod
     def bids(self) -> Dict[PlayerID, int]:
@@ -163,17 +165,12 @@ class BiddingProtocol(ABC):
         """Resets the protocol to its initial state."""
 
 
-class DiscussionProtocol(ABC):
+class DiscussionProtocol(GameProtocol):
     """Drives the order/shape of daytime conversation."""
 
     @abstractmethod
     def begin(self, state: GameState) -> None:
         """Optional hook – initialise timers, round counters…"""
-
-    @property
-    @abstractmethod
-    def discussion_rule(self) -> str:
-        """A string describing the discussion rule in effect."""
 
     @abstractmethod
     def speakers_for_tick(self, state: GameState) -> Sequence[PlayerID]:

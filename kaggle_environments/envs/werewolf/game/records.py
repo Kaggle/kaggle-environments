@@ -135,10 +135,13 @@ class GameStartDataEntry(DataEntry):
     role_counts: Dict[RoleConst, int]
     team_member_counts: Dict[Team, int]
     day_discussion_protocol_name: str
+    day_discussion_display_name: str
     day_discussion_protocol_rule: str
     night_werewolf_discussion_protocol_name: str
+    night_werewolf_discussion_display_name: str
     night_werewolf_discussion_protocol_rule: str
     day_voting_protocol_name: str
+    day_voting_display_name: str
     day_voting_protocol_rule: str
 
 

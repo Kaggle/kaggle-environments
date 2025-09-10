@@ -30,20 +30,20 @@ class Werewolf(Role):
     name: RoleConst = RoleConst.WEREWOLF
     team: Team = Team.WEREWOLVES
     night_priority: int = 2
-    descriptions: str = "A member of the Werewolf team. At night, works with other werewolves to vote on eliminating one player."
+    descriptions: str = "Each night, collaborates with fellow werewolves to vote on eliminating one player."
 
 
 class Villager(Role):
     name: RoleConst = RoleConst.VILLAGER
     team: Team = Team.VILLAGERS
-    descriptions: str = "A member of the Villagers team. Has no special abilities other than their vote during the day."
+    descriptions: str = "No special abilities. Participates in the daily vote to eliminate a suspected werewolf."
 
 
 class Doctor(Role):
     name: RoleConst = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
     allow_self_save: bool = False
-    descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
+    descriptions: str = "Each night, may protect one player from a werewolf attack."
 
     @on_event(EventName.NIGHT_START)
     def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
@@ -85,7 +85,7 @@ class Doctor(Role):
 class Seer(Role):
     name: RoleConst = RoleConst.SEER
     team: Team = Team.VILLAGERS
-    descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
+    descriptions: str = "Each night, may inspect one player to learn their true role."
 
     @on_event(EventName.NIGHT_START)
     def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):

@@ -479,7 +479,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         content = {
             "system_prompt": self._system_prompt,
-            "current_state": json.dumps(current_state, indent=2, sort_keys=True),
+            "current_state": json.dumps(current_state, sort_keys=True),
             "event_log": event_log,
             "instruction": instruction,
             "error_instruction": error_instruction,
