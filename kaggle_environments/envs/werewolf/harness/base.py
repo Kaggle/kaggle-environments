@@ -684,7 +684,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         current_phase = DetailedPhase(raw_obs.phase)
         my_role = RoleConst(raw_obs.role)
 
-        common_args = {"day": raw_obs.day, "phase": raw_obs.phase, "actor_id": raw_obs.player_id}
+        common_args = {"day": raw_obs.day, "phase": raw_obs.game_state_phase, "actor_id": raw_obs.player_id}
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 
