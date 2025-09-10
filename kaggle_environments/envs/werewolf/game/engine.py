@@ -536,8 +536,8 @@ class Moderator(BaseModerator):
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists
-        game_end_history = self.state.get_event_by_name(EventName.GAME_END)
-        if game_end_history:
+        game_end_event = self.state.get_event_by_name(EventName.GAME_END)
+        if game_end_event:
             return  # Winner already logged for this day count
 
         wolves = [p for p in self.state.alive_players() if p.role.team == Team.WEREWOLVES]

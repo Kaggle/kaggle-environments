@@ -51,7 +51,7 @@ class CostSummary(BaseModel):
 def random_agent(obs):
     raw_obs = get_raw_observation(obs)
 
-    entries = raw_obs.new_player_history_entry_views
+    entries = raw_obs.new_player_event_views
     current_phase = DetailedPhase(raw_obs.phase)
     my_role = raw_obs.role
     all_player_names = raw_obs.all_player_ids
@@ -375,7 +375,7 @@ def update_agent_messages(
             alive_players=[p.id for p in game_state.alive_players()],
             revealed_players_by_role=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
-            new_player_history_entry_views=new_history_entries,
+            new_player_event_views=new_history_entries,
             game_state_phase=game_state.phase.value
         )
 

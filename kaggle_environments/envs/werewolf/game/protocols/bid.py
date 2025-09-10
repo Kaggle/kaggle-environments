@@ -211,8 +211,8 @@ class UrgencyBiddingProtocol(BiddingProtocol):
         # Rule 2: The least spoken individual
         speech_counts = Counter(
             entry.data.actor_id
-            for day_history in state.history.values()
-            for entry in day_history
+            for day_events in state.history.values()
+            for entry in day_events
             if entry.event_name == EventName.DISCUSSION and isinstance(entry.data, ChatDataEntry)
         )
 

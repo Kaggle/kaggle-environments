@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
 
-from .base import BaseHistoryEntry, BaseAction, PlayerID
+from .base import BaseEvent, BaseAction, PlayerID
 from .consts import Phase, ObsKeys, DetailedPhase, RoleConst, Team, EventName, PerceivedThreatLevel, PhaseDivider
 
 
@@ -45,7 +45,7 @@ class VisibleRawData(BaseModel):
     json_str: str
 
 
-class PlayerHistoryEntryView(BaseModel):
+class PlayerEventView(BaseModel):
     day: int
     phase: Phase
     detailed_phase: DetailedPhase
@@ -73,7 +73,7 @@ class PlayerHistoryEntryView(BaseModel):
         )
 
 
-class HistoryEntry(BaseHistoryEntry):
+class Event(BaseEvent):
     day: int  # Day number, 0 for initial night
     phase: Phase
     detailed_phase: DetailedPhase
@@ -96,11 +96,11 @@ class HistoryEntry(BaseHistoryEntry):
 
     def serialize(self):
         # TODO: this is purely constructed for compatibility with html renderer. Need to refactor werewolf.js to handle
-        #    a direct model_dump of HistoryEntry
+        #    a direct model_dump of Event
         data_dict = self.model_dump()
         return VisibleRawData(data_type=self.data.__class__.__name__, json_str=json.dumps(data_dict)).model_dump()
 
-    def view_by_access(self, user_level: DataAccessLevel) -> PlayerHistoryEntryView:
+    def view_by_access(self, user_level: DataAccessLevel) -> PlayerEventView:
         if isinstance(self.data, ActionDataMixin):
             fields_to_include = set()
             fields_to_exclude = set()
@@ -112,11 +112,10 @@ class HistoryEntry(BaseHistoryEntry):
                         fields_to_exclude.add(name)
                 else:
                     fields_to_include.add(name)
-            # data = self.data.__class__(**self.data.model_dump(include=fields_to_include, exclude=fields_to_exclude))
             data = self.data.model_dump(include=fields_to_include, exclude=fields_to_exclude)
         else:
             data = self.data
-        out = PlayerHistoryEntryView(
+        out = PlayerEventView(
             day=self.day,
             phase=self.phase,
             detailed_phase=self.detailed_phase,
@@ -290,7 +289,7 @@ class WerewolfObservationModel(BaseModel):
     alive_players: List[PlayerID]
     revealed_players_by_role: Dict[PlayerID, RoleConst] = {}
     new_visible_announcements: List[str]
-    new_player_history_entry_views: List[PlayerHistoryEntryView]
+    new_player_event_views: List[PlayerEventView]
     game_state_phase: Phase
 
     def get_human_readable(self) -> str:

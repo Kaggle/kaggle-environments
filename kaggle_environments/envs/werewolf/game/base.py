@@ -16,6 +16,8 @@ class BasePlayer(BaseModel):
     id: PlayerID
     """The unique id of the player. Also, how the player is referred to in the game."""
 
+    alive: bool = True
+
 
 class BaseAction(BaseModel):
     pass
@@ -32,7 +34,7 @@ class BaseState(BaseModel):
         """Publish an event."""
 
 
-class BaseHistoryEntry(BaseModel):
+class BaseEvent(BaseModel):
     event_name: EventName
     
 
@@ -69,13 +71,13 @@ def on_event(event_type: EventName):
 
 class EventHandler(Protocol):
     """A callable triggered by an event."""
-    def __call__(self, event: BaseHistoryEntry) -> Any:
+    def __call__(self, event: BaseEvent) -> Any:
         pass
 
 
 class RoleEventHandler(Protocol):
     """A role specific event handler."""
-    def __call__(self, me: BasePlayer, moderator: BaseModerator, event: BaseHistoryEntry) -> Any:
+    def __call__(self, me: BasePlayer, moderator: BaseModerator, event: BaseEvent) -> Any:
         pass
 
 

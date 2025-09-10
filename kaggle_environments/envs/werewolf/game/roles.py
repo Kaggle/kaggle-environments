@@ -10,8 +10,8 @@ from .actions import HealAction, InspectAction
 from .base import BasePlayer, BaseModerator, BaseRole, EventHandler, on_event, PlayerID
 from .consts import Team, RoleConst, Phase, EventName
 from .records import (
-    HistoryEntry,
-    PlayerHistoryEntryView, RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, SeerInspectResultDataEntry
+    Event,
+    PlayerEventView, RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, SeerInspectResultDataEntry
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class Doctor(Role):
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to protect from a werewolf attack."
 
     @on_event(EventName.NIGHT_START)
-    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
         if me.alive:
             valid_candidates = [f"{p.id}" for p in moderator.state.alive_players()] \
                 if self.allow_self_save else [f"{p.id}" for p in moderator.state.alive_players() if p != me]
@@ -64,7 +64,7 @@ class Doctor(Role):
             )
 
     @on_event(EventName.HEAL_ACTION)
-    def on_heal_action(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+    def on_heal_action(self, me: BasePlayer, moderator: BaseModerator, event: Event):
         if not me.alive or event.data.actor_id != me.id:
             return
 
@@ -88,7 +88,7 @@ class Seer(Role):
     descriptions: str = "A member of the Villagers team. Each night, can choose one player to inspect and learn their true role."
 
     @on_event(EventName.NIGHT_START)
-    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+    def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
         if me.alive:
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in moderator.state.alive_players() if p != me],
@@ -103,7 +103,7 @@ class Seer(Role):
             )
 
     @on_event(EventName.INSPECT_ACTION)
-    def on_inspect_action(self, me: BasePlayer, moderator: BaseModerator, event: HistoryEntry):
+    def on_inspect_action(self, me: BasePlayer, moderator: BaseModerator, event: Event):
         action = event.data.action
         if not me.alive or action.actor_id != me.id:
             return
@@ -162,7 +162,7 @@ class Agent(BaseModel):
         return f"{self.agent_harness_name}({', '.join([llm.model_name for llm in self.llms])})"
 
 
-class Player(BaseModel):
+class Player(BasePlayer):
     model_config = ConfigDict(use_enum_values=True)
 
     id: PlayerID
@@ -176,7 +176,7 @@ class Player(BaseModel):
 
     eliminated_during_phase: Optional[Phase] = None
 
-    _message_queue: Deque[PlayerHistoryEntryView] = PrivateAttr(default_factory=deque)
+    _message_queue: Deque[PlayerEventView] = PrivateAttr(default_factory=deque)
 
     def get_event_handlers(self, moderator: BaseModerator) -> Dict[EventName, List[EventHandler]]:
         handlers = defaultdict(list)
@@ -185,10 +185,10 @@ class Player(BaseModel):
             handlers[event_type].append(event_handler)
         return handlers
 
-    def update(self, entry: PlayerHistoryEntryView):
+    def update(self, entry: PlayerEventView):
         self._message_queue.append(entry)
 
-    def consume_messages(self) -> List[PlayerHistoryEntryView]:
+    def consume_messages(self) -> List[PlayerEventView]:
         messages = list(self._message_queue)
         self._message_queue.clear()
         return messages

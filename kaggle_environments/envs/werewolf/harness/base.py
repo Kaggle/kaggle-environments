@@ -668,7 +668,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     def __call__(self, obs):
         raw_obs = get_raw_observation(obs)
-        entries = raw_obs.new_player_history_entry_views
+        entries = raw_obs.new_player_event_views
 
         for entry in entries:
             self._event_logs.append(

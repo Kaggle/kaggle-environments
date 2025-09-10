@@ -325,12 +325,12 @@ class SequentialVoting(VotingProtocol):
 
         actor_player = next((p for p in state.players if p.id == vote_action.actor_id), None)
         if actor_player and actor_player.alive:
-            description_for_history = ""
+            description_for_event = ""
             involved_players_list = [vote_action.actor_id]  # Actor is always involved
             data = None
             if isinstance(vote_action, NoOpAction):
                 self._ballots[vote_action.actor_id] = "-1"  # Treat NoOp as abstain
-                description_for_history = f"{vote_action.actor_id} chose to NoOp (treated as Abstain)."
+                description_for_event = f"{vote_action.actor_id} chose to NoOp (treated as Abstain)."
 
             elif isinstance(vote_action, VoteAction):  # This must be true if not NoOpAction
                 target_display: str
@@ -356,7 +356,7 @@ class SequentialVoting(VotingProtocol):
                     involved_players_list.append(vote_action.target_id)  # Add valid target to involved
 
                 self._ballots[vote_action.actor_id] = recorded_target_id
-                description_for_history = f"{vote_action.actor_id} has voted for {target_display}."
+                description_for_event = f"{vote_action.actor_id} has voted for {target_display}."
 
                 # Add data entry for the vote
                 data_entry_class = DayExileVoteDataEntry if state.phase == Phase.DAY else WerewolfNightVoteDataEntry
@@ -369,7 +369,7 @@ class SequentialVoting(VotingProtocol):
                 )
 
             state.push_event(
-                description=description_for_history,
+                description=description_for_event,
                 event_name=EventName.VOTE_ACTION,
                 public=False,
                 visible_to=self._expected_voters,

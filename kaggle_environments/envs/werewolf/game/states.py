@@ -7,8 +7,8 @@ from pydantic import PrivateAttr, Field, computed_field, ConfigDict
 
 from .base import BaseState, EventHandler, PlayerID, BaseRole
 from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase, EventName
-from .records import DataEntry, HistoryEntry, PhaseDividerDataEntry, DataAccessLevel, \
-    PlayerHistoryEntryView
+from .records import DataEntry, Event, PhaseDividerDataEntry, DataAccessLevel, \
+    PlayerEventView
 from .roles import Player
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class EventBus:
     ):
         self._subs[event_name].append(handler)
     
-    def dispatch(self, entry: HistoryEntry):
+    def dispatch(self, entry: Event):
         for handler in self._subs[entry.event_name]:
             handler(entry)
 
@@ -37,14 +37,14 @@ class GameState(BaseState):
     phase: Phase = Phase.NIGHT
     detailed_phase: DetailedPhase = DetailedPhase.NIGHT_START
     day_count: int = 0
-    history: Dict[int, List[HistoryEntry]] = Field(default_factory=dict)
+    history: Dict[int, List[Event]] = Field(default_factory=dict)
     wallet: dict[PlayerID, int] = Field(default_factory=dict)
     reveal_night_elimination_role: bool = True
     reveal_day_exile_role: bool = True
     _id_to_player: Dict[PlayerID, Player] = PrivateAttr(default_factory=dict)
-    _history_entry_by_type: Dict[EventName, List[HistoryEntry]] = PrivateAttr(
+    _event_by_type: Dict[EventName, List[Event]] = PrivateAttr(
         default_factory=lambda: defaultdict(list))
-    _history_queue: Deque[HistoryEntry] = PrivateAttr(default_factory=deque)
+    _event_queue: Deque[Event] = PrivateAttr(default_factory=deque)
     _night_elimination_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
     _day_exile_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
     _event_bus: EventBus = PrivateAttr(default_factory=EventBus)
@@ -117,8 +117,8 @@ class GameState(BaseState):
     def queue_doctor_save(self, target: Player):
         self._night_doctor_save_queue.append(target.id)
 
-    def get_event_by_name(self, event_name: EventName) -> List[HistoryEntry]:
-        return self._history_entry_by_type[event_name]
+    def get_event_by_name(self, event_name: EventName) -> List[Event]:
+        return self._event_by_type[event_name]
 
     def push_event(self,
                    description: str,
@@ -130,7 +130,7 @@ class GameState(BaseState):
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
         self.history.setdefault(day_key, [])
-        sys_entry = HistoryEntry(
+        sys_entry = Event(
             day=day_key,
             phase=self.phase,
             detailed_phase=self.detailed_phase,
@@ -143,8 +143,8 @@ class GameState(BaseState):
         )
 
         self.history[day_key].append(sys_entry)
-        self._history_entry_by_type[event_name].append(sys_entry)
-        self._history_queue.append(sys_entry)
+        self._event_by_type[event_name].append(sys_entry)
+        self._event_queue.append(sys_entry)
 
         public_view = sys_entry.view_by_access(user_level=DataAccessLevel.PUBLIC)
         personal_view = sys_entry.view_by_access(user_level=DataAccessLevel.PERSONAL)
@@ -191,9 +191,9 @@ class GameState(BaseState):
         if player:
             player.eliminate(day=self.day_count, phase=self.phase)
 
-    def consume_messages(self) -> List[HistoryEntry]:
-        messages = list(self._history_queue)
-        self._history_queue.clear()
+    def consume_messages(self) -> List[Event]:
+        messages = list(self._event_queue)
+        self._event_queue.clear()
         return messages
 
     def get_elimination_info(self):
@@ -204,8 +204,8 @@ class GameState(BaseState):
 
 
 def get_last_action_request(
-        history_entries: Sequence[PlayerHistoryEntryView],
+        event_views: Sequence[PlayerEventView],
         event_name: EventName
-) -> None | PlayerHistoryEntryView:
+) -> None | PlayerEventView:
     """Get the action request from the new player history entry view updates."""
-    return next((entry for entry in history_entries if entry.event_name == event_name), None)
+    return next((entry for entry in event_views if entry.event_name == event_name), None)
