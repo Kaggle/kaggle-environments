@@ -1,18 +1,15 @@
 import argparse
-import os
-import sys
-import yaml
 import logging
+import os
 import random
 
-# Add the project root to the Python path to allow importing from kaggle_environments
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+import yaml
 
-from kaggle_environments.envs.werewolf.runner import run_werewolf, setup_logger, append_timestamp_to_dir, LogExecutionTime
-from kaggle_environments.envs.werewolf.werewolf import AgentFactoryWrapper, agents, LLM_SYSTEM_PROMPT, register_agents
 from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
+from kaggle_environments.envs.werewolf.runner import (
+    run_werewolf, setup_logger, append_timestamp_to_dir, LogExecutionTime, log_git_hash
+)
+from kaggle_environments.envs.werewolf.werewolf import AgentFactoryWrapper, LLM_SYSTEM_PROMPT, register_agents
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +43,8 @@ def main():
 
     base_name = "werewolf_game"
     setup_logger(output_dir=run_output_dir, base_name=base_name)
+
+    log_git_hash()
 
     # Load game configuration
     with open(args.config_path, 'r') as f:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from importlib import import_module
 from os import listdir
 from .agent import Agent
@@ -25,6 +26,9 @@ __version__ = "1.17.12"
 __all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
            "make", "register", "utils", "__version__",
            "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
+
+_script_dir = os.path.dirname(os.path.realpath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join('..', _script_dir))
 
 # Register Environments.
 
