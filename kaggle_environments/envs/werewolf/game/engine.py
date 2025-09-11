@@ -212,10 +212,7 @@ class Moderator(BaseModerator):
         old_detailed_phase = self.detailed_phase
         self.detailed_phase = new_detailed_phase
         self.state.detailed_phase = new_detailed_phase
-        new_phase = Phase.NIGHT
-        if new_detailed_phase not in [DetailedPhase.NIGHT_START, DetailedPhase.NIGHT_AWAIT_ACTIONS]:
-            new_phase = Phase.DAY
-        self.state.phase = new_phase
+        self.state.phase = new_detailed_phase.category
 
         if add_one_day:
             self.state.day_count += 1
