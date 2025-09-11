@@ -52,7 +52,7 @@ def random_agent(obs):
     raw_obs = get_raw_observation(obs)
 
     entries = raw_obs.new_player_event_views
-    current_phase = DetailedPhase(raw_obs.phase)
+    current_phase = DetailedPhase(raw_obs.detailed_phase)
     my_role = raw_obs.role
     all_player_names = raw_obs.all_player_ids
     my_id = raw_obs.player_id
@@ -369,7 +369,7 @@ def update_agent_messages(
             team=player_obj.role.team.value,
             is_alive=player_obj.alive,
             day=game_state.day_count,
-            phase=moderator.detailed_phase.value,
+            detailed_phase=moderator.detailed_phase.value,
             all_player_ids=game_state.all_player_ids,
             player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],

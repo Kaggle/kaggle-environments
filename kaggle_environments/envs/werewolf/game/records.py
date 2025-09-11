@@ -286,7 +286,7 @@ class WerewolfObservationModel(BaseModel):
     team: Team
     is_alive: bool
     day: int
-    phase: DetailedPhase
+    detailed_phase: DetailedPhase
     all_player_ids: List[PlayerID]
     player_thumbnails: Dict[PlayerID, str] = {}
     alive_players: List[PlayerID]

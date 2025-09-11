@@ -681,7 +681,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         self._event_log_items_to_keep = len(self._event_logs)
 
-        current_phase = DetailedPhase(raw_obs.phase)
+        current_phase = DetailedPhase(raw_obs.detailed_phase)
         my_role = RoleConst(raw_obs.role)
 
         common_args = {"day": raw_obs.day, "phase": raw_obs.game_state_phase, "actor_id": raw_obs.player_id}

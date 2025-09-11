@@ -3,7 +3,7 @@ from typing import List, Dict, Type, Sequence, Protocol
 
 from .actions import Action, VoteAction, ChatAction, BidAction
 from .base import BaseModerator, PlayerID
-from .consts import Phase, Team, RoleConst, PhaseDivider, DetailedPhase
+from .consts import Team, RoleConst, PhaseDivider, DetailedPhase
 from .night_elimination_manager import NightEliminationManager
 from .protocols.base import VotingProtocol, DiscussionProtocol
 from .protocols.chat import BiddingDiscussion
