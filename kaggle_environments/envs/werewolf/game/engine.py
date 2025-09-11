@@ -56,7 +56,7 @@ def phase_handler(phase: DetailedPhase):
 
 
 class PhaseHandler(Protocol):
-    def __call__(self, player_actions: Dict[PlayerID, Action]):
+    def __call__(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         pass
 
 
@@ -232,25 +232,26 @@ class Moderator(BaseModerator):
     def record_night_save(self, doctor_id: PlayerID, target_id: PlayerID):
         self._night_elimination_manager.record_save(doctor_id, target_id)
 
+    def _call_handler(self, player_actions: Dict[PlayerID, Action]):
+        current_handler = self._phase_handlers.get(self.detailed_phase)
+        if current_handler:
+            next_detailed_phase = current_handler(player_actions)
+        else:
+            raise ValueError(f"Unhandled detailed_phase: {self.detailed_phase}")
+        add_one_day = True if next_detailed_phase == DetailedPhase.DAY_START else False
+        self.set_next_phase(next_detailed_phase, add_one_day=add_one_day)
+
     def advance(self, player_actions: Dict[PlayerID, Action]):
         self.confirm_action(player_actions)
         # Process the incoming actions for the current phase.
-        current_handler = self._phase_handlers.get(self.detailed_phase)
-        if current_handler:
-            current_handler(player_actions)
-        else:
-            raise ValueError(f"Unhandled detailed_phase: {self.detailed_phase}")
+        self._call_handler(player_actions)
 
         # Loop through automatic state transitions (those that don't need agent actions)
         # This continues until the game is over or requires new agent input.
         # this logic is required since Environments in core.py requires that there are some players being ACTIVE to
         # continue. Otherwise, if all INACTIVE the game is marked done.
         while not self.get_active_player_ids() and not self.is_game_over():
-            next_handler = self._phase_handlers.get(self.detailed_phase)
-            if next_handler:
-                next_handler({})  # Pass empty actions for automatic transitions
-            else:
-                raise ValueError(f"Unhandled detailed_phase during transition: {self.detailed_phase}")
+            self._call_handler({})
 
         # After all transitions, check for game over.
         if self.is_game_over() and self.detailed_phase != DetailedPhase.GAME_OVER:
@@ -260,7 +261,7 @@ class Moderator(BaseModerator):
             self._determine_and_log_winner()
 
     @phase_handler(DetailedPhase.NIGHT_START)
-    def _handle_night_start(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_night_start(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         self._action_queue.clear()
         self.state.add_phase_divider(PhaseDivider.NIGHT_START)
         self.state.push_event(
@@ -268,7 +269,6 @@ class Moderator(BaseModerator):
             event_name=EventName.NIGHT_START,
             public=True
         )
-        self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_START)
 
         # initialize werewolves voting
         self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_START)
@@ -276,36 +276,32 @@ class Moderator(BaseModerator):
         alive_werewolf_ids = list({p.id for p in alive_werewolves})
         potential_targets = self.state.alive_players_by_team(Team.VILLAGERS)  # Target non-werewolves
 
-        if alive_werewolves:
-            data = RequestWerewolfVotingDataEntry(
-                valid_targets=[f"{p.id}" for p in potential_targets],
-                alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
-                voting_protocol_name=self.night_voting.__class__.__name__,
-                voting_protocol_rule=self.night_voting.rule,
-                action_json_schema=json.dumps(VoteAction.schema_for_player()),
-            )
-            self.state.push_event(
-                description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
-                            f"Choose one target player to eliminate tonight. The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule} "
-                            f"Who would you like to eliminate tonight? Options: {data.valid_targets}.",
-                event_name=EventName.VOTE_REQUEST,
-                public=False,
-                visible_to=alive_werewolf_ids,
-                data=data
-            )
-
+        data = RequestWerewolfVotingDataEntry(
+            valid_targets=[f"{p.id}" for p in potential_targets],
+            alive_werewolve_player_ids=[f"{p.id}" for p in alive_werewolves],
+            voting_protocol_name=self.night_voting.__class__.__name__,
+            voting_protocol_rule=self.night_voting.rule,
+            action_json_schema=json.dumps(VoteAction.schema_for_player()),
+        )
+        self.state.push_event(
+            description=f"Wake up Werewolves. Your fellow alive werewolves are: {data.alive_werewolve_player_ids}. "
+                        f"Choose one target player to eliminate tonight. "
+                        f"The voting rule ({data.voting_protocol_name}): {data.voting_protocol_rule} "
+                        f"Who would you like to eliminate tonight? Options: {data.valid_targets}.",
+            event_name=EventName.VOTE_REQUEST,
+            public=False,
+            visible_to=alive_werewolf_ids,
+            data=data
+        )
         self.night_voting.begin_voting(
             state=self.state,
             alive_voters=alive_werewolves,
             potential_targets=potential_targets
         )
-        self._action_queue.extend(VoteAction, self.night_voting.get_next_voters())
-
-        # state transition
-        self.set_next_phase(DetailedPhase.NIGHT_AWAIT_ACTIONS)
+        return DetailedPhase.NIGHT_AWAIT_ACTIONS
 
     @phase_handler(DetailedPhase.NIGHT_AWAIT_ACTIONS)
-    def _handle_night_await_actions(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_night_await_actions(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         # Process werewolf votes
         werewolf_voters_expected = self._action_queue.get(VoteAction)
         if werewolf_voters_expected:
@@ -328,31 +324,34 @@ class Moderator(BaseModerator):
                         public=False,
                         visible_to=[ww_voter.id]
                     )
-            # Stay in NIGHT_AWAIT_ACTIONS
+            return DetailedPhase.NIGHT_AWAIT_ACTIONS
         else:
-            werewolf_target_id = self.night_voting.get_elected()
+            return DetailedPhase.NIGHT_CONCLUDE
 
-            data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
-            self.state.push_event(
-                description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
-                event_name=EventName.VOTE_RESULT,
-                public=False,
-                visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
-                data=data
-            )
+    @phase_handler(DetailedPhase.NIGHT_CONCLUDE)
+    def _handle_night_conclude(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
+        werewolf_target_id = self.night_voting.get_elected()
 
-            self._night_elimination_manager.resolve_elimination(werewolf_target_id)
+        data = WerewolfNightEliminationElectedDataEntry(elected_target_player_id=werewolf_target_id)
+        self.state.push_event(
+            description=f'Werewolves elected to eliminate player "{data.elected_target_player_id}".',
+            event_name=EventName.VOTE_RESULT,
+            public=False,
+            visible_to=[p.id for p in self.state.alive_players_by_team(Team.WEREWOLVES)],
+            data=data
+        )
 
-            self.night_voting.reset()
-            self._night_elimination_manager.reset()
+        self._night_elimination_manager.resolve_elimination(werewolf_target_id)
 
-            self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_END)
-            self.state.add_phase_divider(PhaseDivider.NIGHT_END)
-            if not self.is_game_over():
-                self.set_next_phase(DetailedPhase.DAY_START, add_one_day=True)
+        self.night_voting.reset()
+        self._night_elimination_manager.reset()
+
+        self.state.add_phase_divider(PhaseDivider.NIGHT_VOTE_END)
+        self.state.add_phase_divider(PhaseDivider.NIGHT_END)
+        return DetailedPhase.DAY_START
 
     @phase_handler(DetailedPhase.DAY_START)
-    def _handle_day_start(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_day_start(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         self.state.add_phase_divider(PhaseDivider.DAY_START)
         self._action_queue.clear()
         self.night_step = 0  # Reset night step counter
@@ -375,20 +374,12 @@ class Moderator(BaseModerator):
 
         # Check if the protocol starts with bidding
         if isinstance(self.discussion, BiddingDiscussion):
-            self.set_next_phase(DetailedPhase.DAY_BIDDING_AWAIT)
-            # In bidding, all alive players can be active
-            bidders = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(BidAction, bidders)
-            self.discussion.prompt_speakers_for_tick(self.state, bidders)
+            return DetailedPhase.DAY_BIDDING_AWAIT
         else:
-            # If no bidding, go straight to chatting
-            self.set_next_phase(DetailedPhase.DAY_CHAT_AWAIT)
-            initial_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(ChatAction, initial_speakers)
-            self.discussion.prompt_speakers_for_tick(self.state, initial_speakers)
+            return DetailedPhase.DAY_CHAT_AWAIT
 
     @phase_handler(DetailedPhase.DAY_BIDDING_AWAIT)
-    def _handle_day_bidding_await(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_day_bidding_await(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         current_bidders = self._action_queue.get(BidAction)
         self._action_queue.clear()
 
@@ -400,129 +391,76 @@ class Moderator(BaseModerator):
         assert isinstance(self.discussion, BiddingDiscussion)
         bidding_protocol = self.discussion.bidding
         if bidding_protocol.is_finished(self.state):
-            self.state.push_event(
-                description="Bidding has concluded. The discussion will now begin.",
-                event_name=EventName.PHASE_CHANGE,
-                public=True
-            )
-            # Transition to the chat phase
-            self.set_next_phase(DetailedPhase.DAY_CHAT_AWAIT)
-
-            # Get the first speakers for the chat phase (could be bid winners)
-            next_speakers = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(ChatAction, next_speakers)
-            self.discussion.prompt_speakers_for_tick(self.state, next_speakers)
+            return DetailedPhase.DAY_BIDDING_CONCLUDE
         else:
             # Bidding is not over (e.g., sequential auction), get next bidders
             next_bidders = self.discussion.speakers_for_tick(self.state)
             self._action_queue.extend(BidAction, next_bidders)
             self.discussion.prompt_speakers_for_tick(self.state, next_bidders)
-            # Stay in DAY_BIDDING_AWAIT
+            return DetailedPhase.DAY_BIDDING_AWAIT
+
+    @phase_handler(DetailedPhase.DAY_BIDDING_CONCLUDE)
+    def _handle_day_bidding_conclude(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
+        self.state.push_event(
+            description="Bidding has concluded. The discussion will now begin.",
+            event_name=EventName.PHASE_CHANGE,
+            public=True
+        )
+        self.discussion.bidding.reset()
+        return DetailedPhase.DAY_CHAT_AWAIT
 
     @phase_handler(DetailedPhase.DAY_CHAT_AWAIT)
-    def _handle_day_chat_await(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_day_chat_await(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         speaker_ids = self._action_queue.get(ChatAction)
         self._action_queue.clear()
         self.discussion.process_actions(list(player_actions.values()), speaker_ids, self.state)
 
         if self.discussion.is_discussion_over(self.state):
-            self.state.push_event(
-                description="Daytime discussion has concluded. Moving to day vote.",
-                event_name=EventName.PHASE_CHANGE,
-                public=True
-            )
-            self.discussion.reset()
-
-            self.state.add_phase_divider(PhaseDivider.DAY_CHAT_END)
-            self.state.add_phase_divider(PhaseDivider.DAY_VOTE_START)
-            alive_players = self.state.alive_players()
-            self.day_voting.begin_voting(self.state, alive_players, alive_players)
-            self.set_next_phase(DetailedPhase.DAY_VOTING_AWAIT)
-            self.state.push_event(
-                description="Voting phase begins. We will decide who to exile today."
-                            f"\nDay voting Rule: {self.day_voting.rule}"
-                            f"\nCurrent alive players are: {[player.id for player in alive_players]}",
-                event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                public=True,
-                data={"voting_rule": self.day_voting.rule}
-            )
-            next_voters_ids = self.day_voting.get_next_voters()
-            self._action_queue.extend(VoteAction, next_voters_ids)
-
-            vote_queue = self._action_queue.get(VoteAction)
-            if vote_queue:
-                for voter_id in vote_queue:  # Prompt only the current batch of voters
-                    player = self.state.get_player_by_id(voter_id)
-                    if player and player.alive:
-                        prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
-                        self.state.push_event(
-                            description=prompt, event_name=EventName.VOTE_REQUEST,
-                            public=False, visible_to=[voter_id]
-                        )
+            return DetailedPhase.DAY_CHAT_CONCLUDE
         else:
             # Discussion is not over. Check if we need to go back to bidding action and phase.
-            action_cls = ChatAction
             if isinstance(self.discussion, BiddingDiscussion) and self.discussion.is_bidding_phase():
-                self.set_next_phase(DetailedPhase.DAY_BIDDING_AWAIT)
-                action_cls = BidAction
-
+                return DetailedPhase.DAY_BIDDING_AWAIT
             # Get the next active players (either bidders or the next speaker)
             next_actors = self.discussion.speakers_for_tick(self.state)
-            self._action_queue.extend(action_cls, next_actors)
+            self._action_queue.extend(ChatAction, next_actors)
             self.discussion.prompt_speakers_for_tick(self.state, next_actors)
+            return DetailedPhase.DAY_CHAT_AWAIT
+
+    @phase_handler(DetailedPhase.DAY_CHAT_CONCLUDE)
+    def _handle_day_chat_conclude(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
+        self.state.push_event(
+            description="Daytime discussion has concluded. Moving to day vote.",
+            event_name=EventName.PHASE_CHANGE,
+            public=True
+        )
+        self.discussion.reset()
+        self.state.add_phase_divider(PhaseDivider.DAY_CHAT_END)
+        return DetailedPhase.DAY_VOTING_START
+
+    @phase_handler(DetailedPhase.DAY_VOTING_START)
+    def _handle_day_voting_start(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
+        self.state.add_phase_divider(PhaseDivider.DAY_VOTE_START)
+        alive_players = self.state.alive_players()
+        self.day_voting.begin_voting(self.state, alive_players, alive_players)
+        self.state.push_event(
+            description="Voting phase begins. We will decide who to exile today."
+                        f"\nDay voting Rule: {self.day_voting.rule}"
+                        f"\nCurrent alive players are: {[player.id for player in alive_players]}",
+            event_name=EventName.MODERATOR_ANNOUNCEMENT,
+            public=True,
+            data={"voting_rule": self.day_voting.rule}
+        )
+        return DetailedPhase.DAY_VOTING_AWAIT
 
     @phase_handler(DetailedPhase.DAY_VOTING_AWAIT)
-    def _handle_day_voting_await(self, player_actions: Dict[PlayerID, Action]):
+    def _handle_day_voting_await(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
         vote_queue = self._action_queue.get(VoteAction)
         self.day_voting.collect_votes(player_actions, self.state, vote_queue)
         self._action_queue.clear()  # Clear previous voters
 
         if self.day_voting.done():
-            exiled_player_id = self.day_voting.get_elected()
-            if exiled_player_id:
-                exiled_player = self.state.get_player_by_id(exiled_player_id)
-                if exiled_player:
-                    original_role_name = exiled_player.role.name.value
-                    self.state.eliminate_player(exiled_player_id)
-                    if self._reveal_day_exile_role:
-                        data = DayExileElectedDataEntry(
-                            elected_player_id=exiled_player_id,
-                            elected_player_role_name=original_role_name,
-                            elected_player_team_name=exiled_player.role.team.value
-                        )
-                        self.state.push_event(
-                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote. The player is a {original_role_name}.',
-                            event_name=EventName.ELIMINATION,
-                            public=True,
-                            data=data
-                        )
-                    else:
-                        data = DayExileElectedDataEntry(
-                            elected_player_id=exiled_player_id
-                        )
-                        self.state.push_event(
-                            description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.',
-                            event_name=EventName.ELIMINATION,
-                            public=True,
-                            data=data
-                        )
-            else:
-                self.state.push_event(
-                    description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",
-                    event_name=EventName.VOTE_RESULT,
-                    public=True,
-                    data={
-                        "vote_type": "day_exile",
-                        "outcome": "no_exile",
-                        "reason": "tie_or_no_majority"
-                    }
-                )
-
-            self.day_voting.reset()
-            self.state.add_phase_divider(PhaseDivider.DAY_VOTE_END)
-            self.state.add_phase_divider(PhaseDivider.DAY_END)
-            if not self.is_game_over():
-                self.set_next_phase(DetailedPhase.NIGHT_START)
+            return DetailedPhase.DAY_VOTING_CONCLUDE
         else:
             next_voters_ids = self.day_voting.get_next_voters()
             self._action_queue.extend(VoteAction, next_voters_ids)
@@ -535,7 +473,55 @@ class Moderator(BaseModerator):
                             description=prompt, event_name=EventName.VOTE_REQUEST,
                             public=False, visible_to=[voter_id]
                         )
-            # Stay in DetailedPhase.DAY_VOTING_AWAIT
+            return DetailedPhase.DAY_VOTING_AWAIT
+
+    @phase_handler(DetailedPhase.DAY_VOTING_CONCLUDE)
+    def _handle_day_voting_conclude(self, player_actions: Dict[PlayerID, Action]) -> DetailedPhase:
+        exiled_player_id = self.day_voting.get_elected()
+        if exiled_player_id:
+            exiled_player = self.state.get_player_by_id(exiled_player_id)
+            if exiled_player:
+                original_role_name = exiled_player.role.name.value
+                self.state.eliminate_player(exiled_player_id)
+                if self._reveal_day_exile_role:
+                    data = DayExileElectedDataEntry(
+                        elected_player_id=exiled_player_id,
+                        elected_player_role_name=original_role_name,
+                        elected_player_team_name=exiled_player.role.team.value
+                    )
+                    self.state.push_event(
+                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.'
+                                    f' The player is a {original_role_name}.',
+                        event_name=EventName.ELIMINATION,
+                        public=True,
+                        data=data
+                    )
+                else:
+                    data = DayExileElectedDataEntry(
+                        elected_player_id=exiled_player_id
+                    )
+                    self.state.push_event(
+                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.',
+                        event_name=EventName.ELIMINATION,
+                        public=True,
+                        data=data
+                    )
+        else:
+            self.state.push_event(
+                description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",
+                event_name=EventName.VOTE_RESULT,
+                public=True,
+                data={
+                    "vote_type": "day_exile",
+                    "outcome": "no_exile",
+                    "reason": "tie_or_no_majority"
+                }
+            )
+
+        self.day_voting.reset()
+        self.state.add_phase_divider(PhaseDivider.DAY_VOTE_END)
+        self.state.add_phase_divider(PhaseDivider.DAY_END)
+        return DetailedPhase.NIGHT_START
 
     def _determine_and_log_winner(self):
         # Check if a GAME_END entry already exists

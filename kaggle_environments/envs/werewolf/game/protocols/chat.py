@@ -165,8 +165,12 @@ class BiddingDiscussionPhase(StrEnum):
 class BiddingDiscussion(DiscussionProtocol, ABC):
     def __init__(self, bidding: Optional[BiddingProtocol] = None):
         bidding = bidding or SimpleBiddingProtocol()
-        self.bidding = bidding
+        self._bidding = bidding
         self._phase = BiddingDiscussionPhase.BIDDING_PHASE
+
+    @property
+    def bidding(self):
+        return self._bidding
 
     @property
     def phase(self):
