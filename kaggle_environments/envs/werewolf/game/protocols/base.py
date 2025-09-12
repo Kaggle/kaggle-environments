@@ -84,13 +84,6 @@ class VotingProtocol(GameProtocol):
         """Collect a batch of votes."""
 
     @abstractmethod
-    def _tally_votes(self, state: GameState) -> PlayerID | None:
-        """
-        Return exiled `player_id`, or None if no one is exiled
-        (e.g. no majority rule / tied vote behaviour).
-        """
-
-    @abstractmethod
     def get_current_tally_info(self, state: GameState) -> Dict[PlayerID, PlayerID]:
         """
         Return the current tally by a map, where key is player, value is target.

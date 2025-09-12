@@ -11,7 +11,7 @@ game_config:
   day_voting_protocol:
     name: "SimultaneousMajority"
     params:
-      tie_exile: 'random'
+      tie_break: 'random'
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
     params:
