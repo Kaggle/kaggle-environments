@@ -34,7 +34,7 @@ def get_all_unique_role_configs(roles: List[str]) -> List[List[str]]:
 
 
 run_single_game_with_retry = tenacity.retry(
-    wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
+    wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
     stop=tenacity.stop_after_attempt(3),
     before_sleep=tenacity.before_sleep_log(logger, logging.INFO)
 )(run_single_game_cli)

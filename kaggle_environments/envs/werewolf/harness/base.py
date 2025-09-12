@@ -373,7 +373,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_rate_limit_error),
         stop=tenacity.stop_after_attempt(5),
-        wait=tenacity.wait_random_exponential(min=1, max=60),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         reraise=True
     )
     def query(self, prompt):
@@ -502,7 +502,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_context_window_exceeded_error),
         stop=tenacity.stop_after_attempt(5),
-        wait=tenacity.wait_fixed(0.5),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         before_sleep=_truncate_and_log_on_retry,
         reraise=True,
     )
@@ -520,7 +520,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(_is_json_parsing_error),
         stop=tenacity.stop_after_attempt(3),
-        wait=tenacity.wait_fixed(0.5),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         before_sleep=_add_error_entry_on_retry,
         reraise=True,
     )
