@@ -66,8 +66,8 @@ def test_no_reveal_options(agents_config):
         debug=True,
         configuration={
             "agents": agents_config,
-            "reveal_night_elimination_role": False,
-            "reveal_day_exile_role": False
+            "night_elimination_reveal_level": "no_reveal",
+            "day_exile_reveal_level": "no_reveal"
         }
     )
     agents = ['random'] * 7

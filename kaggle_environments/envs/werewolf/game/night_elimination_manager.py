@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from .base import PlayerID
 from .records import DoctorSaveDataEntry, WerewolfNightEliminationDataEntry, EventName
 from .states import GameState
-from .consts import Team
+from .consts import Team, RevealLevel
 
 
 class NightEliminationManager:
@@ -11,9 +11,9 @@ class NightEliminationManager:
     Manages the state and resolution of nighttime eliminations.
     """
 
-    def __init__(self, state: GameState, reveal_night_elimination_role: bool):
+    def __init__(self, state: GameState, reveal_level: RevealLevel = RevealLevel.ROLE):
         self._state = state
-        self._reveal_role = reveal_night_elimination_role
+        self._reveal_level = reveal_level
         self._saves: Dict[PlayerID, List[PlayerID]] = {}  # Key: target_id, Value: [doctor_id]
 
     def reset(self):
@@ -78,20 +78,26 @@ class NightEliminationManager:
             )
         else:
             # The player is eliminated.
-            original_role_name = target_player.role.name.value
+            original_role_name = target_player.role.name
             self._state.eliminate_player(werewolf_target_id)
-            if self._reveal_role:
-                data = WerewolfNightEliminationDataEntry(
-                    eliminated_player_id=werewolf_target_id,
-                    eliminated_player_role_name=original_role_name,
-                    eliminated_player_team_name=target_player.role.team.value
-                )
-                description = (f'Last night, player "{werewolf_target_id}" was eliminated by werewolves. '
-                               f'Their role was a "{original_role_name}".')
-            else:
-                data = WerewolfNightEliminationDataEntry(eliminated_player_id=werewolf_target_id)
-                description = f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.'
 
+            team = None
+            role = None
+            descriptions = [f'Last night, player "{werewolf_target_id}" was eliminated by werewolves.']
+            if self._reveal_level == RevealLevel.ROLE:
+                team = target_player.role.team
+                role = target_player.role.name
+                descriptions.append(f'Their role was a "{original_role_name}".')
+            elif self._reveal_level == RevealLevel.TEAM:
+                team = target_player.role.team
+                descriptions.append(f'Their team was "{team}".')
+
+            data = WerewolfNightEliminationDataEntry(
+                eliminated_player_id=werewolf_target_id,
+                eliminated_player_role_name=role,
+                eliminated_player_team_name=team
+            )
+            description = ' '.join(descriptions)
             self._state.push_event(
                 description=description,
                 event_name=EventName.ELIMINATION,

@@ -288,7 +288,7 @@ class WerewolfObservationModel(BaseModel):
     all_player_ids: List[PlayerID]
     player_thumbnails: Dict[PlayerID, str] = {}
     alive_players: List[PlayerID]
-    revealed_players_by_role: Dict[PlayerID, RoleConst] = {}
+    revealed_players: Dict[PlayerID, RoleConst | Team | None] = {}
     new_visible_announcements: List[str]
     new_player_event_views: List[PlayerEventView]
     game_state_phase: Phase

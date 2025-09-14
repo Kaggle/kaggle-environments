@@ -3,7 +3,7 @@ from typing import List, Dict, Type, Sequence, Protocol
 
 from .actions import Action, VoteAction, ChatAction, BidAction
 from .base import BaseModerator, PlayerID
-from .consts import Team, RoleConst, PhaseDivider, DetailedPhase
+from .consts import Team, RoleConst, PhaseDivider, DetailedPhase, RevealLevel
 from .night_elimination_manager import NightEliminationManager
 from .protocols.base import VotingProtocol, DiscussionProtocol
 from .protocols.chat import BiddingDiscussion
@@ -69,19 +69,20 @@ class Moderator(BaseModerator):
         discussion: DiscussionProtocol,
         day_voting: VotingProtocol,  # Renamed for clarity
         night_voting: VotingProtocol,
-        reveal_night_elimination_role: bool = True,
-        reveal_day_exile_role: bool = True
+        night_elimination_reveal_level: RevealLevel = RevealLevel.ROLE,
+        day_exile_reveal_level: RevealLevel = RevealLevel.ROLE
     ):
         self._state = state
         self.discussion = discussion
         self.day_voting = day_voting
         self.night_voting = night_voting
 
-        self._reveal_night_elimination_role = reveal_night_elimination_role
-        self._reveal_day_exile_role = reveal_day_exile_role
+        self._night_elimination_reveal_level = night_elimination_reveal_level
+        self._day_exile_reveal_level = day_exile_reveal_level
 
         self._active_night_roles_queue: List[Player] = []
-        self._night_elimination_manager = NightEliminationManager(self._state, self._reveal_night_elimination_role)
+        self._night_elimination_manager = NightEliminationManager(
+            self._state, reveal_level=self._night_elimination_reveal_level)
         self._action_queue = ActionQueue()
 
         # This is for registering role specific event handling
@@ -121,10 +122,24 @@ class Moderator(BaseModerator):
             ["The following explain the function of each role."] +
             [f"  * Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
              for role in self.state.all_unique_roles])
-        day_exile_reveal_msg = "If a player is exiled in the day, their role will be revealed." if self._reveal_day_exile_role \
-            else "If a player is exiled in the day, their role will NOT be revealed."
-        night_elimination_reveal_msg = "If a player is eliminated at night, their role will be revealed." \
-            if self._reveal_night_elimination_role else "If a player is eliminated at night, their role will NOT be revealed."
+
+        if self._day_exile_reveal_level == RevealLevel.ROLE:
+            day_exile_reveal_msg = "If a player is exiled in the day, their role will be revealed."
+        elif self._day_exile_reveal_level == RevealLevel.TEAM:
+            day_exile_reveal_msg = "If a player is exiled in the day, their team will be revealed."
+        elif self._day_exile_reveal_level == RevealLevel.NO_REVEAL:
+            day_exile_reveal_msg = "If a player is exiled in the day, their team and role will NOT be revealed."
+        else:
+            raise ValueError(f'Unsupported day_exile_reveal_level = {self._day_exile_reveal_level}.')
+
+        if self._night_elimination_reveal_level == RevealLevel.ROLE:
+            night_elimination_reveal_msg = "If a player is eliminated at night, their role will be revealed."
+        elif self._night_elimination_reveal_level == RevealLevel.TEAM:
+            night_elimination_reveal_msg = "If a player is eliminated at night, their team will be revealed."
+        elif self._night_elimination_reveal_level == RevealLevel.NO_REVEAL:
+            night_elimination_reveal_msg = "If a player is eliminated at night, their team and role will NOT be revealed."
+        else:
+            raise ValueError(f'Unsupported night_elimination_reveal_level = {self._night_elimination_reveal_level}.')
 
         description = "\n - ".join([
             "Werewolf game begins.",
@@ -468,31 +483,30 @@ class Moderator(BaseModerator):
         if exiled_player_id:
             exiled_player = self.state.get_player_by_id(exiled_player_id)
             if exiled_player:
-                original_role_name = exiled_player.role.name.value
                 self.state.eliminate_player(exiled_player_id)
-                if self._reveal_day_exile_role:
-                    data = DayExileElectedDataEntry(
-                        elected_player_id=exiled_player_id,
-                        elected_player_role_name=original_role_name,
-                        elected_player_team_name=exiled_player.role.team.value
-                    )
-                    self.state.push_event(
-                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.'
-                                    f' The player is a {original_role_name}.',
-                        event_name=EventName.ELIMINATION,
-                        public=True,
-                        data=data
-                    )
-                else:
-                    data = DayExileElectedDataEntry(
-                        elected_player_id=exiled_player_id
-                    )
-                    self.state.push_event(
-                        description=f'"{exiled_player_id}" in team {data.elected_player_team_name} is exiled by vote.',
-                        event_name=EventName.ELIMINATION,
-                        public=True,
-                        data=data
-                    )
+
+                role = None
+                team = None
+                description = f'Player "{exiled_player_id}" is exiled by vote.'
+                if self._day_exile_reveal_level == RevealLevel.ROLE:
+                    role = exiled_player.role.name
+                    team = exiled_player.role.team
+                    description = f'Player "{exiled_player_id}" in team {team} is exiled by vote. The player is a {role}.'
+                elif self._day_exile_reveal_level == RevealLevel.TEAM:
+                    team = exiled_player.role.team
+                    description = f'Player "{exiled_player_id}" in team {team} is exiled by vote.'
+
+                data = DayExileElectedDataEntry(
+                    elected_player_id=exiled_player_id,
+                    elected_player_role_name=role,
+                    elected_player_team_name=team
+                )
+                self.state.push_event(
+                    description=description,
+                    event_name=EventName.ELIMINATION,
+                    public=True,
+                    data=data
+                )
         else:
             self.state.push_event(
                 description="The vote resulted in no exile (e.g., a tie, no majority, or all abstained).",

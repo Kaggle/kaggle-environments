@@ -248,7 +248,7 @@ def interpreter(state, env):
     for the game.
 
     Note - env framework assumes that there is an action to be done by player, but 
-    for werewolf there are places where moderator is the one taking the action (e.g
+    for werewolf there are places where moderator is the one taking the action (e.g.
     counting votes and performing exile) so some game 'ticks' are larger than others.
 
     state: list of dictionaries, one for each agent.
@@ -373,7 +373,7 @@ def update_agent_messages(
             all_player_ids=game_state.all_player_ids,
             player_thumbnails=env.player_thumbnails,
             alive_players=[p.id for p in game_state.alive_players()],
-            revealed_players_by_role=game_state.revealed_players(),
+            revealed_players=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_player_event_views=new_history_entries,
             game_state_phase=game_state.phase.value
@@ -421,8 +421,8 @@ def initialize_moderator(state, env):
     env.game_state = GameState(
         players=players,
         history={},
-        reveal_night_elimination_role=env.configuration.reveal_night_elimination_role,
-        reveal_day_exile_role=env.configuration.reveal_day_exile_role
+        night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level
     )
 
     env.player_ids_map = {i: p.id for i, p in enumerate(players)}
@@ -454,8 +454,8 @@ def initialize_moderator(state, env):
         discussion=discussion_protocol,
         day_voting=day_voting_protocol,
         night_voting=night_voting_protocol,
-        reveal_night_elimination_role=env.configuration['reveal_night_elimination_role'],
-        reveal_day_exile_role=env.configuration['reveal_day_exile_role']
+        night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level
     )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
@@ -476,11 +476,11 @@ def renderer(state, env):
 
 
 def html_renderer():
-    jspath = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
-    with open(jspath, encoding="utf-8") as f:
-        return f.read()
+    js_path = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
+    with open(js_path, encoding="utf-8") as buff:
+        return buff.read()
 
 
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
-with open(jsonpath) as f:
-    specification = json.load(f)
+with open(jsonpath) as handle:
+    specification = json.load(handle)

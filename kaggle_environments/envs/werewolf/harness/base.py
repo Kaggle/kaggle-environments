@@ -495,7 +495,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
             "your_role_name": obs_model.role,
             "all_player_ids": obs_model.all_player_ids,
             "alive_players": obs_model.alive_players,
-            "revealed_players_by_role": obs_model.revealed_players_by_role,
+            "revealed_players": obs_model.revealed_players,
         }
         return content
 

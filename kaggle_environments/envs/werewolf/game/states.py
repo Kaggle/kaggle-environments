@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Any, Union, Deque, Sequence, DefaultDic
 from pydantic import PrivateAttr, Field, computed_field, ConfigDict
 
 from .base import BaseState, EventHandler, PlayerID, BaseRole
-from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase, EventName
+from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase, EventName, RevealLevel
 from .records import DataEntry, Event, PhaseDividerDataEntry, DataAccessLevel, \
     PlayerEventView
 from .roles import Player
@@ -39,8 +39,8 @@ class GameState(BaseState):
     day_count: int = 0
     history: Dict[int, List[Event]] = Field(default_factory=dict)
     wallet: dict[PlayerID, int] = Field(default_factory=dict)
-    reveal_night_elimination_role: bool = True
-    reveal_day_exile_role: bool = True
+    night_elimination_reveal_level: RevealLevel = RevealLevel.ROLE
+    day_exile_reveal_level: RevealLevel = RevealLevel.ROLE
     _id_to_player: Dict[PlayerID, Player] = PrivateAttr(default_factory=dict)
     _event_by_type: Dict[EventName, List[Event]] = PrivateAttr(
         default_factory=lambda: defaultdict(list))
@@ -78,14 +78,21 @@ class GameState(BaseState):
     def eliminated_players(self):
         return [p for p in self.players if not p.alive]
     
-    def revealed_players(self):
-        revealed = {p.id: p.role.name for p in self.players if not p.alive}
-        if not self.reveal_day_exile_role:
-            for pid in self._day_exile_player_ids:
-                revealed.pop(pid, None)
-        if not self.reveal_night_elimination_role:
-            for pid in self._night_elimination_player_ids:
-                revealed.pop(pid, None)
+    def revealed_players(self) -> Dict[PlayerID, RoleConst | Team | None]:
+        revealed = {}
+        if self.night_elimination_reveal_level == RevealLevel.ROLE:
+            revealed.update({pid: self.get_player_by_id(pid).role.name for pid in self._night_elimination_player_ids})
+        elif self.night_elimination_reveal_level == RevealLevel.TEAM:
+            revealed.update({pid: self.get_player_by_id(pid).role.team for pid in self._night_elimination_player_ids})
+        elif self.night_elimination_reveal_level == RevealLevel.NO_REVEAL:
+            revealed.update({pid: None for pid in self._night_elimination_player_ids})
+
+        if self.day_exile_reveal_level == RevealLevel.ROLE:
+            revealed.update({pid: self.get_player_by_id(pid).role.name for pid in self._day_exile_player_ids})
+        elif self.day_exile_reveal_level == RevealLevel.TEAM:
+            revealed.update({pid: self.get_player_by_id(pid).role.team for pid in self._day_exile_player_ids})
+        elif self.day_exile_reveal_level == RevealLevel.NO_REVEAL:
+            revealed.update({pid: None for pid in self._day_exile_player_ids})
         return revealed
 
     def is_alive(self, player_id: PlayerID):

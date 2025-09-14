@@ -9,15 +9,17 @@
         "actTimeout": { "type": "number", "default": 3 },
         "runTimeout": { "type": "number", "default": 1800 },
         "seed": { "type": "integer", "description": "Seed to use for episodes" },
-        "reveal_night_elimination_role": {
-            "type": "boolean",
-            "default": true,
-            "description": "Whether to reveal the night eliminated player's role or not."
+        "night_elimination_reveal_level": {
+            "type": "string",
+            "enum": ["no_reveal", "team", "role"],
+            "default": "role",
+            "description": "During night elimination, the moderator should reveal this level of information about the eliminated player."
         },
-        "reveal_day_exile_role": {
-            "type": "boolean",
-            "default": true,
-            "description": "Whether to reveal the day exile player's role or not."
+        "day_exile_reveal_level": {
+          "type": "string",
+            "enum": ["no_reveal", "team", "role"],
+            "default": "role",
+            "description": "During day exile, the moderator should reveal this level of information about the exiled player."
         },
         "agents": {
             "type": "array",

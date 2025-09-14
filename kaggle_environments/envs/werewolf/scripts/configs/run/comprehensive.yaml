@@ -12,8 +12,8 @@ game_config:
     name: "SequentialVoting"
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
-  reveal_night_elimination_role: false
-  reveal_day_exile_role: false
+  night_elimination_reveal_level: no_reveal
+  day_exile_reveal_level: no_reveal
   agents:
     - role: "Werewolf"
       id: "gemini-2.5-flash"

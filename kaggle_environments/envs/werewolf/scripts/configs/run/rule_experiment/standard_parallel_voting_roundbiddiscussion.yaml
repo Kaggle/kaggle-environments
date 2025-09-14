@@ -18,8 +18,8 @@ game_config:
     name: "SequentialVoting"
     params:
       assign_random_first_voter: true
-  reveal_night_elimination_role: true
-  reveal_day_exile_role: true
+  night_elimination_reveal_level: role
+  day_exile_reveal_level: role
   agents:
     - role: "Werewolf"
       id: "Kai"
