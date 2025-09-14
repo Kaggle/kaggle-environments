@@ -4,11 +4,11 @@ from collections import deque, Counter, defaultdict
 from functools import partial
 from typing import List, Deque, Optional, Dict
 
-from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
+from pydantic import BaseModel, Field, PrivateAttr, ConfigDict, field_validator, model_validator
 
 from .actions import HealAction, InspectAction
 from .base import BasePlayer, BaseModerator, BaseRole, EventHandler, on_event, PlayerID
-from .consts import Team, RoleConst, Phase, EventName
+from .consts import Team, RoleConst, Phase, EventName, RevealLevel
 from .records import (
     Event,
     PlayerEventView, RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, SeerInspectResultDataEntry
@@ -39,11 +39,25 @@ class Villager(Role):
     descriptions: str = "No special abilities. Participates in the daily vote to eliminate a suspected werewolf."
 
 
+class DoctorDescription:
+    ALLOW_SELF_SAVE = "Each night, may protect one player from a werewolf attack. Doctor is allowed to save themselves during night time."
+    NO_SELF_SAVE = "Each night, may protect one player from a werewolf attack. Doctor is NOT allowed to save themselves during night time."
+
+
 class Doctor(Role):
     name: RoleConst = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
     allow_self_save: bool = False
-    descriptions: str = "Each night, may protect one player from a werewolf attack."
+    descriptions: str = ""
+
+    @model_validator(mode='after')
+    def set_descriptions_default(self) -> 'Doctor':
+        if self.descriptions == "":
+            if self.allow_self_save:
+                self.descriptions = DoctorDescription.ALLOW_SELF_SAVE
+            else:
+                self.descriptions = DoctorDescription.NO_SELF_SAVE
+        return self
 
     @on_event(EventName.NIGHT_START)
     def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
@@ -82,10 +96,34 @@ class Doctor(Role):
             moderator.record_night_save(me.id, action.target_id)
 
 
+class SeerDescription:
+    REVEAL_ROLE = "Each night, may inspect one player to learn their true role."
+    REVEAL_TEAM = "Each night, may inspect one player's team but not their role."
+
+
 class Seer(Role):
     name: RoleConst = RoleConst.SEER
     team: Team = Team.VILLAGERS
-    descriptions: str = "Each night, may inspect one player to learn their true role."
+    descriptions: str = ""
+    reveal_level: RevealLevel = RevealLevel.ROLE
+
+    @field_validator('reveal_level')
+    @classmethod
+    def validate_reveal_level(cls, v):
+        if v == RevealLevel.NO_REVEAL:
+            raise ValueError(f"Setting reveal_level of Seer as {v}. Seer will become useless.")
+        return v
+
+    @model_validator(mode='after')
+    def set_descriptions_default(self) -> 'Seer':
+        if self.descriptions == "":
+            if self.reveal_level == RevealLevel.ROLE:
+                self.descriptions = SeerDescription.REVEAL_ROLE
+            elif self.reveal_level == RevealLevel.TEAM:
+                self.descriptions = SeerDescription.REVEAL_TEAM
+            else:
+                raise ValueError(f"reveal_level {self.reveal_level} not supported.")
+        return self
 
     @on_event(EventName.NIGHT_START)
     def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
@@ -97,7 +135,8 @@ class Seer(Role):
             moderator.request_action(
                 action_cls=InspectAction,
                 player_id=me.id,
-                prompt=f"Wake up Seer. Who would you like to see their true role? The options are {data_entry.valid_candidates}.",
+                prompt=f"Wake up Seer. Who would you like to see their true {self.reveal_level}? "
+                       f"The options are {data_entry.valid_candidates}.",
                 data=data_entry,
                 event_name=EventName.INSPECT_REQUEST,
             )
@@ -110,16 +149,25 @@ class Seer(Role):
         actor_id = me.id
         target_player = moderator.state.get_player_by_id(action.target_id)
         if target_player:  # Ensure target exists
+            role = None
+            team = None
+            reveal_text = ""
+            if self.reveal_level == RevealLevel.ROLE:
+                role = target_player.role.name
+                team = target_player.role.team
+                reveal_text = f'Their role is a "{target_player.role.name}" in team "{target_player.role.team.value}".'
+            elif self.reveal_level == RevealLevel.TEAM:
+                team = target_player.role.team
+                reveal_text = f"Their team is {team}."
+
             data = SeerInspectResultDataEntry(
                 actor_id=actor_id,
                 target_id=action.target_id,
-                role=target_player.role.name,
-                team=target_player.role.team.value
+                role=role,
+                team=team
             )
             moderator.state.push_event(
-                description=f'Player "{actor_id}", you inspected {target_player.id}. '
-                            f'Their role is a "{target_player.role.name}" in team '
-                            f'"{target_player.role.team.value}".',
+                description=f'Player "{actor_id}", you inspected {target_player.id}. ' + reveal_text,
                 event_name=EventName.INSPECT_RESULT,
                 public=False,
                 visible_to=[actor_id],
@@ -153,7 +201,10 @@ class Agent(BaseModel):
     e.g. base_harness_v2-gemini-2.5-pro-0506, to reduce the cognitive load of the spectators.
     """
 
-    role: str
+    role: RoleConst
+    role_params: Dict = Field(default_factory=dict)
+    """Parameters to the Role constructor"""
+
     thumbnail: Optional[str] = ""
     agent_harness_name: str = "basic_llm"
     llms: List[LLM] = []
@@ -223,5 +274,5 @@ def create_players_from_agents_config(agents_config: List[Dict]) -> List[Player]
         if duplicates:
             raise ValueError(f"Duplicate agent ids found: {', '.join(duplicates)}")
     agents = [Agent(**agent_config) for agent_config in agents_config]
-    players = [Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role]()) for agent in agents]
+    players = [Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role](**agent.role_params)) for agent in agents]
     return players

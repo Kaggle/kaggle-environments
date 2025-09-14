@@ -15,8 +15,6 @@ def get_utc_now():
     return str(datetime.now(ZoneInfo("UTC")))
 
 
-# TODO: model serializer customize for all general dumps, customize only for god mode view with other methods
-
 class DataAccessLevel(IntEnum):
     PUBLIC = 0
     PERSONAL = 1
@@ -188,8 +186,8 @@ class RequestVillagerToSpeakDataEntry(RequestForActionDataEntry):
 class SeerInspectResultDataEntry(DataEntry):
     actor_id: PlayerID
     target_id: PlayerID
-    role: RoleConst
-    team: Team
+    role: Optional[RoleConst]
+    team: Optional[Team]
 
 
 class TargetedActionDataEntry(ActionDataMixin, DataEntry):

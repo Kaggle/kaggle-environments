@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 from .base import PlayerID
 from .records import DoctorSaveDataEntry, WerewolfNightEliminationDataEntry, EventName
 from .states import GameState
+from .consts import Team
 
 
 class NightEliminationManager:
@@ -33,6 +34,12 @@ class NightEliminationManager:
                 description="Last night, the werewolves did not reach a consensus (or no valid target was chosen)."
                             " No one was eliminated by werewolves.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
+                public=False,
+                visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
+            )
+            self._state.push_event(
+                description="Last night, No one was eliminated.",
+                event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=True
             )
             return
@@ -43,6 +50,12 @@ class NightEliminationManager:
                 description=f'Last night, werewolves targeted player "{werewolf_target_id}", but this player '
                             f'could not be found. No one was eliminated by werewolves.',
                 event_name=EventName.ERROR,
+                public=False,
+                visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
+            )
+            self._state.push_event(
+                description="Last night, no one was eliminated.",
+                event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=True
             )
             return
@@ -59,7 +72,7 @@ class NightEliminationManager:
                 visible_to=saving_doctor_ids
             )
             self._state.push_event(
-                description="A player was attacked but was saved by the Doctor!",
+                description="Last night, no one was eliminated.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=True
             )

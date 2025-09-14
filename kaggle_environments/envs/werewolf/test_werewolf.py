@@ -75,13 +75,19 @@ def test_no_reveal_options(agents_config):
     out = env.toJSON()
 
 
-def test_disable_doctor_self_save(agents_config):
+def test_disable_doctor_self_save():
+    roles = ["Werewolf", "Werewolf", "Doctor", "Seer", "Villager", "Villager", "Villager"]
+    names = [f"player_{i}" for i in range(len(roles))]
+    thumbnails = [URLS['gemini'], URLS['gemini'], URLS['openai'], URLS['openai'], URLS['openai'], URLS['claude'],
+                  URLS['grok']]
+    agents_config = [{"role": role, "id": name, "agent_id": "random", "thumbnail": url} for role, name, url in
+                     zip(roles, names, thumbnails)]
+    agents_config[2]['role_params'] = {'allow_self_save': False}
     env = make(
         'werewolf',
         debug=True,
         configuration={
             "agents": agents_config,
-            "allow_doctor_self_save": False
         }
     )
     agents = ['random'] * 7

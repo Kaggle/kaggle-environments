@@ -143,3 +143,14 @@ class EventName(str, Enum):
     DAY_START = "day_start"
     NIGHT_END = "night_end"
     DAY_END = "day_end"
+
+
+class RevealLevel(StrEnum):
+    NO_REVEAL = "no_reveal"
+    """No reveal during elimination."""
+
+    TEAM = "team"
+    """Only reveal team during elimination."""
+
+    ROLE = "role"
+    """Reveal detailed role information during elimination."""

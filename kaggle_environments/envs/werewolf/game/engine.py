@@ -69,7 +69,6 @@ class Moderator(BaseModerator):
         discussion: DiscussionProtocol,
         day_voting: VotingProtocol,  # Renamed for clarity
         night_voting: VotingProtocol,
-        allow_doctor_self_save: bool = False,  # should be set by doctor role
         reveal_night_elimination_role: bool = True,
         reveal_day_exile_role: bool = True
     ):
@@ -77,8 +76,6 @@ class Moderator(BaseModerator):
         self.discussion = discussion
         self.day_voting = day_voting
         self.night_voting = night_voting
-        self._allow_doctor_self_save = allow_doctor_self_save
-        self._set_doctor_self_save()
 
         self._reveal_night_elimination_role = reveal_night_elimination_role
         self._reveal_day_exile_role = reveal_day_exile_role
@@ -124,8 +121,6 @@ class Moderator(BaseModerator):
             ["The following explain the function of each role."] +
             [f"  * Role name {role.name.value} - team {role.team.value} - {role.descriptions}"
              for role in self.state.all_unique_roles])
-        self.doctor_special_msg = "Doctor is allowed to save themselves during night time." if self._allow_doctor_self_save \
-            else "Doctor is NOT allowed to save themselves during night time."
         day_exile_reveal_msg = "If a player is exiled in the day, their role will be revealed." if self._reveal_day_exile_role \
             else "If a player is exiled in the day, their role will NOT be revealed."
         night_elimination_reveal_msg = "If a player is eliminated at night, their role will be revealed." \
@@ -141,7 +136,6 @@ class Moderator(BaseModerator):
             f"**Day Exile Vote:** {data.day_voting_display_name}. {data.day_voting_protocol_rule}",
             f"**Night Werewolf Vote:** {data.night_werewolf_discussion_display_name}. {data.night_werewolf_discussion_protocol_rule}",
             role_msg,
-            self.doctor_special_msg,
             day_exile_reveal_msg,
             night_elimination_reveal_msg
         ])
@@ -175,10 +169,6 @@ class Moderator(BaseModerator):
             if callable(attr) and hasattr(attr, '_phase_handler_for'):
                 phase = getattr(attr, '_phase_handler_for')
                 self._phase_handlers[phase] = attr
-
-    def _set_doctor_self_save(self):
-        for doctor in self.state.get_players_by_role(RoleConst.DOCTOR):
-            doctor.role.allow_self_save = self._allow_doctor_self_save
 
     def _register_player_handlers(self):
         for player in self.state.players:

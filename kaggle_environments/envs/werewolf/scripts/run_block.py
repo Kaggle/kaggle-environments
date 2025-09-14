@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import random
 from itertools import permutations
-from typing import List
+from typing import List, Dict, Any
 
 import tenacity
 import yaml
@@ -25,12 +25,26 @@ def load_config(config_path):
         return yaml.safe_load(f)
 
 
-def get_all_unique_role_configs(roles: List[str]) -> List[List[str]]:
+def get_all_unique_role_configs(role_configs: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
     """
-    Generates all unique permutations of roles.
+    Generates all unique permutations of role configurations.
+    A role configuration is a dict with 'role' and 'role_params'.
     """
-    all_perms = list(set(permutations(roles)))
-    return [list(p) for p in all_perms]
+    def make_hashable(config):
+        role = config['role']
+        params = config.get('role_params', {})
+        if params:
+            return role, frozenset(params.items())
+        return role, frozenset()
+
+    def make_unhashable(hashable_config):
+        role, params_frozenset = hashable_config
+        return {'role': role, 'role_params': dict(params_frozenset)}
+
+    hashable_configs = [make_hashable(c) for c in role_configs]
+    all_perms_hashable = list(set(permutations(hashable_configs)))
+    all_perms = [[make_unhashable(c) for c in p] for p in all_perms_hashable]
+    return all_perms
 
 
 run_single_game_with_retry = tenacity.retry(
@@ -52,10 +66,10 @@ def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug
     """
     base_game_config = config['game_config']
     players_data = base_game_config['agents']
-    base_roles = [agent['role'] for agent in players_data]
+    base_role_configs = [{'role': agent['role'], 'role_params': agent.get('role_params', {})} for agent in players_data]
 
     logger.info("Generating all unique role configurations...")
-    all_role_configs = get_all_unique_role_configs(base_roles)
+    all_role_configs = get_all_unique_role_configs(base_role_configs)
     logger.info(f"Found {len(all_role_configs)} unique arrangements.")
 
     available_role_configs = []
@@ -80,7 +94,7 @@ def generate_game_tasks(output_dir, num_blocks, config, use_random_agents, debug
 
             current_players = list(current_players_deque)
             game_agents_config = [
-                {**player_config, 'role': block_role_config[i]}
+                {**player_config, **block_role_config[i]}
                 for i, player_config in enumerate(current_players)
             ]
 

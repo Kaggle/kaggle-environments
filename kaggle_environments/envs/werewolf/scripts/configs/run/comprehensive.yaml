@@ -14,7 +14,6 @@ game_config:
     name: "SequentialVoting"
   reveal_night_elimination_role: false
   reveal_day_exile_role: false
-  allow_doctor_self_save: true
   agents:
     - role: "Werewolf"
       id: "gemini-2.5-flash"
@@ -38,6 +37,8 @@ game_config:
         - model_name: "together_ai/deepseek-ai/DeepSeek-R1"
           parameters: { "max_tokens": 163839 }
     - role: "Doctor"
+      role_params:
+        allow_self_save: true
       id: "gpt-oss-120b"
       thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
       agent_id: "llm_harness/together_ai/openai/gpt-oss-120b"

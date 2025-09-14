@@ -53,10 +53,11 @@ def main():
 
     # shuffle roles
     if args.shuffle_roles:
-        roles = [agent['role'] for agent in game_config['agents']]
-        random.shuffle(roles)
-        for agent, new_role in zip(game_config['agents'], roles):
+        role_and_params = [(agent['role'], agent.get('role_params', {})) for agent in game_config['agents']]
+        random.shuffle(role_and_params)
+        for agent, (new_role, new_role_params) in zip(game_config['agents'], role_and_params):
             agent['role'] = new_role
+            agent['role_params'] = new_role_params
 
     # Extract agent harnesses from the config and register the agents
     agents_ = [agent.get('agent_id', 'random') for agent in game_config.get('agents', [])]

@@ -52,6 +52,8 @@ game_config:
       llms:
         - model_name: "openrouter/openai/gpt-4o-mini"
     - role: "Seer"
+      role_params:
+        reveal_level: "team"
       id: "Taylor"
       thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
       agent_id: "llm/openrouter/qwen/qwen3-235b-a22b-2507"

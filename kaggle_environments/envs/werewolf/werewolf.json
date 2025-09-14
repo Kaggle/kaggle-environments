@@ -9,11 +9,6 @@
         "actTimeout": { "type": "number", "default": 3 },
         "runTimeout": { "type": "number", "default": 1800 },
         "seed": { "type": "integer", "description": "Seed to use for episodes" },
-        "allow_doctor_self_save": {
-            "type": "boolean",
-            "default": true,
-            "description": "Whether or not doctors are allowed to save themselves."
-        },
         "reveal_night_elimination_role": {
             "type": "boolean",
             "default": true,
@@ -56,6 +51,11 @@
                         "type": "string",
                         "enum": ["Werewolf", "Doctor", "Seer", "Villager"],
                         "description": "The role assigned to the player."
+                    },
+                    "role_params": {
+                        "type": "object",
+                        "description": "The parameter dict for the selected Role subclass.",
+                        "default": {}
                     },
                     "thumbnail": {
                         "type": "string",

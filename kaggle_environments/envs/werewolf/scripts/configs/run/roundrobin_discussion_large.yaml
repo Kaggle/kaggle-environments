@@ -18,7 +18,6 @@ game_config:
       assign_random_first_voter: true
   reveal_night_elimination_role: true
   reveal_day_exile_role: true
-  allow_doctor_self_save: true
   agents:
     - role: "Werewolf"
       id: "Kai"
@@ -41,6 +40,8 @@ game_config:
       llms:
         - model_name: "openrouter/deepseek/deepseek-chat-v3.1"
     - role: "Doctor"
+      role_params:
+        allow_self_save: true
       id: "Charlie"
       thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
       agent_id: "llm/openrouter/openai/gpt-5"

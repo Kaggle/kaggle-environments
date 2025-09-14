@@ -66,8 +66,15 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
 
         if shuffle_roles:
             logger.info(f"Shuffling roles for game {i}")
-            shuffle_field(game_config['agents'], 'role')
-        
+            role_configs = [
+                {'role': agent['role'], 'role_params': agent.get('role_params', {})}
+                for agent in game_config['agents']
+            ]
+            random.shuffle(role_configs)
+            for agent, role_config in zip(game_config['agents'], role_configs):
+                agent['role'] = role_config['role']
+                agent['role_params'] = role_config['role_params']
+
         # shuffle player ids
         logger.info(f"Shuffling player ids for game {i}")
         shuffle_field(game_config['agents'], 'id')
