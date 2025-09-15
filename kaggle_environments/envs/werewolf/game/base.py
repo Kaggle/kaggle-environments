@@ -12,11 +12,19 @@ ROBUST_ID_REGEX = r'^[\p{L}\p{N} _.-]+$'
 PlayerID = Annotated[str, StringConstraints(pattern=ROBUST_ID_REGEX, min_length=1, max_length=128)]
 
 
-class BasePlayer(BaseModel):
+class BasePlayer(BaseModel, ABC):
     id: PlayerID
     """The unique id of the player. Also, how the player is referred to in the game."""
 
     alive: bool = True
+
+    @abstractmethod
+    def set_role_state(self, key, value):
+        """Set role related state, which is a dict."""
+
+    @abstractmethod
+    def get_role_state(self, key, default=None):
+        """Get role related state."""
 
 
 class BaseAction(BaseModel):

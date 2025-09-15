@@ -42,12 +42,19 @@ class Villager(Role):
 class DoctorDescription:
     ALLOW_SELF_SAVE = "Each night, may protect one player from a werewolf attack. Doctor is allowed to save themselves during night time."
     NO_SELF_SAVE = "Each night, may protect one player from a werewolf attack. Doctor is NOT allowed to save themselves during night time."
+    NO_CONSECUTIVE_SAVE = " Doctor is NOT allowed to save the same player on consecutive nights."
+
+
+class DoctorStateKey:
+    LAST_SAVED_DAY = 'last_saved_day'
+    LAST_SAVED_PLAYER_ID = "last_saved_player_id"
 
 
 class Doctor(Role):
     name: RoleConst = RoleConst.DOCTOR
     team: Team = Team.VILLAGERS
     allow_self_save: bool = False
+    allow_consecutive_saves: bool = True
     descriptions: str = ""
 
     @model_validator(mode='after')
@@ -57,22 +64,42 @@ class Doctor(Role):
                 self.descriptions = DoctorDescription.ALLOW_SELF_SAVE
             else:
                 self.descriptions = DoctorDescription.NO_SELF_SAVE
+            if not self.allow_consecutive_saves:
+                self.descriptions += DoctorDescription.NO_CONSECUTIVE_SAVE
         return self
 
     @on_event(EventName.NIGHT_START)
     def on_night_starts(self, me: BasePlayer, moderator: BaseModerator, event: Event):
         if me.alive:
-            valid_candidates = [f"{p.id}" for p in moderator.state.alive_players()] \
-                if self.allow_self_save else [f"{p.id}" for p in moderator.state.alive_players() if p != me]
+            current_day = moderator.state.day_count
+            last_saved_day = me.get_role_state(DoctorStateKey.LAST_SAVED_DAY, default=-1)
+            last_saved_player_id = me.get_role_state(DoctorStateKey.LAST_SAVED_PLAYER_ID)
+
+            # Reset consecutive save memory if a night was skipped
+            if not self.allow_consecutive_saves and last_saved_day != -1 and current_day > last_saved_day + 1:
+                me.set_role_state(DoctorStateKey.LAST_SAVED_PLAYER_ID, None)
+                last_saved_player_id = None
+
+            valid_candidates = [p.id for p in moderator.state.alive_players()]
+
+            if not self.allow_self_save:
+                valid_candidates = [p_id for p_id in valid_candidates if p_id != me.id]
+
+            prompt = f"Wake up Doctor. Who would you like to save? "
+            if not self.allow_consecutive_saves and last_saved_player_id:
+                valid_candidates = [p_id for p_id in valid_candidates if p_id != last_saved_player_id]
+                prompt += f'You cannot save the same player on consecutive nights. Player "{last_saved_player_id}" is not a valid target this night. '
+
             data_entry = RequestDoctorSaveDataEntry(
                 valid_candidates=valid_candidates,
                 action_json_schema=json.dumps(HealAction.schema_for_player())
             )
+            prompt += f"The options are {data_entry.valid_candidates}."
+
             moderator.request_action(
                 action_cls=HealAction,
                 player_id=me.id,
-                prompt=f"Wake up Doctor. Who would you like to save? "
-                       f"The options are {data_entry.valid_candidates}.",
+                prompt=prompt,
                 data=data_entry,
                 event_name=EventName.HEAL_REQUEST,
             )
@@ -93,7 +120,20 @@ class Doctor(Role):
                     visible_to=[me.id]
                 )
                 return
+
+            if not self.allow_consecutive_saves and action.target_id == me.get_role_state(DoctorStateKey.LAST_SAVED_PLAYER_ID):
+                moderator.state.push_event(
+                    description=f'Player "{me.id}", you cannot save the same player on consecutive nights. '
+                                f'Your target "{action.target_id}" was also saved last night.',
+                    event_name=EventName.ERROR,
+                    public=False,
+                    visible_to=[me.id]
+                )
+                return
+
             moderator.record_night_save(me.id, action.target_id)
+            me.set_role_state(DoctorStateKey.LAST_SAVED_PLAYER_ID, action.target_id)
+            me.set_role_state(DoctorStateKey.LAST_SAVED_DAY, moderator.state.day_count)
 
 
 class SeerDescription:
@@ -228,6 +268,13 @@ class Player(BasePlayer):
     eliminated_during_phase: Optional[Phase] = None
 
     _message_queue: Deque[PlayerEventView] = PrivateAttr(default_factory=deque)
+    _role_state: Dict = PrivateAttr(default_factory=dict)
+
+    def set_role_state(self, key, value):
+        self._role_state[key] = value
+
+    def get_role_state(self, key, default=None):
+        return self._role_state.get(key, default)
 
     def get_event_handlers(self, moderator: BaseModerator) -> Dict[EventName, List[EventHandler]]:
         handlers = defaultdict(list)
