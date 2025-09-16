@@ -565,7 +565,7 @@ GAMES_LIST = [
     "gin_rummy",
     "go(board_size=9)",
     "tic_tac_toe",
-    "universal_poker(betting=nolimit,bettingAbstraction=fullgame,blind=1 2,firstPlayer=2 1 1 1,numBoardCards=0 3 1 1,numHoleCards=2,numPlayers=2,numRanks=13,numRounds=4,numSuits=4,stack=400 400)",
+    "universal_poker(betting=nolimit,bettingAbstraction=fullgame,blind=2 1,firstPlayer=2 1 1 1,numBoardCards=0 3 1 1,numHoleCards=2,numPlayers=2,numRanks=13,numRounds=4,numSuits=4,stack=400 400)",
 ]
 
 ENV_REGISTRY = _register_game_envs(GAMES_LIST)
