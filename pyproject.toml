@@ -27,12 +27,11 @@ dev = [
     "flit",
     "pytest",
     "ruff",
+    "uv",
 ]
 
-readme = "README.md"
-license = {file = "LICENSE"}
-url = "https://github.com/Kaggle/kaggle-environments"
-
+readme = ["README.md"]
+license = ["LICENSE"]
 keywords = ["Kaggle"]
 
 [project.urls]
@@ -44,6 +43,9 @@ kaggle-environments = "kaggle_environments.main:main"
 [build-system]
 requires = ["flit_core >=3.8,<4"]
 build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "kaggle_environments"
 
 [tool.flit.sdist]
 # Flit specific options (files to exclude from the PyPI package).
