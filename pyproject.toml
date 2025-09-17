@@ -19,9 +19,9 @@ dependencies = [
     "stable-baselines3 == 2.1.0",
     "transformers >= 4.33.1",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ipython",
     "flit",
