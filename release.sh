@@ -1,1 +1,1 @@
-twine upload dist/*
+flit publish
