@@ -63,8 +63,6 @@ version = {attr = "kaggle_environments.__version__"}
 target-version = "py311"
 line-length = 120
 indent-width = 4
-# sort imports
-extend-select = ["I"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -74,6 +72,9 @@ indent-style = "space"
 convention = "google"
 
 [tool.ruff.lint]
+# sort imports
+extend-select = ["I"]
+
 ignore = [
     # zip() without strict=True is fine for this codebase's Python version.
     "B905",
