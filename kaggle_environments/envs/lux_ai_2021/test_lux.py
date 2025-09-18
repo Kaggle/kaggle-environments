@@ -1,4 +1,3 @@
-import sys
 from kaggle_environments import make
 from .agents import random_agent, js_simple_agent, simple_agent
 

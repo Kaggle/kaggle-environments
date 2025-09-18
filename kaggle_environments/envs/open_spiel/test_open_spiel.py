@@ -1,6 +1,5 @@
 import json
 import pathlib
-import sys
 
 from absl.testing import absltest
 from kaggle_environments import make

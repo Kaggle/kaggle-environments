@@ -1,5 +1,3 @@
-import math
-from sys import stderr
 import numpy as np
 from dataclasses import dataclass
 

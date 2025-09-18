@@ -21,7 +21,7 @@ from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
 from .agent import Agent
-from .errors import DeadlineExceeded, FailedPrecondition, Internal, InvalidArgument
+from .errors import DeadlineExceeded, FailedPrecondition, InvalidArgument
 from .utils import get, has, get_player, process_schema, schemas, structify
 
 # Registered Environments.

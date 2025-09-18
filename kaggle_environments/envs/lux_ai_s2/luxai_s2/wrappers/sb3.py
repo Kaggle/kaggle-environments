@@ -3,12 +3,10 @@ from typing import Callable, Dict
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from gymnasium import spaces
 
-import luxai_s2.env
 from luxai_s2.env import LuxAI_S2
 from luxai_s2.state import ObservationStateDict
-from luxai_s2.unit import ActionType, BidActionType, FactoryPlacementActionType
+from luxai_s2.unit import BidActionType, FactoryPlacementActionType
 from luxai_s2.utils import my_turn_to_place_factory
 from luxai_s2.wrappers.controllers import (
     Controller,

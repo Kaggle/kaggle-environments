@@ -1,5 +1,4 @@
 import json
-import sys
 from argparse import Namespace
 
 if __package__ == "":

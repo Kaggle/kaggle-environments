@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import gymnasium as gym
 import numpy as np

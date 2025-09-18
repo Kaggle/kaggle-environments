@@ -1,5 +1,4 @@
 from kaggle_environments.envs.kore_fleets.helpers import *
-from random import randint
 
 
 def agent(obs, config):

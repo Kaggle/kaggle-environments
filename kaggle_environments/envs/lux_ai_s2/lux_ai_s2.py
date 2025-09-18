@@ -1,9 +1,7 @@
 import dataclasses
 import json
 import math
-import os
 import random
-import sys
 from os import path
 from .agents import all_agents
 from sys import path as syspath
@@ -18,7 +16,6 @@ from luxai_s2.env import LuxAI_S2
 import numpy as np
 
 import copy
-import json
 
 
 def to_json(state):

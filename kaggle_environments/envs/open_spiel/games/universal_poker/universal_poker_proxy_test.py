@@ -1,7 +1,5 @@
 """Test for proxied Universal Poker game."""
 
-import json
-import random
 
 from absl.testing import absltest
 from absl.testing import parameterized

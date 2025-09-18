@@ -1,5 +1,3 @@
-import json
-from os import path
 from kaggle_environments.helpers import *
 
 

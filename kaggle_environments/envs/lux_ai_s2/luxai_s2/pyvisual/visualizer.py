@@ -5,7 +5,6 @@ try:
     from pygame import gfxdraw
 except:
     print("No pygame installed, ignoring import")
-from luxai_s2.map.board import Board
 from luxai_s2.state import State
 from luxai_s2.unit import UnitType
 

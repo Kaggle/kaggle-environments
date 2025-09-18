@@ -3,9 +3,7 @@ import json
 from pathlib import Path
 from os import path
 import numpy as np
-import os
 import uuid
-import time
 import shutil
 
 from gfootball.env import football_action_set

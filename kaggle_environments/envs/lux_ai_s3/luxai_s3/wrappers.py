@@ -5,8 +5,6 @@ from typing import Any, SupportsFloat
 import flax
 import flax.serialization
 import gymnasium as gym
-import gymnax
-import gymnax.environments.spaces
 import jax
 import numpy as np
 import dataclasses

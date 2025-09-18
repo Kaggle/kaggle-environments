@@ -7,7 +7,6 @@ import numpy as np
 from flax import struct
 
 from luxai_s3.params import MAP_TYPES, EnvParams
-from luxai_s3.utils import to_numpy
 
 EMPTY_TILE = 0
 NEBULA_TILE = 1

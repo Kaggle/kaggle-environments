@@ -1,5 +1,4 @@
 import os
-import random
 from kaggle_environments import make
 import pyspiel
 

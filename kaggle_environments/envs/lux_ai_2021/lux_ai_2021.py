@@ -181,7 +181,7 @@ def get_message(dimension_process):
     try:
         res = json.loads(raw)
         return res
-    except Exception as e:
+    except Exception:
         print("Engine Exception")
         err_stack = dimension_process.stderr.readlines(100)
         # err_stack = [raw, *err_stack]

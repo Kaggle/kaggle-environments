@@ -1,5 +1,4 @@
 from kaggle_environments import make
-from .kore_fleets import random_agent
 from .helpers import *
 
 

@@ -1,4 +1,3 @@
-import sys
 from kaggle_environments import make
 
 

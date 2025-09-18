@@ -19,7 +19,6 @@ from kaggle_environments.helpers import Point, group_by, Direction
 from typing import *
 import sys
 import math
-import random
 import kaggle_environments.helpers
 
 

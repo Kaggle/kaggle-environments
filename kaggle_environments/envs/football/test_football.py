@@ -1,9 +1,3 @@
-from kaggle_environments import make, evaluate
-from kaggle_environments.envs.football import helpers
-from helpers import Action
-from kaggle_environments.errors import DeadlineExceeded
-import copy
-import os
 
 env = None
 

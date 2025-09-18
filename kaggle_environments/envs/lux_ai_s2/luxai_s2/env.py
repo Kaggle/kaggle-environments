@@ -2,7 +2,7 @@ import functools
 import math
 import traceback
 from collections import OrderedDict, defaultdict
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import Dict, List, Set, Tuple
 
 import numpy as np
 from pettingzoo import ParallelEnv
@@ -39,7 +39,6 @@ from luxai_s2.spaces.obs_space import get_obs_space
 from luxai_s2.state import (
     ObservationStateDict,
     State,
-    StatsStateDict,
     create_empty_stats,
 )
 from luxai_s2.team import FactionTypes, Team
@@ -255,7 +254,7 @@ class LuxAI_S2(ParallelEnv):
                 else:
                     # team k loses
                     failed_agents[k] = True
-            except Exception as e:
+            except Exception:
                 print(traceback.format_exc())
                 failed_agents[k] = True
         for agent in self.agents:
@@ -338,7 +337,7 @@ class LuxAI_S2(ParallelEnv):
                 else:
                     # pass, turn is skipped.
                     pass
-            except Exception as e:
+            except Exception:
                 print(traceback.format_exc())
                 failed_agents[k] = True
         return failed_agents
@@ -765,7 +764,7 @@ class LuxAI_S2(ParallelEnv):
                             if self.collect_stats:
                                 self.state.stats[agent]["action_queue_updates_success"] += 1
                             self.state.units[agent][unit_id].action_queue = formatted_actions
-                except Exception as e:
+                except Exception:
                     # catch errors when trying to format unit or factory actions
                     print(traceback.format_exc())
                     failed_agents[agent] = True

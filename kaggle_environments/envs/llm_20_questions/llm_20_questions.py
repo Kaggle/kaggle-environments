@@ -1,15 +1,11 @@
 import json
 import os
-import pandas as pd
 import random
 import string
 import torch
 
 from .keywords import KEYWORDS_JSON
 from os import path
-from pathlib import Path
-from random import choice
-from string import Template
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 

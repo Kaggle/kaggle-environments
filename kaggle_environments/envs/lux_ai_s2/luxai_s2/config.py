@@ -1,7 +1,7 @@
 import dataclasses
 from argparse import Namespace
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict
 
 
 def convert_dict_to_ns(x):

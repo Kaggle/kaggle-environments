@@ -7,7 +7,6 @@ try:
 except:
     from typing_extensions import TypedDict
 
-from luxai_s2.config import EnvConfig
 from luxai_s2.globals import TERM_COLORS
 
 try:

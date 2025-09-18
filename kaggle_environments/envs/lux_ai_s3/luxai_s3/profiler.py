@@ -1,13 +1,11 @@
 from collections import defaultdict
 import os
 import time
-from contextlib import contextmanager
 from typing import Literal
 import numpy as np
 
 import psutil
 import pynvml
-import subprocess as sp
 
 
 def flatten_dict_keys(d: dict, prefix=""):
