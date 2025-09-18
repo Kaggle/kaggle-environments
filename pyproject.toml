@@ -72,6 +72,9 @@ indent-style = "space"
 convention = "google"
 
 [tool.ruff.lint]
+# sort imports
+extend-select = ["I"]
+
 ignore = [
     # zip() without strict=True is fine for this codebase's Python version.
     "B905",
