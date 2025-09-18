@@ -1,8 +1,8 @@
 from typing import Dict
 
 from .constants import Constants
-from .game_map import Position
 from .game_constants import GAME_CONSTANTS
+from .game_map import Position
 
 UNIT_TYPES = Constants.UNIT_TYPES
 

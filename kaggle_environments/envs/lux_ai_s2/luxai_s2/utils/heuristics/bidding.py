@@ -1,5 +1,5 @@
-from luxai_s2.unit import BidActionType
 from luxai_s2.state import ObservationStateDict
+from luxai_s2.unit import BidActionType
 
 
 def zero_bid(player, obs: ObservationStateDict) -> BidActionType:

@@ -15,11 +15,14 @@
 import copy
 import json
 import math
-import numpy as np
 from os import path
 from random import choice, randint, randrange, sample, seed
-from .helpers import board_agent, Board, ShipAction, ShipyardAction
+
+import numpy as np
+
 from kaggle_environments import utils
+
+from .helpers import Board, ShipAction, ShipyardAction, board_agent
 
 
 def get_col_row(size, pos):

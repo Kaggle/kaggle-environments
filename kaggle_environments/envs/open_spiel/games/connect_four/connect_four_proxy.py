@@ -3,8 +3,9 @@
 import json
 from typing import Any
 
-from ... import proxy
 import pyspiel
+
+from ... import proxy
 
 
 class ConnectFourState(proxy.State):

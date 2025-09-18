@@ -1,9 +1,9 @@
-from collections import defaultdict
 import os
 import time
+from collections import defaultdict
 from typing import Literal
-import numpy as np
 
+import numpy as np
 import psutil
 import pynvml
 
@@ -47,8 +47,9 @@ class Profiler:
         and stats. If the file does not exist, it will be created. The update will replace an existing row
         if the given data matches the data in the row. If there are multiple matches, only the first match
         will be replaced and the rest are deleted"""
-        import pandas as pd
         import os
+
+        import pandas as pd
 
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)

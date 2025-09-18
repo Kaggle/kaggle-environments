@@ -1,7 +1,8 @@
 import math
-from typing import List
-import numpy as np
 from dataclasses import dataclass
+from typing import List
+
+import numpy as np
 
 if __package__ == "":
     from lux.cargo import UnitCargo

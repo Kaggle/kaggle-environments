@@ -1,8 +1,8 @@
+import json
 import math
 import random
-import json
-from os import path
 from collections import defaultdict
+from os import path
 
 from Chessnut import Game
 

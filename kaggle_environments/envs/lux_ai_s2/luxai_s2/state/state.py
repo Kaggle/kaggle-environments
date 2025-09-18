@@ -7,7 +7,6 @@ except:
     from typing_extensions import TypedDict
 
 import numpy as np
-
 from luxai_s2.actions import format_action_vec
 from luxai_s2.config import EnvConfig
 from luxai_s2.factory import Factory, FactoryStateDict

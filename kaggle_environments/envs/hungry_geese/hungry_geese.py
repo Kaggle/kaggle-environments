@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import json
-import kaggle_environments.helpers
-from enum import auto, Enum
-from kaggle_environments.helpers import histogram
+from enum import Enum, auto
 from os import path
 from random import choice, sample
 from typing import *
+
+import kaggle_environments.helpers
+from kaggle_environments.helpers import histogram
 
 
 class Observation(kaggle_environments.helpers.Observation):

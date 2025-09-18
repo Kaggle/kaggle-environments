@@ -1,14 +1,15 @@
+import atexit
 import json
 import math
 import random
 import sys
 from os import path
-from .agents import agents as all_agents
-from subprocess import Popen, PIPE
-import atexit
-from .test_agents.python.lux.game import Game
+from queue import Empty, Queue
+from subprocess import PIPE, Popen
 from threading import Thread
-from queue import Queue, Empty
+
+from .agents import agents as all_agents
+from .test_agents.python.lux.game import Game
 
 t = None
 q = None

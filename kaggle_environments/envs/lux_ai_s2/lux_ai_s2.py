@@ -3,19 +3,20 @@ import json
 import math
 import random
 from os import path
-from .agents import all_agents
-from sys import path as syspath
 from os import path as osp
+from sys import path as syspath
+
+from .agents import all_agents
 
 # next two lines enables importing local packages e.g. luxai_s2
 __dir__ = osp.dirname(__file__)
 syspath.append(__dir__)
 
 
-from luxai_s2.env import LuxAI_S2
-import numpy as np
-
 import copy
+
+import numpy as np
+from luxai_s2.env import LuxAI_S2
 
 
 def to_json(state):

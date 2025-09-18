@@ -1,5 +1,6 @@
 from kaggle_environments import make
-from .agents import rock, paper, agents
+
+from .agents import agents, paper, rock
 
 
 def negative_move_agent(observation, configuration):

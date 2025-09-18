@@ -1,9 +1,9 @@
 """Proxy tests."""
 
-from . import proxy
-from absl.testing import absltest
-from absl.testing import parameterized
 import pyspiel
+from absl.testing import absltest, parameterized
+
+from . import proxy
 
 
 def make_game() -> proxy.Game:

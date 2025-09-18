@@ -4,7 +4,6 @@ from typing import Any, Dict
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-
 from luxai_s2.config import EnvConfig
 from luxai_s2.factory import Factory
 from luxai_s2.team import FactionTypes

@@ -4,8 +4,9 @@ import json
 import re
 from typing import Any
 
-from ... import proxy
 import pyspiel
+
+from ... import proxy
 
 
 class UniversalPokerState(proxy.State):

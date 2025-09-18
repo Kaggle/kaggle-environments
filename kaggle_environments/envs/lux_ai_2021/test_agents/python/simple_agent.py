@@ -2,14 +2,14 @@ import math
 
 if __package__ == "":
     # for kaggle-environments
+    from lux.constants import Constants
     from lux.game import Game
     from lux.game_map import Cell
-    from lux.constants import Constants
 else:
     # for CLI tool
+    from .lux.constants import Constants
     from .lux.game import Game
     from .lux.game_map import Cell
-    from .lux.constants import Constants
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None

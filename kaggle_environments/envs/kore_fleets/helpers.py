@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+import sys
 from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
-from kaggle_environments.helpers import Point, group_by, Direction
 from typing import *
-import sys
-import math
+
 import kaggle_environments.helpers
+from kaggle_environments.helpers import Direction, Point, group_by
 
 
 # region Data Model Classes

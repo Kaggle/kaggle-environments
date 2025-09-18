@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import traceback
 import copy
 import json
+import traceback
 import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
+
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, InvalidArgument
-from .utils import get, has, get_player, process_schema, schemas, structify
+from .utils import get, get_player, has, process_schema, schemas, structify
 
 # Registered Environments.
 environments = {}
@@ -354,7 +355,7 @@ class Environment:
             if mode == "html":
                 return player_html
 
-            from IPython.display import display, HTML
+            from IPython.display import HTML, display
 
             player_html = player_html.replace('"', "&quot;")
             width = get(kwargs, int, 300, path=["width"])

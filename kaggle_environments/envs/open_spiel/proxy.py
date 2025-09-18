@@ -9,8 +9,9 @@ WARNING: Serialization of proxy games and states is not supported.
 
 from typing import Any
 
-from . import observation
 import pyspiel
+
+from . import observation
 
 
 class State(pyspiel.State):

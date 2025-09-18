@@ -1,7 +1,7 @@
 import ctypes
 import json
 
-from .sim import StartData, lib, Battle
+from .sim import Battle, StartData, lib
 
 
 def _get_battle_data() -> dict:

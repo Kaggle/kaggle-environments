@@ -2,7 +2,6 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import numpy as np
-
 from luxai_s2.config import EnvConfig
 
 if TYPE_CHECKING:

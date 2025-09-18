@@ -1,6 +1,8 @@
 import os
-from kaggle_environments import make
+
 import pyspiel
+
+from kaggle_environments import make
 
 open_spiel_game_name = "connect_four"
 game = pyspiel.load_game(open_spiel_game_name)

@@ -1,19 +1,20 @@
 from dataclasses import dataclass, field
 from typing import Dict
+
 import numpy as np
 
 if __package__ == "":
     from lux.cargo import UnitCargo
     from lux.config import EnvConfig
-    from lux.team import Team, FactionTypes
-    from lux.unit import Unit
     from lux.factory import Factory
+    from lux.team import FactionTypes, Team
+    from lux.unit import Unit
 else:
     from .cargo import UnitCargo
     from .config import EnvConfig
-    from .team import Team, FactionTypes
-    from .unit import Unit
     from .factory import Factory
+    from .team import FactionTypes, Team
+    from .unit import Unit
 
 
 def process_action(action):

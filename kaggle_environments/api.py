@@ -1,6 +1,6 @@
-import requests
-
 from typing import List
+
+import requests
 
 base_url = "https://www.kaggle.com/requests/EpisodeService/"
 get_url = base_url + "GetEpisodeReplay"

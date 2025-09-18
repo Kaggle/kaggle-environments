@@ -2,12 +2,12 @@ import random
 
 if __package__ == "":
     # for kaggle-environments
-    from lux.game import Game
     from lux.constants import Constants
+    from lux.game import Game
 else:
     # for CLI tool
-    from .lux.game import Game
     from .lux.constants import Constants
+    from .lux.game import Game
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 

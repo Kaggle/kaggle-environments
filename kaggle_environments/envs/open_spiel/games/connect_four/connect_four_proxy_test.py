@@ -2,11 +2,10 @@
 
 import json
 
-from absl.testing import absltest
-from absl.testing import parameterized
 import pyspiel
-from . import connect_four_proxy as connect_four
+from absl.testing import absltest, parameterized
 
+from . import connect_four_proxy as connect_four
 
 NUM_ROWS = 6
 NUM_COLS = 7

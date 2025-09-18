@@ -1,5 +1,6 @@
 import json
 from os import path
+
 from .agents import agents as all_agents
 from .utils import get_score
 

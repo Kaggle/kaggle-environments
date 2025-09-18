@@ -1,6 +1,7 @@
-from kaggle_environments import make
-from Chessnut import Game
 from chess import is_insufficient_material
+from Chessnut import Game
+
+from kaggle_environments import make
 
 
 def test_chess_inits():

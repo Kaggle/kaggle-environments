@@ -1,8 +1,8 @@
 """Kaggle environment wrapper for OpenSpiel games."""
 
 import copy
-import json
 import importlib
+import json
 import logging
 import os
 import pathlib
@@ -10,10 +10,10 @@ import random
 import sys
 from typing import Any, Callable
 
-from kaggle_environments import core
-from kaggle_environments import utils
 import numpy as np
 import pyspiel
+
+from kaggle_environments import core, utils
 
 ERROR = "ERROR"
 DONE = "DONE"

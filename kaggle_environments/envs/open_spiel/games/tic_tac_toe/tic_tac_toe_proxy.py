@@ -23,8 +23,9 @@ Adds to_json() and action_to_json() methods as symbolic representation.
 import json
 from typing import Any
 
-from ... import proxy
 import pyspiel
+
+from ... import proxy
 
 NUM_COLS = 3
 NUM_ROWS = 3

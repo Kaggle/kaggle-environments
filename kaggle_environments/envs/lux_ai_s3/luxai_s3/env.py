@@ -9,9 +9,9 @@ from gymnax.environments import environment, spaces
 from jax import lax
 
 from luxai_s3.params import EnvParams, env_params_ranges
+from luxai_s3.pygame_render import LuxAIPygameRenderer
 from luxai_s3.spaces import MultiDiscrete
 from luxai_s3.state import ASTEROID_TILE, ENERGY_NODE_FNS, NEBULA_TILE, EnvObs, EnvState, MapTile, UnitState, gen_state
-from luxai_s3.pygame_render import LuxAIPygameRenderer
 
 
 class LuxAIS3Env(environment.Environment):

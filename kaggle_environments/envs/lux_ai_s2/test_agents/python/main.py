@@ -4,11 +4,11 @@ from argparse import Namespace
 if __package__ == "":
     from agent import Agent
     from lux.config import EnvConfig
-    from lux.kit import process_obs, to_json, process_action
+    from lux.kit import process_action, process_obs, to_json
 else:
     from .agent import Agent
     from .lux.config import EnvConfig
-    from .lux.kit import process_obs, to_json, process_action
+    from .lux.kit import process_action, process_obs, to_json
 
 ### DO NOT REMOVE THE FOLLOWING CODE ###
 agent_dict = dict()  # store potentially multiple dictionaries as kaggle imports code directly

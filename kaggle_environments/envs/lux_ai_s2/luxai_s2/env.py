@@ -5,9 +5,6 @@ from collections import OrderedDict, defaultdict
 from typing import Dict, List, Set, Tuple
 
 import numpy as np
-from pettingzoo import ParallelEnv
-from pettingzoo.utils import wrappers
-
 from luxai_s2.actions import (
     Action,
     DigAction,
@@ -44,6 +41,8 @@ from luxai_s2.state import (
 from luxai_s2.team import FactionTypes, Team
 from luxai_s2.unit import Unit, UnitType
 from luxai_s2.utils.utils import get_top_two_power_units, is_day
+from pettingzoo import ParallelEnv
+from pettingzoo.utils import wrappers
 
 # some utility types
 ActionsByType = Dict[str, List[Tuple[Unit, Action]]]

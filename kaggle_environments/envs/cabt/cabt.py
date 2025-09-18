@@ -1,9 +1,9 @@
-import random
-import os
 import json
+import os
+import random
 
+from .cg.game import battle_finish, battle_select, battle_start, visualize_data
 from .cg.sim import Battle
-from .cg.game import battle_start, battle_finish, battle_select, visualize_data
 
 deck = [
     5,

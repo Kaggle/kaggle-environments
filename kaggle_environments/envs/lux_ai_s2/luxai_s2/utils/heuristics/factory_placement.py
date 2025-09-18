@@ -1,6 +1,6 @@
 import numpy as np
-from luxai_s2.unit import FactoryPlacementActionType
 from luxai_s2.state import ObservationStateDict
+from luxai_s2.unit import FactoryPlacementActionType
 
 
 def random_factory_placement(player, obs: ObservationStateDict) -> FactoryPlacementActionType:

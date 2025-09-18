@@ -1,13 +1,15 @@
 # TODO (stao): Add lux ai s3 env to gymnax api wrapper, which is the old gym api
+import dataclasses
 import json
 import os
 from typing import Any, SupportsFloat
+
 import flax
 import flax.serialization
 import gymnasium as gym
 import jax
 import numpy as np
-import dataclasses
+
 from luxai_s3.env import LuxAIS3Env
 from luxai_s3.params import EnvParams, env_params_ranges
 from luxai_s3.state import serialize_env_actions, serialize_env_states

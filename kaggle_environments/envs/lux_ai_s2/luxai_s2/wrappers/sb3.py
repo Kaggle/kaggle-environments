@@ -3,7 +3,6 @@ from typing import Callable, Dict
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-
 from luxai_s2.env import LuxAI_S2
 from luxai_s2.state import ObservationStateDict
 from luxai_s2.unit import BidActionType, FactoryPlacementActionType

@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import time
-from kaggle_environments import make, evaluate, utils, DeadlineExceeded
+
+from kaggle_environments import DeadlineExceeded, evaluate, make, utils
 
 env = None
 

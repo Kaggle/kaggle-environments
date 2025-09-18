@@ -1,4 +1,5 @@
 import functools
+
 import chex
 import flax
 import jax

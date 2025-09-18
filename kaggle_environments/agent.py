@@ -14,14 +14,16 @@
 
 import json
 import os
-import requests
 import sys
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from requests.exceptions import Timeout
 from time import perf_counter
 from urllib.parse import urlparse
+
+import requests
+from requests.exceptions import Timeout
+
 from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
 

@@ -1,11 +1,11 @@
 import importlib
 import json
-from pathlib import Path
-from os import path
-import numpy as np
-import uuid
 import shutil
+import uuid
+from os import path
+from pathlib import Path
 
+import numpy as np
 from gfootball.env import football_action_set
 
 
@@ -257,8 +257,9 @@ def html_renderer(env):
     if not env.football_video_path:
         raise Exception("No video found. Was environment created with save_video enabled?")
 
-    from IPython.display import display, HTML
     from base64 import b64encode
+
+    from IPython.display import HTML, display
 
     video = open(env.football_video_path, "rb").read()
     env.football_video_path = None

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 import numpy.typing as npt
 from gymnasium import spaces

@@ -1,10 +1,10 @@
 if __package__ == "":
     from lux.config import EnvConfig
-    from lux.kit import obs_to_game_state, EnvConfig
+    from lux.kit import EnvConfig, obs_to_game_state
     from lux.utils import direction_to, my_turn_to_place_factory
 else:
     from .lux.config import EnvConfig
-    from .lux.kit import obs_to_game_state, EnvConfig
+    from .lux.kit import EnvConfig, obs_to_game_state
     from .lux.utils import direction_to, my_turn_to_place_factory
 import numpy as np
 

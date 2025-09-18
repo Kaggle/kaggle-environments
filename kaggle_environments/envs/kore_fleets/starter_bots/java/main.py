@@ -1,10 +1,9 @@
-from subprocess import Popen, PIPE
-from threading import Thread
-from queue import Queue, Empty
-
 import atexit
 import os
 import sys
+from queue import Empty, Queue
+from subprocess import PIPE, Popen
+from threading import Thread
 
 agent_processes = [None, None, None, None]
 t = None

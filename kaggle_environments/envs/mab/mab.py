@@ -1,8 +1,10 @@
 import json
-import kaggle_environments.helpers
 from os import path
 from random import SystemRandom
 from typing import List
+
+import kaggle_environments.helpers
+
 from .agents import agents as all_agents
 
 

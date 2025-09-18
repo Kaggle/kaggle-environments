@@ -17,9 +17,9 @@
 
 import codecs
 import os.path
+
 import setuptools
 from packaging.version import Version
-
 
 # See https://setuptools.pypa.io/en/stable/history.html#id210
 min_setuptools_version = "70.2.0"

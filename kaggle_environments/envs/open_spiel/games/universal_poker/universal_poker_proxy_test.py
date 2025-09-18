@@ -1,9 +1,9 @@
 """Test for proxied Universal Poker game."""
 
 
-from absl.testing import absltest
-from absl.testing import parameterized
 import pyspiel
+from absl.testing import absltest, parameterized
+
 from . import universal_poker_proxy as universal_poker
 
 

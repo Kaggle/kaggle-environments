@@ -2,12 +2,12 @@ import json
 import os
 import random
 import string
+from os import path
+
 import torch
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 from .keywords import KEYWORDS_JSON
-from os import path
-from transformers import T5Tokenizer, T5ForConditionalGeneration
-
 
 llm_parent_dir = "/kaggle/input/flan-t5/pytorch/large"
 
