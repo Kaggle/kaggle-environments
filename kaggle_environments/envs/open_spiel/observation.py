@@ -61,34 +61,33 @@ INFO_STATE_OBS_TYPE = pyspiel.IIGObservationType(perfect_recall=True)
 
 
 class _Observation:
-  """Contains an observation from a game."""
+    """Contains an observation from a game."""
 
-  def __init__(self, game, observer):
-    self._observation = pyspiel._Observation(game, observer)
-    self.dict = {}
-    if self._observation.has_tensor():
-      self.tensor = np.frombuffer(self._observation, np.float32)
-      offset = 0
-      for tensor_info in self._observation.tensors_info():
-        size = np.prod(tensor_info.shape, dtype=np.int64)
-        values = self.tensor[offset:offset + size].reshape(tensor_info.shape)
-        self.dict[tensor_info.name] = values
-        offset += size
-    else:
-      self.tensor = None
+    def __init__(self, game, observer):
+        self._observation = pyspiel._Observation(game, observer)
+        self.dict = {}
+        if self._observation.has_tensor():
+            self.tensor = np.frombuffer(self._observation, np.float32)
+            offset = 0
+            for tensor_info in self._observation.tensors_info():
+                size = np.prod(tensor_info.shape, dtype=np.int64)
+                values = self.tensor[offset : offset + size].reshape(tensor_info.shape)
+                self.dict[tensor_info.name] = values
+                offset += size
+        else:
+            self.tensor = None
 
-  def set_from(self, state, player):
-    self._observation.set_from(state, player)
+    def set_from(self, state, player):
+        self._observation.set_from(state, player)
 
-  def string_from(self, state, player):
-    return (self._observation.string_from(state, player)
-            if self._observation.has_string() else None)
+    def string_from(self, state, player):
+        return self._observation.string_from(state, player) if self._observation.has_string() else None
 
-  def compress(self):
-    return self._observation.compress()
+    def compress(self):
+        return self._observation.compress()
 
-  def decompress(self, compressed_observation):
-    self._observation.decompress(compressed_observation)
+    def decompress(self, compressed_observation):
+        self._observation.decompress(compressed_observation)
 
 
 def make_observation(
@@ -96,38 +95,36 @@ def make_observation(
     imperfect_information_observation_type=None,
     params=None,
 ):
-  """Returns an _Observation instance if the imperfect_information_observation_type is supported, otherwise None."""
-  params = params or {}
-  if hasattr(game, 'make_py_observer'):
-    return game.make_py_observer(imperfect_information_observation_type, params)
-  else:
-    if imperfect_information_observation_type is not None:
-      observer = game.make_observer(
-          imperfect_information_observation_type, params
-      )
+    """Returns an _Observation instance if the imperfect_information_observation_type is supported, otherwise None."""
+    params = params or {}
+    if hasattr(game, "make_py_observer"):
+        return game.make_py_observer(imperfect_information_observation_type, params)
     else:
-      observer = game.make_observer(params)
-    if observer is None:
-      return None
-    return _Observation(game, observer)
+        if imperfect_information_observation_type is not None:
+            observer = game.make_observer(imperfect_information_observation_type, params)
+        else:
+            observer = game.make_observer(params)
+        if observer is None:
+            return None
+        return _Observation(game, observer)
 
 
 class IIGObserverForPublicInfoGame:
-  """Observer for imperfect information obvservations of public-info games."""
+    """Observer for imperfect information obvservations of public-info games."""
 
-  def __init__(self, iig_obs_type, params):
-    if params:
-      raise ValueError(f'Observation parameters not supported; passed {params}')
-    self._iig_obs_type = iig_obs_type
-    self.tensor = None
-    self.dict = {}
+    def __init__(self, iig_obs_type, params):
+        if params:
+            raise ValueError(f"Observation parameters not supported; passed {params}")
+        self._iig_obs_type = iig_obs_type
+        self.tensor = None
+        self.dict = {}
 
-  def set_from(self, state, player):
-    pass
+    def set_from(self, state, player):
+        pass
 
-  def string_from(self, state, player):
-    del player
-    if self._iig_obs_type.public_info:
-      return state.history_str()
-    else:
-      return ''  # No private information to return
+    def string_from(self, state, player):
+        del player
+        if self._iig_obs_type.public_info:
+            return state.history_str()
+        else:
+            return ""  # No private information to return

@@ -29,6 +29,7 @@ class Observation(kaggle_environments.helpers.Observation):
     Observation primarily used as a helper to construct the Board from the raw observation.
     This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/kore/kore.json
     """
+
     @property
     def kore(self) -> List[float]:
         """Serialized list of available kore per cell on the board."""
@@ -50,6 +51,7 @@ class Configuration(kaggle_environments.helpers.Configuration):
     Configuration provides access to tunable parameters in the environment.
     This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/kore/kore.json
     """
+
     @property
     def agent_timeout(self) -> float:
         """Maximum runtime (seconds) to initialize an agent."""
@@ -98,8 +100,8 @@ class ShipyardActionType(Enum):
     def __str__(self) -> str:
         return self.name
 
-class ShipyardAction:
 
+class ShipyardAction:
     def __init__(self, type: ShipyardActionType, num_ships: Optional[int], flight_plan: Optional[str]) -> None:
         self._type = type
         assert num_ships >= 0, "must be a non-negative number"
@@ -109,10 +111,10 @@ class ShipyardAction:
 
     def __str__(self) -> str:
         if self._type == ShipyardActionType.SPAWN:
-            return f'{self._type.name}_{self._num_ships}'
+            return f"{self._type.name}_{self._num_ships}"
         if self._type == ShipyardActionType.LAUNCH:
-            return f'{self._type.name}_{self._num_ships}_{self._flight_plan}'
-    
+            return f"{self._type.name}_{self._num_ships}_{self._flight_plan}"
+
     @property
     def name(self):
         return str(self)
@@ -144,17 +146,26 @@ class ShipyardAction:
         else:
             flight_plan = flight_plan.upper()
         return ShipyardAction.launch_fleet_with_flight_plan(number_ships, flight_plan)
-        
+
     @staticmethod
     def launch_fleet_with_flight_plan(number_ships: int, flight_plan: str):
         flight_plan = flight_plan.upper()
         assert number_ships > 0, "must be a positive number_ships"
         assert number_ships == int(number_ships), "must be an integer number_ships"
         assert flight_plan is not None and len(flight_plan) > 0, "flight_plan must be a str of len > 0"
-        assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", "flight_plan must start with a valid direciton NESW"
-        assert all([c in "NESWC0123456789" for c in flight_plan]), "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
-        if len(flight_plan) > Fleet.max_flight_plan_len_for_ship_count(number_ships): 
-            print("flight plan will be truncated: flight plan for " + str(number_ships) + " must be at most " + str(Fleet.max_flight_plan_len_for_ship_count(number_ships)))
+        assert flight_plan[0].isalpha() and flight_plan[0] in "NESW", (
+            "flight_plan must start with a valid direciton NESW"
+        )
+        assert all([c in "NESWC0123456789" for c in flight_plan]), (
+            "flight_plan (" + flight_plan + ")can only contain NESWC0-9"
+        )
+        if len(flight_plan) > Fleet.max_flight_plan_len_for_ship_count(number_ships):
+            print(
+                "flight plan will be truncated: flight plan for "
+                + str(number_ships)
+                + " must be at most "
+                + str(Fleet.max_flight_plan_len_for_ship_count(number_ships))
+            )
         return ShipyardAction(ShipyardActionType.LAUNCH, number_ships, flight_plan)
 
     @staticmethod
@@ -165,7 +176,7 @@ class ShipyardAction:
     @property
     def action_type(self) -> ShipyardActionType:
         return self._type
-    
+
     @property
     def num_ships(self) -> Optional[int]:
         return self._num_ships
@@ -175,13 +186,20 @@ class ShipyardAction:
         return self._flight_plan
 
 
-FleetId = NewType('FleetId', str)
-ShipyardId = NewType('ShipyardId', str)
-PlayerId = NewType('PlayerId', int)
+FleetId = NewType("FleetId", str)
+ShipyardId = NewType("ShipyardId", str)
+PlayerId = NewType("PlayerId", int)
 
 
 class Cell:
-    def __init__(self, position: Point, kore: float, shipyard_id: Optional[ShipyardId], fleet_id: Optional[FleetId], board: 'Board') -> None:
+    def __init__(
+        self,
+        position: Point,
+        kore: float,
+        shipyard_id: Optional[ShipyardId],
+        fleet_id: Optional[FleetId],
+        board: "Board",
+    ) -> None:
         self._position = position
         self._kore = kore
         self._shipyard_id = shipyard_id
@@ -205,43 +223,53 @@ class Cell:
         return self._fleet_id
 
     @property
-    def fleet(self) -> Optional['Fleet']:
+    def fleet(self) -> Optional["Fleet"]:
         """Returns the fleet on this cell if it exists and None otherwise."""
         return self._board.fleets.get(self.fleet_id)
 
     @property
-    def shipyard(self) -> Optional['Shipyard']:
+    def shipyard(self) -> Optional["Shipyard"]:
         """Returns the shipyard on this cell if it exists and None otherwise."""
         return self._board.shipyards.get(self.shipyard_id)
 
-    def neighbor(self, offset: Point) -> 'Cell':
+    def neighbor(self, offset: Point) -> "Cell":
         """Returns the cell at self.position + offset."""
         (x, y) = self.position + offset
         return self._board[x, y]
 
     @property
-    def north(self) -> 'Cell':
+    def north(self) -> "Cell":
         """Returns the cell north of this cell."""
         return self.neighbor(Direction.NORTH.to_point())
 
     @property
-    def south(self) -> 'Cell':
+    def south(self) -> "Cell":
         """Returns the cell south of this cell."""
         return self.neighbor(Direction.SOUTH.to_point())
 
     @property
-    def east(self) -> 'Cell':
+    def east(self) -> "Cell":
         """Returns the cell east of this cell."""
         return self.neighbor(Direction.EAST.to_point())
 
     @property
-    def west(self) -> 'Cell':
+    def west(self) -> "Cell":
         """Returns the cell west of this cell."""
         return self.neighbor(Direction.WEST.to_point())
 
 
 class Fleet:
-    def __init__(self, fleet_id: FleetId, ship_count: int, direction: Direction, position: Point, kore: int, flight_plan: str, player_id: PlayerId, board: 'Board') -> None:
+    def __init__(
+        self,
+        fleet_id: FleetId,
+        ship_count: int,
+        direction: Direction,
+        position: Point,
+        kore: int,
+        flight_plan: str,
+        player_id: PlayerId,
+        board: "Board",
+    ) -> None:
         self._id = fleet_id
         self._ship_count = ship_count
         self._direction = direction
@@ -281,7 +309,7 @@ class Fleet:
         return self._board[self.position]
 
     @property
-    def player(self) -> 'Player':
+    def player(self) -> "Player":
         """Returns the player that owns this ship."""
         return self._board.players[self.player_id]
 
@@ -293,7 +321,7 @@ class Fleet:
     @property
     def collection_rate(self) -> float:
         """ln(ship_count) / 10"""
-        return min(math.log(self.ship_count) / 20, .99)
+        return min(math.log(self.ship_count) / 20, 0.99)
 
     @staticmethod
     def max_flight_plan_len_for_ship_count(ship_count) -> int:
@@ -303,7 +331,13 @@ class Fleet:
     @property
     def _observation(self) -> List[int]:
         """Converts a fleet back to the normalized observation subset that constructed it."""
-        return [self.position.to_index(self._board.configuration.size), self.kore, self.ship_count, self.direction.to_index(), self.flight_plan]
+        return [
+            self.position.to_index(self._board.configuration.size),
+            self.kore,
+            self.ship_count,
+            self.direction.to_index(),
+            self.flight_plan,
+        ]
 
     def less_than_other_allied_fleet(self, other):
         if not self.ship_count == other.ship_count:
@@ -313,15 +347,25 @@ class Fleet:
         return self.direction.to_index() > other.direction.to_index()
 
 
-upgrade_times = [pow(i,2) + 1 for i in range(1, 10)]
+upgrade_times = [pow(i, 2) + 1 for i in range(1, 10)]
 SPAWN_VALUES = []
 current = 0
 for t in upgrade_times:
     current += t
     SPAWN_VALUES.append(current)
 
+
 class Shipyard:
-    def __init__(self, shipyard_id: ShipyardId, ship_count: int, position: Point, player_id: PlayerId, turns_controlled: int, board: 'Board', next_action: Optional[ShipyardAction] = None) -> None:
+    def __init__(
+        self,
+        shipyard_id: ShipyardId,
+        ship_count: int,
+        position: Point,
+        player_id: PlayerId,
+        turns_controlled: int,
+        board: "Board",
+        next_action: Optional[ShipyardAction] = None,
+    ) -> None:
         self._id = shipyard_id
         self._ship_count = ship_count
         self._position = position
@@ -359,7 +403,7 @@ class Shipyard:
         return self._board[self.position]
 
     @property
-    def player(self) -> 'Player':
+    def player(self) -> "Player":
         return self._board.players[self.player_id]
 
     @property
@@ -379,7 +423,9 @@ class Shipyard:
 
 
 class Player:
-    def __init__(self, player_id: PlayerId, kore: int, shipyard_ids: List[ShipyardId], fleet_ids: List[FleetId], board: 'Board') -> None:
+    def __init__(
+        self, player_id: PlayerId, kore: int, shipyard_ids: List[ShipyardId], fleet_ids: List[FleetId], board: "Board"
+    ) -> None:
         self._id = player_id
         self._kore = kore
         self._shipyard_ids = shipyard_ids
@@ -405,18 +451,12 @@ class Player:
     @property
     def shipyards(self) -> List[Shipyard]:
         """Returns all shipyards owned by this player."""
-        return [
-            self._board.shipyards[shipyard_id]
-            for shipyard_id in self.shipyard_ids
-        ]
+        return [self._board.shipyards[shipyard_id] for shipyard_id in self.shipyard_ids]
 
     @property
     def fleets(self) -> List[Fleet]:
         """Returns all fleets owned by this player."""
-        return [
-            self._board.fleets[fleet_id]
-            for fleet_id in self.fleet_ids
-        ]
+        return [self._board.fleets[fleet_id] for fleet_id in self.fleet_ids]
 
     @property
     def is_current_player(self) -> bool:
@@ -427,9 +467,7 @@ class Player:
     def next_actions(self) -> Dict[str, str]:
         """Returns all queued fleet and shipyard actions for this player formatted for the kore interpreter to receive as an agent response."""
         shipyard_actions = {
-            shipyard.id: shipyard.next_action.name
-            for shipyard in self.shipyards
-            if shipyard.next_action is not None
+            shipyard.id: shipyard.next_action.name for shipyard in self.shipyards if shipyard.next_action is not None
         }
         return {**shipyard_actions}
 
@@ -439,6 +477,8 @@ class Player:
         shipyards = {shipyard.id: shipyard._observation for shipyard in self.shipyards}
         fleets = {fleet.id: fleet._observation for fleet in self.fleets}
         return [self.kore, shipyards, fleets]
+
+
 # endregion
 
 
@@ -447,7 +487,7 @@ class Board:
         self,
         raw_observation: Dict[str, Any],
         raw_configuration: Union[Configuration, Dict[str, Any]],
-        next_actions: Optional[List[Dict[str, str]]] = None
+        next_actions: Optional[List[Dict[str, str]]] = None,
     ) -> None:
         """
         Creates a board from the provided observation, configuration, and next_actions as specified by
@@ -483,23 +523,29 @@ class Board:
                 # We'll populate the cell's fleets and shipyards in _add_fleet and _add_shipyard
                 self.cells[position] = Cell(position, kore, None, None, self)
 
-        for (player_id, player_observation) in enumerate(observation.players):
+        for player_id, player_observation in enumerate(observation.players):
             # We know the len(player_observation) == 3 based on the schema -- this is a hack to have a tuple in json
             [player_kore, player_shipyards, player_fleets] = player_observation
             # We'll populate the player's fleets and shipyards in _add_fleet and _add_shipyard
             self.players[player_id] = Player(player_id, player_kore, [], [], self)
             player_actions = next_actions[player_id] or {}
 
-            for (fleet_id, [fleet_index, fleet_kore, ship_count, direction, flight_plan]) in player_fleets.items():
+            for fleet_id, [fleet_index, fleet_kore, ship_count, direction, flight_plan] in player_fleets.items():
                 fleet_position = Point.from_index(fleet_index, size)
                 fleet_direction = Direction.from_index(direction)
-                self._add_fleet(Fleet(fleet_id, ship_count, fleet_direction, fleet_position, fleet_kore, flight_plan, player_id, self))
+                self._add_fleet(
+                    Fleet(
+                        fleet_id, ship_count, fleet_direction, fleet_position, fleet_kore, flight_plan, player_id, self
+                    )
+                )
 
-            for (shipyard_id, [shipyard_index, ship_count, turns_controlled]) in player_shipyards.items():
+            for shipyard_id, [shipyard_index, ship_count, turns_controlled] in player_shipyards.items():
                 shipyard_position = Point.from_index(shipyard_index, size)
                 raw_action = player_actions.get(shipyard_id)
                 action = ShipyardAction.from_str(raw_action)
-                self._add_shipyard(Shipyard(shipyard_id, ship_count, shipyard_position, player_id, turns_controlled, self, action))
+                self._add_shipyard(
+                    Shipyard(shipyard_id, ship_count, shipyard_position, player_id, turns_controlled, self, action)
+                )
 
     @property
     def configuration(self) -> Configuration:
@@ -560,7 +606,7 @@ class Board:
             "remainingOverageTime": self._remaining_overage_time,
         }
 
-    def __deepcopy__(self, _) -> 'Board':
+    def __deepcopy__(self, _) -> "Board":
         actions = [player.next_actions for player in self.players.values()]
         return Board(self.observation, self.configuration, actions)
 
@@ -585,73 +631,62 @@ class Board:
         etc.
         """
         size = self.configuration.size
-        result = ''
+        result = ""
         for y in range(size):
             for x in range(size):
                 cell = self[(x, size - y - 1)]
-                result += '|'
-                result += (
-                    chr(ord('a') + cell.ship.player_id)
-                    if cell.fleet is not None
-                    else ' '
-                )
+                result += "|"
+                result += chr(ord("a") + cell.ship.player_id) if cell.fleet is not None else " "
                 # This normalizes a value from 0 to max_cell kore to a value from 0 to 9
                 normalized_kore = int(9.0 * cell.kore / float(self.configuration.max_cell_kore))
                 result += str(normalized_kore)
-                result += (
-                    chr(ord('A') + cell.shipyard.player_id)
-                    if cell.shipyard is not None
-                    else ' '
-                )
-            result += '|\n'
+                result += chr(ord("A") + cell.shipyard.player_id) if cell.shipyard is not None else " "
+            result += "|\n"
         return result
 
-    def _add_fleet(self: 'Board', fleet: Fleet) -> None:
+    def _add_fleet(self: "Board", fleet: Fleet) -> None:
         fleet.player.fleet_ids.append(fleet.id)
         fleet.cell._fleet_id = fleet.id
         self._fleets[fleet.id] = fleet
 
-    def _add_shipyard(self: 'Board', shipyard: Shipyard) -> None:
+    def _add_shipyard(self: "Board", shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.append(shipyard.id)
         shipyard.cell._shipyard_id = shipyard.id
         shipyard.cell._kore = 0
         self._shipyards[shipyard.id] = shipyard
 
-    def _delete_fleet(self: 'Board', fleet: Fleet) -> None:
+    def _delete_fleet(self: "Board", fleet: Fleet) -> None:
         fleet.player.fleet_ids.remove(fleet.id)
         if fleet.cell.fleet_id == fleet.id:
             fleet.cell._fleet_id = None
         del self._fleets[fleet.id]
 
-    def _delete_shipyard(self: 'Board', shipyard: Shipyard) -> None:
+    def _delete_shipyard(self: "Board", shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.remove(shipyard.id)
         if shipyard.cell.shipyard_id == shipyard.id:
             shipyard.cell._shipyard_id = None
         del self._shipyards[shipyard.id]
 
-    def get_fleet_at_point(self: 'Board', position: Point) -> Optional[Fleet]:
+    def get_fleet_at_point(self: "Board", position: Point) -> Optional[Fleet]:
         matches = [fleet for fleet in self.fleets.values() if fleet.position == position]
         if matches:
             assert len(matches) == 1
             return matches[0]
         return None
 
-    def get_shipyard_at_point(self: 'Board', position: Point) -> Optional[Shipyard]:
+    def get_shipyard_at_point(self: "Board", position: Point) -> Optional[Shipyard]:
         matches = [shipyard for shipyard in self.shipyards.values() if shipyard.position == position]
         if matches:
             assert len(matches) == 1
             return matches[0]
         return None
 
-    def get_cell_at_point(self: 'Board', position: Point):
+    def get_cell_at_point(self: "Board", position: Point):
         return self.cells.get(position)
 
-    def print(self: 'Board') -> None:
+    def print(self: "Board") -> None:
         size = self.configuration.size
-        player_chars = {
-            pid: alpha
-            for pid, alpha in  zip(self.players, "abcdef"[:len(self.players)])
-        }
+        player_chars = {pid: alpha for pid, alpha in zip(self.players, "abcdef"[: len(self.players)])}
         print(self.configuration.size * "=")
         for i in range(size):
             row = ""
@@ -673,7 +708,7 @@ class Board:
             print(row)
         print(self.configuration.size * "=")
 
-    def print_kore(self: 'Board') -> None:
+    def print_kore(self: "Board") -> None:
         size = self.configuration.size
         print(self.configuration.size * "=")
         for i in range(size):
@@ -685,7 +720,7 @@ class Board:
             print(row)
         print(self.configuration.size * "=")
 
-    def next(self) -> 'Board':
+    def next(self) -> "Board":
         """
         Returns a new board with the current board's next actions applied.
         The current board is unmodified.
@@ -716,13 +751,18 @@ class Board:
                     pass
                 elif shipyard.next_action.num_ships == 0:
                     pass
-                elif (shipyard.next_action.action_type == ShipyardActionType.SPAWN 
-                        and player.kore >= spawn_cost * shipyard.next_action.num_ships 
-                        and shipyard.next_action.num_ships <= shipyard.max_spawn):
+                elif (
+                    shipyard.next_action.action_type == ShipyardActionType.SPAWN
+                    and player.kore >= spawn_cost * shipyard.next_action.num_ships
+                    and shipyard.next_action.num_ships <= shipyard.max_spawn
+                ):
                     # Handle SPAWN actions
                     player._kore -= spawn_cost * shipyard.next_action.num_ships
                     shipyard._ship_count += shipyard.next_action.num_ships
-                elif shipyard.next_action.action_type == ShipyardActionType.LAUNCH and shipyard.ship_count >= shipyard.next_action.num_ships:
+                elif (
+                    shipyard.next_action.action_type == ShipyardActionType.LAUNCH
+                    and shipyard.ship_count >= shipyard.next_action.num_ships
+                ):
                     flight_plan = shipyard.next_action.flight_plan
                     if not flight_plan or not is_valid_flight_plan(flight_plan):
                         continue
@@ -731,8 +771,19 @@ class Board:
                     max_flight_plan_len = Fleet.max_flight_plan_len_for_ship_count(shipyard.next_action.num_ships)
                     if len(flight_plan) > max_flight_plan_len:
                         flight_plan = flight_plan[:max_flight_plan_len]
-                    board._add_fleet(Fleet(FleetId(create_uid()), shipyard.next_action.num_ships, direction, shipyard.position, 0, flight_plan, player.id, board))
-                
+                    board._add_fleet(
+                        Fleet(
+                            FleetId(create_uid()),
+                            shipyard.next_action.num_ships,
+                            direction,
+                            shipyard.position,
+                            0,
+                            flight_plan,
+                            player.id,
+                            board,
+                        )
+                    )
+
             # Clear the shipyard's action so it doesn't repeat the same action automatically
             for shipyard in player.shipyards:
                 shipyard.next_action = None
@@ -750,10 +801,24 @@ class Board:
                 # remove any errant 0s
                 while fleet.flight_plan and fleet.flight_plan.startswith("0"):
                     fleet._flight_plan = fleet.flight_plan[1:]
-                if fleet.flight_plan and fleet.flight_plan[0] == "C" and fleet.ship_count >= convert_cost and fleet.cell.shipyard_id is None:
+                if (
+                    fleet.flight_plan
+                    and fleet.flight_plan[0] == "C"
+                    and fleet.ship_count >= convert_cost
+                    and fleet.cell.shipyard_id is None
+                ):
                     player._kore += fleet.kore
                     fleet.cell._kore = 0
-                    board._add_shipyard(Shipyard(ShipyardId(create_uid()), fleet.ship_count - convert_cost, fleet.position, player.id, 0, board))
+                    board._add_shipyard(
+                        Shipyard(
+                            ShipyardId(create_uid()),
+                            fleet.ship_count - convert_cost,
+                            fleet.position,
+                            player.id,
+                            0,
+                            board,
+                        )
+                    )
                     board._delete_fleet(fleet)
                     continue
 
@@ -789,13 +854,13 @@ class Board:
                 f1._ship_count += f2._ship_count
                 board._delete_fleet(f2)
                 return fid1
-            
+
             # resolve any allied fleets that ended up in the same square
             fleets_by_loc = group_by(player.fleets, lambda fleet: fleet.position.to_index(configuration.size))
             for value in fleets_by_loc.values():
                 value.sort(key=lambda fleet: (fleet.ship_count, fleet.kore, -fleet.direction.to_index()), reverse=True)
                 fid = value[0].id
-                for i in range (1, len(value)):
+                for i in range(1, len(value)):
                     fid = combine_fleets(fid, value[i].id)
 
             # Lets just check and make sure.
@@ -839,7 +904,6 @@ class Board:
                     # Desposit the kore on the square
                     board.cells[position]._kore += fleet.kore
 
-
         # Check for fleet to shipyard collisions
         for shipyard in list(board.shipyards.values()):
             fleet = shipyard.cell.fleet
@@ -847,7 +911,9 @@ class Board:
                 if fleet.ship_count > shipyard.ship_count:
                     count = fleet.ship_count - shipyard.ship_count
                     board._delete_shipyard(shipyard)
-                    board._add_shipyard(Shipyard(ShipyardId(create_uid()), count, shipyard.position, fleet.player.id, 1, board))
+                    board._add_shipyard(
+                        Shipyard(ShipyardId(create_uid()), count, shipyard.position, fleet.player.id, 1, board)
+                    )
                     fleet.player._kore += fleet.kore
                     board._delete_fleet(fleet)
                 else:
@@ -882,7 +948,7 @@ class Board:
                 fleet.cell._kore += fleet.kore / 2
                 to_split = fleet.kore / 2
                 for f_id, dmg in fleet_dmg_dict.items():
-                    to_distribute[f_id][fleet.position.to_index(board.configuration.size)] = to_split * dmg/damage
+                    to_distribute[f_id][fleet.position.to_index(board.configuration.size)] = to_split * dmg / damage
                 board._delete_fleet(fleet)
             else:
                 fleet._ship_count -= damage
@@ -899,7 +965,7 @@ class Board:
         # Collect kore from cells into fleets
         for fleet in board.fleets.values():
             cell = fleet.cell
-            delta_kore = round(cell.kore * min(fleet.collection_rate, .99), 3)
+            delta_kore = round(cell.kore * min(fleet.collection_rate, 0.99), 3)
             if delta_kore > 0:
                 fleet._kore += delta_kore
                 cell._kore -= delta_kore
@@ -927,6 +993,7 @@ def board_agent(agent: Callable[[Board], None]):
     def my_agent(board: Board) -> None:
         ...
     """
+
     @wraps(agent)
     def agent_wrapper(obs, config) -> Dict[str, str]:
         board = Board(obs, config)

@@ -1,5 +1,6 @@
 import sys
 import random
+
 if __package__ == "":
     # for kaggle-environments
     from lux.game import Game
@@ -17,6 +18,7 @@ else:
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
 
+
 def random_agent(observation, configuration):
     """
     a blank, completely empty agent, usually incapable of surviving past the first night
@@ -30,14 +32,14 @@ def random_agent(observation, configuration):
         game_state._update(observation["updates"][2:])
     else:
         game_state._update(observation["updates"])
-    
+
     actions = []
 
-    ### AI Code goes down here! ### 
+    ### AI Code goes down here! ###
     player = game_state.players[observation.player]
     for unit in player.units:
         dirs = [DIRECTIONS.NORTH, DIRECTIONS.WEST, DIRECTIONS.EAST, DIRECTIONS.SOUTH]
         action = unit.move(random.choice(dirs))
         actions.append(action)
-    
+
     return actions

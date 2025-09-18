@@ -1,9 +1,10 @@
 from kaggle_environments.envs.kore_fleets.helpers import *
 from random import randint
 
+
 def agent(obs, config):
     board = Board(obs, config)
-    me=board.current_player
+    me = board.current_player
 
     me = board.current_player
     turn = board.step

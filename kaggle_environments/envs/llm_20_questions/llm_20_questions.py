@@ -34,12 +34,16 @@ ANSWERER = "answerer"
 RANDOM_GUESSER = "random_guesser"
 RANDOM_ANSWERER = "random_answerer"
 
+
 def weighted_random_category(keywords_list):
     try:
-        return random.choices(population=keywords_list, weights=[len(entry["words"]) for entry in keywords_list], k=1)[0]
+        return random.choices(population=keywords_list, weights=[len(entry["words"]) for entry in keywords_list], k=1)[
+            0
+        ]
     except:
         pass
     return random.choice(keywords_list)
+
 
 keywords_list = json.loads(KEYWORDS_JSON)
 keyword_cat = weighted_random_category(keywords_list)
@@ -68,14 +72,15 @@ except:
 def random_guesser(obs):
     if obs.turnType == GUESS:
         return "banana"
-    if random.random() < .5:
+    if random.random() < 0.5:
         return "Is is a person?"
-    if random.random() < .5:
+    if random.random() < 0.5:
         return "Is it a place?"
     return "Is it a thing?"
 
+
 def random_answerer():
-    if random.random() > .5:
+    if random.random() > 0.5:
         return "yes"
     return "no"
 
@@ -87,29 +92,18 @@ def guesser_agent(obs):
 
     q_a_thread = ""
     for i in range(0, len(obs.answers)):
-        q_a_thread = "{}Q: {} A: {}\n".format(
-            q_a_thread,
-            obs.questions[i],
-            obs.answers[i]
-        )
+        q_a_thread = "{}Q: {} A: {}\n".format(q_a_thread, obs.questions[i], obs.answers[i])
 
     prompt = ""
     if obs.turnType == ASK:
-        prompt = "{}{}".format(
-            info_prompt.format(q_a_thread=q_a_thread),
-            questions_prompt
-        )
+        prompt = "{}{}".format(info_prompt.format(q_a_thread=q_a_thread), questions_prompt)
     elif obs.turnType == GUESS:
-        prompt = "{}{}".format(
-            info_prompt.format(q_a_thread=q_a_thread),
-            guess_prompt
-        )
+        prompt = "{}{}".format(info_prompt.format(q_a_thread=q_a_thread), guess_prompt)
     else:
         return ""
-    
+
     return call_llm(prompt)
 
-    
 
 def answerer_agent(obs):
     info_prompt = """You are a very precise answerer in a game of 20 questions. The keyword that the questioner is trying to guess is [the {category} {keyword}]. """
@@ -117,15 +111,21 @@ def answerer_agent(obs):
 
     if obs.turnType == "answer":
         prompt = "{}{}".format(
-            info_prompt.format(category=category,keyword=keyword),
-            answer_question_prompt.format(question=obs.questions[-1])
+            info_prompt.format(category=category, keyword=keyword),
+            answer_question_prompt.format(question=obs.questions[-1]),
         )
         return call_llm(prompt)
-    else: 
+    else:
         return ""
 
 
-agents = {GUESSER: guesser_agent, ANSWERER: answerer_agent, RANDOM_ANSWERER: random_answerer, RANDOM_GUESSER: random_guesser}
+agents = {
+    GUESSER: guesser_agent,
+    ANSWERER: answerer_agent,
+    RANDOM_ANSWERER: random_answerer,
+    RANDOM_GUESSER: random_guesser,
+}
+
 
 def guesser_action(active, inactive, step):
     inactive.observation.keyword = keyword
@@ -150,11 +150,13 @@ def guesser_action(active, inactive, step):
         end_game(inactive, score, DONE)
     return [guessed, bad_guess]
 
+
 def end_game(agent, reward, status):
     agent.observation.keyword = keyword
     agent.observation.category = category
     agent.reward = reward
     agent.status = status
+
 
 def answerer_action(active, inactive):
     active.observation.keyword = keyword
@@ -178,6 +180,7 @@ def answerer_action(active, inactive):
     active.observation.answers.append(response)
     inactive.observation.answers.append(response)
     return bad_response
+
 
 def increment_turn(active, inactive, step, guessed):
     if step == 59 and not guessed:
@@ -243,7 +246,7 @@ def interpreter(state, env):
         end_game(inactive1, 1, DONE)
     else:
         increment_turn(active1, inactive1, step, one_guessed)
-    
+
     if active2.status in (TIMEOUT, ERROR) or two_bad_response or two_bad_guess:
         end_game(active2, -1, active2.status)
         end_game(inactive2, 1, DONE)
@@ -252,7 +255,7 @@ def interpreter(state, env):
         end_game(inactive2, 1, DONE)
     else:
         increment_turn(active2, inactive2, step, two_guessed)
-    
+
     # make sure to end the game if only one team guessed correctly this round
     if one_guessed and not two_guessed:
         end_game(active2, 0, DONE)
@@ -260,21 +263,18 @@ def interpreter(state, env):
     elif two_guessed and not one_guessed:
         end_game(active1, 0, DONE)
         end_game(inactive1, 0, DONE)
-    
+
     return state
 
 
 def renderer(state, env):
-
     for s in state:
         print("role: ", s.observation.role)
         if s.observation.role == GUESSER:
             transcript = ""
             for i in range(0, len(s.observation.guesses)):
                 transcript = "{}Q: {} A: {}\nG: {}\n".format(
-                    transcript, s.observation.questions[i],
-                    s.observation.answers[i],
-                    s.observation.guesses[i]
+                    transcript, s.observation.questions[i], s.observation.answers[i], s.observation.guesses[i]
                 )
             print(transcript)
 
@@ -291,6 +291,7 @@ jsonpath = path.abspath(path.join(path.dirname(__file__), "llm_20_questions.json
 with open(jsonpath) as f:
     specification = json.load(f)
 
+
 def html_renderer():
     jspath = path.abspath(path.join(path.dirname(__file__), "llm_20_questions.js"))
     with open(jspath, encoding="utf-8") as f:
@@ -300,6 +301,7 @@ def html_renderer():
 def normalize(s: str) -> str:
     t = str.maketrans("", "", string.punctuation)
     return s.lower().replace("the", "").replace(" ", "").translate(t)
+
 
 def compare_words(a, b) -> bool:
     a = normalize(a)
@@ -320,12 +322,13 @@ def compare_words(a, b) -> bool:
         return True
     return False
 
+
 def keyword_guessed(guess: str) -> bool:
     if compare_words(guess, keyword):
-      return True
-    for s in alts:
-      if compare_words(s, guess):
         return True
+    for s in alts:
+        if compare_words(s, guess):
+            return True
     return False
 
 

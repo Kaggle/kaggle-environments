@@ -98,13 +98,30 @@ def make(environment, configuration=None, info=None, steps=None, logs=None, debu
     if logs is None:
         logs = []
 
-
     if has(environment, str) and has(environments, dict, path=[environment]):
-        return Environment(**environments[environment], configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(
+            **environments[environment],
+            configuration=configuration,
+            info=info,
+            steps=steps,
+            logs=logs,
+            debug=debug,
+            state=state,
+        )
     elif callable(environment):
-        return Environment(interpreter=environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(
+            interpreter=environment,
+            configuration=configuration,
+            info=info,
+            steps=steps,
+            logs=logs,
+            debug=debug,
+            state=state,
+        )
     elif has(environment, path=["interpreter"], is_callable=True):
-        return Environment(**environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state)
+        return Environment(
+            **environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state
+        )
     raise InvalidArgument("Unknown Environment Specification")
 
 
@@ -221,8 +238,7 @@ class Environment:
                 self.debug_print(f"Error: {traceback.format_exception(None, action, action.__traceback__)}")
                 action_state[index]["status"] = "ERROR"
             else:
-                err, data = process_schema(
-                    self.__state_schema.properties.action, action)
+                err, data = process_schema(self.__state_schema.properties.action, action)
                 if err:
                     self.debug_print(f"Invalid Action: {str(err)}")
                     action_state[index]["status"] = "INVALID"
@@ -258,8 +274,7 @@ class Environment:
         if self.state is None or len(self.steps) == 1 or self.done:
             self.reset(len(agents))
         if len(self.state) != len(agents):
-            raise InvalidArgument(
-                f"{len(self.state)} agents were expected, but {len(agents)} was given.")
+            raise InvalidArgument(f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
         runner = self.__agent_runner(agents)
         start = perf_counter()
@@ -268,7 +283,8 @@ class Environment:
             self.step(actions, logs)
         if not self.done and perf_counter() - start >= self.configuration.runTimeout:
             raise DeadlineExceeded(
-                f"runtime of {perf_counter() - start} exceeded the runTimeout of {self.configuration.runTimeout}")
+                f"runtime of {perf_counter() - start} exceeded the runTimeout of {self.configuration.runTimeout}"
+            )
 
         return self.steps
 
@@ -317,7 +333,7 @@ class Environment:
         mode = get(kwargs, str, "human", path=["mode"])
         if mode == "ansi" or mode == "human":
             args = [self.state, self]
-            out = self.renderer(*args[:self.renderer.__code__.co_argcount])
+            out = self.renderer(*args[: self.renderer.__code__.co_argcount])
             if mode == "ansi":
                 return out
         elif mode == "html" or mode == "ipython":
@@ -332,13 +348,15 @@ class Environment:
                 **kwargs,
             }
             args = [self]
-            player_html = get_player(window_kaggle,
-                                     self.html_renderer(*args[:self.html_renderer.__code__.co_argcount]))
+            player_html = get_player(
+                window_kaggle, self.html_renderer(*args[: self.html_renderer.__code__.co_argcount])
+            )
             if mode == "html":
                 return player_html
 
             from IPython.display import display, HTML
-            player_html = player_html.replace('"', '&quot;')
+
+            player_html = player_html.replace('"', "&quot;")
             width = get(kwargs, int, 300, path=["width"])
             height = get(kwargs, int, 300, path=["height"])
             html = f'<iframe srcdoc="{player_html}" width="{width}" height="{height}" frameborder="0"></iframe> '
@@ -402,8 +420,7 @@ class Environment:
         for index, agent in enumerate(agents):
             if agent is None:
                 if position is not None:
-                    raise InvalidArgument(
-                        "Only one agent can be marked 'None'")
+                    raise InvalidArgument("Only one agent can be marked 'None'")
                 position = index
 
         if position is None:
@@ -429,9 +446,7 @@ class Environment:
             reward = agent.reward
             if len(self.steps) > 1 and reward is not None:
                 reward -= self.steps[-2][position].reward
-            return [
-                agent.observation, reward, agent.status != "ACTIVE", agent.info
-            ]
+            return [agent.observation, reward, agent.status != "ACTIVE", agent.info]
 
         reset()
 
@@ -472,7 +487,7 @@ class Environment:
                     "configuration": spec.configuration,
                     "info": spec.info,
                     "observation": spec.observation,
-                    "reward": spec.reward
+                    "reward": spec.reward,
                 },
                 "steps": self.steps,
                 "rewards": [state.reward for state in self.steps[-1]],
@@ -505,26 +520,17 @@ class Environment:
             self.__state_schema_value = {
                 **schemas["state"],
                 "properties": {
-                    "action": {
-                        **schemas.state.properties.action,
-                        **get(spec, dict, path=["action"], fallback={})
-                    },
-                    "reward": {
-                        **schemas.state.properties.reward,
-                        **get(spec, dict, path=["reward"], fallback={})
-                    },
+                    "action": {**schemas.state.properties.action, **get(spec, dict, path=["action"], fallback={})},
+                    "reward": {**schemas.state.properties.reward, **get(spec, dict, path=["reward"], fallback={})},
                     "info": {
                         **schemas.state.properties.info,
-                        "properties": get(spec, dict, path=["info"], fallback={})
+                        "properties": get(spec, dict, path=["info"], fallback={}),
                     },
                     "observation": {
                         **schemas.state.properties.observation,
-                        "properties": get(spec, dict, path=["observation"], fallback={})
+                        "properties": get(spec, dict, path=["observation"], fallback={}),
                     },
-                    "status": {
-                        **schemas.state.properties.status,
-                        **get(spec, dict, path=["status"], fallback={})
-                    },
+                    "status": {**schemas.state.properties.status, **get(spec, dict, path=["status"], fallback={})},
                 },
             }
         return structify(self.__state_schema_value)
@@ -534,18 +540,15 @@ class Environment:
             state = []
 
         if len(state) not in self.specification.agents:
-            raise InvalidArgument(
-                f"{len(state)} is not a valid number of agent(s).")
+            raise InvalidArgument(f"{len(state)} is not a valid number of agent(s).")
 
-        self.state = structify([self.__get_state(index, s)
-                                for index, s in enumerate(state)])
+        self.state = structify([self.__get_state(index, s) for index, s in enumerate(state)])
         self.steps = [self.state]
         return self.state
 
     def __get_state(self, position, state):
         key = f"__state_schema_{position}"
         if not hasattr(self, key):
-
             # Update a property default value based on position in defaults.
             # Remove shared properties from non-first agents.
             def update_props(props):
@@ -560,16 +563,13 @@ class Environment:
                         update_props(prop["properties"])
                 return props
 
-            props = structify(update_props(
-                copy.deepcopy(self.__state_schema.properties)))
+            props = structify(update_props(copy.deepcopy(self.__state_schema.properties)))
 
             setattr(self, key, {**self.__state_schema, "properties": props})
 
         err, data = process_schema(getattr(self, key), state)
         if err:
-            raise InvalidArgument(
-                f"Default state generation failed for #{position}: " + err
-            )
+            raise InvalidArgument(f"Default state generation failed for #{position}: " + err)
         return data
 
     def __run_interpreter(self, state, logs):
@@ -577,15 +577,16 @@ class Environment:
         err = None
         # Append any environmental logs to any agent logs we collected.
         try:
-            with StringIO() as out_buffer, StringIO() as err_buffer, redirect_stdout(out_buffer), redirect_stderr(err_buffer):
+            with (
+                StringIO() as out_buffer,
+                StringIO() as err_buffer,
+                redirect_stdout(out_buffer),
+                redirect_stderr(err_buffer),
+            ):
                 try:
                     args = [structify(state), self, logs]
-                    new_state = structify(self.interpreter(
-                        *args[:self.interpreter.__code__.co_argcount]))
-                    new_state[0].observation.step = (
-                        0 if self.done
-                        else len(self.steps)
-                    )
+                    new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
+                    new_state[0].observation.step = 0 if self.done else len(self.steps)
 
                     for index, agent in enumerate(new_state):
                         if index < len(logs) and "duration" in logs[index]:
@@ -615,17 +616,14 @@ class Environment:
                         err = err[0:max_log_length]
 
                     if out or err:
-                        logs.append({
-                            "stdout": out,
-                            "stderr": err
-                        })
+                        logs.append({"stdout": out, "stderr": err})
         finally:
             if out:
-                while out.endswith('\n'):
+                while out.endswith("\n"):
                     out = out[:-1]
                 self.debug_print(out)
             if err:
-                while err.endswith('\n'):
+                while err.endswith("\n"):
                     err = err[:-1]
                 self.debug_print(err)
 
@@ -644,8 +642,7 @@ class Environment:
                 # Set a new default value.
                 if not isinstance(v, dict):
                     if not has(field, path=[k]):
-                        raise InvalidArgument(
-                            f"Field {field} was unable to set default of missing property: {k}")
+                        raise InvalidArgument(f"Field {field} was unable to set default of missing property: {k}")
                     field[k]["default"] = v
                 # Add a new field.
                 elif not has(field, path=[k]):
@@ -655,8 +652,7 @@ class Environment:
                     field[k] = v
                 # Types don't match - unable to extend.
                 else:
-                    raise InvalidArgument(
-                        f"Field {field} was unable to extend: {k}")
+                    raise InvalidArgument(f"Field {field} was unable to extend: {k}")
 
             spec[field_name] = field
 
@@ -667,17 +663,11 @@ class Environment:
 
     def __agent_runner(self, agents):
         # Generate the agents.
-        agents = [
-            Agent(agent, self)
-            if agent is not None
-            else None
-            for agent in agents
-        ]
+        agents = [Agent(agent, self) if agent is not None else None for agent in agents]
 
         def act(none_action=None):
             if len(agents) != len(self.state):
-                raise InvalidArgument(
-                    "Number of agents must match the state length")
+                raise InvalidArgument("Number of agents must match the state length")
 
             act_args = [
                 (
@@ -717,11 +707,7 @@ class Environment:
                     update_props(shared_state[k], state[k], prop["properties"])
             return state
 
-        return update_props(
-            self.state[0],
-            copy.deepcopy(self.state[position]),
-            self.__state_schema.properties
-        )
+        return update_props(self.state[0], copy.deepcopy(self.state[position]), self.__state_schema.properties)
 
     def debug_print(self, message):
         if self.debug:

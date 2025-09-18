@@ -5,17 +5,81 @@ import json
 from .cg.sim import Battle
 from .cg.game import battle_start, battle_finish, battle_select, visualize_data
 
-deck = [5,5,5,5,5,5,5,5,5,5,9,9,77,77,77,77,156,156,156,156,157,157,157,157,331,331,331,331,408,408,408,408,474,474,474,474,528,528,528,528,530,530,530,530,532,554,554,554,576,576,576,576,585,585,585,585,630,630,630,630]
+deck = [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    9,
+    9,
+    77,
+    77,
+    77,
+    77,
+    156,
+    156,
+    156,
+    156,
+    157,
+    157,
+    157,
+    157,
+    331,
+    331,
+    331,
+    331,
+    408,
+    408,
+    408,
+    408,
+    474,
+    474,
+    474,
+    474,
+    528,
+    528,
+    528,
+    528,
+    530,
+    530,
+    530,
+    530,
+    532,
+    554,
+    554,
+    554,
+    576,
+    576,
+    576,
+    576,
+    585,
+    585,
+    585,
+    585,
+    630,
+    630,
+    630,
+    630,
+]
+
 
 def random_agent(obs: dict) -> list[int]:
     if obs["select"] == None:
         return deck
     return random.sample(list(range(len(obs["select"]["option"]))), obs["select"]["maxCount"])
 
+
 def first_agent(obs: dict) -> list[int]:
     if obs["select"] == None:
         return deck
     return list(range(obs["select"]["maxCount"]))
+
 
 agents = {"random": random_agent, "first": first_agent}
 
@@ -24,6 +88,7 @@ def finish(env):
     if len(env.steps) > 0:
         env.steps[0][0]["visualize"] = json.loads(visualize_data())
     battle_finish()
+
 
 def interpreter(state, env):
     if env.done:
@@ -105,8 +170,10 @@ def interpreter(state, env):
         o["search_begin_input"] = obs["search_begin_input"]
     return state
 
+
 def renderer(state, env):
     return json.dumps(Battle.obs)
+
 
 def html_renderer():
     jspath = os.path.abspath(os.path.join(os.path.dirname(__file__), "cabt.js"))

@@ -13,6 +13,7 @@ class Observation(kaggle_environments.helpers.Observation):
         return self["agentIndex"]
 
     """This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
+
     @property
     def last_actions(self) -> List[int]:
         """Bandit chosen by opponent last step. None on the first step."""
@@ -34,11 +35,7 @@ class Observation(kaggle_environments.helpers.Observation):
     @property
     def thresholds(self) -> List[float]:
         """Probability values for each machine payout on this step. This value is None at agent runtime."""
-        return (
-            self["thresholds"]
-            if "thresholds" in self
-            else None
-        )
+        return self["thresholds"] if "thresholds" in self else None
 
     @thresholds.setter
     def thresholds(self, value):
@@ -47,6 +44,7 @@ class Observation(kaggle_environments.helpers.Observation):
 
 class Configuration(kaggle_environments.helpers.Configuration):
     """This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/mab/mab.json"""
+
     @property
     def bandit_count(self) -> int:
         """Number of bandits available to choose from. Max action is this number -1."""
@@ -89,9 +87,9 @@ def interpreter(agents, env):
 
     for agent in agents:
         if (
-            agent.action is not None and
-            isinstance(agent.action, int) and
-            0 <= agent.action < configuration.bandit_count
+            agent.action is not None
+            and isinstance(agent.action, int)
+            and 0 <= agent.action < configuration.bandit_count
         ):
             # If the sample is less than the threshold the agent gains reward, otherwise nothing
             agent.reward += 1 if sample() < thresholds[agent.action] else 0
@@ -110,10 +108,7 @@ def interpreter(agents, env):
         update_rate = (configuration.decay_rate) ** action_count
         thresholds[index] = min(threshold * update_rate, initial_thresholds[index])
 
-    active_agents = [
-        agent for agent in agents
-        if agent.status == "ACTIVE" or agent.status == "INACTIVE"
-    ]
+    active_agents = [agent for agent in agents if agent.status == "ACTIVE" or agent.status == "INACTIVE"]
 
     if len(active_agents) <= 1:
         for agent in active_agents:

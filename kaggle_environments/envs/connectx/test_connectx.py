@@ -20,8 +20,7 @@ env = None
 def before_each(state=None, configuration=None):
     global env
     steps = [] if state == None else [state]
-    env = make("connectx", steps=steps,
-               configuration=configuration, debug=True)
+    env = make("connectx", steps=steps, configuration=configuration, debug=True)
 
 
 def test_has_correct_timeouts():
@@ -31,7 +30,7 @@ def test_has_correct_timeouts():
 
 def test_can_train_first():
     before_each()
-    trainer = env.train([None, 'random'])
+    trainer = env.train([None, "random"])
     obs = trainer.reset()
     assert "board" in obs
     obs, _, _, _ = trainer.step(0)
@@ -40,7 +39,7 @@ def test_can_train_first():
 
 def test_can_train_second():
     before_each()
-    trainer = env.train(['random', None])
+    trainer = env.train(["random", None])
     obs = trainer.reset()
     assert "board" in obs
     obs, _, _, _ = trainer.step(0)
@@ -130,8 +129,7 @@ def test_can_mark_a_full_column():
     board = [1, 2, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0, 0, 1, 2, 0, 0, 0]
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}},
-               {"observation": {}}],
+        state=[{"observation": {"board": board}}, {"observation": {}}],
     )
     assert env.step([1, None]) == [
         {
@@ -157,8 +155,7 @@ def test_can_win():
     board_post_move[0] = 1
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
-        state=[{"observation": {"board": board}},
-               {"observation": {}}],
+        state=[{"observation": {"board": board}}, {"observation": {}}],
     )
     assert env.step([0, None]) == [
         {
@@ -212,7 +209,9 @@ def test_can_render():
         configuration={"rows": 4, "columns": 5, "inarow": 3},
         state=[{"observation": {"remainingOverageTime": 60, "board": board}}, {"observation": {}}],
     )
-    assert env.render(mode="ansi").strip() == """
+    assert (
+        env.render(mode="ansi").strip()
+        == """
 +---+---+---+---+---+
 | 0 | 0 | 0 | 0 | 0 |
 +---+---+---+---+---+
@@ -223,6 +222,7 @@ def test_can_render():
 | 1 | 2 | 1 | 2 | 1 |
 +---+---+---+---+---+
 """.strip()
+    )
 
 
 def test_can_run_agents():
@@ -231,6 +231,7 @@ def test_can_run_agents():
 
     def custom2():
         return 2
+
     before_each(
         configuration={"rows": 4, "columns": 5, "inarow": 3},
     )
@@ -255,23 +256,23 @@ def test_can_run_agents():
 
 def test_can_evaluate():
     rewards = evaluate("connectx", ["random", "random"], num_episodes=2)
-    assert (rewards[0][0] + rewards[0][1] ==
-            0) and rewards[1][0] + rewards[1][1] == 0
+    assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
 
 
 def test_max_log_length():
     def custom1():
         # Write 20X to stdtout, we should strip to 10
-        print('X' * 20)
+        print("X" * 20)
         return 1
 
     def custom2():
         return 2
+
     before_each(
         # here we strip log to length 10
         configuration={"rows": 4, "columns": 5, "inarow": 3, "maxLogLength": 10},
     )
     env.run([custom1, custom2])
-    last_log = env.logs[-1][0]['stdout']
+    last_log = env.logs[-1][0]["stdout"]
     assert env.configuration.maxLogLength == 10, "max log length should be set to 10"
     assert len(last_log.strip()) == 10, "max log length should be 10 (+ newline, which we stripped)"

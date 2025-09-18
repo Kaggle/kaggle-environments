@@ -23,7 +23,7 @@ html_replay = env.render(mode="html", width=replay_width, height=replay_height)
 output_html_file = f"kaggle_environments/envs/open_spiel/{environment_name}_game_replay.html"
 print(f"Saving replay to: '{output_html_file}'")
 with open(output_html_file, "w", encoding="utf-8") as f:
-  f.write(html_replay)
+    f.write(html_replay)
 
 print("-" * 20)
 print(f"Successfully generated replay: {os.path.abspath(output_html_file)}")

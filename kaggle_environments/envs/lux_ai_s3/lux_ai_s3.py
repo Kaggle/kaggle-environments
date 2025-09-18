@@ -16,6 +16,8 @@ import numpy as np
 
 import copy
 import json
+
+
 def to_json(state):
     if isinstance(state, np.ndarray):
         return state.tolist()
@@ -30,19 +32,25 @@ def to_json(state):
         return out
     else:
         return state
+
+
 prev_step = 0
 luxenv = None
 prev_obs = None
 state_obs = None
 default_env_cfg = None
+
+
 def enqueue_output(out, queue):
-    for line in iter(out.readline, b''):
+    for line in iter(out.readline, b""):
         queue.put(line)
     out.close()
-    
+
+
 def interpreter(state, env):
     try:
         from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+
         global luxenv, prev_obs, state_obs, default_env_cfg
         player_0 = state[0]
         player_1 = state[1]
@@ -53,7 +61,7 @@ def interpreter(state, env):
             if "seed" in env.configuration:
                 seed = int(env.configuration["seed"])
             else:
-                seed = math.floor(random.random() * 1e9);
+                seed = math.floor(random.random() * 1e9)
                 env.configuration["seed"] = seed
 
             luxenv = LuxAIS3GymEnv(numpy_output=True)
@@ -63,52 +71,55 @@ def interpreter(state, env):
             env_cfg_json = info["params"]
 
             env.configuration.env_cfg = env_cfg_json
-            
+
             player_0.observation.player = "player_0"
             player_1.observation.player = "player_1"
             player_0.observation.obs = json.dumps(to_json(obs["player_0"]))
             player_1.observation.obs = json.dumps(to_json(obs["player_1"]))
-            
-            replay_frame = luxenv.serialize_episode_data(dict(
-                states=[luxenv.episode["states"][-1]],
-                metadata=luxenv.episode["metadata"],
-                params=luxenv.episode["params"]
-            ))
+
+            replay_frame = luxenv.serialize_episode_data(
+                dict(
+                    states=[luxenv.episode["states"][-1]],
+                    metadata=luxenv.episode["metadata"],
+                    params=luxenv.episode["params"],
+                )
+            )
             # don't need to keep metadata/params beyond first step
             player_0.info = dict(replay=replay_frame)
             return state
-        
+
         # validate actions
         player_0_valid_action = True
         player_1_valid_action = True
+
         def validate_action(action):
             valid = True
             if action.shape != (luxenv.action_space["player_0"].shape):
                 valid = False
             return valid
+
         try:
             player_0_action = np.array(player_0.action["action"])
             assert validate_action(player_0_action)
         except:
             player_0_valid_action = False
             player_0_action = luxenv.action_space.sample()["player_0"] * 0
-        
+
         try:
             player_1_action = np.array(player_1.action["action"])
             assert validate_action(player_1_action)
         except:
             player_1_valid_action = False
             player_1_action = luxenv.action_space.sample()["player_1"] * 0
-            
-        new_state_obs, rewards, terminations, truncations, infos = luxenv.step({
-            "player_0": player_0_action,
-            "player_1": player_1_action
-        })
-        
+
+        new_state_obs, rewards, terminations, truncations, infos = luxenv.step(
+            {"player_0": player_0_action, "player_1": player_1_action}
+        )
+
         # cannot store np arrays in replay jsons so must convert to list
         player_0.action = player_0_action.tolist()
         player_1.action = player_1_action.tolist()
-        
+
         dones = dict()
         for k in terminations:
             dones[k] = terminations[k] | truncations[k]
@@ -118,19 +129,20 @@ def interpreter(state, env):
 
         player_0.observation.obs = json.dumps(to_json(new_state_obs["player_0"]))
         player_1.observation.obs = json.dumps(to_json(new_state_obs["player_1"]))
-        
 
         player_0.reward = int(rewards["player_0"])
         player_1.reward = int(rewards["player_1"])
 
         player_0.observation.reward = int(player_0.reward)
         player_1.observation.reward = int(player_1.reward)
-        replay_frame = luxenv.serialize_episode_data(dict(
-            states=[luxenv.episode["states"][-1]],
-            actions=[luxenv.episode["actions"][-1]],
-            metadata=luxenv.episode["metadata"],
-            params=luxenv.episode["params"]
-        ))
+        replay_frame = luxenv.serialize_episode_data(
+            dict(
+                states=[luxenv.episode["states"][-1]],
+                actions=[luxenv.episode["actions"][-1]],
+                metadata=luxenv.episode["metadata"],
+                params=luxenv.episode["params"],
+            )
+        )
         # don't need to keep metadata/params beyond first step
         del replay_frame["metadata"]
         del replay_frame["params"]
@@ -152,6 +164,7 @@ def interpreter(state, env):
         print("Lux AI S3 Dependencies are missing, interpreter will not work")
     return state
 
+
 def renderer(state, env):
     raise NotImplementedError("To render the replay, please set the render mode to json or html")
 
@@ -165,5 +178,6 @@ with open(json_path) as json_file:
 def html_renderer():
     html_path = path.abspath(path.join(dir_path, "index.html"))
     return ("html_path", html_path)
+
 
 agents = all_agents

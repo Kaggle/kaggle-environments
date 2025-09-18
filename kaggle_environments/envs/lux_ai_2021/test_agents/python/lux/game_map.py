@@ -19,6 +19,7 @@ class Cell:
         self.resource: Resource = None
         self.citytile = None
         self.road = 0
+
     def has_resource(self):
         return self.resource is not None and self.resource.amount > 0
 
@@ -70,7 +71,7 @@ class Position:
     def equals(self, pos):
         return self == pos
 
-    def translate(self, direction, units) -> 'Position':
+    def translate(self, direction, units) -> "Position":
         if direction == DIRECTIONS.NORTH:
             return Position(self.x, self.y - units)
         elif direction == DIRECTIONS.EAST:
@@ -82,7 +83,7 @@ class Position:
         elif direction == DIRECTIONS.CENTER:
             return Position(self.x, self.y)
 
-    def direction_to(self, target_pos: 'Position') -> DIRECTIONS:
+    def direction_to(self, target_pos: "Position") -> DIRECTIONS:
         """
         Return closest position to target_pos from this position
         """

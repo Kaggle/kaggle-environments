@@ -63,9 +63,7 @@ class Visualizer:
         for x in range(self.board.width):
             for y in range(self.board.height):
                 rubble_amt = self.state.board.rubble[x][y]
-                rubble_color = self.rubble_color(
-                    rubble_amt
-                )  # [255 - self.state.board.rubble[y][x] * 255 / 100] * 3
+                rubble_color = self.rubble_color(rubble_amt)  # [255 - self.state.board.rubble[y][x] * 255 / 100] * 3
                 # import ipdb;ipdb.set_trace()
                 gfxdraw.box(
                     self.surf,
@@ -101,10 +99,7 @@ class Visualizer:
                         ),
                     )
                 if self.state.board.lichen_strains[x, y] != -1:
-                    c = strain_colors.colors[
-                        self.state.board.lichen_strains[x, y]
-                        % len(strain_colors.colors)
-                    ]
+                    c = strain_colors.colors[self.state.board.lichen_strains[x, y] % len(strain_colors.colors)]
                     pygame.draw.rect(
                         self.surf,
                         [int(c[0] * 255), int(c[1] * 255), int(c[2] * 255)],
@@ -186,6 +181,4 @@ class Visualizer:
 
     def _create_image_array(self, screen, size):
         scaled_screen = pygame.transform.smoothscale(screen, size)
-        return np.transpose(
-            np.array(pygame.surfarray.pixels3d(scaled_screen)), axes=(1, 0, 2)
-        )
+        return np.transpose(np.array(pygame.surfarray.pixels3d(scaled_screen)), axes=(1, 0, 2))

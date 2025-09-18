@@ -8,7 +8,9 @@ else:
     from .lux.utils import direction_to, my_turn_to_place_factory
 import numpy as np
 import sys
-class Agent():
+
+
+class Agent:
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
@@ -45,8 +47,10 @@ class Agent():
         game_state.teams[self.player].place_first
         factory_tiles, factory_units = [], []
         for unit_id, factory in factories.items():
-            if factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST and \
-            factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST:
+            if (
+                factory.power >= self.env_cfg.ROBOTS["HEAVY"].POWER_COST
+                and factory.cargo.metal >= self.env_cfg.ROBOTS["HEAVY"].METAL_COST
+            ):
                 actions[unit_id] = factory.build_heavy()
             if factory.water_cost(game_state) <= factory.cargo.water / 5:
                 actions[unit_id] = factory.water()
@@ -58,7 +62,6 @@ class Agent():
         ice_map = game_state.board.ice
         ice_tile_locations = np.argwhere(ice_map == 1)
         for unit_id, unit in units.items():
-
             # track the closest factory
             closest_factory = None
             adjacent_to_factory = False
