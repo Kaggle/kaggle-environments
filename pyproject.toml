@@ -63,6 +63,8 @@ version = {attr = "kaggle_environments.__version__"}
 target-version = "py311"
 line-length = 120
 indent-width = 4
+# sort imports
+extend-select = ["I"]
 
 [tool.ruff.format]
 quote-style = "double"
