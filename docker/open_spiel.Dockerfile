@@ -29,7 +29,7 @@ RUN node -v && npm -v
 
 WORKDIR /usr/src/app/kaggle_environments
 
-ADD ./setup.py ./setup.py
+ADD ./pyproject.toml ./pyproject.toml
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
