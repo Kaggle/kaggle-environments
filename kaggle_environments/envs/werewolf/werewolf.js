@@ -2578,7 +2578,7 @@ function renderer({
           isAudioPlaying: false,
           isAudioEnabled: false,
           isPaused: false,
-          lastPlayedStep: -1,
+          lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
           audioPlayer: new Audio(),
           playbackRate: 1.4,
       };
@@ -2655,13 +2655,50 @@ function renderer({
       }, { once: true });
   }
 
-  function speak(message, speaker) {
-      if (audioState.isAudioEnabled) {
-          audioState.audioQueue.push({ message, speaker });
-          if (!audioState.isAudioPlaying) {
-              playNextInQueue();
-          }
-      }
+  function speak(message, speaker, entryIndex) {
+    if (!audioState.isAudioEnabled) return;
+
+    // 1. Stop any currently playing audio
+    if (audioState.isAudioPlaying) {
+        audioState.audioPlayer.pause();
+        audioState.isAudioPlaying = false;
+    }
+
+    // 2. Clear the local queue
+    audioState.audioQueue = [];
+
+    // 3. Set the "last played step" to *just before* the clicked item.
+    // This tells the logic to start queuing *from* this item.
+    audioState.lastPlayedStep = entryIndex - 1;
+    sessionStorage.setItem('ww_lastPlayedStep', audioState.lastPlayedStep);
+
+    // 4. Re-populate the queue from this point to the *current* step.
+    // This is the same logic used in the main renderer() function.
+    const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
+
+    if (eventsToPlay.length > 0) {
+        eventsToPlay.forEach(entry => {
+            let audioEvent = null;
+            if (entry.type === 'chat' && entry.speaker !== 'moderator') {
+                audioEvent = { message: entry.message, speaker: entry.speaker };
+            } else if (entry.type === 'moderator') {
+                audioEvent = { message: entry.message, speaker: 'moderator' };
+            }
+            if (audioEvent) {
+                audioState.audioQueue.push(audioEvent);
+            }
+        });
+    }
+
+    // 5. Start playback from the beginning of the new queue
+    if (audioState.isPaused) {
+        // If paused, togglePause() will set isPaused=false
+        // AND automatically call playNextInQueue() for us.
+        togglePause();
+    } else {
+        // If not paused, we must call playNextInQueue() ourselves.
+        playNextInQueue();
+    }
   }
 
   // --- Helper Functions ---
@@ -2948,7 +2985,7 @@ function renderer({
         li.innerHTML = `<cite>System</cite><div>The game is about to begin...</div>`;
         logUl.appendChild(li);
     } else {
-        logEntries.forEach(entry => {
+        logEntries.forEach( (entry, entryIndex) => {
             const li = document.createElement('li');
             let reasoningHtml = '';
             let reasoningToggleHtml = '';
@@ -3004,7 +3041,10 @@ function renderer({
                         const ttsButton = document.createElement('span');
                         ttsButton.className = 'tts-button';
                         ttsButton.innerHTML = '&#x1F50A;';
-                        ttsButton.onclick = () => speak(entry.message, entry.speaker);
+                        ttsButton.onclick = (e) => { 
+                            e.stopPropagation(); 
+                            speak(entry.message, entry.speaker, entryIndex); 
+                        };
                         balloonText.appendChild(ttsButton);
                     }
                     break;
@@ -3535,6 +3575,7 @@ function renderer({
         }
     }
     audioState.lastPlayedStep = eventStep;
+    sessionStorage.setItem('ww_lastPlayedStep', eventStep);
 
     gameState.players.forEach(p => { p.is_alive = true; p.status = 'Alive'; });
     gameState.eventLog.forEach(entry => {
