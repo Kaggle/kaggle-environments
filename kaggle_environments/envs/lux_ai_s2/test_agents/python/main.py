@@ -1,28 +1,27 @@
 import json
-from typing import Dict
-import sys
 from argparse import Namespace
 
 if __package__ == "":
     from agent import Agent
     from lux.config import EnvConfig
-    from lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
+    from lux.kit import process_action, process_obs, to_json
 else:
     from .agent import Agent
     from .lux.config import EnvConfig
-    from .lux.kit import GameState, process_obs, to_json, from_json, process_action, obs_to_game_state
+    from .lux.kit import process_action, process_obs, to_json
 
 ### DO NOT REMOVE THE FOLLOWING CODE ###
-agent_dict = dict() # store potentially multiple dictionaries as kaggle imports code directly
+agent_dict = dict()  # store potentially multiple dictionaries as kaggle imports code directly
 agent_prev_obs = dict()
+
+
 def agent_fn(observation, configurations):
     """
     agent definition for kaggle submission.
     """
     global agent_dict
     step = observation.step
-    
-    
+
     player = observation.player
     remainingOverageTime = observation.remainingOverageTime
     if step == 0:
@@ -44,8 +43,9 @@ def agent_fn(observation, configurations):
 
     return process_action(actions)
 
+
 if __name__ == "__main__":
-    
+
     def read_input():
         """
         Reads input from stdin
@@ -54,6 +54,7 @@ if __name__ == "__main__":
             return input()
         except EOFError as eof:
             raise SystemExit(eof)
+
     step = 0
     player_id = 0
     configurations = None
@@ -61,8 +62,16 @@ if __name__ == "__main__":
     while True:
         inputs = read_input()
         obs = json.loads(inputs)
-        
-        observation = Namespace(**dict(step=obs["step"], obs=json.dumps(obs["obs"]), remainingOverageTime=obs["remainingOverageTime"], player=obs["player"], info=obs["info"]))
+
+        observation = Namespace(
+            **dict(
+                step=obs["step"],
+                obs=json.dumps(obs["obs"]),
+                remainingOverageTime=obs["remainingOverageTime"],
+                player=obs["player"],
+                info=obs["info"],
+            )
+        )
         if i == 0:
             configurations = obs["info"]["env_cfg"]
         i += 1

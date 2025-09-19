@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List
 
 try:
-    from typing import TypedDict    
+    from typing import TypedDict
 except:
     from typing_extensions import TypedDict
 
@@ -69,9 +69,7 @@ class UnitCargo:
 
 
 class Unit:
-    def __init__(
-        self, team: Team, unit_type: UnitType, unit_id: str, env_cfg: EnvConfig
-    ) -> None:
+    def __init__(self, team: Team, unit_type: UnitType, unit_id: str, env_cfg: EnvConfig) -> None:
         self.unit_type = unit_type
         self.team_id = team.team_id
         self.team = team
@@ -115,10 +113,7 @@ class Unit:
                 self.action_queue.append(action)
 
     def move_power_cost(self, rubble_at_target: int):
-        return math.floor(
-            self.unit_cfg.MOVE_COST
-            + self.unit_cfg.RUBBLE_MOVEMENT_COST * rubble_at_target
-        )
+        return math.floor(self.unit_cfg.MOVE_COST + self.unit_cfg.RUBBLE_MOVEMENT_COST * rubble_at_target)
 
     def state_dict(self) -> UnitStateDict:
         return dict(

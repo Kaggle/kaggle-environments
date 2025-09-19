@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 import pygame
-
 from luxai_s2.env import LuxAI_S2
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ indent-style = "space"
 convention = "google"
 
 [lint]
+extend-select = ["I"]
 ignore = [
     # zip() without strict=True is fine for this codebase's Python version.
     "B905",

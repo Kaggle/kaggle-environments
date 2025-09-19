@@ -9,7 +9,4 @@ def round_robin_agent(observation, configuration):
     return observation.step % configuration.banditCount
 
 
-agents = {
-    "random": random_agent,
-    "round_robin": round_robin_agent
-}
+agents = {"random": random_agent, "round_robin": round_robin_agent}

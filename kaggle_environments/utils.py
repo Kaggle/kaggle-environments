@@ -13,11 +13,12 @@
 # limitations under the License.
 
 import json
-import jsonschema
 from copy import deepcopy
 from pathlib import Path
-from .errors import InvalidArgument, NotFound
 
+import jsonschema
+
+from .errors import InvalidArgument, NotFound
 
 # Path Utilities.
 root_path = Path(__file__).parent.resolve()

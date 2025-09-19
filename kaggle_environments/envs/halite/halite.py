@@ -15,11 +15,14 @@
 import copy
 import json
 import math
-import numpy as np
 from os import path
 from random import choice, randint, randrange, sample, seed
-from .helpers import board_agent, Board, ShipAction, ShipyardAction
+
+import numpy as np
+
 from kaggle_environments import utils
+
+from .helpers import Board, ShipAction, ShipyardAction, board_agent
 
 
 def get_col_row(size, pos):
@@ -29,9 +32,9 @@ def get_col_row(size, pos):
 def get_to_pos(size, pos, direction):
     col, row = get_col_row(size, pos)
     if direction == "NORTH":
-        return pos - size if pos >= size else size ** 2 - size + col
+        return pos - size if pos >= size else size**2 - size + col
     elif direction == "SOUTH":
-        return col if pos + size >= size ** 2 else pos + size
+        return col if pos + size >= size**2 else pos + size
     elif direction == "EAST":
         return pos + 1 if col < size - 1 else row * size
     elif direction == "WEST":
@@ -107,10 +110,10 @@ def populate_board(state, env):
     # Randomly place a few halite "seeds".
     for i in range(half):
         # random distribution across entire quartile
-        grid[randint(0, half - 1)][randint(0, half - 1)] = i ** 2
+        grid[randint(0, half - 1)][randint(0, half - 1)] = i**2
 
         # as well as a particular distribution weighted toward the center of the map
-        grid[randint(half // 2, half - 1)][randint(half // 2, half - 1)] = i ** 2
+        grid[randint(half // 2, half - 1)][randint(half // 2, half - 1)] = i**2
 
     # Spread the seeds radially.
     radius_grid = copy.deepcopy(grid)
@@ -138,11 +141,11 @@ def populate_board(state, env):
     # add another set of random locations to the center corner
     corner_grid = np.random.gumbel(0, 500.0, size=(half // 4, half // 4)).astype(int)
     corner_grid = np.clip(corner_grid, 0, a_max=None)
-    radius_grid[half - (half // 4):, half - (half // 4):] += corner_grid
+    radius_grid[half - (half // 4) :, half - (half // 4) :] += corner_grid
 
     # Normalize the available halite against the defined configuration starting halite.
     total = sum([sum(row) for row in radius_grid])
-    obs.halite = [0] * (size ** 2)
+    obs.halite = [0] * (size**2)
     for r, row in enumerate(radius_grid):
         for c, val in enumerate(row):
             val = int(val * config.startingHalite / total / 4)
@@ -236,9 +239,7 @@ def renderer(state, env):
     for row in range(size):
         for col in range(size):
             _, _, ship, ship_halite = board[col + row * size]
-            out += col_divider + (
-                f"{min(int(ship_halite), 99)}S{ship}" if ship > -1 else ""
-            ).ljust(4)
+            out += col_divider + (f"{min(int(ship_halite), 99)}S{ship}" if ship > -1 else "").ljust(4)
         out += col_divider + "\n"
         for col in range(size):
             halite, shipyard, _, _ = board[col + row * size]

@@ -40,13 +40,7 @@ def is_win(board, column, mark, config, has_played=True):
         for i in range(1, inarow + 1):
             r = row + offset_row * i
             c = column + offset_column * i
-            if (
-                r < 0
-                or r >= rows
-                or c < 0
-                or c >= columns
-                or board[c + (r * columns)] != mark
-            ):
+            if r < 0 or r >= rows or c < 0 or c >= columns or board[c + (r * columns)] != mark:
                 return i - 1
         return inarow
 
@@ -89,20 +83,11 @@ def negamax_agent(obs, config):
             if board[column] == EMPTY:
                 # Max depth reached. Score based on cell proximity for a clustering effect.
                 if depth <= 0:
-                    row = max(
-                        [
-                            r
-                            for r in range(rows)
-                            if board[column + (r * columns)] == EMPTY
-                        ]
-                    )
+                    row = max([r for r in range(rows) if board[column + (r * columns)] == EMPTY])
                     score = (size + 1 - moves) / 2
                     if column > 0 and board[row * columns + column - 1] == mark:
                         score += 1
-                    if (
-                        column < columns - 1
-                        and board[row * columns + column + 1] == mark
-                    ):
+                    if column < columns - 1 and board[row * columns + column + 1] == mark:
                         score += 1
                     if row > 0 and board[(row - 1) * columns + column] == mark:
                         score += 1
@@ -111,8 +96,7 @@ def negamax_agent(obs, config):
                 else:
                     next_board = board[:]
                     play(next_board, column, mark, config)
-                    (score, _) = negamax(next_board,
-                                         1 if mark == 2 else 2, depth - 1)
+                    (score, _) = negamax(next_board, 1 if mark == 2 else 2, depth - 1)
                     score = score * -1
                 if score > best_score or (score == best_score and choice([True, False])):
                     best_score = score
@@ -194,8 +178,7 @@ def renderer(state, env):
     row_bar = "+" + "+".join(["---"] * columns) + "+\n"
     out = row_bar
     for r in range(rows):
-        out = out + \
-            print_row(board[r * columns: r * columns + columns]) + row_bar
+        out = out + print_row(board[r * columns : r * columns + columns]) + row_bar
 
     return out
 

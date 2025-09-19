@@ -17,10 +17,7 @@ class MultiDiscrete(Space):
         self.dtype = jnp.int16
 
     def sample(self, rng: chex.PRNGKey) -> chex.Array:
-        return (
-            jax.random.uniform(rng, shape=self.shape, minval=0, maxval=1) * self.dist
-            + self.low
-        ).astype(self.dtype)
+        return (jax.random.uniform(rng, shape=self.shape, minval=0, maxval=1) * self.dist + self.low).astype(self.dtype)
 
     def contains(self, x) -> jnp.ndarray:
         """Check whether specific object is within space."""
