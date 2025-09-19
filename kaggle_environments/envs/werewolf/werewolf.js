@@ -24,6 +24,7 @@ function renderer({
         displayEvents: [],
         eventToKaggleStep: [],
         displayStepToAllEventsIndex: [],
+        allEventsIndexToDisplayStep: [],
         originalSteps: environment.steps,
         reasoningCounter: 0,
     };
@@ -45,11 +46,12 @@ function renderer({
     ]);
 
     let allEventsIndex = 0;
+    let currentDisplayStep = 0;
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
         const processedInStep = new Set();
         (stepEvents || []).flat().forEach(dataEntry => {
             const event = JSON.parse(dataEntry.json_str);
-            
+
             const isVisibleDataType = visibleEventDataTypes.has(dataEntry.data_type);
             const isVisibleEntryType = systemEntryTypeSet.has(event.event_name) || (event.event_name === 'vote_action' && !event.data);
 
@@ -75,6 +77,8 @@ function renderer({
             if (event.dataType !== 'PhaseDividerDataEntry') {
                 player.displayEvents.push(event);
                 player.displayStepToAllEventsIndex.push(allEventsIndex);
+                player.allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
+                currentDisplayStep++;
             }
             allEventsIndex++;
         });
@@ -87,6 +91,24 @@ function renderer({
     setTimeout(() => {
         if (window.kaggle) {
             window.kaggle.environment.steps = newSteps;
+             // This is a critical addition. The parent player (in player.html)
+             // needs to know about our new setStep function. We replace its
+             // default setStep with our enhanced one that stops audio.
+            if (window.kaggle.setStep) {
+                 const originalSetStep = window.kaggle.setStep;
+                 window.kaggle.setStep = (newStep) => {
+                     stopAndClearAudio();
+                     audioState.isPaused = true; // Manual scrub should always result in a paused state.
+                     const pauseButton = document.querySelector('#pause-audio');
+                     if (pauseButton) {
+                        pauseButton.classList.add('paused');
+                        pauseButton.classList.remove('playing');
+                     }
+                     originalSetStep(newStep);
+                 };
+                 // Store the original function so our playback can call it directly
+                 window.kaggle.setStep.originalSetStep = originalSetStep;
+            }
         }
         window.postMessage({ setSteps: newSteps }, "*");
     }, 100); // A small delay to ensure player is ready
@@ -101,6 +123,85 @@ function renderer({
     };
   }
   const threeState = window.werewolfThreeJs;
+
+
+  function playAudioFrom(startIndex, isContinuous = true) {
+      if (!audioState.isAudioEnabled) {
+          // If audio isn't activated yet, store the request and return.
+          // The main click listener will pick this up.
+          audioState.pendingPlaybackRequest = { startIndex, isContinuous };
+          console.log("Audio not enabled. Playback request queued.");
+          return;
+      }
+
+      stopAndClearAudio(); // Stop current playback and clear queue/highlights.
+
+      // If the user is just unpausing, we don't need to reload the queue.
+      // We just resume playing what was already there.
+      if (audioState.isPaused && startIndex === audioState.lastStartedIndex) {
+          audioState.isPaused = false;
+          const pauseButton = document.querySelector('#pause-audio');
+          if (pauseButton) {
+              pauseButton.classList.remove('paused');
+              pauseButton.classList.add('playing');
+          }
+          playNextInQueue(isContinuous);
+          return;
+      }
+
+      audioState.isPaused = false;
+      const pauseButton = document.querySelector('#pause-audio');
+      if (pauseButton) {
+          pauseButton.classList.remove('paused');
+          pauseButton.classList.add('playing');
+      }
+
+      audioState.lastStartedIndex = startIndex; // Track where this playback session started.
+      loadQueueFrom(startIndex);
+      playNextInQueue(isContinuous);
+  }
+
+  function stopAndClearAudio() {
+      if (audioState.isAudioPlaying) {
+          audioState.audioPlayer.pause();
+          audioState.isAudioPlaying = false;
+      }
+      audioState.audioQueue = [];
+      audioState.currentlyPlayingIndex = -1;
+
+
+      // Clear any "now-playing" highlights
+      const nowPlayingElement = document.querySelector('.event-log-list .now-playing');
+      if (nowPlayingElement) {
+          nowPlayingElement.classList.remove('now-playing');
+      }
+  }
+
+  function loadQueueFrom(startIndex) {
+      if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
+
+      const allEvents = window.werewolfGamePlayer.allEvents;
+      const eventsToPlay = allEvents.slice(startIndex);
+
+      if (eventsToPlay.length > 0) {
+          eventsToPlay.forEach((entry, i) => {
+              const allEventsIndex = startIndex + i; // This is the absolute index in the allEvents array
+              let audioEvent = null;
+
+              // Determine if the event is something that should be spoken
+              if (entry.dataType === 'ChatDataEntry' && entry.data.actor_id !== 'moderator') {
+                  audioEvent = { message: entry.data.message, speaker: entry.data.actor_id };
+              } else if (entry.event_name === 'moderator_announcement') {
+                  audioEvent = { message: entry.description, speaker: 'moderator' };
+              }
+
+              if (audioEvent) {
+                  audioEvent.allEventsIndex = allEventsIndex; // Keep track of the original index
+                  audioState.audioQueue.push(audioEvent);
+              }
+          });
+      }
+  }
 
   function initThreeJs() {
     if (threeState.initialized) {
@@ -2308,6 +2409,12 @@ function renderer({
             border-color: rgba(108, 92, 231, 0.2);
         }
         
+        .event-log-list li.now-playing .balloon {
+            background-color: #fcf8e3; /* A light yellow */
+            border-color: #f7d794;
+            transition: background-color 0.3s ease;
+        }
+        
         /* Enhanced System Messages */
         .msg-entry {
             border-left: 4px solid #f39c12;
@@ -2581,6 +2688,7 @@ function renderer({
           lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
           audioPlayer: new Audio(),
           playbackRate: 1.4,
+          allEvents: null,
       };
   }
   const audioState = window.kaggleWerewolf;
@@ -2616,6 +2724,41 @@ function renderer({
       const event = audioState.audioQueue.shift();
       const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
       const audioPath = audioMap[audioKey];
+
+      let currentHighlightElement = null;
+      const logUl = parent.querySelector('#chat-log');
+
+      // Clear any previous highlight
+      if (logUl) {
+          const oldHighlight = logUl.querySelector('.now-playing');
+          if (oldHighlight) oldHighlight.classList.remove('now-playing');
+      }
+
+      if (event.allEventsIndex !== undefined) {
+          // 1. (Proposal 1B) Drive the slider
+          const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
+
+          // Check that the original setStep function exists
+          if (displayStep !== undefined && window.kaggle && window.kaggle.setStep && window.kaggle.setStep.originalSetStep) {
+              // Call the *original* setStep to move the slider *without* stopping audio
+              window.kaggle.setStep.originalSetStep(displayStep);
+          }
+
+          // 2. (Proposal 3) Add "now-playing" cue
+          if (logUl) {
+              try {
+                  currentHighlightElement = logUl.querySelector(`li[data-all-events-index="${event.allEventsIndex}"]`);
+                  if (currentHighlightElement) {
+                      currentHighlightElement.classList.add('now-playing');
+                      // Optional: Scroll the element into view
+                      currentHighlightElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+              } catch (e) {
+                  console.warn('Failed to find element for highlight:', e);
+              }
+          }
+      }
+
 
       if (audioPath) {
           audioState.audioPlayer.src = audioPath;
@@ -2655,50 +2798,23 @@ function renderer({
       }, { once: true });
   }
 
-  function speak(message, speaker, entryIndex) {
-    if (!audioState.isAudioEnabled) return;
+  function speak(allEventsIndex) {
+    if (allEventsIndex === undefined) return;
 
-    // 1. Stop any currently playing audio
-    if (audioState.isAudioPlaying) {
-        audioState.audioPlayer.pause();
-        audioState.isAudioPlaying = false;
+    // 1. Find the corresponding display step for the slider.
+    const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[allEventsIndex];
+
+    // 2. Jump the slider.
+    // This will automatically trigger our setStep wrapper, which calls
+    // stopAndClearAudio() and sets audioState.isPaused = true.
+    if (displayStep !== undefined && window.kaggle && window.kaggle.setStep) {
+        window.kaggle.setStep(displayStep);
     }
 
-    // 2. Clear the local queue
-    audioState.audioQueue = [];
-
-    // 3. Set the "last played step" to *just before* the clicked item.
-    // This tells the logic to start queuing *from* this item.
-    audioState.lastPlayedStep = entryIndex - 1;
-    sessionStorage.setItem('ww_lastPlayedStep', audioState.lastPlayedStep);
-
-    // 4. Re-populate the queue from this point to the *current* step.
-    // This is the same logic used in the main renderer() function.
-    const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
-
-    if (eventsToPlay.length > 0) {
-        eventsToPlay.forEach(entry => {
-            let audioEvent = null;
-            if (entry.type === 'chat' && entry.speaker !== 'moderator') {
-                audioEvent = { message: entry.message, speaker: entry.speaker };
-            } else if (entry.type === 'moderator') {
-                audioEvent = { message: entry.message, speaker: 'moderator' };
-            }
-            if (audioEvent) {
-                audioState.audioQueue.push(audioEvent);
-            }
-        });
-    }
-
-    // 5. Start playback from the beginning of the new queue
-    if (audioState.isPaused) {
-        // If paused, togglePause() will set isPaused=false
-        // AND automatically call playNextInQueue() for us.
-        togglePause();
-    } else {
-        // If not paused, we must call playNextInQueue() ourselves.
-        playNextInQueue();
-    }
+    // 3. Start continuous playback from that point.
+    // playAudioFrom() will see we are paused, load the new queue,
+    // and immediately start playing.
+    playAudioFrom(allEventsIndex);
   }
 
   // --- Helper Functions ---
@@ -2987,6 +3103,7 @@ function renderer({
     } else {
         logEntries.forEach( (entry, entryIndex) => {
             const li = document.createElement('li');
+            li.dataset.allEventsIndex = entry.allEventsIndex;
             let reasoningHtml = '';
             let reasoningToggleHtml = '';
             if (entry.reasoning) {
@@ -3043,7 +3160,7 @@ function renderer({
                         ttsButton.innerHTML = '&#x1F50A;';
                         ttsButton.onclick = (e) => { 
                             e.stopPropagation(); 
-                            speak(entry.message, entry.speaker, entryIndex); 
+                            speak(entry.allEventsIndex);
                         };
                         balloonText.appendChild(ttsButton);
                     }
@@ -3324,7 +3441,9 @@ function renderer({
     });
 
     pauseButton.addEventListener('click', () => {
-        togglePause();
+        // Get the slider's current display step from the renderer's scope
+        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[step];
+        playAudioFrom(allEventsIndex);
     });
   }
 
@@ -3478,44 +3597,44 @@ function renderer({
 
          switch (historyEvent.dataType) {
             case 'ChatDataEntry':
-                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, mentioned_player_ids: data.mentioned_player_ids || [] });
+                gameState.eventLog.push({ type: 'chat', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, timestamp, allEventsIndex: i, mentioned_player_ids: data.mentioned_player_ids || [] });
                 break;
             case 'DayExileVoteDataEntry':
-                gameState.eventLog.push({ type: 'vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                gameState.eventLog.push({ type: 'vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, allEventsIndex: i, timestamp });
                 break;
             case 'WerewolfNightVoteDataEntry':
-                gameState.eventLog.push({ type: 'night_vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                gameState.eventLog.push({ type: 'night_vote', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, allEventsIndex: i, timestamp });
                 break;
             case 'DoctorHealActionDataEntry':
-                gameState.eventLog.push({ type: 'doctor_heal_action', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                gameState.eventLog.push({ type: 'doctor_heal_action', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, allEventsIndex: i, timestamp });
                 break;
             case 'SeerInspectActionDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, target: data.target_id, reasoning: data.reasoning, allEventsIndex: i, timestamp });
                 break;
             case 'DayExileElectedDataEntry':
-                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.elected_player_id, role: data.elected_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'exile', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.elected_player_id, role: data.elected_player_role_name, allEventsIndex: i, timestamp });
                 break;
             case 'WerewolfNightEliminationDataEntry':
-                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.eliminated_player_id, role: data.eliminated_player_role_name, timestamp });
+                gameState.eventLog.push({ type: 'elimination', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, name: data.eliminated_player_id, role: data.eliminated_player_role_name, allEventsIndex: i, timestamp });
                 break;
             case 'SeerInspectResultDataEntry':
-                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, team: data.team, timestamp });
+                gameState.eventLog.push({ type: 'seer_inspection_result', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: data.actor_id, seer: data.actor_id, target: data.target_id, role: data.role, team: data.team, allEventsIndex: i, timestamp });
                 break;
             case 'DoctorSaveDataEntry':
-                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, saved_player: data.saved_player_id, timestamp });
+                gameState.eventLog.push({ type: 'save', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, saved_player: data.saved_player_id, allEventsIndex: i, timestamp });
                 break;
             case 'PhaseDividerDataEntry':
-                gameState.eventLog.push({ type: 'phase_divider', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, divider: data.divider_type, timestamp });
+                gameState.eventLog.push({ type: 'phase_divider', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, divider: data.divider_type, allEventsIndex: i, timestamp });
                 break;
             case 'GameEndResultsDataEntry':
                 gameState.gameWinner = data.winner_team;
                 const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                 const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
-                gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, timestamp });
+                gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, allEventsIndex: i, timestamp });
                 break;
             default:
                 if (systemEntryTypeSet.has(historyEvent.event_name)) {
-                    gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, timestamp, data: data});
+                    gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, allEventsIndex: i, timestamp, data: data});
                 }
                 break;
          }
@@ -3533,47 +3652,47 @@ function renderer({
         }
     }
 
-    const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
+    // const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
 
-    if (eventsToPlay.length > 0) {
-        eventsToPlay.forEach(entry => {
-            let audioEvent = null;
-            if (entry.type === 'chat') {
-                audioEvent = { message: entry.message, speaker: entry.speaker };
-            } else if (entry.type === 'system') {
-                const text = entry.text.toLowerCase();
-                if (text.includes('night') && text.includes('begins')) {
-                    audioEvent = { message: 'night_begins', speaker: 'moderator' };
-                } else if (text.includes('day') && text.includes('begins')) {
-                    audioEvent = { message: 'day_begins', speaker: 'moderator' };
-                } else if (text.includes('discussion')) {
-                    audioEvent = { message: 'discussion_begins', speaker: 'moderator' };
-                } else if (text.includes('voting phase begins')) {
-                    audioEvent = { message: 'voting_begins', speaker: 'moderator' };
-                }
-            } else if (entry.type === 'exile') {
-                const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
-                audioEvent = { message: message, speaker: 'moderator' };
-            } else if (entry.type === 'elimination') {
-                const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
-                audioEvent = { message: message, speaker: 'moderator' };
-            } else if (entry.type === 'save') {
-                const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
-                audioEvent = { message: message, speaker: 'moderator' };
-            } else if (entry.type === 'game_over') {
-                const message = `The game is over. The ${entry.winner} team has won!`;
-                audioEvent = { message: message, speaker: 'moderator' };
-            }
+    // if (eventsToPlay.length > 0) {
+    //     eventsToPlay.forEach(entry => {
+    //         let audioEvent = null;
+    //         if (entry.type === 'chat') {
+    //             audioEvent = { message: entry.message, speaker: entry.speaker };
+    //         } else if (entry.type === 'system') {
+    //             const text = entry.text.toLowerCase();
+    //             if (text.includes('night') && text.includes('begins')) {
+    //                 audioEvent = { message: 'night_begins', speaker: 'moderator' };
+    //             } else if (text.includes('day') && text.includes('begins')) {
+    //                 audioEvent = { message: 'day_begins', speaker: 'moderator' };
+    //             } else if (text.includes('discussion')) {
+    //                 audioEvent = { message: 'discussion_begins', speaker: 'moderator' };
+    //             } else if (text.includes('voting phase begins')) {
+    //                 audioEvent = { message: 'voting_begins', speaker: 'moderator' };
+    //             }
+    //         } else if (entry.type === 'exile') {
+    //             const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
+    //             audioEvent = { message: message, speaker: 'moderator' };
+    //         } else if (entry.type === 'elimination') {
+    //             const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
+    //             audioEvent = { message: message, speaker: 'moderator' };
+    //         } else if (entry.type === 'save') {
+    //             const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
+    //             audioEvent = { message: message, speaker: 'moderator' };
+    //         } else if (entry.type === 'game_over') {
+    //             const message = `The game is over. The ${entry.winner} team has won!`;
+    //             audioEvent = { message: message, speaker: 'moderator' };
+    //         }
 
-            if (audioEvent) {
-                audioState.audioQueue.push(audioEvent);
-            }
-        });
+    //         if (audioEvent) {
+    //             audioState.audioQueue.push(audioEvent);
+    //         }
+    //     });
 
-        if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
-            playNextInQueue();
-        }
-    }
+    //     if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
+    //         playNextInQueue();
+    //     }
+    // }
     audioState.lastPlayedStep = eventStep;
     sessionStorage.setItem('ww_lastPlayedStep', eventStep);
 
