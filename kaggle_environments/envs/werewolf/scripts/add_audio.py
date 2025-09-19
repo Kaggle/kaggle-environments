@@ -56,17 +56,6 @@ def get_tts_audio(client, text: str, voice_name: str) -> bytes | None:
         return None
 
 
-def copy_assets(output_dir):
-    """Copies the assets directory for 3D model rendering."""
-    source_assets_dir = "assets"
-    dest_assets_dir = os.path.join(output_dir, "assets")
-    if os.path.exists(source_assets_dir):
-        if os.path.exists(dest_assets_dir):
-            shutil.rmtree(dest_assets_dir)
-        shutil.copytree(source_assets_dir, dest_assets_dir)
-        logger.info(f"Copied '{source_assets_dir}' to '{dest_assets_dir}' for 3D rendering.")
-
-
 def extract_game_data_from_json(replay_json):
     """Extracts dialogue and events from a replay JSON object."""
     logger.info("Extracting game data from replay...")
@@ -282,8 +271,6 @@ def main():
     player_voices = audio_config['voices']['players']
     player_voice_map = {agent_config['id']: player_voices.get(agent_config['id']) for agent_config in
                         game_config['agents']}
-
-    copy_assets(args.output_dir)
 
     load_dotenv()
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
