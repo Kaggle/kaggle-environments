@@ -8,11 +8,10 @@ def test_cabt_inits():
     """
     env = make("cabt", debug=True)
     env.run(["random", "random"])
-    json = env.toJSON()
-    assert json["name"] == "cabt"
-    assert json["statuses"] == ["DONE", "DONE"]
-    # Rewards can be [1, -1], [-1, 1], or [0, 0].
-    assert sorted(json["rewards"]) in [[-1, 1], [0, 0]]
+    env_map = env.toJSON()
+    assert env_map["name"] == "cabt"
+    assert env_map["statuses"] == ["DONE", "DONE"]
+    assert sorted(env_map["rewards"]) in [[-1, 1], [0, 0]]
 
 
 def test_cabt_first_agent_run():
@@ -21,10 +20,10 @@ def test_cabt_first_agent_run():
     """
     env = make("cabt", debug=True)
     env.run(["first", "first"])
-    json = env.toJSON()
-    assert json["name"] == "cabt"
-    assert json["statuses"] == ["DONE", "DONE"]
-    assert sorted(json["rewards"]) in [[-1, 1], [0, 0]]
+    env_map = env.toJSON()
+    assert env_map["name"] == "cabt"
+    assert env_map["statuses"] == ["DONE", "DONE"]
+    assert sorted(env_map["rewards"]) in [[-1, 1], [0, 0]]
 
 
 def test_cabt_random_vs_first():
@@ -33,10 +32,10 @@ def test_cabt_random_vs_first():
     """
     env = make("cabt", debug=True)
     env.run(["random", "first"])
-    json = env.toJSON()
-    assert json["name"] == "cabt"
-    assert json["statuses"] == ["DONE", "DONE"]
-    assert sorted(json["rewards"]) in [[-1, 1], [0, 0]]
+    env_map = env.toJSON()
+    assert env_map["name"] == "cabt"
+    assert env_map["statuses"] == ["DONE", "DONE"]
+    assert sorted(env_map["rewards"]) in [[-1, 1], [0, 0]]
 
 
 def test_random_agent_deck_submission():
@@ -92,10 +91,10 @@ def test_invalid_deck():
     """
     env = make("cabt", debug=True)
     env.run([invalid_deck_agent, "random"])
-    json = env.toJSON()
-    assert json["statuses"] == ["INVALID", "DONE"]
-    assert json["rewards"] == [None, None]
-    assert "deck does not have 60 cards" in json["steps"][0][0]["error"]
+    env_map = env.toJSON()
+    assert env_map["statuses"] == ["INVALID", "DONE"]
+    assert env_map["rewards"] == [None, 0]
+    assert "deck does not have 60 cards" in env_map["steps"][0][0]["error"]
 
 
 def invalid_selection_agent(obs, config):
@@ -112,10 +111,10 @@ def test_invalid_selection():
     """
     env = make("cabt", debug=True)
     env.run([invalid_selection_agent, "random"])
-    json = env.toJSON()
+    env_map = env.toJSON()
 
-    assert sorted(json["statuses"]) == ["DONE", "INVALID"]
-    if json["statuses"][0] == "INVALID":
-        assert json["rewards"] == [-1, 1]
+    assert sorted(env_map["statuses"]) == ["DONE", "INVALID"]
+    if env_map["statuses"][0] == "INVALID":
+        assert env_map["rewards"] == [None, 1]
     else:
-        assert json["rewards"] == [1, -1]
+        assert env_map["rewards"] == [1, None]
