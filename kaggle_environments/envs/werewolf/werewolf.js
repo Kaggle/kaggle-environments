@@ -1,10 +1,12 @@
-function renderer({
-  environment,
-  step,
-  parent,
-  height = 700, // Default height
-  width = 1100, // Default width
-}) {
+function renderer(context) {
+  const {
+    environment,
+    step,
+    parent,
+    height = 700,
+    width = 1100
+  } = context;
+
   const systemEntryTypeSet = new Set([
         'moderator_announcement',
         'elimination',
@@ -89,26 +91,72 @@ function renderer({
     });
 
     setTimeout(() => {
+        // This is the original setStep function from player.html
+        const originalSetStep = context.setStep;
+        
+        // We replace it
+        context.setStep = (newStep) => {
+            stopAndClearAudio();
+            audioState.isPaused = true;
+            const pauseButton = document.querySelector('#pause-audio');
+            if (pauseButton) {
+                pauseButton.classList.add('paused');
+                pauseButton.classList.remove('playing');
+            }
+            originalSetStep(newStep); // Call the original
+        };
+        // Store the original function for our audio player to use
+        context.setStep.originalSetStep = originalSetStep;
+
         if (window.kaggle) {
             window.kaggle.environment.steps = newSteps;
-             // This is a critical addition. The parent player (in player.html)
-             // needs to know about our new setStep function. We replace its
-             // default setStep with our enhanced one that stops audio.
-            if (window.kaggle.setStep) {
-                 const originalSetStep = window.kaggle.setStep;
-                 window.kaggle.setStep = (newStep) => {
-                     stopAndClearAudio();
-                     audioState.isPaused = true; // Manual scrub should always result in a paused state.
-                     const pauseButton = document.querySelector('#pause-audio');
-                     if (pauseButton) {
-                        pauseButton.classList.add('paused');
-                        pauseButton.classList.remove('playing');
-                     }
-                     originalSetStep(newStep);
-                 };
-                 // Store the original function so our playback can call it directly
-                 window.kaggle.setStep.originalSetStep = originalSetStep;
-            }
+        }
+
+        console.log('context');
+        console.dir(context);
+
+        // We patch the functions on the 'context' object directly.
+        if (context.play && context.pause && context.setPlaying) {
+            console.log("Werewolf.js: Monkey-patching parent play/pause controls.");
+
+            const originalSetPlaying = context.setPlaying;
+            // Get the original setStep we just saved
+            const originalSliderSetStep = context.setStep.originalSetStep;
+
+            // NEW PLAY FUNCTION
+            context.play = (continuing) => {
+                originalSetPlaying(true);
+                // Get the current step from the context
+                let currentDisplayStep = context.step; 
+
+                // Use newSteps (which we just calculated) for the length
+                if (!continuing && currentDisplayStep === newSteps.length - 1) {
+                    currentDisplayStep = 0;
+                    originalSliderSetStep(0);
+                }
+
+                const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
+                if (allEventsIndex === undefined) {
+                    console.error("Werewolf.js: Cannot start play. No event index for step:", currentDisplayStep);
+                    originalSetPlaying(false);
+                    return;
+                }
+                playAudioFrom(allEventsIndex, true);
+            };
+
+            // NEW PAUSE FUNCTION
+            context.pause = () => {
+                originalSetPlaying(false);
+                audioState.isPaused = true;
+                if (audioState.isAudioPlaying) {
+                    audioState.audioPlayer.pause();
+                }
+                const pauseButton = document.querySelector('#pause-audio');
+                if (pauseButton) {
+                    pauseButton.classList.add('paused');
+                    pauseButton.classList.remove('playing');
+                }
+            };
         }
         window.postMessage({ setSteps: newSteps }, "*");
     }, 100); // A small delay to ensure player is ready
