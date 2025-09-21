@@ -147,6 +147,7 @@
                 parent: ref.current,
                 preact,
                 styled,
+                __mainContext: context,
               });
             } catch (error) {
               if (debug) console.error("Static render failed:", error);
@@ -180,6 +181,7 @@
                 parent: ref.current,
                 preact,
                 styled,
+                __mainContext: context,
               });
             } catch (error) {
               if (debug) console.error("Animation render failed:", error);
@@ -570,6 +572,11 @@
           setTimeout(playNext, context.speed);
         });
 
+        // Use useState to hold the functions that components will use.
+        // We initialize them with the original functions.
+        const [playFn, setPlayFn] = useState(() => contextRef.current.play);
+        const [pauseFn, setPauseFn] = useState(() => contextRef.current.pause);
+
         const updateContext = (o) => {
           const context = contextRef.current;
           Object.assign(context, o, {
@@ -577,6 +584,9 @@
           });
           rerender();
         };
+
+        contextRef.current.setPlay = setPlayFn;
+        contextRef.current.setPause = setPauseFn;
 
         // First time setup.
         useEffect(() => {
@@ -767,8 +777,12 @@
           );
         };
 
+        // Create a new value object on every render.
+        // This object includes the *current* play/pause functions from useState.
+        const providerValue = { ...contextRef.current, play: playFn, pause: pauseFn };
+
         return h`
-          <${Context.Provider} value=${contextRef.current}>
+          <${Context.Provider} value=${providerValue}>
             <${Player} className="${contextRef.current.environment.viewer ? "no-border" : ""}" />
           <//>`;
       };

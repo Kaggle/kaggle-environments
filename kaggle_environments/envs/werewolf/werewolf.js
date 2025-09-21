@@ -1,4 +1,34 @@
 function renderer(context) {
+  // 1. Check if the real context exists and if we've already run this.
+  if (context.__mainContext && !window.customPlayerControlsInjected) {
+
+    console.log("overriding play and pause using useState setters.");
+    const mainContext = context.__mainContext;
+
+    // 2. Store the original functions (good practice)
+    if (!mainContext.originalPlay) {
+        mainContext.originalPlay = mainContext.play;
+        mainContext.originalPause = mainContext.pause;
+    }
+
+    // 3. Call the STATE SETTERS to replace the functions
+    // We use the functional update form: setPlay(() => newFunction)
+    
+    mainContext.setPlay(() => (continuing) => {
+      console.log("My Custom Play: Starting game event...");
+      mainContext.originalPlay(continuing);
+    });
+
+    mainContext.setPause(() => () => {
+      console.log("My Custom Pause: Opening modal for feedback...");
+      mainContext.originalPause();
+    });
+
+    // 4. Set the flag
+    window.customPlayerControlsInjected = true;
+  }
+  
+  
   const {
     environment,
     step,
@@ -6,6 +36,9 @@ function renderer(context) {
     height = 700,
     width = 1100
   } = context;
+
+  
+  
 
   const systemEntryTypeSet = new Set([
         'moderator_announcement',
@@ -3553,7 +3586,7 @@ function renderer(context) {
         playerNamesFor3D = [...allPlayerNamesList];
         playerThumbnailsFor3D = {...playerThumbnails};
     } else if (environment.configuration && environment.configuration.agents) {
-        console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
+        // console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
         allPlayerNamesList = environment.configuration.agents.map(agent => agent.id);
         environment.configuration.agents.forEach(agent => {
             if (agent.id && agent.thumbnail) {
