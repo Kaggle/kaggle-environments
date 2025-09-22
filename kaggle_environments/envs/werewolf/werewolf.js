@@ -16,7 +16,9 @@ function renderer(context) {
         'inspect_request',
         'inspect_result',
         'bidding_info',
-        'bid_result'
+        'bid_result',
+        'day_start',
+        'night_start'
   ]);
 
   if (!window.werewolfGamePlayer) {
@@ -58,11 +60,6 @@ function renderer(context) {
             const isVisibleEntryType = systemEntryTypeSet.has(event.event_name) || (event.event_name === 'vote_action' && !event.data);
 
             if (!isVisibleDataType && !isVisibleEntryType) {
-                return;
-            }
-
-            // Additional filter for "has begun" system messages which are not displayed
-            if (event.event_name === "moderator_announcement" && event.description && event.description.includes('has begun')) {
                 return;
             }
 
@@ -229,17 +226,84 @@ function renderer(context) {
 
       if (eventsToPlay.length > 0) {
           eventsToPlay.forEach((entry, i) => {
-              const allEventsIndex = startIndex + i; 
+              const allEventsIndex = startIndex + i;
               let audioEvent = null;
+              const data = entry.data || {};
+              const event_name = entry.event_name;
+              const description = entry.description || '';
+              const day_count = entry.day;
 
-              if (entry.dataType === 'ChatDataEntry' && entry.data.actor_id !== 'moderator') {
-                  audioEvent = { message: entry.data.message, speaker: entry.data.actor_id };
-              } else if (entry.event_name === 'moderator_announcement') {
-                  audioEvent = { message: entry.description, speaker: 'moderator' };
+              switch (entry.dataType) {
+                  case 'ChatDataEntry':
+                      if (data.actor_id && data.actor_id !== 'moderator' && data.message) {
+                          audioEvent = { message: data.message, speaker: data.actor_id };
+                      }
+                      break;
+                  case 'DayExileVoteDataEntry':
+                      if (data.actor_id && data.target_id) {
+                          audioEvent = { message: `${data.actor_id} votes to exile ${data.target_id}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'WerewolfNightVoteDataEntry':
+                      if (data.actor_id && data.target_id) {
+                          audioEvent = { message: `${data.actor_id} votes to eliminate ${data.target_id}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'SeerInspectActionDataEntry':
+                      if (data.actor_id && data.target_id) {
+                          audioEvent = { message: `${data.actor_id} inspects ${data.target_id}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'DoctorHealActionDataEntry':
+                      if (data.actor_id && data.target_id) {
+                          audioEvent = { message: `${data.actor_id} heals ${data.target_id}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'DayExileElectedDataEntry':
+                      if (data.elected_player_id && data.elected_player_role_name) {
+                          audioEvent = { message: `${data.elected_player_id} was exiled by vote. Their role was a ${data.elected_player_role_name}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'WerewolfNightEliminationDataEntry':
+                      if (data.eliminated_player_id && data.eliminated_player_role_name) {
+                          audioEvent = { message: `${data.eliminated_player_id} was eliminated. Their role was a ${data.eliminated_player_role_name}.`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'DoctorSaveDataEntry':
+                      if (data.saved_player_id) {
+                          audioEvent = { message: `${data.saved_player_id} was attacked but saved by a Doctor!`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'GameEndResultsDataEntry':
+                      if (data.winner_team) {
+                          audioEvent = { message: `The game is over. The ${data.winner_team} team has won!`, speaker: 'moderator' };
+                      }
+                      break;
+                  case 'WerewolfNightEliminationElectedDataEntry':
+                      if (data.elected_target_player_id) {
+                          audioEvent = { message: `The werewolves have chosen to eliminate ${data.elected_target_player_id}.`, speaker: 'moderator' };
+                      }
+                      break;
               }
 
+              // Fallback for other moderator announcements that might not have a specific dataType handler
+              if (!audioEvent && event_name === 'moderator_announcement') {
+                  if (description.includes('discussion rule is')) {
+                      audioEvent = { message: 'Discussion begins!', speaker: 'moderator' };
+                  } else if (description.includes('Voting phase begins')) {
+                      audioEvent = { message: 'Exile voting begins!', speaker: 'moderator' };
+                  } else {
+                    audioEvent = { message: entry.description, speaker: 'moderator' };
+                  }
+              } else if (!audioEvent && event_name === 'day_start') {
+                  audioEvent = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
+              } else if (!audioEvent && event_name === 'night_start') {
+                  audioEvent = { message: `Night ${day_count} begins!`, speaker: 'moderator' };
+              }
+
+
               if (audioEvent) {
-                  audioEvent.allEventsIndex = allEventsIndex; 
+                  audioEvent.allEventsIndex = allEventsIndex;
                   audioState.audioQueue.push(audioEvent);
               }
           });
@@ -3343,6 +3407,15 @@ function renderer(context) {
                             <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
                         </div>
                     `;
+
+                    const content = li.querySelector('.moderator-announcement-content');
+                    if (content) {
+                        content.style.cursor = 'pointer'; // Optional: make it look clickable
+                        content.onclick = (e) => {
+                            e.stopPropagation();
+                            speak(entry.allEventsIndex);
+                        };
+                    }
                     break;
                 case 'exile':
                     const exiledPlayerCap = createPlayerCapsule(playerMap.get(entry.name));

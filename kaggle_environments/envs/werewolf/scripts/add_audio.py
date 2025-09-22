@@ -4,13 +4,14 @@ import http.server
 import json
 import logging
 import os
-import shutil
 import socketserver
 import wave
 
 import yaml
 from dotenv import load_dotenv
 from google import genai
+from google.api_core.exceptions import GoogleAPICallError
+from google.cloud import texttospeech
 from google.genai import types
 
 from kaggle_environments.envs.werewolf.runner import setup_logger
@@ -33,7 +34,7 @@ def wave_file(filename, pcm, channels=1, rate=24000, sample_width=2):
         wf.writeframes(pcm)
 
 
-def get_tts_audio(client, text: str, voice_name: str) -> bytes | None:
+def get_tts_audio_genai(client, text: str, voice_name: str) -> bytes | None:
     """Fetches TTS audio from Gemini API."""
     if not text or not client:
         return None
@@ -51,8 +52,36 @@ def get_tts_audio(client, text: str, voice_name: str) -> bytes | None:
             )
         )
         return response.candidates[0].content.parts[0].inline_data.data
-    except Exception as e:
+    except (GoogleAPICallError, ValueError) as e:
         logger.error(f"  - Error generating audio for '{text[:30]}...': {e}")
+        return None
+
+
+def get_tts_audio_vertex(
+        client, text: str, voice_name: str, model_name: str = "gemini-2.5-flash-preview-tts") -> bytes | None:
+    """Fetches TTS audio from Vertex AI API."""
+    if not text or not client:
+        return None
+    try:
+        synthesis_input = texttospeech.SynthesisInput(text=text)
+
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="en-US",
+            name=voice_name,
+            model_name=model_name
+        )
+
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            sample_rate_hertz=24000
+        )
+
+        response = client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config,
+        )
+        return response.audio_content
+    except (GoogleAPICallError, ValueError) as e:
+        logger.error(f"  - Error generating audio using Vertex AI for '{text[:30]}...': {e}")
         return None
 
 
@@ -76,6 +105,9 @@ def extract_game_data_from_json(replay_json):
                 # Parse the event data from the json_str, just like the JS does
                 event = json.loads(json_str)
                 data = event.get('data', {})  # Get the data payload from inside the parsed event
+                event_name = event.get('event_name')
+                description = event.get('description', '')
+                day_count = event.get('day')
 
                 if not data:
                     continue
@@ -89,32 +121,54 @@ def extract_game_data_from_json(replay_json):
             if data_type == "ChatDataEntry":
                 if data.get("actor_id") and data.get("message"):
                     unique_speaker_messages.add((data["actor_id"], data["message"]))
+            elif data_type == "DayExileVoteDataEntry":
+                if data.get("actor_id") and data.get("target_id"):
+                    dynamic_moderator_messages.add(f"{data['actor_id']} votes to exile {data['target_id']}.")
+            elif data_type == "WerewolfNightVoteDataEntry":
+                if data.get("actor_id") and data.get("target_id"):
+                    dynamic_moderator_messages.add(f"{data['actor_id']} votes to eliminate {data['target_id']}.")
+            elif data_type == "SeerInspectActionDataEntry":
+                if data.get("actor_id") and data.get("target_id"):
+                    dynamic_moderator_messages.add(f"{data['actor_id']} inspects {data['target_id']}.")
+            elif data_type == "DoctorHealActionDataEntry":
+                if data.get("actor_id") and data.get("target_id"):
+                    dynamic_moderator_messages.add(f"{data['actor_id']} heals {data['target_id']}.")
             elif data_type == "DayExileElectedDataEntry":
                 if all(k in data for k in ['elected_player_id', 'elected_player_role_name']):
                     dynamic_moderator_messages.add(
-                        f"Player {data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}.")
+                        f"{data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}.")
             elif data_type == "WerewolfNightEliminationDataEntry":
                 if all(k in data for k in ['eliminated_player_id', 'eliminated_player_role_name']):
                     dynamic_moderator_messages.add(
-                        f"Player {data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}.")
+                        f"{data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}.")
             elif data_type == "DoctorSaveDataEntry":
                 if 'saved_player_id' in data:
                     dynamic_moderator_messages.add(
-                        f"Player {data['saved_player_id']} was attacked but saved by a Doctor!")
+                        f"{data['saved_player_id']} was attacked but saved by a Doctor!")
             elif data_type == "GameEndResultsDataEntry":
                 if 'winner_team' in data:
                     dynamic_moderator_messages.add(f"The game is over. The {data['winner_team']} team has won!")
             elif data_type == "WerewolfNightEliminationElectedDataEntry":
                 if 'elected_target_player_id' in data:
                     dynamic_moderator_messages.add(
-                        f"The werewolves have chosen to eliminate player {data['elected_target_player_id']}.")
+                        f"The werewolves have chosen to eliminate {data['elected_target_player_id']}.")
+            elif event_name == "day_start":
+                dynamic_moderator_messages.add(f"Day {day_count} begins!")
+            elif event_name == "night_start":
+                dynamic_moderator_messages.add(f"Night {day_count} begins!")
+            elif event_name == "moderator_announcement":
+                if "discussion rule is" in description:
+                    dynamic_moderator_messages.add("Discussion begins!")
+                elif "Voting phase begins" in description:
+                    dynamic_moderator_messages.add("Exile voting begins!")
 
     logger.info(f"Found {len(unique_speaker_messages)} unique player messages.")
     logger.info(f"Found {len(dynamic_moderator_messages)} dynamic moderator messages.")
     return unique_speaker_messages, dynamic_moderator_messages
 
 
-def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map, audio_config,
+def generate_audio_files(client, tts_provider, unique_speaker_messages, dynamic_moderator_messages, player_voice_map,
+                         audio_config,
                          output_dir):
     """Generates and saves all required audio files, returning a map for the HTML."""
     logger.info("Extracting dialogue and generating audio files...")
@@ -144,7 +198,13 @@ def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_mess
 
         if not os.path.exists(audio_path_on_disk):
             logger.info(f"  - Generating audio for {speaker} ({voice}): \"{message[:40]}...\" ")
-            audio_content = get_tts_audio(client, message, voice_name=voice)
+            audio_content = None
+            if tts_provider == 'vertex_ai':
+                model_name = audio_config.get('vertex_ai_model', 'gemini-2.5-flash-preview-tts')
+                audio_content = get_tts_audio_vertex(client, message, voice_name=voice, model_name=model_name)
+            else:  # google_genai
+                audio_content = get_tts_audio_genai(client, message, voice_name=voice)
+
             if audio_content:
                 wave_file(audio_path_on_disk, audio_content)
                 audio_map[map_key] = audio_path_for_html
@@ -154,7 +214,8 @@ def generate_audio_files(client, unique_speaker_messages, dynamic_moderator_mess
     return audio_map
 
 
-def generate_debug_audio_files(output_dir, client, unique_speaker_messages, dynamic_moderator_messages, audio_config):
+def generate_debug_audio_files(output_dir, client, tts_provider, unique_speaker_messages, dynamic_moderator_messages,
+                               audio_config):
     """Generates a single debug audio file and maps all events to it."""
     logger.info("Generating single debug audio for UI testing...")
     paths = audio_config['paths']
@@ -163,15 +224,21 @@ def generate_debug_audio_files(output_dir, client, unique_speaker_messages, dyna
     audio_map = {}
 
     debug_message = "Testing start, testing end."
-    debug_voice = "achird"
-
     filename = "debug_audio.wav"
     audio_path_on_disk = os.path.join(debug_audio_dir, filename)
     audio_path_for_html = os.path.join(paths['debug_audio_dir_name'], filename)
 
     if not os.path.exists(audio_path_on_disk):
         logger.info(f"  - Generating debug audio: \"{debug_message}\"")
-        audio_content = get_tts_audio(client, debug_message, voice_name=debug_voice)
+        audio_content = None
+        if tts_provider == 'vertex_ai':
+            model_name = audio_config.get('vertex_ai_model', 'gemini-2.5-flash-preview-tts')
+            debug_voice = "Charon"
+            audio_content = get_tts_audio_vertex(client, debug_message, voice_name=debug_voice, model_name=model_name)
+        else:
+            debug_voice = "achird"
+            audio_content = get_tts_audio_genai(client, debug_message, voice_name=debug_voice)
+
         if audio_content:
             wave_file(audio_path_on_disk, audio_content)
         else:
@@ -247,6 +314,8 @@ def main():
                         help="Generate a single debug audio file for all events for UI testing.")
     parser.add_argument('--serve', action='store_true',
                         help="Start a local HTTP server to view the replay after generation.")
+    parser.add_argument('--tts-provider', type=str, default='vertex_ai', choices=['vertex_ai', 'google_genai'],
+                        help="The TTS provider to use for audio synthesis.")
     args = parser.parse_args()
 
     if not args.output_dir:
@@ -273,11 +342,23 @@ def main():
                         game_config['agents']}
 
     load_dotenv()
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    if not GEMINI_API_KEY:
-        logger.error("Error: GEMINI_API_KEY environment variable not found. Audio generation requires it.")
-        return
-    client = genai.Client()
+    client = None
+    if args.tts_provider == 'vertex_ai':
+        if not os.getenv("GOOGLE_CLOUD_PROJECT"):
+            logger.error("Error: GOOGLE_CLOUD_PROJECT environment variable not found. It is required for Vertex AI.")
+            return
+        try:
+            client = texttospeech.TextToSpeechClient()
+        except Exception as e:
+            logger.error(f"Failed to initialize Vertex AI client: {e}")
+            logger.error("Please ensure you have authenticated with 'gcloud auth application-default login'")
+            return
+    else:  # google_genai
+        if not os.getenv("GEMINI_API_KEY"):
+            logger.error(
+                "Error: GEMINI_API_KEY environment variable not found. Audio generation with google.genai requires it.")
+            return
+        client = genai.Client()
 
     unique_speaker_messages, dynamic_moderator_messages = extract_game_data_from_json(replay_data)
 
@@ -286,11 +367,12 @@ def main():
     os.makedirs(audio_dir, exist_ok=True)
 
     if args.debug_audio:
-        audio_map = generate_debug_audio_files(args.output_dir, client, unique_speaker_messages,
+        audio_map = generate_debug_audio_files(args.output_dir, client, args.tts_provider, unique_speaker_messages,
                                                dynamic_moderator_messages, audio_config)
     else:
         audio_map = generate_audio_files(
-            client, unique_speaker_messages, dynamic_moderator_messages, player_voice_map, audio_config,
+            client, args.tts_provider, unique_speaker_messages, dynamic_moderator_messages, player_voice_map,
+            audio_config,
             args.output_dir
         )
 
