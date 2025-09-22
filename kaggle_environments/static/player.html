@@ -576,6 +576,8 @@
         // We initialize them with the original functions.
         const [playFn, setPlayFn] = useState(() => contextRef.current.play);
         const [pauseFn, setPauseFn] = useState(() => contextRef.current.pause);
+        const [stepFn, setStepFn] = useState(() => contextRef.current.setStep);
+        const [playingFn, setPlayingFn] = useState(() => contextRef.current.setPlaying);
 
         const updateContext = (o) => {
           const context = contextRef.current;
@@ -587,6 +589,8 @@
 
         contextRef.current.setPlay = setPlayFn;
         contextRef.current.setPause = setPauseFn;
+        contextRef.current.setSetStep = setStepFn;
+        contextRef.current.setSetPlaying = setPlayingFn;
 
         // First time setup.
         useEffect(() => {
@@ -779,7 +783,7 @@
 
         // Create a new value object on every render.
         // This object includes the *current* play/pause functions from useState.
-        const providerValue = { ...contextRef.current, play: playFn, pause: pauseFn };
+        const providerValue = { ...contextRef.current, play: playFn, pause: pauseFn, setStep: stepFn, setPlaying: playingFn };
 
         return h`
           <${Context.Provider} value=${providerValue}>
