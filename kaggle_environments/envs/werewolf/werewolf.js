@@ -95,90 +95,90 @@ function renderer(context) {
         console.log('context');
         console.dir(context);
 
-        // We patch the functions on the 'context' object directly.
-        if (context.__mainContext && !window.customPlayerControlsInjected) {
-            const mainContext = context.__mainContext;
-
-            if (!window.wwOriginals) {
-                console.log("DEBUG: Storing original controls for the first time.");
-                window.wwOriginals = {
-                    setStep: context.setStep,
-                    play: context.play,
-                    pause: context.pause,
-                    setPlaying: context.setPlaying
-                };
-            }
-                
-            // --- Patch setStep ---
-            if (mainContext.setSetStep) {
-                mainContext.setSetStep(() => (newStep) => {
-                    console.log(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
-                    stopAndClearAudio();
-                    audioState.isPaused = true;
-                    const pauseButton = document.querySelector('#pause-audio');
-                    if (pauseButton) {
-                        pauseButton.classList.add('paused');
-                        pauseButton.classList.remove('playing');
-                    }
-                    window.wwOriginals.setStep(newStep); 
-                });
-            }
-
-            // --- Patch Play ---
-            mainContext.setPlay(() => (continuing) => {
-              console.log(`DEBUG: [setPlay] Play button clicked. Continuing: ${continuing}`);  
-              if (!audioState.isAudioEnabled) {
-                  console.log("DEBUG: [setPlay] Audio was not enabled. Enabling it now.");
-                  audioState.isAudioEnabled = true;
-                  if (!audioState.audioContextActivated) {
-                      const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-                      audio.play().catch(e => console.warn("Audio context activation failed:", e));
-                      audioState.audioContextActivated = true;
-                }
-              }
-
-              window.wwOriginals.setPlaying(true); 
-              let currentDisplayStep = context.step; 
-              console.log(`DEBUG: [setPlay] Current display step is: ${currentDisplayStep}`);
-
-              if (!continuing && currentDisplayStep === newSteps.length - 1) {
-                  console.log("DEBUG: [setPlay] At end of steps, wrapping to 0.");
-                  currentDisplayStep = 0;
-                  window.wwOriginals.setStep(0); 
-              }
-
-              const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
-              if (allEventsIndex === undefined) {
-                  console.error(`DEBUG: [setPlay] CRITICAL: No allEventsIndex found for displayStep ${currentDisplayStep}. Stopping.`);
-                  window.wwOriginals.setPlaying(false);
-                  return;
-              }
-              
-              console.log(`DEBUG: [setPlay] Starting audio playback from allEventsIndex: ${allEventsIndex}`);
-              playAudioFrom(allEventsIndex, true);
-            });
-
-            // --- Patch Pause ---
-            mainContext.setPause(() => () => {
-                console.log("DEBUG: [setPause] Pause button clicked. Stopping audio.");
-                window.wwOriginals.setPlaying(false); 
-                audioState.isPaused = true;
-                if (audioState.isAudioPlaying) {
-                    audioState.audioPlayer.pause();
-                }
-                const pauseButton = document.querySelector('#pause-audio');
-                if (pauseButton) {
-                    pauseButton.classList.add('paused');
-                    pauseButton.classList.remove('playing');
-                }
-            });
-
-            mainContext.patchesApplied = true;
-        }
-
         window.postMessage({ setSteps: newSteps }, "*");
     }, 100); // A small delay to ensure player is ready
     player.initialized = true;
+  }
+
+  // We patch the functions on the 'context' object directly.
+  if (context.__mainContext && !window.customPlayerControlsInjected) {
+      const mainContext = context.__mainContext;
+
+      if (!window.wwOriginals) {
+          console.log("DEBUG: Storing original controls for the first time.");
+          window.wwOriginals = {
+              setStep: mainContext.setStep,
+              play: mainContext.play,
+              pause: mainContext.pause,
+              setPlaying: mainContext.setPlaying
+          };
+      }
+          
+      // --- Patch setStep ---
+      if (mainContext.setSetStep) {
+          mainContext.setSetStep(() => (newStep) => {
+              console.log(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
+              stopAndClearAudio();
+              audioState.isPaused = true;
+              const pauseButton = document.querySelector('#pause-audio');
+              if (pauseButton) {
+                  pauseButton.classList.add('paused');
+                  pauseButton.classList.remove('playing');
+              }
+              window.wwOriginals.setStep(newStep); 
+          });
+      }
+
+      // --- Patch Play ---
+      mainContext.setPlay(() => (continuing) => {
+        console.log(`DEBUG: [setPlay] Play button clicked. Continuing: ${continuing}`);  
+        if (!audioState.isAudioEnabled) {
+            console.log("DEBUG: [setPlay] Audio was not enabled. Enabling it now.");
+            audioState.isAudioEnabled = true;
+            if (!audioState.audioContextActivated) {
+                const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+                audio.play().catch(e => console.warn("Audio context activation failed:", e));
+                audioState.audioContextActivated = true;
+          }
+        }
+
+        window.wwOriginals.setPlaying(true); 
+        let currentDisplayStep = context.step; 
+        console.log(`DEBUG: [setPlay] Current display step is: ${currentDisplayStep}`);
+
+        if (!continuing && !audioState.isPaused && currentDisplayStep === newSteps.length - 1) {
+            console.log("DEBUG: [setPlay] At end of steps, wrapping to 0.");
+            currentDisplayStep = 0;
+            window.wwOriginals.setStep(0); 
+        }
+
+        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
+        if (allEventsIndex === undefined) {
+            console.error(`DEBUG: [setPlay] CRITICAL: No allEventsIndex found for displayStep ${currentDisplayStep}. Stopping.`);
+            window.wwOriginals.setPlaying(false);
+            return;
+        }
+        
+        console.log(`DEBUG: [setPlay] Starting audio playback from allEventsIndex: ${allEventsIndex}`);
+        playAudioFrom(allEventsIndex, true);
+      });
+
+      // --- Patch Pause ---
+      mainContext.setPause(() => () => {
+          console.log("DEBUG: [setPause] Pause button clicked. Stopping audio.");
+          window.wwOriginals.setPlaying(false); 
+          audioState.isPaused = true;
+          if (audioState.isAudioPlaying) {
+              audioState.audioPlayer.pause();
+          }
+          const pauseButton = document.querySelector('#pause-audio');
+          if (pauseButton) {
+              pauseButton.classList.add('paused');
+              pauseButton.classList.remove('playing');
+          }
+      });
+
+      mainContext.patchesApplied = true;
   }
 
   // --- THREE.js Scene Setup (Singleton Pattern) ---
@@ -201,11 +201,24 @@ function renderer(context) {
       stopAndClearAudio(); 
       console.log("DEBUG: [playAudioFrom] Audio stopped and cleared.");
 
-      if (audioState.isPaused && startIndex === audioState.lastStartedIndex) {
-          console.log("DEBUG: [playAudioFrom] Resuming paused playback.");
-          audioState.isPaused = false;
-          playNextInQueue(isContinuous); 
-          return;
+      if (audioState.isPaused) {
+          console.log("DEBUG: [playAudioFrom] Audio state was paused.");
+          audioState.isPaused = false; // Un-pause regardless.
+          
+          // If we're at a *new* index (e.g., user clicked slider),
+          // we must NOT resume. We must reload the queue.
+          if (startIndex !== audioState.lastStartedIndex) {
+              console.log(`DEBUG: [playAudioFrom] New start index. Loading queue from: ${startIndex}`);
+              audioState.lastStartedIndex = startIndex; 
+              loadQueueFrom(startIndex);
+              playNextInQueue(isContinuous);
+              return; // We are done.
+          }
+          
+          // If we are at the *same* index, just resume from the (now empty) queue.
+          // The queue will be re-filled by loadQueueFrom.
+          console.log("DEBUG: [playAudioFrom] Paused, resuming from same start index (or undefined).");
+          // Fall through to load and play.
       }
 
       audioState.isPaused = false; 
@@ -3463,7 +3476,7 @@ function renderer(context) {
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
-                                <div class="balloon-text">${voterCap} votes to eliminate ${voteTargetCap}.</div>
+                                <div class="balloon-text">${voterCap} votes to exile ${voteTargetCap}.</div>
                                 ${reasoningHtml}
                             </div>
                         </div>
