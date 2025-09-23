@@ -224,91 +224,95 @@ function renderer(context) {
       const eventsToPlay = allEvents.slice(startIndex);
       console.log(`DEBUG: [loadQueueFrom] Found ${eventsToPlay.length} potential events.`);
 
+      audioState.audioQueue = []; // Clear previous queue
+
       if (eventsToPlay.length > 0) {
           eventsToPlay.forEach((entry, i) => {
               const allEventsIndex = startIndex + i;
-              let audioEvent = null;
+              
+              let audioEventDetails = null;
               const data = entry.data || {};
               const event_name = entry.event_name;
               const description = entry.description || '';
               const day_count = entry.day;
 
+              // This logic is to identify if an event should have audio
+              // and what the audio content is.
               switch (entry.dataType) {
                   case 'ChatDataEntry':
                       if (data.actor_id && data.actor_id !== 'moderator' && data.message) {
-                          audioEvent = { message: data.message, speaker: data.actor_id };
+                          audioEventDetails = { message: data.message, speaker: data.actor_id };
                       }
                       break;
                   case 'DayExileVoteDataEntry':
                       if (data.actor_id && data.target_id) {
-                          audioEvent = { message: `${data.actor_id} votes to exile ${data.target_id}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.actor_id} votes to exile ${data.target_id}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'WerewolfNightVoteDataEntry':
                       if (data.actor_id && data.target_id) {
-                          audioEvent = { message: `${data.actor_id} votes to eliminate ${data.target_id}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.actor_id} votes to eliminate ${data.target_id}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'SeerInspectActionDataEntry':
                       if (data.actor_id && data.target_id) {
-                          audioEvent = { message: `${data.actor_id} inspects ${data.target_id}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.actor_id} inspects ${data.target_id}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'DoctorHealActionDataEntry':
                       if (data.actor_id && data.target_id) {
-                          audioEvent = { message: `${data.actor_id} heals ${data.target_id}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.actor_id} heals ${data.target_id}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'DayExileElectedDataEntry':
                       if (data.elected_player_id && data.elected_player_role_name) {
-                          audioEvent = { message: `${data.elected_player_id} was exiled by vote. Their role was a ${data.elected_player_role_name}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.elected_player_id} was exiled by vote. Their role was a ${data.elected_player_role_name}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'WerewolfNightEliminationDataEntry':
                       if (data.eliminated_player_id && data.eliminated_player_role_name) {
-                          audioEvent = { message: `${data.eliminated_player_id} was eliminated. Their role was a ${data.eliminated_player_role_name}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.eliminated_player_id} was eliminated. Their role was a ${data.eliminated_player_role_name}.`, speaker: 'moderator' };
                       }
                       break;
                   case 'DoctorSaveDataEntry':
                       if (data.saved_player_id) {
-                          audioEvent = { message: `${data.saved_player_id} was attacked but saved by a Doctor!`, speaker: 'moderator' };
+                          audioEventDetails = { message: `${data.saved_player_id} was attacked but saved by a Doctor!`, speaker: 'moderator' };
                       }
                       break;
                   case 'GameEndResultsDataEntry':
                       if (data.winner_team) {
-                          audioEvent = { message: `The game is over. The ${data.winner_team} team has won!`, speaker: 'moderator' };
+                          audioEventDetails = { message: `The game is over. The ${data.winner_team} team has won!`, speaker: 'moderator' };
                       }
                       break;
                   case 'WerewolfNightEliminationElectedDataEntry':
                       if (data.elected_target_player_id) {
-                          audioEvent = { message: `The werewolves have chosen to eliminate ${data.elected_target_player_id}.`, speaker: 'moderator' };
+                          audioEventDetails = { message: `The werewolves have chosen to eliminate ${data.elected_target_player_id}.`, speaker: 'moderator' };
                       }
                       break;
               }
 
-              // Fallback for other moderator announcements that might not have a specific dataType handler
-              if (!audioEvent && event_name === 'moderator_announcement') {
+              if (!audioEventDetails && event_name === 'moderator_announcement') {
                   if (description.includes('discussion rule is')) {
-                      audioEvent = { message: 'Discussion begins!', speaker: 'moderator' };
+                      audioEventDetails = { message: 'Discussion begins!', speaker: 'moderator' };
                   } else if (description.includes('Voting phase begins')) {
-                      audioEvent = { message: 'Exile voting begins!', speaker: 'moderator' };
+                      audioEventDetails = { message: 'Exile voting begins!', speaker: 'moderator' };
                   } else {
-                    audioEvent = { message: entry.description, speaker: 'moderator' };
+                    audioEventDetails = { message: entry.description, speaker: 'moderator' };
                   }
-              } else if (!audioEvent && event_name === 'day_start') {
-                  audioEvent = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
-              } else if (!audioEvent && event_name === 'night_start') {
-                  audioEvent = { message: `Night ${day_count} begins!`, speaker: 'moderator' };
+              } else if (!audioEventDetails && event_name === 'day_start') {
+                  audioEventDetails = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
+              } else if (!audioEventDetails && event_name === 'night_start') {
+                  audioEventDetails = { message: `Night ${day_count} begins!`, speaker: 'moderator' };
               }
 
-
-              if (audioEvent) {
-                  audioEvent.allEventsIndex = allEventsIndex;
-                  audioState.audioQueue.push(audioEvent);
-              }
+              // Every event goes into the queue.
+              audioState.audioQueue.push({
+                  allEventsIndex: allEventsIndex,
+                  audioEvent: audioEventDetails, // This will be null for events without audio
+              });
           });
       }
-      console.log(`DEBUG: [loadQueueFrom] Loaded ${audioState.audioQueue.length} playable audio events into queue.`);
+      console.log(`DEBUG: [loadQueueFrom] Loaded ${audioState.audioQueue.length} events into queue.`);
   }
 
   function playNextInQueue(isContinuous = true) {
@@ -325,11 +329,8 @@ function renderer(context) {
       
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
-      const audioKey = event.speaker === 'moderator' ? `moderator:${event.message}` : `${event.speaker}:${event.message}`;
-      const audioPath = audioMap[audioKey];
-      console.log(`DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`);
-
-      // This is the slider logic
+      
+      // This is the slider logic, it should always run
       if (event.allEventsIndex !== undefined) {
           const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
           console.log(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep}`);
@@ -342,7 +343,15 @@ function renderer(context) {
           }
       }
 
+      let audioPath = null;
+      let audioKey = null;
+      if (event.audioEvent) {
+          audioKey = event.audioEvent.speaker === 'moderator' ? `moderator:${event.audioEvent.message}` : `${event.audioEvent.speaker}:${event.audioEvent.message}`;
+          audioPath = audioMap[audioKey];
+      }
+
       if (audioPath) {
+          console.log(`DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`);
           console.log(`DEBUG: [playNextInQueue] Playing audio: ${audioPath}`);
           audioState.audioPlayer.src = audioPath;
           audioState.audioPlayer.playbackRate = audioState.playbackRate;
@@ -367,9 +376,13 @@ function renderer(context) {
               playNextInQueue(isContinuous);
           });
       } else {
-          console.warn(`DEBUG: [playNextInQueue] No audioPath found for key: "${audioKey}". Skipping.`);
-          audioState.isAudioPlaying = false;
-          playNextInQueue(isContinuous); // Skip to next
+          console.warn(`DEBUG: [playNextInQueue] No audio for event index: ${event.allEventsIndex}. Using setTimeout.`);
+          setTimeout(() => {
+              audioState.isAudioPlaying = false;
+              if (!audioState.isPaused && isContinuous) {
+                  playNextInQueue(isContinuous);
+              }
+          }, context.speed);
       }
   }
 
