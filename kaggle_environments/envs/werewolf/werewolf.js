@@ -132,40 +132,50 @@ function renderer(context) {
       // --- Patch Play ---
       mainContext.setPlay(() => (continuing) => {
         console.log(`DEBUG: [setPlay] Play button clicked. Continuing: ${continuing}`);  
-        if (!audioState.isAudioEnabled) {
-            console.log("DEBUG: [setPlay] Audio was not enabled. Enabling it now.");
-            audioState.isAudioEnabled = true;
-            if (!audioState.audioContextActivated) {
-                const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-                audio.play().catch(e => console.warn("Audio context activation failed:", e));
-                audioState.audioContextActivated = true;
-          }
-        }
+        // if (!audioState.isAudioEnabled) {
+        //     console.log("DEBUG: [setPlay] Audio was not enabled. Enabling it now.");
+        //     audioState.isAudioEnabled = true;
+        //     if (!audioState.audioContextActivated) {
+        //         const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        //         audio.play().catch(e => console.warn("Audio context activation failed:", e));
+        //         audioState.audioContextActivated = true;
+        //   }
+        // }
 
-        window.wwOriginals.setPlaying(true); 
-        let currentDisplayStep = context.step; 
-        console.log(`DEBUG: [setPlay] Current display step is: ${currentDisplayStep}`);
+        if (audioState.isAudioEnabled) {
+            // --- AUDIO-DRIVEN PLAYBACK ---
+            console.log("DEBUG: [setPlay] Audio is ON. Using audio-driven playback.");
+            window.wwOriginals.setPlaying(true); 
+            let currentDisplayStep = context.step; 
+            
+            if (!continuing && !audioState.isPaused && currentDisplayStep === newSteps.length - 1) {
+                currentDisplayStep = 0;
+                window.wwOriginals.setStep(0); 
+            }
 
-        if (!continuing && !audioState.isPaused && currentDisplayStep === newSteps.length - 1) {
-            console.log("DEBUG: [setPlay] At end of steps, wrapping to 0.");
-            currentDisplayStep = 0;
-            window.wwOriginals.setStep(0); 
-        }
+            const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
+            if (allEventsIndex === undefined) {
+                window.wwOriginals.setPlaying(false);
+                return;
+            }
+            
+            playAudioFrom(allEventsIndex, true);
 
-        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
-        if (allEventsIndex === undefined) {
-            console.error(`DEBUG: [setPlay] CRITICAL: No allEventsIndex found for displayStep ${currentDisplayStep}. Stopping.`);
-            window.wwOriginals.setPlaying(false);
-            return;
+        } else {
+            // --- TIMER-DRIVEN PLAYBACK (When audio is off) ---
+            console.log("DEBUG: [setPlay] Audio is OFF. Using original Kaggle timer-based playback.");
+            // This call uses the original player's setTimeout logic.
+            window.wwOriginals.play(continuing);
         }
-        
-        console.log(`DEBUG: [setPlay] Starting audio playback from allEventsIndex: ${allEventsIndex}`);
-        playAudioFrom(allEventsIndex, true);
       });
 
       // --- Patch Pause ---
       mainContext.setPause(() => () => {
           console.log("DEBUG: [setPause] Pause button clicked. Stopping audio.");
+
+          // Stop the timer-based playback if it's running.
+          window.wwOriginals.pause();
+
           window.wwOriginals.setPlaying(false); 
           audioState.isPaused = true;
           if (audioState.isAudioPlaying) {
