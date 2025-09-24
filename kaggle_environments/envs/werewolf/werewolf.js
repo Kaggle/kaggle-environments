@@ -319,6 +319,8 @@ function renderer(context) {
                           audioEventDetails = { message: `${data.actor_id} saw ${data.target_id}'s team is ${data.team}.`, speaker: 'moderator'};
                       }
                       break;
+                  case 'DiscussionOrderDataEntry':
+                      audioEventDetails = { message: description, speaker: 'moderator' };
               }
 
               if (!audioEventDetails && event_name === 'moderator_announcement') {
@@ -3888,6 +3890,9 @@ function renderer(context) {
                 const winners = gameState.players.filter(p => p.team === data.winner_team).map(p => p.name);
                 const losers = gameState.players.filter(p => p.team !== data.winner_team).map(p => p.name);
                 gameState.eventLog.push({ type: 'game_over', step: historyEvent.kaggleStep, day: Infinity, phase: 'GAME_OVER', winner: data.winner_team, winners, losers, allEventsIndex: i, timestamp });
+                break;
+            case 'DiscussionOrderDataEntry':
+                gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, allEventsIndex: i, timestamp });
                 break;
             default:
                 if (systemEntryTypeSet.has(historyEvent.event_name)) {
