@@ -155,8 +155,8 @@ class OpenSpielEnvTest(absltest.TestCase):
   def test_chess_openings_configured_with_seed(self):
     open_spiel_env._register_game_envs(["chess"])
     config = {
-        "useOpenings": True,
-        "seed": 0,
+        "useImage": True,
+        "seed": 1,
     }
     env = make(
         "open_spiel_chess",
@@ -164,17 +164,16 @@ class OpenSpielEnvTest(absltest.TestCase):
         debug=True,
     )
     env.reset()
+    # Image config is loaded during setup step.
+    self.assertFalse("imageConfig" in env.configuration)
     # Setup step
     env.step([
         {"submission": pyspiel.INVALID_ACTION},
         {"submission": pyspiel.INVALID_ACTION},
     ])
-    obs = env.state[0]["observation"]
-    game, state = pyspiel.deserialize_game_and_state(
-        obs["serializedGameAndState"]
-    )
-    # Check that selected opening state does not equal standard start state.
-    self.assertNotEqual(str(state), str(game.new_initial_state()))
+    self.assertTrue("imageConfig" in env.configuration)
+    self.assertEqual(env.configuration["imageConfig"]["color"], "blue")
+    self.assertEqual(env.configuration["imageConfig"]["pieceSet"], "cardinal")
 
 if __name__ == '__main__':
   absltest.main()
