@@ -302,6 +302,13 @@ function renderer(context) {
                           audioEventDetails = { message: `The werewolves have chosen to eliminate ${data.elected_target_player_id}.`, speaker: 'moderator' };
                       }
                       break;
+                  case 'SeerInspectResultDataEntry':
+                      if (data.role) {
+                          audioEventDetails = { message: `${data.actor_id} saw ${data.target_id}'s role is ${data.role}.`, speaker: 'moderator'};
+                      } else if (data.team) {
+                          audioEventDetails = { message: `${data.actor_id} saw ${data.target_id}'s team is ${data.team}.`, speaker: 'moderator'};
+                      }
+                      break;
               }
 
               if (!audioEventDetails && event_name === 'moderator_announcement') {
@@ -2935,7 +2942,7 @@ function renderer(context) {
           isPaused: false,
           lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
           audioPlayer: new Audio(),
-          playbackRate: 1.4,
+          playbackRate: 1.6,
           allEvents: null,
           audioContextActivated: false,
       };
@@ -3829,6 +3836,8 @@ function renderer(context) {
                     const actor_id = match[1];
                     gameState.eventLog.push({ type: 'timeout', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: actor_id, reasoning: "Timed out", timestamp: historyEvent.created_at });
                 }
+            } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start') {
+                gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, allEventsIndex: i, timestamp});
             }
             continue;
         }

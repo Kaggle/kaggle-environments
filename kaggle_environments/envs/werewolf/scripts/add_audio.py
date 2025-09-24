@@ -15,6 +15,7 @@ from google.cloud import texttospeech
 from google.genai import types
 
 from kaggle_environments.envs.werewolf.runner import setup_logger
+from kaggle_environments.envs.werewolf.game.consts import EventName
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +99,6 @@ def extract_game_data_from_json(replay_json):
             json_str = data_entry.get("json_str")
             data_type = data_entry.get("data_type")  # We still need this for filtering
 
-            if not json_str or not data_type:
-                continue
-
             try:
                 # Parse the event data from the json_str, just like the JS does
                 event = json.loads(json_str)
@@ -108,9 +106,6 @@ def extract_game_data_from_json(replay_json):
                 event_name = event.get('event_name')
                 description = event.get('description', '')
                 day_count = event.get('day')
-
-                if not data:
-                    continue
 
             except json.JSONDecodeError as e:
                 logger.warning(f"  - Skipping log entry, failed to parse json_str: {e}")
@@ -145,6 +140,13 @@ def extract_game_data_from_json(replay_json):
                 if 'saved_player_id' in data:
                     dynamic_moderator_messages.add(
                         f"{data['saved_player_id']} was attacked but saved by a Doctor!")
+            elif data_type == "SeerInspectResultDataEntry":
+                if data.get('role'):
+                    dynamic_moderator_messages.add(
+                        f"{data['actor_id']} saw {data['target_id']}'s role is {data['role']}.")
+                elif data.get('team'):
+                    dynamic_moderator_messages.add(
+                        f"{data['actor_id']} saw {data['target_id']}'s team is {data['team']}.")
             elif data_type == "GameEndResultsDataEntry":
                 if 'winner_team' in data:
                     dynamic_moderator_messages.add(f"The game is over. The {data['winner_team']} team has won!")
@@ -152,11 +154,11 @@ def extract_game_data_from_json(replay_json):
                 if 'elected_target_player_id' in data:
                     dynamic_moderator_messages.add(
                         f"The werewolves have chosen to eliminate {data['elected_target_player_id']}.")
-            elif event_name == "day_start":
+            elif event_name == EventName.DAY_START:
                 dynamic_moderator_messages.add(f"Day {day_count} begins!")
-            elif event_name == "night_start":
+            elif event_name == EventName.NIGHT_START:
                 dynamic_moderator_messages.add(f"Night {day_count} begins!")
-            elif event_name == "moderator_announcement":
+            elif event_name == EventName.MODERATOR_ANNOUNCEMENT:
                 if "discussion rule is" in description:
                     dynamic_moderator_messages.add("Discussion begins!")
                 elif "Voting phase begins" in description:
