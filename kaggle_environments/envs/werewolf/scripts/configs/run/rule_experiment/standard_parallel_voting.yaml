@@ -63,7 +63,7 @@ game_config:
         - model_name: "openrouter/qwen/qwen3-235b-a22b-2507"
     - role: "Villager"
       id: "Alex"
-      thumbnail: "https://pbs.twimg.com/profile_images/1911947416678350848/USaKwZgh_400x400.jpg"
+      thumbnail: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg"
       agent_id: "llm/openrouter/z-ai/glm-4.5"
       display_name: "glm-4.5"
       agent_harness_name: "llm_harness"

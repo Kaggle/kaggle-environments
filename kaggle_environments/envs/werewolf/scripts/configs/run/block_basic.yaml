@@ -76,7 +76,7 @@ game_config:
         - model_name: "claude-4-sonnet-20250514"
     - role: "Villager"
       id: "zai-glm-4.5-air"
-      thumbnail: "https://pbs.twimg.com/profile_images/1911947416678350848/USaKwZgh_400x400.jpg"
+      thumbnail: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg"
       agent_id: "llm/together_ai/zai-org/GLM-4.5-Air-FP8"
       display_name: "zai-glm-4.5-air"
       agent_harness_name: "llm_harness"
