@@ -3403,6 +3403,15 @@ function renderer(context) {
                             </div>
                         </div>
                     `;
+                    const seer_balloon = li.querySelector('.balloon');
+                    if (seer_balloon) {
+                        seer_balloon.onclick = (e) => {
+                            e.stopPropagation();
+                            // This will either play (if audio is enabled)
+                            // or queue the request (if audio is disabled)
+                            speak(entry.allEventsIndex);
+                        };
+                    }
                     break;
                 case 'seer_inspection_result':
                     const seerResultViewer = playerMap.get(entry.seer);
@@ -3423,6 +3432,15 @@ function renderer(context) {
                             </div>
                         </div>
                     `;
+                    const seer_balloon_ = li.querySelector('.balloon');
+                    if (seer_balloon_) {
+                        seer_balloon_.onclick = (e) => {
+                            e.stopPropagation();
+                            // This will either play (if audio is enabled)
+                            // or queue the request (if audio is disabled)
+                            speak(entry.allEventsIndex);
+                        };
+                    }
                     break;
                 case 'doctor_heal_action':
                     const doctor = playerMap.get(entry.actor_id);
@@ -3440,6 +3458,15 @@ function renderer(context) {
                             </div>
                         </div>
                     `;
+                    const dr_balloon = li.querySelector('.balloon');
+                    if (dr_balloon) {
+                        dr_balloon.onclick = (e) => {
+                            e.stopPropagation();
+                            // This will either play (if audio is enabled)
+                            // or queue the request (if audio is disabled)
+                            speak(entry.allEventsIndex);
+                        };
+                    }
                     break;
                 case 'system':
                     if (entry.text && entry.text.includes('has begun')) return;
@@ -3489,17 +3516,32 @@ function renderer(context) {
                     li.className = `msg-entry game-event event-day`;
                     let role_text = (entry.role) ? ` (${entry.role})` : "";
                     li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap}${role_text} was exiled by vote.</div>`;
+                    li.style.cursor = 'pointer';
+                    li.onclick = (e) => {
+                        e.stopPropagation();
+                        speak(entry.allEventsIndex);
+                    };
                     break;
                 case 'elimination':
                     const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
                     li.className = `msg-entry game-event event-night`;
                     let elim_role_text = (entry.role) ? ` Their role was a ${entry.role}.` : "";
                     li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated.${elim_role_text}</div>`;
+                    li.style.cursor = 'pointer';
+                    li.onclick = (e) => {
+                        e.stopPropagation();
+                        speak(entry.allEventsIndex);
+                    };
                     break;
                 case 'save':
-                     const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
-                     li.className = `msg-entry event-night`;
-                     li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
+                    const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
+                    li.className = `msg-entry event-night`;
+                    li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
+                    li.style.cursor = 'pointer';
+                    li.onclick = (e) => {
+                        e.stopPropagation();
+                        speak(entry.allEventsIndex);
+                    };
                     break;
                 case 'vote':
                     const voter = playerMap.get(entry.actor_id);
@@ -3521,8 +3563,15 @@ function renderer(context) {
                                 ${reasoningHtml}
                             </div>
                         </div>
-                     `;
-                     break;
+                    `;
+                    const vote_balloon = li.querySelector('.balloon');
+                    if (vote_balloon) {
+                        vote_balloon.onclick = (e) => {
+                            e.stopPropagation();
+                            speak(entry.allEventsIndex);
+                        };
+                    }
+                    break;
                 case 'timeout':
                     const to_voter = playerMap.get(entry.actor_id);
                     if (!to_voter) return;
@@ -3555,6 +3604,13 @@ function renderer(context) {
                             </div>
                         </div>
                     `;
+                    const nvote_balloon = li.querySelector('.balloon');
+                    if (nvote_balloon) {
+                        nvote_balloon.onclick = (e) => {
+                            e.stopPropagation();
+                            speak(entry.allEventsIndex);
+                        };
+                    }
                     break;
                 case 'game_over':
                     const winnersText = entry.winners.map(p => createPlayerCapsule(playerMap.get(p))).join(' ');
@@ -3568,6 +3624,11 @@ function renderer(context) {
                             <div><strong>Losing Team:</strong> ${losersText}</div>
                         </div>
                     `;
+                    li.style.cursor = 'pointer';
+                    li.onclick = (e) => {
+                        e.stopPropagation();
+                        speak(entry.allEventsIndex);
+                    };
                     break;
             }
             if (li.innerHTML) logUl.appendChild(li);
