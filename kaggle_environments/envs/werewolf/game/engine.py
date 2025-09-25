@@ -324,7 +324,8 @@ class Moderator(BaseModerator):
                         description=prompt,
                         event_name=EventName.VOTE_REQUEST,
                         public=False,
-                        visible_to=[ww_voter.id]
+                        visible_to=[ww_voter.id],
+                        visible_in_ui=False
                     )
             return DetailedPhase.NIGHT_AWAIT_ACTIONS
         else:
@@ -473,7 +474,8 @@ class Moderator(BaseModerator):
                         prompt = self.day_voting.get_voting_prompt(self.state, voter_id)
                         self.state.push_event(
                             description=prompt, event_name=EventName.VOTE_REQUEST,
-                            public=False, visible_to=[voter_id]
+                            public=False, visible_to=[voter_id],
+                            visible_in_ui=False
                         )
             return DetailedPhase.DAY_VOTING_AWAIT
 

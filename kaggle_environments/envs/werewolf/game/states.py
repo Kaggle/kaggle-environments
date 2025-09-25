@@ -132,7 +132,9 @@ class GameState(BaseState):
                    event_name: EventName,
                    public: bool,
                    visible_to: Optional[List[PlayerID]] = None,
-                   data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID):
+                   data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID,
+                   visible_in_ui: bool = True
+                   ):
         visible_to = visible_to or []
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
@@ -146,7 +148,8 @@ class GameState(BaseState):
             public=public,
             visible_to=visible_to or [],
             data=data,
-            source=source
+            source=source,
+            visible_in_ui=visible_in_ui
         )
 
         self.history[day_key].append(sys_entry)

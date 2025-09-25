@@ -82,6 +82,8 @@ class Event(BaseEvent):
     data: Optional[dict | DataEntry] = None
     source: str
     created_at: str = Field(default_factory=get_utc_now)
+    visible_in_ui: bool = True
+    """Determine if visible to game viewer in UI. Has no effect to game engine flow."""
 
     @field_serializer('data')
     def serialize_data(self, data):

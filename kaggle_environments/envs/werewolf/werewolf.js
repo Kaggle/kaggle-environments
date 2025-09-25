@@ -51,29 +51,49 @@ function renderer(context) {
 
     let allEventsIndex = 0;
     let currentDisplayStep = 0;
+    const processedPhaseEvents = new Set(); // This will track events within a single phase.
     (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
-        const processedInStep = new Set();
         (stepEvents || []).flat().forEach(dataEntry => {
             const event = JSON.parse(dataEntry.json_str);
+            const dataType = dataEntry.data_type;
+            const visibleInUI = event.visible_in_ui ?? true;
 
-            const isVisibleDataType = visibleEventDataTypes.has(dataEntry.data_type);
-            const isVisibleEntryType = systemEntryTypeSet.has(event.event_name) || (event.event_name === 'vote_action' && !event.data);
+            console.log(`[RAW SEEN] Kaggle Step: ${kaggleStep}`, { dataType: dataType, event: event });
+
+            if (!visibleInUI) {
+              return;
+            }
+
+            // 1. Reset our memory on key phase-changing events.
+            if (event.event_name === 'day_start' || event.event_name === 'night_start' || event.description?.includes('Voting phase begins')) {
+                processedPhaseEvents.clear();
+            }
+
+            // 2. Generate a unique "fingerprint" based on essential event content.
+            let eventFingerprint = event.description;
+            const eventData = event.data;
+
+            // 3. Check against the new fingerprint.
+            if (processedPhaseEvents.has(eventFingerprint)) {
+                return; // This is a repeated state update, not a new event. Ignore it.
+            }
+            processedPhaseEvents.add(eventFingerprint);
+
+            // The rest of your original processing logic follows...
+            const isVisibleDataType = visibleEventDataTypes.has(dataType);
+            const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
 
             if (!isVisibleDataType && !isVisibleEntryType) {
                 return;
             }
 
-            if (processedInStep.has(dataEntry.json_str)) {
-                return;
-            }
-            processedInStep.add(dataEntry.json_str);
-
+            // (Your existing code to push events to player.allEvents, player.displayEvents, etc.)
             event.kaggleStep = kaggleStep;
-            event.dataType = dataEntry.data_type;
+            event.dataType = dataType; // Ensure dataType is set
             player.allEvents.push(event);
             player.eventToKaggleStep.push(kaggleStep);
 
-            if (event.dataType !== 'PhaseDividerDataEntry') {
+            if (dataType !== 'PhaseDividerDataEntry') {
                 player.displayEvents.push(event);
                 player.displayStepToAllEventsIndex.push(allEventsIndex);
                 player.allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
@@ -82,6 +102,8 @@ function renderer(context) {
             allEventsIndex++;
         });
     });
+
+    console.log(`[FINAL STEP LIST]`, player.displayEvents);
 
     const newSteps = player.displayEvents.map((event) => {
         return player.originalSteps[event.kaggleStep];

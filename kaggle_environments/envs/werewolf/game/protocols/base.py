@@ -237,5 +237,6 @@ class DiscussionProtocol(GameProtocol):
                 event_name=EventName.CHAT_REQUEST,
                 public=False,
                 visible_to=[speaker_id],
-                data=data
+                data=data,
+                visible_in_ui=False
             )

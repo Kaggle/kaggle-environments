@@ -305,7 +305,8 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                 ),
                 event_name=EventName.BID_REQEUST,
                 public=True,
-                data=data
+                data=data,
+                visible_in_ui=False
             )
         elif self.is_speaking_phase() and self._speaker:
             super().prompt_speakers_for_tick(state, speakers)
@@ -446,7 +447,8 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
                 ),
                 event_name=EventName.BID_REQEUST,
                 public=True,
-                data=data
+                data=data,
+                visible_in_ui=False
             )
         elif self.is_speaking_phase():
             # The default prompt from the base class is sufficient for speaking.
