@@ -86,6 +86,15 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False
     },
+    "useImage": {
+        "description": (
+            "If true, indicates the observation is intended to be rendered as"
+            " an image. Note that currently the agent harness is responsible"
+            " for the actual rendering; no image is passed in the observation."
+        ),
+        "type": "boolean",
+        "default": False
+    },
     "seed": {
       "description": "Integer currently only used for selecting starting position.",
       "type": "number",
@@ -202,6 +211,28 @@ def _get_initial_actions(
     return initial_actions, opening
 
 
+def _get_image_config(configuration: dict[str, Any]) -> dict[str, Any]:
+  use_image = configuration.get("useImage", None)
+  if use_image is None:
+    raise ValueError(
+      "_get_image_config called but useImage missing from env config."
+    )
+  if not use_image:
+    raise ValueError("_get_image_config called but useImage is False.")
+  seed = configuration.get("seed", None)
+  if seed is None:
+    raise ValueError("Must provide seed if useImage is True.")
+  image_config_path = pathlib.Path(
+      GAMES_DIR, configuration.get("openSpielGameName"), "image_config.jsonl",
+  )
+  if not image_config_path.is_file():
+    raise ValueError(f"No image config file found at {image_config_path}")
+  with open(image_config_path, "r", encoding="utf-8") as f:
+    image_configs = f.readlines()
+    image_config = json.loads(image_configs[seed % len(image_configs)])
+    return image_config
+
+
 # --- Core step logic ---
 
 
@@ -237,6 +268,8 @@ def interpreter(
         env.os_state.apply_action(action)
         env.info["actionHistory"].append(str(action))
         env.info["stateHistory"].append(str(env.os_state))
+  if env.configuration.get("useImage", False):
+    env.configuration["imageConfig"] = _get_image_config(env.configuration)
   
   os_game = env.os_game
   os_state = env.os_state
