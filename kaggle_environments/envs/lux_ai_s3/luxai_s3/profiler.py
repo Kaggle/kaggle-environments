@@ -1,13 +1,13 @@
-from collections import defaultdict
 import os
 import time
-from contextlib import contextmanager
+from collections import defaultdict
 from typing import Literal
-import numpy as np
 
+import numpy as np
 import psutil
 import pynvml
-import subprocess as sp
+
+
 def flatten_dict_keys(d: dict, prefix=""):
     """Flatten a dict by expanding its keys recursively."""
     out = dict()
@@ -17,14 +17,14 @@ def flatten_dict_keys(d: dict, prefix=""):
         else:
             out[prefix + k] = v
     return out
+
+
 class Profiler:
     """
     A simple class to help profile/benchmark simulator code
     """
 
-    def __init__(
-        self, output_format: Literal["stdout", "json"], synchronize_torch: bool = True
-    ) -> None:
+    def __init__(self, output_format: Literal["stdout", "json"], synchronize_torch: bool = True) -> None:
         self.output_format = output_format
         self.synchronize_torch = synchronize_torch
         self.stats = defaultdict(list)
@@ -47,8 +47,9 @@ class Profiler:
         and stats. If the file does not exist, it will be created. The update will replace an existing row
         if the given data matches the data in the row. If there are multiple matches, only the first match
         will be replaced and the rest are deleted"""
-        import pandas as pd
         import os
+
+        import pandas as pd
 
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
@@ -87,21 +88,23 @@ class Profiler:
         if gpu_mem_use is None:
             gpu_mem_use = 0
 
-        for trial in range(trials): 
+        for trial in range(trials):
             stime = time.time()
             function()
             dt = time.time() - stime
             # dt: delta time (s)
             # fps: frames per second
             # psps: parallel steps per second (number of env.step calls per second)
-            self.stats[name].append(dict(
-                dt=dt,
-                fps=total_steps * num_envs / dt,
-                psps=total_steps / dt,
-                total_steps=total_steps,
-                cpu_mem_use=cpu_mem_use,
-                gpu_mem_use=gpu_mem_use,
-            ))
+            self.stats[name].append(
+                dict(
+                    dt=dt,
+                    fps=total_steps * num_envs / dt,
+                    psps=total_steps / dt,
+                    total_steps=total_steps,
+                    cpu_mem_use=cpu_mem_use,
+                    gpu_mem_use=gpu_mem_use,
+                )
+            )
         # torch.cuda.synchronize()
 
     def log_stats(self, name: str):
@@ -115,9 +118,7 @@ class Profiler:
             for k, v in data.items():
                 avg_stats[k].append(v)
         stats = {k: {"avg": np.mean(v), "std": np.std(v) if len(v) > 1 else None} for k, v in avg_stats.items()}
-        self.log(
-            f"{name} ({len(self.stats[name])} trials)"
-        )
+        self.log(f"{name} ({len(self.stats[name])} trials)")
         self.log(
             f"AVG: {stats['fps']['avg']:0.3f} steps/s, {stats['psps']['avg']:0.3f} parallel steps/s, {stats['total_steps']['avg']} steps in {stats['dt']['avg']:0.3f}s"
         )

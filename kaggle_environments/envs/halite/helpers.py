@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
-from kaggle_environments.helpers import Point, group_by
 from typing import *
-import sys
+
 import kaggle_environments.helpers
+from kaggle_environments.helpers import Point, group_by
 
 
 # region Data Model Classes
@@ -27,6 +28,7 @@ class Observation(kaggle_environments.helpers.Observation):
     Observation primarily used as a helper to construct the Board from the raw observation.
     This provides bindings for the observation type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json
     """
+
     @property
     def halite(self) -> List[float]:
         """Serialized list of available halite per cell on the board."""
@@ -48,6 +50,7 @@ class Configuration(kaggle_environments.helpers.Configuration):
     Configuration provides access to tunable parameters in the environment.
     This provides bindings for the configuration type described at https://github.com/Kaggle/kaggle-environments/blob/master/kaggle_environments/envs/halite/halite.json
     """
+
     @property
     def agent_timeout(self) -> float:
         """Maximum runtime (seconds) to initialize an agent."""
@@ -116,18 +119,22 @@ class ShipAction(Enum):
         WEST -> (-1, 0)
         """
         return (
-            Point(0, 1) if self == ShipAction.NORTH else
-            Point(1, 0) if self == ShipAction.EAST else
-            Point(0, -1) if self == ShipAction.SOUTH else
-            Point(-1, 0) if self == ShipAction.WEST else
-            None
+            Point(0, 1)
+            if self == ShipAction.NORTH
+            else Point(1, 0)
+            if self == ShipAction.EAST
+            else Point(0, -1)
+            if self == ShipAction.SOUTH
+            else Point(-1, 0)
+            if self == ShipAction.WEST
+            else None
         )
 
     def __str__(self) -> str:
         return self.name
 
     @staticmethod
-    def moves() -> List['ShipAction']:
+    def moves() -> List["ShipAction"]:
         return [
             ShipAction.NORTH,
             ShipAction.EAST,
@@ -143,13 +150,20 @@ class ShipyardAction(Enum):
         return self.name
 
 
-ShipId = NewType('ShipId', str)
-ShipyardId = NewType('ShipyardId', str)
-PlayerId = NewType('PlayerId', int)
+ShipId = NewType("ShipId", str)
+ShipyardId = NewType("ShipyardId", str)
+PlayerId = NewType("PlayerId", int)
 
 
 class Cell:
-    def __init__(self, position: Point, halite: float, shipyard_id: Optional[ShipyardId], ship_id: Optional[ShipId], board: 'Board') -> None:
+    def __init__(
+        self,
+        position: Point,
+        halite: float,
+        shipyard_id: Optional[ShipyardId],
+        ship_id: Optional[ShipId],
+        board: "Board",
+    ) -> None:
         self._position = position
         self._halite = halite
         self._shipyard_id = shipyard_id
@@ -173,43 +187,51 @@ class Cell:
         return self._ship_id
 
     @property
-    def ship(self) -> Optional['Ship']:
+    def ship(self) -> Optional["Ship"]:
         """Returns the ship on this cell if it exists and None otherwise."""
         return self._board.ships.get(self.ship_id)
 
     @property
-    def shipyard(self) -> Optional['Shipyard']:
+    def shipyard(self) -> Optional["Shipyard"]:
         """Returns the shipyard on this cell if it exists and None otherwise."""
         return self._board.shipyards.get(self.shipyard_id)
 
-    def neighbor(self, offset: Point) -> 'Cell':
+    def neighbor(self, offset: Point) -> "Cell":
         """Returns the cell at self.position + offset."""
         (x, y) = self.position + offset
         return self._board[x, y]
 
     @property
-    def north(self) -> 'Cell':
+    def north(self) -> "Cell":
         """Returns the cell north of this cell."""
         return self.neighbor(ShipAction.NORTH.to_point())
 
     @property
-    def south(self) -> 'Cell':
+    def south(self) -> "Cell":
         """Returns the cell south of this cell."""
         return self.neighbor(ShipAction.SOUTH.to_point())
 
     @property
-    def east(self) -> 'Cell':
+    def east(self) -> "Cell":
         """Returns the cell east of this cell."""
         return self.neighbor(ShipAction.EAST.to_point())
 
     @property
-    def west(self) -> 'Cell':
+    def west(self) -> "Cell":
         """Returns the cell west of this cell."""
         return self.neighbor(ShipAction.WEST.to_point())
 
 
 class Ship:
-    def __init__(self, ship_id: ShipId, position: Point, halite: int, player_id: PlayerId, board: 'Board', next_action: Optional[ShipAction] = None) -> None:
+    def __init__(
+        self,
+        ship_id: ShipId,
+        position: Point,
+        halite: int,
+        player_id: PlayerId,
+        board: "Board",
+        next_action: Optional[ShipAction] = None,
+    ) -> None:
         self._id = ship_id
         self._position = position
         self._halite = halite
@@ -239,7 +261,7 @@ class Ship:
         return self._board[self.position]
 
     @property
-    def player(self) -> 'Player':
+    def player(self) -> "Player":
         """Returns the player that owns this ship."""
         return self._board.players[self.player_id]
 
@@ -260,7 +282,14 @@ class Ship:
 
 
 class Shipyard:
-    def __init__(self, shipyard_id: ShipyardId, position: Point, player_id: PlayerId, board: 'Board', next_action: Optional[ShipyardAction] = None) -> None:
+    def __init__(
+        self,
+        shipyard_id: ShipyardId,
+        position: Point,
+        player_id: PlayerId,
+        board: "Board",
+        next_action: Optional[ShipyardAction] = None,
+    ) -> None:
         self._id = shipyard_id
         self._position = position
         self._player_id = player_id
@@ -285,7 +314,7 @@ class Shipyard:
         return self._board[self.position]
 
     @property
-    def player(self) -> 'Player':
+    def player(self) -> "Player":
         return self._board.players[self.player_id]
 
     @property
@@ -305,7 +334,9 @@ class Shipyard:
 
 
 class Player:
-    def __init__(self, player_id: PlayerId, halite: int, shipyard_ids: List[ShipyardId], ship_ids: List[ShipId], board: 'Board') -> None:
+    def __init__(
+        self, player_id: PlayerId, halite: int, shipyard_ids: List[ShipyardId], ship_ids: List[ShipId], board: "Board"
+    ) -> None:
         self._id = player_id
         self._halite = halite
         self._shipyard_ids = shipyard_ids
@@ -331,18 +362,12 @@ class Player:
     @property
     def shipyards(self) -> List[Shipyard]:
         """Returns all shipyards owned by this player."""
-        return [
-            self._board.shipyards[shipyard_id]
-            for shipyard_id in self.shipyard_ids
-        ]
+        return [self._board.shipyards[shipyard_id] for shipyard_id in self.shipyard_ids]
 
     @property
     def ships(self) -> List[Ship]:
         """Returns all ships owned by this player."""
-        return [
-            self._board.ships[ship_id]
-            for ship_id in self.ship_ids
-        ]
+        return [self._board.ships[ship_id] for ship_id in self.ship_ids]
 
     @property
     def is_current_player(self) -> bool:
@@ -352,15 +377,9 @@ class Player:
     @property
     def next_actions(self) -> Dict[str, str]:
         """Returns all queued ship and shipyard actions for this player formatted for the halite interpreter to receive as an agent response."""
-        ship_actions = {
-            ship.id: ship.next_action.name
-            for ship in self.ships
-            if ship.next_action is not None
-        }
+        ship_actions = {ship.id: ship.next_action.name for ship in self.ships if ship.next_action is not None}
         shipyard_actions = {
-            shipyard.id: shipyard.next_action.name
-            for shipyard in self.shipyards
-            if shipyard.next_action is not None
+            shipyard.id: shipyard.next_action.name for shipyard in self.shipyards if shipyard.next_action is not None
         }
         return {**ship_actions, **shipyard_actions}
 
@@ -370,6 +389,8 @@ class Player:
         shipyards = {shipyard.id: shipyard._observation for shipyard in self.shipyards}
         ships = {ship.id: ship._observation for ship in self.ships}
         return [self.halite, shipyards, ships]
+
+
 # endregion
 
 
@@ -378,7 +399,7 @@ class Board:
         self,
         raw_observation: Dict[str, Any],
         raw_configuration: Union[Configuration, Dict[str, Any]],
-        next_actions: Optional[List[Dict[str, str]]] = None
+        next_actions: Optional[List[Dict[str, str]]] = None,
     ) -> None:
         """
         Creates a board from the provided observation, configuration, and next_actions as specified by
@@ -414,33 +435,25 @@ class Board:
                 # We'll populate the cell's ships and shipyards in _add_ship and _add_shipyard
                 self.cells[position] = Cell(position, halite, None, None, self)
 
-        for (player_id, player_observation) in enumerate(observation.players):
+        for player_id, player_observation in enumerate(observation.players):
             # We know the len(player_observation) == 3 based on the schema -- this is a hack to have a tuple in json
             [player_halite, player_shipyards, player_ships] = player_observation
             # We'll populate the player's ships and shipyards in _add_ship and _add_shipyard
             self.players[player_id] = Player(player_id, player_halite, [], [], self)
             player_actions = next_actions[player_id] or {}
 
-            for (ship_id, [ship_index, ship_halite]) in player_ships.items():
+            for ship_id, [ship_index, ship_halite] in player_ships.items():
                 # In the raw observation, halite is stored as a 1d list but we convert it to a 2d dict for convenience
                 # Accordingly we also need to convert our list indices to dict keys / 2d positions
                 ship_position = Point.from_index(ship_index, size)
                 raw_action = player_actions.get(ship_id)
-                action = (
-                    ShipAction[raw_action]
-                    if raw_action in ShipAction.__members__
-                    else None
-                )
+                action = ShipAction[raw_action] if raw_action in ShipAction.__members__ else None
                 self._add_ship(Ship(ship_id, ship_position, ship_halite, player_id, self, action))
 
-            for (shipyard_id, shipyard_index) in player_shipyards.items():
+            for shipyard_id, shipyard_index in player_shipyards.items():
                 shipyard_position = Point.from_index(shipyard_index, size)
                 raw_action = player_actions.get(shipyard_id)
-                action = (
-                    ShipyardAction[raw_action]
-                    if raw_action in ShipyardAction.__members__
-                    else None
-                )
+                action = ShipyardAction[raw_action] if raw_action in ShipyardAction.__members__ else None
                 self._add_shipyard(Shipyard(shipyard_id, shipyard_position, player_id, self, action))
 
     @property
@@ -502,7 +515,7 @@ class Board:
             "remainingOverageTime": self._remaining_overage_time,
         }
 
-    def __deepcopy__(self, _) -> 'Board':
+    def __deepcopy__(self, _) -> "Board":
         actions = [player.next_actions for player in self.players.values()]
         return Board(self.observation, self.configuration, actions)
 
@@ -527,51 +540,43 @@ class Board:
         etc.
         """
         size = self.configuration.size
-        result = ''
+        result = ""
         for y in range(size):
             for x in range(size):
                 cell = self[(x, size - y - 1)]
-                result += '|'
-                result += (
-                    chr(ord('a') + cell.ship.player_id)
-                    if cell.ship is not None
-                    else ' '
-                )
+                result += "|"
+                result += chr(ord("a") + cell.ship.player_id) if cell.ship is not None else " "
                 # This normalizes a value from 0 to max_cell halite to a value from 0 to 9
                 normalized_halite = int(9.0 * cell.halite / float(self.configuration.max_cell_halite))
                 result += str(normalized_halite)
-                result += (
-                    chr(ord('A') + cell.shipyard.player_id)
-                    if cell.shipyard is not None
-                    else ' '
-                )
-            result += '|\n'
+                result += chr(ord("A") + cell.shipyard.player_id) if cell.shipyard is not None else " "
+            result += "|\n"
         return result
 
-    def _add_ship(self: 'Board', ship: Ship) -> None:
+    def _add_ship(self: "Board", ship: Ship) -> None:
         ship.player.ship_ids.append(ship.id)
         ship.cell._ship_id = ship.id
         self._ships[ship.id] = ship
 
-    def _add_shipyard(self: 'Board', shipyard: Shipyard) -> None:
+    def _add_shipyard(self: "Board", shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.append(shipyard.id)
         shipyard.cell._shipyard_id = shipyard.id
         shipyard.cell._halite = 0
         self._shipyards[shipyard.id] = shipyard
 
-    def _delete_ship(self: 'Board', ship: Ship) -> None:
+    def _delete_ship(self: "Board", ship: Ship) -> None:
         ship.player.ship_ids.remove(ship.id)
         if ship.cell.ship_id == ship.id:
             ship.cell._ship_id = None
         del self._ships[ship.id]
 
-    def _delete_shipyard(self: 'Board', shipyard: Shipyard) -> None:
+    def _delete_shipyard(self: "Board", shipyard: Shipyard) -> None:
         shipyard.player.shipyard_ids.remove(shipyard.id)
         if shipyard.cell.shipyard_id == shipyard.id:
             shipyard.cell._shipyard_id = None
         del self._shipyards[shipyard.id]
 
-    def next(self) -> 'Board':
+    def next(self) -> "Board":
         """
         Returns a new board with the current board's next actions applied.
         The current board is unmodified.
@@ -619,7 +624,7 @@ class Board:
                     # If the action is not None and is not CONVERT it must be NORTH, SOUTH, EAST, or WEST
                     ship.cell._ship_id = None
                     ship._position = ship.position.translate(ship.next_action.to_point(), configuration.size)
-                    ship._halite *= (1 - board.configuration.move_cost)
+                    ship._halite *= 1 - board.configuration.move_cost
                     # We don't set the new cell's ship_id here as it would be overwritten by another ship in the case of collision.
                     # Later we'll iterate through all ships and re-set the cell._ship_id as appropriate.
 
@@ -703,6 +708,7 @@ def board_agent(agent: Callable[[Board], None]):
     def my_agent(board: Board) -> None:
         ...
     """
+
     @wraps(agent)
     def agent_wrapper(obs, config) -> Dict[str, str]:
         board = Board(obs, config)

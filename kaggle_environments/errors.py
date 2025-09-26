@@ -21,9 +21,7 @@ with open(status_path) as json_file:
     codes = json.load(json_file)
 
 for status in codes:
-    codes[status]["name"] = "".join(
-        "".join([word[0].upper(), word[1:].lower()]) for word in status.split("_")
-    )
+    codes[status]["name"] = "".join("".join([word[0].upper(), word[1:].lower()]) for word in status.split("_"))
 
 
 class CanonicalError(Exception):

@@ -1,5 +1,3 @@
-from collections.abc import Iterable
-
 import numpy as np
 
 
@@ -55,9 +53,7 @@ class SymmetricNoise(object):
             octaves : how fine the features are
         """
         if symmetry not in (None, "vertical", "horizontal", "rotational", "/", "\\"):
-            raise ValueError(
-                "symmetry must be one of None, 'vertical', 'horizontal', 'rotational', '/', and '\\'"
-            )
+            raise ValueError("symmetry must be one of None, 'vertical', 'horizontal', 'rotational', '/', and '\\'")
         if symmetry and symmetry in "/\\" and width != height:
             raise ValueError("width and height must be equal if symmetry = / or \\")
 
@@ -92,6 +88,7 @@ class SymmetricNoise(object):
         x, y = np.meshgrid(x, y)
         # importing here because vec_noise causes import issues in cloud functions
         from vec_noise import snoise2
+
         total = snoise2(x, y, octaves=self.octaves)
         symmetrize(total, self.symmetry)
         # Normalize between [0, 1]

@@ -1,6 +1,7 @@
 from kaggle_environments import make
-from .kore_fleets import random_agent
+
 from .helpers import *
+
 
 def test_shipyard_action_class_serialization():
     launch = ShipyardAction.launch_fleet_in_direction(10, Direction.NORTH)
@@ -18,6 +19,7 @@ def test_shipyard_action_class_serialization():
     assert spawn.action_type == parsed.action_type, "type"
     assert spawn.num_ships == parsed.num_ships, "num_ships"
 
+
 def test_kore_no_repeated_steps():
     step_count = 10
     actual_steps = []
@@ -29,6 +31,7 @@ def test_kore_no_repeated_steps():
     env = make("kore_fleets", configuration={"episodeSteps": step_count}, debug=True)
     env.run([step_appender_agent])
     assert actual_steps == list(range(step_count - 1))
+
 
 def test_kore_helpers():
     env = make("kore_fleets", configuration={"size": 5, "episodeSteps": 100}, debug=True)
@@ -49,16 +52,13 @@ def test_kore_helpers():
 
 
 def test_start_with_one_shipyard_and_no_fleets():
-    env = make("kore_fleets", configuration={
-        "size": 3,
-        "startingKore": 100,
-        "randomSeed": 0 
-    })
+    env = make("kore_fleets", configuration={"size": 3, "startingKore": 100, "randomSeed": 0})
     obs = env.reset(2)[0].observation
-    players = obs.get('players')
+    players = obs.get("players")
     assert len(players) == 2
     assert len(players[0][1].items()) == 1
     assert len(players[0][2].items()) == 0
+
 
 def test_shipyards_make_ships():
     board = create_board()
@@ -69,6 +69,7 @@ def test_shipyards_make_ships():
 
     for shipyard in board.shipyards.values():
         assert shipyard.ship_count == 1, "Should have spawned a ship"
+
 
 def test_shipyards_launch_fleet():
     board = create_board()
@@ -83,6 +84,7 @@ def test_shipyards_launch_fleet():
     board = board.next()
 
     assert len(board.current_player.fleets) == 1, "should have one fleet"
+
 
 def test_flight_plan_truncated():
     board = create_board()
@@ -100,6 +102,7 @@ def test_flight_plan_truncated():
     print(board.current_player.fleets[0].flight_plan)
     assert board.current_player.fleets[0].flight_plan == "", "should have an empty flight plan"
 
+
 def test_fleets_launched_with_direction():
     board = create_board()
     for shipyard in board.shipyards.values():
@@ -114,6 +117,7 @@ def test_fleets_launched_with_direction():
 
     assert len(board.current_player.fleets) == 1, "should have one fleet"
     assert board.current_player.fleets[0].direction == Direction.NORTH, "should go NORTH"
+
 
 def test_fleets_move_in_direction():
     board = create_board(size=10)
@@ -134,22 +138,17 @@ def test_fleets_move_in_direction():
     for fleet in board.fleets.values():
         print(fleet.id, fleet.direction, fleet.position)
 
-    positions = {
-        fleet.id: fleet.position
-        for fleet in board.fleets.values()
-    }
+    positions = {fleet.id: fleet.position for fleet in board.fleets.values()}
 
     board = board.next()
 
-    new_positions = {
-        fleet.id: fleet.position
-        for fleet in board.fleets.values()
-    }
+    new_positions = {fleet.id: fleet.position for fleet in board.fleets.values()}
 
     assert len(positions) == 2 and len(positions) == len(new_positions), "there should be two fleets"
 
     for key in positions.keys():
         assert positions.get(key) + Direction.NORTH.to_point() == new_positions.get(key)
+
 
 def test_kore_regenerates():
     board = create_board(size=31)
@@ -162,6 +161,7 @@ def test_kore_regenerates():
 
     assert board.get_cell_at_point(p).kore < next_board.get_cell_at_point(p).kore, "should have regenerated kore"
 
+
 def test_spawn_zero_has_no_effect():
     board = create_board(size=31)
 
@@ -173,10 +173,11 @@ def test_spawn_zero_has_no_effect():
     next_board = board.next()
     next_shipyard = next_board.shipyards.get(shipyard_id)
 
-    assert shipyard.ship_count == 0, 'should have 0 ships'
-    assert next_shipyard.ship_count == 0, 'should not have spawned a ship'
-    assert board.players[0].kore == next_board.players[0].kore, 'kore should be the same'
-    
+    assert shipyard.ship_count == 0, "should have 0 ships"
+    assert next_shipyard.ship_count == 0, "should not have spawned a ship"
+    assert board.players[0].kore == next_board.players[0].kore, "kore should be the same"
+
+
 def test_fleet_coalescence_works():
     board = create_board(size=31)
 
@@ -194,6 +195,7 @@ def test_fleet_coalescence_works():
     next_fleet = next_board.get_fleet_at_point(p)
     assert next_fleet.id == "f1", "biggest fleet should absord others"
 
+
 def test_fleets_pick_up_kore():
     board = create_board(size=31)
 
@@ -210,6 +212,7 @@ def test_fleets_pick_up_kore():
     next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert next_fleet.kore > fleet.kore, "ships should pick up kore"
 
+
 def test_updates_flight_plan_decrements():
     board = create_board(size=31)
 
@@ -222,6 +225,7 @@ def test_updates_flight_plan_decrements():
     next_fleet = next_board.get_fleet_at_point(p + Direction.SOUTH.to_point())
     assert Direction.SOUTH.to_char() == next_fleet.direction.to_char(), "should not change direction"
     assert "7N" == next_fleet.flight_plan, "should update flight plan"
+
 
 def test_updates_flight_plan_changes_direction():
     board = create_board(size=31)
@@ -236,6 +240,7 @@ def test_updates_flight_plan_changes_direction():
     assert Direction.SOUTH.to_char() == next_fleet.direction.to_char(), "should change direction"
     assert "" == next_fleet.flight_plan, "should update flight plan"
 
+
 def test_updates_flight_plan_converts_to_shipyard():
     board = create_board(size=31)
 
@@ -249,6 +254,7 @@ def test_updates_flight_plan_converts_to_shipyard():
     assert shipyard is not None, "should have built a shipyard"
     assert shipyard.player_id == f.player_id, "should belong to the player"
     assert shipyard.ship_count == 50, "should have the right number of ships"
+
 
 def test_adjacent_combat_dumps_all_kore_when_both_die():
     board = create_board(size=31)
@@ -267,6 +273,7 @@ def test_adjacent_combat_dumps_all_kore_when_both_die():
     p1_kore_next = next_board.cells.get(p1 + Direction.NORTH.to_point()).kore
     assert f1_next is None, "should have been destroyed"
     assert p1_kore + 100 < p1_kore_next, "should dump all kore"
+
 
 def test_adjacent_combat_dumps_half_kore_when_one_dies():
     board = create_board(size=31)
@@ -289,6 +296,7 @@ def test_adjacent_combat_dumps_half_kore_when_one_dies():
     f2_next = next_board.fleets.get("f2")
     assert f2.kore + 50 <= f2_next.kore and f2.kore + 55 > f2_next.kore, "Should have picked up half"
 
+
 def test_updates_flight_plan_does_not_convert_if_not_enough_ships():
     board = create_board(size=31)
 
@@ -304,6 +312,7 @@ def test_updates_flight_plan_does_not_convert_if_not_enough_ships():
     assert f.id == next_fleet.id, "should have the same id"
     assert "" == next_fleet.flight_plan, "should update flight plan"
 
+
 def test_updates_flight_plan_works_with_two_converts():
     board = create_board(size=31)
 
@@ -318,10 +327,5 @@ def test_updates_flight_plan_works_with_two_converts():
 
 
 def create_board(size=21, starting_kore=100, agent_count=2, random_seed=0):
-    env = make("kore_fleets", configuration={
-        "size": size,
-        "startingKore": starting_kore,
-        "randomSeed": random_seed
-    })
+    env = make("kore_fleets", configuration={"size": size, "startingKore": starting_kore, "randomSeed": random_seed})
     return Board(env.reset(agent_count)[0].observation, env.configuration)
-
