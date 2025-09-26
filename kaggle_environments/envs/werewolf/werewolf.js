@@ -226,35 +226,45 @@ function renderer(context) {
       console.log(`DEBUG: [playAudioFrom] Called with startIndex: ${startIndex}, isContinuous: ${isContinuous}`);
       if (!audioState.isAudioEnabled) {
           console.error("DEBUG: [playAudioFrom] FAILED: Audio is not enabled.");
-          // This was my previous fix, but let's assume you're right and it's enabled.
-          return; 
+          return;
       }
 
-      stopAndClearAudio(); 
+      // This tells the main Kaggle player that playback is active.
+      if (window.wwOriginals && window.wwOriginals.setPlaying) {
+          window.wwOriginals.setPlaying(true);
+      }
+      // This updates your custom audio panel's button.
+      const pauseButton = parent.querySelector('#pause-audio');
+      if (pauseButton) {
+          pauseButton.classList.remove('paused');
+          pauseButton.classList.add('playing');
+      }
+
+      stopAndClearAudio();
       console.log("DEBUG: [playAudioFrom] Audio stopped and cleared.");
 
       if (audioState.isPaused) {
           console.log("DEBUG: [playAudioFrom] Audio state was paused.");
           audioState.isPaused = false; // Un-pause regardless.
-          
+
           // If we're at a *new* index (e.g., user clicked slider),
           // we must NOT resume. We must reload the queue.
           if (startIndex !== audioState.lastStartedIndex) {
               console.log(`DEBUG: [playAudioFrom] New start index. Loading queue from: ${startIndex}`);
-              audioState.lastStartedIndex = startIndex; 
+              audioState.lastStartedIndex = startIndex;
               loadQueueFrom(startIndex);
               playNextInQueue(isContinuous);
               return; // We are done.
           }
-          
+
           // If we are at the *same* index, just resume from the (now empty) queue.
           // The queue will be re-filled by loadQueueFrom.
           console.log("DEBUG: [playAudioFrom] Paused, resuming from same start index (or undefined).");
           // Fall through to load and play.
       }
 
-      audioState.isPaused = false; 
-      audioState.lastStartedIndex = startIndex; 
+      audioState.isPaused = false;
+      audioState.lastStartedIndex = startIndex;
       loadQueueFrom(startIndex);
       playNextInQueue(isContinuous);
   }
