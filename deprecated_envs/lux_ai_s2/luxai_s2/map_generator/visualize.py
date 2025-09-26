@@ -3,7 +3,6 @@ try:
     import pygame
 except:
     pass
-import numpy as np
 
 
 def viz(game_map, screen=None):

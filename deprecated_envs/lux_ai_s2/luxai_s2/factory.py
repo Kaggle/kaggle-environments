@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import time
 from collections import deque
-from itertools import product
-from typing import List
+
 try:
-    from typing import TypedDict    
+    from typing import TypedDict
 except:
     from typing_extensions import TypedDict
 
 import numpy as np
 import numpy.typing as npt
-
 from luxai_s2.actions import move_deltas
 from luxai_s2.config import EnvConfig
 from luxai_s2.globals import TERM_COLORS
@@ -48,12 +45,7 @@ def compute_water_info(
             print("Error! Lichen Growth calculation took too long")
             break
         pos = frontier.popleft()
-        if (
-            pos[0] < 0
-            or pos[1] < 0
-            or pos[0] >= forbidden.shape[0]
-            or pos[1] >= forbidden.shape[1]
-        ):
+        if pos[0] < 0 or pos[1] < 0 or pos[0] >= forbidden.shape[0] or pos[1] >= forbidden.shape[1]:
             continue
 
         if forbidden[pos[0], pos[1]]:
@@ -65,21 +57,14 @@ def compute_water_info(
         for move_delta in move_deltas[1:]:
             check_pos = pos + move_delta
             # check surrounding tiles on the map
-            if (
-                check_pos[0] < 0
-                or check_pos[1] < 0
-                or check_pos[0] >= H
-                or check_pos[1] >= W
-            ):
+            if check_pos[0] < 0 or check_pos[1] < 0 or check_pos[0] >= H or check_pos[1] >= W:
                 continue
 
             # If any neighbor 1. has a different strain, or 2. is a different factory,
             # then the current pos cannot grow
             adj_strain = lichen_strains[check_pos[0], check_pos[1]]
             adj_factory = factory_occupancy_map[check_pos[0], check_pos[1]]
-            if (adj_strain != -1 and adj_strain != strain_id) or (
-                adj_factory != -1 and adj_factory != strain_id
-            ):
+            if (adj_strain != -1 and adj_strain != strain_id) or (adj_factory != -1 and adj_factory != strain_id):
                 can_grow = False
 
             # if seen, skip
@@ -126,9 +111,7 @@ class Factory:
 
     @property
     def pos_slice(self):
-        return slice(self.pos.x - 1, self.pos.x + 2), slice(
-            self.pos.y - 1, self.pos.y + 2
-        )
+        return slice(self.pos.x - 1, self.pos.x + 2), slice(self.pos.y - 1, self.pos.y + 2)
 
     @property
     def min_dist_slice(self):
@@ -250,12 +233,7 @@ class Factory:
            x x x
 
         """
-        forbidden = (
-            (board.rubble > 0)
-            | (board.factory_occupancy_map != -1)
-            | (board.ice > 0)
-            | (board.ore > 0)
-        )
+        forbidden = (board.rubble > 0) | (board.factory_occupancy_map != -1) | (board.ice > 0) | (board.ore > 0)
         deltas = [
             np.array([0, -2]),
             np.array([-1, -2]),
@@ -282,11 +260,7 @@ class Factory:
         )
 
     def water_cost(self, config: EnvConfig):
-        return int(
-            np.ceil(
-                len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR
-            )
-        )
+        return int(np.ceil(len(self.grow_lichen_positions) / config.LICHEN_WATERING_COST_FACTOR))
 
     ### Add and sub resource functions copied over from unit.py code, can we consolidate them somewhere?
     def add_resource(self, resource_id, transfer_amount):

@@ -19,9 +19,7 @@ def get_top_two_power_units(units: List[Unit], unit_type: UnitType):
                 next_most_power_unit = most_power_unit
                 most_power_unit = u
                 most_power = u.power
-            elif (
-                u.power >= next_most_power
-            ):  # >= check since we want to top 2 power units which can tie
+            elif u.power >= next_most_power:  # >= check since we want to top 2 power units which can tie
                 next_most_power_unit = u
                 next_most_power = u.power
 

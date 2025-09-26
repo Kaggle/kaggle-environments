@@ -1,10 +1,9 @@
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-
 from luxai_s2.config import EnvConfig
 from luxai_s2.factory import Factory
 from luxai_s2.team import FactionTypes
@@ -54,9 +53,7 @@ class ActionsQueue(spaces.Space):
     def contains(self, x: Any) -> bool:
         if isinstance(x, list) and len(x) > self.max_length:
             return False
-        elif (
-            isinstance(x, np.ndarray) and len(x.shape) == 2 and len(x) > self.max_length
-        ):
+        elif isinstance(x, np.ndarray) and len(x.shape) == 2 and len(x) > self.max_length:
             return False
         elif isinstance(x, np.ndarray) and x.shape[0] == 0:
             # empty action
@@ -79,9 +76,7 @@ def get_act_space_init(config: EnvConfig, agent: str):
     # Get action space for turn 0 initialization
     act_space = dict()
     act_space["faction"] = FactionString()
-    act_space["spawns"] = spaces.Box(
-        low=0, high=config.map_size, shape=(config.MAX_FACTORIES, 2), dtype=int
-    )
+    act_space["spawns"] = spaces.Box(low=0, high=config.map_size, shape=(config.MAX_FACTORIES, 2), dtype=int)
     return spaces.Dict(act_space)
 
 
@@ -132,7 +127,7 @@ def get_act_space(
         # a[3] = X, amount of resources transferred or picked up if action is transfer or pickup.
         # If action is recharge, it is how much energy to store before executing the next action in queue
 
-        # a[4] = repeat. If repeat == 0, then action is not recycled and removed once we have executed it a[5] = n times. 
+        # a[4] = repeat. If repeat == 0, then action is not recycled and removed once we have executed it a[5] = n times.
         # Otherwise if repeat > 0 we recycle this action to the back of the action queue and set n = repeat.
 
         # a[5] = n, number of times to execute this action before exhausting it and removing it from the front of the action queue. Minimum is 1.

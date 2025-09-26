@@ -1,4 +1,6 @@
 import numpy as np
+
+
 def to_json(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
@@ -15,6 +17,8 @@ def to_json(obj):
         return out
     else:
         return obj
+
+
 def from_json(state):
     if isinstance(state, list):
         return np.array(state)
@@ -24,4 +28,4 @@ def from_json(state):
             out[k] = from_json(state[k])
         return out
     else:
-        return state 
+        return state
