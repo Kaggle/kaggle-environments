@@ -25,11 +25,11 @@ RUN node -v && npm -v
 
 WORKDIR /usr/src/app/kaggle_environments
 
-ADD ./setup.py ./setup.py
+ADD ./pyproject.toml ./pyproject.toml
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
-# vec-noise cannot be installed with uv's more stringent checks.
-RUN pip install vec-noise && uv pip install Flask bitsandbytes accelerate jax gymnax==0.0.8 && uv pip install . && pytest
+
+RUN uv pip install . && pytest
 
 CMD kaggle-environments
