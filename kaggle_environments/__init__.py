@@ -21,7 +21,7 @@ from .api import get_episode_replay, list_episodes, list_episodes_for_submission
 from .core import *
 from .main import http_request
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
 __all__ = [
     "Agent",
