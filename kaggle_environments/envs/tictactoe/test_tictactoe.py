@@ -52,7 +52,7 @@ def custom6(obs):
 def before_each(state=None):
     global env
     steps = [] if state == None else [state]
-    env = make("tictactoe", steps=steps, debug=True)
+    env = make("tictactoe", steps=steps, debug=False)
 
 
 def test_to_json():
@@ -200,14 +200,14 @@ def test_can_run_custom_agents():
 
 
 def test_agents_can_timeout_on_init():
-    env = make("tictactoe", debug=True)
+    env = make("tictactoe", debug=False)
     state = env.run([custom1, custom3])[-1]
     assert state[1]["status"] == "TIMEOUT"
     assert state[1]["observation"]["remainingOverageTime"] < 0
 
 
 def test_agents_can_timeout_on_act():
-    env = make("tictactoe", debug=True)
+    env = make("tictactoe", debug=False)
     state = env.run([custom1, custom6])[-1]
     print(state)
     assert state[1]["status"] == "TIMEOUT"
@@ -215,7 +215,7 @@ def test_agents_can_timeout_on_act():
 
 
 def test_run_timeout():
-    env = make("tictactoe", debug=True, configuration={"actTimeout": 10, "runTimeout": 1})
+    env = make("tictactoe", debug=False, configuration={"actTimeout": 10, "runTimeout": 1})
     try:
         state = env.run([custom1, custom3])[-1]
     except errors.DeadlineExceeded:

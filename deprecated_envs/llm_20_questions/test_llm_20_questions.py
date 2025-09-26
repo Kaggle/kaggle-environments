@@ -30,7 +30,7 @@ def error_agent():
 
 
 def test_llm_20_q_completes():
-    env = make("llm_20_questions", debug=True)
+    env = make("llm_20_questions", debug=False)
     env.run([custom_questioner, custom_answerer, custom_questioner, custom_answerer])
     json = env.toJSON()
     assert json["name"] == "llm_20_questions"
@@ -38,7 +38,7 @@ def test_llm_20_q_completes():
 
 
 def test_llm_20_q_errors_on_bad_answer():
-    env = make("llm_20_questions", debug=True)
+    env = make("llm_20_questions", debug=False)
     env.run([custom_questioner, custom_answerer, custom_questioner, bad_answerer])
     json = env.toJSON()
     assert json["name"] == "llm_20_questions"
@@ -49,7 +49,7 @@ def test_llm_20_q_errors_on_bad_answer():
 
 
 def test_llm_20_q_errors_on_error_answer():
-    env = make("llm_20_questions", debug=True)
+    env = make("llm_20_questions", debug=False)
     env.run([custom_questioner, custom_answerer, custom_questioner, error_agent])
     json = env.toJSON()
     assert json["name"] == "llm_20_questions"
@@ -59,7 +59,7 @@ def test_llm_20_q_errors_on_error_answer():
 
 
 def test_llm_20_q_errors_on_error_question():
-    env = make("llm_20_questions", debug=True)
+    env = make("llm_20_questions", debug=False)
     env.run([custom_questioner, custom_answerer, error_agent, custom_answerer])
     json = env.toJSON()
     assert json["name"] == "llm_20_questions"
@@ -69,7 +69,7 @@ def test_llm_20_q_errors_on_error_question():
 
 
 def test_llm_20_q_errors_on_error_last_guess():
-    env = make("llm_20_questions", debug=True)
+    env = make("llm_20_questions", debug=False)
     env.run([custom_questioner, custom_answerer, last_round_guesser_error, custom_answerer])
     json = env.toJSON()
     assert json["name"] == "llm_20_questions"
