@@ -2671,8 +2671,7 @@ function renderer(context) {
         #chat-log li.now-playing.msg-entry {
             background: linear-gradient(135deg, rgba(253, 203, 110, 0.2), rgba(253, 203, 110, 0.1));
             border-color: #fdcb6e; /* A bright yellow */
-            box-shadow: 0 0 15px rgba(253, 203, 110, 0.3);
-            transform: scale(1.02);
+            box-shadow: 0 0 5px rgba(253, 203, 110, 0.3);
             transition: all 0.2s ease-in-out;
         }
 
@@ -3320,36 +3319,7 @@ function renderer(context) {
         playerUl.removeChild(playerUl.lastChild);
     }
 
-    // Get or create audio controls
-    let audioControls = container.querySelector('.audio-controls');
-    if (!audioControls) {
-        audioControls = document.createElement('div');
-        audioControls.className = 'audio-controls';
-        const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
-        audioControls.innerHTML = `
-            <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="flex-grow: 1;">
-                <button id="pause-audio" class="${pauseButtonClass}"></button>
-            </div>
-        `;
-        container.appendChild(audioControls);
 
-        // Add event listeners only once
-        const speedSlider = audioControls.querySelector('#playback-speed');
-        const speedLabel = audioControls.querySelector('#speed-label');
-        const pauseButton = audioControls.querySelector('#pause-audio');
-
-        speedSlider.addEventListener('input', (e) => {
-            const newRate = parseFloat(e.target.value);
-            setPlaybackRate(newRate);
-            speedLabel.textContent = newRate.toFixed(1);
-        });
-
-        pauseButton.addEventListener('click', () => {
-            togglePause();
-        });
-    }
   }
 
   function updateEventLog(container, gameState, playerMap) {
@@ -3359,16 +3329,24 @@ function renderer(context) {
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
     const audioToggleIcon = audioToggleEnabled ? '&#x1F50A;' : '&#x1F507;'; // Speaker vs Muted
     const audioToggleClasses = `audio-toggle-btn ${audioToggleDisabled ? 'disabled' : ''} ${audioToggleEnabled ? 'enabled' : ''}`;
+    const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
 
     container.innerHTML = `
         <h1>
-            <span>Event Log</span>
-            <button id="global-reasoning-toggle" title="Toggle All Reasoning">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-            <button id="global-audio-toggle" title="${audioToggleTitle}" class="${audioToggleClasses}">
-                ${audioToggleIcon}
-            </button>
+            <span>Events</span>
+            <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
+                 <button id="global-reasoning-toggle" title="Toggle All Reasoning">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+                <button id="pause-audio" class="${pauseButtonClass}"></button>
+                <div id="speed-control-container" style="display: flex; align-items: center; gap: 5px;">
+                    <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="width: 70px;">
+                    <span id="speed-label" style="font-size: 12px; min-width: 30px;">${audioState.playbackRate.toFixed(1)}x</span>
+                </div>
+                <button id="global-audio-toggle" title="${audioToggleTitle}" class="${audioToggleClasses}">
+                    ${audioToggleIcon}
+                </button>
+            </div>
         </h1>
     `;
 
@@ -3757,6 +3735,24 @@ function renderer(context) {
                     playAudioFrom(startIndex, isContinuous); 
                 }
             }
+        });
+    }
+
+    const speedSlider = container.querySelector('#playback-speed');
+    const speedLabel = container.querySelector('#speed-label');
+    const pauseButton = container.querySelector('#pause-audio');
+
+    if (speedSlider) {
+        speedSlider.addEventListener('input', (e) => {
+            const newRate = parseFloat(e.target.value);
+            setPlaybackRate(newRate);
+            if(speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
+        });
+    }
+
+    if (pauseButton) {
+        pauseButton.addEventListener('click', () => {
+            togglePause();
         });
     }
   }
