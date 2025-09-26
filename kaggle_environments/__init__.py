@@ -16,14 +16,17 @@ from importlib import import_module
 from os import listdir
 from .agent import Agent
 from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
-from .core import make, register
+from .core import evaluate, make, register
+from .errors import DeadlineExceeded
 from .main import http_request
 from . import errors
+from . import utils
 
 __version__ = "1.19.0"
 
 __all__ = [
     "Agent",
+    "DeadlineExceeded",
     "environments",
     "errors",
     "evaluate",
