@@ -42,7 +42,7 @@ def test_load_env(env):
 
     for i, state in enumerate(env.steps):
         env.render_step_ind = i
-        out = env.renderer(state, env)
+        env.renderer(state, env)
 
 
 def test_discussion_protocol(agents_config):
@@ -56,7 +56,7 @@ def test_discussion_protocol(agents_config):
     )
     agents = ["random"] * 7
     env.run(agents)
-    out = env.toJSON()
+    env.toJSON()
 
 
 def test_no_reveal_options(agents_config):
@@ -71,7 +71,7 @@ def test_no_reveal_options(agents_config):
     )
     agents = ["random"] * 7
     env.run(agents)
-    out = env.toJSON()
+    env.toJSON()
 
 
 def test_disable_doctor_self_save():
@@ -100,7 +100,7 @@ def test_disable_doctor_self_save():
     )
     agents = ["random"] * 7
     env.run(agents)
-    out = env.toJSON()
+    env.toJSON()
 
 
 def test_turn_by_turn_bidding_discussion(agents_config):
@@ -124,7 +124,7 @@ def test_turn_by_turn_bidding_discussion(agents_config):
     )
     agents = ["random"] * 7
     env.run(agents)
-    content = env.render(mode="html")
+    env.render(mode="html")
 
 
 @pytest.mark.skip("Slow test, meant for manual testing.")
@@ -142,7 +142,7 @@ def test_llm_players(agents_config):
     env.run(agents)
     for i, state in enumerate(env.steps):
         env.render_step_ind = i
-        out = env.renderer(state, env)
+        env.renderer(state, env)
 
 
 def test_default_env():

@@ -142,5 +142,5 @@ def log_git_hash():
             logger.info(f"Running from git commit: {git_hash}")
         else:
             logger.info("Not a git repository or git command failed.")
-    except:
+    except FileNotFoundError:
         logger.info("Git command not found.")

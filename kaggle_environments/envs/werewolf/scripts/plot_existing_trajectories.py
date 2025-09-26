@@ -9,12 +9,12 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
+from kaggle_environments.envs.werewolf.werewolf import CostSummary
+
 # Add the project root to the Python path to allow importing from kaggle_environments
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-from kaggle_environments.envs.werewolf.werewolf import CostSummary
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

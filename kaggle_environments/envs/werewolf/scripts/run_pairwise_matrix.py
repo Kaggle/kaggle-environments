@@ -205,7 +205,7 @@ def main():
     logger.info(f"Debug Mode: {args.debug}")
     logger.info(f"Use Random Agents: {args.use_random_agents}")
 
-    with LogExecutionTime(logger_obj=logger, task_str="pairwise matrix tournament") as timer:
+    with LogExecutionTime(logger_obj=logger, task_str="pairwise matrix tournament"):
         run_tournament(
             output_dir=output_dir,
             num_tournaments=args.num_tournaments,

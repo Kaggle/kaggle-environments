@@ -219,7 +219,7 @@ def main():
     logger.info(f"Use Random Agents: {args.use_random_agents}")
     logger.info(f"Shuffle Player IDs: {args.shuffle_player_ids}")
 
-    with LogExecutionTime(logger_obj=logger, task_str="block experiment") as timer:
+    with LogExecutionTime(logger_obj=logger, task_str="block experiment"):
         run_experiment(
             output_dir=output_dir,
             num_blocks=args.num_blocks,
