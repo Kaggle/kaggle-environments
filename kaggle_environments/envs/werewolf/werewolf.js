@@ -372,6 +372,12 @@ function renderer(context) {
   function playNextInQueue(isContinuous = true) {
       console.log(`DEBUG: [playNextInQueue] Called. Queue length: ${audioState.audioQueue.length}. isPaused: ${audioState.isPaused}. isAudioPlaying: ${audioState.isAudioPlaying}.`);
       
+      // 1. Clear any previously highlighted element
+      const currentlyPlaying = parent.querySelector('#chat-log .now-playing');
+      if (currentlyPlaying) {
+          currentlyPlaying.classList.remove('now-playing');
+      }
+
       if (audioState.isPaused || audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
           console.warn(`DEBUG: [playNextInQueue] Exiting early. Paused: ${audioState.isPaused}, Playing: ${audioState.isAudioPlaying}, Queue: ${audioState.audioQueue.length}, Enabled: ${audioState.isAudioEnabled}`);
           if (audioState.audioQueue.length === 0 && !audioState.isAudioPlaying) {
@@ -383,6 +389,12 @@ function renderer(context) {
       
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
+
+      // 2. Highlight the new element that is about to play
+      const liToHighlight = parent.querySelector(`#chat-log li[data-all-events-index="${event.allEventsIndex}"]`);
+      if (liToHighlight) {
+          liToHighlight.classList.add('now-playing');
+      }
       
       // This is the slider logic, it should always run
       if (event.allEventsIndex !== undefined) {
@@ -450,7 +462,7 @@ function renderer(context) {
 
 
       // Clear any "now-playing" highlights
-      const nowPlayingElement = document.querySelector('.event-log-list .now-playing');
+      const nowPlayingElement = parent.querySelector('#chat-log .now-playing');
       if (nowPlayingElement) {
           nowPlayingElement.classList.remove('now-playing');
       }
@@ -2617,7 +2629,17 @@ function renderer(context) {
         #chat-log::-webkit-scrollbar-thumb:hover {
             background: rgba(116, 185, 255, 0.5);
         }
-        
+
+        #chat-log li.now-playing > .message-content > .balloon,
+        #chat-log li.now-playing > .moderator-announcement-content,
+        #chat-log li.now-playing.msg-entry {
+            background: linear-gradient(135deg, rgba(253, 203, 110, 0.2), rgba(253, 203, 110, 0.1));
+            border-color: #fdcb6e; /* A bright yellow */
+            box-shadow: 0 0 15px rgba(253, 203, 110, 0.3);
+            transform: scale(1.02);
+            transition: all 0.2s ease-in-out;
+        }
+
         /* Enhanced Chat Entries */
         .chat-entry {
             display: flex;
