@@ -1,19 +1,15 @@
-import math, sys
+import math
 
 if __package__ == "":
     # for kaggle-environments
-    from lux.game import Game
-    from lux.game_map import Cell, RESOURCE_TYPES
     from lux.constants import Constants
-    from lux.game_constants import GAME_CONSTANTS
-    from lux import annotate
+    from lux.game import Game
+    from lux.game_map import Cell
 else:
     # for CLI tool
-    from .lux.game import Game
-    from .lux.game_map import Cell, RESOURCE_TYPES
     from .lux.constants import Constants
-    from .lux.game_constants import GAME_CONSTANTS
-    from .lux import annotate
+    from .lux.game import Game
+    from .lux.game_map import Cell
 
 DIRECTIONS = Constants.DIRECTIONS
 game_state = None
@@ -29,10 +25,10 @@ def agent(observation, configuration):
         game_state._update(observation["updates"][2:])
     else:
         game_state._update(observation["updates"])
-    
+
     actions = []
 
-    ### AI Code goes down here! ### 
+    ### AI Code goes down here! ###
     player = game_state.players[observation.player]
     opponent = game_state.players[(observation.player + 1) % 2]
     width, height = game_state.map.width, game_state.map.height
@@ -52,8 +48,13 @@ def agent(observation, configuration):
             if unit.get_cargo_space_left() > 0:
                 # if the unit is a worker and we have space in cargo, lets find the nearest resource tile and try to mine it
                 for resource_tile in resource_tiles:
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal(): continue
-                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM and not player.researched_uranium(): continue
+                    if resource_tile.resource.type == Constants.RESOURCE_TYPES.COAL and not player.researched_coal():
+                        continue
+                    if (
+                        resource_tile.resource.type == Constants.RESOURCE_TYPES.URANIUM
+                        and not player.researched_uranium()
+                    ):
+                        continue
                     dist = resource_tile.pos.distance_to(unit.pos)
                     if dist < closest_dist:
                         closest_dist = dist
@@ -77,5 +78,5 @@ def agent(observation, configuration):
 
     # you can add debug annotations using the functions in the annotate object
     # actions.append(annotate.circle(0, 0))
-    
+
     return actions

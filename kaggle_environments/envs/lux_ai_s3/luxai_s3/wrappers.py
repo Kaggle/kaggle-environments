@@ -1,15 +1,15 @@
 # TODO (stao): Add lux ai s3 env to gymnax api wrapper, which is the old gym api
+import dataclasses
 import json
 import os
 from typing import Any, SupportsFloat
+
 import flax
 import flax.serialization
 import gymnasium as gym
-import gymnax
-import gymnax.environments.spaces
 import jax
 import numpy as np
-import dataclasses
+
 from luxai_s3.env import LuxAIS3Env
 from luxai_s3.params import EnvParams, env_params_ranges
 from luxai_s3.state import serialize_env_actions, serialize_env_states
@@ -37,9 +37,7 @@ class LuxAIS3GymEnv(gym.Env):
     def render(self):
         self.jax_env.render(self.state, self.env_params)
 
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[Any, dict[str, Any]]:
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[Any, dict[str, Any]]:
         if seed is not None:
             self.rng_key = jax.random.key(seed)
         self.rng_key, reset_key = jax.random.split(self.rng_key)
@@ -48,9 +46,7 @@ class LuxAIS3GymEnv(gym.Env):
         randomized_game_params = dict()
         for k, v in env_params_ranges.items():
             self.rng_key, subkey = jax.random.split(self.rng_key)
-            randomized_game_params[k] = jax.random.choice(
-                subkey, jax.numpy.array(v)
-            ).item()
+            randomized_game_params[k] = jax.random.choice(subkey, jax.numpy.array(v)).item()
         params = EnvParams(**randomized_game_params)
         if options is not None and "params" in options:
             params = options["params"]
@@ -76,13 +72,9 @@ class LuxAIS3GymEnv(gym.Env):
             "unit_sensor_range",
         ]:
             params_dict_kept[k] = params_dict[k]
-        return obs, dict(
-            params=params_dict_kept, full_params=params_dict, state=self.state
-        )
+        return obs, dict(params=params_dict_kept, full_params=params_dict, state=self.state)
 
-    def step(
-        self, action: Any
-    ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+    def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         self.rng_key, step_key = jax.random.split(self.rng_key)
         obs, self.state, reward, terminated, truncated, info = self.jax_env.step(
             step_key, self.state, action, self.env_params
@@ -119,9 +111,7 @@ class RecordEpisode(gym.Wrapper):
 
             Path(save_dir).mkdir(parents=True, exist_ok=True)
 
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[Any, dict[str, Any]]:
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[Any, dict[str, Any]]:
         if self.save_on_reset and self.episode_steps > 0:
             self._save_episode_and_reset()
         obs, info = self.env.reset(seed=seed, options=options)
@@ -131,9 +121,7 @@ class RecordEpisode(gym.Wrapper):
         self.episode["states"].append(info["state"])
         return obs, info
 
-    def step(
-        self, action: Any
-    ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+    def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
         obs, reward, terminated, truncated, info = self.env.step(action)
         self.episode_steps += 1
         self.episode["states"].append(info["final_state"])
@@ -159,9 +147,7 @@ class RecordEpisode(gym.Wrapper):
 
     def _save_episode_and_reset(self):
         """saves to generated path based on self.save_dir and episoe id and updates relevant counters"""
-        self.save_episode(
-            os.path.join(self.save_dir, f"episode_{self.episode_id}.json")
-        )
+        self.save_episode(os.path.join(self.save_dir, f"episode_{self.episode_id}.json"))
         self.episode_id += 1
         self.episode_steps = 0
 

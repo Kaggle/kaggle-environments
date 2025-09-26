@@ -1,4 +1,5 @@
 import random
+
 from .utils import get_score
 
 
@@ -79,5 +80,5 @@ agents = {
     "copy_opponent": copy_opponent,
     "reactionary": reactionary,
     "counter_reactionary": counter_reactionary,
-    "statistical": statistical
+    "statistical": statistical,
 }

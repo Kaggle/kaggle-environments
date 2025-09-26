@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import json
-import kaggle_environments.helpers
-from enum import auto, Enum
-from kaggle_environments.helpers import histogram, with_print
+from enum import Enum, auto
 from os import path
 from random import choice, sample
 from typing import *
+
+import kaggle_environments.helpers
+from kaggle_environments.helpers import histogram
 
 
 class Observation(kaggle_environments.helpers.Observation):
@@ -99,10 +100,7 @@ def translate(position: int, direction: Action, columns: int, rows: int) -> int:
 
 
 def adjacent_positions(position: int, columns: int, rows: int) -> List[int]:
-    return [
-        translate(position, action, columns, rows)
-        for action in Action
-    ]
+    return [translate(position, action, columns, rows) for action in Action]
 
 
 def min_distance(position: int, food: List[int], columns: int):
@@ -128,11 +126,7 @@ class GreedyAgent:
 
         food = observation.food
         geese = observation.geese
-        opponents = [
-            goose
-            for index, goose in enumerate(geese)
-            if index != observation.index and len(goose) > 0
-        ]
+        opponents = [goose for index, goose in enumerate(geese) if index != observation.index and len(goose) > 0]
 
         # Don't move adjacent to any heads
         head_adjacent_positions = {
@@ -151,9 +145,9 @@ class GreedyAgent:
             for action in Action
             for new_position in [translate(position, action, columns, rows)]
             if (
-                new_position not in head_adjacent_positions and
-                new_position not in bodies and
-                (self.last_action is None or action != self.last_action.opposite())
+                new_position not in head_adjacent_positions
+                and new_position not in bodies
+                and (self.last_action is None or action != self.last_action.opposite())
             )
         }
 
@@ -248,11 +242,7 @@ def interpreter(state, env):
                 agent.status = "DONE"
                 continue
 
-    goose_positions = histogram(
-        position
-        for goose in geese
-        for position in goose
-    )
+    goose_positions = histogram(position for goose in geese for position in goose)
 
     # Check for collisions.
     for index, agent in enumerate(state):
@@ -267,11 +257,7 @@ def interpreter(state, env):
     # Add food if min_food threshold reached.
     needed_food = min_food - len(food)
     if needed_food > 0:
-        collisions = {
-            position
-            for goose in geese
-            for position in goose
-        }
+        collisions = {position for goose in geese for position in goose}
         available_positions = set(range(rows * columns)).difference(collisions).difference(food)
         # Ensure we don't sample more food than available positions.
         needed_food = min(needed_food, len(available_positions))
