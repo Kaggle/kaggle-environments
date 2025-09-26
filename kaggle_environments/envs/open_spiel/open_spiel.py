@@ -354,6 +354,8 @@ def interpreter(
             "isTerminal": os_state.is_terminal(),
             "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
         }
+        if "imageConfig" in env.configuration:
+          obs_update_dict["imageConfig"] = env.configuration["imageConfig"]
 
         # Apply updates
         for k, v in obs_update_dict.items():
