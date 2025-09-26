@@ -573,10 +573,26 @@ class Environment:
             raise InvalidArgument(f"Default state generation failed for #{position}: " + err)
         return data
 
-    def __run_interpreter(self, state, logs):
+    def __loop_through_interpreter(self, state, logs):
+        args = [structify(state), self, logs]
+        new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
+        new_state[0].observation.step = 0 if self.done else len(self.steps)
+
+        for index, agent in enumerate(new_state):
+            if index < len(logs) and "duration" in logs[index]:
+                duration = logs[index]["duration"]
+                overage_time_consumed = max(0, duration - self.configuration.actTimeout)
+                agent.observation.remainingOverageTime -= overage_time_consumed
+            if agent.status not in self.__state_schema.properties.status.enum:
+                self.debug_print(f"Invalid Action: {agent.status}")
+                agent.status = "INVALID"
+            if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
+                agent.reward = None
+        return new_state
+
+    def __run_interpreter_prod(self, state, logs):
         out = None
         err = None
-        # Append any environmental logs to any agent logs we collected.
         try:
             with (
                 StringIO() as out_buffer,
@@ -585,20 +601,7 @@ class Environment:
                 redirect_stderr(err_buffer),
             ):
                 try:
-                    args = [structify(state), self, logs]
-                    new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
-                    new_state[0].observation.step = 0 if self.done else len(self.steps)
-
-                    for index, agent in enumerate(new_state):
-                        if index < len(logs) and "duration" in logs[index]:
-                            duration = logs[index]["duration"]
-                            overage_time_consumed = max(0, duration - self.configuration.actTimeout)
-                            agent.observation.remainingOverageTime -= overage_time_consumed
-                        if agent.status not in self.__state_schema.properties.status.enum:
-                            self.debug_print(f"Invalid Action: {agent.status}")
-                            agent.status = "INVALID"
-                        if agent.status in ["ERROR", "INVALID", "TIMEOUT"]:
-                            agent.reward = None
+                    new_state = self.__loop_through_interpreter(state, logs)
                     return new_state
                 except Exception as e:
                     # Print the exception stack trace to our log
@@ -627,6 +630,13 @@ class Environment:
                 while err.endswith("\n"):
                     err = err[:-1]
                 self.debug_print(err)
+
+    def __run_interpreter(self, state, logs):
+        # Append any environmental logs to any agent logs we collected.
+        if self.debug:
+            return self.__loop_through_interpreter(state, logs)
+        else:
+            return self.__run_interpreter_prod(state, logs)
 
     def __process_specification(self, spec):
         if has(spec, path=["reward"]):
