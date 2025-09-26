@@ -7,6 +7,11 @@ function renderer(context) {
     width = 1100
   } = context;
 
+  if (!parent.id) {
+      parent.id = 'werewolf-renderer-parent-' + Math.random().toString(36).substring(2, 9);
+  }
+  const parentId = parent.id;
+
   const systemEntryTypeSet = new Set([
         'moderator_announcement',
         'elimination',
@@ -380,10 +385,17 @@ function renderer(context) {
   }
 
   function playNextInQueue(isContinuous = true) {
+      const currentParent = document.getElementById(parentId);
+      if (!currentParent) {
+          console.error("Werewolf renderer parent container not found in DOM, stopping playback.");
+          stopAndClearAudio();
+          return;
+      }
+
       console.log(`DEBUG: [playNextInQueue] Called. Queue length: ${audioState.audioQueue.length}. isPaused: ${audioState.isPaused}. isAudioPlaying: ${audioState.isAudioPlaying}.`);
       
       // 1. Clear any previously highlighted element
-      const currentlyPlaying = parent.querySelector('#chat-log .now-playing');
+      const currentlyPlaying = currentParent.querySelector('#chat-log .now-playing');
       if (currentlyPlaying) {
           currentlyPlaying.classList.remove('now-playing');
       }
@@ -400,20 +412,32 @@ function renderer(context) {
       audioState.isAudioPlaying = true;
       const event = audioState.audioQueue.shift();
 
-      // 2. Highlight the new element that is about to play
-      const liToHighlight = parent.querySelector(`#chat-log li[data-all-events-index="${event.allEventsIndex}"]`);
-      if (liToHighlight) {
-          liToHighlight.classList.add('now-playing');
-      }
-      
       // This is the slider logic, it should always run
       if (event.allEventsIndex !== undefined) {
           const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
-          console.log(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep}`);
+          console.log(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`);
           
           if (displayStep !== undefined && window.wwOriginals && window.wwOriginals.setStep) {
               console.log(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
               window.wwOriginals.setStep(displayStep);
+
+              // Use a short timeout to allow the DOM to update after the step change
+              setTimeout(() => {
+                  const freshParent = document.getElementById(parentId);
+                  if (!freshParent) {
+                      console.error(`DEBUG: Parent element not found after timeout for event index ${event.allEventsIndex}.`);
+                      return;
+                  }
+                  const liToHighlight = freshParent.querySelector(`#chat-log li[data-all-events-index="${event.allEventsIndex}"]`);
+                  console.log(`DEBUG: [Timeout] Attempting to highlight element for index ${event.allEventsIndex}`, liToHighlight);
+                  if (liToHighlight) {
+                      liToHighlight.classList.add('now-playing');
+                      console.log(`DEBUG: [Timeout] Successfully added .now-playing to element for index ${event.allEventsIndex}`);
+                  } else {
+                      console.error(`DEBUG: [Timeout] FAILED to find element to highlight for index ${event.allEventsIndex}`);
+                  }
+              }, 50); // A small delay to ensure the re-render completes
+
           } else {
               console.error(`DEBUG: [playNextInQueue] CRITICAL: FAILED to advance slider. displayStep: ${displayStep}, wwOriginals: ${!!window.wwOriginals}`);
           }
@@ -470,11 +494,13 @@ function renderer(context) {
       audioState.audioQueue = [];
       audioState.currentlyPlayingIndex = -1;
 
-
-      // Clear any "now-playing" highlights
-      const nowPlayingElement = parent.querySelector('#chat-log .now-playing');
-      if (nowPlayingElement) {
-          nowPlayingElement.classList.remove('now-playing');
+      const currentParent = document.getElementById(parentId);
+      if (currentParent) {
+        // Clear any "now-playing" highlights
+        const nowPlayingElement = currentParent.querySelector('#chat-log .now-playing');
+        if (nowPlayingElement) {
+            nowPlayingElement.classList.remove('now-playing');
+        }
       }
   }
 
