@@ -1,4 +1,3 @@
-
 env = None
 
 # Temporarily disable these tests until we can fix the gfootball env

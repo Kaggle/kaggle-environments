@@ -1,6 +1,5 @@
 """Test for proxied Universal Poker game."""
 
-
 import pyspiel
 from absl.testing import absltest, parameterized
 

@@ -1,5 +1,5 @@
 from kaggle_environments import make
-from kaggle_environments.envs.cabt.cabt import random_agent, first_agent, deck
+from kaggle_environments.envs.cabt.cabt import deck, first_agent, random_agent
 
 
 def test_cabt_inits():
