@@ -30,9 +30,7 @@ ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 
-
-# install kaggle-environments. vec-noise cannot be installed with uv's more stringent checks.
-RUN pip install vec-noise && uv pip install accelerate jax gymnax==0.0.8 litellm && uv pip install . && pytest
+RUN uv pip install . && pytest
 
 # SET UP KAGGLE-ENVIRONMENTS CHESS
 # minimal package to reduce memory footprint

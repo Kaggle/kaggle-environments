@@ -35,7 +35,7 @@ ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 
 # install kaggle-environments
-RUN pip install Flask bitsandbytes accelerate vec-noise jax gymnax==0.0.8 && pip install . && pytest
+RUN uv pip install . && pytest
 
 # begin OpenSpiel integration
 
