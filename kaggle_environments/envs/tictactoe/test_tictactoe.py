@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import time
-from kaggle_environments import make, evaluate, utils, DeadlineExceeded
+
+from kaggle_environments import errors, evaluate, make, utils
 
 env = None
 
@@ -161,8 +162,7 @@ def test_can_step_through_agents():
     before_each()
     while not env.done:
         action1 = env.agents.random(env.state[0].observation)
-        action2 = env.agents.reaction(
-            utils.structify({"board": env.state[0].observation.board, "mark": 2}))
+        action2 = env.agents.reaction(utils.structify({"board": env.state[0].observation.board, "mark": 2}))
         env.step([action1, action2])
     assert env.state[0].reward + env.state[1].reward == 0
 
@@ -175,8 +175,7 @@ def test_can_run_agents():
 
 def test_can_evaluate():
     rewards = evaluate("tictactoe", ["random", "reaction"], num_episodes=2)
-    assert (rewards[0][0] + rewards[0][1] ==
-            0) and rewards[1][0] + rewards[1][1] == 0
+    assert (rewards[0][0] + rewards[0][1] == 0) and rewards[1][0] + rewards[1][1] == 0
 
 
 def test_can_run_custom_agents():
@@ -219,13 +218,12 @@ def test_run_timeout():
     env = make("tictactoe", debug=False, configuration={"actTimeout": 10, "runTimeout": 1})
     try:
         state = env.run([custom1, custom3])[-1]
-    except DeadlineExceeded:
+    except errors.DeadlineExceeded:
         pass
     except:
         assert False, "should fail with deadline exceeded"
     else:
         assert False, "Should fail when runtimeout is reached"
-    
 
 
 def test_agents_can_error():

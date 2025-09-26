@@ -17,15 +17,28 @@ from importlib import import_module
 from os import listdir
 from .agent import Agent
 from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
-from .core import *
+from .core import evaluate, make, register
 from .main import http_request
 from . import errors
+from . import utils
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
-__all__ = ["Agent", "environments", "errors", "evaluate", "http_request",
-           "make", "register", "utils", "__version__",
-           "get_episode_replay", "list_episodes", "list_episodes_for_team", "list_episodes_for_submission"]
+__all__ = [
+    "Agent",
+    "environments",
+    "errors",
+    "evaluate",
+    "http_request",
+    "make",
+    "register",
+    "utils",
+    "__version__",
+    "get_episode_replay",
+    "list_episodes",
+    "list_episodes_for_team",
+    "list_episodes_for_submission",
+]
 
 _script_dir = os.path.dirname(os.path.realpath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join('..', _script_dir))
@@ -37,21 +50,27 @@ for name in listdir(utils.envs_path):
         env = import_module(f".envs.{name}.{name}", __name__)
         if name == "open_spiel":
             for env_name, env_dict in env.ENV_REGISTRY.items():
-                register(env_name, {
-                    "agents": env_dict.get("agents"),
-                    "html_renderer": env_dict.get("html_renderer"),
-                    "interpreter": env_dict.get("interpreter"),
-                    "renderer": env_dict.get("renderer"),
-                    "specification": env_dict.get("specification"),
-                })
+                register(
+                    env_name,
+                    {
+                        "agents": env_dict.get("agents"),
+                        "html_renderer": env_dict.get("html_renderer"),
+                        "interpreter": env_dict.get("interpreter"),
+                        "renderer": env_dict.get("renderer"),
+                        "specification": env_dict.get("specification"),
+                    },
+                )
         else:
-          register(name, {
-              "agents": getattr(env, "agents", []),
-              "html_renderer": getattr(env, "html_renderer", None),
-              "interpreter": getattr(env, "interpreter"),
-              "renderer": getattr(env, "renderer"),
-              "specification": getattr(env, "specification"),
-          })
+            register(
+                name,
+                {
+                    "agents": getattr(env, "agents", []),
+                    "html_renderer": getattr(env, "html_renderer", None),
+                    "interpreter": getattr(env, "interpreter"),
+                    "renderer": getattr(env, "renderer"),
+                    "specification": getattr(env, "specification"),
+                },
+            )
     except Exception as e:
         if "football" not in name:
             print("Loading environment %s failed: %s" % (name, e))

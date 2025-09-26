@@ -60,8 +60,7 @@ def interpreter(state, env):
         if value < env.configuration.min or value > env.configuration.max:
             agent.status = f"Invalid action: {value}"
         else:
-            agent.reward += value + \
-                gauss(0, 1) * env.configuration.noise // 1
+            agent.reward += value + gauss(0, 1) * env.configuration.noise // 1
 
     if len(env.steps) >= env.configuration.episodeSteps:
         for agent in state:
