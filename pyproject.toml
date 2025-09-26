@@ -1,0 +1,89 @@
+[project]
+name = "kaggle-environments"
+version = "1.19.0"
+description = "Kaggle Environments"
+authors = [
+    {name = "Kaggle", email = "support@kaggle.com"},
+]
+dependencies = [
+    "Chessnut >= 0.4.1",
+    "Flask >= 1.1.2",
+    "gymnasium == 0.29.0",
+    "jsonschema >= 3.0.1",
+    "numpy >= 1.19.5",
+    "open_spiel >= 1.6.0",
+    "pettingzoo == 1.24.0",
+    "requests >= 2.25.1",
+    "scipy >= 1.11.2",
+    "shimmy >= 1.2.1",
+    "stable-baselines3 == 2.1.0",
+    "transformers >= 4.33.1",
+]
+requires-python = ">=3.9"
+
+[dependency-groups]
+dev = [
+    "ipython",
+    "flit",
+    "pytest",
+    "ruff",
+    "uv",
+]
+
+readme = ["README.md"]
+license = ["LICENSE"]
+keywords = ["Kaggle"]
+
+[project.urls]
+Homepage = "https://github.com/Kaggle/kaggle-environments"
+
+[project.scripts]
+kaggle-environments = "kaggle_environments.main:main"
+
+[build-system]
+requires = ["flit_core >=3.8,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "kaggle_environments"
+
+[tool.flit.sdist]
+# Flit specific options (files to exclude from the PyPI package).
+# If using another build backend (setuptools, poetry), you can remove this
+# section.
+exclude = [
+  # Do not release tests files on PyPI
+  "**/*_test.py",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "kaggle_environments.__version__"}
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint]
+# sort imports
+extend-select = ["I"]
+
+ignore = [
+    # zip() without strict=True is fine for this codebase's Python version.
+    "B905",
+    # The following docstring rules are disabled to avoid overwhelming errors
+    # on the existing codebase. It's recommended to enable them gradually.
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D107", # Missing docstring in __init__
+]
