@@ -14,7 +14,7 @@
 
 import time
 
-from kaggle_environments import DeadlineExceeded, evaluate, make, utils
+from kaggle_environments import errors, evaluate, make, utils
 
 env = None
 
@@ -218,7 +218,7 @@ def test_run_timeout():
     env = make("tictactoe", debug=True, configuration={"actTimeout": 10, "runTimeout": 1})
     try:
         state = env.run([custom1, custom3])[-1]
-    except DeadlineExceeded:
+    except errors.DeadlineExceeded:
         pass
     except:
         assert False, "should fail with deadline exceeded"
