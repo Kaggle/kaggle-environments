@@ -164,7 +164,6 @@ class Agent:
 
         # Start the timer.
 
-<<<<<<< HEAD
         if self.debug:
             # Adding a debugging branch here, since the context manager and try except would prevent
             # debugger from functioning properly.
@@ -187,23 +186,6 @@ class Agent:
                     action = e
                 out = out_buffer.getvalue()
                 err = err_buffer.getvalue()
-=======
-        with (
-            StringIO() as out_buffer,
-            StringIO() as err_buffer,
-            redirect_stdout(out_buffer),
-            redirect_stderr(err_buffer),
-        ):
-            try:
-                start = perf_counter()
-                action = self.agent(*args)
-            except Exception as e:
-                traceback.print_exc(file=err_buffer)
-                action = e
-
-            out = out_buffer.getvalue()
-            err = err_buffer.getvalue()
->>>>>>> master
             # Get the maximum log length
             # Allow up to 10k (default) log characters per step which is ~10MB per 600 step episode
             max_log_length = self.configuration.get("maxLogLength", 10000)
