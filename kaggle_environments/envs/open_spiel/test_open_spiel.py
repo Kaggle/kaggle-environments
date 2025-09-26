@@ -184,6 +184,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue("imageConfig" in env.configuration)
         self.assertEqual(env.configuration["imageConfig"]["color"], "blue")
         self.assertEqual(env.configuration["imageConfig"]["pieceSet"], "cardinal")
+        self.assertTrue("imageConfig" in env.state[0]["observation"])
 
 
 if __name__ == "__main__":
