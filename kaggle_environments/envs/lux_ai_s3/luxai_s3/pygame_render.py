@@ -1,6 +1,7 @@
+import numpy as np
+
 from luxai_s3.params import EnvParams
 from luxai_s3.state import ASTEROID_TILE, NEBULA_TILE, EnvState
-import numpy as np
 
 try:
     import pygame
@@ -48,17 +49,11 @@ class LuxAIPygameRenderer:
                         else:
                             render_state = "running"
                     elif event.text == "r":
-                        self.display_options["show_relic_spots"] = (
-                            not self.display_options["show_relic_spots"]
-                        )
+                        self.display_options["show_relic_spots"] = not self.display_options["show_relic_spots"]
                     elif event.text == "s":
-                        self.display_options["show_sensor_mask"] = (
-                            not self.display_options["show_sensor_mask"]
-                        )
+                        self.display_options["show_sensor_mask"] = not self.display_options["show_sensor_mask"]
                     elif event.text == "e":
-                        self.display_options["show_energy_field"] = (
-                            not self.display_options["show_energy_field"]
-                        )
+                        self.display_options["show_energy_field"] = not self.display_options["show_energy_field"]
             else:
                 if render_state == "paused":
                     self.clock.tick(60)
@@ -103,9 +98,7 @@ class LuxAIPygameRenderer:
                 x, y = state.energy_nodes[i, :2]
                 center_x = (x + 0.5) * TILE_SIZE
                 center_y = (y + 0.5) * TILE_SIZE
-                radius = (
-                    TILE_SIZE // 4
-                )  # Adjust this value to change the size of the circle
+                radius = TILE_SIZE // 4  # Adjust this value to change the size of the circle
                 pygame.draw.circle(
                     self.surface,
                     (0, 255, 0, 255),
@@ -120,9 +113,7 @@ class LuxAIPygameRenderer:
                 rect_x = x * TILE_SIZE + (TILE_SIZE - rect_size) // 2
                 rect_y = y * TILE_SIZE + (TILE_SIZE - rect_size) // 2
                 rect = pygame.Rect(rect_x, rect_y, rect_size, rect_size)
-                pygame.draw.rect(
-                    self.surface, (173, 151, 32, 255), rect
-                )  # Light blue color
+                pygame.draw.rect(self.surface, (173, 151, 32, 255), rect)  # Light blue color
 
         # Draw sensor mask
         if self.display_options["show_sensor_mask"]:
@@ -133,9 +124,7 @@ class LuxAIPygameRenderer:
                             draw_rect_alpha(
                                 self.surface,
                                 (255, 0, 0, 25),
-                                pygame.Rect(
-                                    x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE
-                                ),
+                                pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
                             )
 
         if self.display_options["show_energy_field"]:
@@ -144,9 +133,7 @@ class LuxAIPygameRenderer:
                 for y in range(params.map_height):
                     energy_field_value = state.map_features.energy[x, y]
                     text = font.render(str(energy_field_value), True, (255, 255, 255))
-                    text_rect = text.get_rect(
-                        center=((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE)
-                    )
+                    text_rect = text.get_rect(center=((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE))
                     self.surface.blit(text, text_rect)
                     if energy_field_value > 0:
                         draw_rect_alpha(
@@ -157,9 +144,7 @@ class LuxAIPygameRenderer:
                                 0,
                                 255 * energy_field_value / params.max_energy_per_tile,
                             ),
-                            pygame.Rect(
-                                x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE
-                            ),
+                            pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
                         )
                     else:
                         draw_rect_alpha(
@@ -170,9 +155,7 @@ class LuxAIPygameRenderer:
                                 0,
                                 255 * energy_field_value / params.min_energy_per_tile,
                             ),
-                            pygame.Rect(
-                                x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE
-                            ),
+                            pygame.Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE),
                         )
         # if self.display_options["show_vision_power_map"]:
         #     print(state.vision_power_map.shape)
@@ -196,15 +179,9 @@ class LuxAIPygameRenderer:
                     x, y = state.units.position[team, i]
                     center_x = (x + 0.5) * TILE_SIZE
                     center_y = (y + 0.5) * TILE_SIZE
-                    radius = (
-                        TILE_SIZE // 3
-                    )  # Adjust this value to change the size of the circle
-                    color = (
-                        (255, 0, 0, 255) if team == 0 else (0, 0, 255, 255)
-                    )  # Red for team 0, Blue for team 1
-                    pygame.draw.circle(
-                        self.surface, color, (int(center_x), int(center_y)), radius
-                    )
+                    radius = TILE_SIZE // 3  # Adjust this value to change the size of the circle
+                    color = (255, 0, 0, 255) if team == 0 else (0, 0, 255, 255)  # Red for team 0, Blue for team 1
+                    pygame.draw.circle(self.surface, color, (int(center_x), int(center_y)), radius)
         # Draw unit counts
         unit_counts = {}
         for team in range(2):
@@ -221,9 +198,7 @@ class LuxAIPygameRenderer:
             if count >= 1:
                 x, y = pos
                 text = font.render(str(count), True, (255, 255, 255))  # White text
-                text_rect = text.get_rect(
-                    center=((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE)
-                )
+                text_rect = text.get_rect(center=((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE))
                 self.surface.blit(text, text_rect)
 
         # Draw the grid lines

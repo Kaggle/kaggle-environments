@@ -15,11 +15,12 @@
 import argparse
 import json
 import traceback
+from logging.config import dictConfig
 from typing import Optional
+
 from . import errors, utils
 from .agent import Agent
 from .core import environments, evaluate, make
-from logging.config import dictConfig
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(

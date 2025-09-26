@@ -25,14 +25,14 @@ RUN node -v && npm -v
 
 WORKDIR /usr/src/app/kaggle_environments
 
-ADD ./setup.py ./setup.py
+ADD ./pyproject.toml ./pyproject.toml
 ADD ./README.md ./README.md
 ADD ./MANIFEST.in ./MANIFEST.in
 ADD ./kaggle_environments ./kaggle_environments
 
 
 # install kaggle-environments. vec-noise cannot be installed with uv's more stringent checks.
-RUN pip install vec-noise && uv pip install Flask accelerate jax gymnax==0.0.8 litellm && uv pip install . && pytest
+RUN pip install vec-noise && uv pip install accelerate jax gymnax==0.0.8 litellm && uv pip install . && pytest
 
 # SET UP KAGGLE-ENVIRONMENTS CHESS
 # minimal package to reduce memory footprint
@@ -46,8 +46,8 @@ RUN rm -rf ./kaggle_environments_chess/__pycache__; rm -rf ./kaggle_environments
 RUN find ./kaggle_environments_chess/ -name "*.pyc" -exec rm -f {} \;
 
 # rename pip package
-RUN sed -i 's/kaggle-environments/kaggle-environments-chess/g' ./setup.py
-RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./setup.py
+RUN sed -i 's/kaggle-environments/kaggle-environments-chess/g' ./pyproject.toml
+RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./pyproject.toml
 RUN sed -i 's/kaggle_environments/kaggle_environments_chess/g' ./MANIFEST.in
 
 # install kaggle-environments-chess
