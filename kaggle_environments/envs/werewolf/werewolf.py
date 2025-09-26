@@ -1,24 +1,31 @@
 import json
 import logging
 import random
-from os import path, getenv
-from typing import Dict, Optional, List, Callable
+from os import getenv, path
+from typing import Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, DetailedPhase
-from .game.base import PlayerID
+from kaggle_environments.envs.werewolf.game.consts import DetailedPhase, EnvInfoKeys
+
 from .game.actions import (
-    Action, VoteAction, HealAction, InspectAction,
-    BidAction, ChatAction, NoOpAction, create_action
+    Action,
+    BidAction,
+    ChatAction,
+    HealAction,
+    InspectAction,
+    NoOpAction,
+    VoteAction,
+    create_action,
 )
+from .game.base import PlayerID
 from .game.consts import RoleConst
 from .game.engine import Moderator
 from .game.protocols.factory import create_protocol
-from .game.records import WerewolfObservationModel, set_raw_observation, get_raw_observation
+from .game.records import WerewolfObservationModel, get_raw_observation, set_raw_observation
 from .game.roles import create_players_from_agents_config
-from .game.states import GameState, EventName, get_last_action_request
-from .harness.base import LLMWerewolfAgent, LLMCostTracker
+from .game.states import EventName, GameState, get_last_action_request
+from .harness.base import LLMCostTracker, LLMWerewolfAgent
 
 logger = logging.getLogger(__name__)
 
@@ -62,36 +69,47 @@ def random_agent(obs):
     common_args = {"day": day, "phase": phase, "actor_id": my_id}
 
     action = NoOpAction(**common_args, reasoning="There's nothing to be done.")  # Default action
-    threat_level = random.choice(['SAFE', 'UNEASY', 'DANGER'])
+    threat_level = random.choice(["SAFE", "UNEASY", "DANGER"])
 
     if current_phase == DetailedPhase.NIGHT_AWAIT_ACTIONS:
         if my_role == RoleConst.WEREWOLF:
             history_entry = get_last_action_request(entries, EventName.VOTE_REQUEST)
             if history_entry:
-                valid_targets = history_entry.data.get('valid_targets')
+                valid_targets = history_entry.data.get("valid_targets")
                 if valid_targets:
                     target_id = random.choice(valid_targets)
-                    action = VoteAction(**common_args, target_id=target_id, reasoning="I randomly chose one.",
-                                        perceived_threat_level=threat_level)
+                    action = VoteAction(
+                        **common_args,
+                        target_id=target_id,
+                        reasoning="I randomly chose one.",
+                        perceived_threat_level=threat_level,
+                    )
 
         elif my_role == RoleConst.DOCTOR:
             history_entry = get_last_action_request(entries, EventName.HEAL_REQUEST)
             if history_entry:
-                valid_targets = history_entry.data['valid_candidates']
+                valid_targets = history_entry.data["valid_candidates"]
                 if valid_targets:
                     target_id = random.choice(valid_targets)
-                    action = HealAction(**common_args, target_id=target_id, reasoning="I randomly chose one to heal.",
-                                        perceived_threat_level=threat_level)
+                    action = HealAction(
+                        **common_args,
+                        target_id=target_id,
+                        reasoning="I randomly chose one to heal.",
+                        perceived_threat_level=threat_level,
+                    )
 
         elif my_role == RoleConst.SEER:
             history_entry = get_last_action_request(entries, EventName.INSPECT_REQUEST)
             if history_entry:
-                valid_targets = history_entry.data['valid_candidates']
+                valid_targets = history_entry.data["valid_candidates"]
                 if valid_targets:
                     target_id = random.choice(valid_targets)
-                    action = InspectAction(**common_args, target_id=target_id,
-                                           reasoning="I randomly chose one to inspect.",
-                                           perceived_threat_level=threat_level)
+                    action = InspectAction(
+                        **common_args,
+                        target_id=target_id,
+                        reasoning="I randomly chose one to inspect.",
+                        perceived_threat_level=threat_level,
+                    )
 
     elif current_phase in [DetailedPhase.DAY_BIDDING_AWAIT, DetailedPhase.DAY_CHAT_AWAIT]:
         if current_phase == DetailedPhase.DAY_BIDDING_AWAIT:
@@ -100,21 +118,23 @@ def random_agent(obs):
                     **common_args,
                     amount=random.randint(1, 4),
                     reasoning="I am bidding randomly.",
-                    perceived_threat_level=threat_level
+                    perceived_threat_level=threat_level,
                 )
         else:  # It's a chat turn (DAY_CHAT_AWAIT)
             if my_id in alive_players:
                 action = ChatAction(
                     **common_args,
-                    message=random.choice([
-                        "Hello everyone!",
-                        f"I suspect {random.choice(all_player_names)}.",
-                        "Any information to share?",
-                        "I am a simple Villager just trying to survive.",
-                        "Let's think carefully before voting."
-                    ]),
+                    message=random.choice(
+                        [
+                            "Hello everyone!",
+                            f"I suspect {random.choice(all_player_names)}.",
+                            "Any information to share?",
+                            "I am a simple Villager just trying to survive.",
+                            "Let's think carefully before voting.",
+                        ]
+                    ),
                     reasoning="I randomly chose one message.",
-                    perceived_threat_level=threat_level
+                    perceived_threat_level=threat_level,
                 )
 
     elif current_phase == DetailedPhase.DAY_VOTING_AWAIT:
@@ -126,7 +146,7 @@ def random_agent(obs):
                     **common_args,
                     target_id=random.choice(valid_targets),
                     reasoning="I randomly chose one.",
-                    perceived_threat_level=threat_level
+                    perceived_threat_level=threat_level,
                 )
 
     return action.serialize()
@@ -168,7 +188,7 @@ class AgentFactoryWrapper:
                 day=raw_obs.day,
                 phase=raw_obs.game_state_phase,
                 actor_id="unknown_fallback",
-                reasoning="AgentFactoryWrapper: No player_id found in observation."
+                reasoning="AgentFactoryWrapper: No player_id found in observation.",
             ).serialize()
 
         if not self._agent_configs:
@@ -197,8 +217,8 @@ agents = {
     "llm": AgentFactoryWrapper(
         LLMWerewolfAgent,
         model_name=getenv("WEREWOLF_LLM_MODEL", "gemini/gemini-2.5-pro"),
-        system_prompt=LLM_SYSTEM_PROMPT
-    )
+        system_prompt=LLM_SYSTEM_PROMPT,
+    ),
 }
 
 
@@ -212,7 +232,7 @@ def log_error(status_code, state, env):
         logger.error(f"{status_code} DETECTED")
         for i, player_state in enumerate(state):
             if player_state["status"] == status_code:
-                agent_config = env.configuration['agents'][i]
+                agent_config = env.configuration["agents"][i]
                 logger.error(f"agent_id={agent_config['id']} returns action with status code {status_code}.")
     return invalid_action
 
@@ -225,18 +245,18 @@ def interpreter(state, env):
     Briefly flow of logic is:
     Initialization - kEnv creates werewolf object and chooses players. Schema definition for
     this is in werewolf.json
-    1) kEnv calls interpreter() with current game state recorded in env.game_state 
+    1) kEnv calls interpreter() with current game state recorded in env.game_state
     2) interpreter() reads game state and any new player actions and updates
        the games state based on those actions and flow of the game to env.game_state.
-    3) interpreter() writes events to history data and also writes events about 
+    3) interpreter() writes events to history data and also writes events about
        state change in the game to env.game_state and returns back to kEnv
-    4) kEnv parses out the relevant game events via agent logic in harness/base.py, 
-       constructs final prompt, and performs external API calls for models and records back 
+    4) kEnv parses out the relevant game events via agent logic in harness/base.py,
+       constructs final prompt, and performs external API calls for models and records back
        to env.game_state
     Go back to 1 and continue
 
     For example - consider discussion and voting by villagers. werewolf.interpreter()
-    updates phase and writes history entry that solicits players for discussion. 
+    updates phase and writes history entry that solicits players for discussion.
     kEnv calls agents to get their discussion and writes them to the history/game state.
     kEnv then calls interpreter() that then updates game phase and writes history entry soliciting
     votes for exile. kEnv then calls agents and associated models to get their votes and writes
@@ -247,7 +267,7 @@ def interpreter(state, env):
     Note - The UI is also updated after each call to interpreter() as that is the tick unit
     for the game.
 
-    Note - env framework assumes that there is an action to be done by player, but 
+    Note - env framework assumes that there is an action to be done by player, but
     for werewolf there are places where moderator is the one taking the action (e.g.
     counting votes and performing exile) so some game 'ticks' are larger than others.
 
@@ -261,7 +281,7 @@ def interpreter(state, env):
             agent_error = True
 
     # --- Initialize Moderator and GameState if it's the start of an episode ---
-    if not hasattr(env, 'moderator') or env.done:  # env.done is true after reset by Kaggle core
+    if not hasattr(env, "moderator") or env.done:  # env.done is true after reset by Kaggle core
         initialize_moderator(state, env)
 
     moderator: Moderator = env.moderator
@@ -289,7 +309,8 @@ def interpreter(state, env):
 
     # 4.2. Update observations for individual agents
     update_agent_messages(
-        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error)
+        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error
+    )
     return state
 
 
@@ -297,14 +318,13 @@ def collect_cost_summary(env) -> CostSummary:
     cost_summary = CostSummary()
 
     for agent_config in env.configuration.agents:
-        player_id = agent_config['id']
-        agent_id = agent_config['agent_id']
+        player_id = agent_config["id"]
+        agent_id = agent_config["agent_id"]
 
         agent_cost_summary = AgentCostSummary(agent_config=agent_config)
 
-        if (
-                isinstance(agents.get(agent_id), AgentFactoryWrapper)
-                and issubclass(agents[agent_id].agent_class, LLMWerewolfAgent)
+        if isinstance(agents.get(agent_id), AgentFactoryWrapper) and issubclass(
+            agents[agent_id].agent_class, LLMWerewolfAgent
         ):
             agent_instance = agents[agent_id].get_instance(player_id)
             if agent_instance:
@@ -312,7 +332,7 @@ def collect_cost_summary(env) -> CostSummary:
                 agent_cost = AgentCost(
                     total_cost=cost_tracker.query_token_cost.total_costs_usd,
                     prompt_tokens=cost_tracker.prompt_token_cost.total_tokens,
-                    completion_tokens=cost_tracker.completion_token_cost.total_tokens
+                    completion_tokens=cost_tracker.completion_token_cost.total_tokens,
                 )
                 agent_cost_summary.costs = agent_cost
                 agent_cost_summary.data = cost_tracker
@@ -333,10 +353,10 @@ def record_game_end(state, env, game_state, current_info, agent_error):
     if game_end_entry and game_end_entry.data:
         current_info.update(game_end_entry.data.model_dump())
     # Record if terminated with agent error. If so, the game record is invalid.
-    current_info['terminated_with_agent_error'] = agent_error
+    current_info["terminated_with_agent_error"] = agent_error
 
     # Record cost from endpoints if any.
-    current_info['cost_summary'] = collect_cost_summary(env).model_dump()
+    current_info["cost_summary"] = collect_cost_summary(env).model_dump()
 
     env.info[EnvInfoKeys.GAME_END] = current_info
     # Determine winner based on game_state.history's GAME_END entry
@@ -347,17 +367,18 @@ def record_game_end(state, env, game_state, current_info, agent_error):
 
 
 def update_agent_messages(
-        state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error):
+    state, env, moderator, game_state, is_game_done, current_info, active_player_ids_after_advance, agent_error
+):
     for player_index, player_state in enumerate(state):
         player_id_str = env.player_ids_map[player_index]
 
         # skip if player not active and game is not done
         if player_id_str not in active_player_ids_after_advance and not is_game_done:
-            player_state.status = 'INACTIVE'
+            player_state.status = "INACTIVE"
             continue
 
         # set the status of active player to ACTIVE
-        player_state.status = 'ACTIVE'
+        player_state.status = "ACTIVE"
         player_obj = game_state.get_player_by_id(player_id_str)
 
         # Observation processing
@@ -376,7 +397,7 @@ def update_agent_messages(
             revealed_players=game_state.revealed_players(),
             new_visible_announcements=[entry.description for entry in new_history_entries],
             new_player_event_views=new_history_entries,
-            game_state_phase=game_state.phase.value
+            game_state_phase=game_state.phase.value,
         )
 
         set_raw_observation(player_state, raw_obs=obs)
@@ -414,7 +435,8 @@ def initialize_moderator(state, env):
     # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
     if len(agents_from_config) < num_players:
         raise ValueError(
-            f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present.")
+            f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present."
+        )
 
     players = create_players_from_agents_config(agents_from_config)
 
@@ -422,7 +444,7 @@ def initialize_moderator(state, env):
         players=players,
         history={},
         night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
-        day_exile_reveal_level=env.configuration.day_exile_reveal_level
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level,
     )
 
     env.player_ids_map = {i: p.id for i, p in enumerate(players)}
@@ -431,16 +453,13 @@ def initialize_moderator(state, env):
     env.player_thumbnails = {p.id: p.agent.thumbnail for p in players}
     # Initialize protocols from configuration or defaults
     discussion_protocol = create_protocol(
-        env.configuration.get("discussion_protocol", {}),
-        default_name=DEFAULT_DISCUSSION_PROTOCOL_NAME
+        env.configuration.get("discussion_protocol", {}), default_name=DEFAULT_DISCUSSION_PROTOCOL_NAME
     )
     day_voting_protocol = create_protocol(
-        env.configuration.get("day_voting_protocol", {}),
-        default_name=DEFAULT_VOTING_PROTOCOL_NAME
+        env.configuration.get("day_voting_protocol", {}), default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
     night_voting_protocol = create_protocol(
-        env.configuration.get("werewolf_night_vote_protocol", {}),
-        default_name=DEFAULT_VOTING_PROTOCOL_NAME
+        env.configuration.get("werewolf_night_vote_protocol", {}), default_name=DEFAULT_VOTING_PROTOCOL_NAME
     )
 
     logger.info(
@@ -455,7 +474,7 @@ def initialize_moderator(state, env):
         day_voting=day_voting_protocol,
         night_voting=night_voting_protocol,
         night_elimination_reveal_level=env.configuration.night_elimination_reveal_level,
-        day_exile_reveal_level=env.configuration.day_exile_reveal_level
+        day_exile_reveal_level=env.configuration.day_exile_reveal_level,
     )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
@@ -464,7 +483,7 @@ def initialize_moderator(state, env):
 
 
 def renderer(state, env):
-    if not hasattr(env, 'moderator') or not hasattr(env, 'game_state'):
+    if not hasattr(env, "moderator") or not hasattr(env, "game_state"):
         return "Game not initialized by interpreter yet."
 
     game_state: GameState = env.game_state

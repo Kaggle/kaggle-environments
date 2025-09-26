@@ -1,14 +1,13 @@
 import logging
 from collections import defaultdict, deque
 from functools import cached_property
-from typing import List, Dict, Optional, Any, Union, Deque, Sequence, DefaultDict
+from typing import Any, DefaultDict, Deque, Dict, List, Optional, Sequence, Union
 
-from pydantic import PrivateAttr, Field, computed_field, ConfigDict
+from pydantic import ConfigDict, Field, PrivateAttr, computed_field
 
-from .base import BaseState, EventHandler, PlayerID, BaseRole
-from .consts import Phase, Team, RoleConst, MODERATOR_ID, PhaseDivider, DetailedPhase, EventName, RevealLevel
-from .records import DataEntry, Event, PhaseDividerDataEntry, DataAccessLevel, \
-    PlayerEventView
+from .base import BaseRole, BaseState, EventHandler, PlayerID
+from .consts import MODERATOR_ID, DetailedPhase, EventName, Phase, PhaseDivider, RevealLevel, RoleConst, Team
+from .records import DataAccessLevel, DataEntry, Event, PhaseDividerDataEntry, PlayerEventView
 from .roles import Player
 
 logger = logging.getLogger(__name__)
@@ -17,14 +16,10 @@ logger = logging.getLogger(__name__)
 class EventBus:
     def __init__(self):
         self._subs: DefaultDict[EventName, List[EventHandler]] = defaultdict(list)
-    
-    def register(
-            self,
-            event_name: EventName,
-            handler: EventHandler
-    ):
+
+    def register(self, event_name: EventName, handler: EventHandler):
         self._subs[event_name].append(handler)
-    
+
     def dispatch(self, entry: Event):
         for handler in self._subs[entry.event_name]:
             handler(entry)
@@ -42,8 +37,7 @@ class GameState(BaseState):
     night_elimination_reveal_level: RevealLevel = RevealLevel.ROLE
     day_exile_reveal_level: RevealLevel = RevealLevel.ROLE
     _id_to_player: Dict[PlayerID, Player] = PrivateAttr(default_factory=dict)
-    _event_by_type: Dict[EventName, List[Event]] = PrivateAttr(
-        default_factory=lambda: defaultdict(list))
+    _event_by_type: Dict[EventName, List[Event]] = PrivateAttr(default_factory=lambda: defaultdict(list))
     _event_queue: Deque[Event] = PrivateAttr(default_factory=deque)
     _night_elimination_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
     _day_exile_player_ids: List[PlayerID] = PrivateAttr(default_factory=list)
@@ -53,7 +47,7 @@ class GameState(BaseState):
     @cached_property
     def all_player_ids(self) -> List[str]:
         return [player.id for player in self.players]
-    
+
     @computed_field
     @cached_property
     def all_unique_roles(self) -> List[BaseRole]:
@@ -74,10 +68,10 @@ class GameState(BaseState):
 
     def alive_players(self):
         return [p for p in self.players if p.alive]
-    
+
     def eliminated_players(self):
         return [p for p in self.players if not p.alive]
-    
+
     def revealed_players(self) -> Dict[PlayerID, RoleConst | Team | None]:
         revealed = {}
         if self.night_elimination_reveal_level == RevealLevel.ROLE:
@@ -127,14 +121,16 @@ class GameState(BaseState):
     def get_event_by_name(self, event_name: EventName) -> List[Event]:
         return self._event_by_type[event_name]
 
-    def push_event(self,
-                   description: str,
-                   event_name: EventName,
-                   public: bool,
-                   visible_to: Optional[List[PlayerID]] = None,
-                   data: Optional[Union[DataEntry, Dict[str, Any]]] = None, source=MODERATOR_ID,
-                   visible_in_ui: bool = True
-                   ):
+    def push_event(
+        self,
+        description: str,
+        event_name: EventName,
+        public: bool,
+        visible_to: Optional[List[PlayerID]] = None,
+        data: Optional[Union[DataEntry, Dict[str, Any]]] = None,
+        source=MODERATOR_ID,
+        visible_in_ui: bool = True,
+    ):
         visible_to = visible_to or []
         # Night 0 will use day_count 0, Day 1 will use day_count 1, etc.
         day_key = self.day_count
@@ -149,7 +145,7 @@ class GameState(BaseState):
             visible_to=visible_to or [],
             data=data,
             source=source,
-            visible_in_ui=visible_in_ui
+            visible_in_ui=visible_in_ui,
         )
 
         self.history[day_key].append(sys_entry)
@@ -177,16 +173,16 @@ class GameState(BaseState):
 
         # publish events
         self._event_bus.dispatch(sys_entry)
-    
+
     def add_phase_divider(self, divider: PhaseDivider):
-        """The phase divider is used to clearly separate phase boundary. This is very useful 
-            for visualizer updates, where some updates naturally takes a time slice of events as input.
+        """The phase divider is used to clearly separate phase boundary. This is very useful
+        for visualizer updates, where some updates naturally takes a time slice of events as input.
         """
         self.push_event(
             description=divider.value,
             event_name=EventName.PHASE_DIVIDER,
             public=False,
-            data=PhaseDividerDataEntry(divider_type=divider.value)
+            data=PhaseDividerDataEntry(divider_type=divider.value),
         )
 
     def eliminate_player(self, pid: PlayerID):
@@ -213,9 +209,6 @@ class GameState(BaseState):
         self._event_bus.register(event_name, handler)
 
 
-def get_last_action_request(
-        event_views: Sequence[PlayerEventView],
-        event_name: EventName
-) -> None | PlayerEventView:
+def get_last_action_request(event_views: Sequence[PlayerEventView], event_name: EventName) -> None | PlayerEventView:
     """Get the action request from the new player history entry view updates."""
     return next((entry for entry in event_views if entry.event_name == event_name), None)

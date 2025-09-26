@@ -2,22 +2,26 @@ import random
 from collections import Counter, deque
 from typing import Dict, List, Optional, Sequence
 
-from kaggle_environments.envs.werewolf.game.actions import Action, VoteAction, NoOpAction
+from kaggle_environments.envs.werewolf.game.actions import Action, NoOpAction, VoteAction
 from kaggle_environments.envs.werewolf.game.base import PlayerID
-from kaggle_environments.envs.werewolf.game.consts import StrEnum, EventName, Phase
+from kaggle_environments.envs.werewolf.game.consts import EventName, Phase, StrEnum
 from kaggle_environments.envs.werewolf.game.protocols.base import VotingProtocol
-from kaggle_environments.envs.werewolf.game.records import (WerewolfNightVoteDataEntry, DayExileVoteDataEntry,
-                                                            VoteOrderDataEntry)
+from kaggle_environments.envs.werewolf.game.records import (
+    DayExileVoteDataEntry,
+    VoteOrderDataEntry,
+    WerewolfNightVoteDataEntry,
+)
 from kaggle_environments.envs.werewolf.game.roles import Player
 from kaggle_environments.envs.werewolf.game.states import GameState
+
 from .factory import register_protocol
 
 
 class TieBreak(StrEnum):
-    RANDOM = 'random'
+    RANDOM = "random"
     """Randomly select from top ties."""
 
-    NO_EXILE = 'no_elected'
+    NO_EXILE = "no_elected"
     """Tie result in no one elected."""
 
 
@@ -100,9 +104,11 @@ class SimultaneousMajority(VotingProtocol):
     def rule(self) -> str:
         rule = "Player with the most votes is exiled. "
         if self._tie_break == TieBreak.RANDOM:
-            rule += ("Ties result in random selection amongst the top ties. "
-                     "If no valid vote available (if all casted abstained votes), "
-                     "will result in random elimination of one player.")
+            rule += (
+                "Ties result in random selection amongst the top ties. "
+                "If no valid vote available (if all casted abstained votes), "
+                "will result in random elimination of one player."
+            )
         elif self._tie_break == TieBreak.NO_EXILE:
             rule += "Ties result in no exile."
         return rule
@@ -130,12 +136,12 @@ class SimultaneousMajority(VotingProtocol):
         if not isinstance(vote_action, VoteAction):
             state.push_event(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". '
-                            f'Not a VoteAction; submitted {vote_action.__class__.__name__} instead. '
-                            f'Cast as abstained vote.',
+                f"Not a VoteAction; submitted {vote_action.__class__.__name__} instead. "
+                f"Cast as abstained vote.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=self._expected_voters,
-                data={}
+                data={},
             )
             self._ballot.add_vote(vote_action.actor_id, ABSTAIN_VOTE)
             return
@@ -150,7 +156,7 @@ class SimultaneousMajority(VotingProtocol):
             target_id=vote_action.target_id,
             reasoning=vote_action.reasoning,
             perceived_threat_level=vote_action.perceived_threat_level,
-            action=vote_action
+            action=vote_action,
         )
 
         # Voter must be expected and alive at the moment of casting vote
@@ -162,7 +168,7 @@ class SimultaneousMajority(VotingProtocol):
                     event_name=EventName.ERROR,
                     public=False,
                     visible_to=self._expected_voters,
-                    data=data
+                    data=data,
                 )
                 return
 
@@ -176,7 +182,7 @@ class SimultaneousMajority(VotingProtocol):
                     public=False,
                     visible_to=self._expected_voters,
                     data=data,
-                    source=vote_action.actor_id
+                    source=vote_action.actor_id,
                 )
             else:
                 self._ballot.add_vote(vote_action.actor_id, ABSTAIN_VOTE)
@@ -185,7 +191,7 @@ class SimultaneousMajority(VotingProtocol):
                     event_name=EventName.ERROR,
                     public=False,
                     visible_to=self._expected_voters,
-                    data=data
+                    data=data,
                 )
                 return
         else:
@@ -193,12 +199,15 @@ class SimultaneousMajority(VotingProtocol):
                 description=f"Invalid vote attempt by {vote_action.actor_id}.",
                 event_name=EventName.ERROR,
                 public=False,
-                data=data
+                data=data,
             )
 
     def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
-        target_options = [p_id for p_id in self._potential_targets if
-                          state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive]
+        target_options = [
+            p_id
+            for p_id in self._potential_targets
+            if state.get_player_by_id(p_id) and state.get_player_by_id(p_id).alive
+        ]
         return f'Player "{player_id}", please cast your vote. Options: {target_options} or Abstain ("{ABSTAIN_VOTE}").'
 
     def get_current_tally_info(self, state: GameState) -> Dict[PlayerID, int]:
@@ -262,8 +271,10 @@ class SequentialVoting(VotingProtocol):
 
     @property
     def rule(self) -> str:
-        return ("Players vote one by one. Player with the most votes after all have voted is exiled."
-                " Ties are broken randomly.")
+        return (
+            "Players vote one by one. Player with the most votes after all have voted is exiled."
+            " Ties are broken randomly."
+        )
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         if self._player_ids is None:
@@ -286,11 +297,11 @@ class SequentialVoting(VotingProtocol):
             data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
             state.push_event(
                 description=f"Voting starts from player {self._expected_voters[0]} "
-                            f"with the following order: {self._expected_voters}",
+                f"with the following order: {self._expected_voters}",
                 event_name=EventName.VOTE_ORDER,
                 public=False,
                 visible_to=alive_voter_ids,
-                data=data
+                data=data,
             )
 
     def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
@@ -348,10 +359,10 @@ class SequentialVoting(VotingProtocol):
         if self.done():
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                            f"but voting is already complete.",
+                f"but voting is already complete.",
                 event_name=EventName.ERROR,
                 public=False,
-                visible_to=[vote_action.actor_id]
+                visible_to=[vote_action.actor_id],
             )
             return
 
@@ -359,10 +370,10 @@ class SequentialVoting(VotingProtocol):
         if vote_action.actor_id != expected_voter_id:
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                            f"but it is {expected_voter_id}'s turn.",
+                f"but it is {expected_voter_id}'s turn.",
                 event_name=EventName.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
-                visible_to=[vote_action.actor_id, expected_voter_id]
+                visible_to=[vote_action.actor_id, expected_voter_id],
             )
             return
 
@@ -382,10 +393,10 @@ class SequentialVoting(VotingProtocol):
                     # Invalid target chosen for VoteAction
                     state.push_event(
                         description=f"{vote_action.actor_id} attempted to vote for {vote_action.target_id} "
-                                    f"(invalid target). Vote recorded as Abstain.",
+                        f"(invalid target). Vote recorded as Abstain.",
                         event_name=EventName.ERROR,
                         public=False,
-                        visible_to=[vote_action.actor_id]
+                        visible_to=[vote_action.actor_id],
                     )
                     recorded_target_id = ABSTAIN_VOTE  # Treat invalid target as abstain
                     target_display = f"Invalid Target ({vote_action.target_id}), recorded as Abstain"
@@ -408,7 +419,7 @@ class SequentialVoting(VotingProtocol):
                     target_id=recorded_target_id,
                     reasoning=vote_action.reasoning,
                     perceived_threat_level=vote_action.perceived_threat_level,
-                    action=vote_action
+                    action=vote_action,
                 )
 
             state.push_event(
@@ -417,16 +428,16 @@ class SequentialVoting(VotingProtocol):
                 public=False,
                 visible_to=self._expected_voters,
                 data=data,
-                source=vote_action.actor_id
+                source=vote_action.actor_id,
             )
             self._current_voter_index += 1
         else:  # Player not found, not alive, or (redundantly) not their turn
             state.push_event(
                 description=f"Invalid action ({vote_action.kind}) attempt by {vote_action.actor_id} (player not found,"
-                            f" not alive, or not their turn). Action not counted.",
+                f" not alive, or not their turn). Action not counted.",
                 event_name=EventName.ERROR,
                 public=False,
-                visible_to=[vote_action.actor_id]
+                visible_to=[vote_action.actor_id],
             )
             # If voter was expected but found to be not alive, advance turn to prevent stall
             if vote_action.actor_id == expected_voter_id:  # Implies actor_player was found but not actor_player.alive

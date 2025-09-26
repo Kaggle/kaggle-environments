@@ -5,7 +5,7 @@ import subprocess
 import time
 from datetime import datetime
 
-from kaggle_environments import make, PROJECT_ROOT
+from kaggle_environments import PROJECT_ROOT, make
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class LogExecutionTime:
         print(f"Task took {timer.elapsed_time:.2f} seconds.")
         print(f"Formatted time: {timer.elapsed_time_formatted()}")
     """
+
     def __init__(self, logger_obj: logging.Logger, task_str: str):
         """
         Initializes the context manager.
@@ -54,18 +55,19 @@ class LogExecutionTime:
 
 
 def append_timestamp_to_dir(dir_path, append=True):
-    if not append: return dir_path
+    if not append:
+        return dir_path
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out = dir_path + f"_{timestamp}"
     return out
 
 
 def shuffle_roles_inplace(config):
-    agents = config['agents']
-    roles = [agent['role'] for agent in agents]
+    agents = config["agents"]
+    roles = [agent["role"] for agent in agents]
     random.shuffle(roles)
     for new_role, agent in zip(roles, agents):
-        agent['role'] = new_role
+        agent["role"] = new_role
 
 
 def run_werewolf(output_dir, base_name, config, agents, debug):
@@ -86,23 +88,19 @@ def run_werewolf(output_dir, base_name, config, agents, debug):
     json_file = os.path.join(output_dir, f"{base_name}.json")
 
     with LogExecutionTime(logger_obj=logger, task_str="env run") as timer:
-        env = make(
-            'werewolf',
-            debug=debug,
-            configuration=config
-        )
+        env = make("werewolf", debug=debug, configuration=config)
         env.run(agents)
-    
-    env.info['total_run_time'] = timer.elapsed_time
-    env.info['total_run_time_formatted'] = timer.elapsed_time_formatted()
+
+    env.info["total_run_time"] = timer.elapsed_time
+    env.info["total_run_time_formatted"] = timer.elapsed_time_formatted()
 
     logger.info("Game finished")
-    env_out = env.render(mode='html')
-    with open(html_file, 'w') as out:
+    env_out = env.render(mode="html")
+    with open(html_file, "w") as out:
         out.write(env_out)
     logger.info(f"HTML replay written to {html_file}")
-    env_out = env.render(mode='json')
-    with open(json_file, 'w') as out:
+    env_out = env.render(mode="json")
+    with open(json_file, "w") as out:
         out.write(env_out)
     logger.info(f"JSON replay written to {json_file}")
     end_time = time.time()
@@ -122,10 +120,10 @@ def setup_logger(output_dir, base_name):
     """
     log_file = os.path.join(output_dir, f"{base_name}.log")
     os.makedirs(output_dir, exist_ok=True)
-    handlers = [logging.StreamHandler(), logging.FileHandler(log_file, mode='w')]
+    handlers = [logging.StreamHandler(), logging.FileHandler(log_file, mode="w")]
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=handlers,
     )
 
@@ -133,11 +131,11 @@ def setup_logger(output_dir, base_name):
 def log_git_hash():
     try:
         result = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'],
+            ["git", "rev-parse", "HEAD"],
             cwd=PROJECT_ROOT,
             capture_output=True,
             text=True,
-            check=False  # Don't raise exception on non-zero exit code
+            check=False,  # Don't raise exception on non-zero exit code
         )
         if result.returncode == 0:
             git_hash = result.stdout.strip()

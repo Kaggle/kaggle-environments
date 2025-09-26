@@ -3,14 +3,15 @@ import json
 import random
 from abc import ABC
 from collections import deque
-from typing import Sequence, List, Optional
+from typing import List, Optional, Sequence
 
 from kaggle_environments.envs.werewolf.game.actions import Action, BidAction
 from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import EventName, StrEnum
-from kaggle_environments.envs.werewolf.game.protocols.base import DiscussionProtocol, BiddingProtocol
-from kaggle_environments.envs.werewolf.game.records import DiscussionOrderDataEntry, BidResultDataEntry
+from kaggle_environments.envs.werewolf.game.protocols.base import BiddingProtocol, DiscussionProtocol
+from kaggle_environments.envs.werewolf.game.records import BidResultDataEntry, DiscussionOrderDataEntry
 from kaggle_environments.envs.werewolf.game.states import GameState
+
 from .bid import SimpleBiddingProtocol
 from .factory import register_protocol
 
@@ -57,11 +58,11 @@ class RoundRobinDiscussion(DiscussionProtocol):
             data = DiscussionOrderDataEntry(chat_order_of_player_ids=player_order)
             state.push_event(
                 description="Discussion phase begins. Players will speak in round-robin order. "
-                            f"Starting from player {player_order[0]} with the following order: {player_order} "
-                            f"for {self.max_rounds} round(s).",
+                f"Starting from player {player_order[0]} with the following order: {player_order} "
+                f"for {self.max_rounds} round(s).",
                 event_name=EventName.DISCUSSION_ORDER,
                 public=True,
-                data=data
+                data=data,
             )
 
     def speakers_for_tick(self, state):
@@ -90,16 +91,15 @@ class RandomOrderDiscussion(DiscussionProtocol):
         return "Players speak in a random order for one full round."
 
     def begin(self, state):
-        self._iters = itertools.cycle(random.sample(
-            [p.id for p in state.alive_players()],
-            k=len(state.alive_players())
-        ))
+        self._iters = itertools.cycle(
+            random.sample([p.id for p in state.alive_players()], k=len(state.alive_players()))
+        )
         self._steps = len(state.alive_players())  # one full round
         if self._steps > 0:
             state.push_event(
                 description="Discussion phase begins. Players will speak in random order.",
                 event_name=EventName.PHASE_CHANGE,
-                public=True
+                public=True,
             )
 
     def speakers_for_tick(self, state):
@@ -140,7 +140,7 @@ class ParallelDiscussion(DiscussionProtocol):
             state.push_event(
                 description="Parallel discussion phase begins. All players may speak.",
                 event_name=EventName.PHASE_CHANGE,
-                public=True
+                public=True,
             )
 
     def speakers_for_tick(self, state):
@@ -150,16 +150,18 @@ class ParallelDiscussion(DiscussionProtocol):
         return [p.id for p in state.alive_players()]
 
     def call_for_actions(self, speakers: Sequence[str]) -> List[str]:
-        return [f"Parallel discussion: All designated players may speak now or remain silent. "
-                f"({self._remaining + 1} speaking opportunities remaining, including this one)."] * len(speakers)
+        return [
+            f"Parallel discussion: All designated players may speak now or remain silent. "
+            f"({self._remaining + 1} speaking opportunities remaining, including this one)."
+        ] * len(speakers)
 
     def is_discussion_over(self, state: GameState) -> bool:
         return self._remaining == 0
 
 
 class BiddingDiscussionPhase(StrEnum):
-    BIDDING_PHASE = 'bidding_phase'
-    SPEAKING_PHASE = 'speaking_phase'
+    BIDDING_PHASE = "bidding_phase"
+    SPEAKING_PHASE = "speaking_phase"
 
 
 class BiddingDiscussion(DiscussionProtocol, ABC):
@@ -192,8 +194,8 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
     A discussion protocol where players bid for the right to speak each turn.
     This protocol manages the entire bid-speak-bid-speak loop.
     """
-    def __init__(self, bidding: Optional[BiddingProtocol] = None,
-                 max_turns: int = 8, bid_result_public: bool = True):
+
+    def __init__(self, bidding: Optional[BiddingProtocol] = None, max_turns: int = 8, bid_result_public: bool = True):
         super().__init__(bidding=bidding)
         self.max_turns = max_turns
         self._turns_taken = 0
@@ -214,11 +216,13 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
 
     @property
     def rule(self) -> str:
-        return "\n".join([
-            f"Players bid for the right to speak each turn for up to {self.max_turns} turns.",
-            f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}",
-            f"If everyone bids 0, moderator will directly move on to day voting and no one speaks."
-        ])
+        return "\n".join(
+            [
+                f"Players bid for the right to speak each turn for up to {self.max_turns} turns.",
+                f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}",
+                "If everyone bids 0, moderator will directly move on to day voting and no one speaks.",
+            ]
+        )
 
     def begin(self, state: GameState) -> None:
         self.reset()
@@ -243,19 +247,21 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
 
             # Handle players who didn't bid (timed out) by assuming a bid of 0
             all_alive_player_ids = [p.id for p in state.alive_players()]
-            if hasattr(self.bidding, '_bids'):
+            if hasattr(self.bidding, "_bids"):
                 for player_id in all_alive_player_ids:
                     if player_id not in self.bidding._bids:
-                        default_bid = BidAction(actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value)
+                        default_bid = BidAction(
+                            actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value
+                        )
                         self.bidding.accept(default_bid, state)
 
-            bids = getattr(self.bidding, '_bids', {})
+            bids = getattr(self.bidding, "_bids", {})
             if len(bids) >= len(all_alive_player_ids) and all(amount == 0 for amount in bids.values()):
                 self._all_passed = True
                 state.push_event(
                     description="All players passed on speaking. Discussion ends.",
                     event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                    public=True
+                    public=True,
                 )
                 return
 
@@ -267,15 +273,15 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                 data = BidResultDataEntry(
                     winner_player_ids=[self._speaker],
                     bid_overview=self.bidding.bids,
-                    mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0]
+                    mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0],
                 )
-                overview_text = ', '.join([f'{k}: {v}' for k, v in self.bidding.bids.items()])
+                overview_text = ", ".join([f"{k}: {v}" for k, v in self.bidding.bids.items()])
                 state.push_event(
                     description=f"Player {self._speaker} won the bid and will speak next.\n"
-                                f"Bid overview - {overview_text}.",
+                    f"Bid overview - {overview_text}.",
                     event_name=EventName.BID_RESULT,
                     public=self._bid_result_public,
-                    data=data
+                    data=data,
                 )
                 self.set_phase(BiddingDiscussionPhase.SPEAKING_PHASE)
             else:
@@ -306,7 +312,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                 event_name=EventName.BID_REQEUST,
                 public=True,
                 data=data,
-                visible_in_ui=False
+                visible_in_ui=False,
             )
         elif self.is_speaking_phase() and self._speaker:
             super().prompt_speakers_for_tick(state, speakers)
@@ -325,6 +331,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
     3. A speaking phase occurs where each player speaks once according to the
        determined order.
     """
+
     def __init__(self, bidding: Optional[BiddingProtocol] = None, max_rounds: int = 2, bid_result_public: bool = True):
         """
         Args:
@@ -353,12 +360,14 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
     @property
     def rule(self) -> str:
         """A string describing the discussion rule in effect."""
-        return "\n".join([
-            "Players speak in an order determined by bidding at the beginning of each round. "
-            f"There will be {self.max_rounds} round(s) per day.",
-            "In each round, all players may speak once.",
-            f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}"
-        ])
+        return "\n".join(
+            [
+                "Players speak in an order determined by bidding at the beginning of each round. "
+                f"There will be {self.max_rounds} round(s) per day.",
+                "In each round, all players may speak once.",
+                f"**Bidding Rule:** {self.bidding.display_name}. {self.bidding.rule}",
+            ]
+        )
 
     def begin(self, state: GameState) -> None:
         """Initializes the protocol for the first round."""
@@ -389,11 +398,12 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
 
             # Assume a bid of 0 for any players who timed out.
             all_alive_player_ids = [p.id for p in state.alive_players()]
-            if hasattr(self.bidding, '_bids'):
+            if hasattr(self.bidding, "_bids"):
                 for player_id in all_alive_player_ids:
                     if player_id not in self.bidding.bids:
-                        default_bid = BidAction(actor_id=player_id, amount=0, day=state.day_count,
-                                                phase=state.phase.value)
+                        default_bid = BidAction(
+                            actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value
+                        )
                         self.bidding.accept(default_bid, state)
 
             # Determine speaking order based on bids.
@@ -409,7 +419,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
 
             state.push_event(
                 description=f"Bidding for round {self._current_round + 1} has concluded. The speaking order, "
-                            f"with bid amounts in parentheses, is: {speaking_order_text}.",
+                f"with bid amounts in parentheses, is: {speaking_order_text}.",
                 event_name=EventName.BID_RESULT,
                 public=self._bid_result_public,
                 data=data,
@@ -428,7 +438,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
                 state.push_event(
                     description=f"End of discussion round {self._current_round}.",
                     event_name=EventName.PHASE_CHANGE,
-                    public=True
+                    public=True,
                 )
 
                 # If the game isn't over, prepare for the next round's bidding.
@@ -448,7 +458,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
                 event_name=EventName.BID_REQEUST,
                 public=True,
                 data=data,
-                visible_in_ui=False
+                visible_in_ui=False,
             )
         elif self.is_speaking_phase():
             # The default prompt from the base class is sufficient for speaking.

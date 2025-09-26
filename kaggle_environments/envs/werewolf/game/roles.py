@@ -1,17 +1,20 @@
 import json
 import logging
-from collections import deque, Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from functools import partial
-from typing import List, Deque, Optional, Dict
+from typing import Deque, Dict, List, Optional
 
-from pydantic import BaseModel, Field, PrivateAttr, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from .actions import HealAction, InspectAction
-from .base import BasePlayer, BaseModerator, BaseRole, EventHandler, on_event, PlayerID
-from .consts import Team, RoleConst, Phase, EventName, RevealLevel
+from .base import BaseModerator, BasePlayer, BaseRole, EventHandler, PlayerID, on_event
+from .consts import EventName, Phase, RevealLevel, RoleConst, Team
 from .records import (
     Event,
-    PlayerEventView, RequestDoctorSaveDataEntry, RequestSeerRevealDataEntry, SeerInspectResultDataEntry
+    PlayerEventView,
+    RequestDoctorSaveDataEntry,
+    RequestSeerRevealDataEntry,
+    SeerInspectResultDataEntry,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ class DoctorDescription:
 
 
 class DoctorStateKey:
-    LAST_SAVED_DAY = 'last_saved_day'
+    LAST_SAVED_DAY = "last_saved_day"
     LAST_SAVED_PLAYER_ID = "last_saved_player_id"
 
 
@@ -57,8 +60,8 @@ class Doctor(Role):
     allow_consecutive_saves: bool = True
     descriptions: str = ""
 
-    @model_validator(mode='after')
-    def set_descriptions_default(self) -> 'Doctor':
+    @model_validator(mode="after")
+    def set_descriptions_default(self) -> "Doctor":
         if self.descriptions == "":
             if self.allow_self_save:
                 self.descriptions = DoctorDescription.ALLOW_SELF_SAVE
@@ -85,14 +88,13 @@ class Doctor(Role):
             if not self.allow_self_save:
                 valid_candidates = [p_id for p_id in valid_candidates if p_id != me.id]
 
-            prompt = f"Wake up Doctor. Who would you like to save? "
+            prompt = "Wake up Doctor. Who would you like to save? "
             if not self.allow_consecutive_saves and last_saved_player_id:
                 valid_candidates = [p_id for p_id in valid_candidates if p_id != last_saved_player_id]
                 prompt += f'You cannot save the same player on consecutive nights. Player "{last_saved_player_id}" is not a valid target this night. '
 
             data_entry = RequestDoctorSaveDataEntry(
-                valid_candidates=valid_candidates,
-                action_json_schema=json.dumps(HealAction.schema_for_player())
+                valid_candidates=valid_candidates, action_json_schema=json.dumps(HealAction.schema_for_player())
             )
             prompt += f"The options are {data_entry.valid_candidates}."
 
@@ -114,20 +116,22 @@ class Doctor(Role):
             if not self.allow_self_save and action.target_id == me.id:
                 moderator.state.push_event(
                     description=f'Player "{me.id}", doctor is not allowed to self save. '
-                                f'Your target is {action.target_id}, which is your own id.',
+                    f"Your target is {action.target_id}, which is your own id.",
                     event_name=EventName.ERROR,
                     public=False,
-                    visible_to=[me.id]
+                    visible_to=[me.id],
                 )
                 return
 
-            if not self.allow_consecutive_saves and action.target_id == me.get_role_state(DoctorStateKey.LAST_SAVED_PLAYER_ID):
+            if not self.allow_consecutive_saves and action.target_id == me.get_role_state(
+                DoctorStateKey.LAST_SAVED_PLAYER_ID
+            ):
                 moderator.state.push_event(
                     description=f'Player "{me.id}", you cannot save the same player on consecutive nights. '
-                                f'Your target "{action.target_id}" was also saved last night.',
+                    f'Your target "{action.target_id}" was also saved last night.',
                     event_name=EventName.ERROR,
                     public=False,
-                    visible_to=[me.id]
+                    visible_to=[me.id],
                 )
                 return
 
@@ -147,15 +151,15 @@ class Seer(Role):
     descriptions: str = ""
     reveal_level: RevealLevel = RevealLevel.ROLE
 
-    @field_validator('reveal_level')
+    @field_validator("reveal_level")
     @classmethod
     def validate_reveal_level(cls, v):
         if v == RevealLevel.NO_REVEAL:
             raise ValueError(f"Setting reveal_level of Seer as {v}. Seer will become useless.")
         return v
 
-    @model_validator(mode='after')
-    def set_descriptions_default(self) -> 'Seer':
+    @model_validator(mode="after")
+    def set_descriptions_default(self) -> "Seer":
         if self.descriptions == "":
             if self.reveal_level == RevealLevel.ROLE:
                 self.descriptions = SeerDescription.REVEAL_ROLE
@@ -170,13 +174,13 @@ class Seer(Role):
         if me.alive:
             data_entry = RequestSeerRevealDataEntry(
                 valid_candidates=[p.id for p in moderator.state.alive_players() if p != me],
-                action_json_schema=json.dumps(InspectAction.schema_for_player())
+                action_json_schema=json.dumps(InspectAction.schema_for_player()),
             )
             moderator.request_action(
                 action_cls=InspectAction,
                 player_id=me.id,
                 prompt=f"Wake up Seer. Who would you like to see their true {self.reveal_level}? "
-                       f"The options are {data_entry.valid_candidates}.",
+                f"The options are {data_entry.valid_candidates}.",
                 data=data_entry,
                 event_name=EventName.INSPECT_REQUEST,
             )
@@ -200,26 +204,21 @@ class Seer(Role):
                 team = target_player.role.team
                 reveal_text = f"Their team is {team}."
 
-            data = SeerInspectResultDataEntry(
-                actor_id=actor_id,
-                target_id=action.target_id,
-                role=role,
-                team=team
-            )
+            data = SeerInspectResultDataEntry(actor_id=actor_id, target_id=action.target_id, role=role, team=team)
             moderator.state.push_event(
                 description=f'Player "{actor_id}", you inspected {target_player.id}. ' + reveal_text,
                 event_name=EventName.INSPECT_RESULT,
                 public=False,
                 visible_to=[actor_id],
-                data=data
+                data=data,
             )
         else:
             moderator.state.push_event(
                 description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
-                            f' but this player could not be found.',
+                f" but this player could not be found.",
                 event_name=EventName.ERROR,
                 public=False,
-                visible_to=[actor_id]
+                visible_to=[actor_id],
             )
 
 
@@ -300,7 +299,7 @@ class Player(BasePlayer):
         return {
             "player_id": self.id,
             "eliminated_during_day": self.eliminated_during_day,
-            "eliminated_during_phase": self.eliminated_during_phase
+            "eliminated_during_phase": self.eliminated_during_phase,
         }
 
 
@@ -321,5 +320,7 @@ def create_players_from_agents_config(agents_config: List[Dict]) -> List[Player]
         if duplicates:
             raise ValueError(f"Duplicate agent ids found: {', '.join(duplicates)}")
     agents = [Agent(**agent_config) for agent_config in agents_config]
-    players = [Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role](**agent.role_params)) for agent in agents]
+    players = [
+        Player(id=agent.id, agent=agent, role=ROLE_CLASS_MAP[agent.role](**agent.role_params)) for agent in agents
+    ]
     return players

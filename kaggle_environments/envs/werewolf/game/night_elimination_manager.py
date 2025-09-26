@@ -1,9 +1,9 @@
 from typing import Dict, List, Optional
 
 from .base import PlayerID
-from .records import DoctorSaveDataEntry, WerewolfNightEliminationDataEntry, EventName
+from .consts import RevealLevel, Team
+from .records import DoctorSaveDataEntry, EventName, WerewolfNightEliminationDataEntry
 from .states import GameState
-from .consts import Team, RevealLevel
 
 
 class NightEliminationManager:
@@ -32,7 +32,7 @@ class NightEliminationManager:
         if not werewolf_target_id:
             self._state.push_event(
                 description="Last night, the werewolves did not reach a consensus (or no valid target was chosen)."
-                            " No one was eliminated by werewolves.",
+                " No one was eliminated by werewolves.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=False,
                 visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
@@ -40,7 +40,7 @@ class NightEliminationManager:
             self._state.push_event(
                 description="Last night, No one was eliminated.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                public=True
+                public=True,
             )
             return
 
@@ -48,7 +48,7 @@ class NightEliminationManager:
         if not target_player:
             self._state.push_event(
                 description=f'Last night, werewolves targeted player "{werewolf_target_id}", but this player '
-                            f'could not be found. No one was eliminated by werewolves.',
+                f"could not be found. No one was eliminated by werewolves.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
@@ -56,7 +56,7 @@ class NightEliminationManager:
             self._state.push_event(
                 description="Last night, no one was eliminated.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                public=True
+                public=True,
             )
             return
 
@@ -69,12 +69,12 @@ class NightEliminationManager:
                 event_name=EventName.HEAL_RESULT,
                 public=False,
                 data=save_data,
-                visible_to=saving_doctor_ids
+                visible_to=saving_doctor_ids,
             )
             self._state.push_event(
                 description="Last night, no one was eliminated.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                public=True
+                public=True,
             )
         else:
             # The player is eliminated.
@@ -95,12 +95,7 @@ class NightEliminationManager:
             data = WerewolfNightEliminationDataEntry(
                 eliminated_player_id=werewolf_target_id,
                 eliminated_player_role_name=role,
-                eliminated_player_team_name=team
+                eliminated_player_team_name=team,
             )
-            description = ' '.join(descriptions)
-            self._state.push_event(
-                description=description,
-                event_name=EventName.ELIMINATION,
-                public=True,
-                data=data
-            )
+            description = " ".join(descriptions)
+            self._state.push_event(description=description, event_name=EventName.ELIMINATION, public=True, data=data)

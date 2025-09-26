@@ -6,15 +6,15 @@ import argparse
 import copy
 import logging
 import multiprocessing
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import tenacity
 import yaml
 from tqdm import tqdm
 
-from kaggle_environments.envs.werewolf.runner import setup_logger, append_timestamp_to_dir, LogExecutionTime
+from kaggle_environments.envs.werewolf.runner import LogExecutionTime, append_timestamp_to_dir, setup_logger
 from kaggle_environments.envs.werewolf.scripts.utils import run_single_game_cli
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 run_single_game_with_retry = tenacity.retry(
     wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
     stop=tenacity.stop_after_attempt(3),
-    before_sleep=tenacity.before_sleep_log(logger, logging.INFO)
+    before_sleep=tenacity.before_sleep_log(logger, logging.INFO),
 )(run_single_game_cli)
 
 
@@ -40,7 +40,18 @@ def shuffle_field(agents, field_name):
         agent[field_name] = value
 
 
-def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use_random_agents, debug, parallel, num_processes, shuffle_roles):
+def run_self_play_games(
+    model_name,
+    thumbnail,
+    output_dir,
+    num_games,
+    config,
+    use_random_agents,
+    debug,
+    parallel,
+    num_processes,
+    shuffle_roles,
+):
     """
     Generates and runs game tasks for the self-play experiment.
     """
@@ -48,15 +59,15 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
         logger.warning("Debug mode is enabled. Forcing sequential execution.")
 
     game_tasks = []
-    base_game_config = config['game_config']
+    base_game_config = config["game_config"]
 
     # modify the config to use a single model
-    agents = base_game_config['agents']
+    agents = base_game_config["agents"]
     for agent in agents:
-        agent['thumbnail'] = thumbnail
-        agent['agent_id'] = f"llm/{model_name}"
-        agent['display_name'] = os.path.basename(model_name)
-        agent['llms'][0]['model_name'] = model_name
+        agent["thumbnail"] = thumbnail
+        agent["agent_id"] = f"llm/{model_name}"
+        agent["display_name"] = os.path.basename(model_name)
+        agent["llms"][0]["model_name"] = model_name
 
     for i in range(num_games):
         game_output_dir = os.path.join(output_dir, f"game_{i}")
@@ -67,21 +78,19 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
         if shuffle_roles:
             logger.info(f"Shuffling roles for game {i}")
             role_configs = [
-                {'role': agent['role'], 'role_params': agent.get('role_params', {})}
-                for agent in game_config['agents']
+                {"role": agent["role"], "role_params": agent.get("role_params", {})} for agent in game_config["agents"]
             ]
             random.shuffle(role_configs)
-            for agent, role_config in zip(game_config['agents'], role_configs):
-                agent['role'] = role_config['role']
-                agent['role_params'] = role_config['role_params']
+            for agent, role_config in zip(game_config["agents"], role_configs):
+                agent["role"] = role_config["role"]
+                agent["role_params"] = role_config["role_params"]
 
         # shuffle player ids
         logger.info(f"Shuffling player ids for game {i}")
-        shuffle_field(game_config['agents'], 'id')
+        shuffle_field(game_config["agents"], "id")
 
         task = (game_output_dir, game_config, use_random_agents, debug)
         game_tasks.append(task)
-
 
     with tqdm(total=num_games, desc="Running Self-Play Games") as pbar:
         if parallel:
@@ -95,38 +104,49 @@ def run_self_play_games(model_name, thumbnail,output_dir, num_games, config, use
                 game_runner_wrapper(task)
                 pbar.update(1)
 
+
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    default_config_path = os.path.join(script_dir, 'configs', 'run', 'roundrobin_discussion_small.yaml')
+    default_config_path = os.path.join(script_dir, "configs", "run", "roundrobin_discussion_small.yaml")
 
     parser = argparse.ArgumentParser(description="Run N self-play Werewolf games based on a configuration file.")
     parser.add_argument(
-        "-c", "--config_path", type=str,
-        default=default_config_path,
-        help="Path to the YAML configuration file."
+        "-c", "--config_path", type=str, default=default_config_path, help="Path to the YAML configuration file."
     )
     parser.add_argument(
-        "-o", "--output_dir", type=str,
+        "-o",
+        "--output_dir",
+        type=str,
         default="werewolf_self_play",
-        help="Output directory for the log and replay files."
+        help="Output directory for the log and replay files.",
     )
-    parser.add_argument("-m", "--model_name", type=str, default="gemini/gemini-2.5-flash",
-                        help="The model name by litellm for self play.")
-    parser.add_argument("-t", "--thumbnail", type=str, 
-                        default="https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png",
-                        help="The thumbnail image url.")
+    parser.add_argument(
+        "-m",
+        "--model_name",
+        type=str,
+        default="gemini/gemini-2.5-flash",
+        help="The model name by litellm for self play.",
+    )
+    parser.add_argument(
+        "-t",
+        "--thumbnail",
+        type=str,
+        default="https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png",
+        help="The thumbnail image url.",
+    )
     parser.add_argument("-n", "--num_games", type=int, default=1, help="Number of self-play games to run.")
-    parser.add_argument("-d", "--debug", action="store_true", help='Enable debug mode.')
-    parser.add_argument("-r", "--random_agents", action="store_true",
-                        help='Use random agents for all players for fast testing.')
-    parser.add_argument("-a", "--append_timestamp_to_dir", action="store_true",
-                        help="Append a timestamp to the output directory.")
-    parser.add_argument("-s", "--shuffle_roles", action="store_true",
-                        help="If provided, shuffle the roles for each game.")
-    parser.add_argument("-p", "--parallel", action="store_true",
-                        help='Run games in parallel using multiple processes.')
-    parser.add_argument("--num_processes", type=int, default=None,
-                        help="Number of processes for parallel execution.")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode.")
+    parser.add_argument(
+        "-r", "--random_agents", action="store_true", help="Use random agents for all players for fast testing."
+    )
+    parser.add_argument(
+        "-a", "--append_timestamp_to_dir", action="store_true", help="Append a timestamp to the output directory."
+    )
+    parser.add_argument(
+        "-s", "--shuffle_roles", action="store_true", help="If provided, shuffle the roles for each game."
+    )
+    parser.add_argument("-p", "--parallel", action="store_true", help="Run games in parallel using multiple processes.")
+    parser.add_argument("--num_processes", type=int, default=None, help="Number of processes for parallel execution.")
 
     args = parser.parse_args()
 
@@ -134,7 +154,7 @@ def main():
     os.makedirs(run_output_dir, exist_ok=True)
     setup_logger(output_dir=run_output_dir, base_name="self_play")
 
-    with open(args.config_path, 'r') as f:
+    with open(args.config_path, "r") as f:
         config = yaml.safe_load(f)
 
     num_processes = args.num_processes
@@ -166,7 +186,7 @@ def main():
             debug=args.debug,
             parallel=args.parallel,
             num_processes=num_processes,
-            shuffle_roles=args.shuffle_roles
+            shuffle_roles=args.shuffle_roles,
         )
 
     logger.info("Self-play run finished successfully.")

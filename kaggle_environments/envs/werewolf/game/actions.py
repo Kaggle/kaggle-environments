@@ -4,54 +4,52 @@ import re
 from functools import lru_cache
 from typing import Optional, Tuple
 
-from pydantic import Field, field_validator, create_model
+from pydantic import Field, create_model, field_validator
 
 from .base import BaseAction, BaseState, PlayerID
-from .consts import PerceivedThreatLevel, EventName, Phase
-from .records import SeerInspectActionDataEntry, DoctorHealActionDataEntry
-
+from .consts import EventName, PerceivedThreatLevel, Phase
+from .records import DoctorHealActionDataEntry, SeerInspectActionDataEntry
 
 ACTION_EVENT_MAP = {}
 
 
 def register_event(event_name: EventName):
     """A class decorator to register an EventName for an Action class."""
+
     def decorator(cls):
         ACTION_EVENT_MAP[cls.__name__] = event_name
-        setattr(cls, 'event_name', event_name)
+        setattr(cls, "event_name", event_name)
         return cls
+
     return decorator
 
 
 _REPLACEMENT_MAP = {
     # 'kill' variations
-    'kill': 'eliminate',
-    'kills': 'eliminates',
-    'killed': 'eliminated',
-    'killing': 'eliminating',
-    'killer': 'eliminator',
-
+    "kill": "eliminate",
+    "kills": "eliminates",
+    "killed": "eliminated",
+    "killing": "eliminating",
+    "killer": "eliminator",
     # 'lynch' variations
-    'lynch': 'exile',
-    'lynches': 'exiles',
-    'lynched': 'exiled',
-    'lynching': 'exiling',
-
+    "lynch": "exile",
+    "lynches": "exiles",
+    "lynched": "exiled",
+    "lynching": "exiling",
     # 'mislynch' variations
-    'mislynch': 'mis-exile',
-    'mislynches': 'mis-exiles',
-    'mislynched': 'mis-exiled',
-    'mislynching': 'mis-exiling',
-
+    "mislynch": "mis-exile",
+    "mislynches": "mis-exiles",
+    "mislynched": "mis-exiled",
+    "mislynching": "mis-exiling",
     # 'murder' variations
-    'murder': 'remove',
-    'murders': 'removes',
-    'murdered': 'removed',
-    'murdering': 'removing',
-    'murderer': 'remover'
+    "murder": "remove",
+    "murders": "removes",
+    "murdered": "removed",
+    "murdering": "removing",
+    "murderer": "remover",
 }
 
-_CENSOR_PATTERN = re.compile(r'\b(' + '|'.join(_REPLACEMENT_MAP.keys()) + r')\b', re.IGNORECASE)
+_CENSOR_PATTERN = re.compile(r"\b(" + "|".join(_REPLACEMENT_MAP.keys()) + r")\b", re.IGNORECASE)
 
 
 # Create a single, case-insensitive regex pattern from all map keys.
@@ -84,24 +82,27 @@ def filter_language(text):
 # ------------------------------------------------------------------ #
 class Action(BaseAction):
     """Root of the discriminated-union tree."""
+
     day: int
     phase: Phase
     actor_id: PlayerID
     reasoning: Optional[str] = Field(
-        default=None, max_length=4096,
+        default=None,
+        max_length=4096,
         description="The self monologue that illustrate how you arrived at the action. "
-                    "It will be invisible to other players.")
+        "It will be invisible to other players.",
+    )
 
     perceived_threat_level: PerceivedThreatLevel = Field(
         default=PerceivedThreatLevel.SAFE,
         description="The self perceived threat level you are currently experiencing from other players. "
-                    "The assessment will be invisible to other players."
+        "The assessment will be invisible to other players.",
     )
     error: Optional[str] = None
     raw_prompt: Optional[str] = None
     raw_completion: Optional[str] = None
 
-    @field_validator('reasoning', mode='before')
+    @field_validator("reasoning", mode="before")
     @classmethod
     def filter_reasoning(cls, v):
         if v is None:
@@ -109,7 +110,7 @@ class Action(BaseAction):
         return filter_language(v)
 
     def serialize(self):
-        return {'action_type': self.__class__.__name__, 'kwargs': self.model_dump()}
+        return {"action_type": self.__class__.__name__, "kwargs": self.model_dump()}
 
     @classmethod
     def schema_for_player(cls, fields: Tuple = None, new_cls_name=None):
@@ -118,12 +119,12 @@ class Action(BaseAction):
         """
         fields = fields or []
         if not new_cls_name:
-            new_cls_name = cls.__name__ + 'Data'
+            new_cls_name = cls.__name__ + "Data"
         field_definitions = {
             field: (
                 cls.model_fields[field].annotation,
                 # Pass the entire FieldInfo object, not just the default value
-                cls.model_fields[field]
+                cls.model_fields[field],
             )
             for field in fields
             if field in cls.model_fields
@@ -144,7 +145,7 @@ class Action(BaseAction):
             event_name=ACTION_EVENT_MAP[self.__class__.__name__],
             public=False,
             visible_to=[],
-            data=data
+            data=data,
         )
 
 
@@ -155,7 +156,7 @@ class TargetedAction(Action):
     @classmethod
     @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
-        fields = fields or ['perceived_threat_level', 'reasoning', 'target_id']
+        fields = fields or ["perceived_threat_level", "reasoning", "target_id"]
         return super(TargetedAction, cls).schema_for_player(fields, new_cls_name)
 
     @property
@@ -172,14 +173,14 @@ class HealAction(TargetedAction):
             target_id=self.target_id,
             reasoning=self.reasoning,
             perceived_threat_level=self.perceived_threat_level,
-            action=self
+            action=self,
         )
         state.push_event(
             description=f"Player {self.actor_id}, you chose to heal player {self.target_id}.",
             event_name=EventName.HEAL_ACTION,
             public=False,
             visible_to=[self.actor_id],
-            data=action_data
+            data=action_data,
         )
 
 
@@ -191,14 +192,14 @@ class InspectAction(TargetedAction):
             target_id=self.target_id,
             reasoning=self.reasoning,
             perceived_threat_level=self.perceived_threat_level,
-            action=self
+            action=self,
         )
         state.push_event(
             description=f"Player {self.actor_id}, you chose to inspect player {self.target_id}.",
             event_name=EventName.INSPECT_ACTION,
             public=False,
             visible_to=[self.actor_id],
-            data=action_data
+            data=action_data,
         )
 
 
@@ -216,7 +217,7 @@ class EliminateProposalAction(VoteAction):
 class ChatAction(Action):
     message: str = Field(default="", max_length=4096)
 
-    @field_validator('message', mode='before')
+    @field_validator("message", mode="before")
     @classmethod
     def filter_message(cls, v):
         return filter_language(v)
@@ -224,7 +225,7 @@ class ChatAction(Action):
     @classmethod
     @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
-        fields = fields or ['perceived_threat_level', 'reasoning', 'message']
+        fields = fields or ["perceived_threat_level", "reasoning", "message"]
         return super(ChatAction, cls).schema_for_player(fields, new_cls_name)
 
     @property
@@ -244,12 +245,13 @@ class BidAction(Action):
     An amount the actor is willing to pay this round.
     Currency unit can be generic 'chips' or role-specific.
     """
+
     amount: int = Field(ge=0)
 
     @classmethod
     @lru_cache(maxsize=10)
     def schema_for_player(cls, fields=None, new_cls_name=None):
-        fields = fields or ['perceived_threat_level', 'reasoning', 'amount']
+        fields = fields or ["perceived_threat_level", "reasoning", "amount"]
         return super(BidAction, cls).schema_for_player(fields, new_cls_name)
 
     @property
@@ -257,19 +259,10 @@ class BidAction(Action):
         return "amount"
 
 
-ACTIONS = [
-    EliminateProposalAction,
-    HealAction,
-    InspectAction,
-    VoteAction,
-    ChatAction,
-    BidAction,
-    NoOpAction
-]
+ACTIONS = [EliminateProposalAction, HealAction, InspectAction, VoteAction, ChatAction, BidAction, NoOpAction]
 
-ACTION_REGISTRY = {
-    action.__name__: action for action in ACTIONS
-}
+ACTION_REGISTRY = {action.__name__: action for action in ACTIONS}
+
 
 def create_action(serialized):
-    return ACTION_REGISTRY[serialized['action_type']](**serialized.get('kwargs', {}))
+    return ACTION_REGISTRY[serialized["action_type"]](**serialized.get("kwargs", {}))

@@ -1,12 +1,13 @@
 from collections import Counter
 from typing import Dict, List
 
-from kaggle_environments.envs.werewolf.game.actions import BidAction, Action
+from kaggle_environments.envs.werewolf.game.actions import Action, BidAction
 from kaggle_environments.envs.werewolf.game.base import PlayerID
 from kaggle_environments.envs.werewolf.game.consts import EventName
 from kaggle_environments.envs.werewolf.game.protocols.base import BiddingProtocol
 from kaggle_environments.envs.werewolf.game.records import BidDataEntry, ChatDataEntry
 from kaggle_environments.envs.werewolf.game.states import GameState
+
 from .factory import register_protocol
 
 
@@ -36,15 +37,17 @@ class SimpleBiddingProtocol(BiddingProtocol):
     @property
     def rule(self) -> str:
         """Provides a description of the bidding rules."""
-        return "\n".join((
-            "Players bid with an urgency level (0-4) to determine speaking order.",
-            "0: I would like to observe and listen for now.",
-            "1: I have some general thoughts to share with the group.",
-            "2: I have something critical and specific to contribute to this discussion.",
-            "3: It is absolutely urgent for me to speak next.",
-            "4: I must respond.",
-            "Higher bids speak earlier. Ties are broken by player name (A-Z)."
-        ))
+        return "\n".join(
+            (
+                "Players bid with an urgency level (0-4) to determine speaking order.",
+                "0: I would like to observe and listen for now.",
+                "1: I have some general thoughts to share with the group.",
+                "2: I have something critical and specific to contribute to this discussion.",
+                "3: It is absolutely urgent for me to speak next.",
+                "4: I must respond.",
+                "Higher bids speak earlier. Ties are broken by player name (A-Z).",
+            )
+        )
 
     @property
     def bids(self) -> Dict[PlayerID, int]:
@@ -65,7 +68,7 @@ class SimpleBiddingProtocol(BiddingProtocol):
             reasoning=bid.reasoning,
             perceived_threat_level=bid.perceived_threat_level,
             bid_amount=bid_amount,
-            action=bid
+            action=bid,
         )
         state.push_event(
             description=f"Player {bid.actor_id} submitted a bid of {bid_amount}.",
@@ -73,7 +76,7 @@ class SimpleBiddingProtocol(BiddingProtocol):
             public=False,  # Bids are private until the outcome is announced
             visible_to=[bid.actor_id],
             data=data,
-            source=bid.actor_id
+            source=bid.actor_id,
         )
 
     def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
@@ -112,23 +115,26 @@ class UrgencyBiddingProtocol(BiddingProtocol):
     - Highest bidder wins.
     - Ties are broken by prioritizing players mentioned in the previous turn.
     """
+
     @property
     def display_name(self) -> str:
         return "Urgency Bidding"
 
     @property
     def rule(self) -> str:
-        return "\n".join([
-            "Urgency-based bidding. Players bid with an urgency level (0-4).",
-            "0: I would like to observe and listen for now.",
-            "1: I have some general thoughts to share with the group.",
-            "2: I have something critical and specific to contribute to this discussion.",
-            "3: It is absolutely urgent for me to speak next.",
-            "4: Someone has addressed me directly and I must respond.",
-            "Highest bidder wins."
-            "Ties are broken by the following priority: (1) players mentioned in the previous turn's chat, "
-            "(2) the least spoken player, (3) round robin order of the player list."
-        ])
+        return "\n".join(
+            [
+                "Urgency-based bidding. Players bid with an urgency level (0-4).",
+                "0: I would like to observe and listen for now.",
+                "1: I have some general thoughts to share with the group.",
+                "2: I have something critical and specific to contribute to this discussion.",
+                "3: It is absolutely urgent for me to speak next.",
+                "4: Someone has addressed me directly and I must respond.",
+                "Highest bidder wins."
+                "Ties are broken by the following priority: (1) players mentioned in the previous turn's chat, "
+                "(2) the least spoken player, (3) round robin order of the player list.",
+            ]
+        )
 
     @property
     def bids(self) -> Dict[PlayerID, int]:
@@ -153,7 +159,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 state.push_event(
                     description=f"Players mentioned last turn (priority in ties): {self._mentioned_last_turn}",
                     event_name=EventName.BIDDING_INFO,
-                    public=True  # So everyone knows who has priority
+                    public=True,  # So everyone knows who has priority
                 )
 
     def accept(self, bid: BidAction, state: GameState) -> None:
@@ -164,7 +170,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 reasoning=bid.reasoning,
                 perceived_threat_level=bid.perceived_threat_level,
                 bid_amount=bid.amount,
-                action=bid
+                action=bid,
             )
             state.push_event(
                 description=f"Player {bid.actor_id} submitted bid=({bid.amount}).",
@@ -172,7 +178,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 public=False,
                 visible_to=[bid.actor_id],
                 data=data,
-                source=bid.actor_id
+                source=bid.actor_id,
             )
         else:
             # Invalid bid amount is treated as a bid of 0
@@ -181,7 +187,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
                 description=f"Player {bid.actor_id} submitted an invalid bid amount ({bid.amount}). Treated as 0.",
                 event_name=EventName.ERROR,
                 public=False,
-                visible_to=[bid.actor_id]
+                visible_to=[bid.actor_id],
             )
 
     def process_incoming_bids(self, actions: List[Action], state: GameState) -> None:
@@ -226,8 +232,7 @@ class UrgencyBiddingProtocol(BiddingProtocol):
 
         candidate_speech_counts = {pid: speech_counts.get(pid, 0) for pid in candidates}
         min_spoken = min(candidate_speech_counts.values())
-        least_spoken_candidates = sorted(
-            [pid for pid, count in candidate_speech_counts.items() if count == min_spoken])
+        least_spoken_candidates = sorted([pid for pid, count in candidate_speech_counts.items() if count == min_spoken])
 
         if len(least_spoken_candidates) == 1:
             return least_spoken_candidates

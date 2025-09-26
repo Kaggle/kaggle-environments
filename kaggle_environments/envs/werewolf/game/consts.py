@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 MODERATOR_ID = "MODERATOR"
 
 
@@ -16,6 +15,7 @@ class Phase(StrEnum):
     DAY = "Day"
     NIGHT = "Night"
     GAME_OVER = "Game Over"
+
 
 DAY, NIGHT, GAME_OVER = Phase
 
@@ -101,7 +101,7 @@ class DetailedPhase(StrEnum):
     GAME_OVER = "GAME_OVER", GAME_OVER
 
 
-EVENT_HANDLER_FOR_ATTR_NAME = '_event_handler_for'
+EVENT_HANDLER_FOR_ATTR_NAME = "_event_handler_for"
 
 
 class EventName(str, Enum):

@@ -1,9 +1,9 @@
-import os
-import yaml
-import sys
-import subprocess
 import logging
+import os
+import subprocess
+import sys
 
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -15,20 +15,22 @@ def run_single_game_cli(game_dir, game_config, use_random_agents, debug):
     """
     out_config = {"game_config": game_config}
     config_path = os.path.join(game_dir, "config.yaml")
-    with open(config_path, 'w') as f:
+    with open(config_path, "w") as f:
         yaml.dump(out_config, f, default_flow_style=False)
 
-    run_py_path = os.path.join(os.path.dirname(__file__), 'run.py')
+    run_py_path = os.path.join(os.path.dirname(__file__), "run.py")
     cmd = [
         sys.executable,
         run_py_path,
-        '--config_path', config_path,
-        '--output_dir', game_dir,
+        "--config_path",
+        config_path,
+        "--output_dir",
+        game_dir,
     ]
     if use_random_agents:
-        cmd.append('--random_agents')
+        cmd.append("--random_agents")
     if debug:
-        cmd.append('--debug')
+        cmd.append("--debug")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -39,10 +41,7 @@ def run_single_game_cli(game_dir, game_config, use_random_agents, debug):
             logger.warning(f"Stderr (non-fatal) from game in {game_dir}: {result.stderr}")
     except subprocess.CalledProcessError as e:
         error_message = (
-            f"Error running game in {game_dir}.\n"
-            f"Return Code: {e.returncode}\n"
-            f"Stdout: {e.stdout}\n"
-            f"Stderr: {e.stderr}"
+            f"Error running game in {game_dir}.\nReturn Code: {e.returncode}\nStdout: {e.stdout}\nStderr: {e.stderr}"
         )
         logger.error(error_message)
         raise RuntimeError(error_message) from e

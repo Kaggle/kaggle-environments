@@ -1,4 +1,4 @@
-from typing import Dict, Type, Callable, Any
+from typing import Any, Callable, Dict, Type
 
 # The new unified, flat registry. Maps class names to class objects and default params.
 PROTOCOL_REGISTRY: Dict[str, Dict[str, Any]] = {}
@@ -17,10 +17,7 @@ def register_protocol(default_params: Dict = None) -> Callable:
         if name in PROTOCOL_REGISTRY:
             raise TypeError(f"Protocol '{name}' is already registered.")
 
-        PROTOCOL_REGISTRY[name] = {
-            "class": cls,
-            "default_params": default_params
-        }
+        PROTOCOL_REGISTRY[name] = {"class": cls, "default_params": default_params}
         return cls
 
     return decorator

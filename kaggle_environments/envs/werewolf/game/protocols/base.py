@@ -1,7 +1,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Sequence, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from kaggle_environments.envs.werewolf.game.actions import Action, BidAction, ChatAction
 from kaggle_environments.envs.werewolf.game.base import PlayerID
@@ -17,10 +17,10 @@ def _extract_player_ids_from_string(text: str, all_player_ids: List[PlayerID]) -
         return []
     # Create a regex pattern to find any of the player IDs as whole words
     # Using a set for faster lookups and to handle duplicates from the regex
-    pattern = r'\b(' + '|'.join(re.escape(pid) for pid in all_player_ids) + r')\b'
+    pattern = r"\b(" + "|".join(re.escape(pid) for pid in all_player_ids) + r")\b"
     # Use a set to automatically handle duplicates found by the regex
     found_ids = set(re.findall(pattern, text))
-    return sorted(list(found_ids)) # sorted for deterministic order
+    return sorted(list(found_ids))  # sorted for deterministic order
 
 
 def _find_mentioned_players(text: str, all_player_ids: List[PlayerID]) -> List[PlayerID]:
@@ -34,7 +34,7 @@ def _find_mentioned_players(text: str, all_player_ids: List[PlayerID]) -> List[P
 
     # Sort by length descending to handle substrings correctly.
     sorted_player_ids = sorted(all_player_ids, key=len, reverse=True)
-    pattern = r'\b(' + '|'.join(re.escape(pid) for pid in sorted_player_ids) + r')\b'
+    pattern = r"\b(" + "|".join(re.escape(pid) for pid in sorted_player_ids) + r")\b"
 
     matches = re.finditer(pattern, text)
 
@@ -54,12 +54,11 @@ class GameProtocol(ABC):
     @property
     def display_name(self) -> str:
         return self.__class__.__name__
-    
+
     @property
     @abstractmethod
     def rule(self) -> str:
         """Human-readable format of rule."""
-        
 
 
 class VotingProtocol(GameProtocol):
@@ -113,6 +112,7 @@ class VotingProtocol(GameProtocol):
 
 class BiddingProtocol(GameProtocol):
     """Drives one auction round and returns the winner(s)."""
+
     @property
     @abstractmethod
     def bids(self) -> Dict[PlayerID, int]:
@@ -198,7 +198,7 @@ class DiscussionProtocol(GameProtocol):
                         reasoning=act.reasoning,
                         mentioned_player_ids=mentioned_ids,
                         perceived_threat_level=act.perceived_threat_level,
-                        action=act
+                        action=act,
                     )
                     state.push_event(
                         description=f'Player "{act.actor_id}" (chat): {act.message}',
@@ -206,7 +206,7 @@ class DiscussionProtocol(GameProtocol):
                         event_name=EventName.DISCUSSION,
                         public=True,
                         source=act.actor_id,
-                        data=data
+                        data=data,
                     )
                 else:
                     state.push_event(
@@ -214,7 +214,7 @@ class DiscussionProtocol(GameProtocol):
                         event_name=EventName.DISCUSSION,  # Or a specific "INVALID_CHAT" type
                         visible_to=[act.actor_id],
                         public=False,
-                        source=act.actor_id
+                        source=act.actor_id,
                     )
 
     def call_for_actions(self, speakers: Sequence[PlayerID]) -> List[str]:
@@ -238,5 +238,5 @@ class DiscussionProtocol(GameProtocol):
                 public=False,
                 visible_to=[speaker_id],
                 data=data,
-                visible_in_ui=False
+                visible_in_ui=False,
             )

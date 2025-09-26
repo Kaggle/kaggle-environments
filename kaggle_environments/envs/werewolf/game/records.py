@@ -2,13 +2,13 @@ import json
 from abc import ABC
 from datetime import datetime
 from enum import IntEnum
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, Field, field_serializer, ConfigDict, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_serializer
 
-from .base import BaseEvent, BaseAction, PlayerID
-from .consts import Phase, ObsKeys, DetailedPhase, RoleConst, Team, EventName, PerceivedThreatLevel, PhaseDivider
+from .base import BaseAction, BaseEvent, PlayerID
+from .consts import DetailedPhase, EventName, ObsKeys, PerceivedThreatLevel, Phase, PhaseDivider, RoleConst, Team
 
 
 def get_utc_now():
@@ -22,6 +22,7 @@ class DataAccessLevel(IntEnum):
 
 class DataEntry(BaseModel, ABC):
     """Abstract base class for all data entry types."""
+
     pass
 
 
@@ -30,11 +31,14 @@ class ActionDataMixin(BaseModel):
     A mixin for action-related DataEntry models.
     Includes the actor performing the action and their private reasoning.
     """
+
     actor_id: PlayerID
     reasoning: Optional[str] = Field(
-        default=None, description="Private reasoning for moderator analysis.", access=DataAccessLevel.PERSONAL)
+        default=None, description="Private reasoning for moderator analysis.", access=DataAccessLevel.PERSONAL
+    )
     perceived_threat_level: Optional[PerceivedThreatLevel] = Field(
-        default=PerceivedThreatLevel.SAFE, access=DataAccessLevel.PERSONAL)
+        default=PerceivedThreatLevel.SAFE, access=DataAccessLevel.PERSONAL
+    )
     action: Optional[BaseAction] = Field(default=None, access=DataAccessLevel.PERSONAL)
 
 
@@ -67,7 +71,7 @@ class PlayerEventView(BaseModel):
             description=self.description,
             data=data,
             source=self.source,
-            created_at=self.created_at
+            created_at=self.created_at,
         )
 
 
@@ -85,9 +89,10 @@ class Event(BaseEvent):
     visible_in_ui: bool = True
     """Determine if visible to game viewer in UI. Has no effect to game engine flow."""
 
-    @field_serializer('data')
+    @field_serializer("data")
     def serialize_data(self, data):
-        if data is None: return None
+        if data is None:
+            return None
         if isinstance(data, dict):
             return data
         if isinstance(data, BaseModel):
@@ -106,7 +111,7 @@ class Event(BaseEvent):
             fields_to_exclude = set()
             for name, info in self.data.__class__.model_fields.items():
                 if info.json_schema_extra:
-                    if user_level >= info.json_schema_extra.get('access', DataAccessLevel.PUBLIC):
+                    if user_level >= info.json_schema_extra.get("access", DataAccessLevel.PUBLIC):
                         fields_to_include.add(name)
                     else:
                         fields_to_exclude.add(name)
@@ -123,7 +128,7 @@ class Event(BaseEvent):
             description=self.description,
             data=data,
             source=self.source,
-            created_at=self.created_at
+            created_at=self.created_at,
         )
         return out
 
@@ -214,6 +219,7 @@ class DayExileVoteDataEntry(TargetedActionDataEntry):
 
 class DoctorSaveDataEntry(DataEntry):
     """This records that a player was successfully saved by a doctor."""
+
     saved_player_id: PlayerID
 
 
@@ -223,11 +229,13 @@ class VoteOrderDataEntry(DataEntry):
 
 class WerewolfNightEliminationElectedDataEntry(DataEntry):
     """This record the elected elimination target by werewolves."""
+
     elected_target_player_id: PlayerID
 
 
 class WerewolfNightEliminationDataEntry(DataEntry):
     """This record the one eventually got eliminated by werewolves without doctor safe."""
+
     eliminated_player_id: PlayerID
     eliminated_player_role_name: Optional[RoleConst] = None
     eliminated_player_team_name: Optional[Team] = None
@@ -245,6 +253,7 @@ class DiscussionOrderDataEntry(DataEntry):
 
 class ChatDataEntry(ActionDataMixin, DataEntry):
     """Records a chat message from a player, including private reasoning."""
+
     # actor_id and reasoning are inherited from ActionDataMixin
     message: str
     mentioned_player_ids: List[PlayerID] = Field(default_factory=list)

@@ -6,7 +6,7 @@ import os
 from kaggle_environments import make
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def main():
@@ -17,19 +17,17 @@ def main():
     """
     parser = argparse.ArgumentParser(
         description="Rerender a Werewolf game HTML replay from a JSON game record.",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        "-i", "--input_json",
+        "-i",
+        "--input_json",
         type=str,
         required=True,
-        help="Path to the input game record JSON file (e.g., werewolf_game.json)."
+        help="Path to the input game record JSON file (e.g., werewolf_game.json).",
     )
     parser.add_argument(
-        "-o", "--output_html",
-        type=str,
-        required=True,
-        help="Path to write the newly rendered HTML output file."
+        "-o", "--output_html", type=str, required=True, help="Path to write the newly rendered HTML output file."
     )
     args = parser.parse_args()
 
@@ -39,7 +37,7 @@ def main():
         return
 
     try:
-        with open(args.input_json, 'r', encoding='utf-8') as f:
+        with open(args.input_json, "r", encoding="utf-8") as f:
             replay_data = json.load(f)
     except json.JSONDecodeError:
         logging.error(f"Error: Failed to decode JSON from {args.input_json}. The file might be corrupted.")
@@ -61,7 +59,7 @@ def main():
             "werewolf",
             configuration=replay_data.get("configuration"),
             steps=replay_data.get("steps", []),
-            info=replay_data.get("info", {})
+            info=replay_data.get("info", {}),
         )
         logging.info("Environment initialized. Rendering new HTML...")
 
@@ -73,14 +71,16 @@ def main():
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
 
-        with open(args.output_html, 'w', encoding='utf-8') as f:
+        with open(args.output_html, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         logging.info(f"Successfully rerendered HTML to: {args.output_html}")
 
     except Exception as e:
         logging.error(f"An error occurred during environment creation or rendering: {e}")
-        logging.error("Please ensure the 'kaggle_environments' package is correctly installed and the JSON file is valid.")
+        logging.error(
+            "Please ensure the 'kaggle_environments' package is correctly installed and the JSON file is valid."
+        )
 
 
 if __name__ == "__main__":
