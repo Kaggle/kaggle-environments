@@ -20,7 +20,7 @@ from .core import register
 from .main import http_request
 from . import errors
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
 __all__ = [
     "Agent",
