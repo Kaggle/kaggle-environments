@@ -147,11 +147,6 @@ function renderer(context) {
               console.log(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
               stopAndClearAudio();
               audioState.isPaused = true;
-              const pauseButton = document.querySelector('#pause-audio');
-              if (pauseButton) {
-                  pauseButton.classList.add('paused');
-                  pauseButton.classList.remove('playing');
-              }
               window.wwOriginals.setStep(newStep); 
           });
       }
@@ -208,11 +203,6 @@ function renderer(context) {
           if (audioState.isAudioPlaying) {
               audioState.audioPlayer.pause();
           }
-          const pauseButton = document.querySelector('#pause-audio');
-          if (pauseButton) {
-              pauseButton.classList.add('paused');
-              pauseButton.classList.remove('playing');
-          }
       });
 
       mainContext.patchesApplied = true;
@@ -239,11 +229,6 @@ function renderer(context) {
           window.wwOriginals.setPlaying(true);
       }
       // This updates your custom audio panel's button.
-      const pauseButton = parent.querySelector('#pause-audio');
-      if (pauseButton) {
-          pauseButton.classList.remove('paused');
-          pauseButton.classList.add('playing');
-      }
 
       stopAndClearAudio();
       console.log("DEBUG: [playAudioFrom] Audio stopped and cleared.");
@@ -3044,22 +3029,6 @@ function renderer(context) {
       audioState.hasAudioTracks = Object.keys(audioMap).length > 0; 
   }
 
-  function togglePause() {
-      audioState.isPaused = !audioState.isPaused;
-      const pauseButton = parent.querySelector('#pause-audio');
-      if (pauseButton) {
-          pauseButton.classList.toggle('paused', audioState.isPaused);
-          pauseButton.classList.toggle('playing', !audioState.isPaused);
-      }
-      if (!audioState.isPaused && !audioState.isAudioPlaying) {
-          playNextInQueue();
-      } else if (audioState.isPaused && audioState.isAudioPlaying) {
-          audioState.audioPlayer.pause();
-      } else if (!audioState.isPaused && audioState.isAudioPlaying) {
-          audioState.audioPlayer.play();
-      }
-  }
-
   function setPlaybackRate(rate) {
       audioState.playbackRate = rate;
       if (audioState.isAudioPlaying) {
@@ -3329,7 +3298,6 @@ function renderer(context) {
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
     const audioToggleIcon = audioToggleEnabled ? '&#x1F50A;' : '&#x1F507;'; // Speaker vs Muted
     const audioToggleClasses = `audio-toggle-btn ${audioToggleDisabled ? 'disabled' : ''} ${audioToggleEnabled ? 'enabled' : ''}`;
-    const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
 
     container.innerHTML = `
         <h1>
@@ -3338,7 +3306,6 @@ function renderer(context) {
                  <button id="global-reasoning-toggle" title="Toggle All Reasoning">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </button>
-                <button id="pause-audio" class="${pauseButtonClass}"></button>
                 <div id="speed-control-container" style="display: flex; align-items: center; gap: 5px;">
                     <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="width: 70px;">
                     <span id="speed-label" style="font-size: 12px; min-width: 30px;">${audioState.playbackRate.toFixed(1)}x</span>
@@ -3709,11 +3676,6 @@ function renderer(context) {
                 audioState.isPaused = true; // Ensure it stays paused
 
                 // Update left-panel pause button
-                const pauseButton = document.querySelector('#pause-audio');
-                if (pauseButton) {
-                    pauseButton.classList.add('paused');
-                    pauseButton.classList.remove('playing');
-                }
             } else {
                 // --- ENABLING ---
                 audioState.isAudioEnabled = true;
@@ -3740,19 +3702,12 @@ function renderer(context) {
 
     const speedSlider = container.querySelector('#playback-speed');
     const speedLabel = container.querySelector('#speed-label');
-    const pauseButton = container.querySelector('#pause-audio');
 
     if (speedSlider) {
         speedSlider.addEventListener('input', (e) => {
             const newRate = parseFloat(e.target.value);
             setPlaybackRate(newRate);
             if(speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
-        });
-    }
-
-    if (pauseButton) {
-        pauseButton.addEventListener('click', () => {
-            togglePause();
         });
     }
   }
@@ -3814,30 +3769,21 @@ function renderer(context) {
 
     const audioControls = document.createElement('div');
     audioControls.className = 'audio-controls';
-    const pauseButtonClass = audioState.isPaused ? 'paused' : 'playing';
     audioControls.innerHTML = `
         <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
             <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="flex-grow: 1;">
-            <button id="pause-audio" class="${pauseButtonClass}"></button>
         </div>
     `;
     container.appendChild(audioControls);
 
     const speedSlider = audioControls.querySelector('#playback-speed');
     const speedLabel = audioControls.querySelector('#speed-label');
-    const pauseButton = audioControls.querySelector('#pause-audio');
 
     speedSlider.addEventListener('input', (e) => {
         const newRate = parseFloat(e.target.value);
         setPlaybackRate(newRate);
         speedLabel.textContent = newRate.toFixed(1);
-    });
-
-    pauseButton.addEventListener('click', () => {
-        // Get the slider's current display step from the renderer's scope
-        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[step];
-        playAudioFrom(allEventsIndex);
     });
   }
 
