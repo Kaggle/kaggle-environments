@@ -7,7 +7,6 @@ Checkout the werewolf_harness branch
 ```bash
 git clone https://github.com/Kaggle/kaggle-environments.git
 cd kaggle-environments
-git checkout werewolf_harness
 ```
 
 Set up preferred venv environment
@@ -17,7 +16,7 @@ Install the requirements for kaggle env
 pip install -e kaggle-environments
 ```
 
-[Optional] Set up authentication for connecting to vertex
+[Optional] For Vertex API use, set up authentication via application default credentials
 ```bash
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
@@ -57,6 +56,13 @@ The output, including a log file and an HTML replay, will be saved in a timestam
   python kaggle_environments/envs/werewolf/scripts/run.py -c path/to/your/config.yaml
   ```
 
+- **Example configuration file using Vertex API**
+Note that application default credentials (see above) need to be set or GCP API Key set in environment
+  ```bash
+  python kaggle_environments/envs/werewolf/scripts/run.py \
+    --config_path kaggle_environments/envs/werewolf/scripts/configs/run/vertex_api_example_config.yaml \
+    --output_dir output_dir
+  ```
 - **Use random agents for a quick test:**
   ```bash
   python kaggle_environments/envs/werewolf/scripts/run.py -r
