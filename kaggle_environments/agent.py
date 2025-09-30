@@ -106,6 +106,11 @@ def build_agent(raw, builtin_agents, environment_name):
     Returns the agent and whether the agent is parallelizable.
     """
     if raw in builtin_agents:
+        agent = builtin_agents[raw]
+        # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
+        #  Kaggle environment should allow more scalable agent initialization and proper agent interface design.
+        if hasattr(agent, "reset"):
+            agent.reset()
         return builtin_agents[raw], False
 
     # Already callable.
@@ -159,21 +164,28 @@ class Agent:
 
         # Start the timer.
 
-        with (
-            StringIO() as out_buffer,
-            StringIO() as err_buffer,
-            redirect_stdout(out_buffer),
-            redirect_stderr(err_buffer),
-        ):
-            try:
-                start = perf_counter()
-                action = self.agent(*args)
-            except Exception as e:
-                traceback.print_exc(file=err_buffer)
-                action = e
-
-            out = out_buffer.getvalue()
-            err = err_buffer.getvalue()
+        if self.debug:
+            # Adding a debugging branch here, since the context manager and try except would prevent
+            # debugger from functioning properly.
+            start = perf_counter()
+            action = self.agent(*args)
+            out = ""
+            err = ""
+        else:
+            with (
+                StringIO() as out_buffer,
+                StringIO() as err_buffer,
+                redirect_stdout(out_buffer),
+                redirect_stderr(err_buffer),
+            ):
+                try:
+                    start = perf_counter()
+                    action = self.agent(*args)
+                except Exception as e:
+                    traceback.print_exc(file=err_buffer)
+                    action = e
+                out = out_buffer.getvalue()
+                err = err_buffer.getvalue()
             # Get the maximum log length
             # Allow up to 10k (default) log characters per step which is ~10MB per 600 step episode
             max_log_length = self.configuration.get("maxLogLength", 10000)
