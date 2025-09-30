@@ -3,7 +3,7 @@
 Very quick guide for internal developers to run the kaggle werewolf code for debugging exploration
 This example only uses models from vertexai for simplicity of auth
 
-Checkout the werewolf_harness branch
+Checkout the code for kaggle-environments
 ```bash
 git clone https://github.com/Kaggle/kaggle-environments.git
 cd kaggle-environments
@@ -16,34 +16,37 @@ Install the requirements for kaggle env
 pip install -e kaggle-environments
 ```
 
-[Optional] For Vertex API use, set up authentication via application default credentials
+[Optional] For Vertex API use, set up authentication via application default credentials. Note that Google's
+Gemini models can be accessed via both a consumer Developer API and enterprise Google Cloud Vertex API with more enterprise controls and features. For using Developer API authentication the GEMINI_API_KEY environment variable should be set and for Vertex AI there are a number of methods with most common being gcloud authentication to your project as below. See [documentation](https://ai.google.dev/gemini-api/docs/migrate-to-cloud) for more deatils
 ```bash
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
-Set up `.env` under project root for auth, used in base.py
+Set up `.env` under project root for authentication for, used in base.py, for models that will be used.
 ```
+# Note - Gemini can be accessed via Developer API or via Google Cloud Vertex API for enterprise feature support.
+# Google Developer API will need GEMNI_API_KEY set for authentication 
+# Cloud Vertex API most common access with gcloud auth login above, but other alternatives available
+# Developer API 
+GEMINI_API_KEY=..
+# Vertex API
+GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json" # Optional if different from default location
+VERTEXAI_PROJECT=MY_PROJECT_ID # name of your project
+VERTEXAI_LOCATION=LOCATION # e.g. us-central1
 
+# See individual APIs for authentication details
 OPENAI_API_KEY=...
 ANTHROPIC_API_KEY=...
 TOGETHERAI_API_KEY=...
 XAI_API_KEY=...
-GEMINI_MODEL="gemini-2.5-pro"
-# Note for gemini can access via Google Labs API via GEMNI_API_KEY or
-# via Google Cloud Vertex API by setting VERTEXAI_PROJECT and VERTEXAI_LOCATION
-# and authenticating to vertex project with gcloud command above.
-GOOGLE_APPLICATION_CREDENTIALS="/my/path/xxx.json" # Optional if different from default location
-VERTEXAI_PROJECT=MY_PROJECT_ID # name of your poject
-VERTEXAI_LOCATION=LOCATION # e.g. us-central1
-GEMINI_API_KEY=..
 ```
 
 ## Running a Game
 
 The primary way to run a game is by using the `run.py` script, which uses a YAML configuration file to define all the game parameters, including the agents.
 
-To run a game with the default configuration (`run_config.yaml`):
+To run a game with the default configuration (`run_config.yaml`). Note that this will use the Google Developer API for Gemini and require setting GEMINI_API_KEY in environment. See [Developer API Documentation](https://ai.google.dev/gemini-api/docs/api-key) for details.
 ```bash
 python kaggle_environments/envs/werewolf/scripts/run.py
 ```
@@ -56,8 +59,8 @@ The output, including a log file and an HTML replay, will be saved in a timestam
   python kaggle_environments/envs/werewolf/scripts/run.py -c path/to/your/config.yaml
   ```
 
-- **Example configuration file using Vertex API**
-Note that application default credentials (see above) need to be set or GCP API Key set in environment
+- **Example configuration file using Vertex API:**
+Note that for authentication with Vertex the application default credentials need to be set with gcloud command (see above) or alternative service account, api key, etc. See [Vertex documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys) for details. In the config file the Vertex AI API will be specified with 'llm/vertex_ai/gemini-2.5-flash' instead of 'llm/gemini/gemini-2.5-flash' for Developer API. 
   ```bash
   python kaggle_environments/envs/werewolf/scripts/run.py \
     --config_path kaggle_environments/envs/werewolf/scripts/configs/run/vertex_api_example_config.yaml \
