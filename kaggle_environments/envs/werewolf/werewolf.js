@@ -3,8 +3,8 @@ function renderer(context) {
     environment,
     step,
     parent,
-    height = 700,
-    width = 1100
+    height = 1000,
+    width = 1500
   } = context;
 
   if (!parent.id) {
@@ -63,7 +63,7 @@ function renderer(context) {
             const dataType = dataEntry.data_type;
             const visibleInUI = event.visible_in_ui ?? true;
 
-            console.log(`[RAW SEEN] Kaggle Step: ${kaggleStep}`, { dataType: dataType, event: event });
+            console.debug(`[RAW SEEN] Kaggle Step: ${kaggleStep}`, { dataType: dataType, event: event });
 
             if (!visibleInUI) {
               return;
@@ -80,11 +80,10 @@ function renderer(context) {
 
             // 3. Check against the new fingerprint.
             if (processedPhaseEvents.has(eventFingerprint)) {
-                return; // This is a repeated state update, not a new event. Ignore it.
+                return;
             }
             processedPhaseEvents.add(eventFingerprint);
 
-            // The rest of your original processing logic follows...
             const isVisibleDataType = visibleEventDataTypes.has(dataType);
             const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
 
@@ -92,9 +91,8 @@ function renderer(context) {
                 return;
             }
 
-            // (Your existing code to push events to player.allEvents, player.displayEvents, etc.)
             event.kaggleStep = kaggleStep;
-            event.dataType = dataType; // Ensure dataType is set
+            event.dataType = dataType;
             player.allEvents.push(event);
             player.eventToKaggleStep.push(kaggleStep);
 
@@ -108,7 +106,7 @@ function renderer(context) {
         });
     });
 
-    console.log(`[FINAL STEP LIST]`, player.displayEvents);
+    console.debug(`[FINAL STEP LIST]`, player.displayEvents);
 
     const newSteps = player.displayEvents.map((event) => {
         return player.originalSteps[event.kaggleStep];
@@ -118,10 +116,6 @@ function renderer(context) {
         if (window.kaggle) {
             window.kaggle.environment.steps = newSteps;
         }
-
-        console.log('context');
-        console.dir(context);
-
         window.postMessage({ setSteps: newSteps }, "*");
     }, 100); // A small delay to ensure player is ready
     player.initialized = true;
@@ -132,7 +126,7 @@ function renderer(context) {
       const mainContext = context.__mainContext;
 
       if (!window.wwOriginals) {
-          console.log("DEBUG: Storing original controls for the first time.");
+          console.debug("DEBUG: Storing original controls for the first time.");
           window.wwOriginals = {
               setStep: mainContext.setStep,
               play: mainContext.play,
@@ -144,7 +138,7 @@ function renderer(context) {
       // --- Patch setStep ---
       if (mainContext.setSetStep) {
           mainContext.setSetStep(() => (newStep) => {
-              console.log(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
+              console.debug(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
               stopAndClearAudio();
               audioState.isPaused = true;
               window.wwOriginals.setStep(newStep); 
@@ -153,20 +147,11 @@ function renderer(context) {
 
       // --- Patch Play ---
       mainContext.setPlay(() => (continuing) => {
-        console.log(`DEBUG: [setPlay] Play button clicked. Continuing: ${continuing}`);  
-        // if (!audioState.isAudioEnabled) {
-        //     console.log("DEBUG: [setPlay] Audio was not enabled. Enabling it now.");
-        //     audioState.isAudioEnabled = true;
-        //     if (!audioState.audioContextActivated) {
-        //         const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        //         audio.play().catch(e => console.warn("Audio context activation failed:", e));
-        //         audioState.audioContextActivated = true;
-        //   }
-        // }
+        console.debug(`DEBUG: [setPlay] Play button clicked. Continuing: ${continuing}`);
 
         if (audioState.isAudioEnabled) {
             // --- AUDIO-DRIVEN PLAYBACK ---
-            console.log("DEBUG: [setPlay] Audio is ON. Using audio-driven playback.");
+            console.debug("DEBUG: [setPlay] Audio is ON. Using audio-driven playback.");
             window.wwOriginals.setPlaying(true); 
             let currentDisplayStep = context.step; 
             
@@ -185,7 +170,7 @@ function renderer(context) {
 
         } else {
             // --- TIMER-DRIVEN PLAYBACK (When audio is off) ---
-            console.log("DEBUG: [setPlay] Audio is OFF. Using original Kaggle timer-based playback.");
+            console.debug("DEBUG: [setPlay] Audio is OFF. Using original Kaggle timer-based playback.");
             // This call uses the original player's setTimeout logic.
             window.wwOriginals.play(continuing);
         }
@@ -193,7 +178,7 @@ function renderer(context) {
 
       // --- Patch Pause ---
       mainContext.setPause(() => () => {
-          console.log("DEBUG: [setPause] Pause button clicked. Stopping audio.");
+          console.debug("DEBUG: [setPause] Pause button clicked. Stopping audio.");
 
           // Stop the timer-based playback if it's running.
           window.wwOriginals.pause();
@@ -218,7 +203,7 @@ function renderer(context) {
   const threeState = window.werewolfThreeJs;
 
   function playAudioFrom(startIndex, isContinuous = true) {
-      console.log(`DEBUG: [playAudioFrom] Called with startIndex: ${startIndex}, isContinuous: ${isContinuous}`);
+      console.debug(`DEBUG: [playAudioFrom] Called with startIndex: ${startIndex}, isContinuous: ${isContinuous}`);
       if (!audioState.isAudioEnabled) {
           console.error("DEBUG: [playAudioFrom] FAILED: Audio is not enabled.");
           return;
@@ -231,16 +216,16 @@ function renderer(context) {
       // This updates your custom audio panel's button.
 
       stopAndClearAudio();
-      console.log("DEBUG: [playAudioFrom] Audio stopped and cleared.");
+      console.debug("DEBUG: [playAudioFrom] Audio stopped and cleared.");
 
       if (audioState.isPaused) {
-          console.log("DEBUG: [playAudioFrom] Audio state was paused.");
+          console.debug("DEBUG: [playAudioFrom] Audio state was paused.");
           audioState.isPaused = false; // Un-pause regardless.
 
           // If we're at a *new* index (e.g., user clicked slider),
           // we must NOT resume. We must reload the queue.
           if (startIndex !== audioState.lastStartedIndex) {
-              console.log(`DEBUG: [playAudioFrom] New start index. Loading queue from: ${startIndex}`);
+              console.debug(`DEBUG: [playAudioFrom] New start index. Loading queue from: ${startIndex}`);
               audioState.lastStartedIndex = startIndex;
               loadQueueFrom(startIndex);
               playNextInQueue(isContinuous);
@@ -249,7 +234,7 @@ function renderer(context) {
 
           // If we are at the *same* index, just resume from the (now empty) queue.
           // The queue will be re-filled by loadQueueFrom.
-          console.log("DEBUG: [playAudioFrom] Paused, resuming from same start index (or undefined).");
+          console.debug("DEBUG: [playAudioFrom] Paused, resuming from same start index (or undefined).");
           // Fall through to load and play.
       }
 
@@ -260,14 +245,14 @@ function renderer(context) {
   }
 
   function loadQueueFrom(startIndex) {
-      console.log(`DEBUG: [loadQueueFrom] Loading queue from index: ${startIndex}`);
+      console.debug(`DEBUG: [loadQueueFrom] Loading queue from index: ${startIndex}`);
       if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) {
           console.error("DEBUG: [loadQueueFrom] CRITICAL: allEvents not found.");
           return;
       }
       const allEvents = window.werewolfGamePlayer.allEvents;
       const eventsToPlay = allEvents.slice(startIndex);
-      console.log(`DEBUG: [loadQueueFrom] Found ${eventsToPlay.length} potential events.`);
+      console.debug(`DEBUG: [loadQueueFrom] Found ${eventsToPlay.length} potential events.`);
 
       audioState.audioQueue = []; // Clear previous queue
 
@@ -366,7 +351,7 @@ function renderer(context) {
               });
           });
       }
-      console.log(`DEBUG: [loadQueueFrom] Loaded ${audioState.audioQueue.length} events into queue.`);
+      console.debug(`DEBUG: [loadQueueFrom] Loaded ${audioState.audioQueue.length} events into queue.`);
   }
 
   function playNextInQueue(isContinuous = true) {
@@ -377,7 +362,7 @@ function renderer(context) {
           return;
       }
 
-      console.log(`DEBUG: [playNextInQueue] Called. Queue length: ${audioState.audioQueue.length}. isPaused: ${audioState.isPaused}. isAudioPlaying: ${audioState.isAudioPlaying}.`);
+      console.debug(`DEBUG: [playNextInQueue] Called. Queue length: ${audioState.audioQueue.length}. isPaused: ${audioState.isPaused}. isAudioPlaying: ${audioState.isAudioPlaying}.`);
       
       // 1. Clear any previously highlighted element
       const currentlyPlaying = currentParent.querySelector('#chat-log .now-playing');
@@ -388,7 +373,7 @@ function renderer(context) {
       if (audioState.isPaused || audioState.isAudioPlaying || audioState.audioQueue.length === 0 || !audioState.isAudioEnabled) {
           console.warn(`DEBUG: [playNextInQueue] Exiting early. Paused: ${audioState.isPaused}, Playing: ${audioState.isAudioPlaying}, Queue: ${audioState.audioQueue.length}, Enabled: ${audioState.isAudioEnabled}`);
           if (audioState.audioQueue.length === 0 && !audioState.isAudioPlaying) {
-              console.log("DEBUG: [playNextInQueue] Playback finished. Setting player to 'paused' state.");
+              console.debug("DEBUG: [playNextInQueue] Playback finished. Setting player to 'paused' state.");
               window.wwOriginals.setPlaying(false); // Stop the parent player
           }
           return;
@@ -400,10 +385,10 @@ function renderer(context) {
       // This is the slider logic, it should always run
       if (event.allEventsIndex !== undefined) {
           const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
-          console.log(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`);
+          console.debug(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`);
           
           if (displayStep !== undefined && window.wwOriginals && window.wwOriginals.setStep) {
-              console.log(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
+              console.debug(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
               window.wwOriginals.setStep(displayStep);
 
               // Use a short timeout to allow the DOM to update after the step change
@@ -414,10 +399,10 @@ function renderer(context) {
                       return;
                   }
                   const liToHighlight = freshParent.querySelector(`#chat-log li[data-all-events-index="${event.allEventsIndex}"]`);
-                  console.log(`DEBUG: [Timeout] Attempting to highlight element for index ${event.allEventsIndex}`, liToHighlight);
+                  console.debug(`DEBUG: [Timeout] Attempting to highlight element for index ${event.allEventsIndex}`, liToHighlight);
                   if (liToHighlight) {
                       liToHighlight.classList.add('now-playing');
-                      console.log(`DEBUG: [Timeout] Successfully added .now-playing to element for index ${event.allEventsIndex}`);
+                      console.debug(`DEBUG: [Timeout] Successfully added .now-playing to element for index ${event.allEventsIndex}`);
                   } else {
                       console.error(`DEBUG: [Timeout] FAILED to find element to highlight for index ${event.allEventsIndex}`);
                   }
@@ -436,18 +421,18 @@ function renderer(context) {
       }
 
       if (audioPath) {
-          console.log(`DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`);
-          console.log(`DEBUG: [playNextInQueue] Playing audio: ${audioPath}`);
+          console.debug(`DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`);
+          console.debug(`DEBUG: [playNextInQueue] Playing audio: ${audioPath}`);
           audioState.audioPlayer.src = audioPath;
           audioState.audioPlayer.playbackRate = audioState.playbackRate;
           audioState.audioPlayer.onended = () => {
-              console.log(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
+              console.debug(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
               audioState.isAudioPlaying = false;
               if (!audioState.isPaused && isContinuous) { 
-                console.log("DEBUG: [onended] Calling playNextInQueue recursively.");
+                console.debug("DEBUG: [onended] Calling playNextInQueue recursively.");
                 playNextInQueue(isContinuous);
               } else {
-                console.log("DEBUG: [onended] Loop stopped. isPaused or !isContinuous.");
+                console.debug("DEBUG: [onended] Loop stopped. isPaused or !isContinuous.");
               }
           };
           audioState.audioPlayer.onerror = () => {
@@ -726,7 +711,7 @@ function renderer(context) {
               
               _updateSkybox(phase) {
                 if (!this._skyContext || !this._skyCanvas) {
-                    console.log('Skybox context not ready');
+                    console.debug('Skybox context not ready');
                     return;
                 }
                 
@@ -1837,11 +1822,6 @@ function renderer(context) {
                     if (Math.abs(diff) > 0.001) {
                       this._phaseTransition.current += diff * this._phaseTransition.speed;
                       this._updateSceneForPhase(this._phaseTransition.current);
-                      
-                      // Log transition progress occasionally
-                        //   if (Math.floor(time / 1000) % 5 === 0 && Math.abs(diff) > 0.01) {
-                        //     console.log(`Phase transitioning: ${this._phaseTransition.current.toFixed(2)} → ${this._phaseTransition.target}`);
-                        //   }
                     }
                   }
                   
@@ -3997,47 +3977,6 @@ function renderer(context) {
         }
     }
 
-    // const eventsToPlay = gameState.eventLog.slice(audioState.lastPlayedStep > -1 ? audioState.lastPlayedStep + 1 : 0);
-
-    // if (eventsToPlay.length > 0) {
-    //     eventsToPlay.forEach(entry => {
-    //         let audioEvent = null;
-    //         if (entry.type === 'chat') {
-    //             audioEvent = { message: entry.message, speaker: entry.speaker };
-    //         } else if (entry.type === 'system') {
-    //             const text = entry.text.toLowerCase();
-    //             if (text.includes('night') && text.includes('begins')) {
-    //                 audioEvent = { message: 'night_begins', speaker: 'moderator' };
-    //             } else if (text.includes('day') && text.includes('begins')) {
-    //                 audioEvent = { message: 'day_begins', speaker: 'moderator' };
-    //             } else if (text.includes('discussion')) {
-    //                 audioEvent = { message: 'discussion_begins', speaker: 'moderator' };
-    //             } else if (text.includes('voting phase begins')) {
-    //                 audioEvent = { message: 'voting_begins', speaker: 'moderator' };
-    //             }
-    //         } else if (entry.type === 'exile') {
-    //             const message = `Player ${entry.name} was exiled by vote. Their role was a ${entry.role}.`;
-    //             audioEvent = { message: message, speaker: 'moderator' };
-    //         } else if (entry.type === 'elimination') {
-    //             const message = `Player ${entry.name} was eliminated. Their role was a ${entry.role}.`;
-    //             audioEvent = { message: message, speaker: 'moderator' };
-    //         } else if (entry.type === 'save') {
-    //             const message = `Player ${entry.saved_player} was attacked but saved by a Doctor!`;
-    //             audioEvent = { message: message, speaker: 'moderator' };
-    //         } else if (entry.type === 'game_over') {
-    //             const message = `The game is over. The ${entry.winner} team has won!`;
-    //             audioEvent = { message: message, speaker: 'moderator' };
-    //         }
-
-    //         if (audioEvent) {
-    //             audioState.audioQueue.push(audioEvent);
-    //         }
-    //     });
-
-    //     if (audioState.isAudioEnabled && !audioState.isAudioPlaying) {
-    //         playNextInQueue();
-    //     }
-    // }
     audioState.lastPlayedStep = eventStep;
     sessionStorage.setItem('ww_lastPlayedStep', eventStep);
 
@@ -4051,10 +3990,6 @@ function renderer(context) {
             }
         }
     });
-
-    // const lastStepStateList = environment.steps[step];
-    // const actingPlayerIndex = lastStepStateList.findIndex(s => s.status === 'ACTIVE');
-    // const actingPlayerName = actingPlayerIndex !== -1 ? allPlayerNamesList[actingPlayerIndex] : "N.A";
 
     // 1. Get the actual event being displayed at this step.
     const currentEvent = allEvents[eventStep]; 
