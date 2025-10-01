@@ -28,6 +28,7 @@ dependencies = [
     "stable-baselines3 == 2.7.0",
     "transformers >= 4.33.1",
     "tenacity",
+    "google-auth >= 2.35.0"
 ]
 requires-python = ">=3.10"
 
