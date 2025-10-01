@@ -22,7 +22,7 @@ from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "1.19.0"
+__version__ = "1.20.0"
 
 __all__ = [
     "Agent",
