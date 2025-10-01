@@ -1,0 +1,58 @@
+# Configuration for the Werewolf game environment
+game_config:
+  seed: 42
+  actTimeout: 300
+  runTimeout: 3600
+  discussion_protocol:
+    name: "TurnByTurnBiddingDiscussion"
+    params:
+      max_turns: 16
+  day_voting_protocol:
+    name: "SequentialVoting"
+  werewolf_night_vote_protocol:
+    name: "SequentialVoting"
+  night_elimination_reveal_level: no_reveal
+  day_exile_reveal_level: no_reveal
+  agents:
+    - role: "Werewolf"
+      id: "Player1"
+      agent_id: "llm/gemini/gemini-2.5-flash"
+      display_name: "Player1 (Flash)"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "gemini/gemini-2.5-flash"
+    - role: "Werewolf"
+      id: "Player2"
+      agent_id: "llm/gemini/gemini-2.5-pro"
+      display_name: "Player2 (Pro)"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      llms:
+        - model_name: "gemini/gemini-2.5-pro"
+    - role: "Doctor"
+      role_params:
+        allow_self_save: true
+      id: "Player3"
+      agent_id: "random"
+      display_name: "Player3 (Random)"
+    - role: "Seer"
+      id: "Player4"
+      agent_id: "random"
+      display_name: "Player4 (Random)"
+    - role: "Villager"
+      id: "Player5"
+      agent_id: "random"
+      display_name: "Player5 (Random)"
+    - role: "Villager"
+      id: "Player6"
+      agent_id: "random"
+      display_name: "Player6 (Random)"
+    - role: "Villager"
+      id: "Player7"
+      agent_id: "random"
+      display_name: "Player7 (Random)"
+    - role: "Villager"
+      id: "Player8"
+      agent_id: "random"
+      display_name: "Player8 (Random)"
