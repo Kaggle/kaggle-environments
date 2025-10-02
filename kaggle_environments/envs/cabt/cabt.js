@@ -24,10 +24,10 @@ function renderer(context) {
     if (visList) {
       for (let k = 0; k < 2; k++) {
         const button = document.createElement("button")
-        button.style.width = "120px"
+        button.style.width = "130px"
         button.style.height = "50px"
-        button.style.left = k == 0 ? "240px" : "380px"
-        button.style.top = "10px"
+        button.style.left = k == 0 ? "230px" : "380px"
+        button.style.top = "55px"
         button.style.position = "absolute"
         button.style.zIndex = 1
         button.innerHTML = "Open Visualizer<br>" + players[k]
@@ -89,9 +89,9 @@ function renderer(context) {
   ctx.font = "20px sans-serif"
   if (state.result >= 0) {
     if (state.result == 2) {
-      ctx.fillText("Draw", 330, 70)
+      ctx.fillText("Draw", 330, 125)
     } else {
-      ctx.fillText(players[state.result] + " Win", 310, 120)
+      ctx.fillText(players[state.result] + " Win", 290, 140)
     }
   }
 
@@ -147,9 +147,9 @@ function renderer(context) {
     ctx.fillText("Active", i == 0 ? 245 : 425, 270)
     ctx.fillText("Bench", i == 0 ? 145 : 525, 10)
     ctx.fillText("Hand", i == 0 ? 15 : 655, 10)
-    ctx.fillText("Deck " + ps.deckCount, i == 0 ? 258 : 438, 150)
-    ctx.fillText("Discard " + ps.discard.length, i == 0 ? 245 : 425, 170)
-    ctx.fillText("Prize " + ps.prize.length, i == 0 ? 258 : 438, 200)
+    ctx.fillText("Deck " + ps.deckCount, i == 0 ? 258 : 438, 165)
+    ctx.fillText("Discard " + ps.discard.length, i == 0 ? 245 : 425, 185)
+    ctx.fillText("Prize " + ps.prize.length, i == 0 ? 258 : 438, 220)
 
     for (let j = 0; j < ps.active.length; j++) {
       drawField(i == 0 ? 240 : 420, posY(j, ps.active.length), ps.active[j])
