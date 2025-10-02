@@ -82,18 +82,6 @@ function renderer(options) {
             fontFamily: "'Inter', sans-serif"
         });
 
-        currentBoardImage = document.createElement('img');
-        currentBoardImage.src = INITIAL_BOARD_IMAGE;
-        Object.assign(currentBoardImage.style, {
-            width: 'auto',
-            height: '100%',
-        })
-
-        currentRendererContainer.appendChild(currentBoardImage);
-        parentElementToClear.appendChild(currentRendererContainer);
-
-        // ... (The rest of the function for the board and status container remains the same, but let's add responsive fonts to the status)
-
         // Board container...
         currentBoardContainer = document.createElement('div');
         Object.assign(currentBoardContainer.style, {
@@ -104,7 +92,18 @@ function renderer(options) {
             width: '100%',
             minHeight: '0'
         });
+
+        currentBoardImage = document.createElement('img');
+        currentBoardImage.src = INITIAL_BOARD_IMAGE;
+        Object.assign(currentBoardImage.style, {
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain'
+        });
+
+        currentBoardContainer.appendChild(currentBoardImage);
         currentRendererContainer.appendChild(currentBoardContainer);
+        parentElementToClear.appendChild(currentRendererContainer);
 
         // ... code to create board and squares ...
         currentBoardElement = document.createElement('div');
@@ -445,12 +444,14 @@ function renderer(options) {
         } else {
             currentBoardImage = document.createElement('img');
             currentBoardImage.src = boardImageSrc;
-            Object.assign(currentBoardImage.style, {
-                width: 'auto',
-                height: '100%',
-            });
-            currentRendererContainer.appendChild(currentBoardImage);
+            currentBoardContainer.appendChild(currentBoardImage);
         }
+
+        Object.assign(currentBoardImage.style, {
+            width: `${smallestContainerEdge}px`,
+            height: `${smallestContainerEdge}px`,
+            objectFit: 'contain'
+        });
     }
 
     function _renderBoardDisplay(gameStateToDisplay, displayRows, displayCols) {
@@ -469,7 +470,7 @@ function renderer(options) {
 
         if (environment.configuration.useImage) {
             if (step > 1) {
-                _renderBoardFromImage(gameStateToDisplay);
+                _renderBoardFromImage(gameStateToDisplay, smallestContainerEdge);
             }
 
             return;
