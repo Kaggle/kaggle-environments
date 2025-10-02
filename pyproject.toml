@@ -22,7 +22,6 @@ dependencies = [
     "pyjson5",
     "termcolor",
     "requests >= 2.25.1",
-    "scipy >= 1.15.3",
     "shimmy >= 1.2.1",
     "stable-baselines3 == 2.7.0",
     "transformers >= 4.33.1",
