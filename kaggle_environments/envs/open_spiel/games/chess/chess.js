@@ -472,8 +472,6 @@ function renderer(options) {
             if (step > 1) {
                 _renderBoardFromImage(gameStateToDisplay, smallestContainerEdge);
             }
-
-            return;
         } else {
             _renderBoardFromGameState(gameStateToDisplay, displayRows, displayCols, smallestContainerEdge);
         }
