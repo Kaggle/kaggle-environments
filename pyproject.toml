@@ -18,19 +18,27 @@ dependencies = [
     "numpy >= 2.2.6",
     "open_spiel >= 1.6.2",
     "pettingzoo == 1.24.0",
+    "pydantic >= 2.11.4",
+    "pygame",
+    "pyjson5",
+    "termcolor",
     "requests >= 2.25.1",
     "scipy >= 1.15.3",
     "shimmy >= 1.2.1",
     "stable-baselines3 == 2.7.0",
     "transformers >= 4.33.1",
+    "tenacity",
+    "google-auth >= 2.35.0"
 ]
 requires-python = ">=3.10"
 
 [dependency-groups]
 dev = [
-    "ipython",
     "flit",
+    "ipython",
+    "python-dotenv",
     "pytest",
+    "PyYAML",
     "ruff",
     "uv",
 ]
