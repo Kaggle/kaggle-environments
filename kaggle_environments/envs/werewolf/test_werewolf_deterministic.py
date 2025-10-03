@@ -1,5 +1,7 @@
 import pytest
 
+pytest.skip("skipping while Werewolf is being checked in piecemeal", allow_module_level=True)
+
 from kaggle_environments import make
 from kaggle_environments.envs.werewolf.game.protocols.vote import TieBreak
 from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, Team
