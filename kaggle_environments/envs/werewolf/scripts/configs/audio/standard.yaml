@@ -1,0 +1,24 @@
+# Settings for the dump_audio.py script
+server:
+  port: 7999
+paths:
+  audio_dir_name: "audio"
+  debug_audio_dir_name: "debug_audio"
+  output_html_filename: "replay.html"
+voices:
+  moderator: "enceladus"
+  players:
+    Kai: 'Kore'
+    Jordan: 'Charon'
+    Charlie: 'Leda'
+    Taylor: 'Despina'
+    Alex: 'Erinome'
+    Jamie: 'Gacrux'
+    Quinn: 'Achird'
+    Casey: 'Puck'
+audio:
+  static_moderator_messages:
+    night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
+    day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
+    discussion_begins: "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]"
+    voting_begins: "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]"
