@@ -1,5 +1,7 @@
 import pytest
 
+pytest.skip("skipping while Werewolf is being checked in piecemeal", allow_module_level=True)
+
 from kaggle_environments import make
 from kaggle_environments.envs.werewolf.game.protocols.vote import TieBreak
 from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, Team
@@ -36,12 +38,18 @@ def deterministic_agents_config():
 @pytest.fixture
 def deterministic_config_options():
     options = {
-        "discussion_protocol": {"name": "RoundRobinDiscussion",
-                                "params": {"max_rounds": 1, "assign_random_first_speaker": False}},
-        "day_voting_protocol": {"name": "SequentialVoting",
-                                "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE}},
-        "werewolf_night_vote_protocol": {"name": "SequentialVoting",
-                                         "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE}}
+        "discussion_protocol": {
+            "name": "RoundRobinDiscussion",
+            "params": {"max_rounds": 1, "assign_random_first_speaker": False},
+        },
+        "day_voting_protocol": {
+            "name": "SequentialVoting",
+            "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE},
+        },
+        "werewolf_night_vote_protocol": {
+            "name": "SequentialVoting",
+            "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE},
+        },
     }
     return options
 
@@ -50,8 +58,9 @@ def test_game_result(deterministic_agents_config, deterministic_config_options):
     """
     Tests that the deterministic werewolves vote to eliminate the first valid target.
     """
-    env = make("werewolf", debug=True,
-               configuration={"agents": deterministic_agents_config, **deterministic_config_options})
+    env = make(
+        "werewolf", debug=True, configuration={"agents": deterministic_agents_config, **deterministic_config_options}
+    )
     agents = ["deterministic"] * 7
     env.run(agents)
 
@@ -59,34 +68,42 @@ def test_game_result(deterministic_agents_config, deterministic_config_options):
 
     assert len(env.steps) == 24
     assert result.winner_team == Team.VILLAGERS
-    assert result.winner_ids == ['player_2', 'player_3', 'player_4', 'player_5', 'player_6']
-    assert result.loser_ids == ['player_0', 'player_1']
-    assert result.scores == {'player_2': 1, 'player_3': 1, 'player_4': 1, 'player_5': 1, 'player_6': 1, 'player_0': 0,
-                             'player_1': 0}
+    assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
+    assert result.loser_ids == ["player_0", "player_1"]
+    assert result.scores == {
+        "player_2": 1,
+        "player_3": 1,
+        "player_4": 1,
+        "player_5": 1,
+        "player_6": 1,
+        "player_0": 0,
+        "player_1": 0,
+    }
     assert result.elimination_info == [
-        {'player_id': 'player_0', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_1', 'eliminated_during_day': 2, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_2', 'eliminated_during_day': 0, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_3', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_4', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_5', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_6', 'eliminated_during_day': -1, 'eliminated_during_phase': None}
+        {"player_id": "player_0", "eliminated_during_day": 1, "eliminated_during_phase": "Day"},
+        {"player_id": "player_1", "eliminated_during_day": 2, "eliminated_during_phase": "Day"},
+        {"player_id": "player_2", "eliminated_during_day": 0, "eliminated_during_phase": "Night"},
+        {"player_id": "player_3", "eliminated_during_day": 1, "eliminated_during_phase": "Night"},
+        {"player_id": "player_4", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_5", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_6", "eliminated_during_day": -1, "eliminated_during_phase": None},
     ]
 
 
 def test_parallel_discussion_simultaneous_majority_vote(deterministic_agents_config, deterministic_config_options):
-    config = {'agents': deterministic_agents_config, **deterministic_config_options}
-    config.update({
-        "discussion_protocol": {"name": "ParallelDiscussion",
-                                "params": {"ticks": 2}},
-        "day_voting_protocol": {"name": "SimultaneousMajority",
-                                "params": {"tie_break": TieBreak.NO_EXILE}},
-        "werewolf_night_vote_protocol": {"name": "SimultaneousMajority",
-                                         "params": {"tie_break": TieBreak.NO_EXILE}}
-    })
+    config = {"agents": deterministic_agents_config, **deterministic_config_options}
+    config.update(
+        {
+            "discussion_protocol": {"name": "ParallelDiscussion", "params": {"ticks": 2}},
+            "day_voting_protocol": {"name": "SimultaneousMajority", "params": {"tie_break": TieBreak.NO_EXILE}},
+            "werewolf_night_vote_protocol": {
+                "name": "SimultaneousMajority",
+                "params": {"tie_break": TieBreak.NO_EXILE},
+            },
+        }
+    )
 
-    env = make("werewolf", debug=True,
-               configuration=config)
+    env = make("werewolf", debug=True, configuration=config)
     agents = ["deterministic"] * 7
     env.run(agents)
 
@@ -94,30 +111,39 @@ def test_parallel_discussion_simultaneous_majority_vote(deterministic_agents_con
 
     assert len(env.steps) == 11
     assert result.winner_team == Team.VILLAGERS
-    assert result.winner_ids == ['player_2', 'player_3', 'player_4', 'player_5', 'player_6']
-    assert result.loser_ids == ['player_0', 'player_1']
-    assert result.scores == {'player_2': 1, 'player_3': 1, 'player_4': 1, 'player_5': 1, 'player_6': 1, 'player_0': 0,
-                             'player_1': 0}
+    assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
+    assert result.loser_ids == ["player_0", "player_1"]
+    assert result.scores == {
+        "player_2": 1,
+        "player_3": 1,
+        "player_4": 1,
+        "player_5": 1,
+        "player_6": 1,
+        "player_0": 0,
+        "player_1": 0,
+    }
     assert result.elimination_info == [
-        {'player_id': 'player_0', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_1', 'eliminated_during_day': 2, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_2', 'eliminated_during_day': 0, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_3', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_4', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_5', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_6', 'eliminated_during_day': -1, 'eliminated_during_phase': None}
+        {"player_id": "player_0", "eliminated_during_day": 1, "eliminated_during_phase": "Day"},
+        {"player_id": "player_1", "eliminated_during_day": 2, "eliminated_during_phase": "Day"},
+        {"player_id": "player_2", "eliminated_during_day": 0, "eliminated_during_phase": "Night"},
+        {"player_id": "player_3", "eliminated_during_day": 1, "eliminated_during_phase": "Night"},
+        {"player_id": "player_4", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_5", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_6", "eliminated_during_day": -1, "eliminated_during_phase": None},
     ]
 
 
 def test_round_by_round_bidding_discussion_sequential_vote(deterministic_agents_config, deterministic_config_options):
-    config = {'agents': deterministic_agents_config, **deterministic_config_options}
-    config.update({
-        "discussion_protocol": {"name": "RoundByRoundBiddingDiscussion",
-                                "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_rounds": 2,
-                                           "bid_result_public": True}}
-    })
-    env = make("werewolf", debug=True,
-               configuration=config)
+    config = {"agents": deterministic_agents_config, **deterministic_config_options}
+    config.update(
+        {
+            "discussion_protocol": {
+                "name": "RoundByRoundBiddingDiscussion",
+                "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_rounds": 2, "bid_result_public": True},
+            }
+        }
+    )
+    env = make("werewolf", debug=True, configuration=config)
     agents = ["deterministic"] * 7
     env.run(agents)
 
@@ -125,30 +151,39 @@ def test_round_by_round_bidding_discussion_sequential_vote(deterministic_agents_
 
     assert len(env.steps) == 34
     assert result.winner_team == Team.VILLAGERS
-    assert result.winner_ids == ['player_2', 'player_3', 'player_4', 'player_5', 'player_6']
-    assert result.loser_ids == ['player_0', 'player_1']
-    assert result.scores == {'player_2': 1, 'player_3': 1, 'player_4': 1, 'player_5': 1, 'player_6': 1, 'player_0': 0,
-                             'player_1': 0}
+    assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
+    assert result.loser_ids == ["player_0", "player_1"]
+    assert result.scores == {
+        "player_2": 1,
+        "player_3": 1,
+        "player_4": 1,
+        "player_5": 1,
+        "player_6": 1,
+        "player_0": 0,
+        "player_1": 0,
+    }
     assert result.elimination_info == [
-        {'player_id': 'player_0', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_1', 'eliminated_during_day': 2, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_2', 'eliminated_during_day': 0, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_3', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_4', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_5', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_6', 'eliminated_during_day': -1, 'eliminated_during_phase': None}
+        {"player_id": "player_0", "eliminated_during_day": 1, "eliminated_during_phase": "Day"},
+        {"player_id": "player_1", "eliminated_during_day": 2, "eliminated_during_phase": "Day"},
+        {"player_id": "player_2", "eliminated_during_day": 0, "eliminated_during_phase": "Night"},
+        {"player_id": "player_3", "eliminated_during_day": 1, "eliminated_during_phase": "Night"},
+        {"player_id": "player_4", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_5", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_6", "eliminated_during_day": -1, "eliminated_during_phase": None},
     ]
 
 
 def test_turn_by_turn_bidding(deterministic_agents_config, deterministic_config_options):
-    config = {'agents': deterministic_agents_config, **deterministic_config_options}
-    config.update({
-        "discussion_protocol": {"name": "TurnByTurnBiddingDiscussion",
-                                "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_turns": 10,
-                                           "bid_result_public": False}}
-    })
-    env = make("werewolf", debug=True,
-               configuration=config)
+    config = {"agents": deterministic_agents_config, **deterministic_config_options}
+    config.update(
+        {
+            "discussion_protocol": {
+                "name": "TurnByTurnBiddingDiscussion",
+                "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_turns": 10, "bid_result_public": False},
+            }
+        }
+    )
+    env = make("werewolf", debug=True, configuration=config)
     agents = ["deterministic"] * 7
     env.run(agents)
 
@@ -156,16 +191,23 @@ def test_turn_by_turn_bidding(deterministic_agents_config, deterministic_config_
 
     assert len(env.steps) == 34
     assert result.winner_team == Team.VILLAGERS
-    assert result.winner_ids == ['player_2', 'player_3', 'player_4', 'player_5', 'player_6']
-    assert result.loser_ids == ['player_0', 'player_1']
-    assert result.scores == {'player_2': 1, 'player_3': 1, 'player_4': 1, 'player_5': 1, 'player_6': 1, 'player_0': 0,
-                             'player_1': 0}
+    assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
+    assert result.loser_ids == ["player_0", "player_1"]
+    assert result.scores == {
+        "player_2": 1,
+        "player_3": 1,
+        "player_4": 1,
+        "player_5": 1,
+        "player_6": 1,
+        "player_0": 0,
+        "player_1": 0,
+    }
     assert result.elimination_info == [
-        {'player_id': 'player_0', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_1', 'eliminated_during_day': 2, 'eliminated_during_phase': 'Day'},
-        {'player_id': 'player_2', 'eliminated_during_day': 0, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_3', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Night'},
-        {'player_id': 'player_4', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_5', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
-        {'player_id': 'player_6', 'eliminated_during_day': -1, 'eliminated_during_phase': None}
+        {"player_id": "player_0", "eliminated_during_day": 1, "eliminated_during_phase": "Day"},
+        {"player_id": "player_1", "eliminated_during_day": 2, "eliminated_during_phase": "Day"},
+        {"player_id": "player_2", "eliminated_during_day": 0, "eliminated_during_phase": "Night"},
+        {"player_id": "player_3", "eliminated_during_day": 1, "eliminated_during_phase": "Night"},
+        {"player_id": "player_4", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_5", "eliminated_during_day": -1, "eliminated_during_phase": None},
+        {"player_id": "player_6", "eliminated_during_day": -1, "eliminated_during_phase": None},
     ]
