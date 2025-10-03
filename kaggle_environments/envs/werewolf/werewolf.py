@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from kaggle_environments.envs.werewolf.game.consts import DetailedPhase, EnvInfoKeys, PerceivedThreatLevel
+
 from .game.actions import (
     Action,
     BidAction,
