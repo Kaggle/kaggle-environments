@@ -212,7 +212,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SequentialVoting", "params": {} },
+            "default": { "name": "SequentialVoting", "params": { "assign_random_first_voter": true, "tie_break": "random" } },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
@@ -251,7 +251,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SequentialVoting", "params": {} },
+            "default": { "name": "SequentialVoting", "params": { "assign_random_first_voter": true, "tie_break": "random" } },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
