@@ -68,7 +68,7 @@ function renderer(options) {
         .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; }
         .community-cards-container .card { width: 52px; height: 76px; }
         .community-cards-container .card-rank { font-size: 2.4rem; } .community-cards-container .card-suit { width: 39px; height: 39px; }
-        .pot-display { font-size: 1.1rem; font-weight: bold; color: #facc15; }
+        .pot-display { font-size: 1.1rem; font-weight: bold; color: #ffffff; }
         .bet-display {
             display: inline-block; min-width: 55px; padding: 4px 8px; border-radius: 12px;
             background-color: #1a202c; color: #f1c40f; font-size: 0.8rem; line-height: 1.4;
@@ -392,14 +392,14 @@ function renderer(options) {
             });
         }
 
-        elements.potDisplay.textContent = `Pot: $${pot}`;
+        elements.potDisplay.textContent = `Pot : ${pot}`;
 
         players.forEach((playerData, index) => {
             const playerPod = elements.playerPods[index];
             if (!playerPod) return;
 
             playerPod.querySelector('.player-name').textContent = playerData.name;
-            playerPod.querySelector('.player-stack').textContent = `$${playerData.stack}`;
+            playerPod.querySelector('.player-stack').textContent = `${playerData.stack}`;
 
             const playerCardsContainer = playerPod.querySelector('.player-cards-container');
             playerCardsContainer.innerHTML = '';
@@ -413,7 +413,7 @@ function renderer(options) {
 
             const betDisplay = playerPod.querySelector('.bet-display');
             if (playerData.currentBet > 0) {
-                betDisplay.textContent = `$${playerData.currentBet}`;
+                betDisplay.textContent = `${playerData.currentBet}`;
                 betDisplay.style.display = 'inline-block';
             } else {
                 betDisplay.style.display = 'none';
