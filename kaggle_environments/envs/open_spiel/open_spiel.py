@@ -553,13 +553,37 @@ def _register_game_envs(games_list: list[str]) -> dict[str, Any]:
     return registered_envs
 
 
+DEFAULT_UNIVERSAL_POKER_GAME_STRING = (
+    "universal_poker("
+    "betting=nolimit,"
+    "bettingAbstraction=fullgame,"
+    "blind=2 1,"
+    "firstPlayer=2 1 1 1,"
+    "numBoardCards=0 3 1 1,"
+    "numHoleCards=2,"
+    "numPlayers=2,"
+    "numRanks=13,"
+    "numRounds=4,"
+    "numSuits=4,"
+    "stack=400 400)"
+)
+
+DEFAULT_REPEATED_POKER_GAME_STRING = (
+    "repeated_poker("
+    "max_num_hands=20,"
+    "reset_stacks=True,"
+    "rotate_dealer=True,"
+    f"universal_poker_game_string={DEFAULT_UNIVERSAL_POKER_GAME_STRING})"
+)
+
 GAMES_LIST = [
     "chess",
     "connect_four",
     "gin_rummy",
     "go(board_size=9)",
     "tic_tac_toe",
-    "universal_poker(betting=nolimit,bettingAbstraction=fullgame,blind=2 1,firstPlayer=2 1 1 1,numBoardCards=0 3 1 1,numHoleCards=2,numPlayers=2,numRanks=13,numRounds=4,numSuits=4,stack=400 400)",
+    DEFAULT_UNIVERSAL_POKER_GAME_STRING,
+    DEFAULT_REPEATED_POKER_GAME_STRING,
 ]
 
 ENV_REGISTRY = _register_game_envs(GAMES_LIST)
