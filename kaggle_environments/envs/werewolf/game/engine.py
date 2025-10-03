@@ -393,9 +393,7 @@ class Moderator(BaseModerator):
 
         # We need to explicitly check if the bidding sub-phase is over
         # This requires a reference to the bidding protocol within BiddingDiscussion
-        assert isinstance(self.discussion, BiddingDiscussion)
-        bidding_protocol = self.discussion.bidding
-        if bidding_protocol.is_finished(self.state):
+        if self.discussion.bidding.is_finished(self.state):
             return DetailedPhase.DAY_BIDDING_CONCLUDE
         else:
             # Bidding is not over (e.g., sequential auction), get next bidders

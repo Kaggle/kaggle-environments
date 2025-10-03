@@ -163,7 +163,6 @@ def deterministic_agent(obs):
     entries = raw_obs.new_player_event_views
     current_phase = DetailedPhase(raw_obs.detailed_phase)
     my_role = raw_obs.role
-    all_player_names = raw_obs.all_player_ids
     my_id = raw_obs.player_id
     alive_players = raw_obs.alive_players
     day = raw_obs.day

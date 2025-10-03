@@ -109,12 +109,43 @@ def test_parallel_discussion_simultaneous_majority_vote(deterministic_agents_con
     ]
 
 
-def test_bidding_discussion_sequential_vote(deterministic_agents_config, deterministic_config_options):
+def test_round_by_round_bidding_discussion_sequential_vote(deterministic_agents_config, deterministic_config_options):
     config = {'agents': deterministic_agents_config, **deterministic_config_options}
     config.update({
         "discussion_protocol": {"name": "RoundByRoundBiddingDiscussion",
                                 "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_rounds": 2,
                                            "bid_result_public": True}}
+    })
+    env = make("werewolf", debug=True,
+               configuration=config)
+    agents = ["deterministic"] * 7
+    env.run(agents)
+
+    result = GameEndResultsDataEntry(**env.info[EnvInfoKeys.GAME_END])
+
+    assert len(env.steps) == 34
+    assert result.winner_team == Team.VILLAGERS
+    assert result.winner_ids == ['player_2', 'player_3', 'player_4', 'player_5', 'player_6']
+    assert result.loser_ids == ['player_0', 'player_1']
+    assert result.scores == {'player_2': 1, 'player_3': 1, 'player_4': 1, 'player_5': 1, 'player_6': 1, 'player_0': 0,
+                             'player_1': 0}
+    assert result.elimination_info == [
+        {'player_id': 'player_0', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Day'},
+        {'player_id': 'player_1', 'eliminated_during_day': 2, 'eliminated_during_phase': 'Day'},
+        {'player_id': 'player_2', 'eliminated_during_day': 0, 'eliminated_during_phase': 'Night'},
+        {'player_id': 'player_3', 'eliminated_during_day': 1, 'eliminated_during_phase': 'Night'},
+        {'player_id': 'player_4', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
+        {'player_id': 'player_5', 'eliminated_during_day': -1, 'eliminated_during_phase': None},
+        {'player_id': 'player_6', 'eliminated_during_day': -1, 'eliminated_during_phase': None}
+    ]
+
+
+def test_turn_by_turn_bidding(deterministic_agents_config, deterministic_config_options):
+    config = {'agents': deterministic_agents_config, **deterministic_config_options}
+    config.update({
+        "discussion_protocol": {"name": "TurnByTurnBiddingDiscussion",
+                                "params": {"bidding": {"name": "UrgencyBiddingProtocol"}, "max_turns": 10,
+                                           "bid_result_public": False}}
     })
     env = make("werewolf", debug=True,
                configuration=config)

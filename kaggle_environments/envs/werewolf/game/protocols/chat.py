@@ -248,48 +248,50 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
             # Handle players who didn't bid (timed out) by assuming a bid of 0
             all_alive_player_ids = [p.id for p in state.alive_players()]
             if hasattr(self.bidding, "_bids"):
-                for player_id in all_alive_player_ids:
-                    if player_id not in self.bidding._bids:
+                for action, player_id in zip(actions, expected_speakers):
+                    if not isinstance(action, BidAction):
                         default_bid = BidAction(
                             actor_id=player_id, amount=0, day=state.day_count, phase=state.phase.value
                         )
                         self.bidding.accept(default_bid, state)
 
             bids = getattr(self.bidding, "_bids", {})
-            if len(bids) >= len(all_alive_player_ids) and all(amount == 0 for amount in bids.values()):
-                self._all_passed = True
-                state.push_event(
-                    description="All players passed on speaking. Discussion ends.",
-                    event_name=EventName.MODERATOR_ANNOUNCEMENT,
-                    public=True,
-                )
-                return
 
-            # Once all bids are in (or a timeout, handled by moderator's single tick), determine the winner
-            winner_list = self.bidding.outcome(state)
-            self._speaker = winner_list[0] if winner_list else None
-
-            if self._speaker:
-                data = BidResultDataEntry(
-                    winner_player_ids=[self._speaker],
-                    bid_overview=self.bidding.bids,
-                    mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0],
-                )
-                overview_text = ", ".join([f"{k}: {v}" for k, v in self.bidding.bids.items()])
-                state.push_event(
-                    description=f"Player {self._speaker} won the bid and will speak next.\n"
-                    f"Bid overview - {overview_text}.",
-                    event_name=EventName.BID_RESULT,
-                    public=self._bid_result_public,
-                    data=data,
-                )
-                self.set_phase(BiddingDiscussionPhase.SPEAKING_PHASE)
-            else:
-                # No one to speak, advance turn count and bid again
-                self._turns_taken += 1
-                if not self.is_discussion_over(state):
-                    self.bidding.begin(state)  # Prepare for next bidding round
-
+            if len(bids) >= len(all_alive_player_ids):
+                # If all bids are in
+                if all(amount == 0 for amount in bids.values()):
+                    # If everyone decided to pass
+                    self._all_passed = True
+                    state.push_event(
+                        description="All players passed on speaking. Discussion ends.",
+                        event_name=EventName.MODERATOR_ANNOUNCEMENT,
+                        public=True,
+                    )
+                    return
+                else:
+                    winner_list = self.bidding.outcome(state)
+                    self._speaker = winner_list[0] if winner_list else None
+                    if self._speaker:
+                        data = BidResultDataEntry(
+                            winner_player_ids=[self._speaker],
+                            bid_overview=self.bidding.bids,
+                            mentioned_players_in_previous_turn=self.bidding.get_last_mentioned(state)[0],
+                        )
+                        overview_text = ", ".join([f"{k}: {v}" for k, v in self.bidding.bids.items()])
+                        state.push_event(
+                            description=f"Player {self._speaker} won the bid and will speak next.\n"
+                                        f"Bid overview - {overview_text}.",
+                            event_name=EventName.BID_RESULT,
+                            public=self._bid_result_public,
+                            data=data,
+                        )
+                        self.set_phase(BiddingDiscussionPhase.SPEAKING_PHASE)
+                        return
+                    else:
+                        self._turns_taken += 1
+                        if not self.is_discussion_over(state):
+                            self.bidding.begin(state)
+            # continue bidding
         elif self.is_speaking_phase():
             # Process the chat action from the designated speaker
             super().process_actions(actions, expected_speakers, state)
@@ -299,7 +301,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
             if not self.is_discussion_over(state):
                 self.set_phase(BiddingDiscussionPhase.BIDDING_PHASE)
                 self._speaker = None
-                self.bidding.begin(state)  # Reset bids and find new mentioned players
+                self.bidding.begin(state)
 
     def prompt_speakers_for_tick(self, state: GameState, speakers: Sequence[PlayerID]) -> None:
         if self.is_bidding_phase():
