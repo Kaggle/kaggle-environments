@@ -56,6 +56,7 @@ class CostSummary(BaseModel):
 
 _PERCEIVED_THREAT_LEVELS = [item.value for item in PerceivedThreatLevel]
 
+
 def random_agent(obs):
     raw_obs = get_raw_observation(obs)
 
