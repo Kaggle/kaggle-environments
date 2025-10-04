@@ -3776,6 +3776,227 @@ function renderer(context) {
             scrollbar-width: thin;
             scrollbar-color: rgba(116, 185, 255, 0.3) transparent;
         }
+        /* Sky Controls Panel */
+        .sky-controls-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: linear-gradient(to bottom, rgba(26, 26, 46, 0.95), rgba(26, 26, 46, 1));
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            pointer-events: auto;
+            max-height: 25vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+        
+        .sky-controls-panel.collapsed {
+            max-height: 50px;
+            overflow: hidden;
+        }
+        
+        .sky-controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .sky-controls-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .sky-controls-toggle {
+            font-size: 18px;
+            color: #667eea;
+            transition: transform 0.3s ease;
+        }
+        
+        .sky-controls-panel.collapsed .sky-controls-toggle {
+            transform: rotate(180deg);
+        }
+        
+        .sky-controls-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .sky-control-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        
+        .sky-section-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+            padding-bottom: 5px;
+        }
+        
+        .sky-control-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .sky-control-label {
+            font-size: 10px;
+            color: #aaa;
+            min-width: 120px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sky-control-value {
+            font-size: 10px;
+            color: #667eea;
+            font-weight: bold;
+            min-width: 45px;
+            text-align: right;
+        }
+        
+        .sky-button-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .sky-button {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .sky-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .sky-button.day {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .sky-button.night {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .sky-controls-panel input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #333;
+            outline: none;
+            border-radius: 2px;
+            min-width: 80px;
+        }
+        
+        .sky-controls-panel input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .sky-controls-panel input[type="range"]::-webkit-slider-thumb:hover {
+            background: #7c8ff0;
+            transform: scale(1.2);
+        }
+        
+        .sky-controls-panel input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .sky-controls-panel input[type="range"]::-moz-range-thumb:hover {
+            background: #7c8ff0;
+            transform: scale(1.2);
+        }
+        
+        .sky-controls-panel input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        .sky-info-panel {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+        
+        .sky-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+        
+        .sky-info-label {
+            color: #888;
+        }
+        
+        .sky-info-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .sky-phase-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+        }
+        
+        .sky-phase-day {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        }
+        
+        .sky-phase-night {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        }
     `;
 
   // --- TTS Management ---
@@ -4938,6 +5159,9 @@ function renderer(context) {
     updatePlayerList(playerListArea, gameState, nameToHighlight);
     updateEventLog(rightPanel, gameState, playerMap);
 
+    // Create sky controls panel if it doesn't exist
+    createSkyControlsPanel(parent);
+
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, nameToHighlight);
     
@@ -5208,3 +5432,562 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
 }
 
 
+
+
+// --- Sky Controls Functions ---
+function createSkyControlsPanel(parent) {
+    // Check if panel already exists
+    let panel = parent.querySelector('.sky-controls-panel');
+    if (panel) return panel;
+    
+    panel = document.createElement('div');
+    panel.className = 'sky-controls-panel';
+    panel.innerHTML = `
+        <div class="sky-controls-header" onclick="toggleSkyControls()">
+            <div class="sky-controls-title">🌤️ Sky & Lighting Controls</div>
+            <div class="sky-controls-toggle">▼</div>
+        </div>
+        <div class="sky-controls-content">
+            <div class="sky-button-group">
+                <button class="sky-button day" onclick="setSkyDayTime()">☀️ Day</button>
+                <button class="sky-button night" onclick="setSkyNightTime()">🌙 Night</button>
+                <button class="sky-button" onclick="toggleSkyTransition()">🔄 Auto</button>
+            </div>
+            
+            <!-- Sky Parameters -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">Sky Parameters</div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Turbidity</span>
+                        <span class="sky-control-value" id="sky-turbidity-value">10.0</span>
+                    </div>
+                    <input type="range" id="sky-turbidity" min="0" max="20" step="0.1" value="10" oninput="updateSkyParameter('turbidity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Rayleigh</span>
+                        <span class="sky-control-value" id="sky-rayleigh-value">2.0</span>
+                    </div>
+                    <input type="range" id="sky-rayleigh" min="0" max="10" step="0.1" value="2" oninput="updateSkyParameter('rayleigh', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Mie Coeff</span>
+                        <span class="sky-control-value" id="sky-mie-coeff-value">0.005</span>
+                    </div>
+                    <input type="range" id="sky-mie-coeff" min="0" max="0.1" step="0.001" value="0.005" oninput="updateSkyParameter('mieCoefficient', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Mie Dir G</span>
+                        <span class="sky-control-value" id="sky-mie-g-value">0.8</span>
+                    </div>
+                    <input type="range" id="sky-mie-g" min="0" max="1" step="0.01" value="0.8" oninput="updateSkyParameter('mieDirectionalG', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Elevation</span>
+                        <span class="sky-control-value" id="sky-elevation-value">45°</span>
+                    </div>
+                    <input type="range" id="sky-elevation" min="-90" max="90" step="1" value="45" oninput="updateSunPosition('elevation', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Azimuth</span>
+                        <span class="sky-control-value" id="sky-azimuth-value">180°</span>
+                    </div>
+                    <input type="range" id="sky-azimuth" min="0" max="360" step="1" value="180" oninput="updateSunPosition('azimuth', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Exposure</span>
+                        <span class="sky-control-value" id="sky-exposure-value">0.5</span>
+                    </div>
+                    <input type="range" id="sky-exposure" min="0" max="2" step="0.01" value="0.5" oninput="updateExposure(this.value)">
+                </div>
+            </div>
+            
+            <!-- Lighting -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">Lighting</div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Sun Intensity</span>
+                        <span class="sky-control-value" id="sky-sun-intensity-value">1.0</span>
+                    </div>
+                    <input type="range" id="sky-sun-intensity" min="0" max="3" step="0.1" value="1" oninput="updateLighting('sunIntensity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Moon Intensity</span>
+                        <span class="sky-control-value" id="sky-moon-intensity-value">0.3</span>
+                    </div>
+                    <input type="range" id="sky-moon-intensity" min="0" max="1" step="0.01" value="0.3" oninput="updateLighting('moonIntensity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Ambient</span>
+                        <span class="sky-control-value" id="sky-ambient-value">0.4</span>
+                    </div>
+                    <input type="range" id="sky-ambient" min="0" max="1" step="0.01" value="0.4" oninput="updateLighting('ambientIntensity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Time of Day</span>
+                        <span class="sky-control-value" id="sky-time-value">12:00</span>
+                    </div>
+                    <input type="range" id="sky-time-slider" min="0" max="24" step="0.1" value="12" oninput="setTimeOfDay(this.value)">
+                </div>
+            </div>
+            
+            <!-- Post-Processing -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">Bloom</div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Strength</span>
+                        <span class="sky-control-value" id="sky-bloom-strength-value">0.5</span>
+                    </div>
+                    <input type="range" id="sky-bloom-strength" min="0" max="1" step="0.01" value="0.5" oninput="updateBloom('strength', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Radius</span>
+                        <span class="sky-control-value" id="sky-bloom-radius-value">0.4</span>
+                    </div>
+                    <input type="range" id="sky-bloom-radius" min="0" max="2" step="0.01" value="0.4" oninput="updateBloom('radius', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Threshold</span>
+                        <span class="sky-control-value" id="sky-bloom-threshold-value">0.85</span>
+                    </div>
+                    <input type="range" id="sky-bloom-threshold" min="0" max="1" step="0.01" value="0.85" oninput="updateBloom('threshold', this.value)">
+                </div>
+            </div>
+            
+            <!-- Clouds -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">Clouds</div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Opacity</span>
+                        <span class="sky-control-value" id="sky-cloud-opacity-value">0.5</span>
+                    </div>
+                    <input type="range" id="sky-cloud-opacity" min="0" max="1" step="0.01" value="0.5" oninput="updateClouds('opacity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Speed</span>
+                        <span class="sky-control-value" id="sky-cloud-speed-value">1.0</span>
+                    </div>
+                    <input type="range" id="sky-cloud-speed" min="0" max="5" step="0.1" value="1" oninput="updateClouds('speed', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Enable</span>
+                    </div>
+                    <input type="checkbox" id="sky-cloud-toggle" checked onchange="toggleClouds(this.checked)">
+                </div>
+            </div>
+            
+            <!-- God Rays -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">God Rays</div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Intensity</span>
+                        <span class="sky-control-value" id="sky-godray-intensity-value">1.0</span>
+                    </div>
+                    <input type="range" id="sky-godray-intensity" min="0" max="2" step="0.1" value="1" oninput="updateGodRays('intensity', this.value)">
+                </div>
+                
+                <div class="sky-control-item">
+                    <div class="sky-control-label">
+                        <span>Enable</span>
+                    </div>
+                    <input type="checkbox" id="sky-godray-toggle" checked onchange="toggleGodRays(this.checked)">
+                </div>
+            </div>
+            
+            <!-- Status -->
+            <div class="sky-control-section">
+                <div class="sky-section-title">Status</div>
+                <div class="sky-info-panel">
+                    <div class="sky-info-item">
+                        <span class="sky-info-label">Phase:</span>
+                        <span class="sky-info-value"><span id="sky-current-phase" class="sky-phase-indicator sky-phase-day">DAY</span></span>
+                    </div>
+                    <div class="sky-info-item">
+                        <span class="sky-info-label">Sun:</span>
+                        <span class="sky-info-value" id="sky-sun-position">Az: 180°, El: 45°</span>
+                    </div>
+                    <div class="sky-info-item">
+                        <span class="sky-info-label">Moon:</span>
+                        <span class="sky-info-value" id="sky-moon-position">Hidden</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    parent.appendChild(panel);
+    return panel;
+}
+
+function toggleSkyControls() {
+    const panel = document.querySelector('.sky-controls-panel');
+    if (panel) {
+        panel.classList.toggle('collapsed');
+    }
+}
+
+function updateSkyParameter(param, value) {
+    const floatValue = parseFloat(value);
+    
+    // Update display
+    let displayValue = floatValue.toFixed(param === 'mieCoefficient' ? 3 : 1);
+    const valueId = param === 'mieCoefficient' ? 'sky-mie-coeff-value' : 
+                    param === 'mieDirectionalG' ? 'sky-mie-g-value' : 
+                    `sky-${param}-value`;
+    const valueEl = document.getElementById(valueId);
+    if (valueEl) valueEl.textContent = displayValue;
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+        const sky = window.werewolfThreeJs.demo._sky;
+        if (sky.material && sky.material.uniforms && sky.material.uniforms[param]) {
+            sky.material.uniforms[param].value = floatValue;
+            console.log(`[Sky Controls] Updated ${param} to ${displayValue}`);
+        }
+    }
+}
+
+function updateSunPosition(type, value) {
+    const floatValue = parseFloat(value);
+    const valueEl = document.getElementById(`sky-${type}-value`);
+    if (valueEl) valueEl.textContent = `${floatValue}°`;
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+        const sky = window.werewolfThreeJs.demo._sky;
+        
+        // Get current values
+        const elevationEl = document.getElementById('sky-elevation');
+        const azimuthEl = document.getElementById('sky-azimuth');
+        const currentElevation = elevationEl ? parseFloat(elevationEl.value) : 45;
+        const currentAzimuth = azimuthEl ? parseFloat(azimuthEl.value) : 180;
+        
+        // Convert to radians
+        const phi = (90 - currentElevation) * Math.PI / 180;
+        const theta = currentAzimuth * Math.PI / 180;
+        
+        // Calculate sun position
+        const sunX = Math.sin(phi) * Math.cos(theta);
+        const sunY = Math.cos(phi);
+        const sunZ = Math.sin(phi) * Math.sin(theta);
+        
+        if (sky.material && sky.material.uniforms && sky.material.uniforms['sunPosition']) {
+            sky.material.uniforms['sunPosition'].value.set(sunX, sunY, sunZ);
+        }
+        
+        // Update lighting
+        updateDayNightLighting(currentElevation);
+        updateSkyInfo();
+        
+        console.log(`[Sky Controls] Sun position - Elevation: ${currentElevation}°, Azimuth: ${currentAzimuth}°`);
+    }
+}
+
+function updateExposure(value) {
+    const floatValue = parseFloat(value);
+    const valueEl = document.getElementById('sky-exposure-value');
+    if (valueEl) valueEl.textContent = floatValue.toFixed(2);
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._renderer) {
+        window.werewolfThreeJs.demo._renderer.toneMappingExposure = floatValue;
+        console.log(`[Sky Controls] Updated exposure to ${floatValue.toFixed(2)}`);
+    }
+}
+
+function updateLighting(type, value) {
+    const floatValue = parseFloat(value);
+    const valueId = type === 'sunIntensity' ? 'sky-sun-intensity-value' :
+                    type === 'moonIntensity' ? 'sky-moon-intensity-value' :
+                    'sky-ambient-value';
+    const valueEl = document.getElementById(valueId);
+    if (valueEl) valueEl.textContent = floatValue.toFixed(1);
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+        const demo = window.werewolfThreeJs.demo;
+        
+        switch(type) {
+            case 'sunIntensity':
+                if (demo._sunLight) {
+                    demo._sunLight.intensity = floatValue;
+                }
+                break;
+            case 'moonIntensity':
+                if (demo._moonLight) {
+                    demo._moonLight.intensity = floatValue;
+                }
+                break;
+            case 'ambientIntensity':
+                if (demo._ambientLight) {
+                    demo._ambientLight.intensity = floatValue;
+                }
+                break;
+        }
+        
+        console.log(`[Sky Controls] Updated ${type} to ${floatValue.toFixed(1)}`);
+    }
+}
+
+function updateBloom(type, value) {
+    const floatValue = parseFloat(value);
+    const valueId = `sky-bloom-${type}-value`;
+    const valueEl = document.getElementById(valueId);
+    if (valueEl) valueEl.textContent = floatValue.toFixed(2);
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._bloomPass) {
+        const bloomPass = window.werewolfThreeJs.demo._bloomPass;
+        
+        switch(type) {
+            case 'strength':
+                bloomPass.strength = floatValue;
+                break;
+            case 'radius':
+                bloomPass.radius = floatValue;
+                break;
+            case 'threshold':
+                bloomPass.threshold = floatValue;
+                break;
+        }
+        
+        console.log(`[Sky Controls] Updated bloom ${type} to ${floatValue.toFixed(2)}`);
+    }
+}
+
+function updateClouds(type, value) {
+    const floatValue = parseFloat(value);
+    const valueId = `sky-cloud-${type}-value`;
+    const valueEl = document.getElementById(valueId);
+    if (valueEl) valueEl.textContent = floatValue.toFixed(1);
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._clouds) {
+        const clouds = window.werewolfThreeJs.demo._clouds;
+        
+        clouds.forEach(cloud => {
+            if (!cloud || !cloud.material) return;
+            
+            switch(type) {
+                case 'opacity':
+                    cloud.material.opacity = floatValue;
+                    break;
+                case 'speed':
+                    cloud.userData = cloud.userData || {};
+                    cloud.userData.speed = floatValue * 0.0001;
+                    break;
+            }
+        });
+        
+        console.log(`[Sky Controls] Updated cloud ${type} to ${floatValue.toFixed(1)}`);
+    }
+}
+
+function toggleClouds(enabled) {
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._clouds) {
+        window.werewolfThreeJs.demo._clouds.forEach(cloud => {
+            if (cloud) cloud.visible = enabled;
+        });
+        console.log(`[Sky Controls] Clouds ${enabled ? 'enabled' : 'disabled'}`);
+    }
+}
+
+function updateGodRays(type, value) {
+    const floatValue = parseFloat(value);
+    const valueEl = document.getElementById('sky-godray-intensity-value');
+    if (valueEl) valueEl.textContent = floatValue.toFixed(1);
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+        const demo = window.werewolfThreeJs.demo;
+        
+        if (type === 'intensity') {
+            if (demo.setGodRayIntensity) {
+                demo.setGodRayIntensity(floatValue);
+            } else if (demo._godRayIntensity !== undefined) {
+                demo._godRayIntensity = floatValue;
+            }
+        }
+        
+        console.log(`[Sky Controls] Updated god ray ${type} to ${floatValue.toFixed(1)}`);
+    }
+}
+
+function toggleGodRays(enabled) {
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+        const demo = window.werewolfThreeJs.demo;
+        const intensityEl = document.getElementById('sky-godray-intensity');
+        const intensity = intensityEl ? parseFloat(intensityEl.value) : 1.0;
+        
+        if (enabled) {
+            demo._godRayIntensity = intensity;
+        } else {
+            demo._godRayIntensity = 0;
+        }
+        console.log(`[Sky Controls] God rays ${enabled ? 'enabled' : 'disabled'}`);
+    }
+}
+
+function updateDayNightLighting(elevation) {
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+        const demo = window.werewolfThreeJs.demo;
+        const isDay = elevation > 0;
+        
+        // Update phase indicator
+        const phaseIndicator = document.getElementById('sky-current-phase');
+        if (phaseIndicator) {
+            phaseIndicator.textContent = isDay ? 'DAY' : 'NIGHT';
+            phaseIndicator.className = `sky-phase-indicator ${isDay ? 'sky-phase-day' : 'sky-phase-night'}`;
+        }
+        
+        // Trigger phase update if available
+        if (demo.updateSkyForPhase) {
+            demo.updateSkyForPhase(isDay);
+        }
+    }
+}
+
+function setSkyDayTime() {
+    console.log('[Sky Controls] Setting day time');
+    const elevationEl = document.getElementById('sky-elevation');
+    const azimuthEl = document.getElementById('sky-azimuth');
+    const timeEl = document.getElementById('sky-time-slider');
+    
+    if (elevationEl) elevationEl.value = 45;
+    if (azimuthEl) azimuthEl.value = 180;
+    if (timeEl) timeEl.value = 12;
+    
+    updateSunPosition('elevation', 45);
+    updateSunPosition('azimuth', 180);
+    setTimeOfDay(12);
+}
+
+function setSkyNightTime() {
+    console.log('[Sky Controls] Setting night time');
+    const elevationEl = document.getElementById('sky-elevation');
+    const azimuthEl = document.getElementById('sky-azimuth');
+    const timeEl = document.getElementById('sky-time-slider');
+    
+    if (elevationEl) elevationEl.value = -45;
+    if (azimuthEl) azimuthEl.value = 0;
+    if (timeEl) timeEl.value = 0;
+    
+    updateSunPosition('elevation', -45);
+    updateSunPosition('azimuth', 0);
+    setTimeOfDay(0);
+}
+
+function setTimeOfDay(value) {
+    const hours = parseFloat(value);
+    const h = Math.floor(hours);
+    const m = Math.floor((hours - h) * 60);
+    
+    const timeValueEl = document.getElementById('sky-time-value');
+    if (timeValueEl) {
+        timeValueEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+    
+    if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+        // Convert hours to sun position
+        const sunAngle = (hours / 24) * Math.PI * 2 - Math.PI / 2;
+        const elevation = Math.sin(sunAngle) * 90;
+        const azimuth = (hours / 24) * 360;
+        
+        // Update sliders
+        const elevationEl = document.getElementById('sky-elevation');
+        const azimuthEl = document.getElementById('sky-azimuth');
+        if (elevationEl) elevationEl.value = elevation;
+        if (azimuthEl) azimuthEl.value = azimuth;
+        
+        // Update sun position
+        updateSunPosition('elevation', elevation);
+        updateSunPosition('azimuth', azimuth);
+        
+        console.log(`[Sky Controls] Time updated to ${h}:${m.toString().padStart(2, '0')}`);
+    }
+    
+    updateSkyInfo();
+}
+
+let skyTransitionInterval = null;
+function toggleSkyTransition() {
+    if (skyTransitionInterval) {
+        clearInterval(skyTransitionInterval);
+        skyTransitionInterval = null;
+        console.log('[Sky Controls] Auto transition stopped');
+    } else {
+        console.log('[Sky Controls] Auto transition started');
+        skyTransitionInterval = setInterval(() => {
+            const timeEl = document.getElementById('sky-time-slider');
+            if (timeEl) {
+                let currentTime = parseFloat(timeEl.value);
+                currentTime += 0.1;
+                if (currentTime >= 24) currentTime = 0;
+                timeEl.value = currentTime;
+                setTimeOfDay(currentTime);
+            }
+        }, 100);
+    }
+}
+
+function updateSkyInfo() {
+    if (!window.werewolfThreeJs || !window.werewolfThreeJs.demo) return;
+    
+    const demo = window.werewolfThreeJs.demo;
+    
+    if (demo._sky && demo._sky.material && demo._sky.material.uniforms) {
+        const sunPos = demo._sky.material.uniforms['sunPosition'].value;
+        
+        // Calculate sun angles
+        const elevation = Math.asin(sunPos.y) * (180 / Math.PI);
+        const azimuth = Math.atan2(sunPos.x, sunPos.z) * (180 / Math.PI);
+        
+        const sunPosEl = document.getElementById('sky-sun-position');
+        if (sunPosEl) {
+            sunPosEl.textContent = `Az: ${azimuth.toFixed(1)}°, El: ${elevation.toFixed(1)}°`;
+        }
+        
+        // Moon position (opposite of sun)
+        const moonPosEl = document.getElementById('sky-moon-position');
+        if (moonPosEl) {
+            if (elevation < 0) {
+                const moonElevation = -elevation;
+                const moonAzimuth = (azimuth + 180) % 360;
+                moonPosEl.textContent = `Az: ${moonAzimuth.toFixed(1)}°, El: ${moonElevation.toFixed(1)}°`;
+            } else {
+                moonPosEl.textContent = 'Hidden';
+            }
+        }
+    }
+}
+
+// Update info periodically
+setInterval(updateSkyInfo, 500);
