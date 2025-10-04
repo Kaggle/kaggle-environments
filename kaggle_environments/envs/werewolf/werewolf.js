@@ -1530,7 +1530,7 @@ function renderer(context) {
                         // Fade out nameplate
                         if (player.nameplate && player.nameplate.element) {
                             player.nameplate.element.style.transition = 'opacity 2s ease-out';
-                            player.nameplate.element.style.opacity = '0.2';
+                            player.nameplate.element.style.opacity = '0.7'; // Increased from 0.2 for better visibility
                         }
                         player.isAlive = false;
                         
@@ -1975,7 +1975,7 @@ function renderer(context) {
                     const nightColor = new THREE.Color(0x404080);
                     const dayColor = new THREE.Color(0x606090);
                     ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    ambientLight.intensity = 0.4 + phaseValue * 0.1;
+                    ambientLight.intensity = 0.2 + phaseValue * 0.1;
                 }
                 
                 // Smoothly transition fog - more dramatic change
@@ -2835,7 +2835,7 @@ function renderer(context) {
         }
         
         .player-card.dead {
-            opacity: 0.5;
+            opacity: 0.85; /* Increased from 0.5 for better visibility */
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
             filter: brightness(0.7);
         }
@@ -4592,6 +4592,20 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
+                    
+                    // Ensure the model is fully opaque (not transparent)
+                    if (child.material) {
+                        // Handle both single material and array of materials
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach(mat => {
+                            if (mat) {
+                                mat.transparent = false;
+                                mat.opacity = 1.0;
+                                mat.alphaTest = 0;  // Disable alpha testing
+                                mat.needsUpdate = true;
+                            }
+                        });
+                    }
                 }
             });
             
