@@ -1050,19 +1050,19 @@ function renderer(context) {
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects - enhanced for mysterious atmosphere
+                // Bloom pass for glowing effects - balanced for quality
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.9,   // strength - very high for dramatic glow
-                  1.2,   // radius - extra wide for atmospheric fog
-                  0.1    // threshold - very low to bloom more elements
+                  0.4,   // strength - moderate glow for polish
+                  0.6,   // radius - balanced bloom
+                  0.5    // threshold - selective blooming
                 );
                 this._composer.addPass(bloomPass);
 
-                // Film grain for atmosphere - heavier for mysterious texture
+                // Film grain for atmosphere - subtle for quality
                 const filmPass = new FilmPass(
-                  0.6,   // noise intensity - very heavy grain for mystery
-                  0.35,  // scanline intensity - more pronounced lines
+                  0.15,  // noise intensity - subtle grain for texture
+                  0.1,   // scanline intensity - minimal lines
                   0,     // scanline count
                   false  // grayscale
                 );
@@ -1091,22 +1091,21 @@ function renderer(context) {
                     void main() {
                       vec4 color = texture2D(tDiffuse, vUv);
                       
-                      // Add dramatic color grading based on phase
+                      // Add subtle color grading based on phase
                       if (phase > 0.5) {
-                        // Night - strong blue tint and high contrast for mystery
-                        color.rgb = mix(color.rgb, color.rgb * vec3(0.6, 0.8, 1.4), 0.5);
-                        color.rgb = pow(color.rgb, vec3(1.3));
+                        // Night - gentle blue tint for moonlight
+                        color.rgb = mix(color.rgb, color.rgb * vec3(0.85, 0.9, 1.15), 0.3);
+                        color.rgb = pow(color.rgb, vec3(1.05));
                       } else {
-                        // Day - subtle desaturation for moodiness
-                        color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.02, 0.98), 0.3);
-                        color.rgb = pow(color.rgb, vec3(1.1));
+                        // Day - slight warmth enhancement
+                        color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.0, 0.95), 0.2);
                       }
                       
-                      // Add stronger vignette for mystery
+                      // Add subtle vignette for depth
                       vec2 center = vec2(0.5, 0.5);
                       float dist = distance(vUv, center);
-                      float vignette = 1.0 - smoothstep(0.2, 0.9, dist);
-                      color.rgb *= mix(0.4, 1.0, vignette);
+                      float vignette = 1.0 - smoothstep(0.4, 1.0, dist);
+                      color.rgb *= mix(0.7, 1.0, vignette);
                       
                       gl_FragColor = color;
                     }
