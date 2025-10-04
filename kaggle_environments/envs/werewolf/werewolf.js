@@ -1224,7 +1224,10 @@ function renderer(context) {
                     modelPath,
                     (fbx) => {
                       // On success: apply uniform scaling
-                      fbx.scale.setScalar(0.035); // 3.5x larger than original 0.01
+                      fbx.scale.setScalar(0.05); // 3.5x larger than original 0.01
+                      
+                      // Correct the orientation - rotate 90 degrees to face forward
+                      fbx.rotation.y = -Math.PI / 2;
                       
                       // Extract and store animations from the merged FBX
                       const animations = {};
