@@ -1125,42 +1125,14 @@ function renderer(context) {
                 this._playerGroup = new THREE.Group();
                 this._playerGroup.name = 'playerGroup';
 
-                // Create enhanced ground circle with better materials
+                // Load the island model instead of creating a simple ground
                 const radius = 15;
-                const groundGeometry = new THREE.CircleGeometry(radius + 5, 64);
-                const groundMaterial = new THREE.MeshStandardMaterial({
-                    color: 0x1a1a2a,
-                    roughness: 0.9,
-                    metalness: 0.1,
-                    normalScale: new THREE.Vector2(0.5, 0.5),
-                    transparent: true,
-                    opacity: 0.95
-                });
                 
-                // Add a subtle normal map pattern
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-                const imageData = ctx.createImageData(512, 512);
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    const noise = Math.random() * 0.1 + 0.5;
-                    imageData.data[i] = Math.floor(noise * 255);     // R
-                    imageData.data[i + 1] = Math.floor(noise * 255); // G
-                    imageData.data[i + 2] = 255;                     // B
-                    imageData.data[i + 3] = 255;                     // A
-                }
-                ctx.putImageData(imageData, 0, 0);
-                groundMaterial.normalMap = new THREE.CanvasTexture(canvas);
-                
-                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                ground.rotation.x = -Math.PI / 2;
-                ground.position.y = -0.1;
-                ground.receiveShadow = true;
-                this._scene.add(ground);
+                // Load island FBX model with textures
+                this._loadIslandModel(THREE, FBXLoader);
 
-                // Add mystical circle patterns
-                this._createMysticalCircles(THREE, radius);
+                // Keep mystical circle patterns but adjust position if needed
+                // this._createMysticalCircles(THREE, radius);
 
                 this._scene.add(this._playerGroup);
 
@@ -1206,6 +1178,87 @@ function renderer(context) {
                 this._controls.maxDistance = 80;
                 this._controls.maxPolarAngle = Math.PI * 0.75;
                 this._controls.update();
+              }
+
+              _loadIslandModel(THREE, FBXLoader) {
+                const textureLoader = new THREE.TextureLoader();
+                
+                // Load all textures
+                const baseTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture.png');
+                const normalTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_normal.png');
+                const metallicTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_metallic.png');
+                const roughnessTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_roughness.png');
+                
+                // Configure textures
+                [baseTexture, normalTexture, metallicTexture, roughnessTexture].forEach(texture => {
+                  texture.encoding = THREE.sRGBEncoding;
+                  texture.flipY = true;
+                });
+                
+                // Load the FBX model
+                const fbxLoader = new FBXLoader();
+                fbxLoader.load(
+                  '/experiment/static/werewolf/island/_0930062431_texture.fbx',
+                  (fbx) => {
+                    // Scale and position the island
+                    fbx.scale.setScalar(0.02); // Much larger scale for visibility
+                    fbx.position.y = -20.0; // Position at ground level
+                    fbx.rotation.y = Math.PI / 8; // Slight rotation for better view
+                    
+                    // Apply textures to all meshes in the model
+                    fbx.traverse((child) => {
+                      if (child.isMesh) {
+                        // Create PBR material with all textures
+                        const material = new THREE.MeshStandardMaterial({
+                          map: baseTexture,
+                          normalMap: normalTexture,
+                          normalScale: new THREE.Vector2(0.5, 0.5), // Reduced normal intensity
+                          metalnessMap: metallicTexture,
+                          roughnessMap: roughnessTexture,
+                          metalness: 0.1, // Much less metallic to reduce brightness
+                          roughness: 0.95, // More rough to scatter light
+                          envMapIntensity: 0.2, // Reduced environment reflection
+                          color: new THREE.Color(0.6, 0.6, 0.6), // Darken the base color
+                          side: THREE.DoubleSide // Render both sides
+                        });
+                        
+                        child.material = material;
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                      }
+                    });
+                    
+                    // Add to scene
+                    this._scene.add(fbx);
+                    
+                    // Store reference if needed
+                    this._islandModel = fbx;
+                    
+                    console.log('Island model loaded successfully');
+                  },
+                  (progress) => {
+                    console.log('Loading island model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                  },
+                  (error) => {
+                    console.error('Error loading island model:', error);
+                    
+                    // Fallback to simple ground if island fails to load
+                    const groundGeometry = new THREE.CircleGeometry(20, 64);
+                    const groundMaterial = new THREE.MeshStandardMaterial({
+                      color: 0x1a1a2a,
+                      roughness: 0.9,
+                      metalness: 0.1,
+                      transparent: true,
+                      opacity: 0.95
+                    });
+                    
+                    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                    ground.rotation.x = -Math.PI / 2;
+                    ground.position.y = -0.1;
+                    ground.receiveShadow = true;
+                    this._scene.add(ground);
+                  }
+                );
               }
 
               loadCharacterModel(role) {
@@ -4463,35 +4516,8 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
     const THREE = threeState.demo._THREE;
     const CSS2DObject = threeState.demo._CSS2DObject;
     
-    // Create a circular platform
-    const platformGeometry = new THREE.RingGeometry(radius - 2, radius + 3, 64);
-    const platformMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2a2a3a,
-        roughness: 0.9,
-        metalness: 0.1,
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
-    });
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.rotation.x = -Math.PI / 2;
-    platform.position.y = -0.05;
-    platform.receiveShadow = true;
-    threeState.demo._playerGroup.add(platform);
-    
-    // Create center decoration
-    const centerGeometry = new THREE.CylinderGeometry(3, 3, 0.2, 32);
-    const centerMaterial = new THREE.MeshStandardMaterial({
-        color: 0x444466,
-        roughness: 0.7,
-        metalness: 0.3,
-        emissive: 0x222244,
-        emissiveIntensity: 0.2
-    });
-    const centerPlatform = new THREE.Mesh(centerGeometry, centerMaterial);
-    centerPlatform.position.y = 0.1;
-    centerPlatform.receiveShadow = true;
-    threeState.demo._playerGroup.add(centerPlatform);
+    // Skip creating platform geometry since we're using the island model
+    // The island model loaded in _LoadModels provides the ground
     
     // Add decorative lines from center to each player position
     const linesMaterial = new THREE.LineBasicMaterial({
