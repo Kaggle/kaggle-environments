@@ -1,0 +1,959 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werewolf Sky System Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 60vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40vh;
+            background: linear-gradient(to bottom, rgba(26, 26, 46, 0.95), rgba(26, 26, 46, 1));
+            padding: 15px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            border-top: 2px solid #444;
+        }
+        
+        .controls-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .control-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+            padding-bottom: 5px;
+        }
+        
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .control-label {
+            font-size: 11px;
+            color: #aaa;
+            min-width: 140px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .control-value {
+            font-size: 11px;
+            color: #667eea;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: right;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.day {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        button.night {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #333;
+            outline: none;
+            border-radius: 2px;
+            min-width: 100px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #7c8ff0;
+            transform: scale(1.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #667eea;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #7c8ff0;
+            transform: scale(1.2);
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        #info-panel {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+        }
+        
+        .info-label {
+            color: #888;
+        }
+        
+        .info-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .phase-indicator {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .phase-day {
+            background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+        }
+        
+        .phase-night {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        }
+        
+        #console-output {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            max-height: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            color: #0f0;
+        }
+        
+        .console-error {
+            color: #f00;
+        }
+        
+        .console-warn {
+            color: #ff0;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    
+    <div id="controls">
+        <div class="button-group">
+            <button class="day" onclick="setDayTime()">☀️ Day Time</button>
+            <button class="night" onclick="setNightTime()">🌙 Night Time</button>
+            <button onclick="toggleTransition()">🔄 Toggle Auto Transition</button>
+            <button onclick="resetScene()">🔄 Reset Scene</button>
+        </div>
+        
+        <div class="controls-container">
+            <!-- Sky Parameters Section -->
+            <div class="control-section">
+                <div class="section-title">Sky Parameters</div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Turbidity</span>
+                        <span class="control-value" id="turbidityValue">10.0</span>
+                    </div>
+                    <input type="range" id="turbidity" min="0" max="20" step="0.1" value="10" oninput="updateSkyParameter('turbidity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Rayleigh</span>
+                        <span class="control-value" id="rayleighValue">2.0</span>
+                    </div>
+                    <input type="range" id="rayleigh" min="0" max="10" step="0.1" value="2" oninput="updateSkyParameter('rayleigh', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Mie Coefficient</span>
+                        <span class="control-value" id="mieCoeffValue">0.005</span>
+                    </div>
+                    <input type="range" id="mieCoeff" min="0" max="0.1" step="0.001" value="0.005" oninput="updateSkyParameter('mieCoefficient', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Mie Directional G</span>
+                        <span class="control-value" id="mieDirectionalGValue">0.8</span>
+                    </div>
+                    <input type="range" id="mieDirectionalG" min="0" max="1" step="0.01" value="0.8" oninput="updateSkyParameter('mieDirectionalG', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Sun/Moon Elevation</span>
+                        <span class="control-value" id="elevationValue">45°</span>
+                    </div>
+                    <input type="range" id="elevation" min="-90" max="90" step="1" value="45" oninput="updateSunPosition('elevation', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Sun/Moon Azimuth</span>
+                        <span class="control-value" id="azimuthValue">180°</span>
+                    </div>
+                    <input type="range" id="azimuth" min="0" max="360" step="1" value="180" oninput="updateSunPosition('azimuth', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Exposure</span>
+                        <span class="control-value" id="exposureValue">0.5</span>
+                    </div>
+                    <input type="range" id="exposure" min="0" max="2" step="0.01" value="0.5" oninput="updateExposure(this.value)">
+                </div>
+            </div>
+            
+            <!-- Lighting Section -->
+            <div class="control-section">
+                <div class="section-title">Lighting</div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Sun Intensity</span>
+                        <span class="control-value" id="sunIntensityValue">1.0</span>
+                    </div>
+                    <input type="range" id="sunIntensity" min="0" max="3" step="0.1" value="1" oninput="updateLighting('sunIntensity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Moon Intensity</span>
+                        <span class="control-value" id="moonIntensityValue">0.3</span>
+                    </div>
+                    <input type="range" id="moonIntensity" min="0" max="1" step="0.01" value="0.3" oninput="updateLighting('moonIntensity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Ambient Light</span>
+                        <span class="control-value" id="ambientIntensityValue">0.4</span>
+                    </div>
+                    <input type="range" id="ambientIntensity" min="0" max="1" step="0.01" value="0.4" oninput="updateLighting('ambientIntensity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Time of Day</span>
+                        <span class="control-value" id="timeValue">12:00</span>
+                    </div>
+                    <input type="range" id="timeSlider" min="0" max="24" step="0.1" value="12" oninput="setTimeOfDay(this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Transition Speed</span>
+                        <span class="control-value" id="speedValue">1.0x</span>
+                    </div>
+                    <input type="range" id="speedSlider" min="0.1" max="5" step="0.1" value="1" oninput="setTransitionSpeed(this.value)">
+                </div>
+            </div>
+            
+            <!-- Post-Processing Section -->
+            <div class="control-section">
+                <div class="section-title">Post-Processing (Bloom)</div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Bloom Strength</span>
+                        <span class="control-value" id="bloomStrengthValue">0.5</span>
+                    </div>
+                    <input type="range" id="bloomStrength" min="0" max="1" step="0.01" value="0.5" oninput="updateBloom('strength', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Bloom Radius</span>
+                        <span class="control-value" id="bloomRadiusValue">0.4</span>
+                    </div>
+                    <input type="range" id="bloomRadius" min="0" max="2" step="0.01" value="0.4" oninput="updateBloom('radius', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Bloom Threshold</span>
+                        <span class="control-value" id="bloomThresholdValue">0.85</span>
+                    </div>
+                    <input type="range" id="bloomThreshold" min="0" max="1" step="0.01" value="0.85" oninput="updateBloom('threshold', this.value)">
+                </div>
+            </div>
+            
+            <!-- Clouds Section -->
+            <div class="control-section">
+                <div class="section-title">Clouds</div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Cloud Opacity</span>
+                        <span class="control-value" id="cloudOpacityValue">0.5</span>
+                    </div>
+                    <input type="range" id="cloudOpacity" min="0" max="1" step="0.01" value="0.5" oninput="updateClouds('opacity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Cloud Speed</span>
+                        <span class="control-value" id="cloudSpeedValue">1.0</span>
+                    </div>
+                    <input type="range" id="cloudSpeed" min="0" max="5" step="0.1" value="1" oninput="updateClouds('speed', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Enable Clouds</span>
+                    </div>
+                    <input type="checkbox" id="cloudToggle" checked onchange="toggleClouds(this.checked)">
+                </div>
+            </div>
+            
+            <!-- God Rays Section -->
+            <div class="control-section">
+                <div class="section-title">God Rays</div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>God Ray Intensity</span>
+                        <span class="control-value" id="godRayIntensityValue">1.0</span>
+                    </div>
+                    <input type="range" id="godRayIntensity" min="0" max="2" step="0.1" value="1" oninput="updateGodRays('intensity', this.value)">
+                </div>
+                
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Enable God Rays</span>
+                    </div>
+                    <input type="checkbox" id="godRayToggle" checked onchange="toggleGodRays(this.checked)">
+                </div>
+            </div>
+            
+            <!-- Info Panel -->
+            <div class="control-section">
+                <div class="section-title">Current Status</div>
+                <div id="info-panel">
+                    <div class="info-item">
+                        <span class="info-label">Phase:</span>
+                        <span class="info-value"><span id="currentPhase" class="phase-indicator phase-day">DAY</span></span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Sun Position:</span>
+                        <span class="info-value" id="sunPositionInfo">Az: 0°, El: 45°</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Moon Position:</span>
+                        <span class="info-value" id="moonPositionInfo">Hidden</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="console-output"></div>
+    
+    <script>
+        // Mock environment for testing
+        const mockEnvironment = {
+            steps: [{
+                0: {
+                    observation: {
+                        raw_observation: {
+                            all_player_ids: ['player_1', 'player_2'],
+                            player_thumbnails: {
+                                'player_1': 'https://via.placeholder.com/60',
+                                'player_2': 'https://via.placeholder.com/60'
+                            },
+                            day: 1,
+                            phase: 'DAY',
+                            game_state_phase: 'DAY'
+                        }
+                    }
+                }
+            }],
+            info: {
+                MODERATOR_OBSERVATION: [[{
+                    data_type: 'SystemEntry',
+                    json_str: JSON.stringify({
+                        event_name: 'day_start',
+                        description: 'Day 1 begins',
+                        day: 1,
+                        phase: 'DAY',
+                        visible_in_ui: true,
+                        data: {}
+                    })
+                }]]
+            },
+            configuration: {
+                agents: [
+                    { id: 'player_1', role: 'Villager', thumbnail: 'https://via.placeholder.com/60' },
+                    { id: 'player_2', role: 'Werewolf', thumbnail: 'https://via.placeholder.com/60' }
+                ]
+            }
+        };
+        
+        // Mock parent element
+        const parentElement = document.getElementById('game-container');
+        
+        // Test state
+        let autoTransition = false;
+        let transitionSpeed = 1.0;
+        let currentTimeOfDay = 12;
+        let transitionInterval = null;
+        
+        // Console capture
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn
+        };
+        
+        function logToConsole(message, type = 'log') {
+            const entry = document.createElement('div');
+            entry.className = type === 'error' ? 'console-error' : type === 'warn' ? 'console-warn' : '';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(entry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            
+            // Keep only last 20 messages
+            while (consoleOutput.children.length > 20) {
+                consoleOutput.removeChild(consoleOutput.firstChild);
+            }
+        }
+        
+        // Override console methods
+        console.log = function(...args) {
+            originalConsole.log(...args);
+            logToConsole(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalConsole.error(...args);
+            logToConsole(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalConsole.warn(...args);
+            logToConsole(args.join(' '), 'warn');
+        };
+        
+        // Load the werewolf.js script
+        const script = document.createElement('script');
+        script.src = 'werewolf.js';
+        script.onload = function() {
+            console.log('Werewolf.js loaded successfully');
+            
+            // Initialize the renderer
+            if (typeof renderer === 'function') {
+                const context = {
+                    environment: mockEnvironment,
+                    step: 0,
+                    parent: parentElement,
+                    height: window.innerHeight * 0.6,
+                    width: window.innerWidth
+                };
+                
+                // Call the renderer
+                renderer(context);
+                
+                console.log('Renderer initialized');
+                
+                // Wait for Three.js to initialize
+                setTimeout(() => {
+                    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                        console.log('Three.js scene ready');
+                        updateInfo();
+                    } else {
+                        console.error('Three.js scene not initialized');
+                    }
+                }, 2000);
+            } else {
+                console.error('Renderer function not found');
+            }
+        };
+        script.onerror = function() {
+            console.error('Failed to load werewolf.js');
+        };
+        document.head.appendChild(script);
+        
+        // Sky parameter controls
+        function updateSkyParameter(param, value) {
+            const floatValue = parseFloat(value);
+            
+            // Update display
+            let displayValue = floatValue.toFixed(param === 'mieCoefficient' ? 3 : 1);
+            document.getElementById(`${param === 'mieCoefficient' ? 'mieCoeff' : param === 'mieDirectionalG' ? 'mieDirectionalG' : param}Value`).textContent = displayValue;
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+                const sky = window.werewolfThreeJs.demo._sky;
+                if (sky.material && sky.material.uniforms) {
+                    sky.material.uniforms[param].value = floatValue;
+                    console.log(`Updated ${param} to ${displayValue}`);
+                }
+            }
+        }
+        
+        // Sun position controls
+        function updateSunPosition(type, value) {
+            const floatValue = parseFloat(value);
+            document.getElementById(`${type}Value`).textContent = `${floatValue}°`;
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+                const sky = window.werewolfThreeJs.demo._sky;
+                
+                // Get current values
+                const currentElevation = parseFloat(document.getElementById('elevation').value);
+                const currentAzimuth = parseFloat(document.getElementById('azimuth').value);
+                
+                // Convert to radians
+                const phi = (90 - currentElevation) * Math.PI / 180;
+                const theta = currentAzimuth * Math.PI / 180;
+                
+                // Calculate sun position
+                const sunX = Math.sin(phi) * Math.cos(theta);
+                const sunY = Math.cos(phi);
+                const sunZ = Math.sin(phi) * Math.sin(theta);
+                
+                sky.material.uniforms['sunPosition'].value.set(sunX, sunY, sunZ);
+                
+                // Update lighting based on elevation
+                updateDayNightLighting(currentElevation);
+                
+                console.log(`Updated sun position - Elevation: ${currentElevation}°, Azimuth: ${currentAzimuth}°`);
+            }
+            
+            updateInfo();
+        }
+        
+        // Exposure control
+        function updateExposure(value) {
+            const floatValue = parseFloat(value);
+            document.getElementById('exposureValue').textContent = floatValue.toFixed(2);
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._renderer) {
+                window.werewolfThreeJs.demo._renderer.toneMappingExposure = floatValue;
+                console.log(`Updated exposure to ${floatValue.toFixed(2)}`);
+            }
+        }
+        
+        // Lighting controls
+        function updateLighting(type, value) {
+            const floatValue = parseFloat(value);
+            document.getElementById(`${type}Value`).textContent = floatValue.toFixed(1);
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                const demo = window.werewolfThreeJs.demo;
+                
+                switch(type) {
+                    case 'sunIntensity':
+                        if (demo._sunLight) {
+                            demo._sunLight.intensity = floatValue;
+                        }
+                        break;
+                    case 'moonIntensity':
+                        if (demo._moonLight) {
+                            demo._moonLight.intensity = floatValue;
+                        }
+                        break;
+                    case 'ambientIntensity':
+                        if (demo._ambientLight) {
+                            demo._ambientLight.intensity = floatValue;
+                        }
+                        break;
+                }
+                
+                console.log(`Updated ${type} to ${floatValue.toFixed(1)}`);
+            }
+        }
+        
+        // Bloom controls
+        function updateBloom(type, value) {
+            const floatValue = parseFloat(value);
+            document.getElementById(`bloom${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = floatValue.toFixed(2);
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._bloomPass) {
+                const bloomPass = window.werewolfThreeJs.demo._bloomPass;
+                
+                switch(type) {
+                    case 'strength':
+                        bloomPass.strength = floatValue;
+                        break;
+                    case 'radius':
+                        bloomPass.radius = floatValue;
+                        break;
+                    case 'threshold':
+                        bloomPass.threshold = floatValue;
+                        break;
+                }
+                
+                console.log(`Updated bloom ${type} to ${floatValue.toFixed(2)}`);
+            }
+        }
+        
+        // Cloud controls
+        function updateClouds(type, value) {
+            const floatValue = parseFloat(value);
+            document.getElementById(`cloud${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = floatValue.toFixed(1);
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._cloudSystem) {
+                const cloudSystem = window.werewolfThreeJs.demo._cloudSystem;
+                
+                switch(type) {
+                    case 'opacity':
+                        if (cloudSystem.material) {
+                            cloudSystem.material.opacity = floatValue;
+                        }
+                        break;
+                    case 'speed':
+                        // Store speed for animation update
+                        cloudSystem.userData = cloudSystem.userData || {};
+                        cloudSystem.userData.speed = floatValue;
+                        break;
+                }
+                
+                console.log(`Updated cloud ${type} to ${floatValue.toFixed(1)}`);
+            }
+        }
+        
+        function toggleClouds(enabled) {
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._cloudSystem) {
+                window.werewolfThreeJs.demo._cloudSystem.visible = enabled;
+                console.log(`Clouds ${enabled ? 'enabled' : 'disabled'}`);
+            }
+        }
+        
+        // God ray controls
+        function updateGodRays(type, value) {
+            const floatValue = parseFloat(value);
+            document.getElementById(`godRay${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = floatValue.toFixed(1);
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                const demo = window.werewolfThreeJs.demo;
+                
+                switch(type) {
+                    case 'intensity':
+                        if (demo.setGodRayIntensity) {
+                            demo.setGodRayIntensity(floatValue);
+                        } else if (demo._godRayIntensity !== undefined) {
+                            demo._godRayIntensity = floatValue;
+                        }
+                        break;
+                }
+                
+                console.log(`Updated god ray ${type} to ${floatValue.toFixed(1)}`);
+            }
+        }
+        
+        function toggleGodRays(enabled) {
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                const demo = window.werewolfThreeJs.demo;
+                if (enabled) {
+                    demo._godRayIntensity = parseFloat(document.getElementById('godRayIntensity').value);
+                } else {
+                    demo._godRayIntensity = 0;
+                }
+                console.log(`God rays ${enabled ? 'enabled' : 'disabled'}`);
+            }
+        }
+        
+        // Update day/night lighting based on sun elevation
+        function updateDayNightLighting(elevation) {
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                const demo = window.werewolfThreeJs.demo;
+                const isDay = elevation > 0;
+                
+                // Update phase indicator
+                const phaseIndicator = document.getElementById('currentPhase');
+                phaseIndicator.textContent = isDay ? 'DAY' : 'NIGHT';
+                phaseIndicator.className = `phase-indicator ${isDay ? 'phase-day' : 'phase-night'}`;
+                
+                // Trigger phase update if available
+                if (demo.updateSkyForPhase) {
+                    demo.updateSkyForPhase(isDay);
+                }
+            }
+        }
+        
+        // Control functions
+        function setDayTime() {
+            console.log('Setting day time');
+            currentTimeOfDay = 12;
+            document.getElementById('timeSlider').value = 12;
+            document.getElementById('elevation').value = 45;
+            document.getElementById('azimuth').value = 180;
+            updateTimeOfDay(12);
+            updateSunPosition('elevation', 45);
+            updateSunPosition('azimuth', 180);
+        }
+        
+        function setNightTime() {
+            console.log('Setting night time');
+            currentTimeOfDay = 0;
+            document.getElementById('timeSlider').value = 0;
+            document.getElementById('elevation').value = -45;
+            document.getElementById('azimuth').value = 0;
+            updateTimeOfDay(0);
+            updateSunPosition('elevation', -45);
+            updateSunPosition('azimuth', 0);
+        }
+        
+        function setTimeOfDay(value) {
+            currentTimeOfDay = parseFloat(value);
+            updateTimeOfDay(currentTimeOfDay);
+        }
+        
+        function updateTimeOfDay(hours) {
+            const timeValue = document.getElementById('timeValue');
+            const h = Math.floor(hours);
+            const m = Math.floor((hours - h) * 60);
+            timeValue.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._sky) {
+                const demo = window.werewolfThreeJs.demo;
+                
+                // Convert hours to sun position (0-24 maps to full day cycle)
+                // 6 = sunrise, 12 = noon, 18 = sunset, 0/24 = midnight
+                const sunAngle = (hours / 24) * Math.PI * 2 - Math.PI / 2;
+                const elevation = Math.sin(sunAngle) * 90; // Convert to degrees
+                const azimuth = (hours / 24) * 360; // Simple azimuth based on time
+                
+                // Update sliders
+                document.getElementById('elevation').value = elevation;
+                document.getElementById('azimuth').value = azimuth;
+                
+                // Update sun position
+                updateSunPosition('elevation', elevation);
+                updateSunPosition('azimuth', azimuth);
+                
+                console.log(`Time updated to ${h}:${m.toString().padStart(2, '0')}`);
+            }
+            
+            updateInfo();
+        }
+        
+        function setTransitionSpeed(value) {
+            transitionSpeed = parseFloat(value);
+            document.getElementById('speedValue').textContent = `${transitionSpeed.toFixed(1)}x`;
+            console.log(`Transition speed set to ${transitionSpeed}x`);
+        }
+        
+        function toggleTransition() {
+            autoTransition = !autoTransition;
+            
+            if (autoTransition) {
+                console.log('Starting auto transition');
+                transitionInterval = setInterval(() => {
+                    currentTimeOfDay += 0.1 * transitionSpeed;
+                    if (currentTimeOfDay >= 24) {
+                        currentTimeOfDay = 0;
+                    }
+                    document.getElementById('timeSlider').value = currentTimeOfDay;
+                    updateTimeOfDay(currentTimeOfDay);
+                }, 100);
+            } else {
+                console.log('Stopping auto transition');
+                if (transitionInterval) {
+                    clearInterval(transitionInterval);
+                    transitionInterval = null;
+                }
+            }
+        }
+        
+        function resetScene() {
+            console.log('Resetting scene');
+            if (transitionInterval) {
+                clearInterval(transitionInterval);
+                transitionInterval = null;
+            }
+            autoTransition = false;
+            currentTimeOfDay = 12;
+            document.getElementById('timeSlider').value = 12;
+            document.getElementById('elevation').value = 45;
+            document.getElementById('azimuth').value = 180;
+            
+            // Reset all parameters to defaults
+            document.getElementById('turbidity').value = 10;
+            document.getElementById('rayleigh').value = 2;
+            document.getElementById('mieCoeff').value = 0.005;
+            document.getElementById('mieDirectionalG').value = 0.8;
+            document.getElementById('exposure').value = 0.5;
+            document.getElementById('sunIntensity').value = 1;
+            document.getElementById('moonIntensity').value = 0.3;
+            document.getElementById('ambientIntensity').value = 0.4;
+            document.getElementById('bloomStrength').value = 0.5;
+            document.getElementById('bloomRadius').value = 0.4;
+            document.getElementById('bloomThreshold').value = 0.85;
+            document.getElementById('cloudOpacity').value = 0.5;
+            document.getElementById('cloudSpeed').value = 1;
+            document.getElementById('cloudToggle').checked = true;
+            document.getElementById('godRayIntensity').value = 1;
+            document.getElementById('godRayToggle').checked = true;
+            
+            // Update all values
+            updateSkyParameter('turbidity', 10);
+            updateSkyParameter('rayleigh', 2);
+            updateSkyParameter('mieCoefficient', 0.005);
+            updateSkyParameter('mieDirectionalG', 0.8);
+            updateExposure(0.5);
+            updateLighting('sunIntensity', 1);
+            updateLighting('moonIntensity', 0.3);
+            updateLighting('ambientIntensity', 0.4);
+            updateBloom('strength', 0.5);
+            updateBloom('radius', 0.4);
+            updateBloom('threshold', 0.85);
+            updateClouds('opacity', 0.5);
+            updateClouds('speed', 1);
+            toggleClouds(true);
+            updateGodRays('intensity', 1);
+            toggleGodRays(true);
+            
+            updateTimeOfDay(12);
+            updateSunPosition('elevation', 45);
+            updateSunPosition('azimuth', 180);
+        }
+        
+        function updateInfo() {
+            if (!window.werewolfThreeJs || !window.werewolfThreeJs.demo) return;
+            
+            const demo = window.werewolfThreeJs.demo;
+            
+            if (demo._sky && demo._sky.material.uniforms) {
+                const sunPos = demo._sky.material.uniforms['sunPosition'].value;
+                
+                // Calculate sun angles
+                const elevation = Math.asin(sunPos.y) * (180 / Math.PI);
+                const azimuth = Math.atan2(sunPos.x, sunPos.z) * (180 / Math.PI);
+                
+                document.getElementById('sunPositionInfo').textContent =
+                    `Az: ${azimuth.toFixed(1)}°, El: ${elevation.toFixed(1)}°`;
+                
+                // Moon position (opposite of sun)
+                if (elevation < 0) {
+                    const moonElevation = -elevation;
+                    const moonAzimuth = (azimuth + 180) % 360;
+                    document.getElementById('moonPositionInfo').textContent =
+                        `Az: ${moonAzimuth.toFixed(1)}°, El: ${moonElevation.toFixed(1)}°`;
+                } else {
+                    document.getElementById('moonPositionInfo').textContent = 'Hidden';
+                }
+            }
+        }
+        
+        // Update info panel periodically
+        setInterval(updateInfo, 500);
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                const demo = window.werewolfThreeJs.demo;
+                if (demo._camera && demo._renderer) {
+                    demo._camera.aspect = window.innerWidth / (window.innerHeight * 0.6);
+                    demo._camera.updateProjectionMatrix();
+                    demo._renderer.setSize(window.innerWidth, window.innerHeight * 0.6);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -497,13 +497,14 @@ function renderer(context) {
             const { UnrealBloomPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/UnrealBloomPass.js');
             const { ShaderPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/ShaderPass.js');
             const { FilmPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/FilmPass.js');
+            const { Sky } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/objects/Sky.js');
 
             class BasicWorldDemo {
               constructor(options) {
-                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass);
+                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky);
               }
 
-              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass) {
+              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky) {
                 this._parent = options.parent;
                 this._width = options.width;
                 this._height = options.height;
@@ -525,7 +526,13 @@ function renderer(context) {
                 this._threejs.setSize(this._width, this._height);
                 this._threejs.outputEncoding = THREE.sRGBEncoding;
                 this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
-                this._threejs.toneMappingExposure = 0.8; // Brighter for village atmosphere
+                this._threejs.toneMappingExposure = 0.5; // Set to visible default value
+                
+                console.log('[SKY DEBUG] Renderer settings:', {
+                  toneMapping: 'ACESFilmicToneMapping',
+                  toneMappingExposure: this._threejs.toneMappingExposure,
+                  outputEncoding: 'sRGBEncoding'
+                });
                 this._threejs.domElement.style.position = 'absolute';
                 this._threejs.domElement.style.top = '0';
                 this._threejs.domElement.style.left = '0';
@@ -550,9 +557,12 @@ function renderer(context) {
                 this._camera.position.set(0, 0, 50);
 
                 this._scene = new THREE.Scene();
-                this._scene.fog = new THREE.FogExp2(0x4a5a6a, 0.008); // Medium blue-grey fog for village atmosphere
+                
+                // Add subtle atmospheric fog for depth
+                // Using FogExp2 for exponential fog that's more visible at ground level
+                this._scene.fog = new THREE.FogExp2(0x87CEEB, 0.01); // Light blue-grey, very low density
 
-                this._createSkybox(THREE);
+                this._createAdvancedSkySystem(THREE, Sky);
                 this._createAdvancedLighting(THREE);
                 this._setupPostProcessing(THREE, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass);
 
@@ -578,62 +588,210 @@ function renderer(context) {
                 this._RAF();
               }
 
-              _createSkybox(THREE) {
-                // Store THREE reference first
+              _createAdvancedSkySystem(THREE, Sky) {
+                // Store THREE reference
                 this._THREE = THREE;
                 
-                const skyboxSize = 1000;
-                const skyboxGeo = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+                console.log('[SKY DEBUG] Creating Sky shader system...');
                 
-                // Create materials for each face with initial day colors
-                this._skyboxMaterials = [];
-                for (let i = 0; i < 6; i++) {
-                    const mat = new THREE.MeshBasicMaterial({
-                        color: new THREE.Color(0x87ceeb), // Start with day color
-                        side: THREE.BackSide
-                    });
-                    this._skyboxMaterials.push(mat);
-                }
-
-                const skybox = new THREE.Mesh(skyboxGeo, this._skyboxMaterials);
-                this._skybox = skybox;
-                this._scene.add(skybox);
-
-                // Create dynamic sky canvas for the back panel (where moon/sun appears)
-                const backCanvas = document.createElement('canvas');
-                const canvasSize = 2048;
-                backCanvas.width = canvasSize;
-                backCanvas.height = canvasSize;
-                this._skyCanvas = backCanvas;
-                this._skyContext = backCanvas.getContext('2d');
+                // Create Sky shader
+                this._sky = new Sky();
+                this._sky.scale.setScalar(450000);
+                this._scene.add(this._sky);
                 
-                // Store celestial body properties
-                this._celestialBody = {
-                    x: canvasSize / 2,
-                    y: canvasSize / 3,
-                    size: 250,
-                    phase: 0.0 // Start with day (0 = day, 1 = night)
-                };
-
-                // Create texture from canvas
-                this._skyTexture = new THREE.CanvasTexture(backCanvas);
-                this._skyboxMaterials[4].map = this._skyTexture;
+                console.log('[SKY DEBUG] Sky mesh created and added to scene');
+                console.log('[SKY DEBUG] Sky scale:', this._sky.scale);
+                console.log('[SKY DEBUG] Sky material:', this._sky.material);
                 
-                // Load moon image
-                const moonImage = new Image();
-                moonImage.crossOrigin = 'Anonymous';
-                moonImage.onload = () => {
-                    this._moonImage = moonImage;
-                    this._updateSkybox(0.0); // Start with day
-                };
-                moonImage.onerror = () => {
-                    console.error("Failed to load moon texture for skybox.");
-                    this._updateSkybox(0.0); // Start with day
-                };
-                moonImage.src = 'assets/moon4.png';
+                // Sky shader uniforms
+                const skyUniforms = this._sky.material.uniforms;
+                
+                // Set initial daytime settings for visibility
+                skyUniforms['turbidity'].value = 10;    // Default visible value
+                skyUniforms['rayleigh'].value = 2;      // Default visible value
+                skyUniforms['mieCoefficient'].value = 0.005;  // Default visible value
+                skyUniforms['mieDirectionalG'].value = 0.8;   // Default visible value
+                
+                console.log('[SKY DEBUG] Initial sky shader uniforms:');
+                console.log('  - turbidity:', skyUniforms['turbidity'].value);
+                console.log('  - rayleigh:', skyUniforms['rayleigh'].value);
+                console.log('  - mieCoefficient:', skyUniforms['mieCoefficient'].value);
+                console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
+                
+                // Create sun/moon light with default intensity
+                this._sunLight = new THREE.DirectionalLight(0xffffff, 1.0);  // Default visible intensity
+                this._sunLight.castShadow = true;
+                this._sunLight.shadow.mapSize.width = 2048;
+                this._sunLight.shadow.mapSize.height = 2048;
+                this._sunLight.shadow.camera.near = 0.5;
+                this._sunLight.shadow.camera.far = 500;
+                this._sunLight.shadow.camera.left = -100;
+                this._sunLight.shadow.camera.right = 100;
+                this._sunLight.shadow.camera.top = 100;
+                this._sunLight.shadow.camera.bottom = -100;
+                this._sunLight.shadow.bias = -0.001;
+                this._sunLight.shadow.normalBias = 0.02;
+                this._scene.add(this._sunLight);
+                this._scene.add(this._sunLight.target);
+                
+                // Create moon light with increased intensity for better nighttime visibility
+                this._moonLight = new THREE.DirectionalLight(0x6688cc, 1.0);  // Increased from 0.3 to 1.0
+                this._moonLight.castShadow = true;
+                this._moonLight.shadow.mapSize.width = 1024;
+                this._moonLight.shadow.mapSize.height = 1024;
+                this._moonLight.shadow.camera.near = 0.5;
+                this._moonLight.shadow.camera.far = 500;
+                this._moonLight.shadow.camera.left = -100;
+                this._moonLight.shadow.camera.right = 100;
+                this._moonLight.shadow.camera.top = 100;
+                this._moonLight.shadow.camera.bottom = -100;
+                this._moonLight.visible = false;
+                this._scene.add(this._moonLight);
+                this._scene.add(this._moonLight.target);
+                
+                // Store sun position for Sky shader
+                this._sunPosition = new THREE.Vector3();
+                
+                // Create moon sphere
+                this._createMoon(THREE);
+                
+                // Create god rays effect
+                this._createGodRays(THREE);
                 
                 // Create stars for night sky
                 this._createStars(THREE);
+                
+                // Create cloud system
+                this._createCloudSystem(THREE);
+                
+                // Initialize with day settings - set initial sun position for visibility
+                const phi = (90 - 45) * Math.PI / 180; // 45 degrees elevation
+                const theta = 180 * Math.PI / 180; // 180 degrees azimuth
+                const sunX = Math.sin(phi) * Math.cos(theta);
+                const sunY = Math.cos(phi);
+                const sunZ = Math.sin(phi) * Math.sin(theta);
+                this._sunPosition = new THREE.Vector3(sunX, sunY, sunZ);
+                this._sky.material.uniforms['sunPosition'].value.copy(this._sunPosition);
+                
+                // Initialize with visible day settings
+                this._updateSkySystem(0.25); // Mid-day for good visibility
+              }
+              
+              _createMoon(THREE) {
+                // Create moon sphere geometry
+                const moonGeometry = new THREE.SphereGeometry(8, 32, 32);
+                
+                // Create moon material with emissive glow
+                const moonMaterial = new THREE.MeshStandardMaterial({
+                  color: 0xffffff,
+                  emissive: 0xffffcc,
+                  emissiveIntensity: 1.2,  // Increased from 0.5 to 1.2 for brighter moon glow
+                  roughness: 0.8,
+                  metalness: 0.0
+                });
+                
+                // Create moon mesh
+                this._moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+                this._moonMesh.castShadow = false;
+                this._moonMesh.receiveShadow = false;
+                
+                // Add subtle glow around moon
+                const moonGlowGeometry = new THREE.SphereGeometry(12, 32, 32);
+                const moonGlowMaterial = new THREE.MeshBasicMaterial({
+                  color: 0xffffcc,
+                  transparent: true,
+                  opacity: 0.15,
+                  side: THREE.BackSide
+                });
+                this._moonGlow = new THREE.Mesh(moonGlowGeometry, moonGlowMaterial);
+                this._moonMesh.add(this._moonGlow);
+                
+                // Initially hide moon
+                this._moonMesh.visible = false;
+                this._scene.add(this._moonMesh);
+                
+                console.log('[MOON] Moon mesh created and added to scene');
+              }
+              
+              _createGodRays(THREE) {
+                // Create god rays using multiple overlapping transparent planes for realistic volumetric light
+                const godRayCount = 14; // More rays for smoother appearance
+                this._godRays = [];
+                this._godRayGroup = new THREE.Group();
+                this._godRayGroup.name = 'godRays';
+                
+                // Create a gradient texture for the rays
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                
+                // Create radial gradient from center (bright) to edges (transparent)
+                const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+                gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.6)');
+                gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.2)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 256, 256);
+                
+                const gradientTexture = new THREE.CanvasTexture(canvas);
+                gradientTexture.needsUpdate = true;
+                
+                for (let i = 0; i < godRayCount; i++) {
+                  // Create thin rectangular plane geometry for each ray
+                  const rayLength = 280 + Math.random() * 150; // Varying lengths
+                  const rayWidth = 25 + Math.random() * 20; // Varying widths
+                  
+                  const rayGeometry = new THREE.PlaneGeometry(rayWidth, rayLength, 1, 1);
+                  
+                  // Create material with gradient texture and additive blending
+                  const baseOpacity = 0.08 + Math.random() * 0.07; // Very subtle (0.08-0.15)
+                  const rayMaterial = new THREE.MeshBasicMaterial({
+                    map: gradientTexture,
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: baseOpacity,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                    depthTest: false
+                  });
+                  
+                  const ray = new THREE.Mesh(rayGeometry, rayMaterial);
+                  
+                  // Position plane to extend from near light source outward
+                  ray.position.y = -rayLength / 2; // Offset so top is at origin
+                  
+                  // Arrange planes in radial pattern around the light source
+                  const angle = (i / godRayCount) * Math.PI * 2;
+                  ray.rotation.z = angle;
+                  
+                  // Slight random tilt for more organic appearance
+                  ray.rotation.x = (Math.random() - 0.5) * 0.1;
+                  
+                  // Store original values for animation
+                  ray.userData = {
+                    originalOpacity: baseOpacity,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.3 + Math.random() * 0.4,
+                    baseRotationZ: angle,
+                    baseRotationX: ray.rotation.x,
+                    rayLength: rayLength
+                  };
+                  
+                  this._godRays.push(ray);
+                  this._godRayGroup.add(ray);
+                }
+                
+                // Store intensity control
+                this._godRayIntensity = 1.0; // Default intensity multiplier
+                
+                this._godRayGroup.visible = true; // Start visible
+                this._scene.add(this._godRayGroup);
+                
+                console.log('[GOD RAYS] Volumetric god rays system created with realistic appearance');
               }
               
               _createStars(THREE) {
@@ -715,192 +873,396 @@ function renderer(context) {
                 this._scene.add(this._stars);
               }
               
-              _updateSkybox(phase) {
-                if (!this._skyContext || !this._skyCanvas) {
-                    console.debug('Skybox context not ready');
-                    return;
+              _updateSkySystem(phase) {
+                if (!this._sky || !this._sunLight || !this._moonLight) {
+                  console.warn('[SKY DEBUG] Missing sky components:', {
+                    sky: !!this._sky,
+                    sunLight: !!this._sunLight,
+                    moonLight: !!this._moonLight
+                  });
+                  return;
                 }
                 
-                const ctx = this._skyContext;
-                const canvas = this._skyCanvas;
-                const celestial = this._celestialBody;
+                console.log('[SKY DEBUG] Updating sky system for phase:', phase);
                 
-                // Clear canvas with a transparent background
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // Dynamic sun/moon positioning based on game time
+                // Phase: 0 = day (noon), 0.5 = transition, 1 = night (midnight)
                 
-                // Create gradient overlay
-                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                // Calculate time-based position
+                // During DAY phase (0-0.5): sun moves from east to west
+                // During NIGHT phase (0.5-1): moon moves from east to west
                 
-                if (phase > 0.5) {
-                    // Night sky
-                    const nightIntensity = (phase - 0.5) * 2;
-                    gradient.addColorStop(0, `rgba(10, 10, 40, ${nightIntensity})`);
-                    gradient.addColorStop(0.3, `rgba(20, 20, 60, ${nightIntensity})`);
-                    gradient.addColorStop(1, `rgba(5, 5, 20, ${nightIntensity})`);
+                let sunElevation, sunAzimuth;
+                let moonElevation, moonAzimuth;
+                
+                const sunDistance = 400;
+                const moonDistance = 400;
+                
+                if (phase <= 0.5) {
+                    // DAY phase: sun is visible and moving
+                    // Map phase 0-0.5 to sun movement from sunrise to sunset
+                    const dayProgress = phase * 2; // 0 to 1 during day
                     
-                    // Fill with gradient
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Sun azimuth: moves from east (90°) through south (180°) to west (270°)
+                    sunAzimuth = (90 + dayProgress * 180) * Math.PI / 180;
                     
-                    // Draw stars manually
-                    ctx.fillStyle = 'white';
-                    for (let i = 0; i < 200; i++) {
-                        const x = Math.random() * canvas.width;
-                        const y = Math.random() * canvas.height;
-                        const size = Math.random() * 2;
-                        ctx.globalAlpha = nightIntensity * (0.3 + Math.random() * 0.7);
-                        ctx.beginPath();
-                        ctx.arc(x, y, size, 0, Math.PI * 2);
-                        ctx.fill();
+                    // Sun elevation: rises from horizon, peaks at noon, sets at horizon
+                    // Using a sine curve for smooth arc, max elevation 30° (user prefers lower)
+                    const maxElevation = 30 * Math.PI / 180; // 30 degrees max
+                    sunElevation = Math.sin(dayProgress * Math.PI) * maxElevation;
+                    
+                    // Keep sun at minimum 5° above horizon during most of day
+                    if (dayProgress > 0.1 && dayProgress < 0.9) {
+                        sunElevation = Math.max(sunElevation, 5 * Math.PI / 180);
                     }
                     
-                    // Draw moon
-                    ctx.globalAlpha = nightIntensity;
-                    if (this._moonImage) {
-                        const moonSize = celestial.size;
-                        const moonX = celestial.x;
-                        const moonY = celestial.y;
-                        ctx.drawImage(this._moonImage,
-                            moonX - moonSize/2,
-                            moonY - moonSize/2,
-                            moonSize,
-                            moonSize
-                        );
+                    // Moon is below horizon during day
+                    moonElevation = -10 * Math.PI / 180;
+                    moonAzimuth = (sunAzimuth + Math.PI) % (2 * Math.PI); // Opposite side
+                } else {
+                    // NIGHT phase: moon is visible and moving
+                    // Map phase 0.5-1 to moon movement from moonrise to moonset
+                    const nightProgress = (phase - 0.5) * 2; // 0 to 1 during night
+                    
+                    // Moon azimuth: moves from east (90°) through south (180°) to west (270°)
+                    moonAzimuth = (90 + nightProgress * 180) * Math.PI / 180;
+                    
+                    // Moon elevation: similar arc to sun but slightly lower max
+                    const maxMoonElevation = 25 * Math.PI / 180; // 25 degrees max
+                    moonElevation = Math.sin(nightProgress * Math.PI) * maxMoonElevation;
+                    
+                    // Keep moon at minimum 5° above horizon during most of night
+                    if (nightProgress > 0.1 && nightProgress < 0.9) {
+                        moonElevation = Math.max(moonElevation, 5 * Math.PI / 180);
+                    }
+                    
+                    // Sun is below horizon during night
+                    sunElevation = -10 * Math.PI / 180;
+                    sunAzimuth = (moonAzimuth + Math.PI) % (2 * Math.PI); // Opposite side
+                }
+                
+                console.log('[SKY DEBUG] Dynamic sun/moon calculations:', {
+                  phase,
+                  sunElevation: sunElevation * 180 / Math.PI,
+                  sunAzimuth: sunAzimuth * 180 / Math.PI,
+                  moonElevation: moonElevation * 180 / Math.PI,
+                  moonAzimuth: moonAzimuth * 180 / Math.PI
+                });
+                
+                // Calculate sun position
+                const sunX = sunDistance * Math.sin(sunAzimuth) * Math.cos(sunElevation);
+                const sunY = sunDistance * Math.sin(sunElevation);
+                const sunZ = sunDistance * Math.cos(sunAzimuth) * Math.cos(sunElevation);
+                
+                this._sunPosition.set(sunX, sunY, sunZ);
+                
+                console.log('[SKY DEBUG] Sun position:', {
+                  x: sunX,
+                  y: sunY,
+                  z: sunZ,
+                  sunPosition: this._sunPosition
+                });
+                
+                // Update Sky shader sun position
+                this._sky.material.uniforms['sunPosition'].value.copy(this._sunPosition);
+                
+                console.log('[SKY DEBUG] Sky shader sunPosition uniform:',
+                  this._sky.material.uniforms['sunPosition'].value);
+                // Sun mesh positioning removed - using sky shader for visual representation
+                
+                
+                // Position sun light
+                this._sunLight.position.copy(this._sunPosition);
+                this._sunLight.target.position.set(0, 0, 0);
+                
+                // Dynamic sun intensity based on elevation
+                const sunIntensity = sunElevation > 0 ? Math.max(0, Math.sin(sunElevation)) : 0;
+                this._sunLight.intensity = sunIntensity * 3.0;  // User preference: 3.0 at peak
+                this._sunLight.visible = sunElevation > 0;
+                
+                // Adjust sun color based on elevation (redder at sunrise/sunset)
+                const sunColorTemp = sunElevation < (10 * Math.PI / 180) ?
+                    new this._THREE.Color(0xffaa66) : // Warm orange near horizon
+                    new this._THREE.Color(0xffffff);  // White when higher
+                this._sunLight.color = sunColorTemp;
+                
+                // Calculate moon position
+                const moonX = moonDistance * Math.sin(moonAzimuth) * Math.cos(moonElevation);
+                const moonY = moonDistance * Math.sin(moonElevation);
+                const moonZ = moonDistance * Math.cos(moonAzimuth) * Math.cos(moonElevation);
+                
+                // Position moon mesh
+                if (this._moonMesh) {
+                  this._moonMesh.position.set(moonX, moonY, moonZ);
+                  this._moonMesh.visible = moonElevation > 0;
+                  
+                  // Scale moon based on elevation (atmospheric magnification effect)
+                  const moonScale = 1 + Math.max(0, (1 - Math.abs(moonElevation) / (10 * Math.PI / 180)) * 0.3);
+                  this._moonMesh.scale.setScalar(moonScale);
+                  
+                  // Update moon glow intensity based on elevation
+                  if (this._moonGlow && this._moonGlow.material) {
+                    this._moonGlow.material.opacity = moonElevation > 0 ?
+                      0.15 * Math.max(0, Math.sin(moonElevation)) : 0;
+                  }
+                }
+                
+                // Position moon light
+                this._moonLight.position.set(moonX, moonY, moonZ);
+                this._moonLight.target.position.set(0, 0, 0);
+                this._moonLight.visible = moonElevation > 0;
+                this._moonLight.intensity = moonElevation > 0 ? 1.0 : 0;  // Increased from 0.4 to 1.0 for better nighttime visibility
+                
+                // Update sky parameters based on time of day
+                const skyUniforms = this._sky.material.uniforms;
+                
+                // Smooth transition between day and night sky parameters
+                if (phase <= 0.5) {
+                    // Day phase - use user's preferred values with slight transitions at dawn/dusk
+                    const dayProgress = phase * 2;
+                    
+                    if (dayProgress < 0.1 || dayProgress > 0.9) {
+                        // Dawn/dusk transition
+                        const transitionFactor = dayProgress < 0.1 ? dayProgress * 10 : (1 - dayProgress) * 10;
+                        skyUniforms['turbidity'].value = 10 - (10 - 0.6) * transitionFactor;
+                        skyUniforms['rayleigh'].value = 0.1 + (1.9 - 0.1) * transitionFactor;
+                        skyUniforms['mieCoefficient'].value = 0.005 + (0.010 - 0.005) * transitionFactor;
+                        skyUniforms['mieDirectionalG'].value = 0.7 + (1.0 - 0.7) * transitionFactor;
+                        console.log('[SKY DEBUG] Applied DAWN/DUSK transition parameters');
                     } else {
-                        // Fallback: draw procedural moon
-                        ctx.fillStyle = '#f0f0e0';
-                        ctx.shadowBlur = 50;
-                        ctx.shadowColor = '#f0f0e0';
-                        ctx.beginPath();
-                        ctx.arc(celestial.x, celestial.y, celestial.size/2, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
+                        // Full day - user's preferred values
+                        skyUniforms['turbidity'].value = 0.6;      // User preference
+                        skyUniforms['rayleigh'].value = 1.9;       // User preference
+                        skyUniforms['mieCoefficient'].value = 0.010;  // User preference
+                        skyUniforms['mieDirectionalG'].value = 1.0;   // User preference
+                        console.log('[SKY DEBUG] Applied DAY sky parameters (user preferences)');
                     }
                 } else {
-                    // Day sky
-                    const dayIntensity = 1 - phase * 2;
-                    gradient.addColorStop(0, `rgba(135, 206, 250, ${dayIntensity})`);
-                    gradient.addColorStop(0.5, `rgba(135, 206, 235, ${dayIntensity})`);
-                    gradient.addColorStop(1, `rgba(255, 255, 200, ${dayIntensity * 0.5})`);
+                    // Night phase
+                    const nightProgress = (phase - 0.5) * 2;
                     
-                    // Fill with gradient
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Draw sun
-                    ctx.globalAlpha = dayIntensity;
-                    
-                    // Sun glow
-                    const glowGradient = ctx.createRadialGradient(
-                        celestial.x, celestial.y, 0,
-                        celestial.x, celestial.y, celestial.size * 1.5
-                    );
-                    glowGradient.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
-                    glowGradient.addColorStop(0.3, 'rgba(255, 220, 100, 0.4)');
-                    glowGradient.addColorStop(1, 'rgba(255, 200, 50, 0)');
-                    
-                    ctx.fillStyle = glowGradient;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Sun core
-                    ctx.fillStyle = '#ffff99';
-                    ctx.shadowBlur = 80;
-                    ctx.shadowColor = '#ffcc00';
-                    ctx.beginPath();
-                    ctx.arc(celestial.x, celestial.y, celestial.size/2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-                    
-                    // Sun rays
-                    ctx.strokeStyle = `rgba(255, 220, 100, ${dayIntensity * 0.5})`;
-                    ctx.lineWidth = 3;
-                    for (let i = 0; i < 12; i++) {
-                        const angle = (i / 12) * Math.PI * 2;
-                        const innerRadius = celestial.size * 0.6;
-                        const outerRadius = celestial.size * 1.2;
-                        ctx.beginPath();
-                        ctx.moveTo(
-                            celestial.x + Math.cos(angle) * innerRadius,
-                            celestial.y + Math.sin(angle) * innerRadius
-                        );
-                        ctx.lineTo(
-                            celestial.x + Math.cos(angle) * outerRadius,
-                            celestial.y + Math.sin(angle) * outerRadius
-                        );
-                        ctx.stroke();
+                    if (nightProgress < 0.1 || nightProgress > 0.9) {
+                        // Twilight transition
+                        const transitionFactor = nightProgress < 0.1 ? (1 - nightProgress * 10) : nightProgress * 10;
+                        skyUniforms['turbidity'].value = 0.6 + (10 - 0.6) * transitionFactor;
+                        skyUniforms['rayleigh'].value = 1.9 - (1.9 - 0.1) * transitionFactor;
+                        skyUniforms['mieCoefficient'].value = 0.010 - (0.010 - 0.005) * transitionFactor;
+                        skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
+                        console.log('[SKY DEBUG] Applied TWILIGHT transition parameters');
+                    } else {
+                        // Full night
+                        skyUniforms['turbidity'].value = 10;
+                        skyUniforms['rayleigh'].value = 0.1;
+                        skyUniforms['mieCoefficient'].value = 0.005;
+                        skyUniforms['mieDirectionalG'].value = 0.7;
+                        console.log('[SKY DEBUG] Applied NIGHT sky parameters');
                     }
                 }
                 
-                // Update texture
-                if (this._skyTexture) {
-                    this._skyTexture.needsUpdate = true;
+                console.log('[SKY DEBUG] Updated sky uniforms:', {
+                  turbidity: skyUniforms['turbidity'].value,
+                  rayleigh: skyUniforms['rayleigh'].value,
+                  mieCoefficient: skyUniforms['mieCoefficient'].value,
+                  mieDirectionalG: skyUniforms['mieDirectionalG'].value
+                });
+                
+                // Update stars visibility based on actual darkness
+                if (this._starsMaterial) {
+                    // Stars visible during night phase
+                    if (phase > 0.5) {
+                        const nightProgress = (phase - 0.5) * 2;
+                        // Fade in/out at twilight
+                        if (nightProgress < 0.1) {
+                            this._starsMaterial.uniforms.phase.value = nightProgress * 10;
+                        } else if (nightProgress > 0.9) {
+                            this._starsMaterial.uniforms.phase.value = (1 - nightProgress) * 10;
+                        } else {
+                            this._starsMaterial.uniforms.phase.value = 1;
+                        }
+                    } else {
+                        this._starsMaterial.uniforms.phase.value = 0;
+                    }
                 }
                 
-                // Update skybox colors for all faces with more dramatic changes
-                if (this._skyboxMaterials && this._THREE) {
-                    const THREE = this._THREE;
-                    const nightColor = new THREE.Color(0x000011); // Very dark blue
-                    const dayColor = new THREE.Color(0x87ceeb); // Sky blue
-                    const currentColor = new THREE.Color();
-                    currentColor.copy(dayColor).lerp(nightColor, phase);
+                // Update clouds
+                if (this._clouds) {
+                    this._clouds.forEach(cloud => {
+                        if (!cloud || !cloud.material) return;
+                        // User preference: cloud opacity 0.0 (disabled)
+                        cloud.material.opacity = 0.0;  // User preference: disabled
+                    });
+                }
+                
+                // Update god rays position and visibility
+                if (this._godRayGroup && this._godRays) {
+                    let godRayVisible = false;
+                    let godRayPosition = null;
+                    let godRayIntensity = 0;
+                    let godRayColor = 0xffeeaa; // Default warm yellow
                     
-                    this._skyboxMaterials.forEach((mat, index) => {
-                        if (index !== 4) { // Skip the back panel with moon/sun
-                            mat.color.copy(currentColor);
-                            mat.needsUpdate = true;
+                    // Determine if god rays should be visible based on sun/moon position
+                    if (phase <= 0.5 && sunElevation > 0) {
+                        // Day time - show god rays from sun
+                        const dayProgress = phase * 2;
+                        
+                        // God rays are most visible during sunrise/sunset (low sun angles)
+                        // and less visible at noon
+                        if (sunElevation < 15 * Math.PI / 180) {
+                            // Strong god rays at sunrise/sunset
+                            godRayIntensity = 1.0;
+                            godRayColor = 0xffaa66; // Warm orange for golden hour
+                        } else if (sunElevation < 30 * Math.PI / 180) {
+                            // Moderate god rays during morning/evening
+                            godRayIntensity = 0.6;
+                            godRayColor = 0xffddaa; // Warm yellow
+                        } else {
+                            // Subtle god rays at noon
+                            godRayIntensity = 0.3;
+                            godRayColor = 0xffffff; // White
                         }
+                        
+                        godRayVisible = true;
+                        godRayPosition = this._sunPosition.clone();
+                    } else if (phase > 0.5 && moonElevation > 0) {
+                        // Night time - show god rays from moon
+                        godRayIntensity = 0.4; // Softer for moonlight
+                        godRayColor = 0xaaccff; // Cool blue-white for moon
+                        godRayVisible = true;
+                        
+                        // Use moon position
+                        const moonX = moonDistance * Math.sin(moonAzimuth) * Math.cos(moonElevation);
+                        const moonY = moonDistance * Math.sin(moonElevation);
+                        const moonZ = moonDistance * Math.cos(moonAzimuth) * Math.cos(moonElevation);
+                        godRayPosition = new this._THREE.Vector3(moonX, moonY, moonZ);
+                    }
+                    
+                    // Apply god ray settings
+                    this._godRayGroup.visible = godRayVisible && this._godRayIntensity > 0;
+                    
+                    if (godRayVisible && godRayPosition) {
+                        // Position god rays at light source
+                        this._godRayGroup.position.copy(godRayPosition);
+                        
+                        // Point rays toward the ground/origin
+                        this._godRayGroup.lookAt(0, 0, 0);
+                        
+                        // Update ray colors and opacity based on intensity
+                        this._godRays.forEach((ray, index) => {
+                            if (ray.material) {
+                                ray.material.color.setHex(godRayColor);
+                                // Apply both scene intensity and user-controlled intensity
+                                const finalOpacity = ray.userData.originalOpacity * godRayIntensity * this._godRayIntensity;
+                                ray.material.opacity = finalOpacity;
+                            }
+                        });
+                        
+                        console.log('[GOD RAYS] Updated - Visible:', godRayVisible,
+                                   'Intensity:', godRayIntensity * this._godRayIntensity,
+                                   'Position:', godRayPosition);
+                    }
+                }
+              }
+              
+              // Method to set god ray intensity (for external control)
+              setGodRayIntensity(intensity) {
+                this._godRayIntensity = Math.max(0, Math.min(2, intensity)); // Clamp between 0 and 2
+                console.log('[GOD RAYS] Intensity set to:', this._godRayIntensity);
+              }
+              
+              _createCloudSystem(THREE) {
+                this._clouds = [];
+                const cloudCount = 8;
+                
+                // Create cloud geometry for each cloud (don't share geometry)
+                for (let i = 0; i < cloudCount; i++) {
+                    // Create a new geometry for each cloud
+                    const cloudGeometry = new THREE.PlaneGeometry(60, 40, 10, 10);
+                    
+                    // Deform the plane to make it look more cloud-like
+                    if (cloudGeometry.attributes && cloudGeometry.attributes.position) {
+                        const positions = cloudGeometry.attributes.position;
+                        for (let j = 0; j < positions.count; j++) {
+                            const x = positions.getX(j);
+                            const y = positions.getY(j);
+                            const noise = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 5;
+                            positions.setZ(j, noise);
+                        }
+                        positions.needsUpdate = true;
+                        cloudGeometry.computeVertexNormals();
+                    }
+                    
+                    const cloudMaterial = new THREE.MeshStandardMaterial({
+                        color: 0xffffff,
+                        emissive: 0xffffff,
+                        emissiveIntensity: 0.1,
+                        transparent: true,
+                        opacity: 0.6,
+                        side: THREE.DoubleSide,
+                        depthWrite: false
                     });
                     
-                    // Force update the canvas texture
-                    if (this._skyTexture) {
-                        this._skyTexture.needsUpdate = true;
+                    const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+                    
+                    // Validate cloud was created successfully
+                    if (!cloud || !cloud.position) {
+                        console.error(`[CLOUD ERROR] Failed to create cloud ${i}`);
+                        continue;
                     }
-                }
-                
-                // Store current phase
-                if (celestial) {
-                    celestial.phase = phase;
+                    
+                    // Random position in sky
+                    const angle = (i / cloudCount) * Math.PI * 2 + Math.random() * 0.5;
+                    const radius = 200 + Math.random() * 100;
+                    const height = 80 + Math.random() * 40;
+                    
+                    cloud.position.set(
+                        Math.cos(angle) * radius,
+                        height,
+                        Math.sin(angle) * radius
+                    );
+                    
+                    // Random rotation for variety
+                    cloud.rotation.x = -Math.PI / 2 + Math.random() * 0.2;
+                    cloud.rotation.z = Math.random() * Math.PI;
+                    
+                    // Random scale
+                    const scale = 0.8 + Math.random() * 0.4;
+                    cloud.scale.set(scale, scale, scale);
+                    
+                    // Store initial position for animation
+                    cloud.userData = {
+                        initialAngle: angle,
+                        radius: radius,
+                        height: height,
+                        speed: 0.0001 + Math.random() * 0.0002
+                    };
+                    
+                    this._scene.add(cloud);
+                    this._clouds.push(cloud);
                 }
               }
 
               _createAdvancedLighting(THREE) {
-                // Warm ambient lighting for village atmosphere
-                const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.35); // Warm brownish ambient
+               // Ambient lighting with visible intensity
+               const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.4);  // Default visible intensity
+               this._ambientLight = ambientLight; // Store reference for external access
                 ambientLight.name = 'ambientLight';
                 this._scene.add(ambientLight);
 
-                // Main directional light (sun/moon) - warmer tones
-                const mainLight = new THREE.DirectionalLight(0xffffdd, 0.6); // Warm sunlight
-                mainLight.position.set(30, 50, 20);
-                mainLight.castShadow = true;
-                mainLight.shadow.mapSize.width = 2048;
-                mainLight.shadow.mapSize.height = 2048;
-                mainLight.shadow.camera.near = 0.5;
-                mainLight.shadow.camera.far = 100;
-                mainLight.shadow.camera.left = -50;
-                mainLight.shadow.camera.right = 50;
-                mainLight.shadow.camera.top = 50;
-                mainLight.shadow.camera.bottom = -50;
-                mainLight.shadow.bias = -0.001;
-                mainLight.shadow.normalBias = 0.02;
-                this._scene.add(mainLight);
-
                 // Rim light for depth - warm orange glow
-                const rimLight = new THREE.DirectionalLight(0xaa6633, 0.3); // Warm orange rim
+                const rimLight = new THREE.DirectionalLight(0xaa6633, 0.2); // Warm orange rim
                 rimLight.position.set(-20, 10, -30);
                 this._scene.add(rimLight);
 
                 // Atmospheric hemisphere light - village sky
-                const hemiLight = new THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.4); // Blue sky, brown ground
+                const hemiLight = new THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.3); // Blue sky, brown ground
                 this._scene.add(hemiLight);
 
                 // Ground fill light - warm village glow
-                const fillLight = new THREE.DirectionalLight(0x5a4a3a, 0.25); // Warm fill
+                const fillLight = new THREE.DirectionalLight(0x5a4a3a, 0.15); // Warm fill
                 fillLight.position.set(0, -1, 0);
                 this._scene.add(fillLight);
 
                 // Store references for phase updates
-                this._mainLight = mainLight;
                 this._rimLight = rimLight;
                 this._hemiLight = hemiLight;
                 this._fillLight = fillLight;
@@ -1050,12 +1412,12 @@ function renderer(context) {
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects - balanced for quality
+                // Bloom pass with user's preferred settings
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.4,   // strength - moderate glow for polish
-                  0.6,   // radius - balanced bloom
-                  0.5    // threshold - selective blooming
+                  0.07,  // strength - User preference: 0.07
+                  0.08,  // radius - User preference: 0.08
+                  0.00   // threshold - User preference: 0.00
                 );
                 this._composer.addPass(bloomPass);
 
@@ -1118,6 +1480,8 @@ function renderer(context) {
                 // Store references
                 this._bloomPass = bloomPass;
                 this._filmPass = filmPass;
+                this._renderer = this._threejs; // Store renderer reference for external access
+                this._cloudSystem = this._clouds; // Store cloud system reference for external access
               }
 
               _LoadModels(THREE, FBXLoader, SkeletonUtils, CSS2DObject) {
@@ -1909,20 +2273,46 @@ function renderer(context) {
                 // Handle various phase formats (DAY, NIGHT, or lowercase)
                 const normalizedPhase = (phase || 'DAY').toUpperCase();
                 
-                // Calculate target phase value (0 = day, 1 = night)
-                const targetPhase = normalizedPhase === 'NIGHT' ? 1.0 : 0.0;
+                // Calculate target phase value with smooth time progression
+                // DAY phase: 0.0 (dawn) -> 0.25 (noon) -> 0.5 (dusk)
+                // NIGHT phase: 0.5 (dusk) -> 0.75 (midnight) -> 1.0 (dawn)
+                let targetPhase;
+                
+                if (normalizedPhase === 'NIGHT') {
+                    // For night, start at 0.5 and progress to approach 1.0
+                    // Add some time progression within the night phase
+                    if (!this._nightStartTime) {
+                        this._nightStartTime = Date.now();
+                        this._dayStartTime = null;
+                    }
+                    const nightDuration = 30000; // 30 seconds for full night cycle
+                    const nightElapsed = Date.now() - this._nightStartTime;
+                    const nightProgress = Math.min(nightElapsed / nightDuration, 1.0);
+                    targetPhase = 0.5 + nightProgress * 0.5; // 0.5 to 1.0
+                } else {
+                    // For day, start at 0.0 and progress to 0.5
+                    // Add some time progression within the day phase
+                    if (!this._dayStartTime) {
+                        this._dayStartTime = Date.now();
+                        this._nightStartTime = null;
+                    }
+                    const dayDuration = 30000; // 30 seconds for full day cycle
+                    const dayElapsed = Date.now() - this._dayStartTime;
+                    const dayProgress = Math.min(dayElapsed / dayDuration, 1.0);
+                    targetPhase = dayProgress * 0.5; // 0.0 to 0.5
+                }
                 
                 // Initialize transition system if not exists
                 if (!this._phaseTransition) {
                     this._phaseTransition = {
                         current: targetPhase,
                         target: targetPhase,
-                        speed: 0.05 // Increased transition speed for testing
+                        speed: 0.02 // Smooth transition speed
                     };
                     // Immediately set to target on first call
                     this._updateSceneForPhase(targetPhase);
-                } else if (this._phaseTransition.target !== targetPhase) {
-                    // Only update if phase actually changed
+                } else {
+                    // Update target for smooth transition
                     this._phaseTransition.target = targetPhase;
                 }
               }
@@ -1932,23 +2322,25 @@ function renderer(context) {
                 
                 // Update renderer tone mapping for day/night mood
                 if (this._threejs) {
-                    this._threejs.toneMappingExposure = 0.8 - phaseValue * 0.2; // Brighter overall, slightly dimmer at night
+                    this._threejs.toneMappingExposure = 0.5 + (0.3 - phaseValue * 0.2); // Visible range
                 }
                 
-                // Smoothly interpolate lighting - moody but visible
-                if (this._mainLight) {
-                    const nightColor = new THREE.Color(0x6666aa); // Soft blue moonlight
-                    const dayColor = new THREE.Color(0xffffdd); // Warm sunlight
-                    this._mainLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    this._mainLight.intensity = 0.6 - phaseValue * 0.15; // Slightly dimmer at night
-                    
-                    // Animate light position for sun/moon movement
-                    const angle = phaseValue * Math.PI * 0.3;
-                    this._mainLight.position.set(
-                        30 * Math.cos(angle),
-                        50 - phaseValue * 20,
-                        20 * Math.sin(angle)
-                    );
+                // Update the new sky system
+                this._updateSkySystem(phaseValue);
+                
+                // Update fog color and density based on day/night phase
+                if (this._scene.fog) {
+                    if (phaseValue <= 0.5) {
+                        // Day fog - light blue-grey matching the sky
+                        const dayFogColor = new THREE.Color(0x87CEEB); // Light blue-grey
+                        this._scene.fog.color.copy(dayFogColor);
+                        this._scene.fog.density = 0.01; // Very subtle
+                    } else {
+                        // Night fog - dark blue-grey
+                        const nightFogColor = new THREE.Color(0x1a1a2a); // Dark blue-grey
+                        this._scene.fog.color.copy(nightFogColor);
+                        this._scene.fog.density = 0.01; // Same subtle density
+                    }
                 }
                 
                 if (this._rimLight) {
@@ -1975,19 +2367,11 @@ function renderer(context) {
                     const nightColor = new THREE.Color(0x3a3a5a); // Warm night ambient
                     const dayColor = new THREE.Color(0x4a4a3a); // Warm day ambient
                     ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    ambientLight.intensity = 0.35 + phaseValue * 0.15; // Brighter ambient
+                    ambientLight.intensity = 0.35 + phaseValue * 0.25; // Increased night ambient from 0.15 to 0.25 for better visibility
                 }
+                // Fog removed - no fog transitions
                 
-                // Smoothly transition fog - very atmospheric and mysterious
-                if (this._scene.fog) {
-                    const nightFogColor = new THREE.Color(0x1a1a2a); // Dark grey-blue at night
-                    const dayFogColor = new THREE.Color(0x4a5a6a); // Medium blue-grey during day
-                    this._scene.fog.color.copy(dayFogColor).lerp(nightFogColor, phaseValue);
-                    this._scene.fog.density = 0.0175 + phaseValue * 0.004; // Very subtle fog
-                }
                 
-                // Update skybox
-                this._updateSkybox(phaseValue);
                 
                 // Update stars visibility
                 if (this._starsMaterial) {
@@ -2018,11 +2402,12 @@ function renderer(context) {
                     this._particles.geometry.attributes.color.needsUpdate = true;
                 }
                 
-                // Update bloom intensity based on phase - dramatic for mystery
+                // Update bloom intensity based on phase - using user's preferred settings as base
                 if (this._bloomPass) {
-                    this._bloomPass.strength = 0.3 + phaseValue * 0.4; // Much stronger bloom at night
-                    this._bloomPass.radius = 1.0 + phaseValue * 0.3; // Very wide bloom at night
-                    this._bloomPass.threshold = 0.3 - phaseValue * 0.2; // Much lower threshold at night
+                    // Use user's daytime preferences as base, with slight adjustments for night
+                    this._bloomPass.strength = 0.1 + phaseValue * 0.03; // User base: 0.07, slight increase at night (0.07 to 0.10)
+                    this._bloomPass.radius = 0.08 + phaseValue * 0.04; // User base: 0.08, slight increase at night (0.08 to 0.12)
+                    this._bloomPass.threshold = 0.00 + phaseValue * 0.1; // User base: 0.00, slight increase at night (0.00 to 0.10)
                 }
               }
 
@@ -2153,6 +2538,21 @@ function renderer(context) {
                     this._particles.geometry.attributes.position.needsUpdate = true;
                   }
                   
+                  // Animate clouds
+                  if (this._clouds) {
+                    this._clouds.forEach(cloud => {
+                      if (!cloud || !cloud.position || !cloud.userData) return;
+                      const userData = cloud.userData;
+                      // Slowly rotate clouds around the scene
+                      userData.initialAngle += userData.speed;
+                      cloud.position.x = Math.cos(userData.initialAngle) * userData.radius;
+                      cloud.position.z = Math.sin(userData.initialAngle) * userData.radius;
+                      
+                      // Gentle vertical bobbing
+                      cloud.position.y = userData.height + Math.sin(time * 0.0005) * 2;
+                    });
+                  }
+                  
                   // Animate stars twinkling
                   if (this._stars && this._phaseTransition && this._phaseTransition.current > 0.5) {
                     const sizes = this._stars.geometry.attributes.size.array;
@@ -2160,6 +2560,36 @@ function renderer(context) {
                       sizes[i] = (Math.random() * 2 + 0.5) * (0.8 + Math.sin(time * 0.001 + i) * 0.2);
                     }
                     this._stars.geometry.attributes.size.needsUpdate = true;
+                  }
+                  
+                  // Animate god rays
+                  if (this._godRayGroup && this._godRayGroup.visible && this._godRays) {
+                    this._godRays.forEach((ray, index) => {
+                      if (ray.userData) {
+                        // Very subtle pulsing effect for ethereal appearance
+                        const pulse = Math.sin(time * 0.0008 * ray.userData.speed + ray.userData.phase);
+                        if (ray.material) {
+                          // Animate opacity with gentle pulsing
+                          const baseOpacity = ray.userData.originalOpacity * this._godRayIntensity;
+                          ray.material.opacity = baseOpacity * (0.85 + pulse * 0.15); // Subtle variation
+                        }
+                        
+                        // Gentle rotation to simulate atmospheric movement
+                        ray.rotation.z = ray.userData.baseRotationZ + Math.sin(time * 0.0002 + index * 0.5) * 0.03;
+                        
+                        // Very subtle tilt variation for organic movement
+                        ray.rotation.x = ray.userData.baseRotationX + Math.cos(time * 0.00025 + index * 0.3) * 0.02;
+                        
+                        // Slight length variation for breathing effect
+                        const lengthVariation = 1 + Math.sin(time * 0.0003 + ray.userData.phase) * 0.05;
+                        ray.scale.y = lengthVariation;
+                      }
+                    });
+                  }
+                  
+                  // Animate moon rotation
+                  if (this._moonMesh && this._moonMesh.visible) {
+                    this._moonMesh.rotation.y = time * 0.0001;
                   }
 
                   // Use performance.now() for more precise animation timing
@@ -2275,15 +2705,50 @@ function renderer(context) {
                       });
                   }
 
-                  // Use post-processing composer if available, otherwise fallback to direct render
-                  if (this._composer) {
-                    this._composer.render();
-                  } else {
-                    this._threejs.render(this._scene, this._camera);
-                  }
-                  this._labelRenderer.render(this._scene, this._camera);
-                  this._RAF();
+                 // Debug: Log sky visibility on first few frames
+                 if (!this._skyDebugLogged || this._skyDebugFrameCount < 5) {
+                   if (!this._skyDebugFrameCount) this._skyDebugFrameCount = 0;
+                   this._skyDebugFrameCount++;
+                   
+                   if (this._sky) {
+                     console.log(`[SKY DEBUG] Frame ${this._skyDebugFrameCount} - Sky mesh status:`, {
+                       visible: this._sky.visible,
+                       inScene: this._scene.children.includes(this._sky),
+                       scale: this._sky.scale.x,
+                       position: {x: this._sky.position.x, y: this._sky.position.y, z: this._sky.position.z},
+                       renderOrder: this._sky.renderOrder,
+                       material: this._sky.material ? 'exists' : 'missing',
+                       uniforms: this._sky.material ? {
+                         sunPosition: this._sky.material.uniforms['sunPosition'].value,
+                         turbidity: this._sky.material.uniforms['turbidity'].value,
+                         rayleigh: this._sky.material.uniforms['rayleigh'].value
+                       } : 'N/A'
+                     });
+                   } else {
+                     console.error('[SKY DEBUG] Sky mesh is null/undefined!');
+                   }
+                   
+                   if (this._skyDebugFrameCount >= 5) {
+                     this._skyDebugLogged = true;
+                   }
+                 }
+
+                 // Use post-processing composer if available, otherwise fallback to direct render
+                 if (this._composer) {
+                   this._composer.render();
+                 } else {
+                   this._threejs.render(this._scene, this._camera);
+                 }
+                 this._labelRenderer.render(this._scene, this._camera);
+                 this._RAF();
                 });
+              }
+              
+              // Method to update sky for phase (exposed for test page)
+              updateSkyForPhase(isDay) {
+                const targetPhase = isDay ? 0.25 : 0.75; // Mid-day or mid-night
+                this._updateSkySystem(targetPhase);
+                this._updateSceneForPhase(targetPhase);
               }
             }
 
@@ -2301,6 +2766,9 @@ function renderer(context) {
     if (threeState.initialized) return;
     threeState.demo = new BasicWorldDemo({ parent, width, height });
     threeState.initialized = true;
+    
+    // Expose the demo instance globally for the test page
+    window.werewolfThreeJs.demo = threeState.demo;
   }
 
     function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {

@@ -155,3 +155,9 @@ node_modules
 submission.tar.gz
 
 replay.html
+**/.DS_Store/** 
+.DS_Store
+experiment/static/.DS_Store
+experiment/static/werewolf/.DS_Store
+experiment/static/werewolf/models/.DS_Store
+experiment/static/werewolf/models/villager/.DS_Store
