@@ -2568,7 +2568,7 @@ function renderer(context) {
                         // Night fog - black
                         const nightFogColor = new THREE.Color(0x000000); // Black
                         this._scene.fog.color.copy(nightFogColor);
-                        this._scene.fog.density = 0.025; // Same subtle density
+                        this._scene.fog.density = 0.005; // Same subtle density
                     }
                 }
                 
@@ -5771,9 +5771,9 @@ function createSkyControlsPanel(parent) {
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Moon Intensity</span>
-                        <span class="sky-control-value" id="sky-moon-intensity-value">0.3</span>
+                        <span class="sky-control-value" id="sky-moon-intensity-value">0.5</span>
                     </div>
-                    <input type="range" id="sky-moon-intensity" min="0" max="1" step="0.01" value="0.3" oninput="updateLighting('moonIntensity', this.value)">
+                    <input type="range" id="sky-moon-intensity" min="0" max="1" step="0.01" value="0.5" oninput="updateLighting('moonIntensity', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
@@ -5800,25 +5800,25 @@ function createSkyControlsPanel(parent) {
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Strength</span>
-                        <span class="sky-control-value" id="sky-bloom-strength-value">0.25</span>
+                        <span class="sky-control-value" id="sky-bloom-strength-value">0.6</span>
                     </div>
-                    <input type="range" id="sky-bloom-strength" min="0" max="1" step="0.01" value="0.25" oninput="updateBloom('strength', this.value)">
+                    <input type="range" id="sky-bloom-strength" min="0" max="1" step="0.01" value="0.6" oninput="updateBloom('strength', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Radius</span>
-                        <span class="sky-control-value" id="sky-bloom-radius-value">0.6</span>
+                        <span class="sky-control-value" id="sky-bloom-radius-value">2.0</span>
                     </div>
-                    <input type="range" id="sky-bloom-radius" min="0" max="2" step="0.01" value="0.6" oninput="updateBloom('radius', this.value)">
+                    <input type="range" id="sky-bloom-radius" min="0" max="2" step="0.01" value="2.0" oninput="updateBloom('radius', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Threshold</span>
-                        <span class="sky-control-value" id="sky-bloom-threshold-value">0.06</span>
+                        <span class="sky-control-value" id="sky-bloom-threshold-value">0.1</span>
                     </div>
-                    <input type="range" id="sky-bloom-threshold" min="0" max="1" step="0.01" value="0.06" oninput="updateBloom('threshold', this.value)">
+                    <input type="range" id="sky-bloom-threshold" min="0" max="1" step="0.01" value="0.1" oninput="updateBloom('threshold', this.value)">
                 </div>
             </div>
             
