@@ -506,6 +506,10 @@ function renderer(context) {
                 this._width = options.width;
                 this._height = options.height;
 
+                // Initialize FBXLoader and SkeletonUtils
+                this._fbxLoader = new FBXLoader();
+                this._skeletonUtils = SkeletonUtils;
+
                 // WebGL Renderer with enhanced settings
                 this._threejs = new THREE.WebGLRenderer({
                   antialias: true,
@@ -1162,6 +1166,32 @@ function renderer(context) {
                 this._THREE = THREE;
                 this._CSS2DObject = CSS2DObject;
                 
+                // Cache Map objects
+                this._modelCache = new Map();
+                this._animationCache = new Map();
+                
+                // Role mapping object
+                this._roleToDirectory = {
+                  'Werewolf': 'werewolf',
+                  'Doctor': 'doctor',
+                  'Seer': 'seer',
+                  'Villager': 'villager',
+                  'Unknown': 'villager'
+                };
+                
+                // Animation names array
+                this._animationNames = ['Idle', 'Talking', 'Pointing', 'Victory', 'Defeated', 'Dying'];
+                
+                // Animation file variants mapping
+                this._animationFileVariants = {
+                  'Idle': ['Idle.fbx', 'Standing Idle.fbx', 'Neutral Idle.fbx'],
+                  'Talking': ['Talking.fbx'],
+                  'Pointing': ['Pointing.fbx'],
+                  'Victory': ['Victory.fbx'],
+                  'Defeated': ['Defeated.fbx'],
+                  'Dying': ['Dying.fbx']
+                };
+                
                 // Create particle system for atmosphere
                 this._createParticleSystem(THREE);
                 
@@ -1174,6 +1204,190 @@ function renderer(context) {
                 this._controls.maxDistance = 80;
                 this._controls.maxPolarAngle = Math.PI * 0.75;
                 this._controls.update();
+              }
+
+              loadCharacterModel(role) {
+                // Normalize the role using _roleToDirectory, defaulting to 'villager'
+                const normalizedRole = this._roleToDirectory[role] || this._roleToDirectory['Villager'] || 'villager';
+                
+                // Check if model is already cached
+                if (this._modelCache.has(normalizedRole)) {
+                  return this._modelCache.get(normalizedRole);
+                }
+                
+                // Create a new promise for loading the rigged base model
+                const modelPromise = new Promise((resolve, reject) => {
+                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/fbx/rigged.fbx`;
+                  
+                  this._fbxLoader.load(
+                    modelPath,
+                    (fbx) => {
+                      // On success: apply uniform scaling
+                      fbx.scale.setScalar(0.035); // 3.5x larger than original 0.01
+                      
+                      // Store the original model in cache, cloning will happen per-player
+                      resolve(fbx);
+                    },
+                    (progress) => {
+                      // Progress callback (optional)
+                      console.debug(`Loading model for ${normalizedRole}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+                    },
+                    (error) => {
+                      // On error: reject with descriptive message
+                      reject(new Error(`Failed to load model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`));
+                    }
+                  );
+                });
+                
+                // Store this promise in cache immediately to dedupe concurrent calls
+                this._modelCache.set(normalizedRole, modelPromise);
+                
+                // Return the promise
+                return modelPromise;
+              }
+
+              loadCharacterAnimations(role) {
+                // Normalize the role using _roleToDirectory, defaulting to 'villager'
+                const normalizedRole = this._roleToDirectory[role] || this._roleToDirectory['Villager'] || 'villager';
+                
+                // Check if animations are already cached
+                if (this._animationCache.has(normalizedRole)) {
+                  return this._animationCache.get(normalizedRole);
+                }
+                
+                // Create a promise that loads each canonical animation
+                const animationsPromise = new Promise(async (resolve, reject) => {
+                  const loadedAnimations = {};
+                  const loadPromises = [];
+                  
+                  // Load each animation from _animationNames
+                  for (const animationName of this._animationNames) {
+                    const loadPromise = this._loadAnimationWithFallbacks(normalizedRole, animationName)
+                      .then(clip => {
+                        if (clip) {
+                          loadedAnimations[animationName] = clip;
+                        } else if (animationName === 'Idle') {
+                          // Idle is required - log warning but don't reject
+                          console.warn(`Required animation 'Idle' not found for role '${normalizedRole}'`);
+                        } else {
+                          // Optional animation missing - just log
+                          console.debug(`Optional animation '${animationName}' not found for role '${normalizedRole}'`);
+                        }
+                      })
+                      .catch(error => {
+                        if (animationName === 'Idle') {
+                          console.error(`Failed to load required animation 'Idle' for role '${normalizedRole}':`, error);
+                        } else {
+                          console.warn(`Failed to load optional animation '${animationName}' for role '${normalizedRole}':`, error);
+                        }
+                      });
+                    
+                    loadPromises.push(loadPromise);
+                  }
+                  
+                  // Wait for all animations to load or fail
+                  await Promise.allSettled(loadPromises);
+                  
+                  // Check if we have at least the required Idle animation
+                  if (!loadedAnimations['Idle'] && this._animationFileVariants['Idle']) {
+                    reject(new Error(`Failed to load required 'Idle' animation for role '${normalizedRole}' - all variants failed`));
+                  } else {
+                    resolve(loadedAnimations);
+                  }
+                });
+                
+                // Cache this promise immediately to dedupe simultaneous callers
+                this._animationCache.set(normalizedRole, animationsPromise);
+                
+                // Return the promise
+                return animationsPromise;
+              }
+
+              _loadAnimationWithFallbacks(role, animationName) {
+                return new Promise(async (resolve) => {
+                  // Get the file variants for this animation, fallback to Idle variants if not found
+                  const variants = this._animationFileVariants[animationName] || this._animationFileVariants['Idle'] || ['Idle.fbx'];
+                  
+                  // Try each variant sequentially
+                  for (const variant of variants) {
+                    try {
+                      const clip = await new Promise((innerResolve, innerReject) => {
+                        const animationPath = `/experiment/static/werewolf/models/${role}/fbx/${variant}`;
+                        
+                        this._fbxLoader.load(
+                          animationPath,
+                          (fbx) => {
+                            // Get the first animation clip from the FBX
+                            if (fbx.animations && fbx.animations.length > 0) {
+                              const clip = fbx.animations[0];
+                              // Set the canonical name
+                              clip.name = animationName;
+                              
+                              // Clean up the FBX object to prevent mesh clones
+                              if (fbx) {
+                                // First, ensure the FBX is not added to any scene
+                                if (fbx.parent) {
+                                  fbx.parent.remove(fbx);
+                                }
+                                
+                                // Remove all meshes from the FBX object
+                                const meshesToRemove = [];
+                                fbx.traverse((child) => {
+                                  if (child.isMesh || child.isSkinnedMesh) {
+                                    meshesToRemove.push(child);
+                                  }
+                                });
+                                
+                                // Remove and dispose of meshes
+                                meshesToRemove.forEach((mesh) => {
+                                  if (mesh.parent) {
+                                    mesh.parent.remove(mesh);
+                                  }
+                                  if (mesh.geometry) {
+                                    mesh.geometry.dispose();
+                                  }
+                                  if (mesh.material) {
+                                    if (Array.isArray(mesh.material)) {
+                                      mesh.material.forEach(mat => mat.dispose());
+                                    } else {
+                                      mesh.material.dispose();
+                                    }
+                                  }
+                                });
+                                
+                                // Clear the FBX object's children to ensure complete cleanup
+                                while (fbx.children.length > 0) {
+                                  fbx.remove(fbx.children[0]);
+                                }
+                              }
+                              
+                              innerResolve(clip);
+                            } else {
+                              innerReject(new Error(`No animations found in ${animationPath}`));
+                            }
+                          },
+                          (progress) => {
+                            // Progress callback (optional)
+                          },
+                          (error) => {
+                            innerReject(error);
+                          }
+                        );
+                      });
+                      
+                      // If we successfully loaded a clip, return it
+                      if (clip) {
+                        return resolve(clip);
+                      }
+                    } catch (error) {
+                      // This variant failed, try the next one
+                      console.debug(`Failed to load animation variant '${variant}' for ${animationName}:`, error.message);
+                    }
+                  }
+                  
+                  // All variants failed, return null
+                  resolve(null);
+                });
               }
 
               focusOnPlayer(playerName, leftPanelWidth = 0, rightPanelWidth = 0) {
@@ -1280,7 +1494,7 @@ function renderer(context) {
               updatePlayerActive(playerName) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
-                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                const { orb, orbLight, glow, pedestal, container } = player;
                 
                 orb.material.emissiveIntensity = 1.;
                 orbLight.intensity = 1.;
@@ -1294,8 +1508,9 @@ function renderer(context) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
-                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                const { orb, orbLight, model, glow, pedestal, container, mixer, animations, currentAction } = player;
 
+                // Reset to default state
                 orb.material.color.setHex(0x00ff00);
                 orb.material.emissive.setHex(0x00ff00);
                 orb.material.emissiveIntensity = 0.8;
@@ -1304,15 +1519,10 @@ function renderer(context) {
                 orbLight.color.setHex(0x00ff00);
                 orbLight.intensity = 0.8;
                 orbLight.visible = true;
-                body.material.color.setHex(0x4466ff);
-                body.material.emissive.setHex(0x111166);
-                body.material.emissiveIntensity = 0.2;
-                shoulders.material.color.setHex(0x4466ff);
-                shoulders.material.emissive.setHex(0x111166);
-                shoulders.material.emissiveIntensity = 0.2;
-                head.material.color.setHex(0xfdbcb4);
-                head.material.emissive.setHex(0x442211);
-                head.material.emissiveIntensity = 0.1;
+                
+                // For FBX models, we don't change material colors directly
+                // Instead, we rely on animations and visual effects
+                
                 glow.material.color.setHex(0x00ff00);
                 glow.material.emissive.setHex(0x00ff00);
                 glow.material.emissiveIntensity = 0.3;
@@ -1328,17 +1538,12 @@ function renderer(context) {
                 }
                 player.isAlive = true;
                 
+                // Handle animations based on status
                 switch(status) {
                     case 'dead':
                         orb.visible = false;
                         orbLight.visible = false;
                         glow.visible = false;
-                        body.material.color.setHex(0x444444);
-                        body.material.emissive.setHex(0x000000);
-                        shoulders.material.color.setHex(0x444444);
-                        shoulders.material.emissive.setHex(0x000000);
-                        head.material.color.setHex(0x666666);
-                        head.material.emissive.setHex(0x000000);
                         pedestal.material.emissive.setHex(0x000000);
                         // Sink into ground
                         container.position.y = -1.5;
@@ -1350,14 +1555,11 @@ function renderer(context) {
                             player.nameplate.element.style.opacity = '0.2';
                         }
                         player.isAlive = false;
+                        
+                        // Play death animation using centralized method
+                        this.playAnimation(playerName, 'Dying');
                         break;
                     case 'werewolf':
-                        body.material.color.setHex(0x880000);
-                        body.material.emissive.setHex(0x440000);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x880000);
-                        shoulders.material.emissive.setHex(0x440000);
-                        shoulders.material.emissiveIntensity = 0.3;
                         glow.material.color.setHex(0xff0000);
                         glow.material.emissive.setHex(0xff0000);
                         glow.material.emissiveIntensity = 0.4;
@@ -1366,12 +1568,6 @@ function renderer(context) {
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'doctor':
-                        body.material.color.setHex(0x008800);
-                        body.material.emissive.setHex(0x004400);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x008800);
-                        shoulders.material.emissive.setHex(0x004400);
-                        shoulders.material.emissiveIntensity = 0.3;
                         glow.material.color.setHex(0x00ff00);
                         glow.material.emissive.setHex(0x00ff00);
                         glow.material.emissiveIntensity = 0.4;
@@ -1380,12 +1576,6 @@ function renderer(context) {
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'seer':
-                        body.material.color.setHex(0x4B0082);
-                        body.material.emissive.setHex(0x3A005A);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x4B0082);
-                        shoulders.material.emissive.setHex(0x3A005A);
-                        shoulders.material.emissiveIntensity = 0.3;
                         glow.material.color.setHex(0x9932CC);
                         glow.material.emissive.setHex(0x9932CC);
                         glow.material.emissiveIntensity = 0.4;
@@ -1394,10 +1584,11 @@ function renderer(context) {
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     default:
-                        // This is now covered by the reset block at the top of the function.
+                        // Keep default state
                         break;
                 }
 
+                // Update threat level indicators
                 if (threatLevel >= 1.0) { // DANGER
                     orb.material.color.setHex(0xff0000); // Red
                     orb.material.emissive.setHex(0xff0000);
@@ -1419,7 +1610,6 @@ function renderer(context) {
                     glow.material.emissive.setHex(0xffff00);
                     glow.material.emissiveIntensity = 0.3;
                 } else { // SAFE
-                    // orb.material.color.setHex(0x00ff00); // Green
                     orb.material.color.setHex(0x00ff00);
                     orb.material.emissive.setHex(0x00ff00);
                     orb.material.emissiveIntensity = 1.0;
@@ -1430,12 +1620,83 @@ function renderer(context) {
                     glow.material.emissive.setHex(0x00ff00);
                     glow.material.emissiveIntensity = 0.3;
                 }
+                
+                // Ensure alive players without animation are in Idle
+                if (player.isAlive && mixer && animations && animations['Idle'] && !currentAction) {
+                    this.playAnimation(playerName, 'Idle');
+                }
+              }
+
+              playAnimation(playerName, animationName, options = {}) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return null;
+                
+                // Check if player is dead and animation is not death-related
+                if (!player.isAlive &&
+                    !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
+                    return null;
+                }
+                
+                const animations = player.animations;
+                if (!animations || !animations[animationName]) return null;
+                
+                const mixer = player.mixer;
+                if (!mixer) return null;
+                
+                // Fade out current action if exists
+                if (player.currentAction) {
+                    player.currentAction.fadeOut(options.fadeOutDuration || 0.2);
+                }
+                
+                // Create new action
+                const action = mixer.clipAction(animations[animationName]);
+                action.reset();
+                
+                // Auto-determine loop mode based on animation type
+                if (['Idle', 'Talking', 'Pointing'].includes(animationName)) {
+                    action.setLoop(this._THREE.LoopRepeat);
+                    action.clampWhenFinished = false;
+                } else if (['Victory', 'Defeated', 'Dying'].includes(animationName)) {
+                    action.setLoop(this._THREE.LoopOnce);
+                    action.clampWhenFinished = true;
+                }
+                
+                // Apply any custom options
+                if (options.loop !== undefined) {
+                    action.setLoop(options.loop);
+                }
+                if (options.clampWhenFinished !== undefined) {
+                    action.clampWhenFinished = options.clampWhenFinished;
+                }
+                
+                // Play with fade-in
+                action.fadeIn(options.fadeInDuration || 0.2);
+                action.play();
+                
+                // Update player's current action
+                player.currentAction = action;
+                
+                return action;
               }
 
               triggerSpeakingAnimation(playerName) {
                 const player = this._playerObjects.get(playerName);
                 if (!player || !player.isAlive) return;
 
+                // Use centralized animation method
+                this.playAnimation(playerName, 'Talking', {
+                    fadeInDuration: 0.2,
+                    fadeOutDuration: 0.2
+                });
+                
+                // Schedule return to idle
+                setTimeout(() => {
+                    this.playAnimation(playerName, 'Idle', {
+                        fadeInDuration: 0.2
+                    });
+                }, 1800);
+
+                // Also add visual sound wave effect
                 const wave = this._createSoundWave(this._THREE);
                 player.container.add(wave);
 
@@ -1445,6 +1706,38 @@ function renderer(context) {
                     startTime: performance.now(),
                     duration: 1800, // Animation duration in milliseconds
                 });
+              }
+
+              triggerPointingAnimation(playerName, duration = 1200) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.isAlive) return;
+                
+                // Play pointing animation
+                this.playAnimation(playerName, 'Pointing', {
+                    fadeInDuration: 0.2,
+                    fadeOutDuration: 0.2
+                });
+                
+                // Return to idle after duration
+                setTimeout(() => {
+                    this.playAnimation(playerName, 'Idle', {
+                        fadeInDuration: 0.2
+                    });
+                }, duration);
+              }
+
+              triggerVictoryAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return;
+                
+                this.playAnimation(playerName, 'Victory');
+              }
+
+              triggerDefeatedAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return;
+                
+                this.playAnimation(playerName, 'Defeated');
               }
 
               _createSoundWave(THREE) {
@@ -1815,6 +2108,11 @@ function renderer(context) {
               }
 
               _RAF() {
+                // Initialize animation clock if not exists
+                if (!this._animationClock) {
+                    this._animationClock = new this._THREE.Clock();
+                }
+                
                 requestAnimationFrame((time) => {
                   // Animate phase transition with visual feedback
                   if (this._phaseTransition) {
@@ -1909,7 +2207,15 @@ function renderer(context) {
                   
                   // Animate player objects with enhanced effects
                   if (this._playerObjects) {
+                    // Get proper delta time from clock
+                    const delta = this._animationClock ? this._animationClock.getDelta() : 0.016;
+                    
                     this._playerObjects.forEach((player, name) => {
+                      // Update animation mixers with proper delta
+                      if (player.mixer) {
+                        player.mixer.update(delta);
+                      }
+                      
                       if (player.isAlive) {
                         // Enhanced floating animation for alive players
                         const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.2;
@@ -1917,9 +2223,11 @@ function renderer(context) {
                         player.container.position.y = floatOffset + bobOffset;
                         
                         // More dynamic orb rotation
-                        player.orb.rotation.y = time * 0.003;
-                        player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
-                        player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
+                        if (player.orb) {
+                          player.orb.rotation.y = time * 0.003;
+                          player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
+                          player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
+                        }
                         
                         // Enhanced glow animation
                         if (player.glow && player.glow.visible) {
@@ -1936,20 +2244,6 @@ function renderer(context) {
                         if (player.container.scale.x > 1.0) {
                           const pulseScale = 1.05 + Math.sin(time * 0.008) * 0.08;
                           player.container.scale.setScalar(pulseScale);
-                        }
-                        
-                        // Enhanced breathing effect
-                        if (player.body) {
-                          const breathScale = 1 + Math.sin(time * 0.002 + player.baseAngle) * 0.03;
-                          player.body.scale.y = breathScale;
-                          if (player.shoulders) {
-                            player.shoulders.scale.y = 0.6 * breathScale;
-                          }
-                        }
-                        
-                        // Subtle head movement
-                        if (player.head) {
-                          player.head.rotation.y = Math.sin(time * 0.001 + player.baseAngle) * 0.1;
                         }
                       } else {
                         // Dead players have reduced animation
@@ -2114,6 +2408,32 @@ function renderer(context) {
             // If the action was speaking, trigger the sound wave animation
             if (lastEvent.type === 'chat' && threeState.demo.triggerSpeakingAnimation) {
                 threeState.demo.triggerSpeakingAnimation(actorName);
+            }
+            
+            // Trigger pointing animation for vote-related events
+            if ((lastEvent.type === 'vote' || lastEvent.type === 'night_vote') && threeState.demo.triggerPointingAnimation) {
+                threeState.demo.triggerPointingAnimation(actorName);
+            }
+        }
+        
+        // Handle game_over event animations
+        if (lastEvent.type === 'game_over') {
+            // Trigger victory animation for winners
+            if (lastEvent.winners && threeState.demo.triggerVictoryAnimation) {
+                lastEvent.winners.forEach(winnerName => {
+                    if (playerMap.has(winnerName)) {
+                        threeState.demo.triggerVictoryAnimation(winnerName);
+                    }
+                });
+            }
+            
+            // Trigger defeated animation for losers
+            if (lastEvent.losers && threeState.demo.triggerDefeatedAnimation) {
+                lastEvent.losers.forEach(loserName => {
+                    if (playerMap.has(loserName)) {
+                        threeState.demo.triggerDefeatedAnimation(loserName);
+                    }
+                });
             }
         }
     }
@@ -4152,11 +4472,17 @@ function renderer(context) {
     
     // Initialize 3D players if needed
     if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
-        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState);
+        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState).then(() => {
+            console.log('3D players initialized with FBX models');
+            // Update scene after models are loaded
+            updateSceneFromGameState(gameState, playerMap, nameToHighlight);
+        }).catch(error => {
+            console.error('Failed to initialize 3D players:', error);
+        });
     }
 }
 
-function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
+async function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
     
     // Clear existing player objects
@@ -4212,7 +4538,25 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         opacity: 0.3
     });
     
-    playerNames.forEach((name, i) => {
+    // Load all models and animations concurrently
+    const playerLoadPromises = playerNames.map(async (name, i) => {
+        const role = gameState.players[i].role || 'Villager';
+        try {
+            const [fbxModel, animations] = await Promise.all([
+                threeState.demo.loadCharacterModel(role),
+                threeState.demo.loadCharacterAnimations(role)
+            ]);
+            return { name, i, role, fbxModel, animations, success: true };
+        } catch (error) {
+            console.error(`Failed to load model for ${name}:`, error);
+            return { name, i, role, fbxModel: null, animations: null, success: false };
+        }
+    });
+    
+    const loadedPlayers = await Promise.all(playerLoadPromises);
+    
+    // Create player objects with loaded models
+    loadedPlayers.forEach(({ name, i, role, fbxModel, animations, success }) => {
         const displayName = gameState.players[i].display_name || '';
         const playerContainer = new THREE.Group();
         // Use full circle (360 degrees)
@@ -4245,67 +4589,65 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         pedestal.receiveShadow = true;
         playerContainer.add(pedestal);
         
-        // Create player body (more detailed)
-        const bodyGeometry = new THREE.CylinderGeometry(0.8, 1, playerHeight * 0.6, 16);
-        const bodyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4466ff,
-            roughness: 0.5,
-            metalness: 0.3,
-            emissive: 0x111166,
-            emissiveIntensity: 0.2
-        });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = playerHeight * 0.4;
-        body.castShadow = true;
-        body.receiveShadow = true;
-        playerContainer.add(body);
+        let model = null;
+        let mixer = null;
+        let currentAction = null;
+        let modelHeight = playerHeight;
         
-        // Create shoulders
-        const shoulderGeometry = new THREE.SphereGeometry(1, 16, 8);
-        const shoulderMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4466ff,
-            roughness: 0.5,
-            metalness: 0.3,
-            emissive: 0x111166,
-            emissiveIntensity: 0.2
-        });
-        const shoulders = new THREE.Mesh(shoulderGeometry, shoulderMaterial);
-        shoulders.position.y = playerHeight * 0.65;
-        shoulders.scale.set(1.2, 0.6, 0.8);
-        shoulders.castShadow = true;
-        playerContainer.add(shoulders);
+        if (success && fbxModel) {
+            // Clone the FBX model to ensure each player gets their own instance
+            model = threeState.demo._skeletonUtils.clone(fbxModel);
+            model.position.y = 0.5; // Slightly higher to account for larger model
+            
+            // Enable shadows for all meshes in the model
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            
+            playerContainer.add(model);
+            
+            // Create AnimationMixer
+            mixer = new THREE.AnimationMixer(model);
+            
+            // Play Idle animation if available
+            if (animations && animations['Idle']) {
+                currentAction = mixer.clipAction(animations['Idle']);
+                currentAction.play();
+            }
+            
+            // Calculate model height using bounding box
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            modelHeight = size.y;
+        } else {
+            // Create geometric fallback (colored cube)
+            console.warn(`Using geometric fallback for ${name} (role: ${role})`);
+            
+            const fallbackGeometry = new THREE.BoxGeometry(1.5, 3, 1.5);
+            const fallbackColor = role === 'Werewolf' ? 0x880000 :
+                                 role === 'Doctor' ? 0x008800 :
+                                 role === 'Seer' ? 0x4B0082 : 0x4466ff;
+            const fallbackMaterial = new THREE.MeshStandardMaterial({
+                color: fallbackColor,
+                roughness: 0.5,
+                metalness: 0.3,
+                emissive: fallbackColor,
+                emissiveIntensity: 0.2
+            });
+            const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+            fallback.position.y = 2;
+            fallback.castShadow = true;
+            fallback.receiveShadow = true;
+            playerContainer.add(fallback);
+            
+            model = fallback;
+            modelHeight = 3;
+        }
         
-        // Create player head (sphere)
-        const headGeometry = new THREE.SphereGeometry(0.7, 16, 16);
-        const headMaterial = new THREE.MeshStandardMaterial({
-            color: 0xfdbcb4,
-            roughness: 0.7,
-            metalness: 0.1,
-            emissive: 0x442211,
-            emissiveIntensity: 0.1
-        });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = playerHeight * 0.85;
-        head.castShadow = true;
-        head.receiveShadow = true;
-        playerContainer.add(head);
-        
-        // Create eyes
-        const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 6);
-        const eyeMaterial = new THREE.MeshStandardMaterial({
-            color: 0x000000,
-            roughness: 0.3,
-            metalness: 0.8
-        });
-        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.2, playerHeight * 0.87, 0.6);
-        playerContainer.add(leftEye);
-        
-        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.2, playerHeight * 0.87, 0.6);
-        playerContainer.add(rightEye);
-        
-        // Create glowing orb for status (more dramatic)
+        // Create glowing orb for status (positioned above character's head)
         const orbGeometry = new THREE.IcosahedronGeometry(0.3, 2);
         const orbMaterial = new THREE.MeshStandardMaterial({
             color: 0x00ff00,
@@ -4315,7 +4657,7 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
             opacity: 0.9
         });
         const orb = new THREE.Mesh(orbGeometry, orbMaterial);
-        orb.position.y = playerHeight * 1.2;
+        orb.position.y = modelHeight + 0.8; // Position above model
         orb.name = 'statusOrb';
         playerContainer.add(orb);
         
@@ -4329,32 +4671,34 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
             opacity: 0.3
         });
         const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.y = playerHeight * 1.2;
+        glow.position.y = modelHeight + 0.8; // Position above model
         playerContainer.add(glow);
         
         // Add point light for glow effect
         const orbLight = new THREE.PointLight(0x00ff00, 0.8, 8);
-        orbLight.position.y = playerHeight * 1.2;
+        orbLight.position.y = modelHeight + 0.8; // Position above model
         orbLight.name = 'orbLight';
         orbLight.castShadow = true;
         playerContainer.add(orbLight);
         
         // Make player face center without flipping
         // Calculate the angle to face the center
-        playerContainer.rotation.y = -angle + Math.PI / 2;
+        // Update rotation to use negative values so players face toward the origin
+        playerContainer.rotation.y = Math.atan2(-x, -z);
         
-        // Create nameplate with actual player thumbnail
+        // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight * 2.0, 0);
+        nameplate.position.set(0, modelHeight + 1.5, 0); // Position above orb
         playerContainer.add(nameplate);
         
-        // Store references
+        // Store references with new structure
         threeState.demo._playerObjects.set(name, {
             container: playerContainer,
-            body: body,
-            head: head,
-            shoulders: shoulders,
+            model: model,
+            mixer: mixer,
+            animations: animations,
+            currentAction: currentAction,
             orb: orb,
             glow: glow,
             orbLight: orbLight,

@@ -8,7 +8,6 @@ import yaml
 from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
 from kaggle_environments.envs.werewolf.runner import (
     LogExecutionTime,
-    append_timestamp_to_dir,
     log_git_hash,
     run_werewolf,
     setup_logger,
@@ -35,16 +34,14 @@ def main():
         "-r", "--random_agents", action="store_true", help="Use random agents for all players for fast testing."
     )
     parser.add_argument(
-        "-a", "--append_timestamp_to_dir", action="store_true", help="Append a timestamp to the output directory."
-    )
-    parser.add_argument(
         "-s", "--shuffle_roles", action="store_true", help="If provided, shuffle the roles provided in the config."
     )
 
     args = parser.parse_args()
 
     # Create a unique subdirectory for this run
-    run_output_dir = append_timestamp_to_dir(args.output_dir, append=args.append_timestamp_to_dir)
+    # Don't append timestamp when output_dir is explicitly provided
+    run_output_dir = args.output_dir
 
     os.makedirs(run_output_dir, exist_ok=True)
 
