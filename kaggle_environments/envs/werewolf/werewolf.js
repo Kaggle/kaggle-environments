@@ -198,6 +198,7 @@ function renderer(context) {
     window.werewolfThreeJs = {
       initialized: false,
       demo: null,
+      players3DInitialized: false,  // Add flag to track 3D player initialization
     };
   }
   const threeState = window.werewolfThreeJs;
@@ -1215,9 +1216,9 @@ function renderer(context) {
                   return this._modelCache.get(normalizedRole);
                 }
                 
-                // Create a new promise for loading the rigged base model
+                // Create a new promise for loading the merged FBX file
                 const modelPromise = new Promise((resolve, reject) => {
-                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/fbx/rigged.fbx`;
+                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/merged/${normalizedRole}_master.fbx`;
                   
                   this._fbxLoader.load(
                     modelPath,
@@ -1225,16 +1226,52 @@ function renderer(context) {
                       // On success: apply uniform scaling
                       fbx.scale.setScalar(0.035); // 3.5x larger than original 0.01
                       
+                      // Extract and store animations from the merged FBX
+                      const animations = {};
+                      if (fbx.animations && fbx.animations.length > 0) {
+                        fbx.animations.forEach((clip) => {
+                          // Map animation names based on common patterns
+                          let animName = clip.name;
+                          
+                          // Try to match known animation names
+                          if (animName.toLowerCase().includes('idle') || animName.toLowerCase().includes('standing')) {
+                            animations['Idle'] = clip;
+                            clip.name = 'Idle';
+                          } else if (animName.toLowerCase().includes('talk')) {
+                            animations['Talking'] = clip;
+                            clip.name = 'Talking';
+                          } else if (animName.toLowerCase().includes('point')) {
+                            animations['Pointing'] = clip;
+                            clip.name = 'Pointing';
+                          } else if (animName.toLowerCase().includes('victory') || animName.toLowerCase().includes('win')) {
+                            animations['Victory'] = clip;
+                            clip.name = 'Victory';
+                          } else if (animName.toLowerCase().includes('defeat') || animName.toLowerCase().includes('lose')) {
+                            animations['Defeated'] = clip;
+                            clip.name = 'Defeated';
+                          } else if (animName.toLowerCase().includes('dying') || animName.toLowerCase().includes('death')) {
+                            animations['Dying'] = clip;
+                            clip.name = 'Dying';
+                          } else {
+                            // Store with original name as fallback
+                            animations[animName] = clip;
+                          }
+                        });
+                      }
+                      
+                      // Store animations in cache for this role
+                      this._animationCache.set(normalizedRole, Promise.resolve(animations));
+                      
                       // Store the original model in cache, cloning will happen per-player
                       resolve(fbx);
                     },
                     (progress) => {
                       // Progress callback (optional)
-                      console.debug(`Loading model for ${normalizedRole}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+                      console.debug(`Loading merged model for ${normalizedRole}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
                     },
                     (error) => {
                       // On error: reject with descriptive message
-                      reject(new Error(`Failed to load model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`));
+                      reject(new Error(`Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`));
                     }
                   );
                 });
@@ -1250,144 +1287,22 @@ function renderer(context) {
                 // Normalize the role using _roleToDirectory, defaulting to 'villager'
                 const normalizedRole = this._roleToDirectory[role] || this._roleToDirectory['Villager'] || 'villager';
                 
-                // Check if animations are already cached
+                // Check if animations are already cached (they should be from loadCharacterModel)
                 if (this._animationCache.has(normalizedRole)) {
                   return this._animationCache.get(normalizedRole);
                 }
                 
-                // Create a promise that loads each canonical animation
-                const animationsPromise = new Promise(async (resolve, reject) => {
-                  const loadedAnimations = {};
-                  const loadPromises = [];
-                  
-                  // Load each animation from _animationNames
-                  for (const animationName of this._animationNames) {
-                    const loadPromise = this._loadAnimationWithFallbacks(normalizedRole, animationName)
-                      .then(clip => {
-                        if (clip) {
-                          loadedAnimations[animationName] = clip;
-                        } else if (animationName === 'Idle') {
-                          // Idle is required - log warning but don't reject
-                          console.warn(`Required animation 'Idle' not found for role '${normalizedRole}'`);
-                        } else {
-                          // Optional animation missing - just log
-                          console.debug(`Optional animation '${animationName}' not found for role '${normalizedRole}'`);
-                        }
-                      })
-                      .catch(error => {
-                        if (animationName === 'Idle') {
-                          console.error(`Failed to load required animation 'Idle' for role '${normalizedRole}':`, error);
-                        } else {
-                          console.warn(`Failed to load optional animation '${animationName}' for role '${normalizedRole}':`, error);
-                        }
-                      });
-                    
-                    loadPromises.push(loadPromise);
-                  }
-                  
-                  // Wait for all animations to load or fail
-                  await Promise.allSettled(loadPromises);
-                  
-                  // Check if we have at least the required Idle animation
-                  if (!loadedAnimations['Idle'] && this._animationFileVariants['Idle']) {
-                    reject(new Error(`Failed to load required 'Idle' animation for role '${normalizedRole}' - all variants failed`));
-                  } else {
-                    resolve(loadedAnimations);
-                  }
-                });
-                
-                // Cache this promise immediately to dedupe simultaneous callers
-                this._animationCache.set(normalizedRole, animationsPromise);
-                
-                // Return the promise
-                return animationsPromise;
+                // If not cached, it means the model hasn't been loaded yet
+                // Return an empty promise that will be resolved when the model loads
+                console.warn(`Animations for ${normalizedRole} not yet loaded. They will be extracted from the merged FBX.`);
+                return Promise.resolve({});
               }
 
+              // This method is no longer needed since animations are extracted from the merged FBX
+              // Keeping it as a stub for compatibility
               _loadAnimationWithFallbacks(role, animationName) {
-                return new Promise(async (resolve) => {
-                  // Get the file variants for this animation, fallback to Idle variants if not found
-                  const variants = this._animationFileVariants[animationName] || this._animationFileVariants['Idle'] || ['Idle.fbx'];
-                  
-                  // Try each variant sequentially
-                  for (const variant of variants) {
-                    try {
-                      const clip = await new Promise((innerResolve, innerReject) => {
-                        const animationPath = `/experiment/static/werewolf/models/${role}/fbx/${variant}`;
-                        
-                        this._fbxLoader.load(
-                          animationPath,
-                          (fbx) => {
-                            // Get the first animation clip from the FBX
-                            if (fbx.animations && fbx.animations.length > 0) {
-                              const clip = fbx.animations[0];
-                              // Set the canonical name
-                              clip.name = animationName;
-                              
-                              // Clean up the FBX object to prevent mesh clones
-                              if (fbx) {
-                                // First, ensure the FBX is not added to any scene
-                                if (fbx.parent) {
-                                  fbx.parent.remove(fbx);
-                                }
-                                
-                                // Remove all meshes from the FBX object
-                                const meshesToRemove = [];
-                                fbx.traverse((child) => {
-                                  if (child.isMesh || child.isSkinnedMesh) {
-                                    meshesToRemove.push(child);
-                                  }
-                                });
-                                
-                                // Remove and dispose of meshes
-                                meshesToRemove.forEach((mesh) => {
-                                  if (mesh.parent) {
-                                    mesh.parent.remove(mesh);
-                                  }
-                                  if (mesh.geometry) {
-                                    mesh.geometry.dispose();
-                                  }
-                                  if (mesh.material) {
-                                    if (Array.isArray(mesh.material)) {
-                                      mesh.material.forEach(mat => mat.dispose());
-                                    } else {
-                                      mesh.material.dispose();
-                                    }
-                                  }
-                                });
-                                
-                                // Clear the FBX object's children to ensure complete cleanup
-                                while (fbx.children.length > 0) {
-                                  fbx.remove(fbx.children[0]);
-                                }
-                              }
-                              
-                              innerResolve(clip);
-                            } else {
-                              innerReject(new Error(`No animations found in ${animationPath}`));
-                            }
-                          },
-                          (progress) => {
-                            // Progress callback (optional)
-                          },
-                          (error) => {
-                            innerReject(error);
-                          }
-                        );
-                      });
-                      
-                      // If we successfully loaded a clip, return it
-                      if (clip) {
-                        return resolve(clip);
-                      }
-                    } catch (error) {
-                      // This variant failed, try the next one
-                      console.debug(`Failed to load animation variant '${variant}' for ${animationName}:`, error.message);
-                    }
-                  }
-                  
-                  // All variants failed, return null
-                  resolve(null);
-                });
+                console.debug(`_loadAnimationWithFallbacks called for ${role}/${animationName} - this should not happen with merged FBX files`);
+                return Promise.resolve(null);
               }
 
               focusOnPlayer(playerName, leftPanelWidth = 0, rightPanelWidth = 0) {
@@ -4470,20 +4385,32 @@ function renderer(context) {
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, nameToHighlight);
     
-    // Initialize 3D players if needed
-    if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
+    // Initialize 3D players if needed - check the flag to prevent duplicate initialization
+    if (threeState.demo && threeState.demo._playerObjects && !threeState.players3DInitialized && playerNamesFor3D.length > 0) {
+        console.log('Starting 3D player initialization...');
+        threeState.players3DInitialized = true;  // Set flag immediately to prevent duplicate calls
         initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState).then(() => {
             console.log('3D players initialized with FBX models');
             // Update scene after models are loaded
             updateSceneFromGameState(gameState, playerMap, nameToHighlight);
         }).catch(error => {
             console.error('Failed to initialize 3D players:', error);
+            // Reset flag on error to allow retry
+            threeState.players3DInitialized = false;
         });
     }
 }
 
 async function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
+    
+    console.log(`initializePlayers3D called with ${playerNames.length} players`);
+    
+    // Double-check the flag to ensure we're not already initialized
+    if (threeState.players3DInitialized && threeState.demo._playerObjects.size > 0) {
+        console.warn('3D players already initialized, skipping duplicate initialization');
+        return;
+    }
     
     // Clear existing player objects
     if (threeState.demo._playerGroup) {
@@ -4538,17 +4465,17 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         opacity: 0.3
     });
     
-    // Load all models and animations concurrently
+    // Load all models (which now include animations) concurrently
     const playerLoadPromises = playerNames.map(async (name, i) => {
         const role = gameState.players[i].role || 'Villager';
         try {
-            const [fbxModel, animations] = await Promise.all([
-                threeState.demo.loadCharacterModel(role),
-                threeState.demo.loadCharacterAnimations(role)
-            ]);
+            // Load the merged FBX model (animations are extracted automatically)
+            const fbxModel = await threeState.demo.loadCharacterModel(role);
+            // Get the animations that were extracted during model loading
+            const animations = await threeState.demo.loadCharacterAnimations(role);
             return { name, i, role, fbxModel, animations, success: true };
         } catch (error) {
-            console.error(`Failed to load model for ${name}:`, error);
+            console.error(`Failed to load merged model for ${name}:`, error);
             return { name, i, role, fbxModel: null, animations: null, success: false };
         }
     });
