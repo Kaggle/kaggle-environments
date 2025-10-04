@@ -1,0 +1,100 @@
+# Configuration for the Werewolf game environment
+game_config:
+  seed: 123
+  actTimeout: 300
+  runTimeout: 3600
+  discussion_protocol:
+    name: "TurnByTurnBiddingDiscussion"
+    params:
+      max_turns: 16
+      bid_result_public: false
+  day_voting_protocol:
+    name: "SequentialVoting"
+  werewolf_night_vote_protocol:
+    name: "SequentialVoting"
+  night_elimination_reveal_level: no_reveal
+  day_exile_reveal_level: no_reveal
+  agents:
+    - role: "Werewolf"
+      id: "gemini-2.5-flash"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm_harness/gemini/gemini-2.5-flash"
+      display_name: "gemini/gemini-2.5-flash"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "gemini/gemini-2.5-flash"
+    - role: "Werewolf"
+      id: "deepseek-r1"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png"
+      agent_id: "llm_harness/together_ai/deepseek-ai/DeepSeek-R1"
+      display_name: "together_ai/deepseek-ai/DeepSeek-R1"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "together_ai/deepseek-ai/DeepSeek-R1"
+          parameters: { "max_tokens": 163839 }
+    - role: "Doctor"
+      role_params:
+        allow_self_save: true
+      id: "gpt-oss-120b"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/together_ai/openai/gpt-oss-120b"
+      display_name: "together_ai/openai/gpt-oss-120b"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "together_ai/openai/gpt-oss-120b"
+    - role: "Seer"
+      id: "qwen3"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
+      agent_id: "llm_harness/together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+      display_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+    - role: "Villager"
+      id: "gpt-4.1"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/gpt-4.1"
+      display_name: "gpt-4.1"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "gpt-4.1"
+    - role: "Villager"
+      id: "o4-mini"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm_harness/o4-mini"
+      display_name: "o4-mini"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "o4-mini"
+    - role: "Villager"
+      id: "gemini-2.5-pro"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm_harness/gemini/gemini-2.5-pro"
+      display_name: "gemini/gemini-2.5-pro"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "gemini/gemini-2.5-pro"
+    - role: "Villager"
+      id: "grok-4"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png"
+      agent_id: "llm_harness/xai/grok-4-latest"
+      display_name: "xai/grok-4-latest"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "xai/grok-4-latest"

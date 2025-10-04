@@ -1,0 +1,797 @@
+<!--
+  Copyright 2020 Kaggle Inc
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Kaggle Simulation Player</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.css"
+      crossorigin="anonymous"
+    />
+    <style type="text/css">
+      html,
+      body {
+        height: 100%;
+        font-family: sans-serif;
+        margin: 0px;
+      }
+      canvas {
+        /* image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges; */
+      }
+    </style>
+    <script src="https://unpkg.com/preact@10.0.1/dist/preact.umd.js"></script>
+    <script src="https://unpkg.com/preact@10.0.1/hooks/dist/hooks.umd.js"></script>
+    <script src="https://unpkg.com/htm@2.2.1/dist/htm.umd.js"></script>
+    <script src="https://unpkg.com/chess.js@0.12.0/chess.js"></script>
+    <script>
+      // Polyfill for Styled Components
+      window.React = {
+        ...preact,
+        createElement: preact.h,
+        PropTypes: { func: {} },
+      };
+    </script>
+    <script src="https://unpkg.com/styled-components@3.5.0-0/dist/styled-components.min.js"></script>
+  </head>
+  <body>
+    <script>
+      /*window.kaggle*/
+    </script>
+    <script>
+      const h = htm.bind(preact.h);
+      const { useContext, useEffect, useRef, useState } = preactHooks;
+      const styled = window.styled.default;
+
+      const Context = preact.createContext({});
+
+      const Loading = styled.div`
+        animation: rotate360 1.1s infinite linear;
+        border: 8px solid rgba(255, 255, 255, 0.2);
+        border-left-color: #0cb1ed;
+        border-radius: 50%;
+        height: 40px;
+        position: relative;
+        transform: translateZ(0);
+        width: 40px;
+
+        @keyframes rotate360 {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+      `;
+
+      const Logo = styled(
+        (props) => h`
+        <a href="https://kaggle.com" target="_blank" className=${props.className}>
+          <svg width="62px" height="20px" viewBox="0 0 62 24" version="1.1" xmlns="http://www.w3.org/2000/svg">
+            <g fill="#1EBEFF" fill-rule="nonzero">
+              <path d="M10.2,17.8c0,0.1-0.1,0.1-0.2,0.1H7.7c-0.1,0-0.3-0.1-0.4-0.2l-3.8-4.9l-1.1,1v3.8 c0,0.2-0.1,0.3-0.3,0.3H0.3c-0.2,0-0.3-0.1-0.3-0.3V0.3C0.1,0.1,0.2,0,0.3,0h1.8c0.2,0,0.3,0.1,0.3,0.3V11L7,6.3 c0.1-0.1,0.2-0.2,0.4-0.2h2.4c0.1,0,0.2,0,0.2,0.1c0,0.1,0,0.2,0,0.2l-4.9,4.7l5.1,6.3C10.2,17.6,10.2,17.7,10.2,17.8z"/>
+              <path d="M19.6,17.9h-1.8c-0.2,0-0.3-0.1-0.3-0.3v-0.4c-0.8,0.6-1.8,0.9-3,0.9c-1.1,0-2-0.3-2.8-1 c-0.8-0.7-1.2-1.6-1.2-2.7c0-1.7,1.1-2.9,3.2-3.5c0.8-0.2,2.1-0.5,3.8-0.6c0.1-0.6-0.1-1.2-0.5-1.7c-0.4-0.5-1-0.7-1.7-0.7 c-1,0-2,0.4-3,1C12.2,9.1,12.1,9.1,12,9l-0.9-1.3C11,7.5,11,7.4,11.1,7.3c1.3-0.9,2.7-1.4,4.2-1.4c1.1,0,2.1,0.3,2.8,0.8 c1.1,0.8,1.7,2,1.7,3.7v7.3C19.9,17.8,19.8,17.9,19.6,17.9z M17.5,12.4c-1.7,0.2-2.9,0.4-3.5,0.7c-0.9,0.4-1.2,0.9-1.1,1.6 c0.1,0.4,0.2,0.7,0.6,0.9c0.3,0.2,0.7,0.4,1.1,0.4c1.2,0.1,2.2-0.2,2.9-1V12.4z"/>
+              <path d="M30.6,22.5c-0.9,1-2.3,1.5-4,1.5c-1,0-2-0.3-2.9-0.8c-0.2-0.1-0.4-0.3-0.7-0.5 c-0.3-0.2-0.6-0.5-0.9-0.7c-0.1-0.1-0.1-0.2,0-0.4l1.2-1.2c0.1-0.1,0.1-0.1,0.2-0.1c0.1,0,0.1,0,0.2,0.1c1,1,1.9,1.5,2.8,1.5 c2.1,0,3.2-1.1,3.2-3.3v-1.4c-0.8,0.7-1.9,1-3.3,1c-1.7,0-3-0.6-4-1.9c-0.8-1.1-1.3-2.5-1.3-4.2c0-1.6,0.4-3,1.2-4.1 c0.9-1.3,2.3-2,4-2c1.3,0,2.4,0.3,3.3,1V6.4c0-0.2,0.1-0.3,0.3-0.3h1.8c0.2,0,0.3,0.1,0.3,0.3v11.7C32,20,31.5,21.5,30.6,22.5z M29.7,9.9c-0.4-1.1-1.4-1.7-3-1.7c-2,0-3.1,1.3-3.1,3.8c0,1.4,0.3,2.4,1,3.1c0.5,0.5,1.2,0.8,2,0.8c1.6,0,2.7-0.6,3.1-1.7V9.9z"/>
+              <path d="M42.9,22.5c-0.9,1-2.3,1.5-4,1.5c-1,0-2-0.3-2.9-0.8c-0.2-0.1-0.4-0.3-0.7-0.5 c-0.3-0.2-0.6-0.5-0.9-0.7c-0.1-0.1-0.1-0.2,0-0.4l1.2-1.2c0.1-0.1,0.1-0.1,0.2-0.1c0.1,0,0.1,0,0.2,0.1c1,1,1.9,1.5,2.8,1.5 c2.1,0,3.2-1.1,3.2-3.3v-1.4c-0.8,0.7-1.9,1-3.3,1c-1.7,0-3-0.6-4-1.9c-0.8-1.1-1.3-2.5-1.3-4.2c0-1.6,0.4-3,1.2-4.1 c0.9-1.3,2.3-2,4-2c1.3,0,2.4,0.3,3.3,1V6.4c0-0.2,0.1-0.3,0.3-0.3H44c0.2,0,0.3,0.1,0.3,0.3v11.7C44.3,20,43.8,21.5,42.9,22.5z M42,9.9c-0.4-1.1-1.4-1.7-3-1.7c-2,0-3.1,1.3-3.1,3.8c0,1.4,0.3,2.4,1,3.1c0.5,0.5,1.2,0.8,2,0.8c1.6,0,2.7-0.6,3.1-1.7L42,9.9 L42,9.9z"/>
+              <path d="M48.3,17.9h-1.8c-0.2,0-0.3-0.1-0.3-0.3V0.3c0-0.2,0.1-0.3,0.3-0.3h1.8c0.2,0,0.3,0.1,0.3,0.3 v17.3C48.5,17.8,48.5,17.9,48.3,17.9z"/>
+              <path d="M61.4,12.6c0,0.2-0.1,0.3-0.3,0.3h-8.5c0.1,0.9,0.5,1.6,1.1,2.2c0.7,0.6,1.6,0.9,2.7,0.9 c1,0,1.8-0.3,2.6-0.8c0.2-0.1,0.3-0.1,0.4,0l1.2,1.3c0.1,0.1,0.1,0.3,0,0.4c-1.3,0.9-2.7,1.4-4.4,1.4c-1.8,0-3.3-0.6-4.4-1.8 c-1.1-1.2-1.7-2.7-1.7-4.5c0-1.7,0.6-3.2,1.7-4.4c1-1.1,2.4-1.6,4.1-1.6c1.6,0,2.9,0.6,4,1.7c1.1,1.2,1.6,2.6,1.5,4.4L61.4,12.6 z M58,8.7c-0.6-0.5-1.3-0.8-2.1-0.8c-0.8,0-1.5,0.3-2.1,0.8c-0.6,0.5-1,1.2-1.1,2H59C59,9.9,58.6,9.3,58,8.7z"/>
+            </g>
+          </svg>
+        </a>
+      `,
+      )`
+        display: inline-flex;
+      `;
+
+      const Header = styled((props) => {
+        const { environment } = useContext(Context);
+
+        return h`<div className=${props.className} >
+          <${Logo} />
+          <span><b>Left / Right Arrow:</b> Increase / Decrease Step</span><span><b>0-9 Row Keys:</b> Playback Speed</span><span><b>Space:</b> Pause / Play</span>
+          ${environment.title}
+        </div>`;
+      })`
+        align-items: center;
+        border-bottom: 4px solid #212121;
+        box-sizing: border-box;
+        color: #fff;
+        display: flex;
+        flex: 0 0 36px;
+        font-size: 14px;
+        justify-content: space-between;
+        padding: 0 8px;
+        width: 100%;
+      `;
+
+      const Renderer = styled((props) => {
+        const context = useContext(Context);
+        const { animate, debug, playing, renderer, speed, step } = context;
+
+        const ref = useRef(null);
+        const animationFrameId = useRef();
+
+        useEffect(() => {
+          const element = ref.current;
+          if (!element) return;
+
+          // A single function to render a static frame (for resizes and step changes)
+          const renderStaticFrame = async () => {
+            if (!ref.current) return;
+            try {
+              // Pass a frame of 1 to indicate a final/static state
+              await renderer({
+                ...context,
+                frame: 1,
+                height: ref.current.clientHeight,
+                width: ref.current.clientWidth,
+                hooks: preactHooks,
+                parent: ref.current,
+                preact,
+                styled,
+                __mainContext: context,
+              });
+            } catch (error) {
+              if (debug) console.error("Static render failed:", error);
+            }
+          };
+
+          // --- Resize Handling ---
+          const observer = new ResizeObserver(() => {
+            renderStaticFrame();
+          });
+          observer.observe(element);
+
+          // --- Animation Loop ---
+          let start = Date.now();
+          const renderAnimation = async () => {
+            // Stop the loop if the component unmounts or if animate is turned off
+            if (!ref.current || !animate) return;
+
+            const frame = Math.min((Date.now() - start) / speed, 1);
+            if (frame === 1) {
+              start = Date.now();
+            }
+
+            try {
+              await renderer({
+                ...context,
+                frame,
+                height: ref.current.clientHeight,
+                width: ref.current.clientWidth,
+                hooks: preactHooks,
+                parent: ref.current,
+                preact,
+                styled,
+                __mainContext: context,
+              });
+            } catch (error) {
+              if (debug) console.error("Animation render failed:", error);
+            }
+
+            animationFrameId.current = requestAnimationFrame(renderAnimation);
+          };
+
+          // --- Initial Action ---
+          if (animate) {
+            // If animate is on, start the animation loop
+            renderAnimation();
+          } else {
+            // Otherwise, just render a single static frame for the current step
+            renderStaticFrame();
+          }
+
+          // --- Cleanup ---
+          return () => {
+            observer.disconnect();
+            cancelAnimationFrame(animationFrameId.current);
+          };
+        }, [ref.current, context.step, context.renderer]);
+
+        return h`<div className=${props.className} ref=${ref} />`;
+      })`
+        align-items: center;
+        box-sizing: border-box;
+        display: flex;
+        height: 100%;
+        left: 0;
+        justify-content: center;
+        position: absolute;
+        top: 0;
+        width: 100%;
+      `;
+
+      const Processing = styled((props) => {
+        const { processing } = useContext(Context);
+        const text = processing === true ? "Processing..." : processing;
+        return h`<div className=${props.className}>${text}</div>`;
+      })`
+        bottom: 0;
+        color: #fff;
+        font-size: 12px;
+        left: 0;
+        line-height: 24px;
+        position: absolute;
+        text-align: center;
+        width: 100%;
+      `;
+
+      const Viewer = styled((props) => {
+        const { processing } = useContext(Context);
+        return h`<div className=${props.className}>
+          <${Renderer} />
+          ${processing && h`<${Processing} />`}
+        </div>`;
+      })`
+        background-color: #1c1d20;
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+      `;
+
+      // Partitions the elements of arr into subarrays of max length num.
+      const groupIntoSets = (arr, num) => {
+        const sets = [];
+        arr.forEach((a) => {
+          if (sets.length === 0 || sets[sets.length - 1].length === num) {
+            sets.push([]);
+          }
+          sets[sets.length - 1].push(a);
+        });
+        return sets;
+      };
+
+      // Expects `width` input prop to set proper max-width for agent name span.
+      const Legend = styled((props) => {
+        const { agents, legend } = useContext(Context);
+
+        const agentPairs = groupIntoSets(
+          agents.sort((a, b) => a.index - b.index),
+          2,
+        );
+
+        return h`<div className=${props.className}>
+          ${agentPairs.map(
+            (agentList) =>
+              h`<ul>
+                ${agentList.map(
+                  (a) =>
+                    h`<li key=${a.id} title="id: ${a.id}" style="color:${a.color || "#FFF"}">
+                      ${a.image && h`<img src=${a.image} />`}
+                      <span>${a.name}</span>
+                    </li>`,
+                )}
+              </ul>`,
+          )}
+        </div>`;
+      })`
+        background-color: #1c1d20;
+        font-family: sans-serif;
+        font-size: 14px;
+        height: 48px;
+        width: 100%;
+
+        ul {
+          align-items: center;
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+        }
+
+        li {
+          align-items: center;
+          display: inline-flex;
+          transition: color 1s;
+        }
+
+        span {
+          max-width: ${(p) => (p.width || 400) * 0.5 - 36}px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        img {
+          height: 24px;
+          margin-left: 4px;
+          margin-right: 4px;
+          width: 24px;
+        }
+      `;
+
+      const StepInput = styled.input.attrs({
+        type: "range",
+      })`
+        appearance: none;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 2px;
+        display: block;
+        flex: 1;
+        height: 4px;
+        opacity: 0.8;
+        outline: none;
+        transition: opacity 0.2s;
+        width: 100%;
+
+        &:hover {
+          opacity: 1;
+        }
+
+        &::-webkit-slider-thumb {
+          appearance: none;
+          background: #1ebeff;
+          border-radius: 100%;
+          cursor: pointer;
+          height: 12px;
+          margin: 0;
+          position: relative;
+          width: 12px;
+
+          &::after {
+            content: "";
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 200px;
+            height: 8px;
+            background: green;
+          }
+        }
+      `;
+
+      const PlayButton = styled.button`
+        align-items: center;
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        flex: 0 0 56px;
+        font-size: 20px;
+        height: 40px;
+        justify-content: center;
+        opacity: 0.8;
+        outline: none;
+        transition: opacity 0.2s;
+
+        &:hover {
+          opacity: 1;
+        }
+      `;
+
+      const StepCount = styled.span`
+        align-items: center;
+        color: white;
+        display: flex;
+        font-size: 14px;
+        justify-content: center;
+        opacity: 0.8;
+        padding: 0 16px;
+        pointer-events: none;
+      `;
+
+      const Controls = styled((props) => {
+        const { environment, pause, play, playing, setStep, step } =
+          useContext(Context);
+        const value = step + 1;
+        const onClick = () => (playing ? pause() : play());
+        const onInput = (e) => {
+          pause();
+          setStep(parseInt(e.target.value) - 1);
+        };
+
+        return h`
+          <div className=${props.className}>
+            <${PlayButton} onClick=${onClick}><svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="#FFFFFF">${
+              playing
+                ? h`<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/><path d="M0 0h24v24H0z" fill="none"/>`
+                : h`<path d="M8 5v14l11-7z"/><path d="M0 0h24v24H0z" fill="none"/>`
+            }</svg><//>
+            <${StepInput} min="1" max=${environment.steps.length} value="${value}" onInput=${onInput} />
+            <${StepCount}>${value} / ${environment.steps.length}<//>
+          </div>
+        `;
+      })`
+        align-items: center;
+        border-top: 4px solid #212121;
+        display: flex;
+        flex: 0 0 44px;
+        width: 100%;
+      `;
+
+      const Info = styled((props) => {
+        const {
+          environment,
+          playing,
+          step,
+          speed,
+          animate,
+          header,
+          controls,
+          settings,
+        } = useContext(Context);
+
+        return h`
+          <div className=${props.className}>
+            info:
+            step(${step}),
+            playing(${playing ? "T" : "F"}),
+            speed(${speed}),
+            animate(${animate ? "T" : "F"})
+          </div>`;
+      })`
+        color: #888;
+        font-family: monospace;
+        font-size: 12px;
+      `;
+
+      const Settings = styled((props) => {
+        const { environment, pause, play, playing, setStep, step } =
+          useContext(Context);
+
+        return h`
+          <div className=${props.className}>
+            <${Info} />
+          </div>
+        `;
+      })`
+        background: #fff;
+        border-top: 4px solid #212121;
+        box-sizing: border-box;
+        padding: 20px;
+        width: 100%;
+
+        h1 {
+          font-size: 20px;
+        }
+      `;
+
+      const Player = styled((props) => {
+        const context = useContext(Context);
+        const { agents, controls, header, legend, loading, settings, width } =
+          context;
+        return h`
+          <div className=${props.className}>
+            ${loading && h`<${Loading} />`}
+            ${!loading && header && h`<${Header} />`}
+            ${!loading && h`<${Viewer} />`}
+            ${!loading && legend && agents?.length > 0 && h`<${Legend} width=${width}/>`}
+            ${!loading && controls && h`<${Controls} />`}
+            ${!loading && settings && h`<${Settings} />`}
+          </div>`;
+      })`
+        align-items: center;
+        background: #212121;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        justify-content: center;
+        position: relative;
+        width: 100%;
+        &:not(.no-border) {
+          border: 4px solid #212121;
+        }
+      `;
+
+      const App = () => {
+        const renderCountRef = useRef(0);
+        const [_, setRenderCount] = useState(0);
+
+        // These are bindings to the 0-9 keys and are milliseconds of timeout per step
+        const speeds = [
+          0,
+          3000,
+          1000,
+          500,
+          333, // Default
+          200,
+          100,
+          50,
+          25,
+          10,
+        ];
+
+        const contextRef = useRef({
+          animate: false,
+          agents: [],
+          controls: false,
+          debug: false,
+          environment: { steps: [], info: {} },
+          header: window.innerHeight >= 600,
+          height: window.innerHeight,
+          interactive: false,
+          legend: true,
+          loading: false,
+          playing: false,
+          processing: false,
+          renderer: () => "DNE",
+          settings: false,
+          speed: speeds[4],
+          step: 0,
+          width: window.innerWidth,
+        });
+
+        // Context helpers.
+        const rerender = (contextRef.current.rerender = () =>
+          setRenderCount((renderCountRef.current += 1)));
+        const setStep = (contextRef.current.setStep = (newStep) => {
+          contextRef.current.step = newStep;
+          rerender();
+        });
+        const setPlaying = (contextRef.current.setPlaying = (playing) => {
+          contextRef.current.playing = playing;
+          rerender();
+        });
+        const pause = (contextRef.current.pause = () => setPlaying(false));
+
+        const playNext = () => {
+          const context = contextRef.current;
+
+          if (
+            context.playing &&
+            context.step < context.environment.steps.length - 1
+          ) {
+            setStep(context.step + 1);
+            play(true);
+          } else {
+            pause();
+          }
+        };
+
+        const play = (contextRef.current.play = (continuing) => {
+          const context = contextRef.current;
+          if (context.playing && !continuing) return;
+          if (!context.playing) setPlaying(true);
+          if (
+            !continuing &&
+            context.step === context.environment.steps.length - 1
+          ) {
+            setStep(0);
+          }
+          setTimeout(playNext, context.speed);
+        });
+
+        // Use useState to hold the functions that components will use.
+        // We initialize them with the original functions.
+        const [playFn, setPlayFn] = useState(() => contextRef.current.play);
+        const [pauseFn, setPauseFn] = useState(() => contextRef.current.pause);
+        const [stepFn, setStepFn] = useState(() => contextRef.current.setStep);
+        const [playingFn, setPlayingFn] = useState(() => contextRef.current.setPlaying);
+
+        const updateContext = (o) => {
+          const context = contextRef.current;
+          Object.assign(context, o, {
+            environment: { ...context.environment, ...(o.environment || {}) },
+          });
+          rerender();
+        };
+
+        contextRef.current.setPlay = setPlayFn;
+        contextRef.current.setPause = setPauseFn;
+        contextRef.current.setSetStep = setStepFn;
+        contextRef.current.setSetPlaying = setPlayingFn;
+
+        // First time setup.
+        useEffect(() => {
+          // Timeout is used to ensure useEffect renders once.
+          setTimeout(() => {
+            // Initialize context with window.kaggle.
+            updateContext(window.kaggle || {});
+
+            if (window.kaggle?.playing) {
+              play(true);
+            }
+
+            // Listen for messages received to update the context.
+            window.addEventListener(
+              "message",
+              (event) => {
+                // Ensure the environment names match before updating.
+                try {
+                  if (
+                    event.data.environment?.name ==
+                      contextRef.current.environment.name ||
+                    (event.data.environment?.name &&
+                      !contextRef.current.environment.name) ||
+                    event.data.environment?.loading !==
+                      contextRef.current.environment.loading
+                  ) {
+                    const nextContext = {
+                      ...event.data,
+                      environment: {
+                        ...event.data.environment,
+                        steps: event.data.environment?.steps ?? [],
+                      },
+                    };
+                    if (
+                      !nextContext.renderer ||
+                      typeof nextContext.renderer !== "function"
+                    ) {
+                      nextContext.renderer = contextRef.current.renderer;
+                    }
+                    window.kaggle = nextContext;
+                    updateContext(nextContext);
+                  }
+                  if (event.data.setSteps) {
+                    const nextContext = {
+                      ...(window.kaggle ?? {}),
+                      environment: {
+                        ...(window.kaggle?.environment ?? {}),
+                        steps: event.data.setSteps,
+                      },
+                    };
+                    if (
+                      !nextContext.renderer ||
+                      typeof nextContext.renderer !== "function"
+                    ) {
+                      nextContext.renderer = contextRef.current.renderer;
+                    }
+
+                    window.kaggle = nextContext;
+                    updateContext(nextContext);
+                  }
+
+                  // Side load the renderer script if it is specified by the post message event and not already loaded.
+                  const renderScriptId = "rendererScript";
+                  if (
+                    event.data.environment?.rendererUrl &&
+                    !document.querySelector(`#${renderScriptId}`)
+                  ) {
+                    window.rendererUrl = event.data.environment?.rendererUrl;
+                    const script = document.createElement("script");
+                    script.id = renderScriptId;
+                    script.onload = () => {
+                      window.kaggle.renderer = window.renderer;
+                    };
+                    script.src = window.rendererUrl;
+                    document.body.appendChild(script);
+                  }
+                } catch {}
+              },
+              false,
+            );
+            // Listen for keyboard commands.
+            window.addEventListener(
+              "keydown",
+              (event) => {
+                const {
+                  interactive,
+                  isInteractive,
+                  playing,
+                  step,
+                  environment,
+                } = contextRef.current;
+                const key = event.keyCode;
+                const zero_key = 48;
+                const nine_key = 57;
+                if (
+                  interactive ||
+                  isInteractive() ||
+                  (key !== 32 &&
+                    key !== 37 &&
+                    key !== 39 &&
+                    !(key >= zero_key && key <= nine_key))
+                )
+                  return;
+
+                if (key === 32) {
+                  playing ? pause() : play();
+                } else if (key === 39) {
+                  contextRef.current.playing = false;
+                  if (step < environment.steps.length - 1) setStep(step + 1);
+                  rerender();
+                } else if (key === 37) {
+                  contextRef.current.playing = false;
+                  if (step > 0) setStep(step - 1);
+                  rerender();
+                } else if (key >= zero_key && key <= nine_key) {
+                  contextRef.current.speed = speeds[key - zero_key];
+                }
+                event.preventDefault();
+                return false;
+              },
+              false,
+            );
+          }, 1);
+        }, []);
+
+        if (contextRef.current.debug) {
+          console.log("context", contextRef.current);
+        }
+
+        // Ability to update context.
+        contextRef.current.update = updateContext;
+
+        // Ability to communicate with ipython.
+        const execute = (contextRef.current.execute = (source) =>
+          new Promise((resolve, reject) => {
+            try {
+              window.parent.IPython.notebook.kernel.execute(source, {
+                iopub: {
+                  output: (resp) => {
+                    const type = resp.msg_type;
+                    if (type === "stream") return resolve(resp.content.text);
+                    if (type === "error") return reject(new Error(resp.evalue));
+                    return reject(new Error("Unknown message type: " + type));
+                  },
+                },
+              });
+            } catch (e) {
+              reject(new Error("IPython Unavailable: " + e));
+            }
+          }));
+
+        // Ability to return an action from an interactive session.
+        contextRef.current.act = (action) => {
+          const id = contextRef.current.environment.id;
+          updateContext({ processing: true });
+          execute(`
+            import json
+            from kaggle_environments import interactives
+            if "${id}" in interactives:
+                action = json.loads('${JSON.stringify(action)}')
+                env, trainer = interactives["${id}"]
+                trainer.step(action)
+                print(json.dumps(env.steps))`)
+            .then((resp) => {
+              try {
+                updateContext({
+                  processing: false,
+                  environment: { steps: JSON.parse(resp) },
+                });
+                play();
+              } catch (e) {
+                updateContext({ processing: resp.split("\n")[0] });
+                console.error(resp, e);
+              }
+            })
+            .catch((e) => console.error(e));
+        };
+
+        // Check if currently interactive.
+        contextRef.current.isInteractive = () => {
+          const context = contextRef.current;
+          const steps = context.environment.steps;
+          return (
+            context.interactive &&
+            !context.processing &&
+            context.step === steps.length - 1 &&
+            steps[context.step].some((s) => s.status === "ACTIVE")
+          );
+        };
+
+        // Create a new value object on every render.
+        // This object includes the *current* play/pause functions from useState.
+        const providerValue = { ...contextRef.current, play: playFn, pause: pauseFn, setStep: stepFn, setPlaying: playingFn };
+
+        return h`
+          <${Context.Provider} value=${providerValue}>
+            <${Player} className="${contextRef.current.environment.viewer ? "no-border" : ""}" />
+          <//>`;
+      };
+
+      preact.render(h`<${App} />`, document.body);
+    </script>
+  </body>
+</html>

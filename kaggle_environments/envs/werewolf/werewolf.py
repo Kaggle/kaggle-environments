@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from kaggle_environments.envs.werewolf.game.consts import DetailedPhase, EnvInfoKeys, PerceivedThreatLevel
+
 from .game.actions import (
     Action,
     BidAction,
@@ -55,6 +56,7 @@ class CostSummary(BaseModel):
 
 
 _PERCEIVED_THREAT_LEVELS = [item.value for item in PerceivedThreatLevel]
+
 
 def random_agent(obs):
     raw_obs = get_raw_observation(obs)

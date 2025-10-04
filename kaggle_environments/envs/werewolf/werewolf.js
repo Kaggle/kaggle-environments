@@ -198,6 +198,8 @@ function renderer(context) {
     window.werewolfThreeJs = {
       initialized: false,
       demo: null,
+      players3DInitialized: false,  // Add flag to track 3D player initialization
+      deathAnimationCompleted: new Map()  // Add persistent Map to track death animations
     };
   }
   const threeState = window.werewolfThreeJs;
@@ -506,6 +508,10 @@ function renderer(context) {
                 this._width = options.width;
                 this._height = options.height;
 
+                // Initialize FBXLoader and SkeletonUtils
+                this._fbxLoader = new FBXLoader();
+                this._skeletonUtils = SkeletonUtils;
+
                 // WebGL Renderer with enhanced settings
                 this._threejs = new THREE.WebGLRenderer({
                   antialias: true,
@@ -519,7 +525,7 @@ function renderer(context) {
                 this._threejs.setSize(this._width, this._height);
                 this._threejs.outputEncoding = THREE.sRGBEncoding;
                 this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
-                this._threejs.toneMappingExposure = 1.2;
+                this._threejs.toneMappingExposure = 0.8; // Brighter for village atmosphere
                 this._threejs.domElement.style.position = 'absolute';
                 this._threejs.domElement.style.top = '0';
                 this._threejs.domElement.style.left = '0';
@@ -544,7 +550,7 @@ function renderer(context) {
                 this._camera.position.set(0, 0, 50);
 
                 this._scene = new THREE.Scene();
-                this._scene.fog = new THREE.FogExp2(0x2a2a4a, 0.01); // Start with day fog color
+                this._scene.fog = new THREE.FogExp2(0x4a5a6a, 0.008); // Medium blue-grey fog for village atmosphere
 
                 this._createSkybox(THREE);
                 this._createAdvancedLighting(THREE);
@@ -858,13 +864,13 @@ function renderer(context) {
               }
 
               _createAdvancedLighting(THREE) {
-                // Enhanced ambient lighting with color variation
-                const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
+                // Warm ambient lighting for village atmosphere
+                const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.35); // Warm brownish ambient
                 ambientLight.name = 'ambientLight';
                 this._scene.add(ambientLight);
 
-                // Main directional light (moon/sun)
-                const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+                // Main directional light (sun/moon) - warmer tones
+                const mainLight = new THREE.DirectionalLight(0xffffdd, 0.6); // Warm sunlight
                 mainLight.position.set(30, 50, 20);
                 mainLight.castShadow = true;
                 mainLight.shadow.mapSize.width = 2048;
@@ -879,17 +885,17 @@ function renderer(context) {
                 mainLight.shadow.normalBias = 0.02;
                 this._scene.add(mainLight);
 
-                // Rim light for dramatic effect
-                const rimLight = new THREE.DirectionalLight(0x8080ff, 0.8);
+                // Rim light for depth - warm orange glow
+                const rimLight = new THREE.DirectionalLight(0xaa6633, 0.3); // Warm orange rim
                 rimLight.position.set(-20, 10, -30);
                 this._scene.add(rimLight);
 
-                // Atmospheric hemisphere light
-                const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x1e1e3f, 0.6);
+                // Atmospheric hemisphere light - village sky
+                const hemiLight = new THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.4); // Blue sky, brown ground
                 this._scene.add(hemiLight);
 
-                // Ground fill light
-                const fillLight = new THREE.DirectionalLight(0x404080, 0.3);
+                // Ground fill light - warm village glow
+                const fillLight = new THREE.DirectionalLight(0x5a4a3a, 0.25); // Warm fill
                 fillLight.position.set(0, -1, 0);
                 this._scene.add(fillLight);
 
@@ -899,8 +905,8 @@ function renderer(context) {
                 this._hemiLight = hemiLight;
                 this._fillLight = fillLight;
 
-                // Create a spotlight for night actions
-                const spotLight = new THREE.SpotLight(0xffffff, 5.0, 50, Math.PI / 4, 0.5, 2);
+                // Create a spotlight for night actions - warm torchlight
+                const spotLight = new THREE.SpotLight(0xffaa66, 0.8, 50, Math.PI / 3, 0.8, 2);
                 spotLight.position.set(0, 25, 0);
                 spotLight.castShadow = true;
                 spotLight.visible = false;
@@ -967,8 +973,8 @@ function renderer(context) {
               }
 
               _createParticleSystem(THREE) {
-                // Create floating mystical particles
-                const particleCount = 150;
+                // Create floating mystical particles - more for misty effect
+                const particleCount = 300; // Increased for denser atmosphere
                 const particles = new THREE.BufferGeometry();
                 const positions = new Float32Array(particleCount * 3);
                 const colors = new Float32Array(particleCount * 3);
@@ -982,14 +988,14 @@ function renderer(context) {
                   positions[i3 + 1] = Math.random() * 30 + 5;
                   positions[i3 + 2] = (Math.random() - 0.5) * 80;
                   
-                  // Mystical colors (blues, purples, greens)
-                  const hue = Math.random() * 0.3 + 0.5; // 0.5-0.8 range
-                  const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
+                  // Mystical colors (blues, purples, greys) - more muted
+                  const hue = Math.random() * 0.2 + 0.55; // 0.55-0.75 range (blue-purple)
+                  const color = new THREE.Color().setHSL(hue, 0.3, 0.4); // Less saturated, darker
                   colors[i3] = color.r;
                   colors[i3 + 1] = color.g;
                   colors[i3 + 2] = color.b;
                   
-                  sizes[i] = Math.random() * 2 + 0.5;
+                  sizes[i] = Math.random() * 1.5 + 0.3; // Smaller particles
                 }
                 
                 particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1023,7 +1029,7 @@ function renderer(context) {
                       float alpha = 1.0 - (dist * 2.0);
                       alpha *= alpha; // Softer edges
                       
-                      gl_FragColor = vec4(vColor, alpha * 0.6);
+                      gl_FragColor = vec4(vColor, alpha * 0.3); // More subtle particles for mist
                     }
                   `,
                   transparent: true,
@@ -1044,19 +1050,19 @@ function renderer(context) {
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects - balanced for day
+                // Bloom pass for glowing effects - balanced for quality
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.15,  // strength - moderate for day
-                  0.333,   // radius - good coverage for day
-                  0.4    // threshold - balanced to allow some bloom
+                  0.4,   // strength - moderate glow for polish
+                  0.6,   // radius - balanced bloom
+                  0.5    // threshold - selective blooming
                 );
                 this._composer.addPass(bloomPass);
 
-                // Film grain for atmosphere
+                // Film grain for atmosphere - subtle for quality
                 const filmPass = new FilmPass(
-                  0.15,  // noise intensity
-                  0.1,   // scanline intensity
+                  0.15,  // noise intensity - subtle grain for texture
+                  0.1,   // scanline intensity - minimal lines
                   0,     // scanline count
                   false  // grayscale
                 );
@@ -1087,18 +1093,18 @@ function renderer(context) {
                       
                       // Add subtle color grading based on phase
                       if (phase > 0.5) {
-                        // Night - add blue tint and increase contrast
-                        color.rgb = mix(color.rgb, color.rgb * vec3(0.8, 0.9, 1.2), 0.3);
-                        color.rgb = pow(color.rgb, vec3(1.1));
+                        // Night - gentle blue tint for moonlight
+                        color.rgb = mix(color.rgb, color.rgb * vec3(0.85, 0.9, 1.15), 0.3);
+                        color.rgb = pow(color.rgb, vec3(1.05));
                       } else {
-                        // Day - add warm tint
-                        color.rgb = mix(color.rgb, color.rgb * vec3(1.1, 1.05, 0.95), 0.2);
+                        // Day - slight warmth enhancement
+                        color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.0, 0.95), 0.2);
                       }
                       
-                      // Add subtle vignette
+                      // Add subtle vignette for depth
                       vec2 center = vec2(0.5, 0.5);
                       float dist = distance(vUv, center);
-                      float vignette = 1.0 - smoothstep(0.3, 0.8, dist);
+                      float vignette = 1.0 - smoothstep(0.4, 1.0, dist);
                       color.rgb *= mix(0.7, 1.0, vignette);
                       
                       gl_FragColor = color;
@@ -1119,48 +1125,46 @@ function renderer(context) {
                 this._playerGroup = new THREE.Group();
                 this._playerGroup.name = 'playerGroup';
 
-                // Create enhanced ground circle with better materials
+                // Load the island model instead of creating a simple ground
                 const radius = 15;
-                const groundGeometry = new THREE.CircleGeometry(radius + 5, 64);
-                const groundMaterial = new THREE.MeshStandardMaterial({
-                    color: 0x1a1a2a,
-                    roughness: 0.9,
-                    metalness: 0.1,
-                    normalScale: new THREE.Vector2(0.5, 0.5),
-                    transparent: true,
-                    opacity: 0.95
-                });
                 
-                // Add a subtle normal map pattern
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-                const imageData = ctx.createImageData(512, 512);
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    const noise = Math.random() * 0.1 + 0.5;
-                    imageData.data[i] = Math.floor(noise * 255);     // R
-                    imageData.data[i + 1] = Math.floor(noise * 255); // G
-                    imageData.data[i + 2] = 255;                     // B
-                    imageData.data[i + 3] = 255;                     // A
-                }
-                ctx.putImageData(imageData, 0, 0);
-                groundMaterial.normalMap = new THREE.CanvasTexture(canvas);
-                
-                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-                ground.rotation.x = -Math.PI / 2;
-                ground.position.y = -0.1;
-                ground.receiveShadow = true;
-                this._scene.add(ground);
+                // Load island FBX model with textures
+                this._loadIslandModel(THREE, FBXLoader);
 
-                // Add mystical circle patterns
-                this._createMysticalCircles(THREE, radius);
+                // Keep mystical circle patterns but adjust position if needed
+                // this._createMysticalCircles(THREE, radius);
 
                 this._scene.add(this._playerGroup);
 
                 // Store references for later use
                 this._THREE = THREE;
                 this._CSS2DObject = CSS2DObject;
+                
+                // Cache Map objects
+                this._modelCache = new Map();
+                this._animationCache = new Map();
+                
+                // Role mapping object
+                this._roleToDirectory = {
+                  'Werewolf': 'werewolf',
+                  'Doctor': 'doctor',
+                  'Seer': 'seer',
+                  'Villager': 'villager',
+                  'Unknown': 'villager'
+                };
+                
+                // Animation names array
+                this._animationNames = ['Idle', 'Talking', 'Pointing', 'Victory', 'Defeated', 'Dying'];
+                
+                // Animation file variants mapping
+                this._animationFileVariants = {
+                  'Idle': ['Idle.fbx', 'Standing Idle.fbx', 'Neutral Idle.fbx'],
+                  'Talking': ['Talking.fbx'],
+                  'Pointing': ['Pointing.fbx'],
+                  'Victory': ['Victory.fbx'],
+                  'Defeated': ['Defeated.fbx'],
+                  'Dying': ['Dying.fbx']
+                };
                 
                 // Create particle system for atmosphere
                 this._createParticleSystem(THREE);
@@ -1174,6 +1178,194 @@ function renderer(context) {
                 this._controls.maxDistance = 80;
                 this._controls.maxPolarAngle = Math.PI * 0.75;
                 this._controls.update();
+              }
+
+              _loadIslandModel(THREE, FBXLoader) {
+                const textureLoader = new THREE.TextureLoader();
+                
+                // Load all textures
+                const baseTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture.png');
+                const normalTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_normal.png');
+                const metallicTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_metallic.png');
+                const roughnessTexture = textureLoader.load('/experiment/static/werewolf/island/_0930062431_texture_roughness.png');
+                
+                // Configure textures
+                [baseTexture, normalTexture, metallicTexture, roughnessTexture].forEach(texture => {
+                  texture.encoding = THREE.sRGBEncoding;
+                  texture.flipY = true;
+                });
+                
+                // Load the FBX model
+                const fbxLoader = new FBXLoader();
+                fbxLoader.load(
+                  '/experiment/static/werewolf/island/_0930062431_texture.fbx',
+                  (fbx) => {
+                    // Scale and position the island
+                    fbx.scale.setScalar(0.02); // Much larger scale for visibility
+                    fbx.position.y = -19.8; // Position at ground level
+                    fbx.rotation.y = Math.PI / 8; // Slight rotation for better view
+                    
+                    // Apply textures to all meshes in the model
+                    fbx.traverse((child) => {
+                      if (child.isMesh) {
+                        // Create PBR material with all textures
+                        const material = new THREE.MeshStandardMaterial({
+                          map: baseTexture,
+                          normalMap: normalTexture,
+                          normalScale: new THREE.Vector2(0.5, 0.5), // Reduced normal intensity
+                          metalnessMap: metallicTexture,
+                          roughnessMap: roughnessTexture,
+                          metalness: 0.1, // Much less metallic to reduce brightness
+                          roughness: 0.95, // More rough to scatter light
+                          envMapIntensity: 0.2, // Reduced environment reflection
+                          color: new THREE.Color(0.75, 0.75, 0.75), // Darken the base color
+                          side: THREE.DoubleSide // Render both sides
+                        });
+                        
+                        child.material = material;
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                      }
+                    });
+                    
+                    // Add to scene
+                    this._scene.add(fbx);
+                    
+                    // Store reference if needed
+                    this._islandModel = fbx;
+                    
+                    console.log('Island model loaded successfully');
+                  },
+                  (progress) => {
+                    console.log('Loading island model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                  },
+                  (error) => {
+                    console.error('Error loading island model:', error);
+                    
+                    // Fallback to simple ground if island fails to load
+                    const groundGeometry = new THREE.CircleGeometry(20, 64);
+                    const groundMaterial = new THREE.MeshStandardMaterial({
+                      color: 0x1a1a2a,
+                      roughness: 0.9,
+                      metalness: 0.1,
+                      transparent: true,
+                      opacity: 0.95
+                    });
+                    
+                    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                    ground.rotation.x = -Math.PI / 2;
+                    ground.position.y = -0.1;
+                    ground.receiveShadow = true;
+                    this._scene.add(ground);
+                  }
+                );
+              }
+
+              loadCharacterModel(role) {
+                // Normalize the role using _roleToDirectory, defaulting to 'villager'
+                const normalizedRole = this._roleToDirectory[role] || this._roleToDirectory['Villager'] || 'villager';
+                
+                // Check if model is already cached
+                if (this._modelCache.has(normalizedRole)) {
+                  return this._modelCache.get(normalizedRole);
+                }
+                
+                // Create a new promise for loading the merged FBX file
+                const modelPromise = new Promise((resolve, reject) => {
+                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/merged/${normalizedRole}_master.fbx`;
+                  
+                  this._fbxLoader.load(
+                    modelPath,
+                    (fbx) => {
+                      // On success: apply uniform scaling
+                      fbx.scale.setScalar(0.05); // 3.5x larger than original 0.01
+                      
+                      // Correct the orientation - rotate 90 degrees to face forward
+                    //   fbx.rotation.y = -Math.PI / 2;
+                      
+                      // Extract and store animations from the merged FBX
+                      const animations = {};
+                      if (fbx.animations && fbx.animations.length > 0) {
+                        fbx.animations.forEach((clip) => {
+                          // Skip animations that start with "Armature|" as they are duplicates
+                          if (clip.name.startsWith('Armature|')) {
+                            console.debug(`Skipping duplicate animation: ${clip.name}`);
+                            return;
+                          }
+                          
+                          // Map animation names based on common patterns
+                          let animName = clip.name;
+                          
+                          // Try to match known animation names
+                          if (animName.toLowerCase().includes('idle') || animName.toLowerCase().includes('standing')) {
+                            animations['Idle'] = clip;
+                            clip.name = 'Idle';
+                          } else if (animName.toLowerCase().includes('talk')) {
+                            animations['Talking'] = clip;
+                            clip.name = 'Talking';
+                          } else if (animName.toLowerCase().includes('point')) {
+                            animations['Pointing'] = clip;
+                            clip.name = 'Pointing';
+                          } else if (animName.toLowerCase().includes('victory') || animName.toLowerCase().includes('win')) {
+                            animations['Victory'] = clip;
+                            clip.name = 'Victory';
+                          } else if (animName.toLowerCase().includes('defeat') || animName.toLowerCase().includes('lose')) {
+                            animations['Defeated'] = clip;
+                            clip.name = 'Defeated';
+                          } else if (animName.toLowerCase().includes('dying') || animName.toLowerCase().includes('death')) {
+                            animations['Dying'] = clip;
+                            clip.name = 'Dying';
+                          } else {
+                            // Store with original name as fallback
+                            animations[animName] = clip;
+                          }
+                        });
+                      }
+                      
+                      // Store animations in cache for this role
+                      this._animationCache.set(normalizedRole, Promise.resolve(animations));
+                      
+                      // Store the original model in cache, cloning will happen per-player
+                      resolve(fbx);
+                    },
+                    (progress) => {
+                      // Progress callback (optional)
+                      console.debug(`Loading merged model for ${normalizedRole}: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+                    },
+                    (error) => {
+                      // On error: reject with descriptive message
+                      reject(new Error(`Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`));
+                    }
+                  );
+                });
+                
+                // Store this promise in cache immediately to dedupe concurrent calls
+                this._modelCache.set(normalizedRole, modelPromise);
+                
+                // Return the promise
+                return modelPromise;
+              }
+
+              loadCharacterAnimations(role) {
+                // Normalize the role using _roleToDirectory, defaulting to 'villager'
+                const normalizedRole = this._roleToDirectory[role] || this._roleToDirectory['Villager'] || 'villager';
+                
+                // Check if animations are already cached (they should be from loadCharacterModel)
+                if (this._animationCache.has(normalizedRole)) {
+                  return this._animationCache.get(normalizedRole);
+                }
+                
+                // If not cached, it means the model hasn't been loaded yet
+                // Return an empty promise that will be resolved when the model loads
+                console.warn(`Animations for ${normalizedRole} not yet loaded. They will be extracted from the merged FBX.`);
+                return Promise.resolve({});
+              }
+
+              // This method is no longer needed since animations are extracted from the merged FBX
+              // Keeping it as a stub for compatibility
+              _loadAnimationWithFallbacks(role, animationName) {
+                console.debug(`_loadAnimationWithFallbacks called for ${role}/${animationName} - this should not happen with merged FBX files`);
+                return Promise.resolve(null);
               }
 
               focusOnPlayer(playerName, leftPanelWidth = 0, rightPanelWidth = 0) {
@@ -1280,7 +1472,7 @@ function renderer(context) {
               updatePlayerActive(playerName) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
-                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                const { orb, orbLight, glow, pedestal, container } = player;
                 
                 orb.material.emissiveIntensity = 1.;
                 orbLight.intensity = 1.;
@@ -1294,28 +1486,24 @@ function renderer(context) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
-                const { orb, orbLight, body, head, shoulders, glow, pedestal, container } = player;
+                const { orb, orbLight, model, glow, pedestal, container, mixer, animations, currentAction } = player;
 
-                orb.material.color.setHex(0x00ff00);
-                orb.material.emissive.setHex(0x00ff00);
-                orb.material.emissiveIntensity = 0.8;
-                orb.material.opacity = 0.9;
+                // Reset to default state - more muted
+                orb.material.color.setHex(0x00aa88);
+                orb.material.emissive.setHex(0x00aa88);
+                orb.material.emissiveIntensity = 0.4;
+                orb.material.opacity = 0.7;
                 orb.visible = true;
-                orbLight.color.setHex(0x00ff00);
-                orbLight.intensity = 0.8;
+                orbLight.color.setHex(0x00aa88);
+                orbLight.intensity = 0.4;
                 orbLight.visible = true;
-                body.material.color.setHex(0x4466ff);
-                body.material.emissive.setHex(0x111166);
-                body.material.emissiveIntensity = 0.2;
-                shoulders.material.color.setHex(0x4466ff);
-                shoulders.material.emissive.setHex(0x111166);
-                shoulders.material.emissiveIntensity = 0.2;
-                head.material.color.setHex(0xfdbcb4);
-                head.material.emissive.setHex(0x442211);
-                head.material.emissiveIntensity = 0.1;
-                glow.material.color.setHex(0x00ff00);
-                glow.material.emissive.setHex(0x00ff00);
-                glow.material.emissiveIntensity = 0.3;
+                
+                // For FBX models, we don't change material colors directly
+                // Instead, we rely on animations and visual effects
+                
+                glow.material.color.setHex(0x00aa88);
+                glow.material.emissive.setHex(0x00aa88);
+                glow.material.emissiveIntensity = 0.15;
                 glow.visible = true;
                 pedestal.material.emissive.setHex(0x111122);
                 pedestal.material.emissiveIntensity = 0.1;
@@ -1328,114 +1516,190 @@ function renderer(context) {
                 }
                 player.isAlive = true;
                 
+                // Handle animations based on status
                 switch(status) {
                     case 'dead':
                         orb.visible = false;
                         orbLight.visible = false;
                         glow.visible = false;
-                        body.material.color.setHex(0x444444);
-                        body.material.emissive.setHex(0x000000);
-                        shoulders.material.color.setHex(0x444444);
-                        shoulders.material.emissive.setHex(0x000000);
-                        head.material.color.setHex(0x666666);
-                        head.material.emissive.setHex(0x000000);
-                        pedestal.material.emissive.setHex(0x000000);
-                        // Sink into ground
-                        container.position.y = -1.5;
-                        // Tilt slightly
+                        pedestal.material.emissive.setHex(0x050505); // Very dark grey instead of pure black
+                        // Don't sink into ground - keep on island surface
+                        // container.position.y = -1.5; // Removed for island
+                        // Tilt slightly to show they're dead
                         container.rotation.x = 0.2;
                         // Fade out nameplate
                         if (player.nameplate && player.nameplate.element) {
                             player.nameplate.element.style.transition = 'opacity 2s ease-out';
-                            player.nameplate.element.style.opacity = '0.2';
+                            player.nameplate.element.style.opacity = '0.7'; // Increased from 0.2 for better visibility
                         }
                         player.isAlive = false;
+                        
+                        // Check if death animation has already been played
+                        const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                        if (deathMap && !deathMap.has(playerName)) {
+                            console.log(`[DEATH TRIGGER] Triggering death animation for ${playerName} from updatePlayerStatus`);
+                            // Play death animation using centralized method
+                            this.playAnimation(playerName, 'Dying');
+                        } else if (deathMap && deathMap.has(playerName)) {
+                            console.log(`[DEATH SKIP] Death animation already completed for ${playerName}, skipping`);
+                        }
                         break;
                     case 'werewolf':
-                        body.material.color.setHex(0x880000);
-                        body.material.emissive.setHex(0x440000);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x880000);
-                        shoulders.material.emissive.setHex(0x440000);
-                        shoulders.material.emissiveIntensity = 0.3;
-                        glow.material.color.setHex(0xff0000);
-                        glow.material.emissive.setHex(0xff0000);
-                        glow.material.emissiveIntensity = 0.4;
+                        glow.material.color.setHex(0xaa4444); // Muted red
+                        glow.material.emissive.setHex(0xaa4444);
+                        glow.material.emissiveIntensity = 0.2;
                         glow.visible = true;
                         pedestal.material.emissive.setHex(0x440000);
                         pedestal.material.emissiveIntensity = 0.2;
                         break;
                     case 'doctor':
-                        body.material.color.setHex(0x008800);
-                        body.material.emissive.setHex(0x004400);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x008800);
-                        shoulders.material.emissive.setHex(0x004400);
-                        shoulders.material.emissiveIntensity = 0.3;
-                        glow.material.color.setHex(0x00ff00);
-                        glow.material.emissive.setHex(0x00ff00);
-                        glow.material.emissiveIntensity = 0.4;
+                        glow.material.color.setHex(0x44aa44); // Muted green
+                        glow.material.emissive.setHex(0x44aa44);
+                        glow.material.emissiveIntensity = 0.2;
                         glow.visible = true;
-                        pedestal.material.emissive.setHex(0x004400);
-                        pedestal.material.emissiveIntensity = 0.2;
+                        pedestal.material.emissive.setHex(0x002200);
+                        pedestal.material.emissiveIntensity = 0.1;
                         break;
                     case 'seer':
-                        body.material.color.setHex(0x4B0082);
-                        body.material.emissive.setHex(0x3A005A);
-                        body.material.emissiveIntensity = 0.3;
-                        shoulders.material.color.setHex(0x4B0082);
-                        shoulders.material.emissive.setHex(0x3A005A);
-                        shoulders.material.emissiveIntensity = 0.3;
-                        glow.material.color.setHex(0x9932CC);
-                        glow.material.emissive.setHex(0x9932CC);
-                        glow.material.emissiveIntensity = 0.4;
+                        glow.material.color.setHex(0x6644aa); // Muted purple
+                        glow.material.emissive.setHex(0x6644aa);
+                        glow.material.emissiveIntensity = 0.2;
                         glow.visible = true;
-                        pedestal.material.emissive.setHex(0x3A005A);
-                        pedestal.material.emissiveIntensity = 0.2;
+                        pedestal.material.emissive.setHex(0x1A002A);
+                        pedestal.material.emissiveIntensity = 0.1;
                         break;
                     default:
-                        // This is now covered by the reset block at the top of the function.
+                        // Keep default state
                         break;
                 }
 
+                // Update threat level indicators - more muted colors
                 if (threatLevel >= 1.0) { // DANGER
-                    orb.material.color.setHex(0xff0000); // Red
-                    orb.material.emissive.setHex(0xff0000);
-                    orb.material.emissiveIntensity = 1.0;
-                    orb.material.opacity = 0.9;
-                    orbLight.color.setHex(0xff0000);
-                    orbLight.intensity = 1.2;
-                    glow.material.color.setHex(0xff0000);
-                    glow.material.emissive.setHex(0xff0000);
-                    glow.material.emissiveIntensity = 0.3;
+                    orb.material.color.setHex(0xaa4444); // Muted red
+                    orb.material.emissive.setHex(0xaa4444);
+                    orb.material.emissiveIntensity = 0.6;
+                    orb.material.opacity = 0.8;
+                    orbLight.color.setHex(0xaa4444);
+                    orbLight.intensity = 0.6;
+                    glow.material.color.setHex(0xaa4444);
+                    glow.material.emissive.setHex(0xaa4444);
+                    glow.material.emissiveIntensity = 0.2;
                 } else if (threatLevel >= 0.5) { // UNEASY
-                    orb.material.color.setHex(0xffff00); // Yellow
-                    orb.material.emissive.setHex(0xffff00);
-                    orb.material.emissiveIntensity = 1.0;
-                    orb.material.opacity = 0.9;
-                    orbLight.color.setHex(0xffff00);
-                    orbLight.intensity = 1.2;
-                    glow.material.color.setHex(0xffff00);
-                    glow.material.emissive.setHex(0xffff00);
-                    glow.material.emissiveIntensity = 0.3;
+                    orb.material.color.setHex(0xaaaa44); // Muted yellow
+                    orb.material.emissive.setHex(0xaaaa44);
+                    orb.material.emissiveIntensity = 0.5;
+                    orb.material.opacity = 0.75;
+                    orbLight.color.setHex(0xaaaa44);
+                    orbLight.intensity = 0.5;
+                    glow.material.color.setHex(0xaaaa44);
+                    glow.material.emissive.setHex(0xaaaa44);
+                    glow.material.emissiveIntensity = 0.18;
                 } else { // SAFE
-                    // orb.material.color.setHex(0x00ff00); // Green
-                    orb.material.color.setHex(0x00ff00);
-                    orb.material.emissive.setHex(0x00ff00);
-                    orb.material.emissiveIntensity = 1.0;
-                    orb.material.opacity = 0.9;
-                    orbLight.color.setHex(0x00ff00);
-                    orbLight.intensity = 1.2;
-                    glow.material.color.setHex(0x00ff00);
-                    glow.material.emissive.setHex(0x00ff00);
-                    glow.material.emissiveIntensity = 0.3;
+                    orb.material.color.setHex(0x44aa88); // Muted teal-green
+                    orb.material.emissive.setHex(0x44aa88);
+                    orb.material.emissiveIntensity = 0.4;
+                    orb.material.opacity = 0.7;
+                    orbLight.color.setHex(0x44aa88);
+                    orbLight.intensity = 0.4;
+                    glow.material.color.setHex(0x44aa88);
+                    glow.material.emissive.setHex(0x44aa88);
+                    glow.material.emissiveIntensity = 0.15;
                 }
+                
+                // Ensure alive players without animation are in Idle
+                if (player.isAlive && mixer && animations && animations['Idle'] && !currentAction) {
+                    this.playAnimation(playerName, 'Idle');
+                }
+              }
+
+              playAnimation(playerName, animationName, options = {}) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return null;
+                
+                // CRITICAL: Check death animation completion FIRST, before any other checks
+                const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                if (deathMap && deathMap.has(playerName)) {
+                    // Player has already completed death animation, block ALL animations
+                    console.log(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
+                    return null;
+                }
+                
+                // Check if player is dead and animation is not death-related
+                if (!player.isAlive &&
+                    !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
+                    console.log(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
+                    return null;
+                }
+                
+                const animations = player.animations;
+                if (!animations || !animations[animationName]) return null;
+                
+                const mixer = player.mixer;
+                if (!mixer) return null;
+                
+                // If this is a death animation, immediately mark it as completed
+                if (animationName === 'Dying' || animationName === 'Defeated') {
+                    if (deathMap) {
+                        console.log(`[DEATH START] Starting death animation '${animationName}' for ${playerName} - marking as completed`);
+                        deathMap.set(playerName, true);
+                    }
+                }
+                
+                // Fade out current action if exists
+                if (player.currentAction) {
+                    player.currentAction.fadeOut(options.fadeOutDuration || 0.2);
+                }
+                
+                // Create new action
+                const action = mixer.clipAction(animations[animationName]);
+                action.reset();
+                
+                // Auto-determine loop mode based on animation type
+                if (['Idle', 'Talking', 'Pointing'].includes(animationName)) {
+                    action.setLoop(this._THREE.LoopRepeat);
+                    action.clampWhenFinished = false;
+                } else if (['Victory', 'Defeated', 'Dying'].includes(animationName)) {
+                    action.setLoop(this._THREE.LoopOnce);
+                    action.clampWhenFinished = true;
+                    console.log(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
+                }
+                
+                // Apply any custom options
+                if (options.loop !== undefined) {
+                    action.setLoop(options.loop);
+                }
+                if (options.clampWhenFinished !== undefined) {
+                    action.clampWhenFinished = options.clampWhenFinished;
+                }
+                
+                // Play with fade-in
+                action.fadeIn(options.fadeInDuration || 0.2);
+                action.play();
+                
+                // Update player's current action
+                player.currentAction = action;
+                
+                return action;
               }
 
               triggerSpeakingAnimation(playerName) {
                 const player = this._playerObjects.get(playerName);
                 if (!player || !player.isAlive) return;
 
+                // Use centralized animation method
+                this.playAnimation(playerName, 'Talking', {
+                    fadeInDuration: 0.2,
+                    fadeOutDuration: 0.2
+                });
+                
+                // Schedule return to idle
+                setTimeout(() => {
+                    this.playAnimation(playerName, 'Idle', {
+                        fadeInDuration: 0.2
+                    });
+                }, 1800);
+
+                // Also add visual sound wave effect
                 const wave = this._createSoundWave(this._THREE);
                 player.container.add(wave);
 
@@ -1445,6 +1709,38 @@ function renderer(context) {
                     startTime: performance.now(),
                     duration: 1800, // Animation duration in milliseconds
                 });
+              }
+
+              triggerPointingAnimation(playerName, duration = 1200) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.isAlive) return;
+                
+                // Play pointing animation
+                this.playAnimation(playerName, 'Pointing', {
+                    fadeInDuration: 0.2,
+                    fadeOutDuration: 0.2
+                });
+                
+                // Return to idle after duration
+                setTimeout(() => {
+                    this.playAnimation(playerName, 'Idle', {
+                        fadeInDuration: 0.2
+                    });
+                }, duration);
+              }
+
+              triggerVictoryAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return;
+                
+                this.playAnimation(playerName, 'Victory');
+              }
+
+              triggerDefeatedAnimation(playerName) {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.model) return;
+                
+                this.playAnimation(playerName, 'Defeated');
               }
 
               _createSoundWave(THREE) {
@@ -1636,15 +1932,15 @@ function renderer(context) {
                 
                 // Update renderer tone mapping for day/night mood
                 if (this._threejs) {
-                    this._threejs.toneMappingExposure = 1.2 - phaseValue * 0.5; // Darker at night
+                    this._threejs.toneMappingExposure = 0.8 - phaseValue * 0.2; // Brighter overall, slightly dimmer at night
                 }
                 
-                // Smoothly interpolate lighting
+                // Smoothly interpolate lighting - moody but visible
                 if (this._mainLight) {
-                    const nightColor = new THREE.Color(0x6666cc); // More blue at night
-                    const dayColor = new THREE.Color(0xffffcc);
+                    const nightColor = new THREE.Color(0x6666aa); // Soft blue moonlight
+                    const dayColor = new THREE.Color(0xffffdd); // Warm sunlight
                     this._mainLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    this._mainLight.intensity = 1.8 - phaseValue * 1.0; // Much dimmer at night
+                    this._mainLight.intensity = 0.6 - phaseValue * 0.15; // Slightly dimmer at night
                     
                     // Animate light position for sun/moon movement
                     const angle = phaseValue * Math.PI * 0.3;
@@ -1656,38 +1952,38 @@ function renderer(context) {
                 }
                 
                 if (this._rimLight) {
-                    const nightColor = new THREE.Color(0x6666ff);
-                    const dayColor = new THREE.Color(0xffcc99);
+                    const nightColor = new THREE.Color(0x664422); // Warm torchlight glow
+                    const dayColor = new THREE.Color(0xaa6633); // Warm orange
                     this._rimLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    this._rimLight.intensity = 0.6 + phaseValue * 0.4;
+                    this._rimLight.intensity = 0.3 - phaseValue * 0.1; // Visible rim light
                 }
                 
                 if (this._hemiLight) {
-                    const nightSkyColor = new THREE.Color(0x4a4a6a);
-                    const daySkyColor = new THREE.Color(0x87ceeb);
-                    const nightGroundColor = new THREE.Color(0x1e1e3f);
-                    const dayGroundColor = new THREE.Color(0x8b7355);
+                    const nightSkyColor = new THREE.Color(0x2a2a4a); // Dark blue night sky
+                    const daySkyColor = new THREE.Color(0x6a7a9a); // Blue day sky
+                    const nightGroundColor = new THREE.Color(0x2a1a0a); // Dark brown ground
+                    const dayGroundColor = new THREE.Color(0x3a2a1a); // Brown ground
                     
                     this._hemiLight.color.copy(daySkyColor).lerp(nightSkyColor, phaseValue);
                     this._hemiLight.groundColor.copy(dayGroundColor).lerp(nightGroundColor, phaseValue);
-                    this._hemiLight.intensity = 0.8 - phaseValue * 0.4;
+                    this._hemiLight.intensity = 0.4 - phaseValue * 0.1; // Visible hemisphere light
                 }
                 
                 // Update ambient light
                 const ambientLight = this._scene.getObjectByName('ambientLight');
                 if (ambientLight) {
-                    const nightColor = new THREE.Color(0x404080);
-                    const dayColor = new THREE.Color(0x606090);
+                    const nightColor = new THREE.Color(0x3a3a5a); // Warm night ambient
+                    const dayColor = new THREE.Color(0x4a4a3a); // Warm day ambient
                     ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    ambientLight.intensity = 0.4 + phaseValue * 0.1;
+                    ambientLight.intensity = 0.35 + phaseValue * 0.15; // Brighter ambient
                 }
                 
-                // Smoothly transition fog - more dramatic change
+                // Smoothly transition fog - very atmospheric and mysterious
                 if (this._scene.fog) {
-                    const nightFogColor = new THREE.Color(0x050515); // Very dark blue at night
-                    const dayFogColor = new THREE.Color(0x2a2a4a); // Lighter blue during day
+                    const nightFogColor = new THREE.Color(0x1a1a2a); // Dark grey-blue at night
+                    const dayFogColor = new THREE.Color(0x4a5a6a); // Medium blue-grey during day
                     this._scene.fog.color.copy(dayFogColor).lerp(nightFogColor, phaseValue);
-                    this._scene.fog.density = 0.01 + phaseValue * 0.015; // Denser fog at night
+                    this._scene.fog.density = 0.0175 + phaseValue * 0.004; // Very subtle fog
                 }
                 
                 // Update skybox
@@ -1722,11 +2018,11 @@ function renderer(context) {
                     this._particles.geometry.attributes.color.needsUpdate = true;
                 }
                 
-                // Update bloom intensity based on phase - moderate during day, more at night
+                // Update bloom intensity based on phase - dramatic for mystery
                 if (this._bloomPass) {
-                    this._bloomPass.strength = 0.35 + phaseValue * 0.35; // Moderate bloom during day (0.35), stronger at night (0.7)
-                    this._bloomPass.radius = 0.6 + phaseValue * 0.3; // Good radius during day (0.6), wider at night (0.9)
-                    this._bloomPass.threshold = 0.4 - phaseValue * 0.15; // Balanced threshold
+                    this._bloomPass.strength = 0.3 + phaseValue * 0.4; // Much stronger bloom at night
+                    this._bloomPass.radius = 1.0 + phaseValue * 0.3; // Very wide bloom at night
+                    this._bloomPass.threshold = 0.3 - phaseValue * 0.2; // Much lower threshold at night
                 }
               }
 
@@ -1815,6 +2111,11 @@ function renderer(context) {
               }
 
               _RAF() {
+                // Initialize animation clock if not exists
+                if (!this._animationClock) {
+                    this._animationClock = new this._THREE.Clock();
+                }
+                
                 requestAnimationFrame((time) => {
                   // Animate phase transition with visual feedback
                   if (this._phaseTransition) {
@@ -1909,7 +2210,15 @@ function renderer(context) {
                   
                   // Animate player objects with enhanced effects
                   if (this._playerObjects) {
+                    // Get proper delta time from clock
+                    const delta = this._animationClock ? this._animationClock.getDelta() : 0.016;
+                    
                     this._playerObjects.forEach((player, name) => {
+                      // Update animation mixers with proper delta
+                      if (player.mixer) {
+                        player.mixer.update(delta);
+                      }
+                      
                       if (player.isAlive) {
                         // Enhanced floating animation for alive players
                         const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.2;
@@ -1917,9 +2226,11 @@ function renderer(context) {
                         player.container.position.y = floatOffset + bobOffset;
                         
                         // More dynamic orb rotation
-                        player.orb.rotation.y = time * 0.003;
-                        player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
-                        player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
+                        if (player.orb) {
+                          player.orb.rotation.y = time * 0.003;
+                          player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
+                          player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
+                        }
                         
                         // Enhanced glow animation
                         if (player.glow && player.glow.visible) {
@@ -1936,20 +2247,6 @@ function renderer(context) {
                         if (player.container.scale.x > 1.0) {
                           const pulseScale = 1.05 + Math.sin(time * 0.008) * 0.08;
                           player.container.scale.setScalar(pulseScale);
-                        }
-                        
-                        // Enhanced breathing effect
-                        if (player.body) {
-                          const breathScale = 1 + Math.sin(time * 0.002 + player.baseAngle) * 0.03;
-                          player.body.scale.y = breathScale;
-                          if (player.shoulders) {
-                            player.shoulders.scale.y = 0.6 * breathScale;
-                          }
-                        }
-                        
-                        // Subtle head movement
-                        if (player.head) {
-                          player.head.rotation.y = Math.sin(time * 0.001 + player.baseAngle) * 0.1;
                         }
                       } else {
                         // Dead players have reduced animation
@@ -2114,6 +2411,32 @@ function renderer(context) {
             // If the action was speaking, trigger the sound wave animation
             if (lastEvent.type === 'chat' && threeState.demo.triggerSpeakingAnimation) {
                 threeState.demo.triggerSpeakingAnimation(actorName);
+            }
+            
+            // Trigger pointing animation for vote-related events
+            if ((lastEvent.type === 'vote' || lastEvent.type === 'night_vote') && threeState.demo.triggerPointingAnimation) {
+                threeState.demo.triggerPointingAnimation(actorName);
+            }
+        }
+        
+        // Handle game_over event animations
+        if (lastEvent.type === 'game_over') {
+            // Trigger victory animation for winners
+            if (lastEvent.winners && threeState.demo.triggerVictoryAnimation) {
+                lastEvent.winners.forEach(winnerName => {
+                    if (playerMap.has(winnerName)) {
+                        threeState.demo.triggerVictoryAnimation(winnerName);
+                    }
+                });
+            }
+            
+            // Trigger defeated animation for losers
+            if (lastEvent.losers && threeState.demo.triggerDefeatedAnimation) {
+                lastEvent.losers.forEach(loserName => {
+                    if (playerMap.has(loserName)) {
+                        threeState.demo.triggerDefeatedAnimation(loserName);
+                    }
+                });
             }
         }
     }
@@ -2512,7 +2835,7 @@ function renderer(context) {
         }
         
         .player-card.dead {
-            opacity: 0.5;
+            opacity: 0.85; /* Increased from 0.5 for better visibility */
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
             filter: brightness(0.7);
         }
@@ -4150,14 +4473,32 @@ function renderer(context) {
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, nameToHighlight);
     
-    // Initialize 3D players if needed
-    if (threeState.demo && threeState.demo._playerObjects && threeState.demo._playerObjects.size === 0 && playerNamesFor3D.length > 0) {
-        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState);
+    // Initialize 3D players if needed - check the flag to prevent duplicate initialization
+    if (threeState.demo && threeState.demo._playerObjects && !threeState.players3DInitialized && playerNamesFor3D.length > 0) {
+        console.log('Starting 3D player initialization...');
+        threeState.players3DInitialized = true;  // Set flag immediately to prevent duplicate calls
+        initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState).then(() => {
+            console.log('3D players initialized with FBX models');
+            // Update scene after models are loaded
+            updateSceneFromGameState(gameState, playerMap, nameToHighlight);
+        }).catch(error => {
+            console.error('Failed to initialize 3D players:', error);
+            // Reset flag on error to allow retry
+            threeState.players3DInitialized = false;
+        });
     }
 }
 
-function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
+async function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
+    
+    console.log(`initializePlayers3D called with ${playerNames.length} players`);
+    
+    // Double-check the flag to ensure we're not already initialized
+    if (threeState.players3DInitialized && threeState.demo._playerObjects.size > 0) {
+        console.warn('3D players already initialized, skipping duplicate initialization');
+        return;
+    }
     
     // Clear existing player objects
     if (threeState.demo._playerGroup) {
@@ -4175,35 +4516,8 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
     const THREE = threeState.demo._THREE;
     const CSS2DObject = threeState.demo._CSS2DObject;
     
-    // Create a circular platform
-    const platformGeometry = new THREE.RingGeometry(radius - 2, radius + 3, 64);
-    const platformMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2a2a3a,
-        roughness: 0.9,
-        metalness: 0.1,
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
-    });
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.rotation.x = -Math.PI / 2;
-    platform.position.y = -0.05;
-    platform.receiveShadow = true;
-    threeState.demo._playerGroup.add(platform);
-    
-    // Create center decoration
-    const centerGeometry = new THREE.CylinderGeometry(3, 3, 0.2, 32);
-    const centerMaterial = new THREE.MeshStandardMaterial({
-        color: 0x444466,
-        roughness: 0.7,
-        metalness: 0.3,
-        emissive: 0x222244,
-        emissiveIntensity: 0.2
-    });
-    const centerPlatform = new THREE.Mesh(centerGeometry, centerMaterial);
-    centerPlatform.position.y = 0.1;
-    centerPlatform.receiveShadow = true;
-    threeState.demo._playerGroup.add(centerPlatform);
+    // Skip creating platform geometry since we're using the island model
+    // The island model loaded in _LoadModels provides the ground
     
     // Add decorative lines from center to each player position
     const linesMaterial = new THREE.LineBasicMaterial({
@@ -4212,7 +4526,25 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         opacity: 0.3
     });
     
-    playerNames.forEach((name, i) => {
+    // Load all models (which now include animations) concurrently
+    const playerLoadPromises = playerNames.map(async (name, i) => {
+        const role = gameState.players[i].role || 'Villager';
+        try {
+            // Load the merged FBX model (animations are extracted automatically)
+            const fbxModel = await threeState.demo.loadCharacterModel(role);
+            // Get the animations that were extracted during model loading
+            const animations = await threeState.demo.loadCharacterAnimations(role);
+            return { name, i, role, fbxModel, animations, success: true };
+        } catch (error) {
+            console.error(`Failed to load merged model for ${name}:`, error);
+            return { name, i, role, fbxModel: null, animations: null, success: false };
+        }
+    });
+    
+    const loadedPlayers = await Promise.all(playerLoadPromises);
+    
+    // Create player objects with loaded models
+    loadedPlayers.forEach(({ name, i, role, fbxModel, animations, success }) => {
         const displayName = gameState.players[i].display_name || '';
         const playerContainer = new THREE.Group();
         // Use full circle (360 degrees)
@@ -4233,11 +4565,11 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         // Create pedestal for each player
         const pedestalGeometry = new THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
         const pedestalMaterial = new THREE.MeshStandardMaterial({
-            color: 0x333344,
-            roughness: 0.8,
-            metalness: 0.2,
-            emissive: 0x111122,
-            emissiveIntensity: 0.1
+            color: 0x1a1a2a, // Darker base color
+            roughness: 0.9, // More matte
+            metalness: 0.1, // Less metallic
+            emissive: 0x0a0a15, // Very subtle glow
+            emissiveIntensity: 0.1 // Minimal emission
         });
         const pedestal = new THREE.Mesh(pedestalGeometry, pedestalMaterial);
         pedestal.position.y = 0.2;
@@ -4245,116 +4577,147 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         pedestal.receiveShadow = true;
         playerContainer.add(pedestal);
         
-        // Create player body (more detailed)
-        const bodyGeometry = new THREE.CylinderGeometry(0.8, 1, playerHeight * 0.6, 16);
-        const bodyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4466ff,
-            roughness: 0.5,
-            metalness: 0.3,
-            emissive: 0x111166,
-            emissiveIntensity: 0.2
-        });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = playerHeight * 0.4;
-        body.castShadow = true;
-        body.receiveShadow = true;
-        playerContainer.add(body);
+        let model = null;
+        let mixer = null;
+        let currentAction = null;
+        let modelHeight = playerHeight;
         
-        // Create shoulders
-        const shoulderGeometry = new THREE.SphereGeometry(1, 16, 8);
-        const shoulderMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4466ff,
-            roughness: 0.5,
-            metalness: 0.3,
-            emissive: 0x111166,
-            emissiveIntensity: 0.2
-        });
-        const shoulders = new THREE.Mesh(shoulderGeometry, shoulderMaterial);
-        shoulders.position.y = playerHeight * 0.65;
-        shoulders.scale.set(1.2, 0.6, 0.8);
-        shoulders.castShadow = true;
-        playerContainer.add(shoulders);
+        if (success && fbxModel) {
+            // Clone the FBX model to ensure each player gets their own instance
+            model = threeState.demo._skeletonUtils.clone(fbxModel);
+            model.position.y = 0.5; // Slightly higher to account for larger model
+            
+            // Enable shadows for all meshes in the model
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    
+                    // Modify existing materials to be matte (don't replace to preserve skinning)
+                    if (child.material) {
+                        // Handle both single material and array of materials
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach(mat => {
+                            if (mat) {
+                                // Modify the existing material to be completely matte
+                                mat.roughness = 1.0;  // Maximum roughness = no shine
+                                mat.metalness = 0.0;  // No metallic properties
+                                mat.envMapIntensity = 0;  // No environment reflections
+                                // mat.emissiveIntensity = 0.5
+                                
+                                // Remove maps that might add shine
+                                mat.roughnessMap = null;
+                                mat.metalnessMap = null;
+                                mat.envMap = null;
+                                
+                                // Brighten the color to compensate for matte surface
+                                if (mat.color) {
+                                    mat.color.multiplyScalar(1.5);
+                                }
+                                
+                                // Ensure proper settings
+                                mat.transparent = false;
+                                mat.opacity = 1.0;
+                                mat.alphaTest = 0;
+                                mat.needsUpdate = true;
+                            }
+                        });
+                    }
+                }
+            });
+            
+            playerContainer.add(model);
+            
+            // Create AnimationMixer
+            mixer = new THREE.AnimationMixer(model);
+            
+            // Play Idle animation if available
+            if (animations && animations['Idle']) {
+                currentAction = mixer.clipAction(animations['Idle']);
+                currentAction.play();
+            }
+            
+            // Calculate model height using bounding box
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            modelHeight = size.y;
+        } else {
+            // Create geometric fallback (colored cube)
+            console.warn(`Using geometric fallback for ${name} (role: ${role})`);
+            
+            const fallbackGeometry = new THREE.BoxGeometry(1.5, 3, 1.5);
+            const fallbackColor = role === 'Werewolf' ? 0x880000 :
+                                 role === 'Doctor' ? 0x008800 :
+                                 role === 'Seer' ? 0x4B0082 : 0x4466ff;
+            const fallbackMaterial = new THREE.MeshStandardMaterial({
+                color: fallbackColor,
+                roughness: 0.5,
+                metalness: 0.3,
+                emissive: fallbackColor,
+                emissiveIntensity: 0.2
+            });
+            const fallback = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+            fallback.position.y = 2;
+            fallback.castShadow = true;
+            fallback.receiveShadow = true;
+            playerContainer.add(fallback);
+            
+            model = fallback;
+            modelHeight = 3;
+        }
         
-        // Create player head (sphere)
-        const headGeometry = new THREE.SphereGeometry(0.7, 16, 16);
-        const headMaterial = new THREE.MeshStandardMaterial({
-            color: 0xfdbcb4,
-            roughness: 0.7,
-            metalness: 0.1,
-            emissive: 0x442211,
-            emissiveIntensity: 0.1
-        });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = playerHeight * 0.85;
-        head.castShadow = true;
-        head.receiveShadow = true;
-        playerContainer.add(head);
-        
-        // Create eyes
-        const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 6);
-        const eyeMaterial = new THREE.MeshStandardMaterial({
-            color: 0x000000,
-            roughness: 0.3,
-            metalness: 0.8
-        });
-        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.2, playerHeight * 0.87, 0.6);
-        playerContainer.add(leftEye);
-        
-        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.2, playerHeight * 0.87, 0.6);
-        playerContainer.add(rightEye);
-        
-        // Create glowing orb for status (more dramatic)
-        const orbGeometry = new THREE.IcosahedronGeometry(0.3, 2);
+        // Create glowing orb for status (positioned above character's head)
+        const orbGeometry = new THREE.IcosahedronGeometry(0.25, 2); // Smaller orb
         const orbMaterial = new THREE.MeshStandardMaterial({
-            color: 0x00ff00,
-            emissive: 0x00ff00,
-            emissiveIntensity: 0.8,
+            color: 0x00aa88, // More muted green-blue
+            emissive: 0x00aa88,
+            emissiveIntensity: 0.4, // Less bright
             transparent: true,
-            opacity: 0.9
+            opacity: 0.7 // More translucent
         });
         const orb = new THREE.Mesh(orbGeometry, orbMaterial);
-        orb.position.y = playerHeight * 1.2;
+        orb.position.y = modelHeight + 0.8; // Position above model
         orb.name = 'statusOrb';
         playerContainer.add(orb);
         
-        // Add outer glow sphere
-        const glowGeometry = new THREE.SphereGeometry(0.5, 12, 8);
+        // Add outer glow sphere - more subtle
+        const glowGeometry = new THREE.SphereGeometry(0.4, 12, 8); // Smaller glow
         const glowMaterial = new THREE.MeshStandardMaterial({
-            color: 0x00ff00,
-            emissive: 0x00ff00,
-            emissiveIntensity: 0.3,
+            color: 0x00aa88, // Muted color
+            emissive: 0x00aa88,
+            emissiveIntensity: 0.15, // Very subtle glow
             transparent: true,
-            opacity: 0.3
+            opacity: 0.2 // More transparent
         });
         const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.y = playerHeight * 1.2;
+        glow.position.y = modelHeight + 0.8; // Position above model
         playerContainer.add(glow);
         
-        // Add point light for glow effect
-        const orbLight = new THREE.PointLight(0x00ff00, 0.8, 8);
-        orbLight.position.y = playerHeight * 1.2;
+        // Add point light for glow effect - dimmer
+        const orbLight = new THREE.PointLight(0x00aa88, 0.4, 6); // Less intense, smaller radius
+        orbLight.position.y = modelHeight + 0.8; // Position above model
         orbLight.name = 'orbLight';
         orbLight.castShadow = true;
         playerContainer.add(orbLight);
         
         // Make player face center without flipping
         // Calculate the angle to face the center
-        playerContainer.rotation.y = -angle + Math.PI / 2;
+        // Update rotation to use negative values so players face toward the origin
+        playerContainer.rotation.y = Math.atan2(x, z) + (Math.PI / 2);
         
-        // Create nameplate with actual player thumbnail
+        // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, playerHeight * 2.0, 0);
+        nameplate.position.set(0, modelHeight + 2.0, 0); // Position above orb
         playerContainer.add(nameplate);
         
-        // Store references
+        // Store references with new structure
         threeState.demo._playerObjects.set(name, {
             container: playerContainer,
-            body: body,
-            head: head,
-            shoulders: shoulders,
+            model: model,
+            mixer: mixer,
+            animations: animations,
+            currentAction: currentAction,
             orb: orb,
             glow: glow,
             orbLight: orbLight,
@@ -4375,3 +4738,5 @@ function initializePlayers3D(gameState, playerNames, playerThumbnails, threeStat
         threeState.demo._controls.update();
     }
 }
+
+
