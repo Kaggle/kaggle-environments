@@ -280,7 +280,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                         overview_text = ", ".join([f"{k}: {v}" for k, v in self.bidding.bids.items()])
                         state.push_event(
                             description=f"Player {self._speaker} won the bid and will speak next.\n"
-                                        f"Bid overview - {overview_text}.",
+                            f"Bid overview - {overview_text}.",
                             event_name=EventName.BID_RESULT,
                             public=self._bid_result_public,
                             data=data,
