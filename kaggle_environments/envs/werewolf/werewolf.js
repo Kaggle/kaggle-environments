@@ -199,6 +199,7 @@ function renderer(context) {
       initialized: false,
       demo: null,
       players3DInitialized: false,  // Add flag to track 3D player initialization
+      deathAnimationCompleted: new Map()  // Add persistent Map to track death animations
     };
   }
   const threeState = window.werewolfThreeJs;
@@ -1233,6 +1234,12 @@ function renderer(context) {
                       const animations = {};
                       if (fbx.animations && fbx.animations.length > 0) {
                         fbx.animations.forEach((clip) => {
+                          // Skip animations that start with "Armature|" as they are duplicates
+                          if (clip.name.startsWith('Armature|')) {
+                            console.debug(`Skipping duplicate animation: ${clip.name}`);
+                            return;
+                          }
+                          
                           // Map animation names based on common patterns
                           let animName = clip.name;
                           
@@ -1474,8 +1481,15 @@ function renderer(context) {
                         }
                         player.isAlive = false;
                         
-                        // Play death animation using centralized method
-                        this.playAnimation(playerName, 'Dying');
+                        // Check if death animation has already been played
+                        const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                        if (deathMap && !deathMap.has(playerName)) {
+                            console.log(`[DEATH TRIGGER] Triggering death animation for ${playerName} from updatePlayerStatus`);
+                            // Play death animation using centralized method
+                            this.playAnimation(playerName, 'Dying');
+                        } else if (deathMap && deathMap.has(playerName)) {
+                            console.log(`[DEATH SKIP] Death animation already completed for ${playerName}, skipping`);
+                        }
                         break;
                     case 'werewolf':
                         glow.material.color.setHex(0xff0000);
@@ -1549,9 +1563,18 @@ function renderer(context) {
                 const player = this._playerObjects.get(playerName);
                 if (!player || !player.model) return null;
                 
+                // CRITICAL: Check death animation completion FIRST, before any other checks
+                const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                if (deathMap && deathMap.has(playerName)) {
+                    // Player has already completed death animation, block ALL animations
+                    console.log(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
+                    return null;
+                }
+                
                 // Check if player is dead and animation is not death-related
                 if (!player.isAlive &&
                     !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
+                    console.log(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
                     return null;
                 }
                 
@@ -1560,6 +1583,14 @@ function renderer(context) {
                 
                 const mixer = player.mixer;
                 if (!mixer) return null;
+                
+                // If this is a death animation, immediately mark it as completed
+                if (animationName === 'Dying' || animationName === 'Defeated') {
+                    if (deathMap) {
+                        console.log(`[DEATH START] Starting death animation '${animationName}' for ${playerName} - marking as completed`);
+                        deathMap.set(playerName, true);
+                    }
+                }
                 
                 // Fade out current action if exists
                 if (player.currentAction) {
@@ -1577,6 +1608,7 @@ function renderer(context) {
                 } else if (['Victory', 'Defeated', 'Dying'].includes(animationName)) {
                     action.setLoop(this._THREE.LoopOnce);
                     action.clampWhenFinished = true;
+                    console.log(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
                 }
                 
                 // Apply any custom options
