@@ -1282,7 +1282,7 @@ function renderer(context) {
                       fbx.scale.setScalar(0.05); // 3.5x larger than original 0.01
                       
                       // Correct the orientation - rotate 90 degrees to face forward
-                      fbx.rotation.y = -Math.PI / 2;
+                    //   fbx.rotation.y = -Math.PI / 2;
                       
                       // Extract and store animations from the merged FBX
                       const animations = {};
@@ -4704,12 +4704,12 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         // Make player face center without flipping
         // Calculate the angle to face the center
         // Update rotation to use negative values so players face toward the origin
-        playerContainer.rotation.y = Math.atan2(-x, -z);
+        playerContainer.rotation.y = Math.atan2(x, z) + (Math.PI / 2);
         
         // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, modelHeight + 1.5, 0); // Position above orb
+        nameplate.position.set(0, modelHeight + 2.0, 0); // Position above orb
         playerContainer.add(nameplate);
         
         // Store references with new structure
