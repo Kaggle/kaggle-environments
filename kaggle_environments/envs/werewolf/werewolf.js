@@ -526,7 +526,7 @@ function renderer(context) {
                 this._threejs.setSize(this._width, this._height);
                 this._threejs.outputEncoding = THREE.sRGBEncoding;
                 this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
-                this._threejs.toneMappingExposure = 0.5; // Set to visible default value
+                this._threejs.toneMappingExposure = 1.05; // Set to visible default value
                 
                 console.log('[SKY DEBUG] Renderer settings:', {
                   toneMapping: 'ACESFilmicToneMapping',
@@ -607,10 +607,10 @@ function renderer(context) {
                 const skyUniforms = this._sky.material.uniforms;
                 
                 // Set initial daytime settings for visibility
-                skyUniforms['turbidity'].value = 10;    // Default visible value
-                skyUniforms['rayleigh'].value = 2;      // Default visible value
-                skyUniforms['mieCoefficient'].value = 0.005;  // Default visible value
-                skyUniforms['mieDirectionalG'].value = 0.8;   // Default visible value
+                skyUniforms['turbidity'].value = 4.7;    // Default visible value
+                skyUniforms['rayleigh'].value = 0.2;      // Default visible value
+                skyUniforms['mieCoefficient'].value = 0.001;  // Default visible value
+                skyUniforms['mieDirectionalG'].value = 0.9;   // Default visible value
                 
                 console.log('[SKY DEBUG] Initial sky shader uniforms:');
                 console.log('  - turbidity:', skyUniforms['turbidity'].value);
@@ -619,7 +619,7 @@ function renderer(context) {
                 console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
                 
                 // Create sun/moon light with default intensity
-                this._sunLight = new THREE.DirectionalLight(0xffffff, 1.0);  // Default visible intensity
+                this._sunLight = new THREE.DirectionalLight(0xffffff, 0.9);  // Default visible intensity
                 this._sunLight.castShadow = true;
                 this._sunLight.shadow.mapSize.width = 2048;
                 this._sunLight.shadow.mapSize.height = 2048;
@@ -635,7 +635,7 @@ function renderer(context) {
                 this._scene.add(this._sunLight.target);
                 
                 // Create moon light with increased intensity for better nighttime visibility
-                this._moonLight = new THREE.DirectionalLight(0x6688cc, 1.0);  // Increased from 0.3 to 1.0
+                this._moonLight = new THREE.DirectionalLight(0x6688cc, 2.0);  // Moon intensity
                 this._moonLight.castShadow = true;
                 this._moonLight.shadow.mapSize.width = 1024;
                 this._moonLight.shadow.mapSize.height = 1024;
@@ -1011,7 +1011,7 @@ function renderer(context) {
                 this._moonLight.position.set(moonX, moonY, moonZ);
                 this._moonLight.target.position.set(0, 0, 0);
                 this._moonLight.visible = moonElevation > 0;
-                this._moonLight.intensity = moonElevation > 0 ? 1.0 : 0;  // Increased from 0.4 to 1.0 for better nighttime visibility
+                this._moonLight.intensity = moonElevation > 0 ? 2.0 : 0;  // Increased from 0.4 to 1.0 for better nighttime visibility
                 
                 // Update sky parameters based on time of day
                 const skyUniforms = this._sky.material.uniforms;
@@ -1030,11 +1030,17 @@ function renderer(context) {
                         skyUniforms['mieDirectionalG'].value = 0.7 + (1.0 - 0.7) * transitionFactor;
                         console.log('[SKY DEBUG] Applied DAWN/DUSK transition parameters');
                     } else {
+
+                        skyUniforms['turbidity'].value = 4.7;    // Default visible value
+                        skyUniforms['rayleigh'].value = 0.2;      // Default visible value
+                        skyUniforms['mieCoefficient'].value = 0.001;  // Default visible value
+                        skyUniforms['mieDirectionalG'].value = 0.9;   // Default visible value
+                        
                         // Full day - user's preferred values
-                        skyUniforms['turbidity'].value = 0.6;      // User preference
-                        skyUniforms['rayleigh'].value = 1.9;       // User preference
-                        skyUniforms['mieCoefficient'].value = 0.010;  // User preference
-                        skyUniforms['mieDirectionalG'].value = 1.0;   // User preference
+                        // skyUniforms['turbidity'].value = 0.6;      // User preference
+                        // skyUniforms['rayleigh'].value = 1.9;       // User preference
+                        // skyUniforms['mieCoefficient'].value = 0.010;  // User preference
+                        // skyUniforms['mieDirectionalG'].value = 1.0;   // User preference
                         console.log('[SKY DEBUG] Applied DAY sky parameters (user preferences)');
                     }
                 } else {
@@ -1088,8 +1094,8 @@ function renderer(context) {
                 if (this._clouds) {
                     this._clouds.forEach(cloud => {
                         if (!cloud || !cloud.material) return;
-                        // User preference: cloud opacity 0.0 (disabled)
-                        cloud.material.opacity = 0.0;  // User preference: disabled
+                        // User preference: cloud opacity 0.3 (enabled)
+                        cloud.material.opacity = 0.3;  // User preference: enabled
                     });
                 }
                 
@@ -1173,32 +1179,63 @@ function renderer(context) {
                 this._clouds = [];
                 const cloudCount = 8;
                 
-                // Create cloud geometry for each cloud (don't share geometry)
+                // Create a procedural cloud texture with soft, feathered edges
+                const createCloudTexture = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 512;
+                    canvas.height = 512;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Clear canvas to transparent
+                    ctx.clearRect(0, 0, 512, 512);
+                    
+                    // Create multiple overlapping soft circles to form cloud shape
+                    const drawCloudBlob = (x, y, radius, opacity) => {
+                        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                        gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+                        gradient.addColorStop(0.4, `rgba(255, 255, 255, ${opacity * 0.7})`);
+                        gradient.addColorStop(0.7, `rgba(255, 255, 255, ${opacity * 0.3})`);
+                        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                        
+                        ctx.fillStyle = gradient;
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius, 0, Math.PI * 2);
+                        ctx.fill();
+                    };
+                    
+                    // Draw multiple overlapping blobs to create organic cloud shape
+                    // Center blob
+                    drawCloudBlob(256, 256, 180, 0.9);
+                    // Surrounding blobs for irregular shape
+                    drawCloudBlob(200, 220, 140, 0.8);
+                    drawCloudBlob(320, 240, 150, 0.85);
+                    drawCloudBlob(240, 300, 120, 0.75);
+                    drawCloudBlob(300, 200, 130, 0.7);
+                    // Smaller detail blobs
+                    drawCloudBlob(180, 280, 90, 0.6);
+                    drawCloudBlob(340, 280, 100, 0.65);
+                    
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.needsUpdate = true;
+                    return texture;
+                };
+                
+                // Create cloud geometry for each cloud (don't share geometry or texture)
                 for (let i = 0; i < cloudCount; i++) {
-                    // Create a new geometry for each cloud
-                    const cloudGeometry = new THREE.PlaneGeometry(60, 40, 10, 10);
+                    // Create a unique cloud texture for each cloud for variety
+                    const cloudTexture = createCloudTexture();
                     
-                    // Deform the plane to make it look more cloud-like
-                    if (cloudGeometry.attributes && cloudGeometry.attributes.position) {
-                        const positions = cloudGeometry.attributes.position;
-                        for (let j = 0; j < positions.count; j++) {
-                            const x = positions.getX(j);
-                            const y = positions.getY(j);
-                            const noise = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 5;
-                            positions.setZ(j, noise);
-                        }
-                        positions.needsUpdate = true;
-                        cloudGeometry.computeVertexNormals();
-                    }
+                    // Use a simple plane geometry (no need for segments since we're using texture)
+                    const cloudGeometry = new THREE.PlaneGeometry(60, 40);
                     
-                    const cloudMaterial = new THREE.MeshStandardMaterial({
-                        color: 0xffffff,
-                        emissive: 0xffffff,
-                        emissiveIntensity: 0.1,
+                    // Create material with cloud texture and proper transparency
+                    const cloudMaterial = new THREE.MeshBasicMaterial({
+                        map: cloudTexture,
                         transparent: true,
-                        opacity: 0.6,
+                        opacity: 0.3,
                         side: THREE.DoubleSide,
-                        depthWrite: false
+                        depthWrite: false,
+                        alphaTest: 0.01 // Discard fully transparent pixels
                     });
                     
                     const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
@@ -1224,7 +1261,7 @@ function renderer(context) {
                     cloud.rotation.x = -Math.PI / 2 + Math.random() * 0.2;
                     cloud.rotation.z = Math.random() * Math.PI;
                     
-                    // Random scale
+                    // Random scale for variety
                     const scale = 0.8 + Math.random() * 0.4;
                     cloud.scale.set(scale, scale, scale);
                     
@@ -1233,17 +1270,24 @@ function renderer(context) {
                         initialAngle: angle,
                         radius: radius,
                         height: height,
-                        speed: 0.0001 + Math.random() * 0.0002
+                        speed: 0.0001 * 1.0  // Cloud speed multiplier: 1.0
                     };
                     
                     this._scene.add(cloud);
                     this._clouds.push(cloud);
                 }
+                
+                // Disable clouds by default
+                this._clouds.forEach(cloud => {
+                    if (cloud) cloud.visible = false;
+                });
+                
+                console.log('[CLOUDS] Cloud system created with soft, feathered textures (disabled by default)');
               }
 
               _createAdvancedLighting(THREE) {
                // Ambient lighting with visible intensity
-               const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.4);  // Default visible intensity
+               const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.1);  // Default visible intensity
                this._ambientLight = ambientLight; // Store reference for external access
                 ambientLight.name = 'ambientLight';
                 this._scene.add(ambientLight);
@@ -1415,9 +1459,9 @@ function renderer(context) {
                 // Bloom pass with user's preferred settings
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.07,  // strength - User preference: 0.07
-                  0.08,  // radius - User preference: 0.08
-                  0.00   // threshold - User preference: 0.00
+                  0.16,  // strength - User preference: 0.16
+                  0.43,  // radius - User preference: 0.43
+                  0.16   // threshold - User preference: 0.16
                 );
                 this._composer.addPass(bloomPass);
 
@@ -2336,10 +2380,10 @@ function renderer(context) {
                         this._scene.fog.color.copy(dayFogColor);
                         this._scene.fog.density = 0.01; // Very subtle
                     } else {
-                        // Night fog - dark blue-grey
-                        const nightFogColor = new THREE.Color(0x1a1a2a); // Dark blue-grey
+                        // Night fog - black
+                        const nightFogColor = new THREE.Color(0x000000); // Black
                         this._scene.fog.color.copy(nightFogColor);
-                        this._scene.fog.density = 0.01; // Same subtle density
+                        this._scene.fog.density = 0.02; // Same subtle density
                     }
                 }
                 
