@@ -525,7 +525,7 @@ function renderer(context) {
                 this._threejs.setSize(this._width, this._height);
                 this._threejs.outputEncoding = THREE.sRGBEncoding;
                 this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
-                this._threejs.toneMappingExposure = 0.7; // Darker but still visible
+                this._threejs.toneMappingExposure = 0.4; // Much darker for moody atmosphere
                 this._threejs.domElement.style.position = 'absolute';
                 this._threejs.domElement.style.top = '0';
                 this._threejs.domElement.style.left = '0';
@@ -550,7 +550,7 @@ function renderer(context) {
                 this._camera.position.set(0, 0, 50);
 
                 this._scene = new THREE.Scene();
-                this._scene.fog = new THREE.FogExp2(0x2a3a4a, 0.018); // Blue-grey fog, moderate density
+                this._scene.fog = new THREE.FogExp2(0x0a0a15, 0.035); // Very dark blue fog, denser for mystery
 
                 this._createSkybox(THREE);
                 this._createAdvancedLighting(THREE);
@@ -864,13 +864,13 @@ function renderer(context) {
               }
 
               _createAdvancedLighting(THREE) {
-                // Dark ambient lighting for moody atmosphere
-                const ambientLight = new THREE.AmbientLight(0x303050, 0.3); // Dark blue ambient
+                // Very dark ambient lighting for mysterious atmosphere
+                const ambientLight = new THREE.AmbientLight(0x1a1a30, 0.15); // Very dark blue ambient
                 ambientLight.name = 'ambientLight';
                 this._scene.add(ambientLight);
 
-                // Main directional light (moon/sun) - reduced intensity
-                const mainLight = new THREE.DirectionalLight(0xccccdd, 0.9); // Soft blue-white light
+                // Main directional light (moon/sun) - very low intensity for mystery
+                const mainLight = new THREE.DirectionalLight(0x8888aa, 0.08); // Dim blue-white light
                 mainLight.position.set(30, 50, 20);
                 mainLight.castShadow = true;
                 mainLight.shadow.mapSize.width = 2048;
@@ -885,17 +885,17 @@ function renderer(context) {
                 mainLight.shadow.normalBias = 0.02;
                 this._scene.add(mainLight);
 
-                // Rim light for dramatic effect - subtle blue
-                const rimLight = new THREE.DirectionalLight(0x5060aa, 0.4); // Blue rim light
+                // Rim light for dramatic effect - mysterious purple-blue
+                const rimLight = new THREE.DirectionalLight(0x3a3a6a, 0.25); // Darker purple-blue rim
                 rimLight.position.set(-20, 10, -30);
                 this._scene.add(rimLight);
 
-                // Atmospheric hemisphere light - moody
-                const hemiLight = new THREE.HemisphereLight(0x4a5a8a, 0x1a1a3a, 0.35); // Blue sky/ground
+                // Atmospheric hemisphere light - very moody
+                const hemiLight = new THREE.HemisphereLight(0x2a2a4a, 0x0a0a1a, 0.15); // Very dark sky/ground
                 this._scene.add(hemiLight);
 
-                // Ground fill light - subtle
-                const fillLight = new THREE.DirectionalLight(0x2a2a4a, 0.25); // Subtle fill
+                // Ground fill light - barely visible
+                const fillLight = new THREE.DirectionalLight(0x1a1a2a, 0.12); // Very subtle fill
                 fillLight.position.set(0, -1, 0);
                 this._scene.add(fillLight);
 
@@ -905,8 +905,8 @@ function renderer(context) {
                 this._hemiLight = hemiLight;
                 this._fillLight = fillLight;
 
-                // Create a spotlight for night actions
-                const spotLight = new THREE.SpotLight(0xffffff, 5.0, 50, Math.PI / 4, 0.5, 2);
+                // Create a spotlight for night actions - more dramatic
+                const spotLight = new THREE.SpotLight(0x6666aa, 0.3, 50, Math.PI / 3, 0.8, 2);
                 spotLight.position.set(0, 25, 0);
                 spotLight.castShadow = true;
                 spotLight.visible = false;
@@ -1050,19 +1050,19 @@ function renderer(context) {
                 const renderPass = new RenderPass(this._scene, this._camera);
                 this._composer.addPass(renderPass);
 
-                // Bloom pass for glowing effects - strong for foggy atmosphere
+                // Bloom pass for glowing effects - enhanced for mysterious atmosphere
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.6,   // strength - much higher for visible fog glow
-                  0.8,   // radius - very wide for fog effect
-                  0.15   // threshold - very low to bloom everything slightly
+                  0.9,   // strength - very high for dramatic glow
+                  1.2,   // radius - extra wide for atmospheric fog
+                  0.1    // threshold - very low to bloom more elements
                 );
                 this._composer.addPass(bloomPass);
 
-                // Film grain for atmosphere - heavy for foggy texture
+                // Film grain for atmosphere - heavier for mysterious texture
                 const filmPass = new FilmPass(
-                  0.4,   // noise intensity - heavy grain for fog texture
-                  0.25,  // scanline intensity - more visible lines
+                  0.6,   // noise intensity - very heavy grain for mystery
+                  0.35,  // scanline intensity - more pronounced lines
                   0,     // scanline count
                   false  // grayscale
                 );
@@ -1091,21 +1091,22 @@ function renderer(context) {
                     void main() {
                       vec4 color = texture2D(tDiffuse, vUv);
                       
-                      // Add subtle color grading based on phase
+                      // Add dramatic color grading based on phase
                       if (phase > 0.5) {
-                        // Night - add blue tint and increase contrast
-                        color.rgb = mix(color.rgb, color.rgb * vec3(0.8, 0.9, 1.2), 0.3);
-                        color.rgb = pow(color.rgb, vec3(1.1));
+                        // Night - strong blue tint and high contrast for mystery
+                        color.rgb = mix(color.rgb, color.rgb * vec3(0.6, 0.8, 1.4), 0.5);
+                        color.rgb = pow(color.rgb, vec3(1.3));
                       } else {
-                        // Day - add warm tint
-                        color.rgb = mix(color.rgb, color.rgb * vec3(1.1, 1.05, 0.95), 0.2);
+                        // Day - subtle desaturation for moodiness
+                        color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.02, 0.98), 0.3);
+                        color.rgb = pow(color.rgb, vec3(1.1));
                       }
                       
-                      // Add subtle vignette
+                      // Add stronger vignette for mystery
                       vec2 center = vec2(0.5, 0.5);
                       float dist = distance(vUv, center);
-                      float vignette = 1.0 - smoothstep(0.3, 0.8, dist);
-                      color.rgb *= mix(0.7, 1.0, vignette);
+                      float vignette = 1.0 - smoothstep(0.2, 0.9, dist);
+                      color.rgb *= mix(0.4, 1.0, vignette);
                       
                       gl_FragColor = color;
                     }
@@ -1218,7 +1219,7 @@ function renderer(context) {
                           metalness: 0.1, // Much less metallic to reduce brightness
                           roughness: 0.95, // More rough to scatter light
                           envMapIntensity: 0.2, // Reduced environment reflection
-                          color: new THREE.Color(0.6, 0.6, 0.6), // Darken the base color
+                          color: new THREE.Color(0.75, 0.75, 0.75), // Darken the base color
                           side: THREE.DoubleSide // Render both sides
                         });
                         
@@ -1932,15 +1933,15 @@ function renderer(context) {
                 
                 // Update renderer tone mapping for day/night mood
                 if (this._threejs) {
-                    this._threejs.toneMappingExposure = 0.7 - phaseValue * 0.3; // Darker at night but visible
+                    this._threejs.toneMappingExposure = 0.4 - phaseValue * 0.25; // Much darker overall
                 }
                 
                 // Smoothly interpolate lighting - moody but visible
                 if (this._mainLight) {
-                    const nightColor = new THREE.Color(0x4444aa); // Blue moonlight at night
-                    const dayColor = new THREE.Color(0xccccdd); // Soft daylight
+                    const nightColor = new THREE.Color(0x2a2a6a); // Deep blue moonlight
+                    const dayColor = new THREE.Color(0x8888aa); // Muted daylight
                     this._mainLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    this._mainLight.intensity = 0.9 - phaseValue * 0.4; // Dimmer at night
+                    this._mainLight.intensity = 0.5 - phaseValue * 0.35; // Much dimmer overall
                     
                     // Animate light position for sun/moon movement
                     const angle = phaseValue * Math.PI * 0.3;
@@ -1952,10 +1953,10 @@ function renderer(context) {
                 }
                 
                 if (this._rimLight) {
-                    const nightColor = new THREE.Color(0x111144); // Very dark blue
-                    const dayColor = new THREE.Color(0x222233); // Dark grey
+                    const nightColor = new THREE.Color(0x1a1a3a); // Deep mysterious blue
+                    const dayColor = new THREE.Color(0x2a2a3a); // Dark grey-blue
                     this._rimLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    this._rimLight.intensity = 0.15 - phaseValue * 0.05; // Barely visible
+                    this._rimLight.intensity = 0.12 - phaseValue * 0.04; // Very subtle
                 }
                 
                 if (this._hemiLight) {
@@ -1972,18 +1973,18 @@ function renderer(context) {
                 // Update ambient light
                 const ambientLight = this._scene.getObjectByName('ambientLight');
                 if (ambientLight) {
-                    const nightColor = new THREE.Color(0x404080);
-                    const dayColor = new THREE.Color(0x606090);
+                    const nightColor = new THREE.Color(0x1a1a40);
+                    const dayColor = new THREE.Color(0x2a2a50);
                     ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    ambientLight.intensity = 0.2 + phaseValue * 0.1;
+                    ambientLight.intensity = 0.22 + phaseValue * 0.08;
                 }
                 
-                // Smoothly transition fog - atmospheric but visible
+                // Smoothly transition fog - very atmospheric and mysterious
                 if (this._scene.fog) {
-                    const nightFogColor = new THREE.Color(0x0a0a20); // Dark blue at night
-                    const dayFogColor = new THREE.Color(0x2a3a4a); // Blue-grey during day
+                    const nightFogColor = new THREE.Color(0x050510); // Almost black at night
+                    const dayFogColor = new THREE.Color(0x1a2a3a); // Dark blue-grey during day
                     this._scene.fog.color.copy(dayFogColor).lerp(nightFogColor, phaseValue);
-                    this._scene.fog.density = 0.018 + phaseValue * 0.012; // Moderate fog that gets denser at night
+                    this._scene.fog.density = 0.025 + phaseValue * 0.025; // Dense fog for mystery
                 }
                 
                 // Update skybox
@@ -2018,11 +2019,11 @@ function renderer(context) {
                     this._particles.geometry.attributes.color.needsUpdate = true;
                 }
                 
-                // Update bloom intensity based on phase - balanced for atmosphere
+                // Update bloom intensity based on phase - dramatic for mystery
                 if (this._bloomPass) {
-                    this._bloomPass.strength = 0.35 + phaseValue * 0.2; // Slightly more bloom at night
-                    this._bloomPass.radius = 0.6 + phaseValue * 0.2; // Wider bloom at night
-                    this._bloomPass.threshold = 0.5 - phaseValue * 0.15; // Lower threshold at night
+                    this._bloomPass.strength = 0.6 + phaseValue * 0.4; // Much stronger bloom at night
+                    this._bloomPass.radius = 1.0 + phaseValue * 0.3; // Very wide bloom at night
+                    this._bloomPass.threshold = 0.3 - phaseValue * 0.2; // Much lower threshold at night
                 }
               }
 
@@ -4569,7 +4570,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
             roughness: 0.9, // More matte
             metalness: 0.1, // Less metallic
             emissive: 0x0a0a15, // Very subtle glow
-            emissiveIntensity: 0.05 // Minimal emission
+            emissiveIntensity: 0.1 // Minimal emission
         });
         const pedestal = new THREE.Mesh(pedestalGeometry, pedestalMaterial);
         pedestal.position.y = 0.2;
@@ -4593,15 +4594,32 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
                     child.castShadow = true;
                     child.receiveShadow = true;
                     
-                    // Ensure the model is fully opaque (not transparent)
+                    // Modify existing materials to be matte (don't replace to preserve skinning)
                     if (child.material) {
                         // Handle both single material and array of materials
                         const materials = Array.isArray(child.material) ? child.material : [child.material];
                         materials.forEach(mat => {
                             if (mat) {
+                                // Modify the existing material to be completely matte
+                                mat.roughness = 1.0;  // Maximum roughness = no shine
+                                mat.metalness = 0.0;  // No metallic properties
+                                mat.envMapIntensity = 0;  // No environment reflections
+                                // mat.emissiveIntensity = 0.5
+                                
+                                // Remove maps that might add shine
+                                mat.roughnessMap = null;
+                                mat.metalnessMap = null;
+                                mat.envMap = null;
+                                
+                                // Brighten the color to compensate for matte surface
+                                if (mat.color) {
+                                    mat.color.multiplyScalar(1.5);
+                                }
+                                
+                                // Ensure proper settings
                                 mat.transparent = false;
                                 mat.opacity = 1.0;
-                                mat.alphaTest = 0;  // Disable alpha testing
+                                mat.alphaTest = 0;
                                 mat.needsUpdate = true;
                             }
                         });
@@ -4721,3 +4739,4 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         threeState.demo._controls.update();
     }
 }
+
