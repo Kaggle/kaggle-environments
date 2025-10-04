@@ -1,0 +1,22 @@
+{
+  "name": "volumetric-fire",
+  "version": "0.0.0",
+  "description": "UMD support for VolumetricFire",
+  "main": "VolumetricFire.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yomotsu/VolumetricFire.git"
+  },
+  "author": "Yomotsu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yomotsu/VolumetricFire/issues"
+  },
+  "homepage": "https://github.com/yomotsu/VolumetricFire#readme"
+}

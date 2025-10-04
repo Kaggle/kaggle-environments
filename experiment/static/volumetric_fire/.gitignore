@@ -1,0 +1,16 @@
+node_modules
+
+node_modules/
+
+
+# craps
+*.sass-cache
+.DS_Store
+.cache
+Thumbs.db
+_notes
+_delivery
+node_modules
+config.rb
+
+_

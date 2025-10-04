@@ -487,7 +487,13 @@ function renderer(context) {
 
     const loadAndSetup = async () => {
         try {
-            const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.118/build/three.module.js');
+            // Import THREE as a module
+            const THREEModule = await import('https://cdn.jsdelivr.net/npm/three@0.118/build/three.module.js');
+            const THREE = THREEModule.default || THREEModule;
+            
+            // Make THREE available globally for VolumetricFire
+            window.THREE = THREE;
+            
             const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.118/examples/jsm/controls/OrbitControls.js');
             const { FBXLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js');
             const { SkeletonUtils } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js');
@@ -498,13 +504,22 @@ function renderer(context) {
             const { ShaderPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/ShaderPass.js');
             const { FilmPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/FilmPass.js');
             const { Sky } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/objects/Sky.js');
+            
+            // Verify THREE is properly set on window before loading VolumetricFire
+            if (!window.THREE || !window.THREE.WebGLRenderer) {
+                throw new Error('THREE library not properly loaded on window object');
+            }
+            
+            // Load VolumetricFire library
+            const VolumetricFireModule = await import('/experiment/static/volumetric_fire/VolumetricFire.js');
+            const VolumetricFire = VolumetricFireModule.default || window.VolumetricFire;
 
             class BasicWorldDemo {
               constructor(options) {
-                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky);
+                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky, VolumetricFire);
               }
 
-              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky) {
+              _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky, VolumetricFire) {
                 this._parent = options.parent;
                 this._width = options.width;
                 this._height = options.height;
@@ -512,6 +527,9 @@ function renderer(context) {
                 // Initialize FBXLoader and SkeletonUtils
                 this._fbxLoader = new FBXLoader();
                 this._skeletonUtils = SkeletonUtils;
+                
+                // Store VolumetricFire reference
+                this._VolumetricFire = VolumetricFire;
 
                 // WebGL Renderer with enhanced settings
                 this._threejs = new THREE.WebGLRenderer({
@@ -941,13 +959,13 @@ function renderer(context) {
                     sunAzimuth = (moonAzimuth + Math.PI) % (2 * Math.PI); // Opposite side
                 }
                 
-                console.log('[SKY DEBUG] Dynamic sun/moon calculations:', {
-                  phase,
-                  sunElevation: sunElevation * 180 / Math.PI,
-                  sunAzimuth: sunAzimuth * 180 / Math.PI,
-                  moonElevation: moonElevation * 180 / Math.PI,
-                  moonAzimuth: moonAzimuth * 180 / Math.PI
-                });
+                // console.log('[SKY DEBUG] Dynamic sun/moon calculations:', {
+                //   phase,
+                //   sunElevation: sunElevation * 180 / Math.PI,
+                //   sunAzimuth: sunAzimuth * 180 / Math.PI,
+                //   moonElevation: moonElevation * 180 / Math.PI,
+                //   moonAzimuth: moonAzimuth * 180 / Math.PI
+                // });
                 
                 // Calculate sun position
                 const sunX = sunDistance * Math.sin(sunAzimuth) * Math.cos(sunElevation);
@@ -1577,6 +1595,9 @@ function renderer(context) {
                 // Create particle system for atmosphere
                 this._createParticleSystem(THREE);
                 
+                // Create campfire at center
+                this._createCampfire(THREE);
+                
                 // Frame the empty group initially with better camera positioning
                 this._camera.position.set(25, 30, 35);
                 this._controls.target.set(0, 8, 0);
@@ -1586,6 +1607,170 @@ function renderer(context) {
                 this._controls.maxDistance = 80;
                 this._controls.maxPolarAngle = Math.PI * 0.75;
                 this._controls.update();
+              }
+              
+              _createCampfire(THREE) {
+                console.log('[CAMPFIRE] Creating campfire at scene center');
+                
+                // Set texture path for VolumetricFire
+                if (this._VolumetricFire) {
+                  this._VolumetricFire.texturePath = '/experiment/static/volumetric_fire/textures/';
+                }
+                
+                // Create campfire group
+                const campfireGroup = new THREE.Group();
+                campfireGroup.name = 'campfire';
+                
+                // Create fire using VolumetricFire - doubled in size
+                const fireWidth = 5.0;   // 2x larger (was 2.5)
+                const fireHeight = 7.0;  // 2x larger (was 3.5)
+                const fireDepth = 5.0;   // 2x larger (was 2.5)
+                const sliceSpacing = 0.5;
+                
+                if (this._VolumetricFire) {
+                  this._fire = new this._VolumetricFire(
+                    fireWidth,
+                    fireHeight,
+                    fireDepth,
+                    sliceSpacing,
+                    this._camera
+                  );
+                  this._fire.mesh.position.set(0, fireHeight / 2, 0);
+                  campfireGroup.add(this._fire.mesh);
+                  console.log('[CAMPFIRE] VolumetricFire created');
+                } else {
+                  console.warn('[CAMPFIRE] VolumetricFire not available, skipping fire effect');
+                }
+                
+                // Add point light for fire glow
+                const fireLight = new THREE.PointLight(0xff6633, 2.5, 25);
+                fireLight.position.set(0, 1.5, 0);
+                fireLight.castShadow = true;
+                fireLight.shadow.mapSize.width = 512;
+                fireLight.shadow.mapSize.height = 512;
+                campfireGroup.add(fireLight);
+                this._fireLight = fireLight;
+                
+                // Create rock circle around fire base
+                const rockCount = 8;
+                const rockRadius = 2.2;
+                const textureLoader = new THREE.TextureLoader();
+                
+                for (let i = 0; i < rockCount; i++) {
+                  const angle = (i / rockCount) * Math.PI * 2;
+                  const x = Math.cos(angle) * rockRadius;
+                  const z = Math.sin(angle) * rockRadius;
+                  
+                  // Vary rock sizes
+                  const rockSize = 0.4 + Math.random() * 0.3;
+                  const rockGeometry = new THREE.DodecahedronGeometry(rockSize, 0);
+                  
+                  // Rock material - dark grey with rough texture
+                  const rockMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x3a3a3a,
+                    roughness: 0.95,
+                    metalness: 0.1,
+                    flatShading: true
+                  });
+                  
+                  const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                  rock.position.set(x, rockSize * 0.3, z);
+                  
+                  // Random rotation for variety
+                  rock.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                  );
+                  
+                  rock.castShadow = true;
+                  rock.receiveShadow = true;
+                  campfireGroup.add(rock);
+                }
+                
+                // Create logs arranged in a teepee style
+                const logCount = 6;
+                const logLength = 2.0;
+                const logRadius = 0.12;
+                
+                for (let i = 0; i < logCount; i++) {
+                  const angle = (i / logCount) * Math.PI * 2;
+                  
+                  // Log geometry - cylinder
+                  const logGeometry = new THREE.CylinderGeometry(
+                    logRadius,
+                    logRadius * 0.9,
+                    logLength,
+                    8
+                  );
+                  
+                  // Wood material - brown with bark texture
+                  const logMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x4a3520,
+                    roughness: 0.9,
+                    metalness: 0.0
+                  });
+                  
+                  const log = new THREE.Mesh(logGeometry, logMaterial);
+                  
+                  // Position logs leaning inward
+                  const leanRadius = 0.8;
+                  const x = Math.cos(angle) * leanRadius;
+                  const z = Math.sin(angle) * leanRadius;
+                  
+                  log.position.set(x, logLength / 2 - 0.3, z);
+                  
+                  // Rotate to lean inward toward center
+                  log.rotation.z = Math.PI / 6; // Lean angle
+                  log.rotation.y = angle + Math.PI / 2; // Face center
+                  
+                  log.castShadow = true;
+                  log.receiveShadow = true;
+                  campfireGroup.add(log);
+                }
+                
+                // Add some smaller kindling pieces at the base
+                const kindlingCount = 12;
+                for (let i = 0; i < kindlingCount; i++) {
+                  const angle = Math.random() * Math.PI * 2;
+                  const radius = Math.random() * 0.6;
+                  
+                  const kindlingGeometry = new THREE.CylinderGeometry(
+                    0.03,
+                    0.025,
+                    0.4 + Math.random() * 0.3,
+                    6
+                  );
+                  
+                  const kindlingMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x3a2510,
+                    roughness: 0.95,
+                    metalness: 0.0
+                  });
+                  
+                  const kindling = new THREE.Mesh(kindlingGeometry, kindlingMaterial);
+                  kindling.position.set(
+                    Math.cos(angle) * radius,
+                    0.2,
+                    Math.sin(angle) * radius
+                  );
+                  kindling.rotation.set(
+                    Math.random() * 0.5,
+                    Math.random() * Math.PI * 2,
+                    Math.random() * 0.5
+                  );
+                  
+                  kindling.castShadow = true;
+                  kindling.receiveShadow = true;
+                  campfireGroup.add(kindling);
+                }
+                
+                // Position campfire at scene center
+                campfireGroup.position.set(0, 0, 0);
+                this._scene.add(campfireGroup);
+                this._campfireGroup = campfireGroup;
+                
+                console.log('[CAMPFIRE] Campfire scene created with rocks and logs');
               }
 
               _loadIslandModel(THREE, FBXLoader) {
@@ -2378,12 +2563,12 @@ function renderer(context) {
                         // Day fog - light blue-grey matching the sky
                         const dayFogColor = new THREE.Color(0x87CEEB); // Light blue-grey
                         this._scene.fog.color.copy(dayFogColor);
-                        this._scene.fog.density = 0.01; // Very subtle
+                        this._scene.fog.density = 0.015; // Very subtle
                     } else {
                         // Night fog - black
                         const nightFogColor = new THREE.Color(0x000000); // Black
                         this._scene.fog.color.copy(nightFogColor);
-                        this._scene.fog.density = 0.02; // Same subtle density
+                        this._scene.fog.density = 0.025; // Same subtle density
                     }
                 }
                 
@@ -2411,7 +2596,7 @@ function renderer(context) {
                     const nightColor = new THREE.Color(0x3a3a5a); // Warm night ambient
                     const dayColor = new THREE.Color(0x4a4a3a); // Warm day ambient
                     ambientLight.color.copy(dayColor).lerp(nightColor, phaseValue);
-                    ambientLight.intensity = 0.35 + phaseValue * 0.25; // Increased night ambient from 0.15 to 0.25 for better visibility
+                    ambientLight.intensity = 0.1; // + phaseValue * 0.25; // Increased night ambient from 0.15 to 0.25 for better visibility
                 }
                 // Fog removed - no fog transitions
                 
@@ -2784,6 +2969,18 @@ function renderer(context) {
                    this._threejs.render(this._scene, this._camera);
                  }
                  this._labelRenderer.render(this._scene, this._camera);
+                 
+                 // Update campfire
+                 if (this._fire && this._fire.update) {
+                   const elapsed = time * 0.001;
+                   this._fire.update(elapsed);
+                 }
+                 
+                 // Animate fire light
+                 if (this._fireLight) {
+                   this._fireLight.intensity = 4.5 + Math.sin(time * 0.003) * 0.5;
+                 }
+                 
                  this._RAF();
                 });
               }
@@ -2796,7 +2993,7 @@ function renderer(context) {
               }
             }
 
-            setupScene(BasicWorldDemo);
+            setupScene(BasicWorldDemo, VolumetricFire);
         } catch (error) {
             console.error("Failed to load Three.js modules:", error);
             parent.textContent = "Error loading 3D assets. Please refresh.";
@@ -2806,7 +3003,7 @@ function renderer(context) {
     loadAndSetup();
   }
 
-  function setupScene(BasicWorldDemo) {
+  function setupScene(BasicWorldDemo, VolumetricFire) {
     if (threeState.initialized) return;
     threeState.demo = new BasicWorldDemo({ parent, width, height });
     threeState.initialized = true;
@@ -5485,7 +5682,7 @@ function createSkyControlsPanel(parent) {
     if (panel) return panel;
     
     panel = document.createElement('div');
-    panel.className = 'sky-controls-panel';
+    panel.className = 'sky-controls-panel collapsed'; 
     panel.innerHTML = `
         <div class="sky-controls-header" onclick="toggleSkyControls()">
             <div class="sky-controls-title">🌤️ Sky & Lighting Controls</div>
@@ -5555,7 +5752,7 @@ function createSkyControlsPanel(parent) {
                         <span>Exposure</span>
                         <span class="sky-control-value" id="sky-exposure-value">0.5</span>
                     </div>
-                    <input type="range" id="sky-exposure" min="0" max="2" step="0.01" value="0.5" oninput="updateExposure(this.value)">
+                    <input type="range" id="sky-exposure" min="0" max="2" step="0.01" value="1.0" oninput="updateExposure(this.value)">
                 </div>
             </div>
             
@@ -5584,7 +5781,7 @@ function createSkyControlsPanel(parent) {
                         <span>Ambient</span>
                         <span class="sky-control-value" id="sky-ambient-value">0.4</span>
                     </div>
-                    <input type="range" id="sky-ambient" min="0" max="1" step="0.01" value="0.4" oninput="updateLighting('ambientIntensity', this.value)">
+                    <input type="range" id="sky-ambient" min="0" max="1" step="0.01" value="0.1" oninput="updateLighting('ambientIntensity', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
@@ -5603,25 +5800,25 @@ function createSkyControlsPanel(parent) {
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Strength</span>
-                        <span class="sky-control-value" id="sky-bloom-strength-value">0.5</span>
+                        <span class="sky-control-value" id="sky-bloom-strength-value">0.25</span>
                     </div>
-                    <input type="range" id="sky-bloom-strength" min="0" max="1" step="0.01" value="0.5" oninput="updateBloom('strength', this.value)">
+                    <input type="range" id="sky-bloom-strength" min="0" max="1" step="0.01" value="0.25" oninput="updateBloom('strength', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Radius</span>
-                        <span class="sky-control-value" id="sky-bloom-radius-value">0.4</span>
+                        <span class="sky-control-value" id="sky-bloom-radius-value">0.6</span>
                     </div>
-                    <input type="range" id="sky-bloom-radius" min="0" max="2" step="0.01" value="0.4" oninput="updateBloom('radius', this.value)">
+                    <input type="range" id="sky-bloom-radius" min="0" max="2" step="0.01" value="0.6" oninput="updateBloom('radius', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Threshold</span>
-                        <span class="sky-control-value" id="sky-bloom-threshold-value">0.85</span>
+                        <span class="sky-control-value" id="sky-bloom-threshold-value">0.06</span>
                     </div>
-                    <input type="range" id="sky-bloom-threshold" min="0" max="1" step="0.01" value="0.85" oninput="updateBloom('threshold', this.value)">
+                    <input type="range" id="sky-bloom-threshold" min="0" max="1" step="0.01" value="0.06" oninput="updateBloom('threshold', this.value)">
                 </div>
             </div>
             
@@ -5660,9 +5857,9 @@ function createSkyControlsPanel(parent) {
                 <div class="sky-control-item">
                     <div class="sky-control-label">
                         <span>Intensity</span>
-                        <span class="sky-control-value" id="sky-godray-intensity-value">1.0</span>
+                        <span class="sky-control-value" id="sky-godray-intensity-value">2.0</span>
                     </div>
-                    <input type="range" id="sky-godray-intensity" min="0" max="2" step="0.1" value="1" oninput="updateGodRays('intensity', this.value)">
+                    <input type="range" id="sky-godray-intensity" min="0" max="2" step="0.1" value="2.0" oninput="updateGodRays('intensity', this.value)">
                 </div>
                 
                 <div class="sky-control-item">
