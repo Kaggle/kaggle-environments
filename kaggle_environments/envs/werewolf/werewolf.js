@@ -1202,7 +1202,7 @@ function renderer(context) {
                   (fbx) => {
                     // Scale and position the island
                     fbx.scale.setScalar(0.02); // Much larger scale for visibility
-                    fbx.position.y = -20.0; // Position at ground level
+                    fbx.position.y = -19.8; // Position at ground level
                     fbx.rotation.y = Math.PI / 8; // Slight rotation for better view
                     
                     // Apply textures to all meshes in the model
@@ -1523,9 +1523,9 @@ function renderer(context) {
                         orbLight.visible = false;
                         glow.visible = false;
                         pedestal.material.emissive.setHex(0x000000);
-                        // Sink into ground
-                        container.position.y = -1.5;
-                        // Tilt slightly
+                        // Don't sink into ground - keep on island surface
+                        // container.position.y = -1.5; // Removed for island
+                        // Tilt slightly to show they're dead
                         container.rotation.x = 0.2;
                         // Fade out nameplate
                         if (player.nameplate && player.nameplate.element) {
