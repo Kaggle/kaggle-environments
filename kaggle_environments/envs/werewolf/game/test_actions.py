@@ -1,7 +1,5 @@
 import pytest
 
-pytest.skip("skipping while Werewolf is being checked in piecemeal", allow_module_level=True)
-
 from kaggle_environments.envs.werewolf.game.actions import filter_language
 
 test_data = [
