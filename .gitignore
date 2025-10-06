@@ -159,4 +159,4 @@ replay.html
 
 # Mac cruft
 __MACOSX/
-.DS_Store
+*.DS_Store
