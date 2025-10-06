@@ -155,3 +155,8 @@ node_modules
 submission.tar.gz
 
 replay.html
+
+
+# Mac cruft
+__MACOSX/
+.DS_Store
