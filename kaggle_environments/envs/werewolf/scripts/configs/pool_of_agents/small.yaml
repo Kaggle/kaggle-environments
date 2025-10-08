@@ -1,9 +1,9 @@
 - thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
-  agent_id: "llm/gemini/gemini-2.5-flash"
+  agent_id: "llm/vertex_ai/gemini-2.5-flash"
   display_name: "gemini-2.5-flash"
   agent_harness_name: "llm_harness"
   llms:
-    - model_name: "gemini/gemini-2.5-flash"
+    - model_name: "vertex_ai/gemini-2.5-flash"
 - thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
   agent_id: "llm/openrouter/openai/o4-mini"
   display_name: "o4-mini"

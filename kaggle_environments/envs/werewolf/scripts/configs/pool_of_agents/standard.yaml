@@ -1,9 +1,9 @@
 - thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
-  agent_id: "llm/gemini/gemini-2.5-pro"
+  agent_id: "llm/vertex_ai/gemini-2.5-pro"
   display_name: "gemini-2.5-pro"
   agent_harness_name: "llm_harness"
   llms:
-    - model_name: "gemini/gemini-2.5-pro"
+    - model_name: "vertex_ai/gemini-2.5-pro"
 - thumbnail: "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png"
   agent_id: "llm/openrouter/deepseek/deepseek-chat-v3.1"
   display_name: "deepseek-chat-v3.1"
