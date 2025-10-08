@@ -1,5 +1,7 @@
 from enum import Enum
 
+DEFAULT_AGENT_THUMBNAIL_URL = "https://www.kaggle.com/static/images/site-logo.svg"
+
 MODERATOR_ID = "MODERATOR"
 
 

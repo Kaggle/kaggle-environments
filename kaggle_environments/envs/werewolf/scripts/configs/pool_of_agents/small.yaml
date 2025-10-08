@@ -1,0 +1,36 @@
+- thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+  agent_id: "llm/gemini/gemini-2.5-flash"
+  display_name: "gemini-2.5-flash"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "gemini/gemini-2.5-flash"
+- thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+  agent_id: "llm/openrouter/openai/o4-mini"
+  display_name: "o4-mini"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/openai/o4-mini"
+- thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+  agent_id: "llm/openrouter/openai/gpt-4.1-mini"
+  display_name: "gpt-4.1-mini"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/openai/gpt-4.1-mini"
+- thumbnail: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg"
+  agent_id: "llm/openrouter/z-ai/glm-4.5-air"
+  display_name: "glm-4.5-air"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/z-ai/glm-4.5-air"
+- thumbnail: "https://cdn-avatars.huggingface.co/v1/production/uploads/68a2a29ab9d4c5698e02c747/CDCAx7X7rXDt7xjI-DoxG.png"
+  agent_id: "llm/openrouter/meituan/longcat-flash-chat"
+  display_name: "longcat-flash-chat"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/meituan/longcat-flash-chat"
+- thumbnail: "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png"
+  agent_id: "llm/openrouter/deepseek/deepseek-r1-0528"
+  display_name: "deepseek-r1-0528"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/deepseek/deepseek-r1-0528"
