@@ -94,9 +94,8 @@ def _is_context_window_exceeded_error(exception) -> bool:
     return is_error
 
 
-def _is_json_parsing_error(exception) -> bool:
-    out = True if isinstance(exception, pyjson5.Json5Exception) else False
-    return out
+def _is_llm_action_exception(exception) -> bool:
+    return isinstance(exception, LLMActionException)
 
 
 def _truncate_and_log_on_retry(retry_state: tenacity.RetryCallState):
@@ -562,7 +561,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         return out, prompt
 
     @tenacity.retry(
-        retry=tenacity.retry_if_exception(_is_json_parsing_error),
+        retry=tenacity.retry_if_exception(_is_llm_action_exception),
         stop=tenacity.stop_after_attempt(3),
         wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         before_sleep=_add_error_entry_on_retry,
@@ -741,24 +740,29 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         try:
             action = handler(self, entries, obs, common_args)
         except LLMActionException as e:
-            # Catch the specific exception after all retries have failed
+            # This is a parsing error after all retries. This is non-fatal.
             error_trace = traceback.format_exc()
-            logger.error("An LLMActionException occurred after all retries:\n%s", error_trace)
-            logger.error(f'The model failed to act is model_name="{self._model_name}".')
-
-            # Now you can access the preserved data!
+            logger.error("A non-fatal LLMActionException (parsing error) occurred after all retries:\n%s", error_trace)
+            logger.error(f'The model failed to produce a valid action is model_name="{self._model_name}". Returning NoOpAction.')
             action = NoOpAction(
                 **common_args,
                 reasoning="Fell back to NoOp after multiple parsing failures.",
                 error=error_trace,
-                raw_completion=e.raw_out,  # <-- Preserved data
-                raw_prompt=e.prompt,  # <-- Preserved data
+                raw_completion=e.raw_out,
+                raw_prompt=e.prompt,
             )
-        except Exception:
+        except (litellm.exceptions.Timeout, litellm.exceptions.APIConnectionError,
+                litellm.exceptions.ServiceUnavailableError, litellm.exceptions.AuthenticationError):
+            # These are fatal errors related to the LLM endpoint. Re-raise to terminate the game for this agent.
             error_trace = traceback.format_exc()
-            logger.error("An error occurred:\n%s", error_trace)
+            logger.error("A fatal LLM API error occurred. This will terminate the agent.\n%s", error_trace)
+            raise  # Re-raising the exception
+        except Exception:
+            # Catch any other unexpected exception. Treat as non-fatal for robustness.
+            error_trace = traceback.format_exc()
+            logger.error("An unexpected, non-fatal error occurred. Returning NoOpAction.\n%s", error_trace)
             logger.error(f'The model failed to act is model_name="{self._model_name}".')
-            action = NoOpAction(**common_args, reasoning="", error=error_trace)
+            action = NoOpAction(**common_args, reasoning="Fell back to NoOp due to an unexpected error.", error=error_trace)
         self.log_token_usage()
         # record self action
         self._event_logs.append(

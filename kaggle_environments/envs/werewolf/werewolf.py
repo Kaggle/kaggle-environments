@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from kaggle_environments.helpers import AgentStatus
 from kaggle_environments.envs.werewolf.game.consts import DetailedPhase, EnvInfoKeys
 
 from .game.actions import (
@@ -226,14 +227,14 @@ def register_agents(agent_dict: Dict[str, Callable]):
     agents.update(agent_dict)
 
 
-def log_error(status_code, state, env):
-    invalid_action = any(player_state["status"] == status_code for player_state in state)
+def log_error(status_enum: AgentStatus, state, env):
+    invalid_action = any(player_state.status == status_enum for player_state in state)
     if invalid_action:
-        logger.error(f"{status_code} DETECTED")
+        logger.error(f"{status_enum.name} DETECTED")
         for i, player_state in enumerate(state):
-            if player_state["status"] == status_code:
+            if player_state.status == status_enum:
                 agent_config = env.configuration["agents"][i]
-                logger.error(f"agent_id={agent_config['id']} returns action with status code {status_code}.")
+                logger.error(f"agent_id={agent_config['id']} returns action with status enum {status_enum.name}.")
     return invalid_action
 
 
@@ -276,8 +277,8 @@ def interpreter(state, env):
     env:   the kaggle_environments.Environment object itself including the env.game_state
     """
     agent_error = False
-    for status_code in ["TIMEOUT", "ERROR", "INVALID"]:
-        if log_error(status_code, state, env):
+    for status_enum in [AgentStatus.ERROR, AgentStatus.INVALID]:
+        if log_error(status_enum, state, env):
             agent_error = True
 
     # --- Initialize Moderator and GameState if it's the start of an episode ---
