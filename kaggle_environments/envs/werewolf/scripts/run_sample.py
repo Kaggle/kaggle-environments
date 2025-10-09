@@ -8,6 +8,7 @@ import shutil
 
 import yaml
 from tqdm import tqdm
+import tenacity
 
 from kaggle_environments.envs.werewolf.runner import (
     append_timestamp_to_dir,
@@ -31,6 +32,13 @@ def load_agent_pool(config_paths: list[str]) -> list[dict]:
     return agent_pool
 
 
+run_single_game_with_retry = tenacity.retry(
+    wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=100),
+    stop=tenacity.stop_after_attempt(3),
+    before_sleep=tenacity.before_sleep_log(logger, logging.INFO),
+)(run_single_game_cli)
+
+
 def game_runner_wrapper(args):
     """Wrapper to unpack arguments for the multiprocessing pool."""
     game_dir, game_config, use_random_agents, debug = args
@@ -39,7 +47,12 @@ def game_runner_wrapper(args):
     # For now, we'll just print the intention.
     # In the next step, we'll implement the actual game running logic.
     # print(f"Running game in: {game_dir}")
-    run_single_game_cli(game_dir, game_config, use_random_agents, debug)
+    try:
+        run_single_game_with_retry(game_dir, game_config, use_random_agents, debug)
+    except Exception as e:
+        logger.error(f"Game in {game_dir} failed after retries with error: {e}")
+        # Optionally, log the full traceback
+        logger.debug("Traceback:", exc_info=True)
 
 
 def parse_arguments():
