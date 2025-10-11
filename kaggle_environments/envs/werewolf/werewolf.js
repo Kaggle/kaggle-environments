@@ -1865,7 +1865,7 @@ function renderer(context) {
                 
                 // Create a new promise for loading the merged FBX file
                 const modelPromise = new Promise((resolve, reject) => {
-                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/merged/${normalizedRole}_master.fbx`;
+                  const modelPath = `/experiment/static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
                   
                   this._fbxLoader.load(
                     modelPath,
@@ -5636,7 +5636,14 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         // Make player face center without flipping
         // Calculate the angle to face the center
         // Update rotation to use negative values so players face toward the origin
-        playerContainer.rotation.y = Math.atan2(x, z) + (Math.PI / 2);
+        const angleToCenter = Math.atan2(
+            playerContainer.position.x,
+            playerContainer.position.z
+        );
+
+        // Apply the rotation. The "+ Math.PI" is a 180-degree turn needed to face the target.
+        // If your models still face the wrong way, try one of the options from the troubleshooting section below.
+        playerContainer.rotation.y = angleToCenter + Math.PI;
         
         // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
