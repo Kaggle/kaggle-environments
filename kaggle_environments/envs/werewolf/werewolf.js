@@ -654,7 +654,7 @@ function renderer(context) {
                 this._scene.add(this._sunLight.target);
                 
                 // Create moon light with increased intensity for better nighttime visibility
-                this._moonLight = new THREE.DirectionalLight(0x6688cc, 0.5);  // Moon intensity
+                this._moonLight = new THREE.DirectionalLight(0xff6633, 0.6); // Red color, slightly brighter
                 this._moonLight.castShadow = true;
                 this._moonLight.shadow.mapSize.width = 1024;
                 this._moonLight.shadow.mapSize.height = 1024;
@@ -697,120 +697,115 @@ function renderer(context) {
               }
               
               _createMoon(THREE) {
-                // Create moon sphere geometry
-                const moonGeometry = new THREE.SphereGeometry(8, 32, 32);
-                
-                // Create moon material with emissive glow
-                const moonMaterial = new THREE.MeshStandardMaterial({
-                  color: 0xffffff,
-                  emissive: 0xffffcc,
-                  emissiveIntensity: 1.2,  // Increased from 0.5 to 1.2 for brighter moon glow
-                  roughness: 0.8,
-                  metalness: 0.0
-                });
-                
-                // Create moon mesh
-                this._moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
-                this._moonMesh.castShadow = false;
-                this._moonMesh.receiveShadow = false;
-                
-                // Add subtle glow around moon
-                const moonGlowGeometry = new THREE.SphereGeometry(12, 32, 32);
-                const moonGlowMaterial = new THREE.MeshBasicMaterial({
-                  color: 0xffffcc,
-                  transparent: true,
-                  opacity: 0.15,
-                  side: THREE.BackSide
-                });
-                this._moonGlow = new THREE.Mesh(moonGlowGeometry, moonGlowMaterial);
-                this._moonMesh.add(this._moonGlow);
-                
-                // Initially hide moon
-                this._moonMesh.visible = false;
-                this._scene.add(this._moonMesh);
-                
-                console.log('[MOON] Moon mesh created and added to scene');
+                  // Create a texture loader
+                  const textureLoader = new THREE.TextureLoader();
+                  // Load your new moon texture
+                  const moonTexture = textureLoader.load('/experiment/static/moon_texture.jpg');
+
+                  // --- Make the moon giant ---
+                  const moonGeometry = new THREE.SphereGeometry(25, 64, 64); // Increased radius from 8 to 25
+
+                  // --- Create the blood moon material ---
+                  const moonMaterial = new THREE.MeshStandardMaterial({
+                      map: moonTexture,                   // Apply the surface texture
+                      emissiveMap: moonTexture,           // Make the texture itself glow
+                      color: 0xff6633,                    // Tint the texture with a blood-orange color
+                      emissive: 0xdd5522,                 // Set the glow color to a deep red
+                      emissiveIntensity: 0.9,             // Adjust glow intensity
+                      roughness: 1.0,                     // Keep it matte
+                      metalness: 0.0
+                  });
+
+                  // Create moon mesh
+                  this._moonMesh = new THREE.Mesh(moonGeometry, moonMaterial);
+                  this._moonMesh.castShadow = false;
+                  this._moonMesh.receiveShadow = false;
+
+                  // --- Update the surrounding glow to be red ---
+                  const moonGlowGeometry = new THREE.SphereGeometry(30, 32, 32); // Increased size
+                  const moonGlowMaterial = new THREE.MeshBasicMaterial({
+                      color: 0xdd5522,                    // Match the red glow color
+                      transparent: true,
+                      opacity: 0.1,
+                      side: THREE.BackSide
+                  });
+                  this._moonGlow = new THREE.Mesh(moonGlowGeometry, moonGlowMaterial);
+                  this._moonMesh.add(this._moonGlow);
+
+                  // Initially hide moon
+                  this._moonMesh.visible = false;
+                  this._scene.add(this._moonMesh);
+
+                  console.log('[MOON] Giant blood moon created and added to scene');
               }
               
               _createGodRays(THREE) {
-                // Create god rays using multiple overlapping transparent planes for realistic volumetric light
-                const godRayCount = 14; // More rays for smoother appearance
-                this._godRays = [];
-                this._godRayGroup = new THREE.Group();
-                this._godRayGroup.name = 'godRays';
-                
-                // Create a gradient texture for the rays
-                const canvas = document.createElement('canvas');
-                canvas.width = 256;
-                canvas.height = 256;
-                const ctx = canvas.getContext('2d');
-                
-                // Create radial gradient from center (bright) to edges (transparent)
-                const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-                gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.6)');
-                gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.2)');
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
-                
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, 256, 256);
-                
-                const gradientTexture = new THREE.CanvasTexture(canvas);
-                gradientTexture.needsUpdate = true;
-                
-                for (let i = 0; i < godRayCount; i++) {
-                  // Create thin rectangular plane geometry for each ray
-                  const rayLength = 280 + Math.random() * 150; // Varying lengths
-                  const rayWidth = 25 + Math.random() * 20; // Varying widths
-                  
-                  const rayGeometry = new THREE.PlaneGeometry(rayWidth, rayLength, 1, 1);
-                  
-                  // Create material with gradient texture and additive blending
-                  const baseOpacity = 0.08 + Math.random() * 0.07; // Very subtle (0.08-0.15)
-                  const rayMaterial = new THREE.MeshBasicMaterial({
-                    map: gradientTexture,
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: baseOpacity,
-                    blending: THREE.AdditiveBlending,
-                    side: THREE.DoubleSide,
-                    depthWrite: false,
-                    depthTest: false
-                  });
-                  
-                  const ray = new THREE.Mesh(rayGeometry, rayMaterial);
-                  
-                  // Position plane to extend from near light source outward
-                  ray.position.y = -rayLength / 2; // Offset so top is at origin
-                  
-                  // Arrange planes in radial pattern around the light source
-                  const angle = (i / godRayCount) * Math.PI * 2;
-                  ray.rotation.z = angle;
-                  
-                  // Slight random tilt for more organic appearance
-                  ray.rotation.x = (Math.random() - 0.5) * 0.1;
-                  
-                  // Store original values for animation
-                  ray.userData = {
-                    originalOpacity: baseOpacity,
-                    phase: Math.random() * Math.PI * 2,
-                    speed: 0.3 + Math.random() * 0.4,
-                    baseRotationZ: angle,
-                    baseRotationX: ray.rotation.x,
-                    rayLength: rayLength
-                  };
-                  
-                  this._godRays.push(ray);
-                  this._godRayGroup.add(ray);
-                }
-                
-                // Store intensity control
-                this._godRayIntensity = 1.0; // Default intensity multiplier
-                
-                this._godRayGroup.visible = true; // Start visible
-                this._scene.add(this._godRayGroup);
-                
-                console.log('[GOD RAYS] Volumetric god rays system created with realistic appearance');
+                  // Create a group to hold all the light beams
+                  this._godRayGroup = new THREE.Group();
+                  this._godRayGroup.name = 'godRays';
+                  this._godRays = [];
+                  const godRayCount = 12; // Fewer, more distinct beams look better
+
+                  // A soft, circular texture for the beams
+                  const canvas = document.createElement('canvas');
+                  canvas.width = 128;
+                  canvas.height = 128;
+                  const ctx = canvas.getContext('2d');
+                  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+                  gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+                  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+                  ctx.fillStyle = gradient;
+                  ctx.fillRect(0, 0, 128, 128);
+                  const beamTexture = new THREE.CanvasTexture(canvas);
+
+                  for (let i = 0; i < godRayCount; i++) {
+                      // --- Use a Cylinder to create a 3D beam instead of a 2D plane ---
+                      const rayLength = 350 + Math.random() * 100;
+                      const rayWidth = 4 + Math.random() * 3;
+                      const beamGeometry = new THREE.CylinderGeometry(rayWidth, rayWidth * 0.5, rayLength, 16, 1, true); // Open-ended cylinder
+
+                      const beamMaterial = new THREE.MeshBasicMaterial({
+                        map: beamTexture,
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.1 + Math.random() * 0.05, // Subtle opacity
+                        blending: THREE.AdditiveBlending,
+                        side: THREE.DoubleSide,
+                        depthWrite: false,
+                      });
+
+                      const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+
+                      // --- Position and rotate each beam to point outward from the center ---
+                      const angle = Math.random() * Math.PI * 2;
+                      const spread = Math.random() * 0.1; // How far the beams spread out
+
+                      // Position the beam slightly away from the center
+                      beam.position.set(
+                          Math.sin(angle) * spread * 150,
+                          0,
+                          Math.cos(angle) * spread * 150
+                      );
+
+                      // Point the cylinder outward
+                      beam.lookAt(new THREE.Vector3(Math.sin(angle), spread, Math.cos(angle)));
+
+                      // Store user data for animation
+                      beam.userData = {
+                          originalOpacity: beamMaterial.opacity,
+                          phase: Math.random() * Math.PI * 2,
+                          speed: 0.3 + Math.random() * 0.4
+                      };
+
+                      this._godRays.push(beam);
+                      this._godRayGroup.add(beam);
+                  }
+
+                  this._godRayIntensity = 1.0;
+                  this._godRayGroup.visible = true;
+                  this._scene.add(this._godRayGroup);
+
+                  console.log('[GOD RAYS] Volumetric god rays system rebuilt with 3D beams');
               }
               
               _createStars(THREE) {
@@ -1155,10 +1150,7 @@ function renderer(context) {
                         godRayVisible = true;
                         
                         // Use moon position
-                        const moonX = moonDistance * Math.sin(moonAzimuth) * Math.cos(moonElevation);
-                        const moonY = moonDistance * Math.sin(moonElevation);
-                        const moonZ = moonDistance * Math.cos(moonAzimuth) * Math.cos(moonElevation);
-                        godRayPosition = new this._THREE.Vector3(moonX, moonY, moonZ);
+                        godRayPosition = this._moonMesh.position.clone();
                     }
                     
                     // Apply god ray settings
@@ -2819,7 +2811,7 @@ function renderer(context) {
                   
                   // Animate moon rotation
                   if (this._moonMesh && this._moonMesh.visible) {
-                    this._moonMesh.rotation.y = time * 0.0001;
+                    this._moonMesh.rotation.y = time * 0.00002;
                   }
 
                   // Use performance.now() for more precise animation timing
