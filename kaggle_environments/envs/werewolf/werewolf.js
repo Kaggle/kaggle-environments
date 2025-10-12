@@ -544,7 +544,8 @@ function renderer(context) {
                 this._threejs.setSize(this._width, this._height);
                 this._threejs.outputEncoding = THREE.sRGBEncoding;
                 this._threejs.toneMapping = THREE.ACESFilmicToneMapping;
-                this._threejs.toneMappingExposure = 1.05; // Set to visible default value
+                // this._threejs.toneMappingExposure = 1.05; // Set to visible default value
+                this._threejs.toneMappingExposure = 1.0;
                 
                 console.log('[SKY DEBUG] Renderer settings:', {
                   toneMapping: 'ACESFilmicToneMapping',
@@ -578,7 +579,7 @@ function renderer(context) {
                 
                 // Add subtle atmospheric fog for depth
                 // Using FogExp2 for exponential fog that's more visible at ground level
-                this._scene.fog = new THREE.FogExp2(0x87CEEB, 0.01); // Light blue-grey, very low density
+                // this._scene.fog = new THREE.FogExp2(0x87CEEB, 0.01); // Light blue-grey, very low density
 
                 this._createAdvancedSkySystem(THREE, Sky);
                 this._createAdvancedLighting(THREE);
@@ -637,7 +638,7 @@ function renderer(context) {
                 console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
                 
                 // Create sun/moon light with default intensity
-                this._sunLight = new THREE.DirectionalLight(0xffffff, 0.9);  // Default visible intensity
+                this._sunLight = new THREE.DirectionalLight(0xffffff, 0.8);  // Default visible intensity
                 this._sunLight.castShadow = true;
                 this._sunLight.shadow.mapSize.width = 2048;
                 this._sunLight.shadow.mapSize.height = 2048;
@@ -653,7 +654,7 @@ function renderer(context) {
                 this._scene.add(this._sunLight.target);
                 
                 // Create moon light with increased intensity for better nighttime visibility
-                this._moonLight = new THREE.DirectionalLight(0x6688cc, 2.0);  // Moon intensity
+                this._moonLight = new THREE.DirectionalLight(0x6688cc, 0.5);  // Moon intensity
                 this._moonLight.castShadow = true;
                 this._moonLight.shadow.mapSize.width = 1024;
                 this._moonLight.shadow.mapSize.height = 1024;
@@ -925,8 +926,8 @@ function renderer(context) {
                     sunAzimuth = (90 + dayProgress * 180) * Math.PI / 180;
                     
                     // Sun elevation: rises from horizon, peaks at noon, sets at horizon
-                    // Using a sine curve for smooth arc, max elevation 30° (user prefers lower)
-                    const maxElevation = 30 * Math.PI / 180; // 30 degrees max
+                    // Using a sine curve for smooth arc, max elevation 60° (user prefers lower)
+                    const maxElevation = 60 * Math.PI / 180;
                     sunElevation = Math.sin(dayProgress * Math.PI) * maxElevation;
                     
                     // Keep sun at minimum 5° above horizon during most of day
@@ -995,7 +996,7 @@ function renderer(context) {
                 
                 // Dynamic sun intensity based on elevation
                 const sunIntensity = sunElevation > 0 ? Math.max(0, Math.sin(sunElevation)) : 0;
-                this._sunLight.intensity = sunIntensity * 3.0;  // User preference: 3.0 at peak
+                this._sunLight.intensity = sunIntensity * 1.2;  // User preference: 3.0 at peak
                 this._sunLight.visible = sunElevation > 0;
                 
                 // Adjust sun color based on elevation (redder at sunrise/sunset)
@@ -1029,7 +1030,7 @@ function renderer(context) {
                 this._moonLight.position.set(moonX, moonY, moonZ);
                 this._moonLight.target.position.set(0, 0, 0);
                 this._moonLight.visible = moonElevation > 0;
-                this._moonLight.intensity = moonElevation > 0 ? 2.0 : 0;  // Increased from 0.4 to 1.0 for better nighttime visibility
+                this._moonLight.intensity = moonElevation > 0 ? 0.4 : 0;  // Increased from 0.4 to 1.0 for better nighttime visibility
                 
                 // Update sky parameters based on time of day
                 const skyUniforms = this._sky.material.uniforms;
@@ -1304,19 +1305,19 @@ function renderer(context) {
               }
 
               _createAdvancedLighting(THREE) {
-               // Ambient lighting with visible intensity
-               const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.1);  // Default visible intensity
-               this._ambientLight = ambientLight; // Store reference for external access
+                // Increase ambient light for better, softer fill lighting
+                const ambientLight = new THREE.AmbientLight(0x4a4a3a, 0.5);  // Increased from 0.1
+                this._ambientLight = ambientLight; // Store reference for external access
                 ambientLight.name = 'ambientLight';
                 this._scene.add(ambientLight);
 
                 // Rim light for depth - warm orange glow
-                const rimLight = new THREE.DirectionalLight(0xaa6633, 0.2); // Warm orange rim
+                const rimLight = new THREE.DirectionalLight(0xaa6633, 0); // Set intensity to 0 to disable
                 rimLight.position.set(-20, 10, -30);
                 this._scene.add(rimLight);
 
                 // Atmospheric hemisphere light - village sky
-                const hemiLight = new THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.3); // Blue sky, brown ground
+                const hemiLight = new THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.5); // Increased from 0.3
                 this._scene.add(hemiLight);
 
                 // Ground fill light - warm village glow
@@ -1477,9 +1478,9 @@ function renderer(context) {
                 // Bloom pass with user's preferred settings
                 const bloomPass = new UnrealBloomPass(
                   new THREE.Vector2(this._width, this._height),
-                  0.16,  // strength - User preference: 0.16
-                  0.43,  // radius - User preference: 0.43
-                  0.16   // threshold - User preference: 0.16
+                  0.15,  // strength - User preference: 0.16
+                  0.4,  // radius - User preference: 0.43
+                  0.85   // threshold - User preference: 0.16
                 );
                 this._composer.addPass(bloomPass);
 
