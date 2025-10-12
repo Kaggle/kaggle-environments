@@ -25,8 +25,8 @@ function renderer(options) {
         .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
         .poker-table {
             width: clamp(400px, 85vw, 850px); height: clamp(220px, 48vw, 450px);
-            background-color: #006400; border-radius: 225px; position: relative;
-            border: 12px solid #5c3a21; box-shadow: 0 0 25px rgba(0,0,0,0.6);
+            background-color: #006400; border-radius: 24px; position: relative;
+            border: 2px solid #000; box-shadow: 0 0 2px rgba(0,0,0,0.6);
             display: flex; align-items: center; justify-content: center;
         }
         .player-pod {
@@ -77,8 +77,8 @@ function renderer(options) {
         .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
         .dealer-button {
             width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
-            text-align: center; line-height: 36px; font-weight: bold; font-size: 1rem; position: absolute;
-            border: 2px solid #888; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 5;
+            text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
+            border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 5;
         }
         .pos-player0-sb { bottom: -55px; left: 50%; }
         .pos-player1-bb { top: -55px; left: 50%; }
@@ -87,7 +87,7 @@ function renderer(options) {
         #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
         @media (max-width: 768px) {
-            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); border-radius: 175px; }
+            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
             .pos-player0-sb { bottom: -50px; } .pos-player1-bb { top: -50px; }
             .dealer-sb { left: calc(50% + 85px); bottom: -12px; }
             .player-pod { min-width: 110px; max-width: 150px; padding: 0.5rem 0.7rem; min-height: 120px; }
@@ -96,24 +96,24 @@ function renderer(options) {
             .community-cards-container .card-rank { font-size: 2.25rem;} .community-cards-container .card-suit { width: 36px; height: 36px; }
         }
         @media (max-width: 600px) {
-            .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); border-radius: 125px; }
+            .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
             .player-pod { min-width: 100px; max-width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px;}
             .player-name { font-size: 0.85rem;} .player-stack { font-size: 0.75rem; }
             .card { width: 40px; height: 60px; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 27px; height: 27px; }
             .community-cards-container .card { width: 42px; height: 62px; }
             .community-cards-container .card-rank { font-size: 1.95rem;} .community-cards-container .card-suit { width: 30px; height: 30px; }
             .bet-display { font-size: 0.75rem; } .pos-player0-sb { bottom: -45px; } .pos-player1-bb { top: -45px; }
-            .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 0.9rem;}
+            .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 1.4rem;}
             .dealer-sb { bottom: -8px; left: calc(50% + 75px); }
         }
         @media (max-width: 400px) {
-            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); border-radius: 100px; border-width: 8px; }
+            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
             .player-pod { min-width: 90px; max-width: 120px; padding: 0.3rem 0.4rem; min-height: 100px;}
             .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.7rem; }
             .card { width: 36px; height: 54px; margin: 0 1px; } .card-rank { font-size: 1.65rem; } .card-suit { width: 24px; height: 24px; }
             .community-cards-container .card { width: 38px; height: 56px; }
             .community-cards-container .card-rank { font-size: 1.8rem;} .community-cards-container .card-suit { width: 27px; height: 27px; }
-            .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 0.8rem;}
+            .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem;}
             .pos-player0-sb { bottom: -40px; } .pos-player1-bb { top: -40px; }
             .dealer-sb { bottom: -5px; left: calc(50% + 65px); }
         }
