@@ -2132,26 +2132,36 @@ function renderer(context) {
                         orb.visible = false;
                         orbLight.visible = false;
                         glow.visible = false;
-                        pedestal.material.emissive.setHex(0x050505); // Very dark grey instead of pure black
-                        // Don't sink into ground - keep on island surface
-                        // container.position.y = -1.5; // Removed for island
-                        // Tilt slightly to show they're dead
-                        container.rotation.x = 0.2;
-                        // Fade out nameplate
+                        pedestal.material.emissive.setHex(0x050505);
                         if (player.nameplate && player.nameplate.element) {
                             player.nameplate.element.style.transition = 'opacity 2s ease-out';
-                            player.nameplate.element.style.opacity = '0.7'; // Increased from 0.2 for better visibility
+                            player.nameplate.element.style.opacity = '0.7';
                         }
                         player.isAlive = false;
-                        
-                        // Check if death animation has already been played
-                        const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
-                        if (deathMap && !deathMap.has(playerName)) {
-                            console.log(`[DEATH TRIGGER] Triggering death animation for ${playerName} from updatePlayerStatus`);
-                            // Play death animation using centralized method
-                            this.playAnimation(playerName, 'Dying');
-                        } else if (deathMap && deathMap.has(playerName)) {
-                            console.log(`[DEATH SKIP] Death animation already completed for ${playerName}, skipping`);
+
+                        // --- START OF NEW LOGIC ---
+                        mixer.stopAllAction(); // IMPORTANT: Stop any other animations like 'Idle'.
+
+                        const dyingAnimation = animations ? animations['Dying'] : null;
+                        if (dyingAnimation) {
+                            const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                            const action = mixer.clipAction(dyingAnimation);
+                            action.setLoop(this._THREE.LoopOnce);
+                            action.clampWhenFinished = true;
+
+                            if (deathMap && !deathMap.has(playerName)) {
+                                // This is the first time we're seeing this player die. Play the full animation.
+                                console.log(`[DEATH TRIGGER] Playing full death animation for ${playerName}.`);
+                                action.reset().play();
+                                deathMap.set(playerName, true); // Mark it as completed.
+                            } else {
+                                // Player is already dead. Force the model to the final frame of the animation.
+                                action.play();
+                                action.time = action.getClip().duration; // Jump to the end.
+                            }
+                        } else {
+                            // Fallback for models without a 'Dying' animation.
+                            container.rotation.x = 0.2;
                         }
                         break;
                     case 'werewolf':
@@ -4594,6 +4604,9 @@ function renderer(context) {
     container.innerHTML = `
         <h1>
             <span>Events</span>
+            <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View" style="margin-left: auto;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
+            </button>
             <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
                  <button id="global-reasoning-toggle" title="Toggle All Reasoning">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
