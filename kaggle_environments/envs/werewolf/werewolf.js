@@ -1173,9 +1173,9 @@ function renderer(context) {
                             }
                         });
                         
-                        console.log('[GOD RAYS] Updated - Visible:', godRayVisible,
-                                   'Intensity:', godRayIntensity * this._godRayIntensity,
-                                   'Position:', godRayPosition);
+                        // console.log('[GOD RAYS] Updated - Visible:', godRayVisible,
+                        //            'Intensity:', godRayIntensity * this._godRayIntensity,
+                        //            'Position:', godRayPosition);
                     }
                 }
               }
@@ -2068,11 +2068,35 @@ function renderer(context) {
                 pedestal.material.emissiveIntensity = 0.3;
               }
 
-              updatePlayerStatus(playerName, status, threatLevel = 0, is_active = false) {
+              updatePlayerStatus(playerName, player_info, status, threatLevel = 0, is_active = false) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
                 const { orb, orbLight, model, glow, pedestal, container, mixer, animations, currentAction } = player;
+
+                if (player_info && player_info.role !== 'Unknown' && player.nameplate) {
+                    const roleElement = player.nameplate.element.querySelector('.player-role-3d');
+                    if (roleElement) {
+                        let roleDisplay = player_info.role;
+                        let roleColor = '#00b894'; // Villager green
+                        if (player_info.role === 'Werewolf') {
+                            roleDisplay = `\u{1F43A} ${player_info.role}`; // 🐺 Wolf emoji
+                            roleColor = '#e17055'; // Werewolf red
+                        } else if (player_info.role === 'Doctor') {
+                            roleDisplay = `\u{1FA7A} ${player_info.role}`; // 🩺 Stethoscope emoji
+                            roleColor = '#6c5ce7'; // Doctor purple
+                        } else if (player_info.role === 'Seer') {
+                            roleDisplay = `\u{1F52E} ${player_info.role}`; // 🔮 Crystal Ball emoji
+                            roleColor = '#fd79a8'; // Seer pink
+                        } else if (player.role === 'Villager') {
+                            roleDisplay = `\u{1FA97} ${player.role}`; //  Pitchfork emoji
+                            roleColor = '#00b894'; // Villager green
+                        }
+                        roleElement.textContent = `${roleDisplay}`;
+                        roleElement.style.color = roleColor;
+                        roleElement.style.fontWeight = 'bold';
+                    }
+                }
 
                 // Reset to default state - more muted
                 orb.material.color.setHex(0x00aa88);
@@ -2635,6 +2659,8 @@ function renderer(context) {
 
               _createNameplate(name, displayName, imageUrl, CSS2DObject) {
                 const container = document.createElement('div');
+                container.style.pointerEvents = 'auto';
+                container.style.cursor = 'pointer';
                 container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
                 container.style.padding = '6px 10px';  // Slightly smaller padding
                 container.style.borderRadius = '8px';
@@ -2643,6 +2669,18 @@ function renderer(context) {
                 container.style.justifyContent = 'center';
                 container.style.gap = '8px';  // Reduced gap
                 container.style.textAlign = 'center';
+
+                container.onclick = () => {
+                    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                        // Get panel widths to correctly frame the view
+                        const leftPanel = document.querySelector('.left-panel');
+                        const rightPanel = document.querySelector('.right-panel');
+                        const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+                        const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+
+                        window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
+                    }
+                };
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
@@ -2665,6 +2703,14 @@ function renderer(context) {
                 nameText.style.fontSize = '14px';
                 nameText.style.fontWeight = '500';
                 textContainer.appendChild(nameText);
+
+                const roleText = document.createElement('div');
+                roleText.className = 'player-role-3d'; // Add a class for easy selection
+                roleText.textContent = 'Role - Unknown';
+                roleText.style.color = '#a0a0a0';
+                roleText.style.fontSize = '12px';
+                roleText.style.marginTop = '4px';
+                textContainer.appendChild(roleText);
 
                 if (displayName && displayName !== "" && displayName !== name) {
                     const displayNameText = document.createElement('div');
@@ -2933,19 +2979,19 @@ function renderer(context) {
                    this._skyDebugFrameCount++;
                    
                    if (this._sky) {
-                     console.log(`[SKY DEBUG] Frame ${this._skyDebugFrameCount} - Sky mesh status:`, {
-                       visible: this._sky.visible,
-                       inScene: this._scene.children.includes(this._sky),
-                       scale: this._sky.scale.x,
-                       position: {x: this._sky.position.x, y: this._sky.position.y, z: this._sky.position.z},
-                       renderOrder: this._sky.renderOrder,
-                       material: this._sky.material ? 'exists' : 'missing',
-                       uniforms: this._sky.material ? {
-                         sunPosition: this._sky.material.uniforms['sunPosition'].value,
-                         turbidity: this._sky.material.uniforms['turbidity'].value,
-                         rayleigh: this._sky.material.uniforms['rayleigh'].value
-                       } : 'N/A'
-                     });
+                    //  console.log(`[SKY DEBUG] Frame ${this._skyDebugFrameCount} - Sky mesh status:`, {
+                    //    visible: this._sky.visible,
+                    //    inScene: this._scene.children.includes(this._sky),
+                    //    scale: this._sky.scale.x,
+                    //    position: {x: this._sky.position.x, y: this._sky.position.y, z: this._sky.position.z},
+                    //    renderOrder: this._sky.renderOrder,
+                    //    material: this._sky.material ? 'exists' : 'missing',
+                    //    uniforms: this._sky.material ? {
+                    //      sunPosition: this._sky.material.uniforms['sunPosition'].value,
+                    //      turbidity: this._sky.material.uniforms['turbidity'].value,
+                    //      rayleigh: this._sky.material.uniforms['rayleigh'].value
+                    //    } : 'N/A'
+                    //  });
                    } else {
                      console.error('[SKY DEBUG] Sky mesh is null/undefined!');
                    }
@@ -3035,7 +3081,7 @@ function renderer(context) {
         primaryStatus = 'seer';
       }
 
-      threeState.demo.updatePlayerStatus(player.name, primaryStatus, threatLevel);
+      threeState.demo.updatePlayerStatus(player.name, player, primaryStatus, threatLevel);
     });
 
     // Update phase lighting
@@ -3256,6 +3302,24 @@ function renderer(context) {
             border: 2px solid rgba(100, 100, 200, 0.5);
         }
         
+        .game-scoreboard .phase-indicator {
+            position: relative; /* Override the 'fixed' positioning */
+            top: auto;
+            left: auto;
+            transform: none;
+            z-index: auto;
+            scale: 1.0;
+            
+            /* Scale it down to fit */
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            border-radius: 20px;
+            
+            /* Remove styles meant for a floating element */
+            box-shadow: none;
+            backdrop-filter: none;
+        }
+        
         .phase-indicator .phase-icon {
             display: inline-block;
             margin-right: 8px;
@@ -3331,12 +3395,14 @@ function renderer(context) {
         }
         
         .left-panel {
-            left: 20px;
-            width: 320px;
+            /* left: 20px; */
+            /* width: 320px; */
+            display: none; /* Hide the left panel */
         }
-        
+
         .right-panel {
-            right: 20px;
+            /* right: 20px; */
+            left: 20px; /* Move the right panel to the left */
             width: 420px;
         }
         
@@ -4543,6 +4609,15 @@ function renderer(context) {
         </h1>
     `;
 
+    const resetButton = container.querySelector('#reset-view-btn');
+    if (resetButton) {
+        resetButton.onclick = () => {
+            if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                window.werewolfThreeJs.demo.resetCameraView();
+            }
+        };
+    }
+
     const logUl = document.createElement('ul');
     logUl.id = 'chat-log';
 
@@ -5265,28 +5340,9 @@ function renderer(context) {
         parent.appendChild(mainContainer);
     }
     
-    // Create or update phase indicator
-    let phaseIndicator = parent.querySelector('.phase-indicator');
-    if (!phaseIndicator) {
-        phaseIndicator = document.createElement('div');
-        phaseIndicator.className = 'phase-indicator';
-        parent.appendChild(phaseIndicator);
-    }
-    
     // Update phase indicator based on current game state
     const currentPhase = allEvents[eventStep].phase.toUpperCase() || 'DAY';
     const isNight = currentPhase === 'NIGHT';
-    phaseIndicator.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
-    if (allEvents[eventStep]?.event_name == 'game_end') {
-        phaseIndicator.innerHTML = `
-        <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
-        `;
-    } else {
-        phaseIndicator.innerHTML = `
-        <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
-        <span>${allEvents[eventStep].day}</span>
-        `;
-    }
     
     // Create or update game scoreboard
     let scoreboard = parent.querySelector('.game-scoreboard');
@@ -5341,8 +5397,8 @@ function renderer(context) {
     // Update scoreboard content
     scoreboard.innerHTML = `
         <div class="scoreboard-item">
-            <div class="scoreboard-label">Day</div>
-            <div class="scoreboard-value">${gameState.day || 0}</div>
+            <div id="phase-indicator-capsule" class="phase-indicator">
+            </div>
         </div>
         <div class="scoreboard-item">
             <div class="scoreboard-label">Alive</div>
@@ -5367,6 +5423,28 @@ function renderer(context) {
         </div>
     `;
 
+    const phaseCapsule = scoreboard.querySelector('#phase-indicator-capsule');
+    if (phaseCapsule) {
+        const currentPhase = (allEvents[eventStep]?.phase || 'DAY').toUpperCase();
+        const isNight = currentPhase === 'NIGHT';
+        
+        // Set the class for 'day' or 'night' styling
+        phaseCapsule.className = `phase-indicator ${isNight ? 'night' : 'day'}`;
+        
+        // Set the inner content with the icon and phase name
+        const phaseIcon = isNight ? '&#x1F319;' : '&#x2600;';
+        if (allEvents[eventStep]?.event_name == 'game_end') {
+            phaseCapsule.innerHTML = `
+            <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
+            `;
+        } else {
+            phaseCapsule.innerHTML = `
+            <span class="phase-icon">${isNight ? '&#x1F319;' : '&#x2600;'}</span>
+            <span>${allEvents[eventStep].day}</span>
+            `;
+        }
+    }
+
     // Create or get existing panels
     let leftPanel = mainContainer.querySelector('.left-panel');
     if (!leftPanel) {
@@ -5390,7 +5468,6 @@ function renderer(context) {
     }
 
     // Update existing content instead of clearing and rebuilding
-    updatePlayerList(playerListArea, gameState, nameToHighlight);
     updateEventLog(rightPanel, gameState, playerMap);
 
     // Create sky controls panel if it doesn't exist
