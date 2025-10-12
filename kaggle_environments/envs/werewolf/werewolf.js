@@ -5394,7 +5394,7 @@ function renderer(context) {
     updateEventLog(rightPanel, gameState, playerMap);
 
     // Create sky controls panel if it doesn't exist
-    createSkyControlsPanel(parent);
+    // createSkyControlsPanel(parent);
 
     // Update 3D scene based on game state
     updateSceneFromGameState(gameState, playerMap, nameToHighlight);
