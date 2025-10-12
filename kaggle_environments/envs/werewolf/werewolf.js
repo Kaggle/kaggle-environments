@@ -547,7 +547,7 @@ function renderer(context) {
                 // this._threejs.toneMappingExposure = 1.05; // Set to visible default value
                 this._threejs.toneMappingExposure = 1.0;
                 
-                console.log('[SKY DEBUG] Renderer settings:', {
+                console.error('[SKY DEBUG] Renderer settings:', {
                   toneMapping: 'ACESFilmicToneMapping',
                   toneMappingExposure: this._threejs.toneMappingExposure,
                   outputEncoding: 'sRGBEncoding'
@@ -611,16 +611,16 @@ function renderer(context) {
                 // Store THREE reference
                 this._THREE = THREE;
                 
-                console.log('[SKY DEBUG] Creating Sky shader system...');
+                // console.log('[SKY DEBUG] Creating Sky shader system...');
                 
                 // Create Sky shader
                 this._sky = new Sky();
                 this._sky.scale.setScalar(450000);
                 this._scene.add(this._sky);
                 
-                console.log('[SKY DEBUG] Sky mesh created and added to scene');
-                console.log('[SKY DEBUG] Sky scale:', this._sky.scale);
-                console.log('[SKY DEBUG] Sky material:', this._sky.material);
+                // console.log('[SKY DEBUG] Sky mesh created and added to scene');
+                // console.log('[SKY DEBUG] Sky scale:', this._sky.scale);
+                // console.log('[SKY DEBUG] Sky material:', this._sky.material);
                 
                 // Sky shader uniforms
                 const skyUniforms = this._sky.material.uniforms;
@@ -631,11 +631,11 @@ function renderer(context) {
                 skyUniforms['mieCoefficient'].value = 0.001;  // Default visible value
                 skyUniforms['mieDirectionalG'].value = 0.9;   // Default visible value
                 
-                console.log('[SKY DEBUG] Initial sky shader uniforms:');
-                console.log('  - turbidity:', skyUniforms['turbidity'].value);
-                console.log('  - rayleigh:', skyUniforms['rayleigh'].value);
-                console.log('  - mieCoefficient:', skyUniforms['mieCoefficient'].value);
-                console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
+                // console.log('[SKY DEBUG] Initial sky shader uniforms:');
+                // console.log('  - turbidity:', skyUniforms['turbidity'].value);
+                // console.log('  - rayleigh:', skyUniforms['rayleigh'].value);
+                // console.log('  - mieCoefficient:', skyUniforms['mieCoefficient'].value);
+                // console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
                 
                 // Create sun/moon light with default intensity
                 this._sunLight = new THREE.DirectionalLight(0xffffff, 0.8);  // Default visible intensity
@@ -897,7 +897,7 @@ function renderer(context) {
                   return;
                 }
                 
-                console.log('[SKY DEBUG] Updating sky system for phase:', phase);
+                // console.log('[SKY DEBUG] Updating sky system for phase:', phase);
                 
                 // Dynamic sun/moon positioning based on game time
                 // Phase: 0 = day (noon), 0.5 = transition, 1 = night (midnight)
@@ -970,12 +970,12 @@ function renderer(context) {
                 
                 this._sunPosition.set(sunX, sunY, sunZ);
                 
-                console.log('[SKY DEBUG] Sun position:', {
-                  x: sunX,
-                  y: sunY,
-                  z: sunZ,
-                  sunPosition: this._sunPosition
-                });
+                // console.log('[SKY DEBUG] Sun position:', {
+                //   x: sunX,
+                //   y: sunY,
+                //   z: sunZ,
+                //   sunPosition: this._sunPosition
+                // });
                 
                 // Update Sky shader sun position
                 this._sky.material.uniforms['sunPosition'].value.copy(this._sunPosition);
@@ -2088,8 +2088,8 @@ function renderer(context) {
                         } else if (player_info.role === 'Seer') {
                             roleDisplay = `\u{1F52E} ${player_info.role}`; // 🔮 Crystal Ball emoji
                             roleColor = '#fd79a8'; // Seer pink
-                        } else if (player.role === 'Villager') {
-                            roleDisplay = `\u{1FA97} ${player.role}`; //  Pitchfork emoji
+                        } else if (player_info.role === 'Villager') {
+                            roleDisplay = `\u{1F33E} ${player.role}`; //  🌾 emoji
                             roleColor = '#00b894'; // Villager green
                         }
                         roleElement.textContent = `${roleDisplay}`;
@@ -2101,11 +2101,11 @@ function renderer(context) {
                 // Reset to default state - more muted
                 orb.material.color.setHex(0x00aa88);
                 orb.material.emissive.setHex(0x00aa88);
-                orb.material.emissiveIntensity = 0.4;
-                orb.material.opacity = 0.7;
+                orb.material.emissiveIntensity = 1.0;
+                orb.material.opacity = 0.85;
                 orb.visible = true;
                 orbLight.color.setHex(0x00aa88);
-                orbLight.intensity = 0.4;
+                orbLight.intensity = 0.8;
                 orbLight.visible = true;
                 
                 // For FBX models, we don't change material colors directly
@@ -2197,7 +2197,7 @@ function renderer(context) {
                 if (threatLevel >= 1.0) { // DANGER
                     orb.material.color.setHex(0xaa4444); // Muted red
                     orb.material.emissive.setHex(0xaa4444);
-                    orb.material.emissiveIntensity = 0.6;
+                    orb.material.emissiveIntensity = 1.2;
                     orb.material.opacity = 0.8;
                     orbLight.color.setHex(0xaa4444);
                     orbLight.intensity = 0.6;
@@ -2207,7 +2207,7 @@ function renderer(context) {
                 } else if (threatLevel >= 0.5) { // UNEASY
                     orb.material.color.setHex(0xaaaa44); // Muted yellow
                     orb.material.emissive.setHex(0xaaaa44);
-                    orb.material.emissiveIntensity = 0.5;
+                    orb.material.emissiveIntensity = 1.1;
                     orb.material.opacity = 0.75;
                     orbLight.color.setHex(0xaaaa44);
                     orbLight.intensity = 0.5;
@@ -2217,7 +2217,7 @@ function renderer(context) {
                 } else { // SAFE
                     orb.material.color.setHex(0x44aa88); // Muted teal-green
                     orb.material.emissive.setHex(0x44aa88);
-                    orb.material.emissiveIntensity = 0.4;
+                    orb.material.emissiveIntensity = 0.8;
                     orb.material.opacity = 0.7;
                     orbLight.color.setHex(0x44aa88);
                     orbLight.intensity = 0.4;
@@ -2275,14 +2275,17 @@ function renderer(context) {
                 action.reset();
                 
                 // Auto-determine loop mode based on animation type
-                if (['Idle', 'Talking', 'Pointing'].includes(animationName)) {
-                    action.setLoop(this._THREE.LoopRepeat);
-                    action.clampWhenFinished = false;
-                } else if (['Victory', 'Defeated', 'Dying'].includes(animationName)) {
-                    action.setLoop(this._THREE.LoopOnce);
-                    action.clampWhenFinished = true;
-                    console.log(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
-                }
+                // if (['Idle', 'Talking', 'Pointing'].includes(animationName)) {
+                //     action.setLoop(this._THREE.LoopRepeat);
+                //     action.clampWhenFinished = false;
+                // } else if (['Victory', 'Defeated', 'Dying'].includes(animationName)) {
+                //     // action.setLoop(this._THREE.LoopOnce);
+                //     action.setLoop(this._THREE.LoopRepeat);
+                //     action.clampWhenFinished = false;
+                //     console.log(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
+                // }
+                action.setLoop(this._THREE.LoopRepeat);
+
                 
                 // Apply any custom options
                 if (options.loop !== undefined) {
@@ -2671,6 +2674,7 @@ function renderer(context) {
                 const container = document.createElement('div');
                 container.style.pointerEvents = 'auto';
                 container.style.cursor = 'pointer';
+                container.style.transform = 'translateY(-50%)';
                 container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
                 container.style.padding = '6px 10px';  // Slightly smaller padding
                 container.style.borderRadius = '8px';
@@ -5687,7 +5691,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         const orbMaterial = new THREE.MeshStandardMaterial({
             color: 0x00aa88, // More muted green-blue
             emissive: 0x00aa88,
-            emissiveIntensity: 0.4, // Less bright
+            emissiveIntensity: 1.,
             transparent: true,
             opacity: 0.7 // More translucent
         });
@@ -5731,7 +5735,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, modelHeight + 2.0, 0); // Position above orb
+        nameplate.position.set(0, modelHeight + 2.8, 0);
         playerContainer.add(nameplate);
         
         // Store references with new structure
