@@ -2305,7 +2305,7 @@ function renderer(context) {
                 return action;
               }
 
-              displayPlayerBubble(playerName, message, reasoning = '') {
+              displayPlayerBubble(playerName, message, reasoning = '', timestamp = '') {
                 const player = this._playerObjects.get(playerName);
                 if (!player || !player.chatBubble) return;
 
@@ -2315,6 +2315,11 @@ function renderer(context) {
                 const messageEl = bubbleElement.querySelector('.bubble-message');
                 const reasoningEl = bubbleElement.querySelector('.bubble-reasoning-text');
                 const reasoningToggle = bubbleElement.querySelector('.bubble-reasoning-toggle');
+                const timestampEl = bubbleElement.querySelector('.bubble-timestamp');
+
+                if (timestampEl) {
+                    timestampEl.textContent = timestamp ? formatTimestamp(timestamp) : '';
+                }
 
                 // Update bubble content
                 if (messageEl) messageEl.innerHTML = message;
@@ -2753,6 +2758,9 @@ function renderer(context) {
                 const header = document.createElement('div');
                 header.className = 'bubble-header';
 
+                const timestampText = document.createElement('span');
+                timestampText.className = 'bubble-timestamp';
+
                 const reasoningToggle = document.createElement('span');
                 reasoningToggle.className = 'bubble-reasoning-toggle';
                 reasoningToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
@@ -2762,7 +2770,8 @@ function renderer(context) {
                     const reasoningEl = bubbleContainer.querySelector('.bubble-reasoning-text');
                     if (reasoningEl) reasoningEl.classList.toggle('visible');
                 };
-
+                
+                header.appendChild(timestampText);
                 header.appendChild(reasoningToggle);
 
                 const messageText = document.createElement('div');
@@ -3227,7 +3236,7 @@ function renderer(context) {
         // Display the bubble if we have a message and an actor
         if (messageForBubble && actorName && playerMap.has(actorName)) {
             const formattedMessage = window.werewolfGamePlayer.playerIdReplacer(messageForBubble);
-            threeState.demo.displayPlayerBubble(actorName, formattedMessage, reasoningForBubble); 
+            threeState.demo.displayPlayerBubble(actorName, formattedMessage, reasoningForBubble, lastEvent.timestamp); 
             threeState.demo.updatePlayerActive(actorName); // Keep the active pulse effect
         }
 
@@ -3537,24 +3546,30 @@ function renderer(context) {
             font-weight: 600;
             color: var(--text-primary);
             position: relative;
-            padding: 20px 0;
+            padding: 20px 20px 20px 60px; 
             flex-shrink: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 10px;
-            cursor: pointer; /* Make it clickable */
+            cursor: pointer;
             user-select: none;
         }
 
         /* Adds a visual indicator for expanding/collapsing */
         .right-panel h1::before {
-            content: '▲';
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            transition: transform 0.3s ease;
+            content: ''; /* The content is now the background image */
             position: absolute;
             left: 20px;
+            width: 20px;
+            height: 20px;
+
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2374b9ff"><path d="M12 8l-6 6h12z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+
+            transition: transform 0.3s ease;
         }
 
         .right-panel.collapsed h1::before {
@@ -3631,43 +3646,54 @@ function renderer(context) {
             line-height: 1.4;
             box-shadow: 0 5px 25px rgba(0,0,0,0.3);
             opacity: 0;
-            transform: translateY(20px) scale(0.9);
-            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+            transform: translateY(-50%);
+            transition: opacity 0.4s ease, visibility 0.4s;
             pointer-events: none;
             visibility: hidden;
         }
 
         .player-chat-bubble.visible {
             opacity: 1;
-            transform: translateY(0) scale(1);
             visibility: visible;
         }
 
-        /* The tail pointing down to the nameplate */
+        /* Adjust the tail to point left towards the nameplate */
         .player-chat-bubble::after {
             content: '';
             position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%) rotate(45deg);
-            width: 16px;
-            height: 16px;
-            background: rgba(20, 30, 45, 0.9);
-            border-bottom: 1px solid rgba(116, 185, 255, 0.3);
-            border-right: 1px solid rgba(116, 185, 255, 0.3);
+            top: 50%; /* Aligns with the bubble's vertical center */
+            left: -10px; /* Moves the arrow's base to the left edge */
+            
+            /* This creates a clean, sharp triangle pointing left */
+            width: 0; 
+            height: 0; 
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 12px solid rgba(20, 30, 45, 0.9); /* The color matches the bubble */
+
+            /* Removes the old transform and background properties */
+            transform: translateY(-50%);
         }
 
         .bubble-header {
             display: flex;
             align-items: center;
+            gap: 10px;
             margin-bottom: 8px;
+        }
+        
+        .bubble-timestamp {
+            font-size: 11px;
+            color: #9ab;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
         }
         
         .bubble-reasoning-toggle {
             cursor: pointer;
             opacity: 0.7;
             transition: opacity 0.2s;
-            margin-left: auto; /* Aligns toggle to the right */
+            margin-left: auto; /* Pushes toggle to the far right */
         }
         .bubble-reasoning-toggle:hover {
             opacity: 1;
@@ -6030,7 +6056,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
 
         // Create chat bubble (temporary) and position it above the nameplate
         const chatBubble = threeState.demo._createChatBubble(name, CSS2DObject);
-        chatBubble.position.set(0, modelHeight + 4.2, 0); 
+        chatBubble.position.set(-2.8, modelHeight + 4.2, 0);
         playerContainer.add(chatBubble);
         
         // Store references with new structure
