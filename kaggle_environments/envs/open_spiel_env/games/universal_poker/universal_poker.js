@@ -1,11 +1,13 @@
 function renderer(options) {
     // --- Existing Elements and Style Injection (Unchanged) ---
     const elements = {
+        gameLayout: null,
         pokerTableContainer: null,
         pokerTable: null,
         communityCardsContainer: null,
         potDisplay: null,
-        playerPods: [],
+        playersContainer: null,
+        playerCardAreas: [],
         dealerButton: null,
         diagnosticHeader: null,
         gameMessageArea: null,
@@ -20,21 +22,24 @@ function renderer(options) {
         .poker-renderer-host {
             width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
             font-family: 'Inter', sans-serif; background-color: #2d3748; color: #fff;
-            overflow: hidden; padding: 1rem; box-sizing: border-box;
+            overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
         }
-        .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
+        .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 300px;}
         .poker-table {
-            width: clamp(400px, 85vw, 850px); height: clamp(220px, 48vw, 450px);
+            width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 300px);
             background-color: #006400; border-radius: 24px; position: relative;
             border: 2px solid #000; box-shadow: 0 0 2px rgba(0,0,0,0.6);
             display: flex; align-items: center; justify-content: center;
         }
-        .player-pod {
-            background-color: rgba(0, 0, 0, 0.75); border: 1px solid #4a5568; border-radius: 0.75rem;
+        .players-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
+        }
+        .player-card-area {
             padding: 0.6rem 0.8rem; color: white; text-align: center; position: absolute;
-            min-width: 120px; max-width: 160px; box-shadow: 0 3px 12px rgba(0,0,0,0.35);
-            transform: translateX(-50%); display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 130px;
+            width: 50%;
+            display: flex; flex-direction: column; justify-content: space-between;
+            min-height: 130px; pointer-events: auto;
         }
         .player-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.25rem; font-size: 0.9rem;}
         .player-stack { font-size: 0.8rem; color: #facc15; margin-bottom: 0.25rem; }
@@ -42,12 +47,12 @@ function renderer(options) {
         .player-status { font-size: 0.75rem; color: #9ca3af; min-height: 1.1em; margin-top: 0.25rem; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            width: 5rem; height: 7rem; border: 2px solid #202124; border-radius: 8px; margin: 0 3px;
+            width: 5rem; height: 7rem; border: 2px solid #202124; border-radius: 8px; margin: 0 12px;
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
-            padding: 4px;
+            padding: 6px;
         }
-        .card-rank { font-size: 2.1rem; line-height: 1; display: block; align-self: flex-start; }
-        .card-suit { width: 33px; height: 33px; display: block; margin-bottom: 2px; }
+        .card-rank { font-size: 3rem; line-height: 1; display: block; align-self: flex-start; }
+        .card-suit { width: 3rem; height: 3rem; display: block; margin-bottom: 2px; }
         .card-suit svg { width: 100%; height: 100%; }
         .card-red .card-rank { color: #B3261E; }
         .card-red .card-suit svg { fill: #B3261E; }
@@ -72,8 +77,6 @@ function renderer(options) {
         .card-empty .card-rank, .card-empty .card-suit { display: none; }
         .community-cards-area { text-align: center; z-index: 10; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; }
-        .community-cards-container .card { width: 52px; height: 76px; }
-        .community-cards-container .card-rank { font-size: 2.4rem; } .community-cards-container .card-suit { width: 39px; height: 39px; }
         .pot-display { font-size: 1.5rem; font-weight: bold; color: #ffffff; margin-bottom: 1rem; }
         .bet-display {
             display: inline-block; min-width: 55px; padding: 4px 8px; border-radius: 12px;
@@ -86,42 +89,36 @@ function renderer(options) {
             text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
             border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 5;
         }
-        .pos-player0-sb { bottom: -55px; left: 50%; }
-        .pos-player1-bb { top: -55px; left: 50%; }
+        .pos-player0-sb { bottom: 20px; left: 20px; }
+        .pos-player1-bb { top: 20px; left: 20px; }
         .dealer-sb { bottom: -15px; left: calc(50% + 95px); transform: translateX(-50%); }
-        .current-player-turn-highlight { border: 2px solid #f1c40f !important; box-shadow: 0 0 15px #f1c40f, 0 3px 12px rgba(0,0,0,0.35) !important; }
+        .current-player-turn-highlight .player-card-area .player-name { font-weight: 900 !important; }
         #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
         @media (max-width: 768px) {
-            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
-            .pos-player0-sb { bottom: -50px; } .pos-player1-bb { top: -50px; }
+            .card { width: 5rem; height: 7rem; margin: 0 6px; } .card-rank { font-size: 3rem; } .card-suit { width: 3rem; height: 3rem; }
             .dealer-sb { left: calc(50% + 85px); bottom: -12px; }
-            .player-pod { min-width: 110px; max-width: 150px; padding: 0.5rem 0.7rem; min-height: 120px; }
-            .card { width: 44px; height: 66px; } .card-rank { font-size: 1.95rem; } .card-suit { width: 30px; height: 30px; }
-            .community-cards-container .card { width: 48px; height: 70px; }
-            .community-cards-container .card-rank { font-size: 2.25rem;} .community-cards-container .card-suit { width: 36px; height: 36px; }
+            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
+            .pos-player0-sb { bottom: 15px; left: 15px; } .pos-player1-bb { top: 15px; left: 15px; }
+            .player-card-area { padding: 0.5rem 0.7rem; min-height: 120px; }
         }
         @media (max-width: 600px) {
-            .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
-            .player-pod { min-width: 100px; max-width: 140px; padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px;}
-            .player-name { font-size: 0.85rem;} .player-stack { font-size: 0.75rem; }
-            .card { width: 40px; height: 60px; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 27px; height: 27px; }
-            .community-cards-container .card { width: 42px; height: 62px; }
-            .community-cards-container .card-rank { font-size: 1.95rem;} .community-cards-container .card-suit { width: 30px; height: 30px; }
-            .bet-display { font-size: 0.75rem; } .pos-player0-sb { bottom: -45px; } .pos-player1-bb { top: -45px; }
+            .bet-display { font-size: 0.75rem; } .pos-player0-sb { bottom: 10px; left: 10px; } .pos-player1-bb { top: 10px; left: 10px; }
+            .card { width: 3rem; height: 4.2rem; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 1.8rem; height: 1.8rem;  }
             .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 1.4rem;}
             .dealer-sb { bottom: -8px; left: calc(50% + 75px); }
+            .player-name { font-size: 0.85rem;} .player-stack { font-size: 0.75rem; }
+            .player-card-area { padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px;}
+            .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
         }
         @media (max-width: 400px) {
-            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
-            .player-pod { min-width: 90px; max-width: 120px; padding: 0.3rem 0.4rem; min-height: 100px;}
-            .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.7rem; }
-            .card { width: 36px; height: 54px; margin: 0 1px; } .card-rank { font-size: 1.65rem; } .card-suit { width: 24px; height: 24px; }
-            .community-cards-container .card { width: 38px; height: 56px; }
-            .community-cards-container .card-rank { font-size: 1.8rem;} .community-cards-container .card-suit { width: 27px; height: 27px; }
+            .card { width: 2rem; height: 2.8rem; margin: 0 1px; padding: 2px;} .card-rank { font-size: 1.4rem; } .card-suit { width: 1.4rem; height: 1.4rem; }
             .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem;}
-            .pos-player0-sb { bottom: -40px; } .pos-player1-bb { top: -40px; }
             .dealer-sb { bottom: -5px; left: calc(50% + 65px); }
+            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px;}
+            .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.7rem; }
+            .pos-player0-sb { bottom: 8px; left: 8px; } .pos-player1-bb { top: 8px; left: 8px; }
+            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
         }
         `;
         const parentForStyles = passedOptions && passedOptions.parent ? passedOptions.parent.ownerDocument.head : document.head;
@@ -194,9 +191,17 @@ function renderer(options) {
         elements.gameMessageArea.id = 'game-message-area';
         parentElement.appendChild(elements.gameMessageArea);
 
+        elements.gameLayout = document.createElement('div');
+        elements.gameLayout.className = 'poker-game-layout';
+        parentElement.appendChild(elements.gameLayout);
+
         elements.pokerTableContainer = document.createElement('div');
         elements.pokerTableContainer.className = 'poker-table-container';
-        parentElement.appendChild(elements.pokerTableContainer);
+        elements.gameLayout.appendChild(elements.pokerTableContainer);
+
+        elements.playersContainer = document.createElement('div');
+        elements.playersContainer.className = 'players-container';
+        elements.gameLayout.appendChild(elements.playersContainer);
 
         elements.pokerTable = document.createElement('div');
         elements.pokerTable.className = 'poker-table';
@@ -214,19 +219,19 @@ function renderer(options) {
         elements.communityCardsContainer.className = 'community-cards-container';
         communityArea.appendChild(elements.communityCardsContainer);
 
-        elements.playerPods = [];
+        elements.playerCardAreas = [];
         for (let i = 0; i < 2; i++) {
-            const playerPod = document.createElement('div');
-            playerPod.className = `player-pod ${i === 0 ? 'pos-player0-sb' : 'pos-player1-bb'}`;
-            playerPod.innerHTML = `
+            const playerCardArea = document.createElement('div');
+            playerCardArea.className = `player-card-area ${i === 0 ? 'pos-player0-sb' : 'pos-player1-bb'}`;
+            playerCardArea.innerHTML = `
                 <div class="player-name">Player ${i}</div>
                 <div class="player-stack">$0.00</div>
                 <div class="player-cards-container"></div>
                 <div class="bet-display" style="display:none;">$0.00</div>
                 <div class="player-status">(${i === 0 ? 'SB' : 'BB'})</div>
             `;
-            elements.pokerTable.appendChild(playerPod);
-            elements.playerPods.push(playerPod);
+            elements.playersContainer.appendChild(playerCardArea);
+            elements.playerCardAreas.push(playerCardArea);
         }
 
         elements.dealerButton = document.createElement('div');
@@ -416,13 +421,13 @@ function renderer(options) {
         elements.potDisplay.textContent = `Pot : ${pot}`;
 
         players.forEach((playerData, index) => {
-            const playerPod = elements.playerPods[index];
-            if (!playerPod) return;
+            const playerCardArea = elements.playerCardAreas[index];
+            if (!playerCardArea) return;
 
-            playerPod.querySelector('.player-name').textContent = playerData.name;
-            playerPod.querySelector('.player-stack').textContent = `${playerData.stack}`;
+            playerCardArea.querySelector('.player-name').textContent = playerData.name;
+            playerCardArea.querySelector('.player-stack').textContent = `${playerData.stack}`;
 
-            const playerCardsContainer = playerPod.querySelector('.player-cards-container');
+            const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
             playerCardsContainer.innerHTML = '';
 
             // In heads-up, we show both hands at the end.
@@ -432,7 +437,7 @@ function renderer(options) {
                 playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
             });
 
-            const betDisplay = playerPod.querySelector('.bet-display');
+            const betDisplay = playerCardArea.querySelector('.bet-display');
             if (playerData.currentBet > 0) {
                 betDisplay.textContent = `${playerData.currentBet}`;
                 betDisplay.style.display = 'inline-block';
@@ -440,12 +445,12 @@ function renderer(options) {
                 betDisplay.style.display = 'none';
             }
 
-            playerPod.querySelector('.player-status').textContent = playerData.status;
+            playerCardArea.querySelector('.player-status').textContent = playerData.status;
 
             if (playerData.isTurn && !isTerminal) {
-                playerPod.classList.add('current-player-turn-highlight');
+                playerCardArea.classList.add('current-player-turn-highlight');
             } else {
-                playerPod.classList.remove('current-player-turn-highlight');
+                playerCardArea.classList.remove('current-player-turn-highlight');
             }
         });
 
