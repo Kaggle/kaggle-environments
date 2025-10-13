@@ -980,7 +980,7 @@ function renderer(context) {
                 // Update Sky shader sun position
                 this._sky.material.uniforms['sunPosition'].value.copy(this._sunPosition);
                 
-                console.log('[SKY DEBUG] Sky shader sunPosition uniform:',
+                console.debug('[SKY DEBUG] Sky shader sunPosition uniform:',
                   this._sky.material.uniforms['sunPosition'].value);
                 // Sun mesh positioning removed - using sky shader for visual representation
                 
@@ -1042,7 +1042,7 @@ function renderer(context) {
                         skyUniforms['rayleigh'].value = 0.1 + (1.9 - 0.1) * transitionFactor;
                         skyUniforms['mieCoefficient'].value = 0.005 + (0.010 - 0.005) * transitionFactor;
                         skyUniforms['mieDirectionalG'].value = 0.7 + (1.0 - 0.7) * transitionFactor;
-                        console.log('[SKY DEBUG] Applied DAWN/DUSK transition parameters');
+                        console.debug('[SKY DEBUG] Applied DAWN/DUSK transition parameters');
                     } else {
 
                         skyUniforms['turbidity'].value = 4.7;    // Default visible value
@@ -1055,7 +1055,7 @@ function renderer(context) {
                         // skyUniforms['rayleigh'].value = 1.9;       // User preference
                         // skyUniforms['mieCoefficient'].value = 0.010;  // User preference
                         // skyUniforms['mieDirectionalG'].value = 1.0;   // User preference
-                        console.log('[SKY DEBUG] Applied DAY sky parameters (user preferences)');
+                        console.debug('[SKY DEBUG] Applied DAY sky parameters (user preferences)');
                     }
                 } else {
                     // Night phase
@@ -1079,7 +1079,7 @@ function renderer(context) {
                     }
                 }
                 
-                console.log('[SKY DEBUG] Updated sky uniforms:', {
+                console.debug('[SKY DEBUG] Updated sky uniforms:', {
                   turbidity: skyUniforms['turbidity'].value,
                   rayleigh: skyUniforms['rayleigh'].value,
                   mieCoefficient: skyUniforms['mieCoefficient'].value,
@@ -2089,7 +2089,7 @@ function renderer(context) {
                             roleDisplay = `\u{1F52E} ${player_info.role}`; // 🔮 Crystal Ball emoji
                             roleColor = '#fd79a8'; // Seer pink
                         } else if (player_info.role === 'Villager') {
-                            roleDisplay = `\u{1F33E} ${player.role}`; //  🌾 emoji
+                            roleDisplay = `\u{1F33E} ${player_info.role}`; //  🌾 emoji
                             roleColor = '#00b894'; // Villager green
                         }
                         roleElement.textContent = `${roleDisplay}`;
@@ -2303,6 +2303,33 @@ function renderer(context) {
                 player.currentAction = action;
                 
                 return action;
+              }
+
+              displayPlayerBubble(playerName, message, reasoning = '') {
+                const player = this._playerObjects.get(playerName);
+                if (!player || !player.chatBubble) return;
+
+                const bubbleElement = player.chatBubble.element;
+                if (!bubbleElement) return;
+
+                const messageEl = bubbleElement.querySelector('.bubble-message');
+                const reasoningEl = bubbleElement.querySelector('.bubble-reasoning-text');
+                const reasoningToggle = bubbleElement.querySelector('.bubble-reasoning-toggle');
+
+                // Update bubble content
+                if (messageEl) messageEl.innerHTML = message;
+
+                if (reasoning && reasoningEl && reasoningToggle) {
+                    reasoningEl.textContent = `"${reasoning}"`;
+                    reasoningToggle.style.display = 'inline-block';
+                    reasoningEl.classList.remove('visible');
+                } else if (reasoningToggle) {
+                    reasoningToggle.style.display = 'none';
+                    reasoningEl.textContent = '';
+                }
+
+                // Make the bubble visible
+                bubbleElement.classList.add('visible');
               }
 
               triggerSpeakingAnimation(playerName) {
@@ -2672,74 +2699,83 @@ function renderer(context) {
 
               _createNameplate(name, displayName, imageUrl, CSS2DObject) {
                 const container = document.createElement('div');
-                container.style.pointerEvents = 'auto';
-                container.style.cursor = 'pointer';
-                container.style.transform = 'translateY(-50%)';
-                container.style.backgroundColor = 'rgba(255, 255, 255, 0)';
-                container.style.padding = '6px 10px';  // Slightly smaller padding
-                container.style.borderRadius = '8px';
-                container.style.display = 'flex';
-                container.style.alignItems = 'center';
-                container.style.justifyContent = 'center';
-                container.style.gap = '8px';  // Reduced gap
-                container.style.textAlign = 'center';
+                container.className = 'player-nameplate-3d';
 
                 container.onclick = () => {
                     if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
-                        // Get panel widths to correctly frame the view
                         const leftPanel = document.querySelector('.left-panel');
                         const rightPanel = document.querySelector('.right-panel');
                         const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
                         const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
-
                         window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
                     }
                 };
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
-                img.style.width = '40px';  // Reduced from 60px
-                img.style.height = '40px'; // Reduced from 60px
-                img.style.borderRadius = '50%';
-                img.style.objectFit = 'cover';
-                img.style.backgroundColor = 'white';
-                img.style.border = '2px solid rgba(255, 255, 255, 0.3)';
 
                 const textContainer = document.createElement('div');
-                textContainer.style.display = 'flex';
-                textContainer.style.flexDirection = 'column';
-                textContainer.style.alignItems = 'center';
+                textContainer.className = 'player-nameplate-info';
 
                 const nameText = document.createElement('div');
-                nameText.textContent = name;
-                nameText.style.color = 'white';
-                nameText.style.fontFamily = 'Arial, sans-serif';
-                nameText.style.fontSize = '14px';
-                nameText.style.fontWeight = '500';
-                textContainer.appendChild(nameText);
+                nameText.className = 'player-name-3d';
 
                 const roleText = document.createElement('div');
-                roleText.className = 'player-role-3d'; // Add a class for easy selection
-                roleText.textContent = 'Role - Unknown';
-                roleText.style.color = '#a0a0a0';
-                roleText.style.fontSize = '12px';
-                roleText.style.marginTop = '4px';
-                textContainer.appendChild(roleText);
+                roleText.className = 'player-role-3d';
+                roleText.textContent = 'Role: Unknown';
 
                 if (displayName && displayName !== "" && displayName !== name) {
-                    const displayNameText = document.createElement('div');
-                    displayNameText.textContent = displayName;
-                    displayNameText.style.color = 'grey';
-                    displayNameText.style.fontSize = '12px';
-                    displayNameText.style.fontFamily = 'Arial, sans-serif';
-                    displayNameText.style.marginTop = '4px';
-                    textContainer.appendChild(displayNameText);
+                    nameText.textContent = `${name}`;
+                    const subtitleText = document.createElement('div');
+                    subtitleText.className = 'player-subtitle-3d';
+                    subtitleText.textContent = `${displayName}`;
+                    textContainer.appendChild(nameText);
+                    textContainer.appendChild(subtitleText);
+                } else {
+                    nameText.textContent = name;
+                    textContainer.appendChild(nameText);
                 }
+
+                textContainer.appendChild(roleText);
 
                 container.appendChild(img);
                 container.appendChild(textContainer);
 
                 const label = new CSS2DObject(container);
+                return label;
+              }
+
+              _createChatBubble(name, CSS2DObject) {
+                const bubbleContainer = document.createElement('div');
+                bubbleContainer.className = 'player-chat-bubble';
+                bubbleContainer.id = `chat-bubble-${name}`;
+
+                const header = document.createElement('div');
+                header.className = 'bubble-header';
+
+                const reasoningToggle = document.createElement('span');
+                reasoningToggle.className = 'bubble-reasoning-toggle';
+                reasoningToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+                reasoningToggle.style.display = 'none';
+                reasoningToggle.onclick = (e) => {
+                    e.stopPropagation();
+                    const reasoningEl = bubbleContainer.querySelector('.bubble-reasoning-text');
+                    if (reasoningEl) reasoningEl.classList.toggle('visible');
+                };
+
+                header.appendChild(reasoningToggle);
+
+                const messageText = document.createElement('div');
+                messageText.className = 'bubble-message';
+
+                const reasoningText = document.createElement('div');
+                reasoningText.className = 'bubble-reasoning-text';
+
+                bubbleContainer.appendChild(header);
+                bubbleContainer.appendChild(messageText);
+                bubbleContainer.appendChild(reasoningText);
+
+                const label = new CSS2DObject(bubbleContainer);
                 return label;
               }
 
@@ -3068,6 +3104,13 @@ function renderer(context) {
     function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
 
+    // --- Hide all chat bubbles at the start of each step ---
+    threeState.demo._playerObjects.forEach(player => {
+        if (player.chatBubble && player.chatBubble.element) {
+            player.chatBubble.element.classList.remove('visible');
+        }
+    });
+
     const logUpToCurrentStep = gameState.eventLog;
     const lastEvent = logUpToCurrentStep.length > 0 ? logUpToCurrentStep[logUpToCurrentStep.length - 1] : null;
 
@@ -3158,6 +3201,54 @@ function renderer(context) {
 
     // Handle animation for the current event actor
     if (lastEvent) {
+        let messageForBubble = '';
+        let reasoningForBubble = lastEvent.reasoning || '';
+        const actorName = lastEvent.actor_id || lastEvent.speaker;
+        
+        // Determine the message for the bubble based on event type
+        switch(lastEvent.type) {
+            case 'chat':
+                messageForBubble = `"${lastEvent.message}"`;
+                if(threeState.demo.triggerSpeakingAnimation) threeState.demo.triggerSpeakingAnimation(actorName);
+                break;
+            case 'vote':
+            case 'night_vote':
+                messageForBubble = `Votes for <strong>${lastEvent.target}</strong>.`;
+                if(threeState.demo.triggerPointingAnimation) threeState.demo.triggerPointingAnimation(actorName);
+                break;
+            case 'doctor_heal_action':
+                messageForBubble = `Heals <strong>${lastEvent.target}</strong>.`;
+                break;
+            case 'seer_inspection':
+                messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
+                break;
+        }
+
+        // Display the bubble if we have a message and an actor
+        if (messageForBubble && actorName && playerMap.has(actorName)) {
+            const formattedMessage = window.werewolfGamePlayer.playerIdReplacer(messageForBubble);
+            threeState.demo.displayPlayerBubble(actorName, formattedMessage, reasoningForBubble); 
+            threeState.demo.updatePlayerActive(actorName); // Keep the active pulse effect
+        }
+
+        // Handle game_over event animations (these don't have bubbles)
+        if (lastEvent.type === 'game_over') {
+            if (lastEvent.winners && threeState.demo.triggerVictoryAnimation) {
+                lastEvent.winners.forEach(winnerName => {
+                    if (playerMap.has(winnerName)) {
+                        threeState.demo.triggerVictoryAnimation(winnerName);
+                    }
+                });
+            }
+            if (lastEvent.losers && threeState.demo.triggerDefeatedAnimation) {
+                lastEvent.losers.forEach(loserName => {
+                    if (playerMap.has(loserName)) {
+                        threeState.demo.triggerDefeatedAnimation(loserName);
+                    }
+                });
+            }
+        }
+
         if (lastEvent.event_name === 'moderator_announcement') {
             // Moderator is speaking, expand all alive players
             gameState.players.forEach(player => {
@@ -3415,9 +3506,189 @@ function renderer(context) {
         }
 
         .right-panel {
-            /* right: 20px; */
-            left: 20px; /* Move the right panel to the left */
+            position: fixed;
+            top: 54px;
+            left: 20px;
             width: 420px;
+            max-height: calc(100vh - 124px);
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px) saturate(1.5);
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            pointer-events: auto;
+            box-shadow: var(--card-shadow), 0 0 40px rgba(116, 185, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .right-panel.collapsed {
+            max-height: 65px; /* Height of just the header */
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        
+        /* ENHANCED Header to act as a toggle */
+        .right-panel h1 {
+            margin: 0;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            position: relative;
+            padding: 20px 0;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer; /* Make it clickable */
+            user-select: none;
+        }
+
+        /* Adds a visual indicator for expanding/collapsing */
+        .right-panel h1::before {
+            content: '▲';
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            transition: transform 0.3s ease;
+            position: absolute;
+            left: 20px;
+        }
+
+        .right-panel.collapsed h1::before {
+            transform: rotate(180deg);
+        }
+
+        .right-panel h1 > span {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Hides the log when panel is collapsed */
+        .right-panel.collapsed #chat-log {
+            display: none;
+        }
+        
+        .player-nameplate-3d {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+            /* FIX: This transform anchors the nameplate from its bottom-center point */
+            transform: translateX(-50%) translateY(-100%); 
+            pointer-events: auto;
+            cursor: pointer;
+            text-shadow: 0px 2px 6px rgba(0, 0, 0, 0.9);
+            min-width: 150px;
+            padding-bottom: 20px; /* Adds space so the transform anchor works correctly */
+        }
+        .player-nameplate-3d img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: white;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }
+        .player-nameplate-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .player-name-3d {
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .player-subtitle-3d {
+            color: #9ab;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .player-role-3d {
+            color: #b2bec3; /* A lighter grey for better contrast */
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        /* Styles for the temporary 3D chat bubble */
+        .player-chat-bubble {
+            position: relative;
+            background: rgba(20, 30, 45, 0.9);
+            backdrop-filter: blur(8px);
+            color: #f0f0f0;
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(116, 185, 255, 0.3);
+            max-width: 250px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+            pointer-events: none;
+            visibility: hidden;
+        }
+
+        .player-chat-bubble.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            visibility: visible;
+        }
+
+        /* The tail pointing down to the nameplate */
+        .player-chat-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 16px;
+            height: 16px;
+            background: rgba(20, 30, 45, 0.9);
+            border-bottom: 1px solid rgba(116, 185, 255, 0.3);
+            border-right: 1px solid rgba(116, 185, 255, 0.3);
+        }
+
+        .bubble-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .bubble-reasoning-toggle {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            margin-left: auto; /* Aligns toggle to the right */
+        }
+        .bubble-reasoning-toggle:hover {
+            opacity: 1;
+        }
+
+        .bubble-message {
+            margin-bottom: 8px;
+        }
+        
+        .bubble-reasoning-text {
+            font-size: 12px;
+            color: #b2bec3;
+            font-style: italic;
+            border-left: 2px solid rgba(116, 185, 255, 0.3);
+            padding-left: 8px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .bubble-reasoning-text.visible {
+            display: block;
         }
         
         .left-panel:hover, .right-panel:hover {
@@ -4605,26 +4876,43 @@ function renderer(context) {
     const audioToggleIcon = audioToggleEnabled ? '&#x1F50A;' : '&#x1F507;'; // Speaker vs Muted
     const audioToggleClasses = `audio-toggle-btn ${audioToggleDisabled ? 'disabled' : ''} ${audioToggleEnabled ? 'enabled' : ''}`;
 
-    container.innerHTML = `
-        <h1>
-            <span>Events</span>
-            <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View" style="margin-left: auto;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
-            </button>
-            <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
-                 <button id="global-reasoning-toggle" title="Toggle All Reasoning">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    if (!container.querySelector('h1')) {
+        container.innerHTML = `
+            <h1>
+                <span>Events</span>
+                <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View" style="margin-left: auto;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
                 </button>
-                <div id="speed-control-container" style="display: flex; align-items: center; gap: 5px;">
-                    <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="width: 70px;">
-                    <span id="speed-label" style="font-size: 12px; min-width: 30px;">${audioState.playbackRate.toFixed(1)}x</span>
+                <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
+                    <button id="global-reasoning-toggle" title="Toggle All Reasoning">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <div id="speed-control-container" style="display: flex; align-items: center; gap: 5px;">
+                        <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="width: 70px;">
+                        <span id="speed-label" style="font-size: 12px; min-width: 30px;">${audioState.playbackRate.toFixed(1)}x</span>
+                    </div>
+                    <button id="global-audio-toggle" title="${audioToggleTitle}" class="${audioToggleClasses}">
+                        ${audioToggleIcon}
+                    </button>
                 </div>
-                <button id="global-audio-toggle" title="${audioToggleTitle}" class="${audioToggleClasses}">
-                    ${audioToggleIcon}
-                </button>
-            </div>
-        </h1>
-    `;
+            </h1>
+        `;
+        // NEW: Add the collapse functionality to the header
+        const header = container.querySelector('h1');
+        if (header) {
+            header.onclick = () => {
+                container.classList.toggle('collapsed');
+            };
+        }
+        // Initially collapse the panel
+        container.classList.add('collapsed');
+    }
+
+    // Remove the old log if it exists, to rebuild it
+    const oldLogUl = container.querySelector('#chat-log');
+    if (oldLogUl) {
+        oldLogUl.remove();
+    }
 
     const resetButton = container.querySelector('#reset-view-btn');
     if (resetButton) {
@@ -5693,7 +5981,8 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
             emissive: 0x00aa88,
             emissiveIntensity: 1.,
             transparent: true,
-            opacity: 0.7 // More translucent
+            opacity: 1., // More translucent
+            depthTest: false
         });
         const orb = new THREE.Mesh(orbGeometry, orbMaterial);
         orb.position.y = modelHeight + 0.8; // Position above model
@@ -5707,7 +5996,8 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
             emissive: 0x00aa88,
             emissiveIntensity: 0.15, // Very subtle glow
             transparent: true,
-            opacity: 0.2 // More transparent
+            opacity: 0.2, // More transparent
+            depthTest: false
         });
         const glow = new THREE.Mesh(glowGeometry, glowMaterial);
         glow.position.y = modelHeight + 0.8; // Position above model
@@ -5735,8 +6025,13 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
         const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, modelHeight + 2.8, 0);
+        nameplate.position.set(0, modelHeight + 3., 0);
         playerContainer.add(nameplate);
+
+        // Create chat bubble (temporary) and position it above the nameplate
+        const chatBubble = threeState.demo._createChatBubble(name, CSS2DObject);
+        chatBubble.position.set(0, modelHeight + 4.2, 0); 
+        playerContainer.add(chatBubble);
         
         // Store references with new structure
         threeState.demo._playerObjects.set(name, {
@@ -5749,6 +6044,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
             glow: glow,
             orbLight: orbLight,
             nameplate: nameplate,
+            chatBubble: chatBubble,
             pedestal: pedestal,
             originalPosition: playerContainer.position.clone(),
             baseAngle: angle,
