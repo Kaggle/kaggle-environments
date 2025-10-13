@@ -497,6 +497,7 @@ function renderer(context) {
             const { OrbitControls } = await import('https://cdn.jsdelivr.net/npm/three@0.118/examples/jsm/controls/OrbitControls.js');
             const { FBXLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js');
             const { SkeletonUtils } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js');
+            const { EXRLoader } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/EXRLoader.js');
             const { CSS2DRenderer, CSS2DObject } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/renderers/CSS2DRenderer.js');
             const { EffectComposer } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/EffectComposer.js');
             const { RenderPass } = await import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/RenderPass.js');
@@ -516,7 +517,7 @@ function renderer(context) {
 
             class BasicWorldDemo {
               constructor(options) {
-                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky, VolumetricFire);
+                this._Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky, VolumetricFire, EXRLoader);
               }
 
               _Initialize(options, THREE, OrbitControls, FBXLoader, SkeletonUtils, CSS2DRenderer, CSS2DObject, EffectComposer, RenderPass, UnrealBloomPass, ShaderPass, FilmPass, Sky, VolumetricFire) {
@@ -527,6 +528,8 @@ function renderer(context) {
                 // Initialize FBXLoader and SkeletonUtils
                 this._fbxLoader = new FBXLoader();
                 this._skeletonUtils = SkeletonUtils;
+
+                this._EXRLoader = EXRLoader
                 
                 // Store VolumetricFire reference
                 this._VolumetricFire = VolumetricFire;
@@ -1550,6 +1553,11 @@ function renderer(context) {
                 // Load island FBX model with textures
                 this._loadIslandModel(THREE, FBXLoader);
 
+                // Call the new function to load the town background
+                this._loadTownModel(THREE, FBXLoader);
+
+                this._load_ground(THREE, this._EXRLoader);
+
                 // Keep mystical circle patterns but adjust position if needed
                 // this._createMysticalCircles(THREE, radius);
 
@@ -1598,7 +1606,7 @@ function renderer(context) {
                 this._controls.dampingFactor = 0.05;
                 this._controls.minDistance = 20;
                 this._controls.maxDistance = 80;
-                this._controls.maxPolarAngle = Math.PI * 0.75;
+                this._controls.maxPolarAngle = Math.PI * 0.6;
                 this._controls.update();
               }
               
@@ -1845,6 +1853,128 @@ function renderer(context) {
                     this._scene.add(ground);
                   }
                 );
+              }
+
+              _loadTownModel(THREE, FBXLoader) {
+                // The path to your town's FBX file.
+                // Make sure this path is correct for your project structure.
+                const townModelPath = '/experiment/static/werewolf/town/scene_v1.fbx'; // <-- REPLACE WITH YOUR FILE PATH
+
+                console.log(`[Town Loader] Attempting to load model from: ${townModelPath}`);
+
+                this._fbxLoader.load(
+                  townModelPath,
+                  (fbx) => {
+                    console.log('[Town Loader] Model loaded successfully.');
+
+                    // --- ADJUSTMENTS ---
+                    // You can change these values to fit the town into your scene.
+
+                    // 1. SCALING: Adjust the number to make the town bigger or smaller.
+                    //    - 1.0 is original size.
+                    //    - 0.1 would be 10% of the original size.
+                    fbx.scale.setScalar(0.15);
+
+                    // 2. POSITIONING: Change the X, Y, and Z values to move the town.
+                    //    - Y is the vertical axis. You will likely need to adjust this
+                    //      to make the town sit at the correct ground level.
+                    fbx.position.set(0, 0, 0);
+
+                    // 3. ROTATION: Adjust the rotation around the vertical (Y) axis.
+                    //    - The value is in radians. Math.PI is 180 degrees.
+                    //    - Math.PI / 2 is a 90-degree turn.
+                    fbx.rotation.y = Math.PI / 2;
+
+
+                    // --- SCENE INTEGRATION ---
+                    // This loop goes through every part of your town model.
+                    fbx.traverse((child) => {
+                      if (child.isMesh) {
+                        // This makes the town cast and receive shadows, which is crucial
+                        // for making it look like it belongs in the scene.
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+
+                        child.material.normalMap = null;
+                        child.material.metalnessMap = null;
+
+                        // Optional: If your baked textures look too shiny, you can
+                        // make them appear more matte with these lines.
+                        if (child.material) {
+                            child.material.roughness = 1.0;
+                            child.material.metalness = 0.0;
+                        }
+
+                        
+                      }
+                    });
+
+                    // Add the finished town model to the main scene.
+                    this._scene.add(fbx);
+                    
+                    // Store a reference if you need to access it later.
+                    this._townModel = fbx;
+                  },
+                  (progress) => {
+                    // This will show the loading progress in the console.
+                    console.log('[Town Loader] Loading progress: ' + (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                  },
+                  (error) => {
+                    // This will log an error if the file can't be found or loaded.
+                    console.error('[Town Loader] An error happened while loading the town model:', error);
+                  }
+                );
+              }
+
+              /**
+               * Creates a realistic, rocky ground plane using PBR textures.
+               * @param {object} THREE - The THREE.js library instance.
+               * @param {object} EXRLoader - The loader for .exr texture files.
+               */
+              _load_ground(THREE, EXRLoader) {
+                  console.log('[Ground Loader] Creating realistic rocky terrain...');
+
+                  // 1. Initialize two separate loaders for the different file types.
+                  const textureLoader = new THREE.TextureLoader();
+                  const exrLoader = new EXRLoader();
+
+                  // 2. Load your specific PBR textures.
+                  const colorTexture = textureLoader.load('/experiment/static/werewolf/ground/rocky_terrain_02_diff_1k.jpg');
+                  const displacementTexture = textureLoader.load('/experiment/static/werewolf/ground/rocky_terrain_02_disp_1k.png');
+                  
+                  // --- Use the EXRLoader for the .exr files ---
+                  const roughnessTexture = exrLoader.load('/experiment/static/werewolf/ground/rocky_terrain_02_rough_1k.exr');
+                  const normalTexture = exrLoader.load('/experiment/static/werewolf/ground/rocky_terrain_02_nor_gl_1k.exr');
+
+                  // 3. Configure all textures to repeat (tile) across the ground.
+                  // A smaller repeat value like (8, 8) makes the rock features appear larger.
+                  [colorTexture, roughnessTexture, displacementTexture, normalTexture].forEach(texture => {
+                      texture.wrapS = THREE.RepeatWrapping;
+                      texture.wrapT = THREE.RepeatWrapping;
+                      texture.repeat.set(16, 16);
+                  });
+
+                  // 4. Define the ground's geometry. A high segment count is crucial for displacement.
+                  const groundGeometry = new THREE.PlaneGeometry(400, 400, 256, 256);
+
+                  // 5. Define the material using your textures.
+                  // We omit aoMap because it wasn't included in your file list.
+                  const groundMaterial = new THREE.MeshStandardMaterial({
+                      map: colorTexture,            // from rocky_terrain_02_diff_1k.jpg
+                      roughnessMap: roughnessTexture, // from rocky_terrain_02_rough_1k.exr
+                      normalMap: normalTexture,     // from rocky_terrain_02_nor_gl_1k.exr
+                      displacementMap: displacementTexture, // from rocky_terrain_02_disp_1k.png
+                      displacementScale: 0.5,       // Adjust this value to make the terrain more or less hilly.
+                  });
+
+                  // 6. Create the final Mesh, rotate it, enable shadow reception, and add to the scene.
+                  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                  ground.rotation.x = -Math.PI / 2; // Lay the plane flat.
+                  ground.position.y = -0.75;
+                  ground.receiveShadow = true;
+                  this._scene.add(ground);
+
+                  console.log('[Ground Loader] Rocky terrain created and added to the scene.');
               }
 
               loadCharacterModel(role) {
