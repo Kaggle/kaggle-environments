@@ -42,7 +42,7 @@ function renderer(options) {
         .player-status { font-size: 0.75rem; color: #9ca3af; min-height: 1.1em; margin-top: 0.25rem; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            width: 48px; height: 72px; border: 1px solid #202124; border-radius: 8px; margin: 0 3px;
+            width: 5rem; height: 7rem; border: 2px solid #202124; border-radius: 8px; margin: 0 3px;
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
             padding: 4px;
         }
@@ -64,11 +64,17 @@ function renderer(options) {
             background-size: 10px 10px; border: 2px solid #63b3ed;
         }
         .card-back .card-rank, .card-back .card-suit { display: none; }
+        .card-empty {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(32, 33, 36, 0.3);
+            background-image: none;
+        }
+        .card-empty .card-rank, .card-empty .card-suit { display: none; }
         .community-cards-area { text-align: center; z-index: 10; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
         .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; }
         .community-cards-container .card { width: 52px; height: 76px; }
         .community-cards-container .card-rank { font-size: 2.4rem; } .community-cards-container .card-suit { width: 39px; height: 39px; }
-        .pot-display { font-size: 1.1rem; font-weight: bold; color: #ffffff; }
+        .pot-display { font-size: 1.5rem; font-weight: bold; color: #ffffff; margin-bottom: 1rem; }
         .bet-display {
             display: inline-block; min-width: 55px; padding: 4px 8px; border-radius: 12px;
             background-color: #1a202c; color: #f1c40f; font-size: 0.8rem; line-height: 1.4;
@@ -200,13 +206,13 @@ function renderer(options) {
         communityArea.className = 'community-cards-area';
         elements.pokerTable.appendChild(communityArea);
 
-        elements.communityCardsContainer = document.createElement('div');
-        elements.communityCardsContainer.className = 'community-cards-container';
-        communityArea.appendChild(elements.communityCardsContainer);
-
         elements.potDisplay = document.createElement('div');
         elements.potDisplay.className = 'pot-display';
         communityArea.appendChild(elements.potDisplay);
+
+        elements.communityCardsContainer = document.createElement('div');
+        elements.communityCardsContainer.className = 'community-cards-container';
+        communityArea.appendChild(elements.communityCardsContainer);
 
         elements.playerPods = [];
         for (let i = 0; i < 2; i++) {
@@ -386,10 +392,25 @@ function renderer(options) {
         }
 
         elements.communityCardsContainer.innerHTML = '';
-        if (communityCards && communityCards.length > 0) {
-            communityCards.forEach(cardStr => {
-                elements.communityCardsContainer.appendChild(createCardElement(cardStr));
-            });
+        // Always show 5 slots for the river
+        // Display cards left to right, with empty slots at the end
+        const numCommunityCards = 5;
+        const numCards = communityCards ? communityCards.length : 0;
+
+        // Since the 4th and 5th street cards are appended to the communityCards array, we need to
+        // reverse it so that the added cards are put at the end of the display area on the board.
+        if (communityCards) communityCards.reverse();
+
+        // Add actual cards
+        for (let i = 0; i < numCards; i++) {
+            elements.communityCardsContainer.appendChild(createCardElement(communityCards[i]));
+        }
+
+        // Fill remaining slots with empty cards
+        for (let i = numCards; i < numCommunityCards; i++) {
+            const emptyCard = document.createElement('div');
+            emptyCard.classList.add('card', 'card-empty');
+            elements.communityCardsContainer.appendChild(emptyCard);
         }
 
         elements.potDisplay.textContent = `Pot : ${pot}`;
