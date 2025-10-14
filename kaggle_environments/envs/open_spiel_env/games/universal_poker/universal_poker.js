@@ -8,6 +8,7 @@ function renderer(options) {
         potDisplay: null,
         playersContainer: null,
         playerCardAreas: [],
+        playerInfoAreas: [],
         dealerButton: null,
         diagnosticHeader: null,
         gameMessageArea: null,
@@ -37,14 +38,25 @@ function renderer(options) {
         }
         .player-card-area {
             padding: 0.6rem 0.8rem; color: white; text-align: center; position: absolute;
-            width: 50%;
-            display: flex; flex-direction: column; justify-content: space-between;
+            width: 40%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             min-height: 130px; pointer-events: auto;
         }
-        .player-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.25rem; font-size: 0.9rem;}
-        .player-stack { font-size: 0.8rem; color: #facc15; margin-bottom: 0.25rem; }
-        .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: center; align-items:center;}
-        .player-status { font-size: 0.75rem; color: #9ca3af; min-height: 1.1em; margin-top: 0.25rem; }
+        .player-info-area {
+            position: absolute;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: white;
+            min-width: 180px;
+            pointer-events: auto;
+        }
+        .player-info-area.pos-info-player0 { top: 20px; right: 20px; }
+        .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
+        .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.5rem; font-size: 1rem; }
+        .player-stack { font-size: 2rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
+        .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center;}
+        .player-status { font-size: 1.5rem; color: #9ca3af; margin-top: 0.4rem; }
+        .player-action { font-size: 1.5rem; color: #60a5fa; margin-top: 0.4rem; font-weight: 500; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
             width: 5rem; height: 7rem; border: 2px solid #202124; border-radius: 8px; margin: 0 12px;
@@ -79,46 +91,67 @@ function renderer(options) {
         .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; }
         .pot-display { font-size: 1.5rem; font-weight: bold; color: #ffffff; margin-bottom: 1rem; }
         .bet-display {
-            display: inline-block; min-width: 55px; padding: 4px 8px; border-radius: 12px;
-            background-color: #1a202c; color: #f1c40f; font-size: 0.8rem; line-height: 1.4;
-            text-align: center; margin-top: 4px; border: 1.5px solid #f1c40f; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            display: inline-block; padding: 4px 8px; border-radius: 12px;
+            background-color: #1a202c; color: #ffff; font-size: 1.75rem; font-weigth: 600;
+            text-align: center; margin-top: 8px;
+            height: 3rem; line-height: 3rem;
         }
         .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
         .dealer-button {
             width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
             text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
-            border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 5;
+            border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
         }
+        .dealer-button.dealer-player0 { bottom: 80px; }
+        .dealer-button.dealer-player1 { top: 80px; }
         .pos-player0-sb { bottom: 20px; left: 20px; }
         .pos-player1-bb { top: 20px; left: 20px; }
-        .dealer-sb { bottom: -15px; left: calc(50% + 95px); transform: translateX(-50%); }
         .current-player-turn-highlight .player-card-area .player-name { font-weight: 900 !important; }
         #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
         @media (max-width: 768px) {
+            .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
             .card { width: 5rem; height: 7rem; margin: 0 6px; } .card-rank { font-size: 3rem; } .card-suit { width: 3rem; height: 3rem; }
-            .dealer-sb { left: calc(50% + 85px); bottom: -12px; }
             .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
             .pos-player0-sb { bottom: 15px; left: 15px; } .pos-player1-bb { top: 15px; left: 15px; }
             .player-card-area { padding: 0.5rem 0.7rem; min-height: 120px; }
+            .player-info-area { min-width: 160px; padding: 0.6rem 0.8rem; }
+            .player-info-area.pos-info-player0 { top: 15px; right: 15px; }
+            .player-info-area.pos-info-player1 { bottom: 15px; right: 15px; }
         }
         @media (max-width: 600px) {
-            .bet-display { font-size: 0.75rem; } .pos-player0-sb { bottom: 10px; left: 10px; } .pos-player1-bb { top: 10px; left: 10px; }
+            .bet-display { font-size: 1.5rem; height: 2rem; line-height: 2rem; }
             .card { width: 3rem; height: 4.2rem; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 1.8rem; height: 1.8rem;  }
+            .dealer-button.dealer-player0 { bottom: 35px; }
+            .dealer-button.dealer-player1 { top: 35px; }
             .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 1.4rem;}
-            .dealer-sb { bottom: -8px; left: calc(50% + 75px); }
-            .player-name { font-size: 0.85rem;} .player-stack { font-size: 0.75rem; }
+            .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.75rem; }
             .player-card-area { padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px;}
+            .player-info-area { min-width: 140px; padding: 0.5rem 0.6rem; font-size: 0.85rem; }
+            .player-info-area.pos-info-player0 { top: 10px; right: 10px; }
+            .player-info-area.pos-info-player1 { bottom: 10px; right: 10px; }
+            .player-action { font-size: 0.75rem; }
+            .player-status { font-size: 0.7rem; }
+            .poker-game-layout { max-height: 600px; }
             .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
+            .pos-player0-sb { bottom: 10px; left: 10px; } .pos-player1-bb { top: 10px; left: 10px; }
         }
         @media (max-width: 400px) {
+            .bet-display { font-size: 1.4rem; height: 1.5rem; line-height: 1.5rem; }
             .card { width: 2rem; height: 2.8rem; margin: 0 1px; padding: 2px;} .card-rank { font-size: 1.4rem; } .card-suit { width: 1.4rem; height: 1.4rem; }
             .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem;}
-            .dealer-sb { bottom: -5px; left: calc(50% + 65px); }
+            .dealer-button.dealer-player0 { bottom: 30px; }
+            .dealer-button.dealer-player1 { top: 30px; }
             .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px;}
-            .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.7rem; }
+            .player-name { font-size: 0.75rem;} .player-stack { font-size: 0.7rem; }
             .pos-player0-sb { bottom: 8px; left: 8px; } .pos-player1-bb { top: 8px; left: 8px; }
             .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
+            .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
+            .player-info-area.pos-info-player0 { top: 8px; right: 8px; }
+            .player-info-area.pos-info-player1 { bottom: 8px; right: 8px; }
+            .player-action { font-size: 0.7rem; }
+            .player-status { font-size: 0.65rem; }
+            .poker-game-layout { max-height: 450px; }
         }
         `;
         const parentForStyles = passedOptions && passedOptions.parent ? passedOptions.parent.ownerDocument.head : document.head;
@@ -220,25 +253,38 @@ function renderer(options) {
         communityArea.appendChild(elements.communityCardsContainer);
 
         elements.playerCardAreas = [];
+        elements.playerInfoAreas = [];
         for (let i = 0; i < 2; i++) {
+            // Card area (left side)
             const playerCardArea = document.createElement('div');
             playerCardArea.className = `player-card-area ${i === 0 ? 'pos-player0-sb' : 'pos-player1-bb'}`;
             playerCardArea.innerHTML = `
                 <div class="player-name">Player ${i}</div>
-                <div class="player-stack">$0.00</div>
                 <div class="player-cards-container"></div>
-                <div class="bet-display" style="display:none;">$0.00</div>
-                <div class="player-status">(${i === 0 ? 'SB' : 'BB'})</div>
             `;
             elements.playersContainer.appendChild(playerCardArea);
             elements.playerCardAreas.push(playerCardArea);
+
+            // Info area (right side)
+            const playerInfoArea = document.createElement('div');
+            playerInfoArea.className = `player-info-area pos-info-player${i}`;
+            playerInfoArea.innerHTML = `
+                <div class="player-stack">
+                    <span class="player-stack-value">$0.00</span>
+                </div>
+                <div class="bet-display" style="display:none;">Bet: $0.00</div>
+                <div class="player-action" style="display:none;"></div>
+                <div class="player-status">(${i === 0 ? 'Small Blind' : 'Big Blind'})</div>
+            `;
+            elements.playersContainer.appendChild(playerInfoArea);
+            elements.playerInfoAreas.push(playerInfoArea);
         }
 
         elements.dealerButton = document.createElement('div');
-        elements.dealerButton.className = 'dealer-button dealer-sb';
+        elements.dealerButton.className = 'dealer-button';
         elements.dealerButton.textContent = 'D';
         elements.dealerButton.style.display = 'none';
-        elements.pokerTable.appendChild(elements.dealerButton);
+        elements.playersContainer.appendChild(elements.dealerButton);
         return true;
     }
 
@@ -256,7 +302,7 @@ function renderer(options) {
                 stack: 0,
                 cards: [], // Will be filled with nulls or cards
                 currentBet: 0,
-                position: i === 0 ? "SB" : "BB",
+                position: i === 0 ? "Small Blind" : "Big Blind",
                 isDealer: i === 0,
                 isTurn: false,
                 status: "Waiting...",
@@ -298,7 +344,7 @@ function renderer(options) {
         const combinedState = { ...obsP0 }; // Start with Player 0's data
         // Player hands are split across observations. We need to merge them.
         combinedState.player_hands = [
-             // Take the real hand from P0's obs
+            // Take the real hand from P0's obs
             obsP0.player_hands[0].length > 0 ? obsP0.player_hands[0] : [],
             // Take the real hand from P1's obs
             obsP1.player_hands[1].length > 0 ? obsP1.player_hands[1] : []
@@ -336,18 +382,18 @@ function renderer(options) {
             pData.status = pData.position; // Default status
 
             if (isTerminal) {
-                 const reward = environment.rewards ? environment.rewards[i] : null;
-                 pData.reward = reward;
-                 if (reward > 0) pData.status = "Winner!";
-                 else if (reward < 0) pData.status = "Loser";
-                 else pData.status = "Game Over";
+                const reward = environment.rewards ? environment.rewards[i] : null;
+                pData.reward = reward;
+                if (reward > 0) pData.status = "Winner!";
+                else if (reward < 0) pData.status = "Loser";
+                else pData.status = "Game Over";
             } else if (pData.isTurn) {
                 pData.status = "Thinking...";
             } else if (pData.stack === 0 && pData.currentBet > 0) {
                 pData.status = "All-in";
             }
         }
-        
+
         // Handle folded player status
         if (!isTerminal && betting_history && betting_history.includes('f')) {
             // A simple fold check: the player who didn't make the last action and isn't the current player might have folded.
@@ -370,10 +416,10 @@ function renderer(options) {
             if (winnerIndex !== -1) {
                 defaultUIData.gameMessage = `Player ${winnerIndex} wins!`;
             } else {
-                 defaultUIData.gameMessage = "Game Over.";
+                defaultUIData.gameMessage = "Game Over.";
             }
         } else if (current_player === "chance") {
-             defaultUIData.gameMessage = `Dealing...`;
+            defaultUIData.gameMessage = `Dealing...`;
         } else {
             defaultUIData.gameMessage = `Player ${current_player}'s turn.`;
         }
@@ -421,42 +467,70 @@ function renderer(options) {
         elements.potDisplay.textContent = `Pot : ${pot}`;
 
         players.forEach((playerData, index) => {
+            // Update card area (left side)
             const playerCardArea = elements.playerCardAreas[index];
-            if (!playerCardArea) return;
+            if (playerCardArea) {
+                playerCardArea.querySelector('.player-name').textContent = playerData.name;
 
-            playerCardArea.querySelector('.player-name').textContent = playerData.name;
-            playerCardArea.querySelector('.player-stack').textContent = `${playerData.stack}`;
+                const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
+                playerCardsContainer.innerHTML = '';
 
-            const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
-            playerCardsContainer.innerHTML = '';
+                // In heads-up, we show both hands at the end.
+                const showCards = isTerminal || (playerData.cards && !playerData.cards.includes(null));
 
-            // In heads-up, we show both hands at the end.
-            const showCards = isTerminal || (playerData.cards && !playerData.cards.includes(null));
+                (playerData.cards || [null, null]).forEach(cardStr => {
+                    playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
+                });
 
-            (playerData.cards || [null, null]).forEach(cardStr => {
-                playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
-            });
-
-            const betDisplay = playerCardArea.querySelector('.bet-display');
-            if (playerData.currentBet > 0) {
-                betDisplay.textContent = `${playerData.currentBet}`;
-                betDisplay.style.display = 'inline-block';
-            } else {
-                betDisplay.style.display = 'none';
+                if (playerData.isTurn && !isTerminal) {
+                    playerCardArea.classList.add('current-player-turn-highlight');
+                } else {
+                    playerCardArea.classList.remove('current-player-turn-highlight');
+                }
             }
 
-            playerCardArea.querySelector('.player-status').textContent = playerData.status;
+            // Update info area (right side)
+            const playerInfoArea = elements.playerInfoAreas[index];
+            if (playerInfoArea) {
+                playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
 
-            if (playerData.isTurn && !isTerminal) {
-                playerCardArea.classList.add('current-player-turn-highlight');
-            } else {
-                playerCardArea.classList.remove('current-player-turn-highlight');
+                const betDisplay = playerInfoArea.querySelector('.bet-display');
+                if (playerData.currentBet > 0) {
+                    betDisplay.textContent = `Bet: ${playerData.currentBet}`;
+                    betDisplay.style.display = 'block';
+                } else {
+                    betDisplay.style.display = 'none';
+                }
+
+                // Show action/status
+                const actionDisplay = playerInfoArea.querySelector('.player-action');
+                const statusDisplay = playerInfoArea.querySelector('.player-status');
+
+                if (playerData.isTurn && !isTerminal) {
+                    actionDisplay.textContent = 'Thinking...';
+                    actionDisplay.style.display = 'block';
+                    statusDisplay.style.display = 'none';
+                } else {
+                    actionDisplay.style.display = 'none';
+                    statusDisplay.textContent = playerData.status;
+                    statusDisplay.style.display = 'block';
+                }
+
+                // TODO (UX Discuss): Find better way highlight current player's info area
             }
         });
 
-        const dealerPlayer = players.find(p => p.isDealer);
+        const dealerPlayerIndex = players.findIndex(p => p.isDealer);
         if (elements.dealerButton) {
-            elements.dealerButton.style.display = dealerPlayer ? 'block' : 'none';
+            if (dealerPlayerIndex !== -1) {
+                elements.dealerButton.style.display = 'block';
+                // Remove previous dealer class
+                elements.dealerButton.classList.remove('dealer-player0', 'dealer-player1');
+                // Add new dealer class based on player index
+                elements.dealerButton.classList.add(`dealer-player${dealerPlayerIndex}`);
+            } else {
+                elements.dealerButton.style.display = 'none';
+            }
         }
     }
 
