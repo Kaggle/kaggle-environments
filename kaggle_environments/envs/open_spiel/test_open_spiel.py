@@ -1,7 +1,10 @@
 import json
 import pathlib
 
+import pokerkit
+from open_spiel.python.games import pokerkit_wrapper
 import pyspiel
+
 from absl.testing import absltest
 
 from kaggle_environments import make
@@ -191,6 +194,36 @@ class OpenSpielEnvTest(absltest.TestCase):
             [open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STRING]
         )
         env = make(envs['open_spiel_repeated_poker'])
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        for i in range(20):
+            if i % 2 == 0:
+                env.step([{"submission": -1}, {"submission": 0}])
+            else:
+                env.step([{"submission": 0}, {"submission": -1}])
+        self.assertTrue(env.done)
+        self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
+
+    def test_repeated_pokerkit(self):
+        pokerkit_game_str = (
+            "python_repeated_pokerkit("
+            "bet_size_schedule=,"
+            "blind_schedule=,"
+            "bring_in_schedule=,"
+            "first_button_player=-1,"
+            "max_num_hands=20,"
+            "pokerkit_game_params=python_pokerkit_wrapper("
+            "blinds=1 2,"
+            "num_players=2,"
+            "stack_sizes=200 200,"
+            "variant=NoLimitTexasHoldem),"
+            "reset_stacks=True,"
+            "rotate_dealer=True)"
+        )
+        envs = open_spiel_env._register_game_envs(
+            [pokerkit_game_str]
+        )
+        env = make(envs['open_spiel_python_repeated_pokerkit'])
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         for i in range(20):
