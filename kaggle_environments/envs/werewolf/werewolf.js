@@ -141,7 +141,7 @@ function renderer(context) {
               console.debug(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
               stopAndClearAudio();
               audioState.isPaused = true;
-              window.wwOriginals.setStep(newStep); 
+              window.wwOriginals.setStep(newStep);
           });
       }
 
@@ -614,16 +614,16 @@ function renderer(context) {
                 // Store THREE reference
                 this._THREE = THREE;
                 
-                // console.log('[SKY DEBUG] Creating Sky shader system...');
+                // console.debug('[SKY DEBUG] Creating Sky shader system...');
                 
                 // Create Sky shader
                 this._sky = new Sky();
                 this._sky.scale.setScalar(450000);
                 this._scene.add(this._sky);
                 
-                // console.log('[SKY DEBUG] Sky mesh created and added to scene');
-                // console.log('[SKY DEBUG] Sky scale:', this._sky.scale);
-                // console.log('[SKY DEBUG] Sky material:', this._sky.material);
+                // console.debug('[SKY DEBUG] Sky mesh created and added to scene');
+                // console.debug('[SKY DEBUG] Sky scale:', this._sky.scale);
+                // console.debug('[SKY DEBUG] Sky material:', this._sky.material);
                 
                 // Sky shader uniforms
                 const skyUniforms = this._sky.material.uniforms;
@@ -634,11 +634,11 @@ function renderer(context) {
                 skyUniforms['mieCoefficient'].value = 0.001;  // Default visible value
                 skyUniforms['mieDirectionalG'].value = 0.9;   // Default visible value
                 
-                // console.log('[SKY DEBUG] Initial sky shader uniforms:');
-                // console.log('  - turbidity:', skyUniforms['turbidity'].value);
-                // console.log('  - rayleigh:', skyUniforms['rayleigh'].value);
-                // console.log('  - mieCoefficient:', skyUniforms['mieCoefficient'].value);
-                // console.log('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
+                // console.debug('[SKY DEBUG] Initial sky shader uniforms:');
+                // console.debug('  - turbidity:', skyUniforms['turbidity'].value);
+                // console.debug('  - rayleigh:', skyUniforms['rayleigh'].value);
+                // console.debug('  - mieCoefficient:', skyUniforms['mieCoefficient'].value);
+                // console.debug('  - mieDirectionalG:', skyUniforms['mieDirectionalG'].value);
                 
                 // Create sun/moon light with default intensity
                 this._sunLight = new THREE.DirectionalLight(0xffffff, 0.8);  // Default visible intensity
@@ -740,7 +740,7 @@ function renderer(context) {
                   this._moonMesh.visible = false;
                   this._scene.add(this._moonMesh);
 
-                  console.log('[MOON] Giant blood moon created and added to scene');
+                  console.debug('[MOON] Giant blood moon created and added to scene');
               }
               
               _createGodRays(THREE) {
@@ -809,7 +809,7 @@ function renderer(context) {
                   this._godRayGroup.visible = true;
                   this._scene.add(this._godRayGroup);
 
-                  console.log('[GOD RAYS] Volumetric god rays system rebuilt with 3D beams');
+                  console.debug('[GOD RAYS] Volumetric god rays system rebuilt with 3D beams');
               }
               
               _createStars(THREE) {
@@ -901,7 +901,7 @@ function renderer(context) {
                   return;
                 }
                 
-                // console.log('[SKY DEBUG] Updating sky system for phase:', phase);
+                // console.debug('[SKY DEBUG] Updating sky system for phase:', phase);
                 
                 // Dynamic sun/moon positioning based on game time
                 // Phase: 0 = day (noon), 0.5 = transition, 1 = night (midnight)
@@ -959,7 +959,7 @@ function renderer(context) {
                     sunAzimuth = (moonAzimuth + Math.PI) % (2 * Math.PI); // Opposite side
                 }
                 
-                // console.log('[SKY DEBUG] Dynamic sun/moon calculations:', {
+                // console.debug('[SKY DEBUG] Dynamic sun/moon calculations:', {
                 //   phase,
                 //   sunElevation: sunElevation * 180 / Math.PI,
                 //   sunAzimuth: sunAzimuth * 180 / Math.PI,
@@ -974,7 +974,7 @@ function renderer(context) {
                 
                 this._sunPosition.set(sunX, sunY, sunZ);
                 
-                // console.log('[SKY DEBUG] Sun position:', {
+                // console.debug('[SKY DEBUG] Sun position:', {
                 //   x: sunX,
                 //   y: sunY,
                 //   z: sunZ,
@@ -1072,14 +1072,14 @@ function renderer(context) {
                         skyUniforms['rayleigh'].value = 1.9 - (1.9 - 0.1) * transitionFactor;
                         skyUniforms['mieCoefficient'].value = 0.010 - (0.010 - 0.005) * transitionFactor;
                         skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
-                        console.log('[SKY DEBUG] Applied TWILIGHT transition parameters');
+                        console.debug('[SKY DEBUG] Applied TWILIGHT transition parameters');
                     } else {
                         // Full night
                         skyUniforms['turbidity'].value = 10;
                         skyUniforms['rayleigh'].value = 0.1;
                         skyUniforms['mieCoefficient'].value = 0.005;
                         skyUniforms['mieDirectionalG'].value = 0.7;
-                        console.log('[SKY DEBUG] Applied NIGHT sky parameters');
+                        console.debug('[SKY DEBUG] Applied NIGHT sky parameters');
                     }
                 }
                 
@@ -1177,7 +1177,7 @@ function renderer(context) {
                             }
                         });
                         
-                        // console.log('[GOD RAYS] Updated - Visible:', godRayVisible,
+                        // console.debug('[GOD RAYS] Updated - Visible:', godRayVisible,
                         //            'Intensity:', godRayIntensity * this._godRayIntensity,
                         //            'Position:', godRayPosition);
                     }
@@ -1187,7 +1187,7 @@ function renderer(context) {
               // Method to set god ray intensity (for external control)
               setGodRayIntensity(intensity) {
                 this._godRayIntensity = Math.max(0, Math.min(2, intensity)); // Clamp between 0 and 2
-                console.log('[GOD RAYS] Intensity set to:', this._godRayIntensity);
+                console.debug('[GOD RAYS] Intensity set to:', this._godRayIntensity);
               }
               
               _createCloudSystem(THREE) {
@@ -1297,7 +1297,7 @@ function renderer(context) {
                     if (cloud) cloud.visible = false;
                 });
                 
-                console.log('[CLOUDS] Cloud system created with soft, feathered textures (disabled by default)');
+                console.debug('[CLOUDS] Cloud system created with soft, feathered textures (disabled by default)');
               }
 
               _createAdvancedLighting(THREE) {
@@ -1612,7 +1612,7 @@ function renderer(context) {
               }
               
               _createCampfire(THREE) {
-                console.log('[CAMPFIRE] Creating campfire at scene center');
+                console.debug('[CAMPFIRE] Creating campfire at scene center');
                 
                 // Set texture path for VolumetricFire
                 if (this._VolumetricFire) {
@@ -1639,7 +1639,7 @@ function renderer(context) {
                   );
                   this._fire.mesh.position.set(0, fireHeight / 2, 0);
                   campfireGroup.add(this._fire.mesh);
-                  console.log('[CAMPFIRE] VolumetricFire created');
+                  console.debug('[CAMPFIRE] VolumetricFire created');
                 } else {
                   console.warn('[CAMPFIRE] VolumetricFire not available, skipping fire effect');
                 }
@@ -1772,7 +1772,7 @@ function renderer(context) {
                 this._scene.add(campfireGroup);
                 this._campfireGroup = campfireGroup;
                 
-                console.log('[CAMPFIRE] Campfire scene created with rocks and logs');
+                console.debug('[CAMPFIRE] Campfire scene created with rocks and logs');
               }
 
               _loadIslandModel(THREE, FBXLoader) {
@@ -1829,10 +1829,10 @@ function renderer(context) {
                     // Store reference if needed
                     this._islandModel = fbx;
                     
-                    console.log('Island model loaded successfully');
+                    console.debug('Island model loaded successfully');
                   },
                   (progress) => {
-                    console.log('Loading island model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                    console.debug('Loading island model:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
                   },
                   (error) => {
                     console.error('Error loading island model:', error);
@@ -1861,12 +1861,12 @@ function renderer(context) {
                 // Make sure this path is correct for your project structure.
                 const townModelPath = '/experiment/static/werewolf/town/scene_v1.fbx'; // <-- REPLACE WITH YOUR FILE PATH
 
-                console.log(`[Town Loader] Attempting to load model from: ${townModelPath}`);
+                console.debug(`[Town Loader] Attempting to load model from: ${townModelPath}`);
 
                 this._fbxLoader.load(
                   townModelPath,
                   (fbx) => {
-                    console.log('[Town Loader] Model loaded successfully.');
+                    console.debug('[Town Loader] Model loaded successfully.');
 
                     // --- ADJUSTMENTS ---
                     // You can change these values to fit the town into your scene.
@@ -1918,7 +1918,7 @@ function renderer(context) {
                   },
                   (progress) => {
                     // This will show the loading progress in the console.
-                    console.log('[Town Loader] Loading progress: ' + (progress.loaded / progress.total * 100).toFixed(2) + '%');
+                    console.debug('[Town Loader] Loading progress: ' + (progress.loaded / progress.total * 100).toFixed(2) + '%');
                   },
                   (error) => {
                     // This will log an error if the file can't be found or loaded.
@@ -1933,7 +1933,7 @@ function renderer(context) {
                * @param {object} EXRLoader - The loader for .exr texture files.
                */
               _load_ground(THREE, EXRLoader) {
-                  console.log('[Ground Loader] Creating realistic rocky terrain...');
+                  console.debug('[Ground Loader] Creating realistic rocky terrain...');
 
                   // 1. Initialize two separate loaders for the different file types.
                   const textureLoader = new THREE.TextureLoader();
@@ -1974,7 +1974,7 @@ function renderer(context) {
                   ground.receiveShadow = true;
                   this._scene.add(ground);
 
-                  console.log('[Ground Loader] Rocky terrain created and added to the scene.');
+                  console.debug('[Ground Loader] Rocky terrain created and added to the scene.');
               }
 
               loadCharacterModel(role) {
@@ -2281,7 +2281,7 @@ function renderer(context) {
 
                             if (deathMap && !deathMap.has(playerName)) {
                                 // This is the first time we're seeing this player die. Play the full animation.
-                                console.log(`[DEATH TRIGGER] Playing full death animation for ${playerName}.`);
+                                console.debug(`[DEATH TRIGGER] Playing full death animation for ${playerName}.`);
                                 action.reset().play();
                                 deathMap.set(playerName, true); // Mark it as completed.
                             } else {
@@ -2370,14 +2370,14 @@ function renderer(context) {
                 const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
                 if (deathMap && deathMap.has(playerName)) {
                     // Player has already completed death animation, block ALL animations
-                    console.log(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
+                    console.debug(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
                     return null;
                 }
                 
                 // Check if player is dead and animation is not death-related
                 if (!player.isAlive &&
                     !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
-                    console.log(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
+                    console.debug(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
                     return null;
                 }
                 
@@ -2390,7 +2390,7 @@ function renderer(context) {
                 // If this is a death animation, immediately mark it as completed
                 if (animationName === 'Dying' || animationName === 'Defeated') {
                     if (deathMap) {
-                        console.log(`[DEATH START] Starting death animation '${animationName}' for ${playerName} - marking as completed`);
+                        console.debug(`[DEATH START] Starting death animation '${animationName}' for ${playerName} - marking as completed`);
                         deathMap.set(playerName, true);
                     }
                 }
@@ -2412,7 +2412,7 @@ function renderer(context) {
                 //     // action.setLoop(this._THREE.LoopOnce);
                 //     action.setLoop(this._THREE.LoopRepeat);
                 //     action.clampWhenFinished = false;
-                //     console.log(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
+                //     console.debug(`[DEATH CONFIG] Death animation '${animationName}' configured with LoopOnce and clampWhenFinished for ${playerName}`);
                 // }
                 action.setLoop(this._THREE.LoopRepeat);
 
@@ -2446,22 +2446,11 @@ function renderer(context) {
                   // Update the message content
                   messageEl.innerHTML = message;
 
-                  // Update timestamp to "Speaking..." or current time
+                  // Update timestamp to "Speaking..."
                   timestampEl.textContent = 'Speaking...'; 
 
                   // Add the 'chat-active' class to trigger the CSS animation
-                  uiElement.classList.add('chat-active');
-
-                  // If a timer already exists for this player, clear it
-                  if (player.chatClearTimer) {
-                      clearTimeout(player.chatClearTimer);
-                  }
-
-                  // Set a timer to automatically hide the bubble after a few seconds
-                  player.chatClearTimer = setTimeout(() => {
-                      uiElement.classList.remove('chat-active');
-                      timestampEl.textContent = 'Idle'; // Revert timestamp to Idle after speaking
-                  }, 5000); // Hide after 5 seconds
+                  uiElement.classList.add('chat-active');                  
               }
 
               triggerSpeakingAnimation(playerName) {
@@ -2839,6 +2828,13 @@ function renderer(context) {
                       const uiElement = player.playerUI?.element;
                       if (!uiElement) return;
 
+                      // const playerInfoCard = uiElement.querySelector('.player-info-card'); // Get the info card
+                      // if (playerInfoCard) {
+                      //     // Measure the current width of the player-info-card and set a CSS variable
+                      //     const infoCardWidth = playerInfoCard.offsetWidth;
+                      //     uiElement.style.setProperty('--player-info-card-width-half', `${infoCardWidth / 2}px`);
+                      // }
+
                       const chatMessageCard = uiElement.querySelector('.chat-message-card'); // Target the chat message card
                       const arrowEl = uiElement.querySelector('.bubble-arrow');
 
@@ -2988,7 +2984,7 @@ function renderer(context) {
                   // --- Part 1: The Floating Player Info Card (Name, ID, Role, Timestamp, Avatar) ---
                   // This will *not* have a background/border to make it appear floating
                   const playerInfoCard = document.createElement('div');
-                  playerInfoCard.className = 'player-info-card'; // This is now truly "floating"
+                  playerInfoCard.className = 'player-info-card centered-component';
 
                   // Avatar
                   const img = document.createElement('img');
@@ -3032,8 +3028,10 @@ function renderer(context) {
                   `;
 
                   // Assemble the component: Info card on left, chat card on right (initially hidden)
+                  // container.appendChild(playerInfoCard);
+                  // container.appendChild(chatMessageCard);
+                  playerInfoCard.appendChild(chatMessageCard);
                   container.appendChild(playerInfoCard);
-                  container.appendChild(chatMessageCard);
 
                   // Make the info card clickable to focus the camera
                   playerInfoCard.onclick = () => {
@@ -3300,7 +3298,7 @@ function renderer(context) {
                    this._skyDebugFrameCount++;
                    
                    if (this._sky) {
-                    //  console.log(`[SKY DEBUG] Frame ${this._skyDebugFrameCount} - Sky mesh status:`, {
+                    //  console.debug(`[SKY DEBUG] Frame ${this._skyDebugFrameCount} - Sky mesh status:`, {
                     //    visible: this._sky.visible,
                     //    inScene: this._scene.children.includes(this._sky),
                     //    scale: this._sky.scale.x,
@@ -3374,13 +3372,17 @@ function renderer(context) {
     window.werewolfThreeJs.demo = threeState.demo;
   }
 
-    function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
+  function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
 
     // --- Hide all chat bubbles at the start of each step ---
     threeState.demo._playerObjects.forEach(player => {
-        if (player.chatBubble && player.chatBubble.element) {
-            player.chatBubble.element.classList.remove('visible');
+        if (player.playerUI && player.playerUI.element) {
+            player.playerUI.element.classList.remove('chat-active');
+            const timestampEl = player.playerUI.element.querySelector('.player-timestamp-3d');
+            if (timestampEl) {
+                timestampEl.textContent = 'Idle'; // Revert timestamp to Idle
+            }
         }
     });
 
@@ -3852,58 +3854,65 @@ function renderer(context) {
             display: none;
         }
 
-        /* Main container: uses flexbox for layout, centers it visually above the player */
+        /* Main container: now acts as a positioning context for its children.
+          Its OWN top-left corner is anchored by the CSS2DObject's 3D position.
+          We will center its *content* using flex or absolute positioning.
+        */
         .player-ui-container {
-            display: flex;
-            align-items: center; /* Vertically centers nameplate and chat card */
-            
-            /* CRITICAL ANCHORING FIX:
-              1. Default position of a CSS2DObject is its TOP-LEFT corner at the 3D point.
-              2. We want the player's NAME to be centered horizontally above the player model.
-              3. We want the chat card to slide out to the right of the nameplate.
-              
-              We move the whole container LEFT by 50% of its OWN width (which changes),
-              and UP by 50% of its OWN height (which changes). This effectively centers
-              the *entire composite UI* around the 3D position.
-              
-              To make the *nameplate* the stable anchor, we adjust its position within
-              the flex container or rely on text-align. We will ensure the nameplate
-              itself has no padding/margin pushing it around.
-            */
-            transform: translate(-50%, -50%); /* This centers the *entire* UI component */
+            position: relative; /* CRITICAL: Establishes a positioning context for absolute children */
+            display: block; /* No longer flex. Children handle their own layout */
+            width: max-content; /* Allow container to grow with content */
+            height: max-content; /* Allow container to grow with content */
             pointer-events: none; /* Let children handle clicks */
-            position: relative; /* Establish positioning context for children if needed */
+
+            /* CRITICAL ANCHORING FIX:
+              We want the player-info-card (nameplate) to be horizontally centered
+              on the 3D point. So, we'll position the info card *absolutely*
+              within this container, with its own transform to center itself.
+              The container itself is placed at 0,0 relative to the CSS2DObject.
+            */
+            transform: none; /* REMOVE any transforms from the container itself */
         }
 
-        /* The truly FLOATING player info card (Name, ID, Role, Timestamp, Avatar) */
+        /* The truly FLOATING player info card (Name, ID, Role, Timestamp, Avatar)
+          This is now absolutely positioned and self-centered within the container.
+        */
         .player-info-card {
+            position: relative;
+            top: 50%; /* Position its top edge at the vertical center of the container */
+            left: 50%; /* Position its left edge at the horizontal center of the container */
+            
+            /* CRITICAL: Translate it back by 50% of its OWN width and height to truly center it.
+              This element is now fixed relative to the 3D point.
+            */
+            transform: translate(-50%, -50%);
+            
             display: flex;
-            flex-direction: column; /* Stack avatar/text and timestamp vertically */
-            align-items: center; /* Center content horizontally */
-            gap: 2px; /* Small gap between avatar/text block and timestamp */
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
             
-            /* --- TRULY FLOATING AESTHETIC --- */
-            background: transparent; /* No background */
-            backdrop-filter: none; /* No blur */
-            border: none; /* No border */
-            box-shadow: none; /* No shadow */
+            /* TRULY FLOATING AESTHETIC */
+            background: transparent;
+            backdrop-filter: none;
+            border: none;
+            box-shadow: none;
             
-            color: #ffffff; /* White text for contrast against background */
+            color: #ffffff;
             text-shadow: 
-                0 0 4px rgba(0,0,0,0.8), /* Stronger shadow for readability */
+                0 0 4px rgba(0,0,0,0.8),
                 0 0 8px rgba(0,0,0,0.6);
-            pointer-events: auto; /* Make it clickable */
+            pointer-events: auto;
             cursor: pointer;
-            transition: all 0.2s ease; /* Smooth hover effect */
-            padding: 0; /* No padding */
-            margin: 0; /* No margin */
+            transition: all 0.2s ease;
+            padding: 0;
+            margin: 0;
             white-space: nowrap; /* Prevent text wrapping */
-            
-            /* This ensures the nameplate itself remains centered within the flex container */
-            flex-shrink: 0;
+            z-index: 5;
         }
+
         .player-info-card:hover {
-            color: #ffcc00; /* Subtle hover highlight for text */
+            color: #ffcc00;
             text-shadow: 
                 0 0 6px rgba(0,0,0,0.9), 
                 0 0 10px rgba(0,0,0,0.7),
@@ -3915,25 +3924,25 @@ function renderer(context) {
             height: 32px;
             border-radius: 50%;
             object-fit: cover;
-            background-color: rgba(255,255,255,0.2); /* Subtle background for transparency */
-            border: 1px solid rgba(255,255,255,0.4); /* Thin white border */
+            background-color: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
             box-shadow: 0 0 5px rgba(0,0,0,0.5);
-            margin-bottom: 4px; /* Space between avatar and text */
+            margin-bottom: 4px;
         }
 
         .player-text-details {
             display: flex;
             flex-direction: column;
-            align-items: center; /* Center name, id, role text */
+            align-items: center;
         }
         .player-name-3d {
             font-size: 14px;
-            font-weight: 700; /* Bolder for prominence */
+            font-weight: 700;
         }
         .player-id-3d {
             font-size: 10px;
-            opacity: 0.9; /* Slightly less opaque to distinguish from name */
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Monospace for ID */
+            opacity: 0.9;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
         }
         .player-role-3d {
             font-size: 11px;
@@ -3942,45 +3951,46 @@ function renderer(context) {
         .player-timestamp-3d {
             font-size: 9px;
             opacity: 0.7;
-            margin-top: 4px; /* Space from role */
+            margin-top: 4px;
         }
 
-
-        /* The chat message card (initially hidden, expands to the right) */
+        /* The chat message card (initially hidden, expands to the right *of the player-info-card*) */
         .chat-message-card {
-            position: relative; /* For arrow positioning */
-            background: rgba(20, 30, 45, 0.95); /* Solid, less transparent for readability */
+            position: absolute;
+            
+            /* Position the bubble's top edge at the nameplate's vertical center */
+            top: 50%;
+            
+            /* Position the bubble's LEFT edge at the nameplate's RIGHT edge */
+            left: 100%;
+            
+            /* Adjust for perfect vertical centering and add a gap */
+            transform: translateY(-50%);
+            margin-left: 12px;
+            
+            /* Make sure the bubble is on top */
+            z-index: 10;
+            
+            background: rgba(20, 30, 45, 0.95);
             padding: 12px 16px;
             border-radius: 8px;
             border: 1px solid rgba(116, 185, 255, 0.4);
             color: #f0f0f0;
             max-width: 250px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            pointer-events: none; /* Not directly clickable, only the info card is */
+            pointer-events: none;
 
-            /* --- Initial Hidden State --- */
+            /* Initial Hidden State */
             opacity: 0;
-            transform: translateX(0); /* Start point for animation */
-            width: 0;
-            min-width: 0; /* Ensures it collapses completely */
-            padding: 0;
-            margin-left: 0; /* No margin when collapsed */
-            transition: opacity 0.3s ease, width 0.3s ease, min-width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
-            overflow: hidden; /* Crucial for animation */
-            white-space: nowrap; /* Prevents text wrapping during collapse */
-            flex-shrink: 0; /* Prevents it from shrinking prematurely */
+            transition: opacity 0.3s ease;
+            white-space: nowrap;
         }
 
         /* Active state: chat message card expands */
         .player-ui-container.chat-active .chat-message-card {
             opacity: 1;
-            transform: translateX(0); /* Not moving relative to container, just expanding */
-            width: auto; /* Let content determine width */
-            min-width: 150px; /* Minimum width for readability */
-            padding: 12px 16px;
-            margin-left: 12px; /* Space between info card and chat card */
-            white-space: normal; /* Allow text to wrap again */
-            pointer-events: auto; /* Allow text selection/copy */
+            white-space: normal;
+            pointer-events: auto;
         }
 
         .chat-message-card .bubble-message {
@@ -3990,14 +4000,14 @@ function renderer(context) {
 
         /* The dynamic arrow (using the correct border trick) */
         .bubble-arrow {
-            position: absolute;
+            position: absolute; /* Relative to .chat-message-card */
             width: 0;
             height: 0;
-            visibility: hidden; /* JS will make it visible */
+            visibility: hidden;
             border-top: 9px solid transparent;
             border-bottom: 9px solid transparent;
-            border-left: 14px solid rgba(116, 185, 255, 0.4); /* Border color */
-            transform-origin: 0% 50%; /* Pivot from the tip of the arrow */
+            border-left: 14px solid rgba(116, 185, 255, 0.4);
+            transform-origin: 0% 50%;
         }
 
         .bubble-arrow::after {
@@ -4007,9 +4017,9 @@ function renderer(context) {
             height: 0;
             border-top: 8px solid transparent;
             border-bottom: 8px solid transparent;
-            border-left: 12px solid rgba(20, 30, 45, 0.9); /* Background color */
-            top: -8px; /* Offset to align fill with border */
-            left: -14px; /* Offset to align fill with border */
+            border-left: 12px solid rgba(20, 30, 45, 0.9);
+            top: -8px;
+            left: -14px;
         }
         
         /* --- End New Unified Player UI Component --- */
@@ -6106,10 +6116,10 @@ function renderer(context) {
     
     // Initialize 3D players if needed - check the flag to prevent duplicate initialization
     if (threeState.demo && threeState.demo._playerObjects && !threeState.players3DInitialized && playerNamesFor3D.length > 0) {
-        console.log('Starting 3D player initialization...');
+        console.debug('Starting 3D player initialization...');
         threeState.players3DInitialized = true;  // Set flag immediately to prevent duplicate calls
         initializePlayers3D(gameState, playerNamesFor3D, playerThumbnailsFor3D, threeState).then(() => {
-            console.log('3D players initialized with FBX models');
+            console.debug('3D players initialized with FBX models');
             // Update scene after models are loaded
             updateSceneFromGameState(gameState, playerMap, nameToHighlight);
         }).catch(error => {
@@ -6123,7 +6133,7 @@ function renderer(context) {
 async function initializePlayers3D(gameState, playerNames, playerThumbnails, threeState) {
     if (!threeState || !threeState.demo || !threeState.demo._playerObjects) return;
     
-    console.log(`initializePlayers3D called with ${playerNames.length} players`);
+    console.debug(`initializePlayers3D called with ${playerNames.length} players`);
     
     // Double-check the flag to ensure we're not already initialized
     if (threeState.players3DInitialized && threeState.demo._playerObjects.size > 0) {
@@ -6349,7 +6359,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
 
         const playerUI = threeState.demo._createPlayerUI(name, displayName, thumbnailUrl, CSS2DObject);
-        playerUI.position.set(0, modelHeight + 3.5, 0); // Position it above the model
+        playerUI.position.set(0, modelHeight + 3.8, 0); // Position it above the model
         playerContainer.add(playerUI);
         
         // Store references with new structure
@@ -6625,7 +6635,7 @@ function updateSkyParameter(param, value) {
         const sky = window.werewolfThreeJs.demo._sky;
         if (sky.material && sky.material.uniforms && sky.material.uniforms[param]) {
             sky.material.uniforms[param].value = floatValue;
-            console.log(`[Sky Controls] Updated ${param} to ${displayValue}`);
+            console.debug(`[Sky Controls] Updated ${param} to ${displayValue}`);
         }
     }
 }
@@ -6661,7 +6671,7 @@ function updateSunPosition(type, value) {
         updateDayNightLighting(currentElevation);
         updateSkyInfo();
         
-        console.log(`[Sky Controls] Sun position - Elevation: ${currentElevation}°, Azimuth: ${currentAzimuth}°`);
+        console.debug(`[Sky Controls] Sun position - Elevation: ${currentElevation}°, Azimuth: ${currentAzimuth}°`);
     }
 }
 
@@ -6672,7 +6682,7 @@ function updateExposure(value) {
     
     if (window.werewolfThreeJs && window.werewolfThreeJs.demo && window.werewolfThreeJs.demo._renderer) {
         window.werewolfThreeJs.demo._renderer.toneMappingExposure = floatValue;
-        console.log(`[Sky Controls] Updated exposure to ${floatValue.toFixed(2)}`);
+        console.debug(`[Sky Controls] Updated exposure to ${floatValue.toFixed(2)}`);
     }
 }
 
@@ -6705,7 +6715,7 @@ function updateLighting(type, value) {
                 break;
         }
         
-        console.log(`[Sky Controls] Updated ${type} to ${floatValue.toFixed(1)}`);
+        console.debug(`[Sky Controls] Updated ${type} to ${floatValue.toFixed(1)}`);
     }
 }
 
@@ -6730,7 +6740,7 @@ function updateBloom(type, value) {
                 break;
         }
         
-        console.log(`[Sky Controls] Updated bloom ${type} to ${floatValue.toFixed(2)}`);
+        console.debug(`[Sky Controls] Updated bloom ${type} to ${floatValue.toFixed(2)}`);
     }
 }
 
@@ -6757,7 +6767,7 @@ function updateClouds(type, value) {
             }
         });
         
-        console.log(`[Sky Controls] Updated cloud ${type} to ${floatValue.toFixed(1)}`);
+        console.debug(`[Sky Controls] Updated cloud ${type} to ${floatValue.toFixed(1)}`);
     }
 }
 
@@ -6766,7 +6776,7 @@ function toggleClouds(enabled) {
         window.werewolfThreeJs.demo._clouds.forEach(cloud => {
             if (cloud) cloud.visible = enabled;
         });
-        console.log(`[Sky Controls] Clouds ${enabled ? 'enabled' : 'disabled'}`);
+        console.debug(`[Sky Controls] Clouds ${enabled ? 'enabled' : 'disabled'}`);
     }
 }
 
@@ -6786,7 +6796,7 @@ function updateGodRays(type, value) {
             }
         }
         
-        console.log(`[Sky Controls] Updated god ray ${type} to ${floatValue.toFixed(1)}`);
+        console.debug(`[Sky Controls] Updated god ray ${type} to ${floatValue.toFixed(1)}`);
     }
 }
 
@@ -6801,7 +6811,7 @@ function toggleGodRays(enabled) {
         } else {
             demo._godRayIntensity = 0;
         }
-        console.log(`[Sky Controls] God rays ${enabled ? 'enabled' : 'disabled'}`);
+        console.debug(`[Sky Controls] God rays ${enabled ? 'enabled' : 'disabled'}`);
     }
 }
 
@@ -6825,7 +6835,7 @@ function updateDayNightLighting(elevation) {
 }
 
 function setSkyDayTime() {
-    console.log('[Sky Controls] Setting day time');
+    console.debug('[Sky Controls] Setting day time');
     const elevationEl = document.getElementById('sky-elevation');
     const azimuthEl = document.getElementById('sky-azimuth');
     const timeEl = document.getElementById('sky-time-slider');
@@ -6840,7 +6850,7 @@ function setSkyDayTime() {
 }
 
 function setSkyNightTime() {
-    console.log('[Sky Controls] Setting night time');
+    console.debug('[Sky Controls] Setting night time');
     const elevationEl = document.getElementById('sky-elevation');
     const azimuthEl = document.getElementById('sky-azimuth');
     const timeEl = document.getElementById('sky-time-slider');
@@ -6880,7 +6890,7 @@ function setTimeOfDay(value) {
         updateSunPosition('elevation', elevation);
         updateSunPosition('azimuth', azimuth);
         
-        console.log(`[Sky Controls] Time updated to ${h}:${m.toString().padStart(2, '0')}`);
+        console.debug(`[Sky Controls] Time updated to ${h}:${m.toString().padStart(2, '0')}`);
     }
     
     updateSkyInfo();
@@ -6891,9 +6901,9 @@ function toggleSkyTransition() {
     if (skyTransitionInterval) {
         clearInterval(skyTransitionInterval);
         skyTransitionInterval = null;
-        console.log('[Sky Controls] Auto transition stopped');
+        console.debug('[Sky Controls] Auto transition stopped');
     } else {
-        console.log('[Sky Controls] Auto transition started');
+        console.debug('[Sky Controls] Auto transition started');
         skyTransitionInterval = setInterval(() => {
             const timeEl = document.getElementById('sky-time-slider');
             if (timeEl) {
