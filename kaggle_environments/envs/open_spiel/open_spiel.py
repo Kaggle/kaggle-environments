@@ -11,6 +11,8 @@ import sys
 from typing import Any, Callable
 
 import numpy as np
+import pokerkit
+from open_spiel.python.games import pokerkit_wrapper
 import pyspiel
 
 from kaggle_environments import core, utils
@@ -576,6 +578,15 @@ DEFAULT_REPEATED_POKER_GAME_STRING = (
     f"universal_poker_game_string={DEFAULT_UNIVERSAL_POKER_GAME_STRING})"
 )
 
+
+DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
+    "python_repeated_pokerkit(bet_size_schedule=,blind_schedule=,"
+    "bring_in_schedule=,first_button_player=-1,max_num_hands=100,"
+    "pokerkit_game_params=python_pokerkit_wrapper(blinds=1 2,num_players=2,"
+    "stack_sizes=200 200,variant=NoLimitTexasHoldem),reset_stacks=True,"
+    "rotate_dealer=True)"
+)
+
 GAMES_LIST = [
     "chess",
     "connect_four",
@@ -584,6 +595,7 @@ GAMES_LIST = [
     "tic_tac_toe",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,
+    DEFAULT_REPEATED_POKERKIT_GAME_STRING,
 ]
 
 ENV_REGISTRY = _register_game_envs(GAMES_LIST)
