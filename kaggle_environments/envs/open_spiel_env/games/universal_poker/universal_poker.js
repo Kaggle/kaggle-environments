@@ -14,19 +14,14 @@ function renderer(options) {
         gameMessageArea: null,
     };
 
-    function _injectStyles(passedOptions) {
-        if (typeof document === 'undefined' || window.__poker_styles_injected) {
-            return;
-        }
-        const style = document.createElement('style');
-        style.textContent = `
+    const css = `
         .poker-renderer-host {
             width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
             font-family: 'Inter', sans-serif; background-color: #2d3748; color: #fff;
             overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
         }
         .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
-        .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 300px;}
+        .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 300px; }
         .poker-table {
             width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 300px);
             background-color: #006400; border-radius: 24px; position: relative;
@@ -54,7 +49,7 @@ function renderer(options) {
         .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
         .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.5rem; font-size: 1rem; }
         .player-stack { font-size: 2rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
-        .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center;}
+        .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
         .player-status { font-size: 1.5rem; color: #9ca3af; margin-top: 0.4rem; }
         .player-action { font-size: 1.5rem; color: #60a5fa; margin-top: 0.4rem; font-weight: 500; }
         .card {
@@ -124,9 +119,9 @@ function renderer(options) {
             .card { width: 3rem; height: 4.2rem; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 1.8rem; height: 1.8rem;  }
             .dealer-button.dealer-player0 { bottom: 35px; }
             .dealer-button.dealer-player1 { top: 35px; }
-            .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 1.4rem;}
-            .player-name { font-size: 0.8rem;} .player-stack { font-size: 0.75rem; }
-            .player-card-area { padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px;}
+            .dealer-button { width: 32px; height: 32px; line-height: 32px; font-size: 1.4rem; }
+            .player-name { font-size: 0.8rem; } .player-stack { font-size: 0.75rem; }
+            .player-card-area { padding: 0.4rem 0.5rem; font-size: 0.85rem; min-height: 110px; }
             .player-info-area { min-width: 140px; padding: 0.5rem 0.6rem; font-size: 0.85rem; }
             .player-info-area.pos-info-player0 { top: 10px; right: 10px; }
             .player-info-area.pos-info-player1 { bottom: 10px; right: 10px; }
@@ -138,12 +133,12 @@ function renderer(options) {
         }
         @media (max-width: 400px) {
             .bet-display { font-size: 1.4rem; height: 1.5rem; line-height: 1.5rem; }
-            .card { width: 2rem; height: 2.8rem; margin: 0 1px; padding: 2px;} .card-rank { font-size: 1.4rem; } .card-suit { width: 1.4rem; height: 1.4rem; }
-            .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem;}
+            .card { width: 2rem; height: 2.8rem; margin: 0 1px; padding: 2px; } .card-rank { font-size: 1.4rem; } .card-suit { width: 1.4rem; height: 1.4rem; }
+            .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem; }
             .dealer-button.dealer-player0 { bottom: 30px; }
             .dealer-button.dealer-player1 { top: 30px; }
-            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px;}
-            .player-name { font-size: 0.75rem;} .player-stack { font-size: 0.7rem; }
+            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; }
+            .player-name { font-size: 0.75rem; } .player-stack { font-size: 0.7rem; }
             .pos-player0-sb { bottom: 8px; left: 8px; } .pos-player1-bb { top: 8px; left: 8px; }
             .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
             .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
@@ -154,6 +149,13 @@ function renderer(options) {
             .poker-game-layout { max-height: 450px; }
         }
         `;
+
+    function _injectStyles(passedOptions) {
+        if (typeof document === 'undefined' || window.__poker_styles_injected) {
+            return;
+        }
+        const style = document.createElement('style');
+        style.textContent = css;
         const parentForStyles = passedOptions && passedOptions.parent ? passedOptions.parent.ownerDocument.head : document.head;
         if (parentForStyles && !parentForStyles.querySelector('style[data-poker-renderer-styles]')) {
             style.setAttribute('data-poker-renderer-styles', 'true');
