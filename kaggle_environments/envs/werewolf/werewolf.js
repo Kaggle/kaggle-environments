@@ -2828,14 +2828,7 @@ function renderer(context) {
                       const uiElement = player.playerUI?.element;
                       if (!uiElement) return;
 
-                      // const playerInfoCard = uiElement.querySelector('.player-info-card'); // Get the info card
-                      // if (playerInfoCard) {
-                      //     // Measure the current width of the player-info-card and set a CSS variable
-                      //     const infoCardWidth = playerInfoCard.offsetWidth;
-                      //     uiElement.style.setProperty('--player-info-card-width-half', `${infoCardWidth / 2}px`);
-                      // }
-
-                      const chatMessageCard = uiElement.querySelector('.chat-message-card'); // Target the chat message card
+                      const chatMessageCard = uiElement.querySelector('.chat-message-card');
                       const arrowEl = uiElement.querySelector('.bubble-arrow');
 
                       // Only run if the chat is active and we have the necessary elements
@@ -2844,45 +2837,38 @@ function renderer(context) {
                           return;
                       }
 
-                      // 1. Get world bounding box of the player model
+                      // 1. Get the 3D model's center position
                       bbox.setFromObject(player.model, true);
-                      
-                      // 2. Define target as top-center of the box
-                      targetPos3D.set(
-                          (bbox.min.x + bbox.max.x) / 2,
-                          bbox.max.y,
-                          (bbox.min.z + bbox.max.z) / 2
-                      );
-                      
-                      // 3. Project to screen space
+                      bbox.getCenter(targetPos3D);
+
+                      // 2. Project its 3D position to 2D screen coordinates
                       targetPos3D.project(this._camera);
 
-                      if (targetPos3D.z > 1) { // Hide if behind camera
+                      // Hide if the character is behind the camera
+                      if (targetPos3D.z > 1) {
                           arrowEl.style.visibility = 'hidden';
                           return;
                       }
 
-                      // 4. Convert to pixel coordinates
+                      // 3. Convert normalized screen coordinates to pixels
                       const targetX = (targetPos3D.x * 0.5 + 0.5) * this._width;
                       const targetY = (-targetPos3D.y * 0.5 + 0.5) * this._height;
 
-                      // 5. Get the chat card's screen position (NOT the whole container)
-                      const chatRect = chatMessageCard.getBoundingClientRect(); // Use chatMessageCard
+                      // 4. Get the screen position of the chat bubble
+                      const chatRect = chatMessageCard.getBoundingClientRect();
                       const parentRect = this._parent.getBoundingClientRect();
-                      const chatLeft = chatRect.left - parentRect.left;
-                      const chatTop = chatRect.top - parentRect.top;
+                      
+                      // 5. The arrow's origin is always the middle of the chat bubble's left edge
+                      const arrowOriginX = chatRect.left - parentRect.left;
+                      const arrowOriginY = chatRect.top - parentRect.top + (chatRect.height / 2);
 
-                      // 6. Find the closest point on the chat card's edge
-                      const arrowX = Math.max(chatLeft, Math.min(targetX, chatLeft + chatRect.width));
-                      const arrowY = Math.max(chatTop, Math.min(targetY, chatTop + chatRect.height));
-
-                      // 7. Calculate rotation
-                      const angle = Math.atan2(targetY - arrowY, targetX - arrowX);
+                      // 6. Calculate the angle from the arrow's origin to the character's screen position
+                      const angle = Math.atan2(targetY - arrowOriginY, targetX - arrowOriginX);
                       const angleDeg = angle * (180 / Math.PI);
 
-                      // 8. Apply position and rotation
+                      // 7. Make the arrow visible and apply the rotation
                       arrowEl.style.visibility = 'visible';
-                      arrowEl.style.transform = `translate(${arrowX - chatLeft}px, ${arrowY - chatTop}px) rotate(${angleDeg}deg)`;
+                      arrowEl.style.transform = `translateY(-50%) rotate(${angleDeg}deg)`;
                   });
               }
 
@@ -3970,6 +3956,8 @@ function renderer(context) {
             
             /* Make sure the bubble is on top */
             z-index: 10;
+
+            min-width: 180px;
             
             background: rgba(20, 30, 45, 0.95);
             padding: 12px 16px;
@@ -3982,7 +3970,7 @@ function renderer(context) {
 
             /* Initial Hidden State */
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.1s ease;
             white-space: nowrap;
         }
 
@@ -4000,26 +3988,17 @@ function renderer(context) {
 
         /* The dynamic arrow (using the correct border trick) */
         .bubble-arrow {
-            position: absolute; /* Relative to .chat-message-card */
-            width: 0;
-            height: 0;
-            visibility: hidden;
-            border-top: 9px solid transparent;
-            border-bottom: 9px solid transparent;
-            border-left: 14px solid rgba(116, 185, 255, 0.4);
-            transform-origin: 0% 50%;
-        }
-
-        .bubble-arrow::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 0;
-            border-top: 8px solid transparent;
-            border-bottom: 8px solid transparent;
-            border-left: 12px solid rgba(20, 30, 45, 0.9);
-            top: -8px;
-            left: -14px;
+            position: absolute; /* Positioned relative to the chat bubble */
+            transform-origin: 0% 50%; /* Rotates and scales from its starting point */
+            height: 3px; /* The thickness of the tail */
+            
+            /* A gradient makes it look like it's fading out from the bubble */
+            background: linear-gradient(to right, rgba(116, 185, 255, 0.4), rgba(20, 30, 45, 0.95));
+            
+            border-radius: 2px;
+            z-index: -1; /* Place it just behind the main bubble for a seamless look */
+            visibility: hidden; /* Hide by default, JS will show it */
+            pointer-events: none;
         }
         
         /* --- End New Unified Player UI Component --- */
@@ -6359,7 +6338,7 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
 
         const playerUI = threeState.demo._createPlayerUI(name, displayName, thumbnailUrl, CSS2DObject);
-        playerUI.position.set(0, modelHeight + 3.8, 0); // Position it above the model
+        playerUI.position.set(0, modelHeight + 2.0, 0); // Position it above the model
         playerContainer.add(playerUI);
         
         // Store references with new structure
