@@ -9,7 +9,7 @@ from absl.testing import absltest
 
 from kaggle_environments import make
 
-from . import open_spiel as open_spiel_env
+from . import open_spiel_env
 
 # Expected that not all pyspiel registered games can be registered as Kaggle
 # envs (e.g. does not yet support simultaneous move games), but should register
