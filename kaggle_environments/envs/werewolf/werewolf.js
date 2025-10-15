@@ -648,10 +648,10 @@ function renderer(context) {
                 this._sunLight.shadow.camera.near = 0.5;
                 this._sunLight.shadow.camera.far = 500;
                 // restrict shadow camera in smaller region can reduce aliasing and increase performance
-                this._sunLight.shadow.camera.left = -50;
-                this._sunLight.shadow.camera.right = 50;
-                this._sunLight.shadow.camera.top = 50;
-                this._sunLight.shadow.camera.bottom = -50;
+                this._sunLight.shadow.camera.left = -75;
+                this._sunLight.shadow.camera.right = 75;
+                this._sunLight.shadow.camera.top = 75;
+                this._sunLight.shadow.camera.bottom = -75;
                 this._sunLight.shadow.bias = -0.001;
                 this._sunLight.shadow.normalBias = 0.02;
                 this._scene.add(this._sunLight);
@@ -2204,8 +2204,8 @@ function renderer(context) {
 
                 const { orb, orbLight, model, glow, pedestal, container, mixer, animations, currentAction } = player;
 
-                if (player_info && player_info.role !== 'Unknown' && player.nameplate) {
-                    const roleElement = player.nameplate.element.querySelector('.player-role-3d');
+                if (player_info && player_info.role !== 'Unknown' && player.playerUI) {
+                    const roleElement = player.playerUI.element.querySelector('.player-role-3d');
                     if (roleElement) {
                         let roleDisplay = player_info.role;
                         let roleColor = '#00b894'; // Villager green
@@ -2435,36 +2435,33 @@ function renderer(context) {
                 return action;
               }
 
-              displayPlayerBubble(playerName, message, reasoning = '', timestamp = '') {
-                const player = this._playerObjects.get(playerName);
-                if (!player || !player.chatBubble) return;
+              displayPlayerBubble(playerName, message) {
+                  const player = this._playerObjects.get(playerName);
+                  if (!player || !player.playerUI) return;
 
-                const bubbleElement = player.chatBubble.element;
-                if (!bubbleElement) return;
+                  const uiElement = player.playerUI.element;
+                  const messageEl = uiElement.querySelector('.bubble-message');
+                  const timestampEl = uiElement.querySelector('.player-timestamp-3d');
 
-                const messageEl = bubbleElement.querySelector('.bubble-message');
-                const reasoningEl = bubbleElement.querySelector('.bubble-reasoning-text');
-                const reasoningToggle = bubbleElement.querySelector('.bubble-reasoning-toggle');
-                const timestampEl = bubbleElement.querySelector('.bubble-timestamp');
+                  // Update the message content
+                  messageEl.innerHTML = message;
 
-                if (timestampEl) {
-                    timestampEl.textContent = timestamp ? formatTimestamp(timestamp) : '';
-                }
+                  // Update timestamp to "Speaking..." or current time
+                  timestampEl.textContent = 'Speaking...'; 
 
-                // Update bubble content
-                if (messageEl) messageEl.innerHTML = message;
+                  // Add the 'chat-active' class to trigger the CSS animation
+                  uiElement.classList.add('chat-active');
 
-                if (reasoning && reasoningEl && reasoningToggle) {
-                    reasoningEl.textContent = `"${reasoning}"`;
-                    reasoningToggle.style.display = 'inline-block';
-                    reasoningEl.classList.remove('visible');
-                } else if (reasoningToggle) {
-                    reasoningToggle.style.display = 'none';
-                    reasoningEl.textContent = '';
-                }
+                  // If a timer already exists for this player, clear it
+                  if (player.chatClearTimer) {
+                      clearTimeout(player.chatClearTimer);
+                  }
 
-                // Make the bubble visible
-                bubbleElement.classList.add('visible');
+                  // Set a timer to automatically hide the bubble after a few seconds
+                  player.chatClearTimer = setTimeout(() => {
+                      uiElement.classList.remove('chat-active');
+                      timestampEl.textContent = 'Idle'; // Revert timestamp to Idle after speaking
+                  }, 5000); // Hide after 5 seconds
               }
 
               triggerSpeakingAnimation(playerName) {
@@ -2832,90 +2829,225 @@ function renderer(context) {
                 }
               }
 
-              _createNameplate(name, displayName, imageUrl, CSS2DObject) {
-                const container = document.createElement('div');
-                container.className = 'player-nameplate-3d';
+              _updateDynamicUI() {
+                  if (!this._playerObjects || !this._camera) return;
 
-                container.onclick = () => {
-                    if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
-                        const leftPanel = document.querySelector('.left-panel');
-                        const rightPanel = document.querySelector('.right-panel');
-                        const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
-                        const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
-                        window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
-                    }
-                };
+                  const targetPos3D = new this._THREE.Vector3();
+                  const bbox = new this._THREE.Box3();
 
-                const img = document.createElement('img');
-                img.src = imageUrl;
+                  this._playerObjects.forEach((player) => {
+                      const uiElement = player.playerUI?.element;
+                      if (!uiElement) return;
 
-                const textContainer = document.createElement('div');
-                textContainer.className = 'player-nameplate-info';
+                      const chatMessageCard = uiElement.querySelector('.chat-message-card'); // Target the chat message card
+                      const arrowEl = uiElement.querySelector('.bubble-arrow');
 
-                const nameText = document.createElement('div');
-                nameText.className = 'player-name-3d';
+                      // Only run if the chat is active and we have the necessary elements
+                      if (!chatMessageCard || !arrowEl || !player.model || !uiElement.classList.contains('chat-active')) {
+                          if (arrowEl) arrowEl.style.visibility = 'hidden';
+                          return;
+                      }
 
-                const roleText = document.createElement('div');
-                roleText.className = 'player-role-3d';
-                roleText.textContent = 'Role: Unknown';
+                      // 1. Get world bounding box of the player model
+                      bbox.setFromObject(player.model, true);
+                      
+                      // 2. Define target as top-center of the box
+                      targetPos3D.set(
+                          (bbox.min.x + bbox.max.x) / 2,
+                          bbox.max.y,
+                          (bbox.min.z + bbox.max.z) / 2
+                      );
+                      
+                      // 3. Project to screen space
+                      targetPos3D.project(this._camera);
 
-                if (displayName && displayName !== "" && displayName !== name) {
-                    nameText.textContent = `${name}`;
-                    const subtitleText = document.createElement('div');
-                    subtitleText.className = 'player-subtitle-3d';
-                    subtitleText.textContent = `${displayName}`;
-                    textContainer.appendChild(nameText);
-                    textContainer.appendChild(subtitleText);
-                } else {
-                    nameText.textContent = name;
-                    textContainer.appendChild(nameText);
-                }
+                      if (targetPos3D.z > 1) { // Hide if behind camera
+                          arrowEl.style.visibility = 'hidden';
+                          return;
+                      }
 
-                textContainer.appendChild(roleText);
+                      // 4. Convert to pixel coordinates
+                      const targetX = (targetPos3D.x * 0.5 + 0.5) * this._width;
+                      const targetY = (-targetPos3D.y * 0.5 + 0.5) * this._height;
 
-                container.appendChild(img);
-                container.appendChild(textContainer);
+                      // 5. Get the chat card's screen position (NOT the whole container)
+                      const chatRect = chatMessageCard.getBoundingClientRect(); // Use chatMessageCard
+                      const parentRect = this._parent.getBoundingClientRect();
+                      const chatLeft = chatRect.left - parentRect.left;
+                      const chatTop = chatRect.top - parentRect.top;
 
-                const label = new CSS2DObject(container);
-                return label;
+                      // 6. Find the closest point on the chat card's edge
+                      const arrowX = Math.max(chatLeft, Math.min(targetX, chatLeft + chatRect.width));
+                      const arrowY = Math.max(chatTop, Math.min(targetY, chatTop + chatRect.height));
+
+                      // 7. Calculate rotation
+                      const angle = Math.atan2(targetY - arrowY, targetX - arrowX);
+                      const angleDeg = angle * (180 / Math.PI);
+
+                      // 8. Apply position and rotation
+                      arrowEl.style.visibility = 'visible';
+                      arrowEl.style.transform = `translate(${arrowX - chatLeft}px, ${arrowY - chatTop}px) rotate(${angleDeg}deg)`;
+                  });
               }
 
-              _createChatBubble(name, CSS2DObject) {
-                const bubbleContainer = document.createElement('div');
-                bubbleContainer.className = 'player-chat-bubble';
-                bubbleContainer.id = `chat-bubble-${name}`;
+              // _createNameplate(name, displayName, imageUrl, CSS2DObject) {
+              //   const container = document.createElement('div');
+              //   container.className = 'player-nameplate-3d';
 
-                const header = document.createElement('div');
-                header.className = 'bubble-header';
+              //   container.onclick = () => {
+              //       if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+              //           const leftPanel = document.querySelector('.left-panel');
+              //           const rightPanel = document.querySelector('.right-panel');
+              //           const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+              //           const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+              //           window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
+              //       }
+              //   };
 
-                const timestampText = document.createElement('span');
-                timestampText.className = 'bubble-timestamp';
+              //   const img = document.createElement('img');
+              //   img.src = imageUrl;
 
-                const reasoningToggle = document.createElement('span');
-                reasoningToggle.className = 'bubble-reasoning-toggle';
-                reasoningToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-                reasoningToggle.style.display = 'none';
-                reasoningToggle.onclick = (e) => {
-                    e.stopPropagation();
-                    const reasoningEl = bubbleContainer.querySelector('.bubble-reasoning-text');
-                    if (reasoningEl) reasoningEl.classList.toggle('visible');
-                };
+              //   const textContainer = document.createElement('div');
+              //   textContainer.className = 'player-nameplate-info';
+
+              //   const nameText = document.createElement('div');
+              //   nameText.className = 'player-name-3d';
+
+              //   const roleText = document.createElement('div');
+              //   roleText.className = 'player-role-3d';
+              //   roleText.textContent = 'Role: Unknown';
+
+              //   if (displayName && displayName !== "" && displayName !== name) {
+              //       nameText.textContent = `${name}`;
+              //       const subtitleText = document.createElement('div');
+              //       subtitleText.className = 'player-subtitle-3d';
+              //       subtitleText.textContent = `${displayName}`;
+              //       textContainer.appendChild(nameText);
+              //       textContainer.appendChild(subtitleText);
+              //   } else {
+              //       nameText.textContent = name;
+              //       textContainer.appendChild(nameText);
+              //   }
+
+              //   textContainer.appendChild(roleText);
+
+              //   container.appendChild(img);
+              //   container.appendChild(textContainer);
+
+              //   const label = new CSS2DObject(container);
+              //   return label;
+              // }
+
+              // _createChatBubble(name, CSS2DObject) {
+              //   const bubbleContainer = document.createElement('div');
+              //   bubbleContainer.className = 'player-chat-bubble';
+              //   bubbleContainer.id = `chat-bubble-${name}`;
+
+              //   const arrowEl = document.createElement('div');
+              //   arrowEl.className = 'bubble-arrow';
+
+              //   const header = document.createElement('div');
+              //   header.className = 'bubble-header';
+
+              //   const timestampText = document.createElement('span');
+              //   timestampText.className = 'bubble-timestamp';
+
+              //   const reasoningToggle = document.createElement('span');
+              //   reasoningToggle.className = 'bubble-reasoning-toggle';
+              //   reasoningToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+              //   reasoningToggle.style.display = 'none';
+              //   reasoningToggle.onclick = (e) => {
+              //       e.stopPropagation();
+              //       const reasoningEl = bubbleContainer.querySelector('.bubble-reasoning-text');
+              //       if (reasoningEl) reasoningEl.classList.toggle('visible');
+              //   };
                 
-                header.appendChild(timestampText);
-                header.appendChild(reasoningToggle);
+              //   header.appendChild(timestampText);
+              //   header.appendChild(reasoningToggle);
 
-                const messageText = document.createElement('div');
-                messageText.className = 'bubble-message';
+              //   const messageText = document.createElement('div');
+              //   messageText.className = 'bubble-message';
 
-                const reasoningText = document.createElement('div');
-                reasoningText.className = 'bubble-reasoning-text';
+              //   const reasoningText = document.createElement('div');
+              //   reasoningText.className = 'bubble-reasoning-text';
 
-                bubbleContainer.appendChild(header);
-                bubbleContainer.appendChild(messageText);
-                bubbleContainer.appendChild(reasoningText);
+              //   bubbleContainer.appendChild(header);
+              //   bubbleContainer.appendChild(messageText);
+              //   bubbleContainer.appendChild(reasoningText);
+              //   bubbleContainer.appendChild(arrowEl);
 
-                const label = new CSS2DObject(bubbleContainer);
-                return label;
+              //   const label = new CSS2DObject(bubbleContainer);
+              //   return label;
+              // }
+
+              _createPlayerUI(name, displayName, imageUrl, CSS2DObject) {
+                  // Main container for the entire UI component (holds nameplate and chat card)
+                  const container = document.createElement('div');
+                  container.className = 'player-ui-container';
+
+                  // --- Part 1: The Floating Player Info Card (Name, ID, Role, Timestamp, Avatar) ---
+                  // This will *not* have a background/border to make it appear floating
+                  const playerInfoCard = document.createElement('div');
+                  playerInfoCard.className = 'player-info-card'; // This is now truly "floating"
+
+                  // Avatar
+                  const img = document.createElement('img');
+                  img.className = 'player-avatar-3d';
+                  img.src = imageUrl;
+                  playerInfoCard.appendChild(img);
+
+                  // Text container for name, ID, role
+                  const textDetails = document.createElement('div');
+                  textDetails.className = 'player-text-details';
+
+                  const nameText = document.createElement('div');
+                  nameText.className = 'player-name-3d';
+                  nameText.textContent = displayName || name;
+                  textDetails.appendChild(nameText);
+
+                  const playerIdText = document.createElement('div');
+                  playerIdText.className = 'player-id-3d';
+                  playerIdText.textContent = name; // Player ID / URL
+                  textDetails.appendChild(playerIdText);
+
+                  const roleText = document.createElement('div');
+                  roleText.className = 'player-role-3d';
+                  roleText.textContent = 'Role: Unknown'; // Updated dynamically
+                  textDetails.appendChild(roleText);
+                  
+                  playerInfoCard.appendChild(textDetails);
+
+                  // Timestamp (below name/id/role, also floating)
+                  const timestampText = document.createElement('div');
+                  timestampText.className = 'player-timestamp-3d';
+                  timestampText.textContent = 'Idle'; // Default state
+                  playerInfoCard.appendChild(timestampText);
+
+                  // --- Part 2: The Hidden/Expanding Chat Message Card ---
+                  const chatMessageCard = document.createElement('div');
+                  chatMessageCard.className = 'chat-message-card'; // This remains a solid card
+                  chatMessageCard.innerHTML = `
+                      <div class="bubble-message"></div>
+                      <div class="bubble-arrow"></div>
+                  `;
+
+                  // Assemble the component: Info card on left, chat card on right (initially hidden)
+                  container.appendChild(playerInfoCard);
+                  container.appendChild(chatMessageCard);
+
+                  // Make the info card clickable to focus the camera
+                  playerInfoCard.onclick = () => {
+                      if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                          const leftPanel = document.querySelector('.left-panel');
+                          const rightPanel = document.querySelector('.right-panel');
+                          const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+                          const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+                          window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
+                      }
+                  };
+
+                  const label = new CSS2DObject(container);
+                  return label;
               }
 
               _FrameGroup(group, THREE) {
@@ -3189,6 +3321,8 @@ function renderer(context) {
                      this._skyDebugLogged = true;
                    }
                  }
+
+                 this._updateDynamicUI();
 
                  // Use post-processing composer if available, otherwise fallback to direct render
                  if (this._composer) {
@@ -3717,135 +3851,168 @@ function renderer(context) {
         .right-panel.collapsed #chat-log {
             display: none;
         }
-        
-        .player-nameplate-3d {
+
+        /* Main container: uses flexbox for layout, centers it visually above the player */
+        .player-ui-container {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            font-family: 'Inter', sans-serif;
-            /* FIX: This transform anchors the nameplate from its bottom-center point */
-            transform: translateX(-50%) translateY(-100%); 
-            pointer-events: auto;
-            cursor: pointer;
-            text-shadow: 0px 2px 6px rgba(0, 0, 0, 0.9);
-            min-width: 150px;
-            padding-bottom: 20px; /* Adds space so the transform anchor works correctly */
+            align-items: center; /* Vertically centers nameplate and chat card */
+            
+            /* CRITICAL ANCHORING FIX:
+              1. Default position of a CSS2DObject is its TOP-LEFT corner at the 3D point.
+              2. We want the player's NAME to be centered horizontally above the player model.
+              3. We want the chat card to slide out to the right of the nameplate.
+              
+              We move the whole container LEFT by 50% of its OWN width (which changes),
+              and UP by 50% of its OWN height (which changes). This effectively centers
+              the *entire composite UI* around the 3D position.
+              
+              To make the *nameplate* the stable anchor, we adjust its position within
+              the flex container or rely on text-align. We will ensure the nameplate
+              itself has no padding/margin pushing it around.
+            */
+            transform: translate(-50%, -50%); /* This centers the *entire* UI component */
+            pointer-events: none; /* Let children handle clicks */
+            position: relative; /* Establish positioning context for children if needed */
         }
-        .player-nameplate-3d img {
-            width: 40px;
-            height: 40px;
+
+        /* The truly FLOATING player info card (Name, ID, Role, Timestamp, Avatar) */
+        .player-info-card {
+            display: flex;
+            flex-direction: column; /* Stack avatar/text and timestamp vertically */
+            align-items: center; /* Center content horizontally */
+            gap: 2px; /* Small gap between avatar/text block and timestamp */
+            
+            /* --- TRULY FLOATING AESTHETIC --- */
+            background: transparent; /* No background */
+            backdrop-filter: none; /* No blur */
+            border: none; /* No border */
+            box-shadow: none; /* No shadow */
+            
+            color: #ffffff; /* White text for contrast against background */
+            text-shadow: 
+                0 0 4px rgba(0,0,0,0.8), /* Stronger shadow for readability */
+                0 0 8px rgba(0,0,0,0.6);
+            pointer-events: auto; /* Make it clickable */
+            cursor: pointer;
+            transition: all 0.2s ease; /* Smooth hover effect */
+            padding: 0; /* No padding */
+            margin: 0; /* No margin */
+            white-space: nowrap; /* Prevent text wrapping */
+            
+            /* This ensures the nameplate itself remains centered within the flex container */
+            flex-shrink: 0;
+        }
+        .player-info-card:hover {
+            color: #ffcc00; /* Subtle hover highlight for text */
+            text-shadow: 
+                0 0 6px rgba(0,0,0,0.9), 
+                0 0 10px rgba(0,0,0,0.7),
+                0 0 12px rgba(255,204,0,0.4);
+        }
+
+        .player-avatar-3d {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             object-fit: cover;
-            background-color: white;
-            border: 2px solid rgba(255, 255, 255, 0.4);
+            background-color: rgba(255,255,255,0.2); /* Subtle background for transparency */
+            border: 1px solid rgba(255,255,255,0.4); /* Thin white border */
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            margin-bottom: 4px; /* Space between avatar and text */
         }
-        .player-nameplate-info {
+
+        .player-text-details {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: center; /* Center name, id, role text */
         }
         .player-name-3d {
-            color: white;
-            font-size: 15px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700; /* Bolder for prominence */
         }
-        .player-subtitle-3d {
-            color: #9ab;
-            font-size: 11px;
-            font-weight: 500;
+        .player-id-3d {
+            font-size: 10px;
+            opacity: 0.9; /* Slightly less opaque to distinguish from name */
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Monospace for ID */
         }
         .player-role-3d {
-            color: #b2bec3; /* A lighter grey for better contrast */
-            font-size: 12px;
-            margin-top: 2px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        .player-timestamp-3d {
+            font-size: 9px;
+            opacity: 0.7;
+            margin-top: 4px; /* Space from role */
         }
 
-        /* Styles for the temporary 3D chat bubble */
-        .player-chat-bubble {
-            position: relative;
-            background: rgba(20, 30, 45, 0.9);
-            backdrop-filter: blur(8px);
+
+        /* The chat message card (initially hidden, expands to the right) */
+        .chat-message-card {
+            position: relative; /* For arrow positioning */
+            background: rgba(20, 30, 45, 0.95); /* Solid, less transparent for readability */
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(116, 185, 255, 0.4);
             color: #f0f0f0;
-            padding: 12px 18px;
-            border-radius: 12px;
-            border: 1px solid rgba(116, 185, 255, 0.3);
             max-width: 250px;
-            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            pointer-events: none; /* Not directly clickable, only the info card is */
+
+            /* --- Initial Hidden State --- */
+            opacity: 0;
+            transform: translateX(0); /* Start point for animation */
+            width: 0;
+            min-width: 0; /* Ensures it collapses completely */
+            padding: 0;
+            margin-left: 0; /* No margin when collapsed */
+            transition: opacity 0.3s ease, width 0.3s ease, min-width 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+            overflow: hidden; /* Crucial for animation */
+            white-space: nowrap; /* Prevents text wrapping during collapse */
+            flex-shrink: 0; /* Prevents it from shrinking prematurely */
+        }
+
+        /* Active state: chat message card expands */
+        .player-ui-container.chat-active .chat-message-card {
+            opacity: 1;
+            transform: translateX(0); /* Not moving relative to container, just expanding */
+            width: auto; /* Let content determine width */
+            min-width: 150px; /* Minimum width for readability */
+            padding: 12px 16px;
+            margin-left: 12px; /* Space between info card and chat card */
+            white-space: normal; /* Allow text to wrap again */
+            pointer-events: auto; /* Allow text selection/copy */
+        }
+
+        .chat-message-card .bubble-message {
             font-size: 14px;
             line-height: 1.4;
-            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
-            opacity: 0;
-            transform: translateY(-50%);
-            transition: opacity 0.4s ease, visibility 0.4s;
-            pointer-events: none;
-            visibility: hidden;
         }
 
-        .player-chat-bubble.visible {
-            opacity: 1;
-            visibility: visible;
+        /* The dynamic arrow (using the correct border trick) */
+        .bubble-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            visibility: hidden; /* JS will make it visible */
+            border-top: 9px solid transparent;
+            border-bottom: 9px solid transparent;
+            border-left: 14px solid rgba(116, 185, 255, 0.4); /* Border color */
+            transform-origin: 0% 50%; /* Pivot from the tip of the arrow */
         }
 
-        /* Adjust the tail to point left towards the nameplate */
-        .player-chat-bubble::after {
+        .bubble-arrow::after {
             content: '';
             position: absolute;
-            top: 50%; /* Aligns with the bubble's vertical center */
-            left: -10px; /* Moves the arrow's base to the left edge */
-            
-            /* This creates a clean, sharp triangle pointing left */
-            width: 0; 
-            height: 0; 
-            border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent;
-            border-right: 12px solid rgba(20, 30, 45, 0.9); /* The color matches the bubble */
-
-            /* Removes the old transform and background properties */
-            transform: translateY(-50%);
-        }
-
-        .bubble-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
+            width: 0;
+            height: 0;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-left: 12px solid rgba(20, 30, 45, 0.9); /* Background color */
+            top: -8px; /* Offset to align fill with border */
+            left: -14px; /* Offset to align fill with border */
         }
         
-        .bubble-timestamp {
-            font-size: 11px;
-            color: #9ab;
-            font-family: 'JetBrains Mono', monospace;
-            white-space: nowrap;
-        }
-        
-        .bubble-reasoning-toggle {
-            cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-            margin-left: auto; /* Pushes toggle to the far right */
-        }
-        .bubble-reasoning-toggle:hover {
-            opacity: 1;
-        }
-
-        .bubble-message {
-            margin-bottom: 8px;
-        }
-        
-        .bubble-reasoning-text {
-            font-size: 12px;
-            color: #b2bec3;
-            font-style: italic;
-            border-left: 2px solid rgba(116, 185, 255, 0.3);
-            padding-left: 8px;
-            margin-top: 8px;
-            display: none;
-        }
-
-        .bubble-reasoning-text.visible {
-            display: block;
-        }
+        /* --- End New Unified Player UI Component --- */
         
         .left-panel:hover, .right-panel:hover {
             border-color: rgba(116, 185, 255, 0.3);
@@ -6180,27 +6347,22 @@ async function initializePlayers3D(gameState, playerNames, playerThumbnails, thr
         
         // Create nameplate with actual player thumbnail (positioned above orb)
         const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
-        const nameplate = threeState.demo._createNameplate(name, displayName, thumbnailUrl, CSS2DObject);
-        nameplate.position.set(0, modelHeight + 3., 0);
-        playerContainer.add(nameplate);
 
-        // Create chat bubble (temporary) and position it above the nameplate
-        const chatBubble = threeState.demo._createChatBubble(name, CSS2DObject);
-        chatBubble.position.set(-2.8, modelHeight + 4.2, 0);
-        playerContainer.add(chatBubble);
+        const playerUI = threeState.demo._createPlayerUI(name, displayName, thumbnailUrl, CSS2DObject);
+        playerUI.position.set(0, modelHeight + 3.5, 0); // Position it above the model
+        playerContainer.add(playerUI);
         
         // Store references with new structure
         threeState.demo._playerObjects.set(name, {
             container: playerContainer,
             model: model,
+            playerUI: playerUI,
             mixer: mixer,
             animations: animations,
             currentAction: currentAction,
             orb: orb,
             glow: glow,
             orbLight: orbLight,
-            nameplate: nameplate,
-            chatBubble: chatBubble,
             pedestal: pedestal,
             originalPosition: playerContainer.position.clone(),
             baseAngle: angle,
