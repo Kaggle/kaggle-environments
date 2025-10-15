@@ -1955,10 +1955,9 @@ function renderer(context) {
                   });
 
                   // 4. Define the ground's geometry. A high segment count is crucial for displacement.
-                  const groundGeometry = new THREE.PlaneGeometry(400, 400, 256, 256);
+                  const groundGeometry = new THREE.CircleGeometry(200, 128);
 
                   // 5. Define the material using your textures.
-                  // We omit aoMap because it wasn't included in your file list.
                   const groundMaterial = new THREE.MeshStandardMaterial({
                       map: colorTexture,            // from rocky_terrain_02_diff_1k.jpg
                       roughnessMap: roughnessTexture, // from rocky_terrain_02_rough_1k.exr
