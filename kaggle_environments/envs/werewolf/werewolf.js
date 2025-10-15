@@ -647,10 +647,11 @@ function renderer(context) {
                 this._sunLight.shadow.mapSize.height = 2048;
                 this._sunLight.shadow.camera.near = 0.5;
                 this._sunLight.shadow.camera.far = 500;
-                this._sunLight.shadow.camera.left = -100;
-                this._sunLight.shadow.camera.right = 100;
-                this._sunLight.shadow.camera.top = 100;
-                this._sunLight.shadow.camera.bottom = -100;
+                // restrict shadow camera in smaller region can reduce aliasing and increase performance
+                this._sunLight.shadow.camera.left = -50;
+                this._sunLight.shadow.camera.right = 50;
+                this._sunLight.shadow.camera.top = 50;
+                this._sunLight.shadow.camera.bottom = -50;
                 this._sunLight.shadow.bias = -0.001;
                 this._sunLight.shadow.normalBias = 0.02;
                 this._scene.add(this._sunLight);
