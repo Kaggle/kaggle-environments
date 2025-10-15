@@ -33,7 +33,7 @@ function renderer(options) {
         }
         .player-card-area {
             padding: 0.6rem 0.8rem; color: white; text-align: center; position: absolute;
-            width: 40%;
+            width: 250px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             min-height: 130px; pointer-events: auto;
         }
@@ -47,19 +47,19 @@ function renderer(options) {
         }
         .player-info-area.pos-info-player0 { top: 20px; right: 20px; }
         .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
-        .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.5rem; }
+        .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.5rem; }
         .player-stack { font-size: 2rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
         .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
         .player-status { font-size: 1.5rem; color: #9ca3af; margin-top: 0.4rem; }
         .player-action { font-size: 1.5rem; color: #60a5fa; margin-top: 0.4rem; font-weight: 500; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            width: 5rem; height: 7rem; border: 2px solid #202124; border-radius: 8px; margin: 0 12px;
+            width: 80px; height: 112px; border: 2px solid #202124; border-radius: 8px; margin: 0 12px;
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
             padding: 6px;
         }
-        .card-rank { font-size: 3rem; line-height: 1; display: block; align-self: flex-start; }
-        .card-suit { width: 3rem; height: 3rem; display: block; margin-bottom: 2px; }
+        .card-rank { font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
+        .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
         .card-suit svg { width: 100%; height: 100%; }
         .card-red .card-rank { color: #B3261E; }
         .card-red .card-suit svg { fill: #B3261E; }
@@ -106,7 +106,7 @@ function renderer(options) {
 
         @media (max-width: 768px) {
             .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
-            .card { width: 5rem; height: 7rem; margin: 0 6px; } .card-rank { font-size: 3rem; } .card-suit { width: 3rem; height: 3rem; }
+            .card { width: 70px; height: 98px; margin: 0 6px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
             .player-card-area { padding: 0.5rem 0.7rem; min-height: 120px; }
             .player-info-area { min-width: 160px; padding: 0.6rem 0.8rem; }
             .player-info-area.pos-info-player0 { top: 15px; right: 15px; }
@@ -116,12 +116,12 @@ function renderer(options) {
         }
         @media (max-width: 600px) {
             .bet-display { font-size: 1.5rem; height: 2rem; line-height: 2rem; }
-            .card { width: 3rem; height: 4.2rem; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 1.8rem; height: 1.8rem; }
+            .card { width: 60px; height: 84px; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 30px; height: 30px; }
             .dealer-button { font-size: 1.4rem; height: 32px; line-height: 32px; width: 32px; }
             .dealer-button.dealer-player0 { bottom: 35px; }
             .dealer-button.dealer-player1 { top: 35px; }
             .player-action { font-size: 0.75rem; }
-            .player-card-area { font-size: 0.85rem; min-height: 110px; padding: 0.4rem 0.5rem; }
+            .player-card-area { font-size: 0.85rem; min-height: 110px; padding: 0.4rem 0.5rem; width: 200px; }
             .player-info-area { font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0.6rem; }
             .player-info-area.pos-info-player0 { right: 10px; top: 10px; }
             .player-info-area.pos-info-player1 { right: 10px; bottom: 10px; }
@@ -134,12 +134,12 @@ function renderer(options) {
         }
         @media (max-width: 400px) {
             .bet-display { font-size: 1.4rem; height: 1.5rem; line-height: 1.5rem; }
-            .card { width: 2rem; height: 2.8rem; margin: 0 1px; padding: 2px; } .card-rank { font-size: 1.4rem; } .card-suit { width: 1.4rem; height: 1.4rem; }
+            .card { width: 50px; height: 70px; margin: 0 1px; padding: 2px; } .card-rank { font-size: 25px; } .card-suit { width: 25px; height: 25px; }
             .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem; }
             .dealer-button.dealer-player0 { bottom: 30px; }
             .dealer-button.dealer-player1 { top: 30px; }
             .player-action { font-size: 0.7rem; }
-            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; }
+            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; width: 150px; }
             .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
             .player-info-area.pos-info-player0 { top: 8px; right: 8px; }
             .player-info-area.pos-info-player1 { bottom: 8px; right: 8px; }
