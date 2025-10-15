@@ -234,6 +234,18 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(env.done)
         self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
 
+    def test_default_repeated_pokerkit_loads(self):
+        env = make('open_spiel_python_repeated_pokerkit')
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        for i in range(100):
+            if i % 2 == 0:
+                env.step([{"submission": -1}, {"submission": 0}])
+            else:
+                env.step([{"submission": 0}, {"submission": -1}])
+        self.assertTrue(env.done)
+        self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
+
 
 if __name__ == "__main__":
     absltest.main()
