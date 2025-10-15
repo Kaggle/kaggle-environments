@@ -47,7 +47,7 @@ function renderer(options) {
         }
         .player-info-area.pos-info-player0 { top: 20px; right: 20px; }
         .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
-        .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.5rem; font-size: 1rem; }
+        .player-name { font-size: 2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 0.5rem; }
         .player-stack { font-size: 2rem; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
         .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
         .player-status { font-size: 1.5rem; color: #9ca3af; margin-top: 0.4rem; }
@@ -300,18 +300,22 @@ function renderer(options) {
 
         // --- Default State ---
         const defaultUIData = {
-            players: Array(numPlayers).fill(null).map((_, i) => ({
-                id: `player${i}`,
-                name: `Player ${i}`,
-                stack: 0,
-                cards: [], // Will be filled with nulls or cards
-                currentBet: 0,
-                position: i === 0 ? "Small Blind" : "Big Blind",
-                isDealer: i === 0,
-                isTurn: false,
-                status: "Waiting...",
-                reward: null
-            })),
+            players: Array(numPlayers).fill(null).map((_, i) => {
+                const agentName = environment?.info?.TeamNames?.[i] ||
+                    `Player ${i}`;
+                return {
+                    id: `player${i}`,
+                    name: agentName,
+                    stack: 0,
+                    cards: [], // Will be filled with nulls or cards
+                    currentBet: 0,
+                    position: i === 0 ? "Small Blind" : "Big Blind",
+                    isDealer: i === 0,
+                    isTurn: false,
+                    status: "Waiting...",
+                    reward: null
+                };
+            }),
             communityCards: [],
             pot: 0,
             isTerminal: false,
@@ -391,8 +395,6 @@ function renderer(options) {
                 if (reward > 0) pData.status = "Winner!";
                 else if (reward < 0) pData.status = "Loser";
                 else pData.status = "Game Over";
-            } else if (pData.isTurn) {
-                pData.status = "Thinking...";
             } else if (pData.stack === 0 && pData.currentBet > 0) {
                 pData.status = "All-in";
             }
@@ -474,7 +476,11 @@ function renderer(options) {
             // Update card area (left side)
             const playerCardArea = elements.playerCardAreas[index];
             if (playerCardArea) {
-                playerCardArea.querySelector('.player-name').textContent = playerData.name;
+                // While it may seem counterintuitive, we want the "responding..." label to show up for the player not currently playing.
+                // This is because the current player's actions show up instantaneously, and we want to show that the next player is thinking about it.
+                // This will likely need to be revised/overwritten for step-based visualizer, but is a simple fix for our current problem.
+                const playerNameText = !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
+                playerCardArea.querySelector('.player-name').textContent = playerNameText;
 
                 const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
                 playerCardsContainer.innerHTML = '';
@@ -506,19 +512,13 @@ function renderer(options) {
                     betDisplay.style.display = 'none';
                 }
 
-                // Show action/status
+                // Show status
                 const actionDisplay = playerInfoArea.querySelector('.player-action');
                 const statusDisplay = playerInfoArea.querySelector('.player-status');
 
-                if (playerData.isTurn && !isTerminal) {
-                    actionDisplay.textContent = 'Responding...';
-                    actionDisplay.style.display = 'block';
-                    statusDisplay.style.display = 'none';
-                } else {
-                    actionDisplay.style.display = 'none';
-                    statusDisplay.textContent = playerData.status;
-                    statusDisplay.style.display = 'block';
-                }
+                actionDisplay.style.display = 'none';
+                statusDisplay.textContent = playerData.status;
+                statusDisplay.style.display = 'block';
 
                 // TODO (UX Discuss): Find better way highlight current player's info area
             }
