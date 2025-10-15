@@ -48,7 +48,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join('..', _script_dir))
 for name in listdir(utils.envs_path):
     try:
         env = import_module(f".envs.{name}.{name}", __name__)
-        if name == "open_spiel":
+        if name == "open_spiel_env":
             for env_name, env_dict in env.ENV_REGISTRY.items():
                 register(
                     env_name,

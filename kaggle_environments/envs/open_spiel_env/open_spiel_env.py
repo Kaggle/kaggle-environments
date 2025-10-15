@@ -578,7 +578,6 @@ DEFAULT_REPEATED_POKER_GAME_STRING = (
     f"universal_poker_game_string={DEFAULT_UNIVERSAL_POKER_GAME_STRING})"
 )
 
-
 DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
     "python_repeated_pokerkit(bet_size_schedule=,blind_schedule=,"
     "bring_in_schedule=,first_button_player=-1,max_num_hands=100,"
