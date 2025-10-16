@@ -3532,15 +3532,16 @@ function renderer(context) {
         .game-scoreboard {
             position: fixed;
             top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: auto;
+            right: 20px;
+            transform: none;
             z-index: 999;
-            background: linear-gradient(135deg, rgba(33, 40, 54, 0.95), rgba(44, 52, 68, 0.95));
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(116, 185, 255, 0.3);
-            border-radius: 12px;
+            background: transparent;
+            backdrop-filter: none;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
             padding: 12px 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             display: flex;
             gap: 20px;
             align-items: center;
@@ -3567,12 +3568,14 @@ function renderer(context) {
             letter-spacing: 0.05em;
             margin-bottom: 4px;
             font-weight: 500;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
         }
         
         .scoreboard-value {
             font-size: 1.1rem;
             color: var(--text-primary);
             font-weight: 600;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
         }
         
         .scoreboard-value.alive {
@@ -3592,8 +3595,9 @@ function renderer(context) {
         }
         
         .scoreboard-action {
-            background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1));
-            border: 1px solid rgba(116, 185, 255, 0.3);
+            background: transparent;
+            border: none;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
             border-radius: 8px;
             padding: 6px 12px;
             font-size: 0.9rem;
@@ -3714,7 +3718,7 @@ function renderer(context) {
         /* Enhanced Panel Styling */
         .left-panel, .right-panel {
             position: fixed;
-            top: 54px;
+            top: 70px;
             max-height: calc(100vh - 124px);
             background: var(--panel-bg);
             backdrop-filter: blur(20px) saturate(1.5);
