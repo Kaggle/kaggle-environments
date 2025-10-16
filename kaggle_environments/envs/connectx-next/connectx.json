@@ -1,0 +1,71 @@
+{
+  "name": "connectx",
+  "title": "ConnectX",
+  "description": "Classic Connect in a row but configurable.",
+  "version": "1.0.1",
+  "agents": [2],
+  "configuration": {
+    "columns": {
+      "description": "The number of columns on the board",
+      "type": "integer",
+      "default": 7,
+      "minimum": 1
+    },
+    "rows": {
+      "description": "The number of rows on the board",
+      "type": "integer",
+      "default": 6,
+      "minimum": 1
+    },
+    "inarow": {
+      "description": "The number of checkers in a row required to win.",
+      "type": "integer",
+      "default": 4,
+      "minimum": 1
+    },
+    "agentTimeout": {
+      "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+      "type": "number",
+      "minimum": 0,
+      "default": 60
+    },
+    "actTimeout": 2,
+    "timeout": {
+      "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",
+      "type": "integer",
+      "default": 2,
+      "minimum": 0
+    }
+  },
+  "reward": {
+    "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
+    "enum": [-1, 0, 1],
+    "default": 0
+  },
+  "observation": {
+    "board": {
+      "description": "Serialized grid (rows x columns). 0 = Empty, 1 = P1, 2 = P2",
+      "type": "array",
+      "shared": true,
+      "items": {
+        "enum": [0, 1, 2]
+      },
+      "default": []
+    },
+    "mark": {
+      "defaults": [1, 2],
+      "description": "Which checkers are the agents.",
+      "enum": [1, 2]
+    },
+    "remainingOverageTime": 60
+  },
+  "action": {
+    "description": "Column to drop a checker onto the board.",
+    "type": "integer",
+    "minimum": 0,
+    "default": 0
+  },
+  "status": {
+    "defaults": ["ACTIVE", "INACTIVE"]
+  }
+}

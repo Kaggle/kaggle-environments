@@ -1,0 +1,33 @@
+steps:
+  # Step 1: Install dependencies and build all static assets.
+  # This runs our 'build-ci' script which builds all visualizers and
+  # collects the artifacts into a single './build' directory.
+  - name: "gcr.io/cloud-builders/npm"
+    id: "build-all-visualizers"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        npm install -g pnpm
+        pnpm install
+        pnpm build-ci
+
+  # Step 2: Deploy the collected artifacts to Google Cloud Storage.
+  # 'rsync -d' syncs the directory and deletes any files in the destination
+  # that are not in the source, keeping it clean.
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "Deploy to GCS"
+    entrypoint: "gsutil"
+    args:
+      - "-m"
+      - "rsync"
+      - "-d"
+      - "-r"
+      - "./build"
+      - "gs://$_BUCKET_NAME/visualizers"
+    waitFor: ["build-all-visualizers"]
+
+substitutions:
+  _BUCKET_NAME: "kaggle-environments-visualizers"
+
+tags: ["kaggle-environments", "visualizer-deployment"]

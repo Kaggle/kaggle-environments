@@ -1,0 +1,24 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "node ./web/scripts/find-games.js dev",
+    "build": "node ./web/scripts/find-games.js build",
+    "build-all": "node ./web/scripts/find-games.js build --all",
+    "collect-artifacts": "./web/scripts/collect-artifacts.sh",
+    "build-ci": "pnpm build-all && pnpm collect-artifacts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint": "^9.37.0",
+    "pnpm": "^9.0.0",
+    "postcss-styled-syntax": "^0.7.1",
+    "prettier": "^3.6.2",
+    "prompts": "^2.4.2",
+    "stylelint": "^16.25.0",
+    "stylelint-config-recommended": "^17.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.1",
+    "vite": "^5.0.0",
+    "vite-plugin-checker": "^0.11.0"
+  }
+}
