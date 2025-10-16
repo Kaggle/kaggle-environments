@@ -892,6 +892,8 @@ function renderer(context) {
               }
               
               _updateSkySystem(phase) {
+                let dayProgress = 0;
+
                 if (!this._sky || !this._sunLight || !this._moonLight) {
                   console.warn('[SKY DEBUG] Missing sky components:', {
                     sky: !!this._sky,
@@ -919,7 +921,7 @@ function renderer(context) {
                 if (phase <= 0.5) {
                     // DAY phase: sun is visible and moving
                     // Map phase 0-0.5 to sun movement from sunrise to sunset
-                    const dayProgress = phase * 2; // 0 to 1 during day
+                    dayProgress = phase * 2; // 0 to 1 during day
                     
                     // Sun azimuth: moves from east (90°) through south (180°) to west (270°)
                     sunAzimuth = (90 + dayProgress * 180) * Math.PI / 180;
@@ -994,7 +996,7 @@ function renderer(context) {
                 this._sunLight.target.position.set(0, 0, 0);
                 
                 // Dynamic sun intensity based on elevation
-                const sunIntensity = sunElevation > 0 ? Math.max(0, Math.sin(sunElevation)) : 0;
+                const sunIntensity = Math.sin(dayProgress * Math.PI);
                 this._sunLight.intensity = sunIntensity * 1.2;  // User preference: 3.0 at peak
                 this._sunLight.visible = sunElevation > 0;
                 
@@ -1037,28 +1039,32 @@ function renderer(context) {
                 // Smooth transition between day and night sky parameters
                 if (phase <= 0.5) {
                     // Day phase - use user's preferred values with slight transitions at dawn/dusk
-                    const dayProgress = phase * 2;
+                    dayProgress = phase * 2;
                     
                     if (dayProgress < 0.1 || dayProgress > 0.9) {
                         // Dawn/dusk transition
+                        // transitionFactor goes from 0 (at dawn/dusk) to 1 (at 0.1/0.9)
                         const transitionFactor = dayProgress < 0.1 ? dayProgress * 10 : (1 - dayProgress) * 10;
-                        skyUniforms['turbidity'].value = 10 - (10 - 0.6) * transitionFactor;
-                        skyUniforms['rayleigh'].value = 0.1 + (1.9 - 0.1) * transitionFactor;
-                        skyUniforms['mieCoefficient'].value = 0.005 + (0.010 - 0.005) * transitionFactor;
-                        skyUniforms['mieDirectionalG'].value = 0.7 + (1.0 - 0.7) * transitionFactor;
-                        console.debug('[SKY DEBUG] Applied DAWN/DUSK transition parameters');
-                    } else {
 
+                        // Define Noon and new "Warm Dusk" values
+                        const turbidity_noon = 4.7, rayleigh_noon = 0.2, mieCoeff_noon = 0.001, mieG_noon = 0.9;
+                        const turbidity_dusk = 8.0, rayleigh_dusk = 1.0, mieCoeff_dusk = 0.01, mieG_dusk = 0.95;
+
+                        // Interpolate from Dusk (factor=0) to Noon (factor=1)
+                        skyUniforms['turbidity'].value = turbidity_dusk + (turbidity_noon - turbidity_dusk) * transitionFactor;
+                        skyUniforms['rayleigh'].value = rayleigh_dusk + (rayleigh_noon - rayleigh_dusk) * transitionFactor;
+                        skyUniforms['mieCoefficient'].value = mieCoeff_dusk + (mieCoeff_noon - mieCoeff_dusk) * transitionFactor;
+                        skyUniforms['mieDirectionalG'].value = mieG_dusk + (mieG_noon - mieG_dusk) * transitionFactor;
+                        
+                        console.debug('[SKY DEBUG] Applied WARM DAWN/DUSK transition parameters');
+
+                    } else {
+                        // Full day - these are the "Noon" values
                         skyUniforms['turbidity'].value = 4.7;    // Default visible value
                         skyUniforms['rayleigh'].value = 0.2;      // Default visible value
                         skyUniforms['mieCoefficient'].value = 0.001;  // Default visible value
                         skyUniforms['mieDirectionalG'].value = 0.9;   // Default visible value
                         
-                        // Full day - user's preferred values
-                        // skyUniforms['turbidity'].value = 0.6;      // User preference
-                        // skyUniforms['rayleigh'].value = 1.9;       // User preference
-                        // skyUniforms['mieCoefficient'].value = 0.010;  // User preference
-                        // skyUniforms['mieDirectionalG'].value = 1.0;   // User preference
                         console.debug('[SKY DEBUG] Applied DAY sky parameters (user preferences)');
                     }
                 } else {
@@ -1841,8 +1847,8 @@ function renderer(context) {
                     const groundGeometry = new THREE.CircleGeometry(20, 64);
                     const groundMaterial = new THREE.MeshStandardMaterial({
                       color: 0x1a1a2a,
-                      roughness: 0.9,
-                      metalness: 0.1,
+                      roughness: 1.,
+                      metalness: 0.,
                       transparent: true,
                       opacity: 0.95
                     });
