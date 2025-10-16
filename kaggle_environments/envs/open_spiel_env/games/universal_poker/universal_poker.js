@@ -15,9 +15,33 @@ function renderer(options) {
     };
 
     const css = `
+        @font-face {
+            font-family: 'Zeitung Pro';
+            src:
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("woff2"),
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("woff"),
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("opentype");
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Zeitung Pro';
+            src:
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("woff2"),
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("woff"),
+              url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+                format("opentype");
+            font-weight: bold;
+            font-style: normal;
+        }
         .poker-renderer-host {
             width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-            font-family: 'Inter', sans-serif; background-color: #2d3748; color: #fff;
+            font-family: 'Zeitung Pro', sans-serif; background-color: #2d3748; color: #fff;
             overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
         }
         .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
@@ -57,7 +81,7 @@ function renderer(options) {
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
             padding: 6px;
         }
-        .card-rank { font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
+        .card-rank { font-family: 'Inter' sans-serif; font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
         .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
         .card-suit svg { width: 100%; height: 100%; }
         .card-red .card-rank { color: #B3261E; }
@@ -86,7 +110,8 @@ function renderer(options) {
         .pot-display { font-size: 40px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
         .bet-display {
             display: inline-block; padding: 4px 8px; border-radius: 12px;
-            background-color: #1a202c; color: #ffff; font-size: 1.75rem; font-weigth: 600;
+            background-color: #1a202c; color: #ffff;
+            font-family: 'Inter' sans-serif; font-size: 1.75rem; font-weigth: 600;
             text-align: center; margin-top: 8px;
             height: 3rem; line-height: 3rem;
         }
