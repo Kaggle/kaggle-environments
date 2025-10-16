@@ -2704,40 +2704,62 @@ function renderer(context) {
                   });
               }
 
-              updatePhase(phase) {
-                if (!this._scene) return;
+              updatePhase(phase, currentEventIndex) {
+                if (!this._scene || !window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) {
+                    return;
+                }
                 
                 // Handle various phase formats (DAY, NIGHT, or lowercase)
                 const normalizedPhase = (phase || 'DAY').toUpperCase();
                 
-                // Calculate target phase value with smooth time progression
-                // DAY phase: 0.0 (dawn) -> 0.25 (noon) -> 0.5 (dusk)
-                // NIGHT phase: 0.5 (dusk) -> 0.75 (midnight) -> 1.0 (dawn)
-                let targetPhase;
+                // --- NEW: Game-Time Progression Logic ---
+                // Calculate progression based on the current event's index relative
+                // to the start and end of the current phase.
                 
-                if (normalizedPhase === 'NIGHT') {
-                    // For night, start at 0.5 and progress to approach 1.0
-                    // Add some time progression within the night phase
-                    if (!this._nightStartTime) {
-                        this._nightStartTime = Date.now();
-                        this._dayStartTime = null;
+                const allEvents = window.werewolfGamePlayer.allEvents;
+                if (allEvents.length === 0) return;
+                
+                const safeCurrentIndex = Math.min(Math.max(0, currentEventIndex || 0), allEvents.length - 1);
+
+                // 1. Find the start of the current phase (search backwards)
+                let phaseStartIndex = 0;
+                for (let i = safeCurrentIndex; i >= 0; i--) {
+                    const event = allEvents[i];
+                    if (event.event_name === 'day_start' || event.event_name === 'night_start') {
+                        phaseStartIndex = i;
+                        break;
                     }
-                    const nightDuration = 30000; // 30 seconds for full night cycle
-                    const nightElapsed = Date.now() - this._nightStartTime;
-                    const nightProgress = Math.min(nightElapsed / nightDuration, 1.0);
-                    targetPhase = 0.5 + nightProgress * 0.5; // 0.5 to 1.0
-                } else {
-                    // For day, start at 0.0 and progress to 0.5
-                    // Add some time progression within the day phase
-                    if (!this._dayStartTime) {
-                        this._dayStartTime = Date.now();
-                        this._nightStartTime = null;
-                    }
-                    const dayDuration = 30000; // 30 seconds for full day cycle
-                    const dayElapsed = Date.now() - this._dayStartTime;
-                    const dayProgress = Math.min(dayElapsed / dayDuration, 1.0);
-                    targetPhase = dayProgress * 0.5; // 0.0 to 0.5
                 }
+                
+                // 2. Find the end of the current phase (search forwards)
+                let phaseEndIndex = allEvents.length - 1;
+                for (let i = safeCurrentIndex + 1; i < allEvents.length; i++) {
+                    const event = allEvents[i];
+                    if (event.event_name === 'day_start' || event.event_name === 'night_start') {
+                        phaseEndIndex = i;
+                        break;
+                    }
+                }
+                
+                // 3. Calculate phase progress (0.0 to 1.0)
+                const totalPhaseEvents = phaseEndIndex - phaseStartIndex;
+                const currentPhaseEvents = safeCurrentIndex - phaseStartIndex;
+                let phaseProgress = 0;
+                if (totalPhaseEvents > 0) {
+                    phaseProgress = Math.max(0, Math.min(1, currentPhaseEvents / totalPhaseEvents));
+                }
+
+                // 4. Map progress to the 0.0-1.0 time-of-day scale
+                // Day: 0.0 (sunrise) -> 0.5 (sunset)
+                // Night: 0.5 (sunset) -> 1.0 (sunrise)
+                let targetPhase;
+                if (normalizedPhase === 'NIGHT') {
+                    targetPhase = 0.5 + (phaseProgress * 0.5);
+                } else {
+                    targetPhase = phaseProgress * 0.5;
+                }
+                // --- END: Game-Time Progression Logic ---
+                
                 
                 // Initialize transition system if not exists
                 if (!this._phaseTransition) {
@@ -3349,7 +3371,9 @@ function renderer(context) {
     });
 
     // Update phase lighting
-    threeState.demo.updatePhase(phase);
+    const currentEventIndex = lastEvent ? lastEvent.allEventsIndex : 0;
+    // Pass the current phase AND the current event index to updatePhase
+    threeState.demo.updatePhase(phase, currentEventIndex);
 
     // --- Vote Visualization Logic ---
     const currentVotes = new Map();
