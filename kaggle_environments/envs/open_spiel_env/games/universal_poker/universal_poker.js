@@ -47,9 +47,9 @@ function renderer(options) {
         .player-info-area.pos-info-player0 { top: 20px; right: 20px; }
         .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
         .player-name { font-size: 32px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.5rem; }
+        .player-name.winner { color: #FFEB70; }
         .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
         .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
-        .player-status { font-size: 1.5rem; color: #9ca3af; margin-top: 0.4rem; }
         .player-action { font-size: 1.5rem; color: #60a5fa; margin-top: 0.4rem; font-weight: 500; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
@@ -127,7 +127,6 @@ function renderer(options) {
             .player-info-area.pos-info-player1 { right: 10px; bottom: 10px; }
             .player-name { font-size: 30px; }
             .player-stack { font-size: 0.75rem; }
-            .player-status { font-size: 0.7rem; }
             .poker-game-layout { max-height: 600px; }
             .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
             .pos-player0-sb { bottom: 10px; left: 10px; } .pos-player1-bb { left: 10px; top: 10px; }
@@ -146,7 +145,6 @@ function renderer(options) {
             .player-info-area.pos-info-player1 { bottom: 8px; right: 8px; }
             .player-name { font-size: 15px; }
             .player-stack { font-size: 0.7rem; }
-            .player-status { font-size: 0.65rem; }
             .poker-game-layout { max-height: 500px; }
             .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
             .pos-player0-sb { bottom: 8px; left: 8px; } .pos-player1-bb { top: 8px; left: 8px; }
@@ -280,7 +278,6 @@ function renderer(options) {
                 </div>
                 <div class="bet-display" style="display:none;">Bet: $0.00</div>
                 <div class="player-action" style="display:none;"></div>
-                <div class="player-status">(${i === 0 ? 'Small Blind' : 'Big Blind'})</div>
             `;
             elements.playersContainer.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
@@ -394,9 +391,13 @@ function renderer(options) {
             if (isTerminal) {
                 const reward = environment.rewards ? environment.rewards[i] : null;
                 pData.reward = reward;
-                if (reward > 0) pData.status = "Winner!";
-                else if (reward < 0) pData.status = "Loser";
-                else pData.status = "Game Over";
+                if (reward > 0) {
+                    pData.name = `${pData.name} wins 🎉`;
+                    pData.isWinner = true;
+                    pData.status = null;
+                } else {
+                    pData.status = null;
+                }
             } else if (pData.stack === 0 && pData.currentBet > 0) {
                 pData.status = "All-in";
             }
@@ -482,7 +483,15 @@ function renderer(options) {
                 // This is because the current player's actions show up instantaneously, and we want to show that the next player is thinking about it.
                 // This will likely need to be revised/overwritten for step-based visualizer, but is a simple fix for our current problem.
                 const playerNameText = !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
-                playerCardArea.querySelector('.player-name').textContent = playerNameText;
+                const playerNameElement = playerCardArea.querySelector('.player-name');
+                playerNameElement.textContent = playerNameText;
+
+                // Add winner class if player won
+                if (playerData.isWinner) {
+                    playerNameElement.classList.add('winner');
+                } else {
+                    playerNameElement.classList.remove('winner');
+                }
 
                 const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
                 playerCardsContainer.innerHTML = '';
@@ -516,11 +525,7 @@ function renderer(options) {
 
                 // Show status
                 const actionDisplay = playerInfoArea.querySelector('.player-action');
-                const statusDisplay = playerInfoArea.querySelector('.player-status');
-
                 actionDisplay.style.display = 'none';
-                statusDisplay.textContent = playerData.status;
-                statusDisplay.style.display = 'block';
 
                 // TODO (UX Discuss): Find better way highlight current player's info area
             }
