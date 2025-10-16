@@ -54,14 +54,28 @@ function renderer(options) {
         .players-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
         }
+        .player-container {
+            position: absolute;
+            width: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+        }
+        .player-container-0 { bottom: 0; flex-direction: column-reverse; }
+        .player-container-1 { top: 0; }
+        .player-area-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
         .player-card-area {
-            padding: 0.6rem 0.8rem; color: white; text-align: center; position: absolute;
+            padding: 0.6rem 0.8rem; color: white; text-align: center;
             width: 250px;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            min-height: 130px; pointer-events: auto;
+            min-height: 100px; pointer-events: auto;
         }
         .player-info-area {
-            position: absolute;
             border-radius: 0.5rem;
             padding: 0.75rem 1rem;
             color: white;
@@ -72,9 +86,16 @@ function renderer(options) {
             justify-content: left;
             align-items: left;
         }
-        .player-info-area.pos-info-player0 { top: 20px; right: 20px; flex-direction: column-reverse;}
-        .player-info-area.pos-info-player1 { bottom: 20px; right: 20px; }
-        .player-name { font-size: 32px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 16px 0; height: 40px;}
+        .player-container-0 .player-info-area { flex-direction: column-reverse; }
+        .player-name { 
+            font-size: 32px; font-weight: 600; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            color: white;
+            text-align: left; 
+            padding: 10px 20px;
+        }
         .player-name.winner { color: #FFEB70; }
         .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
         .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
@@ -127,9 +148,6 @@ function renderer(options) {
         }
         .dealer-button.dealer-player0 { bottom: 80px; }
         .dealer-button.dealer-player1 { top: 80px; }
-        .pos-player0-sb { bottom: 20px; left: 20px; flex-direction: column-reverse; }
-        .pos-player1-bb { top: 20px; left: 20px; }
-        .current-player-turn-highlight .player-card-area .player-name { font-weight: 900 !important; }
         #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
         @media (max-width: 768px) {
@@ -137,10 +155,8 @@ function renderer(options) {
             .card { width: 70px; height: 98px; margin: 0 6px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
             .player-card-area { padding: 0.5rem 0.7rem; min-height: 120px; }
             .player-info-area { min-width: 160px; padding: 0.6rem 0.8rem; }
-            .player-info-area.pos-info-player0 { top: 15px; right: 15px; }
-            .player-info-area.pos-info-player1 { bottom: 15px; right: 15px; }
-            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
-            .pos-player0-sb { bottom: 15px; left: 15px; flex-direction: column-reverse; } .pos-player1-bb { top: 15px; left: 15px; }
+                .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
+            .player-area-wrapper { padding: 0 15px; }
             .pot-display { font-size: 35px; margin-bottom: 20px; }
         }
         @media (max-width: 600px) {
@@ -152,13 +168,11 @@ function renderer(options) {
             .player-action { font-size: 0.75rem; }
             .player-card-area { font-size: 0.85rem; min-height: 110px; padding: 0.4rem 0.5rem; width: 200px; }
             .player-info-area { font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0.6rem; }
-            .player-info-area.pos-info-player0 { right: 10px; top: 10px; }
-            .player-info-area.pos-info-player1 { right: 10px; bottom: 10px; }
-            .player-name { font-size: 30px; }
+                .player-name { font-size: 30px; }
             .player-stack { font-size: 0.75rem; }
             .poker-game-layout { max-height: 600px; }
             .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
-            .pos-player0-sb { bottom: 10px; left: 10px; flex-direction: column-reverse; } .pos-player1-bb { left: 10px; top: 10px; }
+            .player-area-wrapper { padding: 0 10px; }
             .pot-display { font-size: 30px; margin-bottom: 20px; }
         }
         @media (max-width: 400px) {
@@ -170,13 +184,11 @@ function renderer(options) {
             .player-action { font-size: 0.7rem; }
             .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; width: 150px; }
             .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
-            .player-info-area.pos-info-player0 { top: 8px; right: 8px; }
-            .player-info-area.pos-info-player1 { bottom: 8px; right: 8px; }
-            .player-name { font-size: 15px; }
+            .player-name { font-size: 20px; }
             .player-stack { font-size: 0.7rem; }
             .poker-game-layout { max-height: 500px; }
             .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
-            .pos-player0-sb { bottom: 8px; left: 8px; flex-direction: column-reverse; } .pos-player1-bb { top: 8px; left: 8px; }
+            .player-area-wrapper { padding: 0 8px; }
             .pot-display { font-size: 25px; margin-bottom: 15px; }
         }
         `;
@@ -285,22 +297,42 @@ function renderer(options) {
         elements.communityCardsContainer.className = 'community-cards-container';
         communityArea.appendChild(elements.communityCardsContainer);
 
+        elements.playerContainers = [];
         elements.playerCardAreas = [];
         elements.playerInfoAreas = [];
+        elements.playerNames = [];
+        
         for (let i = 0; i < 2; i++) {
+            // Create player container that groups all player elements
+            const playerContainer = document.createElement('div');
+            playerContainer.className = `player-container player-container-${i}`;
+            elements.playersContainer.appendChild(playerContainer);
+            elements.playerContainers.push(playerContainer);
+            
+            // Player name
+            const playerName = document.createElement('div');
+            playerName.className = `player-name`;
+            playerName.textContent = `Player ${i}`;
+            playerContainer.appendChild(playerName);
+            elements.playerNames.push(playerName);
+            
+            // Create wrapper for card and info areas
+            const playerAreaWrapper = document.createElement('div');
+            playerAreaWrapper.className = 'player-area-wrapper';
+            playerContainer.appendChild(playerAreaWrapper);
+            
             // Card area (left side)
             const playerCardArea = document.createElement('div');
-            playerCardArea.className = `player-card-area ${i === 0 ? 'pos-player0-sb' : 'pos-player1-bb'}`;
+            playerCardArea.className = `player-card-area`;
             playerCardArea.innerHTML = `
-                <div class="player-name">Player ${i}</div>
                 <div class="player-cards-container"></div>
             `;
-            elements.playersContainer.appendChild(playerCardArea);
+            playerAreaWrapper.appendChild(playerCardArea);
             elements.playerCardAreas.push(playerCardArea);
 
             // Info area (right side)
             const playerInfoArea = document.createElement('div');
-            playerInfoArea.className = `player-info-area pos-info-player${i}`;
+            playerInfoArea.className = `player-info-area`;
             playerInfoArea.innerHTML = `
                 <div class="player-stack">
                     <span class="player-stack-value">$0.00</span>
@@ -308,7 +340,7 @@ function renderer(options) {
                 <div class="bet-display" style="display:none;">Bet: $0.00</div>
                 <div class="player-action" style="display:none;"></div>
             `;
-            elements.playersContainer.appendChild(playerInfoArea);
+            playerAreaWrapper.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
         }
 
@@ -505,14 +537,10 @@ function renderer(options) {
         elements.potDisplay.textContent = `Pot : ${pot}`;
 
         players.forEach((playerData, index) => {
-            // Update card area (left side)
-            const playerCardArea = elements.playerCardAreas[index];
-            if (playerCardArea) {
-                // While it may seem counterintuitive, we want the "responding..." label to show up for the player not currently playing.
-                // This is because the current player's actions show up instantaneously, and we want to show that the next player is thinking about it.
-                // This will likely need to be revised/overwritten for step-based visualizer, but is a simple fix for our current problem.
+            // Update player name (separate element)
+            const playerNameElement = elements.playerNames[index];
+            if (playerNameElement) {
                 const playerNameText = !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
-                const playerNameElement = playerCardArea.querySelector('.player-name');
                 playerNameElement.textContent = playerNameText;
 
                 // Add winner class if player won
@@ -521,6 +549,11 @@ function renderer(options) {
                 } else {
                     playerNameElement.classList.remove('winner');
                 }
+            }
+            
+            // Update card area (left side)
+            const playerCardArea = elements.playerCardAreas[index];
+            if (playerCardArea) {
 
                 const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
                 playerCardsContainer.innerHTML = '';
@@ -531,12 +564,6 @@ function renderer(options) {
                 (playerData.cards || [null, null]).forEach(cardStr => {
                     playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
                 });
-
-                if (playerData.isTurn && !isTerminal) {
-                    playerCardArea.classList.add('current-player-turn-highlight');
-                } else {
-                    playerCardArea.classList.remove('current-player-turn-highlight');
-                }
             }
 
             // Update info area (right side)
