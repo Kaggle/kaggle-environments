@@ -567,12 +567,12 @@ DEFAULT_UNIVERSAL_POKER_GAME_STRING = (
     "numRanks=13,"
     "numRounds=4,"
     "numSuits=4,"
-    "stack=400 400)"
+    "stack=200 200)"
 )
 
 DEFAULT_REPEATED_POKER_GAME_STRING = (
     "repeated_poker("
-    "max_num_hands=20,"
+    "max_num_hands=100,"
     "reset_stacks=True,"
     "rotate_dealer=True,"
     f"universal_poker_game_string={DEFAULT_UNIVERSAL_POKER_GAME_STRING})"
