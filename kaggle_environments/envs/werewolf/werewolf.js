@@ -2435,15 +2435,43 @@ function renderer(context) {
                 return action;
               }
 
-              displayPlayerBubble(playerName, message) {
+              displayPlayerBubble(playerName, message, reasoning, timestamp) {
                   const player = this._playerObjects.get(playerName);
                   if (!player || !player.playerUI) return;
 
-                  const uiElement = player.playerUI.element;
+                  const uiElement = player.playerUI.element; // This is the .player-ui-container
                   const messageEl = uiElement.querySelector('.bubble-message');
+                  const reasoningEl = uiElement.querySelector('.bubble-reasoning'); // Get the new element
 
                   // Update the message content
-                  messageEl.innerHTML = message;
+                  if (messageEl) {
+                      messageEl.innerHTML = message;
+                  }
+                  
+                  // Update the reasoning content
+                  if (reasoningEl) {
+                      if (reasoning) {
+                        reasoningEl.innerHTML = reasoning; // Set reasoning text
+                      } else {
+                        reasoningEl.innerHTML = ""; // Clear it if no reasoning
+                      }
+                  }
+
+                  // Check global reasoning state
+                  // Initialize if it doesn't exist
+                  if (window.werewolfGamePlayer.isReasoningMode === undefined) {
+                      window.werewolfGamePlayer.isReasoningMode = false;
+                  }
+                  
+                  const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
+                  
+                  // Set the bubble's initial state based on global toggle
+                  // Only show reasoning if it actually exists
+                  if (isGlobalReasoningOn && reasoning) {
+                      uiElement.classList.add('show-reasoning');
+                  } else {
+                      uiElement.classList.remove('show-reasoning');
+                  }
 
                   // Add the 'chat-active' class to trigger the CSS animation
                   uiElement.classList.add('chat-active');                  
@@ -2911,22 +2939,38 @@ function renderer(context) {
                   chatMessageCard.className = 'chat-message-card'; // This remains a solid card
                   chatMessageCard.innerHTML = `
                       <div class="bubble-message"></div>
+                      <div class="bubble-reasoning"></div>
                   `;
 
                   // Assemble the component: Info card on left, chat card on right (initially hidden)
-                  // container.appendChild(playerInfoCard);
-                  // container.appendChild(chatMessageCard);
                   playerInfoCard.appendChild(chatMessageCard);
                   container.appendChild(playerInfoCard);
 
                   // Make the info card clickable to focus the camera
-                  playerInfoCard.onclick = () => {
-                      if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
-                          const leftPanel = document.querySelector('.left-panel');
-                          const rightPanel = document.querySelector('.right-panel');
-                          const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
-                          const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
-                          window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
+                  playerInfoCard.onclick = (e) => {
+                      const playerContainer = e.target.closest('.player-ui-container');
+                      
+                      // Check if the click landed on the chat bubble
+                      if (e.target.closest('.chat-message-card') && playerContainer) {
+                          // Clicked on the bubble, toggle reasoning
+                          const reasoningEl = playerContainer.querySelector('.bubble-reasoning');
+                          if (reasoningEl && (reasoningEl.innerHTML || reasoningEl.textContent)) {
+                              // Clicked on the bubble, toggle reasoning
+                              e.stopPropagation(); // Prevent camera focus
+                              playerContainer.classList.toggle('show-reasoning');
+                          } else {
+                              // No reasoning to show, so do nothing.
+                              e.stopPropagation(); // Prevent camera focus
+                          }
+                      } else {
+                          // Clicked on the nameplate (or avatar, etc.), focus camera
+                          if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+                              const leftPanel = document.querySelector('.left-panel');
+                              const rightPanel = document.querySelector('.right-panel');
+                              const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+                              const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+                              window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
+                          }
                       }
                   };
 
@@ -3384,7 +3428,7 @@ function renderer(context) {
         // Display the bubble if we have a message and an actor
         if (messageForBubble && actorName && playerMap.has(actorName)) {
             const formattedMessage = window.werewolfGamePlayer.playerIdReplacer(messageForBubble);
-            threeState.demo.displayPlayerBubble(actorName, formattedMessage, reasoningForBubble, lastEvent.timestamp); 
+            threeState.demo.displayPlayerBubble(actorName, formattedMessage, reasoningForBubble, lastEvent.timestamp);
             threeState.demo.updatePlayerActive(actorName); // Keep the active pulse effect
         }
 
@@ -3826,6 +3870,31 @@ function renderer(context) {
             text-shadow: 
                 0 0 5px rgba(0,0,0,1), 
                 0 0 8px rgba(0,0,0,0.8);
+        }
+
+        /* NEW: Reasoning text styles */
+        .player-ui-container.chat-active .bubble-reasoning {
+            display: none; /* Hide reasoning by default */
+            font-size: 14px;
+            font-weight: 400;
+            color: #bbbbbb; /* Grey text */
+            line-height: 1.4;
+            font-style: italic;
+            text-shadow: 
+                0 0 5px rgba(0,0,0,1), 
+                0 0 8px rgba(0,0,0,0.8);
+        }
+        
+        /* NEW: Prefix for reasoning */
+        .player-ui-container.chat-active .bubble-reasoning::before {
+            content: "| ";
+            margin-right: 4px;
+        }
+
+        /* NEW: State toggle for showing reasoning */
+        .player-ui-container.chat-active.show-reasoning .bubble-reasoning {
+            display: block; /* Show reasoning */
+            margin-top: 6px;
         }
 
         .player-avatar-3d {
@@ -5462,16 +5531,45 @@ function renderer(context) {
 
     const globalToggle = container.querySelector('#global-reasoning-toggle');
     if (globalToggle) {
+        // Initialize global state if not present
+        if (window.werewolfGamePlayer.isReasoningMode === undefined) {
+            window.werewolfGamePlayer.isReasoningMode = false;
+        }
+
         globalToggle.addEventListener('click', (event) => {
             event.stopPropagation();
+            
+            // --- 1. Toggle 2D Log Reasoning (Original Behavior) ---
             const reasoningTexts = logUl.querySelectorAll('.reasoning-text');
-            if (reasoningTexts.length === 0) return;
+            if (reasoningTexts.length > 0) {
+                // Determine if we should show or hide all. If any are visible, we hide all. Otherwise, show all.
+                const shouldShow = ![...reasoningTexts].some(el => el.classList.contains('visible'));
 
-            // Determine if we should show or hide all. If any are visible, we hide all. Otherwise, show all.
-            const shouldShow = ![...reasoningTexts].some(el => el.classList.contains('visible'));
+                reasoningTexts.forEach(el => {
+                    el.classList.toggle('visible', shouldShow);
+                });
+            }
 
-            reasoningTexts.forEach(el => {
-                el.classList.toggle('visible', shouldShow);
+            // --- 2. Toggle 3D Bubble Reasoning (New Behavior) ---
+            
+            // Toggle the global state
+            window.werewolfGamePlayer.isReasoningMode = !window.werewolfGamePlayer.isReasoningMode;
+            const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
+
+            // Find all active 3D UI containers in the document
+            // We search the whole document because the 3D UI is rendered by Three.js
+            const allPlayerUIs = document.querySelectorAll('.player-ui-container.chat-active');
+            
+            allPlayerUIs.forEach(uiElement => {
+                const reasoningEl = uiElement.querySelector('.bubble-reasoning');
+                // Check if the reasoning element has content
+                const hasReasoning = reasoningEl && (reasoningEl.innerHTML || reasoningEl.textContent);
+
+                if (isGlobalReasoningOn && hasReasoning) {
+                    uiElement.classList.add('show-reasoning');
+                } else {
+                    uiElement.classList.remove('show-reasoning');
+                }
             });
         });
     }
