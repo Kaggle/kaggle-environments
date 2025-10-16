@@ -2441,13 +2441,9 @@ function renderer(context) {
 
                   const uiElement = player.playerUI.element;
                   const messageEl = uiElement.querySelector('.bubble-message');
-                  const timestampEl = uiElement.querySelector('.player-timestamp-3d');
 
                   // Update the message content
                   messageEl.innerHTML = message;
-
-                  // Update timestamp to "Speaking..."
-                  timestampEl.textContent = 'Speaking...'; 
 
                   // Add the 'chat-active' class to trigger the CSS animation
                   uiElement.classList.add('chat-active');                  
@@ -2873,96 +2869,6 @@ function renderer(context) {
                   });
               }
 
-              // _createNameplate(name, displayName, imageUrl, CSS2DObject) {
-              //   const container = document.createElement('div');
-              //   container.className = 'player-nameplate-3d';
-
-              //   container.onclick = () => {
-              //       if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
-              //           const leftPanel = document.querySelector('.left-panel');
-              //           const rightPanel = document.querySelector('.right-panel');
-              //           const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
-              //           const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
-              //           window.werewolfThreeJs.demo.focusOnPlayer(name, leftPanelWidth, rightPanelWidth);
-              //       }
-              //   };
-
-              //   const img = document.createElement('img');
-              //   img.src = imageUrl;
-
-              //   const textContainer = document.createElement('div');
-              //   textContainer.className = 'player-nameplate-info';
-
-              //   const nameText = document.createElement('div');
-              //   nameText.className = 'player-name-3d';
-
-              //   const roleText = document.createElement('div');
-              //   roleText.className = 'player-role-3d';
-              //   roleText.textContent = 'Role: Unknown';
-
-              //   if (displayName && displayName !== "" && displayName !== name) {
-              //       nameText.textContent = `${name}`;
-              //       const subtitleText = document.createElement('div');
-              //       subtitleText.className = 'player-subtitle-3d';
-              //       subtitleText.textContent = `${displayName}`;
-              //       textContainer.appendChild(nameText);
-              //       textContainer.appendChild(subtitleText);
-              //   } else {
-              //       nameText.textContent = name;
-              //       textContainer.appendChild(nameText);
-              //   }
-
-              //   textContainer.appendChild(roleText);
-
-              //   container.appendChild(img);
-              //   container.appendChild(textContainer);
-
-              //   const label = new CSS2DObject(container);
-              //   return label;
-              // }
-
-              // _createChatBubble(name, CSS2DObject) {
-              //   const bubbleContainer = document.createElement('div');
-              //   bubbleContainer.className = 'player-chat-bubble';
-              //   bubbleContainer.id = `chat-bubble-${name}`;
-
-              //   const arrowEl = document.createElement('div');
-              //   arrowEl.className = 'bubble-arrow';
-
-              //   const header = document.createElement('div');
-              //   header.className = 'bubble-header';
-
-              //   const timestampText = document.createElement('span');
-              //   timestampText.className = 'bubble-timestamp';
-
-              //   const reasoningToggle = document.createElement('span');
-              //   reasoningToggle.className = 'bubble-reasoning-toggle';
-              //   reasoningToggle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-              //   reasoningToggle.style.display = 'none';
-              //   reasoningToggle.onclick = (e) => {
-              //       e.stopPropagation();
-              //       const reasoningEl = bubbleContainer.querySelector('.bubble-reasoning-text');
-              //       if (reasoningEl) reasoningEl.classList.toggle('visible');
-              //   };
-                
-              //   header.appendChild(timestampText);
-              //   header.appendChild(reasoningToggle);
-
-              //   const messageText = document.createElement('div');
-              //   messageText.className = 'bubble-message';
-
-              //   const reasoningText = document.createElement('div');
-              //   reasoningText.className = 'bubble-reasoning-text';
-
-              //   bubbleContainer.appendChild(header);
-              //   bubbleContainer.appendChild(messageText);
-              //   bubbleContainer.appendChild(reasoningText);
-              //   bubbleContainer.appendChild(arrowEl);
-
-              //   const label = new CSS2DObject(bubbleContainer);
-              //   return label;
-              // }
-
               _createPlayerUI(name, displayName, imageUrl, CSS2DObject) {
                   // Main container for the entire UI component (holds nameplate and chat card)
                   const container = document.createElement('div');
@@ -2999,12 +2905,6 @@ function renderer(context) {
                   textDetails.appendChild(roleText);
                   
                   playerInfoCard.appendChild(textDetails);
-
-                  // Timestamp (below name/id/role, also floating)
-                  const timestampText = document.createElement('div');
-                  timestampText.className = 'player-timestamp-3d';
-                  timestampText.textContent = 'Idle'; // Default state
-                  playerInfoCard.appendChild(timestampText);
 
                   // --- Part 2: The Hidden/Expanding Chat Message Card ---
                   const chatMessageCard = document.createElement('div');
@@ -3365,10 +3265,6 @@ function renderer(context) {
     threeState.demo._playerObjects.forEach(player => {
         if (player.playerUI && player.playerUI.element) {
             player.playerUI.element.classList.remove('chat-active');
-            const timestampEl = player.playerUI.element.querySelector('.player-timestamp-3d');
-            if (timestampEl) {
-                timestampEl.textContent = 'Idle'; // Revert timestamp to Idle
-            }
         }
     });
 
@@ -3960,11 +3856,6 @@ function renderer(context) {
         .player-role-3d {
             font-size: 11px;
             opacity: 0.8;
-        }
-        .player-timestamp-3d {
-            font-size: 9px;
-            opacity: 0.7;
-            margin-top: 4px;
         }
 
         /* The chat message card (initially hidden, expands to the right *of the player-info-card*) */
