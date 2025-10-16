@@ -2825,6 +2825,7 @@ function renderer(context) {
                   const bbox = new this._THREE.Box3();
 
                   this._playerObjects.forEach((player) => {
+                      return;
                       const uiElement = player.playerUI?.element;
                       if (!uiElement) return;
 
@@ -3010,7 +3011,6 @@ function renderer(context) {
                   chatMessageCard.className = 'chat-message-card'; // This remains a solid card
                   chatMessageCard.innerHTML = `
                       <div class="bubble-message"></div>
-                      <div class="bubble-arrow"></div>
                   `;
 
                   // Assemble the component: Info card on left, chat card on right (initially hidden)
@@ -3895,6 +3895,11 @@ function renderer(context) {
             margin: 0;
             white-space: nowrap; /* Prevent text wrapping */
             z-index: 5;
+
+            padding: 4px 8px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            // transition: border-color 0.2s ease
         }
 
         .player-info-card:hover {
@@ -3903,6 +3908,28 @@ function renderer(context) {
                 0 0 6px rgba(0,0,0,0.9), 
                 0 0 10px rgba(0,0,0,0.7),
                 0 0 12px rgba(255,204,0,0.4);
+        }
+
+        /* NEW: This encircles the nameplate when chat is active */
+        .player-ui-container.chat-active .player-info-card {
+            // background: rgba(10, 10, 20, 0.4);
+            // background: transparent;
+            border: 1px solid #ffffff;
+            box-shadow: 0 0 2px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            padding: 4px 8px; /* Add padding so border isn't flush */
+        }
+
+        /* NEW: This styles the message text like a movie subtitle */
+        .player-ui-container.chat-active .bubble-message {
+            font-size: 14px;
+            font-weight: 500;
+            color: #ffffff;
+            line-height: 1.4;
+            /* Classic subtitle shadow */
+            text-shadow: 
+                0 0 5px rgba(0,0,0,1), 
+                0 0 8px rgba(0,0,0,0.8);
         }
 
         .player-avatar-3d {
@@ -3959,46 +3986,29 @@ function renderer(context) {
 
             min-width: 180px;
             
-            background: rgba(20, 30, 45, 0.95);
-            padding: 12px 16px;
-            border-radius: 8px;
-            border: 1px solid rgba(116, 185, 255, 0.4);
-            color: #f0f0f0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
             max-width: 250px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            pointer-events: none;
 
             /* Initial Hidden State */
             opacity: 0;
             transition: opacity 0.1s ease;
-            white-space: nowrap;
+            white-space: normal;
+
+            transition-property: opacity;
+            transition-duration: 0.2s;
+            z-index: 10;
         }
 
         /* Active state: chat message card expands */
         .player-ui-container.chat-active .chat-message-card {
             opacity: 1;
-            white-space: normal;
-            pointer-events: auto;
         }
 
         .chat-message-card .bubble-message {
             font-size: 14px;
             line-height: 1.4;
-        }
-
-        /* The dynamic arrow (using the correct border trick) */
-        .bubble-arrow {
-            position: absolute; /* Positioned relative to the chat bubble */
-            transform-origin: 0% 50%; /* Rotates and scales from its starting point */
-            height: 3px; /* The thickness of the tail */
-            
-            /* A gradient makes it look like it's fading out from the bubble */
-            background: linear-gradient(to right, rgba(116, 185, 255, 0.4), rgba(20, 30, 45, 0.95));
-            
-            border-radius: 2px;
-            z-index: -1; /* Place it just behind the main bubble for a seamless look */
-            visibility: hidden; /* Hide by default, JS will show it */
-            pointer-events: none;
         }
         
         /* --- End New Unified Player UI Component --- */
