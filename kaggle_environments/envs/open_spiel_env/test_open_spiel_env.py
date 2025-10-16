@@ -189,14 +189,11 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.configuration["imageConfig"]["pieceSet"], "cardinal")
         self.assertTrue("imageConfig" in env.state[0]["observation"])
 
-    def test_repeated_poker(self):
-        envs = open_spiel_env._register_game_envs(
-            [open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STRING]
-        )
-        env = make(envs['open_spiel_repeated_poker'])
+    def test_default_repeated_poker(self):
+        env = make('open_spiel_repeated_poker')
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
-        for i in range(20):
+        for i in range(100):
             if i % 2 == 0:
                 env.step([{"submission": -1}, {"submission": 0}])
             else:
