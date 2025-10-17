@@ -104,8 +104,8 @@ function renderer(options) {
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
             padding: 6px;
         }
-        .card-rank { font-family: 'Inter' sans-serif; font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
-        .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
+        .card-rank { font-family: 'Inter' sans-serif; font-size: 50px; line-height: 1; display: block; align-self: flex-start; }
+        .card-suit { width: 50px; height: 50px; display: block; margin-bottom: 2px; }
         .card-suit svg { width: 100%; height: 100%; }
         .card-red .card-rank { color: #B3261E; }
         .card-red .card-suit svg { fill: #B3261E; }
@@ -150,38 +150,44 @@ function renderer(options) {
 
         @media (max-width: 768px) {
             .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
-            .card { width: 70px; height: 98px; margin: 0 6px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
+            .card { width: 60px; height: 85px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
+            .community-cards-container { gap: 6px; }
             .player-card-area { min-height: 120px; }
+            .player-cards-container { gap: 6px; }
             .player-info-area { min-width: 160px; }
-            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
+            .poker-game-layout { max-height: 700px; }
             .pot-display { font-size: 35px; margin-bottom: 20px; }
         }
         @media (max-width: 600px) {
-            .bet-display { font-size: 1.5rem; height: 2rem; line-height: 2rem; }
-            .card { width: 60px; height: 84px; margin: 0 2px; } .card-rank { font-size: 1.8rem; } .card-suit { width: 30px; height: 30px; }
-            .dealer-button { font-size: 1.4rem; height: 32px; line-height: 32px; width: 32px; }
-            .dealer-button.dealer-player0 { bottom: 35px; }
-            .dealer-button.dealer-player1 { top: 35px; }
-            .player-card-area { font-size: 0.85rem; min-height: 110px; padding: 0.4rem 0.5rem; width: 200px; }
-            .player-info-area { font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0.6rem; }
-                .player-name { font-size: 30px; }
-            .player-stack { font-size: 0.75rem; }
+            .bet-display { font-size: 20px; height: 40px; line-height: 40px; }
+            .card { width: 50px; height: 70px; padding: 2px; } .card-rank { font-size: 32px; } .card-suit { width: 32px; height: 32px; }
+            .community-cards-container { gap: 2px; }
+            .dealer-button { font-size: 20px; height: 24px; line-height: 24px; width: 24px; }
+            .dealer-button.dealer-player0 { bottom: 95px; }
+            .dealer-button.dealer-player1 { top: 95px; }
+            .player-card-area { min-height: 110px; margin: 0 0 0 40px;}
+            .player-cards-container { gap: 2px; }
+            .player-info-area { margin-right: 20px; }
+            .player-name { font-size: 30px; margin: 0 20px; }
+            .player-stack { font-size: 30px; }
             .poker-game-layout { max-height: 600px; }
-            .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
+            .poker-table { width: clamp(300px, 90vw, 600px); height: clamp(160px, 50vw, 200px); margin: 20px; }
             .pot-display { font-size: 30px; margin-bottom: 20px; }
         }
         @media (max-width: 400px) {
-            .bet-display { font-size: 1.4rem; height: 1.5rem; line-height: 1.5rem; }
-            .card { width: 50px; height: 70px; margin: 0 1px; padding: 2px; } .card-rank { font-size: 25px; } .card-suit { width: 25px; height: 25px; }
-            .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem; }
-            .dealer-button.dealer-player0 { bottom: 30px; }
-            .dealer-button.dealer-player1 { top: 30px; }
-            .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; width: 150px; }
-            .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
-            .player-name { font-size: 20px; }
-            .player-stack { font-size: 0.7rem; }
+            .bet-display { font-size: 15px; height: 30px; line-height: 30px; }
+            .card { width: 40px; height: 56px; margin: 0 2px; padding: 2px; } .card-rank { font-size: 25px; } .card-suit { width: 25px; height: 25px; }
+            .community-cards-container { gap: 2px; }
+            .dealer-button { font-size: 15px; height: 20px; line-height: 20px; width: 20px; }
+            .dealer-button.dealer-player0 { bottom: 85px; }
+            .dealer-button.dealer-player1 { top: 85px; }
+            .player-card-area { margin: 0 0 0 30px;}
+            .player-cards-container { gap: 2px; }
+            .player-info-area { min-width: 100px; margin-right: 0; }
+            .player-name { font-size: 25px; }
+            .player-stack { font-size: 15px; }
             .poker-game-layout { max-height: 500px; }
-            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
+            .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 150px); margin: 0;}
             .pot-display { font-size: 25px; margin-bottom: 15px; }
         }
         `;
