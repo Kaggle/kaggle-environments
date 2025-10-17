@@ -529,10 +529,9 @@ function renderer(options) {
         elements.potDisplay.textContent = `Pot : ${pot}`;
 
         players.forEach((playerData, index) => {
-            // Update player name (separate element)
             const playerNameElement = elements.playerNames[index];
             if (playerNameElement) {
-                const playerNameText = !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
+                const playerNameText = playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
                 playerNameElement.textContent = playerNameText;
 
                 // Add winner class if player won
