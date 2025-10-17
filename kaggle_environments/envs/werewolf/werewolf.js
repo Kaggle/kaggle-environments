@@ -141,6 +141,7 @@ function renderer(context) {
               console.debug(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
               stopAndClearAudio();
               audioState.isPaused = true;
+              resetThreeJsState();
               window.wwOriginals.setStep(newStep);
           });
       }
@@ -2386,9 +2387,12 @@ function renderer(context) {
                 }
                 
                 // Check if player is dead (based on status set by updatePlayerStatus)
-                if (!player.isAlive &&
-                    !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
-                    console.debug(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
+                // [MODIFIED] Stricter guard for dead players
+                if (!player.isAlive && animationName !== 'Dying') {
+                    // If the player is dead, the *only* animation we should
+                    // ever allow to be played is 'Dying' (which is triggered
+                    // by updatePlayerStatus).
+                    console.debug(`[BLOCKED] Animation '${animationName}' blocked for dead player ${playerName}`);
                     return null;
                 }
                 
@@ -3327,49 +3331,62 @@ function renderer(context) {
     window.werewolfThreeJs.demo = threeState.demo;
   }
 
+  function resetThreeJsState() {
+      if (!threeState.demo || !threeState.demo._playerObjects) return;
+      console.debug("[RESET] Performing full state reset for rewind/scrub.");
+
+      // 1. Clear the death animation map.
+      if (window.werewolfThreeJs.deathAnimationCompleted) {
+          window.werewolfThreeJs.deathAnimationCompleted.clear();
+      }
+      
+      // 2. Clear all voting visuals (arcs and rings)
+      threeState.demo.updateVoteVisuals(new Map(), true);
+      
+      // 3. Reset every player's 3D object to a default "Alive" state
+      threeState.demo._playerObjects.forEach((player, playerName) => {
+          if (player.playerUI && player.playerUI.element) {
+              player.playerUI.element.classList.remove('chat-active');
+          }
+          player.isAlive = true; 
+          
+          if (player.mixer) { 
+              player.mixer.stopAllAction(); // Stop all animations (causes T-pose)
+              let newAction = null;
+              
+              if (player.animations && player.animations['Idle']) {
+                  // Try to play 'Idle' first
+                  newAction = player.mixer.clipAction(player.animations['Idle']);
+              } else if (player.animations && Object.keys(player.animations).length > 0) {
+                  // [NEW FALLBACK] If no 'Idle', play the *first* animation
+                  const firstAnimName = Object.keys(player.animations)[0];
+                  newAction = player.mixer.clipAction(player.animations[firstAnimName]);
+                  console.warn(`[RESET] No 'Idle' for ${playerName}. Falling back to '${firstAnimName}'.`);
+              }
+              
+              if (newAction) {
+                  // Play whatever animation we found
+                  newAction.play();
+                  player.currentAction = newAction;
+              } else {
+                  // No animations at all, T-pose is unavoidable
+                  player.currentAction = null;
+              }
+          }
+          
+          if (player.orb) player.orb.visible = true;
+          if (player.orbLight) player.orbLight.visible = true;
+          if (player.glow) player.glow.visible = true;
+          if (player.nameplate && player.nameplate.element) {
+              player.nameplate.element.style.opacity = '1.0';
+          }
+          player.container.scale.setScalar(1.0);
+          player.container.rotation.x = 0;
+      });
+  }
+
   function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
-
-    // On every step change (play or rewind), reset all visual states
-    // to a clean slate before applying the new state for this step.
-
-    // 1. Clear the death animation map. This is the main bug fix
-    //    for the "stuck dead" pose on rewind.
-    if (window.werewolfThreeJs.deathAnimationCompleted) {
-        window.werewolfThreeJs.deathAnimationCompleted.clear();
-    }
-    
-    // 2. Clear all voting visuals (arcs and rings)
-    threeState.demo.updateVoteVisuals(new Map(), true);
-    
-    // 3. Reset every player's 3D object to a default "Alive" state
-    threeState.demo._playerObjects.forEach((player, playerName) => {
-        // Hide any active chat bubble
-        if (player.playerUI && player.playerUI.element) {
-            player.playerUI.element.classList.remove('chat-active');
-        }
-        
-        // Reset 3D object's internal "alive" status
-        player.isAlive = true; 
-        
-        // Reset animations: Stop everything and force-play Idle
-        if (player.mixer && player.animations && player.animations['Idle']) {
-            player.mixer.stopAllAction();
-            const idleAction = player.mixer.clipAction(player.animations['Idle']);
-            idleAction.play();
-            player.currentAction = idleAction;
-        }
-        
-        // Reset all visual properties to default "alive"
-        if (player.orb) player.orb.visible = true;
-        if (player.orbLight) player.orbLight.visible = true;
-        if (player.glow) player.glow.visible = true;
-        if (player.nameplate && player.nameplate.element) {
-            player.nameplate.element.style.opacity = '1.0';
-        }
-        player.container.scale.setScalar(1.0);
-        player.container.rotation.x = 0;
-    });
 
     // --- Hide all chat bubbles at the start of each step ---
     threeState.demo._playerObjects.forEach(player => {
@@ -3509,14 +3526,18 @@ function renderer(context) {
         if (lastEvent.type === 'game_over') {
             if (lastEvent.winners && threeState.demo.triggerVictoryAnimation) {
                 lastEvent.winners.forEach(winnerName => {
-                    if (playerMap.has(winnerName)) {
+                    // [MODIFIED] Check if the player exists AND is alive
+                    const player = playerMap.get(winnerName);
+                    if (player && player.is_alive) {
                         threeState.demo.triggerVictoryAnimation(winnerName);
                     }
                 });
             }
             if (lastEvent.losers && threeState.demo.triggerDefeatedAnimation) {
                 lastEvent.losers.forEach(loserName => {
-                    if (playerMap.has(loserName)) {
+                    // [MODIFIED] Check if the player exists AND is alive
+                    const player = playerMap.get(loserName);
+                    if (player && player.is_alive) {
                         threeState.demo.triggerDefeatedAnimation(loserName);
                     }
                 });
