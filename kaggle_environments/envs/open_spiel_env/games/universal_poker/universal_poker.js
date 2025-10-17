@@ -44,12 +44,13 @@ function renderer(options) {
             font-family: 'Zeitung Pro', sans-serif; background-color: #2d3748; color: #fff;
             overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
         }
-        .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 800px; }
+        .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
         .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 275px; }
         .poker-table {
             width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 275px);
             background-color: #197631; border-radius: 24px; position: relative;
             display: flex; align-items: center; justify-content: center;
+            margin: 0 60px;
         }
         .players-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
@@ -67,17 +68,13 @@ function renderer(options) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 20px;
         }
         .player-card-area {
-            padding: 0.6rem 0.8rem; color: white; text-align: center;
-            width: 250px;
+            margin: 20px 60px; color: white; text-align: center;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             min-height: 100px; pointer-events: auto;
         }
         .player-info-area {
-            border-radius: 0.5rem;
-            padding: 0.75rem 1rem;
             color: white;
             min-width: 180px;
             pointer-events: auto;
@@ -85,6 +82,7 @@ function renderer(options) {
             flex-direction: column;
             justify-content: left;
             align-items: left;
+            margin-right: 60px;
         }
         .player-container-0 .player-info-area { flex-direction: column-reverse; }
         .player-name { 
@@ -94,15 +92,15 @@ function renderer(options) {
             text-overflow: ellipsis;
             color: white;
             text-align: left; 
-            padding: 10px 20px;
+            padding: 10px 0;
+            margin: 0 60px;
         }
         .player-name.winner { color: #FFEB70; }
-        .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin-bottom: 0.4rem; display: flex; justify-content: space-between; align-items: center; }
-        .player-cards-container { margin: 0.25rem 0; min-height: 70px; display: flex; justify-content: flex-start; align-items:center; }
-        .player-action { font-size: 1.5rem; color: #60a5fa; margin-top: 0.4rem; font-weight: 500; }
+        .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
+        .player-cards-container { min-height: 70px; display: flex; justify-content: flex-start; align-items:center; gap: 12px; }
         .card {
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            width: 80px; height: 112px; border: 2px solid #202124; border-radius: 8px; margin: 0 12px;
+            width: 80px; height: 112px; border: 2px solid #202124; border-radius: 8px;
             background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
             padding: 6px;
         }
@@ -131,13 +129,13 @@ function renderer(options) {
         }
         .card-empty .card-rank, .card-empty .card-suit { display: none; }
         .community-cards-area { text-align: center; z-index: 10; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; }
+        .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; gap: 12px; }
         .pot-display { font-size: 40px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
         .bet-display {
-            display: inline-block; padding: 4px 8px; border-radius: 12px;
+            display: inline-block; padding: 10px 20px; border-radius: 12px;
             background-color: #1a202c; color: #ffff;
             font-family: 'Inter' sans-serif; font-size: 1.75rem; font-weigth: 600;
-            text-align: center; margin-top: 8px;
+            text-align: center;
             height: 3rem; line-height: 3rem;
         }
         .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
@@ -146,17 +144,16 @@ function renderer(options) {
             text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
             border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
         }
-        .dealer-button.dealer-player0 { bottom: 80px; }
-        .dealer-button.dealer-player1 { top: 80px; }
+        .dealer-button.dealer-player0 { bottom: 110px; }
+        .dealer-button.dealer-player1 { top: 110px; }
         #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
         @media (max-width: 768px) {
             .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
             .card { width: 70px; height: 98px; margin: 0 6px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
-            .player-card-area { padding: 0.5rem 0.7rem; min-height: 120px; }
-            .player-info-area { min-width: 160px; padding: 0.6rem 0.8rem; }
-                .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
-            .player-area-wrapper { padding: 0 15px; }
+            .player-card-area { min-height: 120px; }
+            .player-info-area { min-width: 160px; }
+            .poker-table { width: clamp(350px, 90vw, 700px); height: clamp(180px, 48vw, 350px); }
             .pot-display { font-size: 35px; margin-bottom: 20px; }
         }
         @media (max-width: 600px) {
@@ -165,14 +162,12 @@ function renderer(options) {
             .dealer-button { font-size: 1.4rem; height: 32px; line-height: 32px; width: 32px; }
             .dealer-button.dealer-player0 { bottom: 35px; }
             .dealer-button.dealer-player1 { top: 35px; }
-            .player-action { font-size: 0.75rem; }
             .player-card-area { font-size: 0.85rem; min-height: 110px; padding: 0.4rem 0.5rem; width: 200px; }
             .player-info-area { font-size: 0.85rem; min-width: 140px; padding: 0.5rem 0.6rem; }
                 .player-name { font-size: 30px; }
             .player-stack { font-size: 0.75rem; }
             .poker-game-layout { max-height: 600px; }
             .poker-table { width: clamp(300px, 90vw, 500px); height: clamp(160px, 50vw, 250px); }
-            .player-area-wrapper { padding: 0 10px; }
             .pot-display { font-size: 30px; margin-bottom: 20px; }
         }
         @media (max-width: 400px) {
@@ -181,14 +176,12 @@ function renderer(options) {
             .dealer-button { width: 28px; height: 28px; line-height: 28px; font-size: 1.3rem; }
             .dealer-button.dealer-player0 { bottom: 30px; }
             .dealer-button.dealer-player1 { top: 30px; }
-            .player-action { font-size: 0.7rem; }
             .player-card-area { padding: 0.3rem 0.4rem; min-height: 100px; width: 150px; }
             .player-info-area { min-width: 120px; padding: 0.4rem 0.5rem; font-size: 0.8rem; }
             .player-name { font-size: 20px; }
             .player-stack { font-size: 0.7rem; }
             .poker-game-layout { max-height: 500px; }
             .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 200px); }
-            .player-area-wrapper { padding: 0 8px; }
             .pot-display { font-size: 25px; margin-bottom: 15px; }
         }
         `;
@@ -338,7 +331,6 @@ function renderer(options) {
                     <span class="player-stack-value">$0.00</span>
                 </div>
                 <div class="bet-display" style="display:none;">Bet: $0.00</div>
-                <div class="player-action" style="display:none;"></div>
             `;
             playerAreaWrapper.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
@@ -578,12 +570,6 @@ function renderer(options) {
                 } else {
                     betDisplay.style.display = 'none';
                 }
-
-                // Show status
-                const actionDisplay = playerInfoArea.querySelector('.player-action');
-                actionDisplay.style.display = 'none';
-
-                // TODO (UX Discuss): Find better way highlight current player's info area
             }
         });
 
