@@ -2204,7 +2204,7 @@ function renderer(context) {
                 pedestal.material.emissiveIntensity = 0.3;
               }
 
-              updatePlayerStatus(playerName, player_info, status, threatLevel = 0, is_active = false) {
+              updatePlayerStatus(playerName, player_info, status, threatLevel = 0, justDied = false) {
                 const player = this._playerObjects.get(playerName);
                 if (!player) return;
 
@@ -2275,25 +2275,27 @@ function renderer(context) {
                         }
                         player.isAlive = false;
 
-                        // --- START OF NEW LOGIC ---
-                        mixer.stopAllAction(); // IMPORTANT: Stop any other animations like 'Idle'.
+                        // --- [NEW] Rewind-safe death animation logic ---
+                        mixer.stopAllAction(); // IMPORTANT: Stop any other animations.
 
                         const dyingAnimation = animations ? animations['Dying'] : null;
                         if (dyingAnimation) {
-                            const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
+                            const deathMap = window.werewolfThreeJs.deathAnimationCompleted; // Get the map
                             const action = mixer.clipAction(dyingAnimation);
                             action.setLoop(this._THREE.LoopOnce);
                             action.clampWhenFinished = true;
 
-                            if (deathMap && !deathMap.has(playerName)) {
-                                // This is the first time we're seeing this player die. Play the full animation.
+                            if (justDied) {
+                                // This is the exact step the player died. Play the full animation.
                                 console.debug(`[DEATH TRIGGER] Playing full death animation for ${playerName}.`);
                                 action.reset().play();
-                                deathMap.set(playerName, true); // Mark it as completed.
+                                if (deathMap) deathMap.set(playerName, true); // Mark as completed
                             } else {
-                                // Player is already dead. Force the model to the final frame of the animation.
+                                // This player was already dead before this step.
+                                // Snap to the final frame of the animation.
                                 action.play();
-                                action.time = action.getClip().duration; // Jump to the end.
+                                action.time = action.getClip().duration;
+                                if (deathMap) deathMap.set(playerName, true); // Mark as completed
                             }
                         } else {
                             // Fallback for models without a 'Dying' animation.
@@ -2376,11 +2378,14 @@ function renderer(context) {
                 const deathMap = window.werewolfThreeJs.deathAnimationCompleted;
                 if (deathMap && deathMap.has(playerName)) {
                     // Player has already completed death animation, block ALL animations
-                    console.debug(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
-                    return null;
+                    // [MODIFIED] But, we MUST allow 'Victory' and 'Defeated' for game end.
+                    if (!['Victory', 'Defeated'].includes(animationName)) {
+                        console.debug(`[BLOCKED] Animation '${animationName}' blocked for ${playerName} - death animation already completed`);
+                        return null;
+                    }
                 }
                 
-                // Check if player is dead and animation is not death-related
+                // Check if player is dead (based on status set by updatePlayerStatus)
                 if (!player.isAlive &&
                     !['Dying', 'Defeated', 'Victory'].includes(animationName)) {
                     console.debug(`[SKIP] Animation '${animationName}' skipped for dead player ${playerName}`);
@@ -2392,14 +2397,6 @@ function renderer(context) {
                 
                 const mixer = player.mixer;
                 if (!mixer) return null;
-                
-                // If this is a death animation, immediately mark it as completed
-                if (animationName === 'Dying' || animationName === 'Defeated') {
-                    if (deathMap) {
-                        console.debug(`[DEATH START] Starting death animation '${animationName}' for ${playerName} - marking as completed`);
-                        deathMap.set(playerName, true);
-                    }
-                }
                 
                 // Fade out current action if exists
                 if (player.currentAction) {
@@ -3333,6 +3330,47 @@ function renderer(context) {
   function updateSceneFromGameState(gameState, playerMap, actingPlayerName) {
     if (!threeState.demo || !threeState.demo._playerObjects) return;
 
+    // On every step change (play or rewind), reset all visual states
+    // to a clean slate before applying the new state for this step.
+
+    // 1. Clear the death animation map. This is the main bug fix
+    //    for the "stuck dead" pose on rewind.
+    if (window.werewolfThreeJs.deathAnimationCompleted) {
+        window.werewolfThreeJs.deathAnimationCompleted.clear();
+    }
+    
+    // 2. Clear all voting visuals (arcs and rings)
+    threeState.demo.updateVoteVisuals(new Map(), true);
+    
+    // 3. Reset every player's 3D object to a default "Alive" state
+    threeState.demo._playerObjects.forEach((player, playerName) => {
+        // Hide any active chat bubble
+        if (player.playerUI && player.playerUI.element) {
+            player.playerUI.element.classList.remove('chat-active');
+        }
+        
+        // Reset 3D object's internal "alive" status
+        player.isAlive = true; 
+        
+        // Reset animations: Stop everything and force-play Idle
+        if (player.mixer && player.animations && player.animations['Idle']) {
+            player.mixer.stopAllAction();
+            const idleAction = player.mixer.clipAction(player.animations['Idle']);
+            idleAction.play();
+            player.currentAction = idleAction;
+        }
+        
+        // Reset all visual properties to default "alive"
+        if (player.orb) player.orb.visible = true;
+        if (player.orbLight) player.orbLight.visible = true;
+        if (player.glow) player.glow.visible = true;
+        if (player.nameplate && player.nameplate.element) {
+            player.nameplate.element.style.opacity = '1.0';
+        }
+        player.container.scale.setScalar(1.0);
+        player.container.rotation.x = 0;
+    });
+
     // --- Hide all chat bubbles at the start of each step ---
     threeState.demo._playerObjects.forEach(player => {
         if (player.playerUI && player.playerUI.element) {
@@ -3367,7 +3405,12 @@ function renderer(context) {
         primaryStatus = 'seer';
       }
 
-      threeState.demo.updatePlayerStatus(player.name, player, primaryStatus, threatLevel);
+      // Check if this player died *on this exact step*
+      const justDied = (lastEvent && 
+                       (lastEvent.type === 'exile' || lastEvent.type === 'elimination') && 
+                       lastEvent.name === player.name);
+
+      threeState.demo.updatePlayerStatus(player.name, player, primaryStatus, threatLevel, justDied);
     });
 
     // Update phase lighting
