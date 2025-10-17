@@ -37,6 +37,7 @@ function renderer(context) {
         originalSteps: environment.steps,
         reasoningCounter: 0,
     };
+    window.wwCurrentStep = 0;
     const player = window.werewolfGamePlayer;
 
     const visibleEventDataTypes = new Set([
@@ -134,17 +135,30 @@ function renderer(context) {
               setPlaying: mainContext.setPlaying
           };
       }
-          
-      // --- Patch setStep ---
+
       if (mainContext.setSetStep) {
           mainContext.setSetStep(() => (newStep) => {
               console.debug(`DEBUG: [setStep] User manually set step to ${newStep}. Stopping audio.`);
               stopAndClearAudio();
               audioState.isPaused = true;
-              resetThreeJsState();
+
+              // [FIX] Use the global window.wwCurrentStep, which we will maintain
+              const currentStep = window.wwCurrentStep || 0; 
+              console.debug(`DEBUG: [setStep] NewStep: ${newStep}, CurrentStep from window: ${currentStep}`);
+
+              if (newStep !== currentStep + 1) { 
+                  console.debug(`DEBUG: [setStep] This is a REWIND or SCRUB. Calling resetThreeJsState().`);
+                  resetThreeJsState(); 
+              } else {
+                  console.debug(`DEBUG: [setStep] This is a STEP FORWARD. Skipping full reset.`);
+              }
+              
+              // Update our global variable *before* calling the original function
+              window.wwCurrentStep = newStep; 
               window.wwOriginals.setStep(newStep);
           });
       }
+
 
       // --- Patch Play ---
       mainContext.setPlay(() => (continuing) => {
@@ -153,10 +167,19 @@ function renderer(context) {
         if (audioState.isAudioEnabled) {
             // --- AUDIO-DRIVEN PLAYBACK ---
             console.debug("DEBUG: [setPlay] Audio is ON. Using audio-driven playback.");
+
+            // We must *first* pause the original Kaggle player's
+            // timer-based loop, otherwise both loops will run
+            // and cause a "double step".
+            window.wwOriginals.pause(); 
+
             window.wwOriginals.setPlaying(true); 
             let currentDisplayStep = context.step; 
             
-            if (!continuing && !audioState.isPaused && currentDisplayStep === newSteps.length - 1) {
+            // Get the correct step length from the global object
+            const newStepsLength = window.werewolfGamePlayer.displayEvents.length;
+            
+            if (!continuing && !audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
                 currentDisplayStep = 0;
                 window.wwOriginals.setStep(0); 
             }
@@ -191,7 +214,7 @@ function renderer(context) {
           }
       });
 
-      mainContext.patchesApplied = true;
+      window.customPlayerControlsInjected = true;
   }
 
   // --- THREE.js Scene Setup (Singleton Pattern) ---
@@ -2494,12 +2517,8 @@ function renderer(context) {
                     fadeOutDuration: 0.2
                 });
                 
-                // Schedule return to idle
-                setTimeout(() => {
-                    this.playAnimation(playerName, 'Idle', {
-                        fadeInDuration: 0.2
-                    });
-                }, 1800);
+                // The per-step cleanup in updateSceneFromGameState
+                // is now responsible for returning to Idle.
 
                 // Also add visual sound wave effect
                 const wave = this._createSoundWave(this._THREE);

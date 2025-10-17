@@ -671,50 +671,58 @@
               },
               false,
             );
-            // Listen for keyboard commands.
-            window.addEventListener(
-              "keydown",
-              (event) => {
-                const {
-                  interactive,
-                  isInteractive,
-                  playing,
-                  step,
-                  environment,
-                } = contextRef.current;
-                const key = event.keyCode;
-                const zero_key = 48;
-                const nine_key = 57;
-                if (
-                  interactive ||
-                  isInteractive() ||
-                  (key !== 32 &&
-                    key !== 37 &&
-                    key !== 39 &&
-                    !(key >= zero_key && key <= nine_key))
-                )
-                  return;
-
-                if (key === 32) {
-                  playing ? pause() : play();
-                } else if (key === 39) {
-                  contextRef.current.playing = false;
-                  if (step < environment.steps.length - 1) setStep(step + 1);
-                  rerender();
-                } else if (key === 37) {
-                  contextRef.current.playing = false;
-                  if (step > 0) setStep(step - 1);
-                  rerender();
-                } else if (key >= zero_key && key <= nine_key) {
-                  contextRef.current.speed = speeds[key - zero_key];
-                }
-                event.preventDefault();
-                return false;
-              },
-              false,
-            );
           }, 1);
-        }, []);
+
+          // --- START OF THE FIX ---
+          
+          // 1. Define the handler function as a constant
+          const keydownHandler = (event) => {
+            const {
+              interactive,
+              isInteractive,
+              playing,
+              step,
+              environment,
+            } = contextRef.current;
+            const key = event.keyCode;
+            const zero_key = 48;
+            const nine_key = 57;
+            if (
+              interactive ||
+              isInteractive() ||
+              (key !== 32 &&
+                key !== 37 &&
+                key !== 39 &&
+                !(key >= zero_key && key <= nine_key))
+            )
+              return;
+
+            if (key === 32) {
+              playing ? pause() : play();
+            } else if (key === 39) {
+              contextRef.current.playing = false;
+              if (step < environment.steps.length - 1) stepFn(step + 1);
+            } else if (key === 37) {
+              contextRef.current.playing = false;
+              if (step > 0) stepFn(step - 1);
+            } else if (key >= zero_key && key <= nine_key) {
+              contextRef.current.speed = speeds[key - zero_key];
+            }
+            event.preventDefault();
+            return false;
+          };
+
+          // 2. Add the listener using the named handler
+          window.addEventListener("keydown", keydownHandler, false);
+
+          // 3. Return a cleanup function that removes the *exact same* named handler
+          return () => {
+            window.removeEventListener("keydown", keydownHandler, false);
+          };
+          
+          // --- END OF THE FIX ---
+
+        }, [stepFn]); // This dependency is correct
 
         // if (contextRef.current.debug) {
         //   console.log("context", contextRef.current);
