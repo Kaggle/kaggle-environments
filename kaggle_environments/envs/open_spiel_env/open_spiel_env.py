@@ -567,7 +567,8 @@ DEFAULT_UNIVERSAL_POKER_GAME_STRING = (
     "numRanks=13,"
     "numRounds=4,"
     "numSuits=4,"
-    "stack=200 200)"
+    "stack=200 200,"
+    "calcOddsNumSims=1000000)"
 )
 
 DEFAULT_REPEATED_POKER_GAME_STRING = (

@@ -193,13 +193,20 @@ class OpenSpielEnvTest(absltest.TestCase):
         env = make('open_spiel_repeated_poker')
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
-        for i in range(100):
+        # Default repeated_poker now includes hand odds calculations which take
+        # ~1-2s per action, so we avoid stepping until the end of the game.
+        for i in range(2):
             if i % 2 == 0:
                 env.step([{"submission": -1}, {"submission": 0}])
             else:
                 env.step([{"submission": 0}, {"submission": -1}])
-        self.assertTrue(env.done)
-        self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
+        self.assertEqual(len(env.os_state.acpc_hand_histories()), 2)
+        state_dict = json.loads(str(env.os_state))
+        self.assertTrue("current_universal_poker_json" in state_dict)
+        current_hand_dict = json.loads(
+            state_dict["current_universal_poker_json"])
+        self.assertTrue("odds" in current_hand_dict)
+        self.assertEqual(len(current_hand_dict["odds"]), 4)
 
     def test_repeated_pokerkit(self):
         pokerkit_game_str = (
