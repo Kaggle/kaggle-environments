@@ -32,6 +32,7 @@ class UniversalPokerTest(parameterized.TestCase):
                 "numSuits": 4,
                 "potSize": 0,
                 "stack": "20000 20000",
+                "calcOddsNumSims": 0,
             },
         )
 
