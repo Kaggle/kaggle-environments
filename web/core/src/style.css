@@ -1,0 +1,138 @@
+:root {
+  /* Color Scheme */
+  --background-color: #1c1d20;
+  --primary-text-color: rgba(255, 255, 255, 0.87);
+  --secondary-text-color: rgba(255, 255, 255, 0.6);
+  --divider-color: #2f3136;
+  --control-background-color: #2a2d31;
+  --accent-color: #1ebeff;
+  --disabled-opacity: 0.4;
+
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: var(--primary-text-color);
+  background-color: var(--background-color);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--background-color);
+  box-sizing: border-box;
+}
+
+.viewer {
+  flex-grow: 1;
+  position: relative;
+}
+
+.viewer canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--control-background-color);
+  border-top: 1px solid var(--divider-color);
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.controls button {
+  background: none;
+  border: none;
+  color: var(--primary-text-color);
+  cursor: pointer;
+  font-size: 20px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.controls button svg {
+  fill: var(--primary-text-color);
+}
+
+.controls button:hover {
+  opacity: 1;
+}
+
+.controls button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.controls input[type="range"] {
+  flex-grow: 1;
+  width: 100%;
+  margin: 0 16px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(128, 128, 128, 0.25);
+  border-radius: 4px;
+  height: 6px;
+  outline: none;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.controls input[type="range"]:hover {
+  opacity: 1;
+}
+
+.controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.controls input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-color);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.step-counter {
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  min-width: 80px;
+  text-align: center;
+}
