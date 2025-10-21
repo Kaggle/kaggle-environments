@@ -1,6 +1,19 @@
 
 function renderer(options) {
-  const { parent, environment, step } = options;
+  // --- Elements and Style Injection ---
+  const elements = {
+    gameLayout: null,
+    pokerTableContainer: null,
+    pokerTable: null,
+    communityCardsContainer: null,
+    potDisplay: null,
+    playersContainer: null,
+    playerCardAreas: [],
+    playerInfoAreas: [],
+    dealerButton: null,
+    diagnosticHeader: null,
+    gameMessageArea: null,
+  };
 
   const css = `
     @font-face {
@@ -202,6 +215,7 @@ function renderer(options) {
     clubs: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32.7422 8C39.0131 8.00014 44.0965 13.0836 44.0967 19.3545C44.0967 22.3905 42.9028 25.1463 40.9619 27.1836C42.108 26.7945 43.3357 26.5811 44.6133 26.5811C50.8842 26.5813 55.9678 31.6646 55.9678 37.9355C55.9677 44.2065 50.8842 49.2898 44.6133 49.29C40.7767 49.29 37.3866 47.3859 35.3311 44.4727C35.3545 44.6869 35.4 44.9939 35.4873 45.3721C35.6708 46.1669 36.0397 47.2784 36.7832 48.5176C37.1124 49.0661 37.683 49.5639 38.4043 50.0215C39.121 50.4762 39.9477 50.8671 40.749 51.2197C41.5324 51.5644 42.323 51.8854 42.8955 52.1758C43.1826 52.3214 43.4509 52.4767 43.6533 52.6455C43.8375 52.7992 44.0801 53.0572 44.0801 53.4199C44.0799 53.7476 43.8956 54.0007 43.7061 54.1738C43.5126 54.3503 43.2539 54.5014 42.9648 54.6328C42.3825 54.8974 41.5654 55.1324 40.582 55.3291C38.6066 55.7241 35.8618 55.9844 32.7412 55.9844C29.6198 55.9843 26.8772 55.7244 24.8398 55.3301C23.8233 55.1333 22.9671 54.9005 22.3223 54.6426C22.0002 54.5137 21.7169 54.3731 21.4893 54.2197C21.2688 54.0712 21.0593 53.8831 20.9395 53.6436L20.8867 53.5381V53.4199C20.8867 53.0575 21.1294 52.7992 21.3135 52.6455C21.5159 52.4766 21.7851 52.3214 22.0723 52.1758C22.6447 51.8855 23.4346 51.5643 24.2178 51.2197C25.019 50.8672 25.8458 50.4761 26.5625 50.0215C27.2837 49.5639 27.8543 49.066 28.1836 48.5176C28.9271 47.2784 29.297 46.1669 29.4805 45.3721C29.5675 44.9951 29.6113 44.6888 29.6348 44.4746C27.579 47.3866 24.1901 49.29 20.3545 49.29C14.0836 49.2899 9.00003 44.2065 9 37.9355C9 31.6646 14.0835 26.5812 20.3545 26.5811C21.9457 26.5811 23.4603 26.9091 24.835 27.5C22.7097 25.4365 21.3867 22.5506 21.3867 19.3545C21.3869 13.0835 26.4712 8 32.7422 8Z"/></svg>'
   }
 
+  // --- Card Parsing and Rendering ---
   function acpcCardToDisplay(acpcCard) {
     if (!acpcCard || acpcCard.length < 2) return { rank: '?', suit: '', original: acpcCard };
     const rankChar = acpcCard[0].toUpperCase();
@@ -242,41 +256,248 @@ function renderer(options) {
     return cardDiv;
   }
 
-  parent.innerHTML = '';  // Clear previous rendering
+  // --- Board Parsing and Rendering ---
+  function _ensurePokerTableElements(parentElement, passedOptions) {
+    if (!parentElement) return false;
+    parentElement.innerHTML = '';
+    parentElement.classList.add('poker-renderer-host');
+
+    elements.diagnosticHeader = document.createElement('h1');
+    elements.diagnosticHeader.id = 'poker-renderer-diagnostic-header';
+    elements.diagnosticHeader.textContent = "Poker Table Initialized (Live Data)";
+    elements.diagnosticHeader.style.cssText = "color: lime; background-color: black; padding: 5px; font-size: 12px; position: absolute; top: 0px; left: 0px; z-index: 10001; display: none;"; // Hidden by default
+    parentElement.appendChild(elements.diagnosticHeader);
+
+    elements.gameMessageArea = document.createElement('div');
+    elements.gameMessageArea.id = 'game-message-area';
+    parentElement.appendChild(elements.gameMessageArea);
+
+    elements.gameLayout = document.createElement('div');
+    elements.gameLayout.className = 'poker-game-layout';
+    parentElement.appendChild(elements.gameLayout);
+
+    elements.pokerTableContainer = document.createElement('div');
+    elements.pokerTableContainer.className = 'poker-table-container';
+    elements.gameLayout.appendChild(elements.pokerTableContainer);
+
+    elements.playersContainer = document.createElement('div');
+    elements.playersContainer.className = 'players-container';
+    elements.gameLayout.appendChild(elements.playersContainer);
+
+    elements.pokerTable = document.createElement('div');
+    elements.pokerTable.className = 'poker-table';
+    elements.pokerTableContainer.appendChild(elements.pokerTable);
+
+    const communityArea = document.createElement('div');
+    communityArea.className = 'community-cards-area';
+    elements.pokerTable.appendChild(communityArea);
+
+    elements.potDisplay = document.createElement('div');
+    elements.potDisplay.className = 'pot-display';
+    communityArea.appendChild(elements.potDisplay);
+
+    elements.communityCardsContainer = document.createElement('div');
+    elements.communityCardsContainer.className = 'community-cards-container';
+    communityArea.appendChild(elements.communityCardsContainer);
+
+    elements.playerContainers = [];
+    elements.playerCardAreas = [];
+    elements.playerInfoAreas = [];
+    elements.playerNames = [];
+
+    for (let i = 0; i < 2; i++) {
+      // Create player container that groups all player elements
+      const playerContainer = document.createElement('div');
+      playerContainer.className = `player-container player-container-${i}`;
+      elements.playersContainer.appendChild(playerContainer);
+      elements.playerContainers.push(playerContainer);
+
+      // Player name
+      const playerName = document.createElement('div');
+      playerName.className = `player-name`;
+      playerName.textContent = `Player ${i}`;
+      playerContainer.appendChild(playerName);
+      elements.playerNames.push(playerName);
+
+      // Create wrapper for card and info areas
+      const playerAreaWrapper = document.createElement('div');
+      playerAreaWrapper.className = 'player-area-wrapper';
+      playerContainer.appendChild(playerAreaWrapper);
+
+      // Card area (left side)
+      const playerCardArea = document.createElement('div');
+      playerCardArea.className = `player-card-area`;
+      playerCardArea.innerHTML = `
+        <div class="player-cards-container"></div>
+      `;
+      playerAreaWrapper.appendChild(playerCardArea);
+      elements.playerCardAreas.push(playerCardArea);
+
+      // Info area (right side)
+      const playerInfoArea = document.createElement('div');
+      playerInfoArea.className = `player-info-area`;
+      playerInfoArea.innerHTML = `
+        <div class="player-stack">
+            <span class="player-stack-value">$0.00</span>
+        </div>
+        <div class="bet-display" style="display:none;">Bet: $0.00</div>
+      `;
+      playerAreaWrapper.appendChild(playerInfoArea);
+      elements.playerInfoAreas.push(playerInfoArea);
+    }
+
+    elements.dealerButton = document.createElement('div');
+    elements.dealerButton.className = 'dealer-button';
+    elements.dealerButton.textContent = 'D';
+    elements.dealerButton.style.display = 'none';
+    elements.playersContainer.appendChild(elements.dealerButton);
+    return true;
+  }
+
+  // --- State Parsing ---
+  function _parseKagglePokerState(options) {
+    const { environment, step } = options;
+    const numPlayers = 2;
+
+    // --- Default State ---
+    const defaultUIData = {
+      players: Array(numPlayers).fill(null).map((_, i) => {
+        const agentName = environment?.info?.TeamNames?.[i] ||
+          `Player ${i}`;
+        return {
+          id: `player${i}`,
+          name: agentName,
+          stack: 0,
+          cards: [], // Will be filled with nulls or cards
+          currentBet: 0,
+          position: i === 0 ? "Small Blind" : "Big Blind",
+          isDealer: i === 0,
+          isTurn: false,
+          status: "Waiting...",
+          reward: null
+        };
+      }),
+      communityCards: [],
+      pot: 0,
+      isTerminal: false,
+      gameMessage: "Initializing...",
+      rawObservation: null, // For debugging
+    };
+    return defaultUIData;
+  }
+
+
+  function _renderPokerTableUI(data, passedOptions) {
+    if (!elements.pokerTable || !data) return;
+    const { players, communityCards, pot, isTerminal, gameMessage } = data;
+
+    if (elements.diagnosticHeader && data.rawObservation) {
+      // Optional: Show diagnostics for debugging
+      // elements.diagnosticHeader.textContent = `[${passedOptions.step}] P_TURN:${data.rawObservation.current_player} POT:${data.pot}`;
+      // elements.diagnosticHeader.style.display = 'block';
+    }
+    if (elements.gameMessageArea) {
+      elements.gameMessageArea.textContent = gameMessage;
+    }
+
+    elements.communityCardsContainer.innerHTML = '';
+    // Always show 5 slots for the river
+    // Display cards left to right, with empty slots at the end
+    const numCommunityCards = 5;
+    const numCards = communityCards ? communityCards.length : 0;
+
+    // Since the 4th and 5th street cards are appended to the communityCards array, we need to
+    // reverse it so that the added cards are put at the end of the display area on the board.
+    if (communityCards) communityCards.reverse();
+
+    // Add actual cards
+    for (let i = 0; i < numCards; i++) {
+      elements.communityCardsContainer.appendChild(createCardElement(communityCards[i]));
+    }
+
+    // Fill remaining slots with empty cards
+    for (let i = numCards; i < numCommunityCards; i++) {
+      const emptyCard = document.createElement('div');
+      emptyCard.classList.add('card', 'card-empty');
+      elements.communityCardsContainer.appendChild(emptyCard);
+    }
+
+    elements.potDisplay.textContent = `Pot : ${pot}`;
+
+    players.forEach((playerData, index) => {
+      const playerNameElement = elements.playerNames[index];
+      if (playerNameElement) {
+        const playerNameText = playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
+        playerNameElement.textContent = playerNameText;
+
+        // Add winner class if player won
+        if (playerData.isWinner) {
+          playerNameElement.classList.add('winner');
+        } else {
+          playerNameElement.classList.remove('winner');
+        }
+      }
+
+      // Update card area (left side)
+      const playerCardArea = elements.playerCardAreas[index];
+      if (playerCardArea) {
+
+        const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
+        playerCardsContainer.innerHTML = '';
+
+        // In heads-up, we show both hands at the end.
+        const showCards = isTerminal || (playerData.cards && !playerData.cards.includes(null));
+
+        (playerData.cards || [null, null]).forEach(cardStr => {
+          playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
+        });
+      }
+
+      // Update info area (right side)
+      const playerInfoArea = elements.playerInfoAreas[index];
+      if (playerInfoArea) {
+        playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
+
+        const betDisplay = playerInfoArea.querySelector('.bet-display');
+        if (playerData.currentBet > 0) {
+          betDisplay.textContent = `Bet: ${playerData.currentBet}`;
+          betDisplay.style.display = 'block';
+        } else {
+          betDisplay.style.display = 'none';
+        }
+      }
+    });
+
+    const dealerPlayerIndex = players.findIndex(p => p.isDealer);
+    if (elements.dealerButton) {
+      if (dealerPlayerIndex !== -1) {
+        elements.dealerButton.style.display = 'block';
+        // Remove previous dealer class
+        elements.dealerButton.classList.remove('dealer-player0', 'dealer-player1');
+        // Add new dealer class based on player index
+        elements.dealerButton.classList.add(`dealer-player${dealerPlayerIndex}`);
+      } else {
+        elements.dealerButton.style.display = 'none';
+      }
+    }
+  }
+
+
+  // --- MAIN EXECUTION LOGIC ---
+  const { parent } = options;
+  if (!parent) {
+    console.error("Renderer: Parent element not provided.");
+    return;
+  }
 
   _injectStyles(options);
 
-  const currentStepData = environment.steps[step];
-  if (!currentStepData) {
-    parent.textContent = "Waiting for step data...";
+  if (!_ensurePokerTableElements(parent, options)) {
+    console.error("Renderer: Failed to ensure poker table elements.");
+    parent.innerHTML = '<p style="color:red;">Error: Could not create poker table structure.</p>';
     return;
   }
-  const agentObsIndex = 0
-  let obsString = "Observation not available for this step.";
-  let title = `Step: ${step}`;
 
-  if (environment.configuration && environment.configuration.openSpielGameName) {
-    title = `${environment.configuration.openSpielGameName} - Step: ${step}`;
-  }
-
-  currentStep = JSON.parse(environment.info.stateHistory[step]);
-  obsString = environment.info.stateHistory[step];
-
-  if (step === 0 && environment.steps[0] && environment.steps[0][agentObsIndex] &&
-    environment.steps[0][agentObsIndex].observation &&
-    typeof environment.steps[0][agentObsIndex].observation.observationString === 'string') {
-    obsString = environment.steps[0][agentObsIndex].observation.observationString;
-  }
-
-  const pre = document.createElement("pre");
-  pre.style.fontFamily = "monospace";
-  pre.style.margin = "10px";
-  pre.style.border = "1px solid #ccc";
-  pre.style.padding = "10px";
-  pre.style.backgroundColor = "#f9f9f9";
-  pre.style.whiteSpace = "pre-wrap";
-  pre.style.wordBreak = "break-all";
-
-  pre.textContent = `${title}\\n\\n${obsString}`;
-  parent.appendChild(pre);
+  const uiData = _parseKagglePokerState(options);
+  _renderPokerTableUI(uiData, options);
 }
