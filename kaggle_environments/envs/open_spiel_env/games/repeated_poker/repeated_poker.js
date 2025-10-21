@@ -1,6 +1,6 @@
 
-function renderer(context) {
-  const { parent, environment, step } = context;
+function renderer(options) {
+  const { parent, environment, step } = options;
 
   const css = `
   @font-face {
@@ -201,7 +201,49 @@ function renderer(context) {
     clubs: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M32.7422 8C39.0131 8.00014 44.0965 13.0836 44.0967 19.3545C44.0967 22.3905 42.9028 25.1463 40.9619 27.1836C42.108 26.7945 43.3357 26.5811 44.6133 26.5811C50.8842 26.5813 55.9678 31.6646 55.9678 37.9355C55.9677 44.2065 50.8842 49.2898 44.6133 49.29C40.7767 49.29 37.3866 47.3859 35.3311 44.4727C35.3545 44.6869 35.4 44.9939 35.4873 45.3721C35.6708 46.1669 36.0397 47.2784 36.7832 48.5176C37.1124 49.0661 37.683 49.5639 38.4043 50.0215C39.121 50.4762 39.9477 50.8671 40.749 51.2197C41.5324 51.5644 42.323 51.8854 42.8955 52.1758C43.1826 52.3214 43.4509 52.4767 43.6533 52.6455C43.8375 52.7992 44.0801 53.0572 44.0801 53.4199C44.0799 53.7476 43.8956 54.0007 43.7061 54.1738C43.5126 54.3503 43.2539 54.5014 42.9648 54.6328C42.3825 54.8974 41.5654 55.1324 40.582 55.3291C38.6066 55.7241 35.8618 55.9844 32.7412 55.9844C29.6198 55.9843 26.8772 55.7244 24.8398 55.3301C23.8233 55.1333 22.9671 54.9005 22.3223 54.6426C22.0002 54.5137 21.7169 54.3731 21.4893 54.2197C21.2688 54.0712 21.0593 53.8831 20.9395 53.6436L20.8867 53.5381V53.4199C20.8867 53.0575 21.1294 52.7992 21.3135 52.6455C21.5159 52.4766 21.7851 52.3214 22.0723 52.1758C22.6447 51.8855 23.4346 51.5643 24.2178 51.2197C25.019 50.8672 25.8458 50.4761 26.5625 50.0215C27.2837 49.5639 27.8543 49.066 28.1836 48.5176C28.9271 47.2784 29.297 46.1669 29.4805 45.3721C29.5675 44.9951 29.6113 44.6888 29.6348 44.4746C27.579 47.3866 24.1901 49.29 20.3545 49.29C14.0836 49.2899 9.00003 44.2065 9 37.9355C9 31.6646 14.0835 26.5812 20.3545 26.5811C21.9457 26.5811 23.4603 26.9091 24.835 27.5C22.7097 25.4365 21.3867 22.5506 21.3867 19.3545C21.3869 13.0835 26.4712 8 32.7422 8Z"/></svg>'
   }
 
+  function acpcCardToDisplay(acpcCard) {
+    if (!acpcCard || acpcCard.length < 2) return { rank: '?', suit: '', original: acpcCard };
+    const rankChar = acpcCard[0].toUpperCase();
+    const suitChar = acpcCard[1].toLowerCase();
+    const rankMap = { 'T': '10', 'J': 'J', 'Q': 'Q', 'K': 'K', 'A': 'A' };
+    const suitMap = { 's': 'spades', 'h': 'hearts', 'd': 'diamonds', 'c': 'clubs' };
+    const rank = rankMap[rankChar] || rankChar;
+    const suit = suitMap[suitChar] || '';
+    return { rank, suit, original: acpcCard };
+  }
+
+  function createCardElement(cardStr, isHidden = false) {
+    const cardDiv = document.createElement('div');
+    cardDiv.classList.add('card');
+    if (isHidden || !cardStr || cardStr === '?' || cardStr === "??") {
+      cardDiv.classList.add('card-back');
+    } else {
+      const { rank, suit } = acpcCardToDisplay(cardStr);
+      const rankSpan = document.createElement('span');
+      rankSpan.classList.add('card-rank');
+      rankSpan.textContent = rank;
+      cardDiv.appendChild(rankSpan);
+
+      const suitSpan = document.createElement('span');
+      suitSpan.classList.add('card-suit');
+
+      if (suitSVGs[suit]) {
+        suitSpan.innerHTML = suitSVGs[suit];
+      }
+
+      cardDiv.appendChild(suitSpan);
+
+      if (suit === 'hearts') cardDiv.classList.add('card-red');
+      else if (suit === 'spades') cardDiv.classList.add('card-black');
+      else if (suit === 'diamonds') cardDiv.classList.add('card-blue');
+      else if (suit === 'clubs') cardDiv.classList.add('card-green');
+    }
+    return cardDiv;
+  }
+
   parent.innerHTML = '';  // Clear previous rendering
+
+  _injectStyles(options);
 
   const currentStepData = environment.steps[step];
   if (!currentStepData) {
