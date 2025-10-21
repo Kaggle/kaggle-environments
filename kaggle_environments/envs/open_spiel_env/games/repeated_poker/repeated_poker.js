@@ -3,181 +3,182 @@ function renderer(options) {
   const { parent, environment, step } = options;
 
   const css = `
-  @font-face {
-    font - family: 'Zeitung Pro';
-    src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("woff2"),
-      url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("woff"),
-      url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("opentype");
-    font - weight: normal;
-    font - style: normal;
-  }
-  @font-face {
-    font - family: 'Zeitung Pro';
-    src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("woff2"),
-      url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("woff"),
-      url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-    format("opentype");
-    font - weight: bold;
-    font - style: normal;
-  }
-  .poker - renderer - host {
-    width: 100 %; height: 100 %; display: flex; align - items: center; justify - content: center;
-    font - family: 'Zeitung Pro', sans - serif; background - color: #2d3748; color: #fff;
-    overflow: hidden; padding: 1rem; box - sizing: border - box; position: relative;
-  }
-  .poker - game - layout { width: 100 %; height: 100 %; display: flex; align - items: center; justify - content: center; position: relative; max - width: 750px; max - height: 750px; }
-  .poker - table - container { width: 100 %; height: 100 %; display: flex; align - items: center; justify - content: center; max - width: 750px; max - height: 275px; }
-  .poker - table {
-    width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 275px);
-    background - color: #197631; border - radius: 24px; position: relative;
-    display: flex; align - items: center; justify - content: center;
-    margin: 0 60px;
-  }
-  .players - container {
-    position: absolute; top: 0; left: 0; width: 100 %; height: 100 %; pointer - events: none; z - index: 10;
-  }
-  .player - container {
-    position: absolute;
-    width: 100 %;
-    pointer - events: none;
-    display: flex;
-    flex - direction: column;
-  }
-  .player - container - 0 { bottom: 0; flex - direction: column - reverse; }
-  .player - container - 1 { top: 0; }
-  .player - area - wrapper {
-    display: flex;
-    justify - content: space - between;
-    align - items: center;
-  }
-  .player - card - area {
-    margin: 20px 60px; color: white; text - align: center;
-    display: flex; flex - direction: column; justify - content: center; align - items: center;
-    min - height: 100px; pointer - events: auto;
-  }
-  .player - info - area {
-    color: white;
-    min - width: 180px;
-    pointer - events: auto;
-    display: flex;
-    flex - direction: column;
-    justify - content: left;
-    align - items: left;
-    margin - right: 60px;
-  }
-  .player - container - 0 .player - info - area { flex - direction: column - reverse; }
-  .player - name {
-    font - size: 32px; font - weight: 600;
-    white - space: nowrap;
-    overflow: hidden;
-    text - overflow: ellipsis;
-    color: white;
-    text - align: left;
-    padding: 10px 0;
-    margin: 0 60px;
-  }
-  .player - name.winner { color: #FFEB70; }
-  .player - stack { font - size: 32px; font - weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify - content: space - between; align - items: center; }
-  .player - cards - container { min - height: 70px; display: flex; justify - content: flex - start; align - items: center; gap: 12px; }
-  .card {
-    display: flex; flex - direction: column; justify - content: space - between; align - items: center;
-    width: 80px; height: 112px; border: 2px solid #202124; border - radius: 8px;
-    background - color: white; color: black; font - weight: bold; text - align: center; overflow: hidden; position: relative;
-    padding: 6px;
-  }
-  .card - rank { font - family: 'Inter' sans - serif; font - size: 50px; line - height: 1; display: block; align - self: flex - start; }
-  .card - suit { width: 50px; height: 50px; display: block; margin - bottom: 2px; }
-  .card - suit svg { width: 100 %; height: 100 %; }
-  .card - red.card - rank { color: #B3261E; }
-  .card - red.card - suit svg { fill: #B3261E; }
-  .card - black.card - rank { color: #000000; }
-  .card - black.card - suit svg { fill: #000000; }
-  .card - blue.card - rank { color: #0B57D0; }
-  .card - blue.card - suit svg { fill: #0B57D0; }
-  .card - green.card - rank { color: #146C2E; }
-  .card - green.card - suit svg { fill: #146C2E; }
-  .card - back {
-    background - color: #2b6cb0;
-    background - image: linear - gradient(45deg, rgba(255, 255, 255, 0.1) 25 %, transparent 25 %, transparent 75 %, rgba(255, 255, 255, 0.1) 75 %, rgba(255, 255, 255, 0.1)),
-      linear - gradient(-45deg, rgba(255, 255, 255, 0.1) 25 %, transparent 25 %, transparent 75 %, rgba(255, 255, 255, 0.1) 75 %, rgba(255, 255, 255, 0.1));
-    background - size: 10px 10px; border: 2px solid #63b3ed;
-  }
-  .card - back.card - rank, .card - back.card - suit { display: none; }
-  .card - empty {
-    background - color: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(32, 33, 36, 0.5);
-    background - image: none;
-  }
-  .card - empty.card - rank, .card - empty.card - suit { display: none; }
-  .community - cards - area { text - align: center; z - index: 10; position: absolute; top: 50 %; left: 50 %; transform: translate(-50 %, -50 %); }
-  .community - cards - container { min - height: 75px; display: flex; justify - content: center; align - items: center; margin - bottom: 0.5rem; gap: 12px; }
-  .pot - display { font - size: 40px; font - weight: bold; color: #ffffff; margin - bottom: 30px; }
-  .bet - display {
-    display: inline - block; padding: 10px 20px; border - radius: 12px;
-    background - color: #1a202c; color: #ffff;
-    font - family: 'Inter' sans - serif; font - size: 1.75rem; font - weigth: 600;
-    text - align: center;
-    height: 3rem; line - height: 3rem;
-  }
-  .blind - indicator { font - size: 0.7rem; color: #a0aec0; margin - top: 3px; }
-  .dealer - button {
-    width: 36px; height: 36px; background - color: #f0f0f0; color: #333; border - radius: 50 %;
-    text - align: center; line - height: 36px; font - weight: bold; font - size: 1.5rem; position: absolute;
-    border: 3px solid #1EBEFF; box - shadow: 0 1px 3px rgba(0, 0, 0, 0.3); z - index: 15; pointer - events: auto;
-  }
-  .dealer - button.dealer - player0 { bottom: 110px; }
-  .dealer - button.dealer - player1 { top: 110px; }
-  #game - message - area { position: absolute; top: 10px; left: 50 %; transform: translateX(-50 %); background - color: rgba(0, 0, 0, 0.6); padding: 5px 10px; border - radius: 5px; font - size: 0.9rem; z - index: 20; }
+    @font-face {
+      font-family: 'Zeitung Pro';
+      src:
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("woff2"),
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("woff"),
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("opentype");
+        font-weight: normal;
+        font-style: normal;
+    }
+    @font-face {
+      font-family: 'Zeitung Pro';
+      src:
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("woff2"),
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("woff"),
+        url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+          format("opentype");
+        font-weight: bold;
+        font-style: normal;
+    }
 
-  @media(max - width: 768px) {
-    .bet - display { font - size: 1.5rem; height: 2.2rem; line - height: 2.2rem; }
-    .card { width: 60px; height: 85px; } .card - rank { font - size: 35px; } .card - suit { width: 35px; height: 35px; }
-    .community - cards - container { gap: 6px; }
-    .player - card - area { min - height: 120px; }
-    .player - cards - container { gap: 6px; }
-    .player - info - area { min - width: 160px; }
-    .poker - game - layout { max - height: 700px; }
-    .pot - display { font - size: 35px; margin - bottom: 20px; }
-  }
-  @media(max - width: 600px) {
-    .bet - display { font - size: 20px; height: 40px; line - height: 40px; }
-    .card { width: 50px; height: 70px; padding: 2px; } .card - rank { font - size: 32px; } .card - suit { width: 32px; height: 32px; }
-    .community - cards - container { gap: 2px; }
-    .dealer - button { font - size: 20px; height: 24px; line - height: 24px; width: 24px; }
-    .dealer - button.dealer - player0 { bottom: 95px; }
-    .dealer - button.dealer - player1 { top: 95px; }
-    .player - card - area { min - height: 110px; margin: 0 0 0 40px; }
-    .player - cards - container { gap: 2px; }
-    .player - info - area { margin - right: 20px; }
-    .player - name { font - size: 30px; margin: 0 20px; }
-    .player - stack { font - size: 30px; }
-    .poker - game - layout { max - height: 600px; }
-    .poker - table { width: clamp(300px, 90vw, 600px); height: clamp(160px, 50vw, 200px); margin: 20px; }
-    .pot - display { font - size: 30px; margin - bottom: 20px; }
-  }
-  @media(max - width: 400px) {
-    .bet - display { font - size: 15px; height: 30px; line - height: 30px; }
-    .card { width: 40px; height: 56px; margin: 0 2px; padding: 2px; } .card - rank { font - size: 25px; } .card - suit { width: 25px; height: 25px; }
-    .community - cards - container { gap: 2px; }
-    .dealer - button { font - size: 15px; height: 20px; line - height: 20px; width: 20px; }
-    .dealer - button.dealer - player0 { bottom: 85px; }
-    .dealer - button.dealer - player1 { top: 85px; }
-    .player - card - area { margin: 0 0 0 30px; }
-    .player - cards - container { gap: 2px; }
-    .player - info - area { min - width: 100px; margin - right: 0; }
-    .player - name { font - size: 25px; }
-    .player - stack { font - size: 15px; }
-    .poker - game - layout { max - height: 500px; }
-    .poker - table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 150px); margin: 0; }
-    .pot - display { font - size: 25px; margin - bottom: 15px; }
-  }
+    .poker-renderer-host {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-family: 'Zeitung Pro', sans-serif; background-color: #2d3748; color: #fff;
+      overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
+    }
+    .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
+    .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 275px; }
+    .poker-table {
+      width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 275px);
+      background-color: #197631; border-radius: 24px; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 60px;
+    }
+    .players-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
+    }
+    .player-container {
+      position: absolute;
+      width: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+    }
+    .player-container-0 { bottom: 0; flex-direction: column-reverse; }
+    .player-container-1 { top: 0; }
+    .player-area-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .player-card-area {
+      margin: 20px 60px; color: white; text-align: center;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      min-height: 100px; pointer-events: auto;
+    }
+    .player-info-area {
+      color: white;
+      min-width: 180px;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: left;
+      align-items: left;
+      margin-right: 60px;
+    }
+    .player-container-0 .player-info-area { flex-direction: column-reverse; }
+    .player-name {
+      font-size: 32px; font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: white;
+      text-align: left;
+      padding: 10px 0;
+      margin: 0 60px;
+    }
+    .player-name.winner { color: #FFEB70; }
+    .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
+    .player-cards-container { min-height: 70px; display: flex; justify-content: flex-start; align-items:center; gap: 12px; }
+    .card {
+      display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+      width: 80px; height: 112px; border: 2px solid #202124; border-radius: 8px;
+      background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
+      padding: 6px;
+    }
+    .card-rank { font-family: 'Inter' sans-serif; font-size: 50px; line-height: 1; display: block; align-self: flex-start; }
+    .card-suit { width: 50px; height: 50px; display: block; margin-bottom: 2px; }
+    .card-suit svg { width: 100%; height: 100%; }
+    .card-red .card-rank { color: #B3261E; }
+    .card-red .card-suit svg { fill: #B3261E; }
+    .card-black .card-rank { color: #000000; }
+    .card-black .card-suit svg { fill: #000000; }
+    .card-blue .card-rank { color: #0B57D0; }
+    .card-blue .card-suit svg { fill: #0B57D0; }
+    .card-green .card-rank { color: #146C2E; }
+    .card-green .card-suit svg { fill: #146C2E; }
+    .card-back {
+      background-color: #2b6cb0;
+      background-image: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%, rgba(255,255,255,0.1)),
+                        linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.1) 75%, rgba(255,255,255,0.1));
+      background-size: 10px 10px; border: 2px solid #63b3ed;
+    }
+    .card-back .card-rank, .card-back .card-suit { display: none; }
+    .card-empty {
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(32, 33, 36, 0.5);
+      background-image: none;
+    }
+    .card-empty .card-rank, .card-empty .card-suit { display: none; }
+    .community-cards-area { text-align: center; z-index: 10; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; gap: 12px; }
+    .pot-display { font-size: 40px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
+    .bet-display {
+      display: inline-block; padding: 10px 20px; border-radius: 12px;
+      background-color: #1a202c; color: #ffff;
+      font-family: 'Inter' sans-serif; font-size: 1.75rem; font-weigth: 600;
+      text-align: center;
+      height: 3rem; line-height: 3rem;
+    }
+    .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
+    .dealer-button {
+      width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
+      text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
+      border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
+    }
+    .dealer-button.dealer-player0 { bottom: 110px; }
+    .dealer-button.dealer-player1 { top: 110px; }
+    #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
+
+    @media (max-width: 768px) {
+      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
+      .card { width: 60px; height: 85px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
+      .community-cards-container { gap: 6px; }
+      .player-card-area { min-height: 120px; }
+      .player-cards-container { gap: 6px; }
+      .player-info-area { min-width: 160px; }
+      .poker-game-layout { max-height: 700px; }
+      .pot-display { font-size: 35px; margin-bottom: 20px; }
+    }
+    @media (max-width: 600px) {
+      .bet-display { font-size: 20px; height: 40px; line-height: 40px; }
+      .card { width: 50px; height: 70px; padding: 2px; } .card-rank { font-size: 32px; } .card-suit { width: 32px; height: 32px; }
+      .community-cards-container { gap: 2px; }
+      .dealer-button { font-size: 20px; height: 24px; line-height: 24px; width: 24px; }
+      .dealer-button.dealer-player0 { bottom: 95px; }
+      .dealer-button.dealer-player1 { top: 95px; }
+      .player-card-area { min-height: 110px; margin: 0 0 0 40px;}
+      .player-cards-container { gap: 2px; }
+      .player-info-area { margin-right: 20px; }
+      .player-name { font-size: 30px; margin: 0 20px; }
+      .player-stack { font-size: 30px; }
+      .poker-game-layout { max-height: 600px; }
+      .poker-table { width: clamp(300px, 90vw, 600px); height: clamp(160px, 50vw, 200px); margin: 20px; }
+      .pot-display { font-size: 30px; margin-bottom: 20px; }
+    }
+    @media (max-width: 400px) {
+      .bet-display { font-size: 15px; height: 30px; line-height: 30px; }
+      .card { width: 40px; height: 56px; margin: 0 2px; padding: 2px; } .card-rank { font-size: 25px; } .card-suit { width: 25px; height: 25px; }
+      .community-cards-container { gap: 2px; }
+      .dealer-button { font-size: 15px; height: 20px; line-height: 20px; width: 20px; }
+      .dealer-button.dealer-player0 { bottom: 85px; }
+      .dealer-button.dealer-player1 { top: 85px; }
+      .player-card-area { margin: 0 0 0 30px;}
+      .player-cards-container { gap: 2px; }
+      .player-info-area { min-width: 100px; margin-right: 0; }
+      .player-name { font-size: 25px; }
+      .player-stack { font-size: 15px; }
+      .poker-game-layout { max-height: 500px; }
+      .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 150px); margin: 0;}
+      .pot-display { font-size: 25px; margin-bottom: 15px; }
+    }
   `;
 
   function _injectStyles(passedOptions) {
