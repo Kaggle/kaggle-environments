@@ -59,13 +59,14 @@ build-backend = "flit_core.buildapi"
 [tool.flit.module]
 name = "kaggle_environments"
 
-[tool.flit.sdist]
 # Flit specific options (files to exclude from the PyPI package).
 # If using another build backend (setuptools, poetry), you can remove this
 # section.
+[tool.flit.sdist]
 exclude = [
   # Do not release tests files on PyPI
   "**/*_test.py",
+  "**/node_modules/",
 ]
 
 [tool.setuptools.dynamic]

@@ -1,9 +1,56 @@
 steps:
-- id: 'build-cpu-image'
-  name: gcr.io/cloud-builders/docker
-  args: ['build', '-f', './docker/cpu.Dockerfile', '-t', 'gcr.io/kaggle-images/python-simulations', '.']
-- id: 'build-gpu-image'
-  name: gcr.io/cloud-builders/docker
-  args: ['build', '-f', './docker/gpu.Dockerfile', '-t', 'gcr.io/kaggle-gpu-images/python-simulations', '.']
-images: ['gcr.io/kaggle-images/python-simulations', 'gcr.io/kaggle-gpu-images/python-simulations']
-timeout: 24h
+  - id: "build-cpu-image"
+    name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "--file",
+        "docker/Dockerfile",
+        "--target",
+        "cpu",
+        "--tag",
+        "gcr.io/kaggle-images/python-simulations",
+        "--cache-from",
+        "gcr.io/kaggle-images/python-simulations:latest",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/kaggle-images/python:latest",
+        ".",
+      ]
+    waitFor: ["-"]
+
+  - id: "build-gpu-image"
+    name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "--file",
+        "docker/Dockerfile",
+        "--target",
+        "gpu",
+        "--tag",
+        "gcr.io/kaggle-gpu-images/python-simulations",
+        "--cache-from",
+        "gcr.io/kaggle-gpu-images/python-simulations:latest",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/kaggle-gpu-images/python:latest",
+        ".",
+      ]
+    waitFor: ["-"]
+
+  - id: "test-cpu-image"
+    name: "gcr.io/kaggle-images/python-simulations"
+    waitFor: ["build-cpu-image"]
+    entrypoint: "pytest"
+    args: ["kaggle_environments"]
+
+images:
+  - "gcr.io/kaggle-images/python-simulations"
+  - "gcr.io/kaggle-gpu-images/python-simulations"
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+
+timeout: "3600s"
