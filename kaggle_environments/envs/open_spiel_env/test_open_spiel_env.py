@@ -250,6 +250,25 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(env.done)
         self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
 
+    def test_poker_set_num_hands(self):
+        num_hands = 2
+        config = {
+            "setNumHands": num_hands,
+        }
+        env = make(
+            'open_spiel_repeated_poker',
+            config,
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
+        for i in range(num_hands):
+            if i % 2 == 0:
+                env.step([{"submission": -1}, {"submission": 0}])
+            else:
+                env.step([{"submission": 0}, {"submission": -1}])
+        self.assertTrue(env.done)
+        self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
 
 if __name__ == "__main__":
     absltest.main()

@@ -7,6 +7,7 @@ import logging
 import os
 import pathlib
 import random
+import re
 import sys
 from typing import Any, Callable
 
@@ -222,6 +223,18 @@ def interpreter(
     # --- Get and maybe initialize game and state on the env object ---
     if not hasattr(env, "os_game"):
         game_string = env.configuration.get("openSpielGameString")
+        # TODO(jhtschultz): Consolidate these competition-specific config fields
+        if env.configuration.get("setNumHands", None):
+            if "repeated_poker" not in game_string:
+                raise ValueError(
+                    "setNumHands only supported for repeated_poker,"
+                    f" not {game_string}"
+                )
+            game_string = re.sub(
+                r'(max_num_hands=)\d+',
+                f'max_num_hands={env.configuration.get("setNumHands")}',
+                game_string,
+            )
         env.os_game = pyspiel.load_game(game_string)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
