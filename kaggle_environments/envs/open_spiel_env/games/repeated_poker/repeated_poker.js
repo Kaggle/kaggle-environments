@@ -43,7 +43,7 @@ function renderer(options) {
 
     .poker-renderer-host {
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-      font-family: 'Zeitung Pro', sans-serif; background-color: #2d3748; color: #fff;
+      font-family: 'Zeitung Pro', sans-serif; background-color: #1C1D20; color: #fff;
       overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
     }
     .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
@@ -135,10 +135,11 @@ function renderer(options) {
     .pot-display { font-size: 40px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
     .bet-display {
       display: inline-block; padding: 10px 20px; border-radius: 12px;
-      background-color: #1a202c; color: #ffff;
+      background-color: #3C4043; color: #ffff;
       font-family: 'Inter' sans-serif; font-size: 1.75rem; font-weigth: 600;
       text-align: center;
       height: 3rem; line-height: 3rem;
+      min-width: 200px;
     }
     .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
     .dealer-button {
@@ -151,7 +152,7 @@ function renderer(options) {
     #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
     @media (max-width: 768px) {
-      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
+      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; min-width: 0;}
       .card { width: 60px; height: 85px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
       .community-cards-container { gap: 6px; }
       .player-card-area { min-height: 120px; }
