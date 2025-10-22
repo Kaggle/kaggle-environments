@@ -1,0 +1,11 @@
+# Function dependencies, for example:
+# package>=version
+kaggle-environments==VERSION_FROM_CICD_DEPLOY
+flask
+gym
+jsonschema
+numpy
+requests
+PettingZoo
+scipy
+functions-framework==3.4.0
