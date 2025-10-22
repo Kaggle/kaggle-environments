@@ -333,14 +333,15 @@ function renderer(options) {
       playerAreaWrapper.appendChild(playerCardArea);
       elements.playerCardAreas.push(playerCardArea);
 
+      // TODO: Render chip stack
       // Info area (right side)
       const playerInfoArea = document.createElement('div');
       playerInfoArea.className = `player-info-area`;
       playerInfoArea.innerHTML = `
         <div class="player-stack">
-            <span class="player-stack-value">$0.00</span>
+            <span class="player-stack-value">0</span>
         </div>
-        <div class="bet-display" style="display:none;">Bet: $0.00</div>
+        <div class="bet-display" style="display:none;">Bet : 0</div>
       `;
       playerAreaWrapper.appendChild(playerInfoArea);
       elements.playerInfoAreas.push(playerInfoArea);
@@ -352,6 +353,78 @@ function renderer(options) {
     elements.dealerButton.style.display = 'none';
     elements.playersContainer.appendChild(elements.dealerButton);
     return true;
+  }
+
+  function _parseACPCPokerState(acpcState) {
+    const result = {
+      p0cards: '',
+      p1cards: '',
+      communityCards: '',
+      p0bet: 0,
+      p1bet: 0,
+    };
+
+    // Split the string into its main lines
+    const lines = acpcState.trim().split('\n');
+    if (lines.length < 2) {
+      console.error("Invalid state string format.");
+      return result;
+    }
+
+    const stateLine = lines[0]; // example: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
+    const spentLine = lines[1]; // example: "Spent: [P0: 11  P1: 11  ]"
+
+    // --- 1. Parse the State Line ---
+    if (stateLine) {
+      const stateParts = stateLine.split(':');
+
+      // The card string is always the last part
+      const cardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
+
+      // Split card string by '/' to separate hand block from board blocks
+      const cardSegments = cardString.split('/'); // example: ["6cKd|AsJc", "7hQh6d", "2c"]
+
+      // Parse the first segment (player hands)
+      if (cardSegments[0]) {
+        const playerHands = cardSegments[0].split('|');
+        if (playerHands.length >= 2) {
+          // example: "6cKd"
+          result.p0cards = playerHands[0];
+          result.p1cards = playerHands[1];
+        }
+      }
+
+      // The rest of the segments are community cards, one per street
+      result.communityCards = cardSegments
+        .slice(1) // gets all elements AFTER the player hands
+        .filter(Boolean) // removes any empty strings (e.g., from a trailing "/")
+        .join(''); // joins the remaining segments into a single string
+    }
+
+    // --- 2. Parse the Spent Line ---
+    if (spentLine) {
+      const p0BetMatch = spentLine.match(/P0:\s*(\d+)/);
+      const p1BetMatch = spentLine.match(/P1:\s*(\d+)/);
+
+      if (p0BetMatch) {
+        result.p0bet = parseInt(p0BetMatch[1], 10);
+      }
+
+      if (p1BetMatch) {
+        result.p1bet = parseInt(p1BetMatch[1], 10);
+      }
+    }
+
+    return result;
+  }
+
+  function _getCurrentACPCPokerState(options) {
+    const { environment, step } = options;
+
+    const agentSteps = environment.info.stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
+
+    const currentStep = agentSteps[step];
+    return JSON.parse(JSON.parse(currentStep).current_universal_poker_json);
   }
 
   // --- State Parsing ---
@@ -383,6 +456,104 @@ function renderer(options) {
       gameMessage: "Initializing...",
       rawObservation: null, // For debugging
     };
+
+    // --- Step Validation ---
+    if (!environment || !environment.steps || !environment.steps[step] || !environment.info) {
+      return defaultUIData;
+    }
+
+    currentStateHistory = JSON.parse(environment.info.stateHistory[step]);
+    currentUniversalPokerState = JSON.parse(currentStateHistory.current_universal_poker_json);
+
+    // TODO: Handle the flop phase steps (chance steps)
+
+    currentUniversalPokerJSON = _getCurrentACPCPokerState(options);
+    console.log(currentUniversalPokerJSON);
+    currentStepFromStateHistory = _parseACPCPokerState(currentUniversalPokerJSON.acpc_state);
+
+    const currentStepAgents = environment.steps[step];
+    if (!currentStepAgents || currentStepAgents.length < numPlayers) {
+      defaultUIData.gameMessage = "Waiting for agent data...";
+      return defaultUIData;
+    }
+
+
+    const pot_size = currentStepFromStateHistory.p0bet + currentStepFromStateHistory.p1bet;
+    const player_contributions = [currentStepFromStateHistory.p0bet, currentStepFromStateHistory.p1bet];
+    const starting_stacks = currentUniversalPokerJSON.starting_stacks;
+    const player_hands = [
+      currentStepFromStateHistory.p0cards ? currentStepFromStateHistory.p0cards.match(/.{1,2}/g) : [],
+      currentStepFromStateHistory.p1cards ? currentStepFromStateHistory.p1cards.match(/.{1,2}/g) : [],
+    ];
+    const board_cards = currentStepFromStateHistory.communityCards ? currentStepFromStateHistory.communityCards.match(/.{1,2}/g).reverse() : [];
+    const current_player = currentStepFromStateHistory.current_player;
+    const betting_history = currentStepFromStateHistory.betting_history;
+
+    // TODO: Add odds, best_five_card_hands best_hand_rank_types
+
+    const isTerminal = false // TODO: read isTerminal from observation
+    defaultUIData.isTerminal = isTerminal;
+    defaultUIData.pot = pot_size || 0;
+    defaultUIData.communityCards = board_cards || [];
+
+
+    // --- Update Player Pods ---
+    for (let i = 0; i < numPlayers; i++) {
+      const pData = defaultUIData.players[i];
+      const contribution = player_contributions ? player_contributions[i] : 0;
+      const startStack = starting_stacks ? starting_stacks[i] : 0;
+
+      pData.currentBet = contribution;
+      pData.stack = startStack - contribution;
+      pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
+      pData.isTurn = String(i) === String(current_player);
+      pData.status = pData.position; // Default status
+
+      if (isTerminal) {
+        const reward = environment.rewards ? environment.rewards[i] : null;
+        pData.reward = reward;
+        if (reward > 0) {
+          pData.name = `${pData.name} wins 🎉`;
+          pData.isWinner = true;
+          pData.status = null;
+        } else {
+          pData.status = null;
+        }
+      } else if (pData.stack === 0 && pData.currentBet > 0) {
+        pData.status = "All-in";
+      }
+    }
+
+    // // Handle folded player status
+    if (!isTerminal && betting_history && betting_history.includes('f')) {
+      // A simple fold check: the player who didn't make the last action and isn't the current player might have folded.
+      // This is a simplification. A more robust parser would track the betting sequence.
+      const lastAction = betting_history.slice(-1);
+      if (lastAction === 'f') {
+        // Find who is NOT the current player
+        const nonCurrentPlayerIndex = current_player === '0' ? 1 : 0;
+        // If they are not all-in, they folded.
+        if (defaultUIData.players[nonCurrentPlayerIndex].status !== 'All-in') {
+          defaultUIData.players[nonCurrentPlayerIndex].status = "Folded";
+        }
+      }
+    }
+
+
+    // // --- Set Game Message ---
+    if (isTerminal) {
+      const winnerIndex = environment.rewards ? environment.rewards.findIndex(r => r > 0) : -1;
+      if (winnerIndex !== -1) {
+        defaultUIData.gameMessage = `Player ${winnerIndex} wins!`;
+      } else {
+        defaultUIData.gameMessage = "Game Over.";
+      }
+    } else if (current_player === "chance") {
+      defaultUIData.gameMessage = `Dealing...`;
+    } else {
+      defaultUIData.gameMessage = `Player ${current_player}'s turn.`;
+    }
+
     return defaultUIData;
   }
 
