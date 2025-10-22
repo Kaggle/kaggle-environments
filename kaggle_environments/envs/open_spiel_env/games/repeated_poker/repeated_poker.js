@@ -355,7 +355,7 @@ function renderer(options) {
     return true;
   }
 
-  function _parseACPCPokerState(acpcState) {
+  function _parseACPCState(acpcState) {
     const result = {
       p0cards: '',
       p1cards: '',
@@ -418,7 +418,7 @@ function renderer(options) {
     return result;
   }
 
-  function _getCurrentACPCPokerState(options) {
+  function _getCurrentStepUniversalPokerJSON(options) {
     const { environment, step } = options;
 
     const agentSteps = environment.info.stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
@@ -467,9 +467,8 @@ function renderer(options) {
 
     // TODO: Handle the flop phase steps (chance steps)
 
-    currentUniversalPokerJSON = _getCurrentACPCPokerState(options);
-    console.log(currentUniversalPokerJSON);
-    currentStepFromStateHistory = _parseACPCPokerState(currentUniversalPokerJSON.acpc_state);
+    currentUniversalPokerJSON = _getCurrentStepUniversalPokerJSON(options);
+    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state);
 
     const currentStepAgents = environment.steps[step];
     if (!currentStepAgents || currentStepAgents.length < numPlayers) {
@@ -524,7 +523,7 @@ function renderer(options) {
       }
     }
 
-    // // Handle folded player status
+    // Handle folded player status
     if (!isTerminal && betting_history && betting_history.includes('f')) {
       // A simple fold check: the player who didn't make the last action and isn't the current player might have folded.
       // This is a simplification. A more robust parser would track the betting sequence.
@@ -540,7 +539,7 @@ function renderer(options) {
     }
 
 
-    // // --- Set Game Message ---
+    // --- Set Game Message ---
     if (isTerminal) {
       const winnerIndex = environment.rewards ? environment.rewards.findIndex(r => r > 0) : -1;
       if (winnerIndex !== -1) {
