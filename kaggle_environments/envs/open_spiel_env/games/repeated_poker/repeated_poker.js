@@ -12,7 +12,6 @@ function renderer(options) {
     playerInfoAreas: [],
     dealerButton: null,
     diagnosticHeader: null,
-    gameMessageArea: null,
   };
 
   const css = `
@@ -149,7 +148,6 @@ function renderer(options) {
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
-    #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
     @media (max-width: 768px) {
       .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; min-width: 0;}
@@ -269,10 +267,6 @@ function renderer(options) {
     elements.diagnosticHeader.style.cssText = "color: lime; background-color: black; padding: 5px; font-size: 12px; position: absolute; top: 0px; left: 0px; z-index: 10001; display: none;"; // Hidden by default
     parentElement.appendChild(elements.diagnosticHeader);
 
-    elements.gameMessageArea = document.createElement('div');
-    elements.gameMessageArea.id = 'game-message-area';
-    parentElement.appendChild(elements.gameMessageArea);
-
     elements.gameLayout = document.createElement('div');
     elements.gameLayout.className = 'poker-game-layout';
     parentElement.appendChild(elements.gameLayout);
@@ -361,7 +355,7 @@ function renderer(options) {
       cards: [],
       communityCards: '',
       bets: [],
-      lastMoves: [],
+      lastAction: ['', ''],
     };
 
     // Split the string into its main lines
@@ -449,15 +443,14 @@ function renderer(options) {
           currentBet: 0,
           isDealer: i === 0,
           isTurn: false,
-          status: "Waiting...",
           reward: null
         };
       }),
       communityCards: [],
       pot: 0,
       isTerminal: false,
-      gameMessage: "Initializing...",
       blinds: [1, 2],
+      lastAction: [],
       rawObservation: null, // For debugging
     };
 
@@ -473,11 +466,10 @@ function renderer(options) {
     // TODO: Handle the flop phase steps (chance steps)
 
     currentUniversalPokerJSON = _getCurrentStepUniversalPokerJSON(options);
-    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state);
+    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state, currentUniversalPokerJSON.current_player);
 
     const currentStepAgents = environment.steps[step];
     if (!currentStepAgents || currentStepAgents.length < numPlayers) {
-      stateUIData.gameMessage = "Waiting for agent data...";
       return stateUIData;
     }
 
@@ -500,7 +492,7 @@ function renderer(options) {
     stateUIData.isTerminal = isTerminal;
     stateUIData.pot = pot_size || 0;
     stateUIData.communityCards = board_cards || [];
-    stateUIData.lastMoves = currentStepFromStateHistory.lastMoves;
+    stateUIData.lastAction = currentStepFromStateHistory.lastAction;
     stateUIData.blinds = currentUniversalPokerState.blinds;
 
     // --- Update Players ---
@@ -530,51 +522,18 @@ function renderer(options) {
       }
     }
 
-    // Handle folded player status
-    if (!isTerminal && betting_history && betting_history.includes('f')) {
-      // A simple fold check: the player who didn't make the last action and isn't the current player might have folded.
-      // This is a simplification. A more robust parser would track the betting sequence.
-      const lastAction = betting_history.slice(-1);
-      if (lastAction === 'f') {
-        // Find who is NOT the current player
-        const nonCurrentPlayerIndex = current_player === '0' ? 1 : 0;
-        // If they are not all-in, they folded.
-        if (stateUIData.players[nonCurrentPlayerIndex].status !== 'All-in') {
-          stateUIData.players[nonCurrentPlayerIndex].status = "Folded";
-        }
-      }
-    }
-
-
-    // --- Set Game Message ---
-    if (isTerminal) {
-      const winnerIndex = environment.rewards ? environment.rewards.findIndex(r => r > 0) : -1;
-      if (winnerIndex !== -1) {
-        stateUIData.gameMessage = `Player ${winnerIndex} wins!`;
-      } else {
-        stateUIData.gameMessage = "Game Over.";
-      }
-    } else if (current_player === "chance") {
-      stateUIData.gameMessage = `Dealing...`;
-    } else {
-      stateUIData.gameMessage = `Player ${current_player}'s turn.`;
-    }
-
     return stateUIData;
   }
 
 
   function _renderPokerTableUI(data, passedOptions) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal, gameMessage } = data;
+    const { players, communityCards, pot, isTerminal } = data;
 
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
       // elements.diagnosticHeader.textContent = `[${passedOptions.step}] P_TURN:${data.rawObservation.current_player} POT:${data.pot}`;
       // elements.diagnosticHeader.style.display = 'block';
-    }
-    if (elements.gameMessageArea) {
-      elements.gameMessageArea.textContent = gameMessage;
     }
 
     elements.communityCardsContainer.innerHTML = '';
@@ -637,8 +596,8 @@ function renderer(options) {
 
         const betDisplay = playerInfoArea.querySelector('.bet-display');
         if (playerData.currentBet > 0) {
-          if (data.lastMoves[index]) {
-            betDisplay.textContent = data.lastMoves[index];
+          if (data.lastAction[index]) {
+            betDisplay.textContent = data.lastAction[index];
           }
           else {
             if (playerData.isDealer) {
