@@ -481,8 +481,6 @@ function renderer(options) {
       currentStepFromStateHistory.cards[1]?.match(/.{1,2}/g) || []
     ];
     const board_cards = currentStepFromStateHistory.communityCards ? currentStepFromStateHistory.communityCards.match(/.{1,2}/g).reverse() : [];
-    const current_player = currentStepFromStateHistory.current_player;
-    const betting_history = currentStepFromStateHistory.betting_history;
 
     // TODO: Add odds, best_five_card_hands best_hand_rank_types
 
