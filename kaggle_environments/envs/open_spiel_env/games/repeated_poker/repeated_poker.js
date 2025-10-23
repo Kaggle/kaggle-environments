@@ -12,7 +12,6 @@ function renderer(options) {
     playerInfoAreas: [],
     dealerButton: null,
     diagnosticHeader: null,
-    gameMessageArea: null,
   };
 
   const css = `
@@ -43,7 +42,7 @@ function renderer(options) {
 
     .poker-renderer-host {
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-      font-family: 'Zeitung Pro', sans-serif; background-color: #2d3748; color: #fff;
+      font-family: 'Zeitung Pro', sans-serif; background-color: #1C1D20; color: #fff;
       overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
     }
     .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
@@ -135,10 +134,11 @@ function renderer(options) {
     .pot-display { font-size: 40px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
     .bet-display {
       display: inline-block; padding: 10px 20px; border-radius: 12px;
-      background-color: #1a202c; color: #ffff;
+      background-color: #3C4043; color: #ffff;
       font-family: 'Inter' sans-serif; font-size: 1.75rem; font-weigth: 600;
       text-align: center;
       height: 3rem; line-height: 3rem;
+      min-width: 200px;
     }
     .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
     .dealer-button {
@@ -148,10 +148,9 @@ function renderer(options) {
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
-    #game-message-area { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; z-index: 20;}
 
     @media (max-width: 768px) {
-      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; }
+      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; min-width: 0;}
       .card { width: 60px; height: 85px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
       .community-cards-container { gap: 6px; }
       .player-card-area { min-height: 120px; }
@@ -268,10 +267,6 @@ function renderer(options) {
     elements.diagnosticHeader.style.cssText = "color: lime; background-color: black; padding: 5px; font-size: 12px; position: absolute; top: 0px; left: 0px; z-index: 10001; display: none;"; // Hidden by default
     parentElement.appendChild(elements.diagnosticHeader);
 
-    elements.gameMessageArea = document.createElement('div');
-    elements.gameMessageArea.id = 'game-message-area';
-    parentElement.appendChild(elements.gameMessageArea);
-
     elements.gameLayout = document.createElement('div');
     elements.gameLayout.className = 'poker-game-layout';
     parentElement.appendChild(elements.gameLayout);
@@ -355,13 +350,12 @@ function renderer(options) {
     return true;
   }
 
-  function _parseACPCState(acpcState) {
+  function _parseACPCState(acpcState, currentPlayer) {
     const result = {
-      p0cards: '',
-      p1cards: '',
+      cards: [],
       communityCards: '',
-      p0bet: 0,
-      p1bet: 0,
+      bets: [],
+      lastAction: ['', ''],
     };
 
     // Split the string into its main lines
@@ -374,10 +368,29 @@ function renderer(options) {
     const stateLine = lines[0]; // example: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
     const spentLine = lines[1]; // example: "Spent: [P0: 11  P1: 11  ]"
 
-    // --- 1. Parse the State Line ---
+    // --- Parse the Spent Line ---
+    if (spentLine) {
+      const p0BetMatch = spentLine.match(/P0:\s*(\d+)/);
+      const p1BetMatch = spentLine.match(/P1:\s*(\d+)/);
+
+      const bets = [0, 0];
+
+      if (p0BetMatch) {
+        bets[0] = parseInt(p0BetMatch[1], 10);
+      }
+
+      if (p1BetMatch) {
+        bets[1] = parseInt(p1BetMatch[1], 10);
+      }
+
+      result.bets = bets;
+    }
+
+    // --- Parse the State Line ---
     if (stateLine) {
       const stateParts = stateLine.split(':');
 
+      // --- Parse Cards ---
       // The card string is always the last part
       const cardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
 
@@ -389,8 +402,7 @@ function renderer(options) {
         const playerHands = cardSegments[0].split('|');
         if (playerHands.length >= 2) {
           // example: "6cKd"
-          result.p0cards = playerHands[0];
-          result.p1cards = playerHands[1];
+          result.cards = [playerHands[0], playerHands[1]];
         }
       }
 
@@ -399,20 +411,6 @@ function renderer(options) {
         .slice(1) // gets all elements AFTER the player hands
         .filter(Boolean) // removes any empty strings (e.g., from a trailing "/")
         .join(''); // joins the remaining segments into a single string
-    }
-
-    // --- 2. Parse the Spent Line ---
-    if (spentLine) {
-      const p0BetMatch = spentLine.match(/P0:\s*(\d+)/);
-      const p1BetMatch = spentLine.match(/P1:\s*(\d+)/);
-
-      if (p0BetMatch) {
-        result.p0bet = parseInt(p0BetMatch[1], 10);
-      }
-
-      if (p1BetMatch) {
-        result.p1bet = parseInt(p1BetMatch[1], 10);
-      }
     }
 
     return result;
@@ -433,7 +431,7 @@ function renderer(options) {
     const numPlayers = 2;
 
     // --- Default State ---
-    const defaultUIData = {
+    const stateUIData = {
       players: Array(numPlayers).fill(null).map((_, i) => {
         const agentName = environment?.info?.TeamNames?.[i] ||
           `Player ${i}`;
@@ -443,23 +441,23 @@ function renderer(options) {
           stack: 0,
           cards: [], // Will be filled with nulls or cards
           currentBet: 0,
-          position: i === 0 ? "Small Blind" : "Big Blind",
           isDealer: i === 0,
           isTurn: false,
-          status: "Waiting...",
           reward: null
         };
       }),
       communityCards: [],
       pot: 0,
       isTerminal: false,
-      gameMessage: "Initializing...",
+      blinds: [1, 2],
+      lastAction: [],
       rawObservation: null, // For debugging
     };
 
     // --- Step Validation ---
     if (!environment || !environment.steps || !environment.steps[step] || !environment.info) {
-      return defaultUIData;
+      // return default state
+      return stateUIData;
     }
 
     currentStateHistory = JSON.parse(environment.info.stateHistory[step]);
@@ -468,45 +466,44 @@ function renderer(options) {
     // TODO: Handle the flop phase steps (chance steps)
 
     currentUniversalPokerJSON = _getCurrentStepUniversalPokerJSON(options);
-    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state);
+    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state, currentUniversalPokerJSON.current_player);
 
     const currentStepAgents = environment.steps[step];
     if (!currentStepAgents || currentStepAgents.length < numPlayers) {
-      defaultUIData.gameMessage = "Waiting for agent data...";
-      return defaultUIData;
+      return stateUIData;
     }
 
-
-    const pot_size = currentStepFromStateHistory.p0bet + currentStepFromStateHistory.p1bet;
-    const player_contributions = [currentStepFromStateHistory.p0bet, currentStepFromStateHistory.p1bet];
+    const pot_size = currentStepFromStateHistory.bets.reduce((a, b) => a + b, 0);
+    const player_contributions = currentStepFromStateHistory.bets;
     const starting_stacks = currentUniversalPokerJSON.starting_stacks;
     const player_hands = [
-      currentStepFromStateHistory.p0cards ? currentStepFromStateHistory.p0cards.match(/.{1,2}/g) : [],
-      currentStepFromStateHistory.p1cards ? currentStepFromStateHistory.p1cards.match(/.{1,2}/g) : [],
+      currentStepFromStateHistory.cards[0]?.match(/.{1,2}/g) || [],
+      currentStepFromStateHistory.cards[1]?.match(/.{1,2}/g) || []
     ];
     const board_cards = currentStepFromStateHistory.communityCards ? currentStepFromStateHistory.communityCards.match(/.{1,2}/g).reverse() : [];
-    const current_player = currentStepFromStateHistory.current_player;
-    const betting_history = currentStepFromStateHistory.betting_history;
 
     // TODO: Add odds, best_five_card_hands best_hand_rank_types
 
+    // TODO: Add current player
+
     const isTerminal = false // TODO: read isTerminal from observation
-    defaultUIData.isTerminal = isTerminal;
-    defaultUIData.pot = pot_size || 0;
-    defaultUIData.communityCards = board_cards || [];
+    stateUIData.isTerminal = isTerminal;
+    stateUIData.pot = pot_size || 0;
+    stateUIData.communityCards = board_cards || [];
+    stateUIData.lastAction = currentStepFromStateHistory.lastAction;
+    stateUIData.blinds = currentUniversalPokerState.blinds;
 
-
-    // --- Update Player Pods ---
+    // --- Update Players ---
     for (let i = 0; i < numPlayers; i++) {
-      const pData = defaultUIData.players[i];
+      const pData = stateUIData.players[i];
       const contribution = player_contributions ? player_contributions[i] : 0;
       const startStack = starting_stacks ? starting_stacks[i] : 0;
 
       pData.currentBet = contribution;
       pData.stack = startStack - contribution;
       pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
-      pData.isTurn = String(i) === String(current_player);
-      pData.status = pData.position; // Default status
+      pData.isTurn = currentUniversalPokerState.current_player === i;
+      pData.isDealer = currentUniversalPokerState.blinds[i] === 1; // infer dealer from small blind
 
       if (isTerminal) {
         const reward = environment.rewards ? environment.rewards[i] : null;
@@ -523,51 +520,18 @@ function renderer(options) {
       }
     }
 
-    // Handle folded player status
-    if (!isTerminal && betting_history && betting_history.includes('f')) {
-      // A simple fold check: the player who didn't make the last action and isn't the current player might have folded.
-      // This is a simplification. A more robust parser would track the betting sequence.
-      const lastAction = betting_history.slice(-1);
-      if (lastAction === 'f') {
-        // Find who is NOT the current player
-        const nonCurrentPlayerIndex = current_player === '0' ? 1 : 0;
-        // If they are not all-in, they folded.
-        if (defaultUIData.players[nonCurrentPlayerIndex].status !== 'All-in') {
-          defaultUIData.players[nonCurrentPlayerIndex].status = "Folded";
-        }
-      }
-    }
-
-
-    // --- Set Game Message ---
-    if (isTerminal) {
-      const winnerIndex = environment.rewards ? environment.rewards.findIndex(r => r > 0) : -1;
-      if (winnerIndex !== -1) {
-        defaultUIData.gameMessage = `Player ${winnerIndex} wins!`;
-      } else {
-        defaultUIData.gameMessage = "Game Over.";
-      }
-    } else if (current_player === "chance") {
-      defaultUIData.gameMessage = `Dealing...`;
-    } else {
-      defaultUIData.gameMessage = `Player ${current_player}'s turn.`;
-    }
-
-    return defaultUIData;
+    return stateUIData;
   }
 
 
   function _renderPokerTableUI(data, passedOptions) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal, gameMessage } = data;
+    const { players, communityCards, pot, isTerminal } = data;
 
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
       // elements.diagnosticHeader.textContent = `[${passedOptions.step}] P_TURN:${data.rawObservation.current_player} POT:${data.pot}`;
       // elements.diagnosticHeader.style.display = 'block';
-    }
-    if (elements.gameMessageArea) {
-      elements.gameMessageArea.textContent = gameMessage;
     }
 
     elements.communityCardsContainer.innerHTML = '';
@@ -630,7 +594,16 @@ function renderer(options) {
 
         const betDisplay = playerInfoArea.querySelector('.bet-display');
         if (playerData.currentBet > 0) {
-          betDisplay.textContent = `Bet: ${playerData.currentBet}`;
+          if (data.lastAction[index]) {
+            betDisplay.textContent = data.lastAction[index];
+          }
+          else {
+            if (playerData.isDealer) {
+              betDisplay.textContent = 'small blind';
+            } else {
+              betDisplay.textContent = 'big blind';
+            }
+          }
           betDisplay.style.display = 'block';
         } else {
           betDisplay.style.display = 'none';
