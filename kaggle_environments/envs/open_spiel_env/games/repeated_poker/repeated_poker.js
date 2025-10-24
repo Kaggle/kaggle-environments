@@ -12,6 +12,7 @@ function renderer(options) {
     playerInfoAreas: [],
     dealerButton: null,
     diagnosticHeader: null,
+    stepCounter: null,
   };
 
   const css = `
@@ -148,6 +149,13 @@ function renderer(options) {
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
+    .step-counter {
+      position: absolute; top: 12px; right: 12px; z-index: 20;
+      background-color: rgba(60, 64, 67, 0.9); color: #ffffff;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 14px; font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
 
     @media (max-width: 768px) {
       .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; min-width: 0;}
@@ -347,6 +355,11 @@ function renderer(options) {
     elements.dealerButton.textContent = 'D';
     elements.dealerButton.style.display = 'none';
     elements.playersContainer.appendChild(elements.dealerButton);
+
+    elements.stepCounter = document.createElement('div');
+    elements.stepCounter.className = 'step-counter';
+    elements.stepCounter.textContent = 'Standby';
+    elements.gameLayout.appendChild(elements.stepCounter);
     return true;
   }
 
@@ -535,6 +548,7 @@ function renderer(options) {
       blinds: [1, 2],
       lastMoves: [],
       rawObservation: null, // For debugging
+      step: step,
     };
 
     // --- Step Validation ---
@@ -609,7 +623,12 @@ function renderer(options) {
 
   function _renderPokerTableUI(data, passedOptions) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal } = data;
+    const { players, communityCards, pot, isTerminal, step } = data;
+
+    // Update step counter
+    if (elements.stepCounter && step !== undefined) {
+      elements.stepCounter.textContent = `Step: ${step}`;
+    }
 
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
