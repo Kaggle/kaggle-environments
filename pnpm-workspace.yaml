@@ -1,3 +1,4 @@
 packages:
   - "web/*"
   - "kaggle_environments/envs/*/visualizer/*"
+  - "kaggle_environments/envs/open_spiel_env/games/*/visualizer/*"
