@@ -34,7 +34,8 @@ while IFS= read -r line; do
 
   if [ -d "$source_dist" ]; then
     # Extract game and visualizer names from the path
-    game_name=$(echo "$pkg_path" | sed 's|.*/envs/\([^/]*\)/.*|\1|')
+    game_dir=$(dirname "$(dirname "$pkg_path")")
+    game_name=$(basename "$game_dir")
     visualizer_name=$(basename "$pkg_path")
     dest_dir="$BUILD_DIR/$game_name/$visualizer_name"
 

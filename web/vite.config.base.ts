@@ -6,6 +6,10 @@ export default defineConfig({
     optimizeDeps: {
         exclude: ['@kaggle-environments/core']
     },
+    server: {
+        port: 5173,
+        cors: true
+    },
     plugins: [
         checker({ typescript: true }),
         {

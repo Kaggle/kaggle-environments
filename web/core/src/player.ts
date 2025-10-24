@@ -18,6 +18,7 @@ export class Player {
     private step = 0;
     private playing = false;
     private speed = 500; // ms per step
+    private mounted = false;
 
     // --- Element references ---
     private viewer: HTMLElement;
@@ -107,17 +108,47 @@ export class Player {
 
     private loadData() {
         const handleMessage = (event: MessageEvent) => {
+            if (!event.data) return;
+
+            let needsRender = false;
+
+            // Update agents if provided
+            if (event.data.agents) {
+                this.agents = event.data.agents;
+                needsRender = true;
+            }
+
+            // Update replay object from 'environment'
             if (event.data.environment) {
-                const replayData: ReplayData = {
-                    name: event.data.environment.name,
-                    version: event.data.environment.version,
-                    steps: event.data.environment.steps,
-                    configuration: event.data.environment.configuration,
-                    info: event.data.environment.info
-                };
-                this.setData(replayData, event.data.agents || []);
-            } else if (event.data.replay) {
-                this.setData(event.data.replay, event.data.agents || []);
+                if (!this.replay) {
+                    this.replay = { name: 'unknown', version: 'unknown', steps: [], configuration: {}, info: {} };
+                }
+                // Use Object.assign to merge new data without overwriting the whole object
+                Object.assign(this.replay, event.data.environment);
+                needsRender = true;
+            }
+
+            // Update steps from 'setSteps'
+            if (event.data.setSteps && this.replay) {
+                this.replay.steps = event.data.setSteps;
+                needsRender = true;
+            }
+
+            // Overwrite replay object if a full 'replay' is provided
+            if (event.data.replay) {
+                this.replay = event.data.replay;
+                needsRender = true;
+            }
+
+            // Update the current step
+            if (typeof event.data.step === 'number') {
+                this.step = event.data.step;
+                needsRender = true;
+            }
+
+            // If any data was updated and we have a replay object, call setData.
+            if (needsRender && this.replay) {
+                this.setData(this.replay, this.agents);
             }
         };
         window.addEventListener('message', handleMessage);
@@ -130,7 +161,7 @@ export class Player {
                     .then((data) => this.setData(data))
                     .catch((err) => console.error(`Error fetching ${replayFile}:`, err));
             } else {
-                this.viewer.innerHTML = '<div>Loading... (No replay file specified)</div>';
+                this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
             }
         } else {
             this.viewer.innerHTML = '<div>Loading...</div>';
@@ -140,9 +171,17 @@ export class Player {
     private setData(replay: ReplayData, agents: any[] = []) {
         this.replay = replay;
         this.agents = agents;
-        this.adapter.mount(this.viewer, this.replay);
-        this.stepSlider.max = (this.replay.steps.length - 1).toString();
+
+        if (!this.mounted) {
+            this.adapter.mount(this.viewer, this.replay);
+            this.mounted = true;
+        }
+
+        // Always update controls and render the current state.
+        this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
         this.renderControls();
+        this.adapter.render(this.step, this.replay, this.agents);
+
         this.tick();
     }
 

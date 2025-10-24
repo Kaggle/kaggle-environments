@@ -1,0 +1,7 @@
+{
+  "extends": "../../../../../../../web/tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true
+  },
+  "include": ["src"]
+}
