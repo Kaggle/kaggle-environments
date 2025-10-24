@@ -14,15 +14,27 @@
 
 import os
 from importlib import import_module
+from importlib.metadata import PackageNotFoundError, version
 from os import listdir
+
 from .agent import Agent
-from .api import get_episode_replay, list_episodes, list_episodes_for_team, list_episodes_for_submission
+from .api import (
+    get_episode_replay,
+    list_episodes,
+    list_episodes_for_team,
+    list_episodes_for_submission,
+)
 from .core import evaluate, make, register
 from .main import http_request
 from . import errors
 from . import utils
 
-__version__ = "1.22.0"
+try:
+    __version__ = version("kaggle-environments")
+except PackageNotFoundError:
+    # Package is not installed. This is a fallback for development mode.
+    __version__ = "dev"
+
 
 __all__ = [
     "Agent",
