@@ -418,16 +418,17 @@ function renderer(options) {
     return lastMoves;
   }
 
-  function _parseACPCState(acpcState, currentPlayer) {
+  function _parseStepHistoryData(universalPokerJSON) {
     const result = {
       cards: [],
       communityCards: '',
       bets: [],
       lastMoves: ['', ''],
+      winOdds: [0, 0],
     };
 
     // Split the string into its main lines
-    const lines = acpcState.trim().split('\n');
+    const lines = universalPokerJSON.acpc_state.trim().split('\n');
     if (lines.length < 2) {
       console.error("Invalid state string format.");
       return result;
@@ -486,9 +487,14 @@ function renderer(options) {
       const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
 
       if (bettingString) {
-        result.lastMoves = _getLastMovesACPC(bettingString, currentPlayer);
+        result.lastMoves = _getLastMovesACPC(bettingString, universalPokerJSON.current_player);
       }
     }
+
+    // Parse win odds
+    p0WinOdds = Number(universalPokerJSON.odds[0]).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 })
+    p1WinOdds = Number(universalPokerJSON.odds[1]).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 })
+    result.winOdds = [p0WinOdds, p1WinOdds];
 
     return result;
   }
@@ -543,7 +549,7 @@ function renderer(options) {
     // TODO: Handle the flop phase steps (chance steps)
 
     currentUniversalPokerJSON = _getCurrentStepUniversalPokerJSON(options);
-    currentStepFromStateHistory = _parseACPCState(currentUniversalPokerJSON.acpc_state, currentUniversalPokerJSON.current_player);
+    currentStepFromStateHistory = _parseStepHistoryData(currentUniversalPokerJSON);
 
     const currentStepAgents = environment.steps[step];
     if (!currentStepAgents || currentStepAgents.length < numPlayers) {
