@@ -350,12 +350,80 @@ function renderer(options) {
     return true;
   }
 
+  function _getLastMovesACPC(bettingString, currentPlayer) {
+    // We will store all human-readable moves here
+    const allMoves = [];
+
+    // Split the action string by street (e.g., ["r5c", "cr11f"])
+    const streets = bettingString.split('/');
+
+    // Process each street's actions
+    for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
+      const streetAction = streets[streetIndex];
+      let i = 0;
+
+      // Preflop (streetIndex 0), action is "open" due to blinds.
+      // Postflop (streetIndex > 0), action is "not open" (first player checks or bets).
+      let isAggressiveActionOpen = (streetIndex === 0);
+
+      // 4. Parse the moves within the street
+      while (i < streetAction.length) {
+        const char = streetAction[i];
+        let move = null;
+
+        if (char === 'c') {
+          // 'c' (call/check)
+          if (isAggressiveActionOpen) {
+            move = 'call';
+          } else {
+            move = 'check';
+          }
+          isAggressiveActionOpen = false; // 'c' never leaves action open
+          i++;
+        } else if (char === 'f') {
+          // 'f' (fold)
+          move = 'fold';
+          isAggressiveActionOpen = false; // 'f' ends the hand
+          i++;
+        } else if (char === 'r') {
+          // 'r' (raise/bet)
+          let amount = '';
+          i++;
+          // Continue to parse all digits of the raise amount
+          while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
+            amount += streetAction[i];
+            i++;
+          }
+          move = `raise ${amount}`;
+          isAggressiveActionOpen = true; // 'r' always leaves action open
+        } else {
+          // Should not happen with valid input, but good to prevent infinite loops
+          i++;
+          continue;
+        }
+
+        // 5. Store this move in the history
+        if (move) {
+          allMoves.push(move);
+        }
+      }
+    }
+
+    // 6. Get the last two moves from our complete list
+    const lastMove = allMoves.length > 0 ? allMoves[allMoves.length - 1] : null;
+    const secondLastMove = allMoves.length > 1 ? allMoves[allMoves.length - 2] : null;
+
+    const lastMoves = currentPlayer === 0 ? [secondLastMove, lastMove] : [lastMove, secondLastMove];
+
+    return lastMoves;
+  }
+
   function _parseACPCState(acpcState, currentPlayer) {
     const result = {
       cards: [],
       communityCards: '',
       bets: [],
-      lastAction: ['', ''],
+      lastMoves: ['', ''],
     };
 
     // Split the string into its main lines
@@ -411,6 +479,15 @@ function renderer(options) {
         .slice(1) // gets all elements AFTER the player hands
         .filter(Boolean) // removes any empty strings (e.g., from a trailing "/")
         .join(''); // joins the remaining segments into a single string
+
+      // --- Parse Betting String --
+      // The betting string is everything between the 2nd colon and the last colon.
+      // This handles edge cases like "STATE:0:r5c/cr11c/:cards"
+      const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
+
+      if (bettingString) {
+        result.lastMoves = _getLastMovesACPC(bettingString, currentPlayer);
+      }
     }
 
     return result;
@@ -450,7 +527,7 @@ function renderer(options) {
       pot: 0,
       isTerminal: false,
       blinds: [1, 2],
-      lastAction: [],
+      lastMoves: [],
       rawObservation: null, // For debugging
     };
 
@@ -490,7 +567,7 @@ function renderer(options) {
     stateUIData.isTerminal = isTerminal;
     stateUIData.pot = pot_size || 0;
     stateUIData.communityCards = board_cards || [];
-    stateUIData.lastAction = currentStepFromStateHistory.lastAction;
+    stateUIData.lastMoves = currentStepFromStateHistory.lastMoves;
     stateUIData.blinds = currentUniversalPokerState.blinds;
 
     // --- Update Players ---
@@ -594,8 +671,8 @@ function renderer(options) {
 
         const betDisplay = playerInfoArea.querySelector('.bet-display');
         if (playerData.currentBet > 0) {
-          if (data.lastAction[index]) {
-            betDisplay.textContent = data.lastAction[index];
+          if (data.lastMoves[index]) {
+            betDisplay.textContent = data.lastMoves[index];
           }
           else {
             if (playerData.isDealer) {
