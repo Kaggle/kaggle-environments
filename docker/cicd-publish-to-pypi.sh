@@ -71,6 +71,10 @@ else
     echo "❌ Failed to find package on PyPI after $MAX_RETRIES attempts. Aborting."
     exit 1
   fi
+  # --- SAFETY BUFFER ---
+  # The package is available, but let's wait a bit longer for CDN propagation.
+  echo "Waiting 45 seconds as a safety buffer for CDN propagation..."
+  sleep 45
   # --- RETRY LOGIC END ---
 
   echo "Successfully published and verified. Updating Cloud Run requirements at $CLOUD_RUN_REQS_PATH..."
