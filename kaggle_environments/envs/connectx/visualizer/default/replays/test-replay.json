@@ -1,0 +1,1129 @@
+{
+  "configuration": {
+    "actTimeout": 2,
+    "agentTimeout": 60,
+    "columns": 7,
+    "episodeSteps": 1000,
+    "inarow": 4,
+    "rows": 6,
+    "runTimeout": 1200,
+    "seed": 1846644004,
+    "timeout": 2
+  },
+  "description": "Classic Connect in a row but configurable.",
+  "id": "56e8976c-a93f-11f0-937b-0242ac130203",
+  "info": {
+    "EpisodeId": 73404849,
+    "LiveVideoPath": null,
+    "TeamNames": ["matt", "Vsevolod Gerasimov"]
+  },
+  "name": "connectx",
+  "rewards": [1, -1],
+  "schema_version": 1,
+  "specification": {
+    "action": {
+      "default": 0,
+      "description": "Column to drop a checker onto the board.",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "agents": [2],
+    "configuration": {
+      "actTimeout": {
+        "default": 2,
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "minimum": 0,
+        "type": "number"
+      },
+      "agentTimeout": {
+        "default": 60,
+        "description": "Obsolete field kept for backwards compatibility, please use observation.remainingOverageTime.",
+        "minimum": 0,
+        "type": "number"
+      },
+      "columns": {
+        "default": 7,
+        "description": "The number of columns on the board",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "episodeSteps": {
+        "default": 1000,
+        "description": "Maximum number of steps in the episode.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "inarow": {
+        "default": 4,
+        "description": "The number of checkers in a row required to win.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "rows": {
+        "default": 6,
+        "description": "The number of rows on the board",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "runTimeout": {
+        "default": 1200,
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "minimum": 0,
+        "type": "number"
+      },
+      "timeout": {
+        "default": 2,
+        "description": "Obsolete copy of actTimeout maintained for backwards compatibility. May be removed in the future.",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "info": {},
+    "observation": {
+      "board": {
+        "default": [],
+        "description": "Serialized grid (rows x columns). 0 = Empty, 1 = P1, 2 = P2",
+        "shared": true,
+        "type": "array"
+      },
+      "mark": {
+        "defaults": [1, 2],
+        "description": "Which checkers are the agents.",
+        "enum": [1, 2]
+      },
+      "remainingOverageTime": {
+        "default": 60,
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "minimum": 0,
+        "shared": false,
+        "type": "number"
+      },
+      "step": {
+        "default": 0,
+        "description": "Current step within the episode.",
+        "minimum": 0,
+        "shared": true,
+        "type": "integer"
+      }
+    },
+    "reward": {
+      "default": 0,
+      "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
+      "enum": [-1, 0, 1],
+      "type": ["number", "null"]
+    }
+  },
+  "statuses": ["DONE", "DONE"],
+  "steps": [
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 60,
+          "step": 0
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 3,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 1
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 2
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 3,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 3,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 3
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 4
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 3,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 3,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 5
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 6
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 2,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 2,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 7
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 8
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 2,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 2,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 9
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 10
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 2,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 11
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 12
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 2,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 3,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 0, 0, 0
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 13
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 0, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 14
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 6,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 4,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 2, 0, 2, 1, 1, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 15
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 2, 0, 2, 1, 1, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.529968,
+          "step": 16
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 4,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 6,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 0, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.499233,
+          "step": 17
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
+            2, 1, 0, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.499233,
+          "step": 18
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 6,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 6,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 1, 0, 0,
+            2, 1, 0, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 0, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.456815999999996,
+          "step": 19
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 1, 0, 0,
+            2, 1, 0, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.456815999999996,
+          "step": 20
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 5,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 4,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 0, 0, 1, 0, 0,
+            2, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 21
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 22
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 4,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 4,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 23
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 24
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 6,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 5,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 0, 2, 0, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 25
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 2, 2, 0, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 26
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 5,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 4,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 2, 2, 0, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 27
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 2, 2, 0, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 28
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 6,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 0, 0,
+            2, 1, 1, 2, 2, 1, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 29
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 0, 0, 1, 2, 2, 0, 1, 2, 0,
+            2, 1, 1, 2, 2, 1, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 30
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 0,
+            2, 1, 1, 2, 2, 1, 0, 1, 2, 2, 1, 1, 2, 0, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 31
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 0,
+            2, 1, 1, 2, 2, 1, 0, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 32
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 0,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 33
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 34
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            0, 0, 2, 1, 1, 0, 2, 1, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 35
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 0, 2, 1, 1, 0, 2, 1, 0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 36
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 0, 2, 1, 1, 0, 2, 1, 0, 1, 1, 1, 0, 2, 1, 1, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 37
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 0, 2, 1, 1, 0, 2, 1, 2, 1, 1, 1, 0, 2, 1, 1, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 38
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 1,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 1,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 1, 2, 1, 1, 0, 2, 1, 2, 1, 1, 1, 0, 2, 1, 1, 1, 2, 2, 0, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 39
+        },
+        "reward": 0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 0,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 1, 2, 1, 1, 0, 2, 1, 2, 1, 1, 1, 0, 2, 1, 1, 1, 2, 2, 2, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 40
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": 5,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": 0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": 5,
+        "info": {},
+        "observation": {
+          "board": [
+            2, 1, 2, 1, 1, 0, 2, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 2, 2, 2, 1, 2, 2,
+            2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 1, 1, 2, 2
+          ],
+          "mark": 1,
+          "remainingOverageTime": 38.411392,
+          "step": 41
+        },
+        "reward": 1,
+        "status": "DONE"
+      },
+      {
+        "action": 0,
+        "info": {},
+        "observation": { "mark": 2, "remainingOverageTime": 60 },
+        "reward": -1,
+        "status": "DONE"
+      }
+    ]
+  ],
+  "title": "ConnectX",
+  "version": "1.0.1"
+}
