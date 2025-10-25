@@ -75,6 +75,15 @@ export function renderer(options) {
       justify-content: center;
       margin: 0;
     }
+    .muck-line {
+      position: absolute;
+      width: 780px;
+      height: 300px;
+      border: 1px solid #9AA0A6;
+      border-radius: 240px;
+      pointer-events: none;
+      z-index: 1;
+    }
     .players-container {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
     }
@@ -253,6 +262,10 @@ export function renderer(options) {
         elements.pokerTable = document.createElement('div');
         elements.pokerTable.className = 'poker-table';
         elements.pokerTableContainer.appendChild(elements.pokerTable);
+
+        const muckLine = document.createElement('div');
+        muckLine.className = 'muck-line';
+        elements.pokerTable.appendChild(muckLine);
 
         const communityArea = document.createElement('div');
         communityArea.className = 'community-cards-area';
