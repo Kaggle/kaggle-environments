@@ -45,15 +45,35 @@ export function renderer(options) {
     .poker-renderer-host {
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
       font-family: 'Zeitung Pro', sans-serif; background-color: #1C1D20; color: #fff;
-      overflow: hidden; padding: 1rem; box-sizing: border-box; position: relative;
+      overflow: hidden; box-sizing: border-box; position: relative;
     }
-    .poker-game-layout { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; max-width: 750px; max-height: 750px; }
-    .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 275px; }
+    .poker-game-layout {
+      width: 1000px;
+      height: 700px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transform-origin: center center;
+    }
+    .poker-table-container {
+      width: 100%;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .poker-table {
-      width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 275px);
-      background-color: #197631; border-radius: 24px; position: relative;
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 60px;
+      width: 900px;
+      height: 400px;
+      background: radial-gradient(43.33% 50% at 50% 50%, #20BD48 0%, #0A4018 99.99%);
+      border-radius: 300px;
+      position: relative;
+      border: 20px solid #5C3A21;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
     }
     .players-container {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
@@ -156,49 +176,6 @@ export function renderer(options) {
       padding: 6px 12px; border-radius: 6px;
       font-size: 14px; font-weight: 600;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    @media (max-width: 768px) {
-      .bet-display { font-size: 1.5rem; height: 2.2rem; line-height: 2.2rem; min-width: 0;}
-      .card { width: 60px; height: 85px; } .card-rank { font-size: 35px; } .card-suit { width: 35px; height: 35px; }
-      .community-cards-container { gap: 6px; }
-      .player-card-area { min-height: 120px; }
-      .player-cards-container { gap: 6px; }
-      .player-info-area { min-width: 160px; }
-      .poker-game-layout { max-height: 700px; }
-      .pot-display { font-size: 35px; margin-bottom: 20px; }
-    }
-    @media (max-width: 600px) {
-      .bet-display { font-size: 20px; height: 40px; line-height: 40px; }
-      .card { width: 50px; height: 70px; padding: 2px; } .card-rank { font-size: 32px; } .card-suit { width: 32px; height: 32px; }
-      .community-cards-container { gap: 2px; }
-      .dealer-button { font-size: 20px; height: 24px; line-height: 24px; width: 24px; }
-      .dealer-button.dealer-player0 { bottom: 95px; }
-      .dealer-button.dealer-player1 { top: 95px; }
-      .player-card-area { min-height: 110px; margin: 0 0 0 40px;}
-      .player-cards-container { gap: 2px; }
-      .player-info-area { margin-right: 20px; }
-      .player-name { font-size: 30px; margin: 0 20px; }
-      .player-stack { font-size: 30px; }
-      .poker-game-layout { max-height: 600px; }
-      .poker-table { width: clamp(300px, 90vw, 600px); height: clamp(160px, 50vw, 200px); margin: 20px; }
-      .pot-display { font-size: 30px; margin-bottom: 20px; }
-    }
-    @media (max-width: 400px) {
-      .bet-display { font-size: 15px; height: 30px; line-height: 30px; }
-      .card { width: 40px; height: 56px; margin: 0 2px; padding: 2px; } .card-rank { font-size: 25px; } .card-suit { width: 25px; height: 25px; }
-      .community-cards-container { gap: 2px; }
-      .dealer-button { font-size: 15px; height: 20px; line-height: 20px; width: 20px; }
-      .dealer-button.dealer-player0 { bottom: 85px; }
-      .dealer-button.dealer-player1 { top: 85px; }
-      .player-card-area { margin: 0 0 0 30px;}
-      .player-cards-container { gap: 2px; }
-      .player-info-area { min-width: 100px; margin-right: 0; }
-      .player-name { font-size: 25px; }
-      .player-stack { font-size: 15px; }
-      .poker-game-layout { max-height: 500px; }
-      .poker-table { width: clamp(280px, 95vw, 380px); height: clamp(150px, 55vw, 150px); margin: 0;}
-      .pot-display { font-size: 25px; margin-bottom: 15px; }
     }
   `;
 
@@ -368,6 +345,22 @@ export function renderer(options) {
         return getPokerStateForStep(environment, step);
     }
 
+    function _applyScale(parentElement) {
+        if (!parentElement || !elements.gameLayout) return;
+
+        const parentWidth = parentElement.clientWidth;
+        const parentHeight = parentElement.clientHeight;
+
+        const baseWidth = 1000;
+        const baseHeight = 700;
+
+        const scaleX = parentWidth / baseWidth;
+        const scaleY = parentHeight / baseHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        elements.gameLayout.style.transform = `scale(${scale})`;
+    }
+
     function _renderPokerTableUI(data, passedOptions) {
         if (!elements.pokerTable || !data) return;
         const { players, communityCards, pot, isTerminal, step } = data;
@@ -490,4 +483,15 @@ export function renderer(options) {
 
     const uiData = _parseKagglePokerState(options);
     _renderPokerTableUI(uiData, options);
+
+    // Apply initial scale
+    _applyScale(parent);
+
+    // Watch for container size changes and reapply scale
+    if (typeof ResizeObserver !== 'undefined') {
+        const resizeObserver = new ResizeObserver(() => {
+            _applyScale(parent);
+        });
+        resizeObserver.observe(parent);
+    }
 }
