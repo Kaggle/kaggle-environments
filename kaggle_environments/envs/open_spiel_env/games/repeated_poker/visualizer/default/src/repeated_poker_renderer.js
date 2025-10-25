@@ -48,7 +48,7 @@ export function renderer(options) {
     .poker-table-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; max-width: 750px; max-height: 275px; }
     .poker-table {
       width: clamp(400px, 85vw, 750px); height: clamp(220px, 48vw, 275px);
-      background-color: red; border-radius: 24px; position: relative;
+      background-color: #197631; border-radius: 24px; position: relative;
       display: flex; align-items: center; justify-content: center;
       margin: 0 60px;
     }
