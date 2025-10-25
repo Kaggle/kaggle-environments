@@ -562,7 +562,7 @@ export function renderer(options) {
         };
 
         // --- Step Validation ---
-        if (!environment || !environment.steps || !environment.steps[step] || !environment.info) {
+        if (!environment || !environment.steps || !environment.steps[step] || !environment.info?.stateHistory) {
             // return default state
             return stateUIData;
         }
