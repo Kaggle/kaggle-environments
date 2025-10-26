@@ -152,7 +152,7 @@ export function renderer(options) {
       padding: 6px;
       box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
     }
-    .card-rank { font-family: 'Inter' sans-serif; font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
+    .card-rank { font-family: 'Inter' sans-serif; font-size: 36px; line-height: 1; display: block; align-self: flex-start; }
     .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
     .card-suit svg { width: 100%; height: 100%; }
     .card-red .card-rank { color: #B3261E; }
@@ -192,7 +192,9 @@ export function renderer(options) {
     .dealer-button {
       width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
       text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
-      border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
+      border: 2px solid black;
+      outline: 2px solid #1EBEFF;
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
