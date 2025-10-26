@@ -121,6 +121,7 @@ export function renderer(options) {
     .player-name-wrapper {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 16px;
       margin: 0 60px;
       padding: 10px 0;
@@ -134,15 +135,15 @@ export function renderer(options) {
       flex-shrink: 0;
     }
     .player-name {
-      font-size: 32px; font-weight: 600;
+      font-size: 24px; font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       color: white;
-      text-align: left;
+      text-align: center;
     }
     .player-name.winner { color: #FFEB70; }
-    .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
+    .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
     .player-cards-container { min-height: 70px; display: flex; justify-content: flex-start; align-items:center; gap: 8px; }
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
