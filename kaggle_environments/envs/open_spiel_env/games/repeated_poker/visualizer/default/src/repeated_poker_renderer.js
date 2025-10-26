@@ -11,6 +11,7 @@ export function renderer(options) {
         playersContainer: null,
         playerCardAreas: [],
         playerInfoAreas: [],
+        playerThumbnails: [],
         dealerButton: null,
         diagnosticHeader: null,
         stepCounter: null
@@ -75,6 +76,15 @@ export function renderer(options) {
       justify-content: center;
       margin: 0;
     }
+    .muck-line {
+      position: absolute;
+      width: 780px;
+      height: 300px;
+      border: 1px solid #9AA0A6;
+      border-radius: 240px;
+      pointer-events: none;
+      z-index: 1;
+    }
     .players-container {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
     }
@@ -85,8 +95,8 @@ export function renderer(options) {
       display: flex;
       flex-direction: column;
     }
-    .player-container-0 { bottom: 0; flex-direction: column-reverse; }
-    .player-container-1 { top: 0; }
+    .player-container-0 { top: 0; }
+    .player-container-1 { bottom: 0; flex-direction: column-reverse; }
     .player-area-wrapper {
       display: flex;
       justify-content: space-between;
@@ -107,19 +117,34 @@ export function renderer(options) {
       align-items: left;
       margin-right: 60px;
     }
-    .player-container-0 .player-info-area { flex-direction: column-reverse; }
+    .player-container-1 .player-info-area { flex-direction: column-reverse; }
+    .player-name-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 0 60px;
+      padding: 10px 0;
+    }
+    .player-thumbnail {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: #3C4043;
+      flex-shrink: 0;
+    }
     .player-name {
-      font-size: 32px; font-weight: 600;
+      font-size: 24px; font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       color: white;
-      text-align: left;
-      padding: 10px 0;
-      margin: 0 60px;
+      text-align: center;
     }
     .player-name.winner { color: #FFEB70; }
-    .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
+    .player-name.current-turn { color: #20BEFF; }
+    .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
     .player-cards-container { min-height: 70px; display: flex; justify-content: flex-start; align-items:center; gap: 8px; }
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
@@ -128,7 +153,7 @@ export function renderer(options) {
       padding: 6px;
       box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
     }
-    .card-rank { font-family: 'Inter' sans-serif; font-size: 40px; line-height: 1; display: block; align-self: flex-start; }
+    .card-rank { font-family: 'Inter' sans-serif; font-size: 36px; line-height: 1; display: block; align-self: flex-start; }
     .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
     .card-suit svg { width: 100%; height: 100%; }
     .card-red .card-rank { color: #B3261E; }
@@ -168,7 +193,9 @@ export function renderer(options) {
     .dealer-button {
       width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
       text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
-      border: 3px solid #1EBEFF; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
+      border: 2px solid black;
+      outline: 2px solid #20BEFF;
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
@@ -254,6 +281,10 @@ export function renderer(options) {
         elements.pokerTable.className = 'poker-table';
         elements.pokerTableContainer.appendChild(elements.pokerTable);
 
+        const muckLine = document.createElement('div');
+        muckLine.className = 'muck-line';
+        elements.pokerTable.appendChild(muckLine);
+
         const communityArea = document.createElement('div');
         communityArea.className = 'community-cards-area';
         elements.pokerTable.appendChild(communityArea);
@@ -270,6 +301,7 @@ export function renderer(options) {
         elements.playerCardAreas = [];
         elements.playerInfoAreas = [];
         elements.playerNames = [];
+        elements.playerThumbnails = [];
 
         for (let i = 0; i < 2; i++) {
             // Create player container that groups all player elements
@@ -278,11 +310,23 @@ export function renderer(options) {
             elements.playersContainer.appendChild(playerContainer);
             elements.playerContainers.push(playerContainer);
 
+            // Player name wrapper with thumbnail
+            const playerNameWrapper = document.createElement('div');
+            playerNameWrapper.className = `player-name-wrapper`;
+            playerContainer.appendChild(playerNameWrapper);
+
+            // Player thumbnail
+            const playerThumbnail = document.createElement('img');
+            playerThumbnail.className = `player-thumbnail`;
+            playerThumbnail.style.display = 'none'; // Hidden by default
+            playerNameWrapper.appendChild(playerThumbnail);
+            elements.playerThumbnails.push(playerThumbnail);
+
             // Player name
             const playerName = document.createElement('div');
             playerName.className = `player-name`;
             playerName.textContent = `Player ${i}`;
-            playerContainer.appendChild(playerName);
+            playerNameWrapper.appendChild(playerName);
             elements.playerNames.push(playerName);
 
             // Create wrapper for card and info areas
@@ -409,12 +453,28 @@ export function renderer(options) {
                     playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
                 playerNameElement.textContent = playerNameText;
 
+              // Highlight current player's turn
+              if (playerData.isTurn && !isTerminal) {
+                playerNameElement.classList.add('current-turn');
+              } else {
+                playerNameElement.classList.remove('current-turn');
+              }
+
                 // Add winner class if player won
                 if (playerData.isWinner) {
                     playerNameElement.classList.add('winner');
                 } else {
                     playerNameElement.classList.remove('winner');
                 }
+            }
+
+            // Update thumbnail
+            const playerThumbnailElement = elements.playerThumbnails[index];
+            if (playerThumbnailElement && playerData.thumbnail) {
+                playerThumbnailElement.src = playerData.thumbnail;
+                playerThumbnailElement.style.display = 'block';
+            } else if (playerThumbnailElement) {
+                playerThumbnailElement.style.display = 'none';
             }
 
             // Update card area (left side)

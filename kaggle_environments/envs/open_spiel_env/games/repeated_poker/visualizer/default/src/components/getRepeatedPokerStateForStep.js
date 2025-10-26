@@ -160,7 +160,6 @@ function _getCurrentUniversalPokerFromStateHistory(stateHistory, step) {
 
 
 export const getPokerStateForStep = (environment, step) => {
-  console.log(environment)
   const numPlayers = 2;
   // --- Step Validation ---
   if (!environment || !environment.steps || !environment.steps[step] || !environment.info) {
@@ -173,9 +172,11 @@ export const getPokerStateForStep = (environment, step) => {
     players: Array(numPlayers).fill(null).map((_, i) => {
       const agentName = environment?.info?.TeamNames?.[i] ||
         `Player ${i}`;
+      const thumbnail = environment?.info?.Agents?.[i].ThumbnailUrl;
       return {
         id: `player${i}`,
         name: agentName,
+        thumbnail: thumbnail,
         stack: 0,
         cards: [], // Will be filled with nulls or cards
         currentBet: 0,
