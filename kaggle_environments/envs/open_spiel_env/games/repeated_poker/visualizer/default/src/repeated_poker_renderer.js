@@ -11,6 +11,7 @@ export function renderer(options) {
         playersContainer: null,
         playerCardAreas: [],
         playerInfoAreas: [],
+        playerThumbnails: [],
         dealerButton: null,
         diagnosticHeader: null,
         stepCounter: null
@@ -117,6 +118,21 @@ export function renderer(options) {
       margin-right: 60px;
     }
     .player-container-0 .player-info-area { flex-direction: column-reverse; }
+    .player-name-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 0 60px;
+      padding: 10px 0;
+    }
+    .player-thumbnail {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: #3C4043;
+      flex-shrink: 0;
+    }
     .player-name {
       font-size: 32px; font-weight: 600;
       white-space: nowrap;
@@ -124,8 +140,6 @@ export function renderer(options) {
       text-overflow: ellipsis;
       color: white;
       text-align: left;
-      padding: 10px 0;
-      margin: 0 60px;
     }
     .player-name.winner { color: #FFEB70; }
     .player-stack { font-size: 32px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
@@ -283,6 +297,7 @@ export function renderer(options) {
         elements.playerCardAreas = [];
         elements.playerInfoAreas = [];
         elements.playerNames = [];
+        elements.playerThumbnails = [];
 
         for (let i = 0; i < 2; i++) {
             // Create player container that groups all player elements
@@ -291,11 +306,23 @@ export function renderer(options) {
             elements.playersContainer.appendChild(playerContainer);
             elements.playerContainers.push(playerContainer);
 
+            // Player name wrapper with thumbnail
+            const playerNameWrapper = document.createElement('div');
+            playerNameWrapper.className = `player-name-wrapper`;
+            playerContainer.appendChild(playerNameWrapper);
+
+            // Player thumbnail
+            const playerThumbnail = document.createElement('img');
+            playerThumbnail.className = `player-thumbnail`;
+            playerThumbnail.style.display = 'none'; // Hidden by default
+            playerNameWrapper.appendChild(playerThumbnail);
+            elements.playerThumbnails.push(playerThumbnail);
+
             // Player name
             const playerName = document.createElement('div');
             playerName.className = `player-name`;
             playerName.textContent = `Player ${i}`;
-            playerContainer.appendChild(playerName);
+            playerNameWrapper.appendChild(playerName);
             elements.playerNames.push(playerName);
 
             // Create wrapper for card and info areas
@@ -428,6 +455,15 @@ export function renderer(options) {
                 } else {
                     playerNameElement.classList.remove('winner');
                 }
+            }
+
+            // Update thumbnail
+            const playerThumbnailElement = elements.playerThumbnails[index];
+            if (playerThumbnailElement && playerData.thumbnail) {
+                playerThumbnailElement.src = playerData.thumbnail;
+                playerThumbnailElement.style.display = 'block';
+            } else if (playerThumbnailElement) {
+                playerThumbnailElement.style.display = 'none';
             }
 
             // Update card area (left side)
