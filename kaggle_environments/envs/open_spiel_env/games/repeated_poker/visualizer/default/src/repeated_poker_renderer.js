@@ -116,6 +116,12 @@ export function renderer(options) {
       background-color: rgba(32, 33, 36, 0.70);;
       border-radius: 16px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      border: 2px solid transparent;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .player-info-area.active-player {
+      border-color: #20BEFF;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
     }
     .player-container-0 .player-info-area { flex-direction: column-reverse; }
     .player-name-wrapper {
@@ -488,6 +494,13 @@ export function renderer(options) {
             // Update info area (right side)
             const playerInfoArea = elements.playerInfoAreas[index];
             if (playerInfoArea) {
+                // Highlight active player's pod
+                if (playerData.isTurn && !isTerminal) {
+                    playerInfoArea.classList.add('active-player');
+                } else {
+                    playerInfoArea.classList.remove('active-player');
+                }
+
                 playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
 
                 const betDisplay = playerInfoArea.querySelector('.bet-display');
