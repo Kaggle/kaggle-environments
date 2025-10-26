@@ -50,7 +50,7 @@ export function renderer(options) {
     }
     .poker-game-layout {
       width: 1000px;
-      height: 700px;
+      height: 1000px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -105,8 +105,7 @@ export function renderer(options) {
     }
     .player-info-area {
       color: white;
-      min-width: 200px;
-      max-width: 300px;
+      width: 200px;
       pointer-events: auto;
       display: flex;
       flex-direction: column;
@@ -334,11 +333,11 @@ export function renderer(options) {
             const playerInfoArea = document.createElement('div');
             playerInfoArea.className = `player-info-area`;
             playerInfoArea.innerHTML = `
-        <div class="player-stack">
-            <span class="player-stack-value">0</span>
-        </div>
-        <div class="bet-display" style="display:none;">Bet : 0</div>
-      `;
+            <div class="player-stack">
+              <span class="player-stack-value">0</span>
+            </div>
+            <div class="bet-display" style="display:none;">Bet : 0</div>
+            `;
             playerContainer.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
 
@@ -346,8 +345,8 @@ export function renderer(options) {
             const playerCardArea = document.createElement('div');
             playerCardArea.className = `player-card-area`;
             playerCardArea.innerHTML = `
-        <div class="player-cards-container"></div>
-      `;
+            <div class="player-cards-container"></div>
+            `;
             playerInfoArea.appendChild(playerCardArea);
             elements.playerCardAreas.push(playerCardArea);
         }
@@ -393,7 +392,7 @@ export function renderer(options) {
         const parentHeight = parentElement.clientHeight;
 
         const baseWidth = 1000;
-        const baseHeight = 700;
+      const baseHeight = 1000;
 
         const scaleX = parentWidth / baseWidth;
         const scaleY = parentHeight / baseHeight;
