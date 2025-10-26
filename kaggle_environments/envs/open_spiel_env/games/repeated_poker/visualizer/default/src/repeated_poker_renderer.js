@@ -95,8 +95,8 @@ export function renderer(options) {
       display: flex;
       flex-direction: column;
     }
-    .player-container-0 { bottom: 0; flex-direction: column-reverse; }
-    .player-container-1 { top: 0; }
+    .player-container-0 { top: 0; }
+    .player-container-1 { bottom: 0; flex-direction: column-reverse; }
     .player-area-wrapper {
       display: flex;
       justify-content: space-between;
@@ -117,7 +117,7 @@ export function renderer(options) {
       align-items: left;
       margin-right: 60px;
     }
-    .player-container-0 .player-info-area { flex-direction: column-reverse; }
+    .player-container-1 .player-info-area { flex-direction: column-reverse; }
     .player-name-wrapper {
       display: flex;
       align-items: center;
