@@ -143,6 +143,7 @@ export function renderer(options) {
       text-align: center;
     }
     .player-name.winner { color: #FFEB70; }
+    .player-name.current-turn { color: #20BEFF; }
     .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
     .player-cards-container { min-height: 70px; display: flex; justify-content: flex-start; align-items:center; gap: 8px; }
     .card {
@@ -194,7 +195,7 @@ export function renderer(options) {
       text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
       border: 2px solid black;
-      outline: 2px solid #1EBEFF;
+      outline: 2px solid #20BEFF;
     }
     .dealer-button.dealer-player0 { bottom: 110px; }
     .dealer-button.dealer-player1 { top: 110px; }
@@ -451,6 +452,13 @@ export function renderer(options) {
                 const playerNameText =
                     playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
                 playerNameElement.textContent = playerNameText;
+
+              // Highlight current player's turn
+              if (playerData.isTurn && !isTerminal) {
+                playerNameElement.classList.add('current-turn');
+              } else {
+                playerNameElement.classList.remove('current-turn');
+              }
 
                 // Add winner class if player won
                 if (playerData.isWinner) {
