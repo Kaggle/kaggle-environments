@@ -98,7 +98,7 @@ export function renderer(options) {
     .player-container-0 { top: 0; }
     .player-container-1 { bottom: 0; flex-direction: column-reverse; }
     .player-card-area {
-      margin: 10px 0; color: white; text-align: center;
+      color: white; text-align: center;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       min-height: 100px; pointer-events: auto;
       width: 100%;
@@ -340,10 +340,10 @@ export function renderer(options) {
             const playerInfoArea = document.createElement('div');
             playerInfoArea.className = `player-info-area`;
             playerInfoArea.innerHTML = `
+            <div class="bet-display">Standby</div>
             <div class="player-stack">
               <span class="player-stack-value">0</span>
             </div>
-            <div class="bet-display" style="display:none;">Bet : 0</div>
             `;
             playerContainer.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
