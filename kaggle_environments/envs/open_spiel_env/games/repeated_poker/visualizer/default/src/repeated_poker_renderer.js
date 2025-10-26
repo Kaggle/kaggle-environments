@@ -198,13 +198,14 @@ export function renderer(options) {
     .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
     .dealer-button {
       width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
-      text-align: center; line-height: 36px; font-weight: bold; font-size: 1.5rem; position: absolute;
+      text-align: center; line-height: 36px; font-weight: bold; font-size: 28px; position: absolute;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
       border: 2px solid black;
       outline: 2px solid #20BEFF;
+      left: 320px
     }
-    .dealer-button.dealer-player0 { bottom: 110px; }
-    .dealer-button.dealer-player1 { top: 110px; }
+    .dealer-button.dealer-player0 { bottom: 170px; }
+    .dealer-button.dealer-player1 { top: 170px; }
     .step-counter {
       position: absolute; top: 12px; right: 12px; z-index: 20;
       background-color: rgba(60, 64, 67, 0.9); color: #ffffff;
@@ -398,7 +399,7 @@ export function renderer(options) {
         const parentHeight = parentElement.clientHeight;
 
         const baseWidth = 1000;
-      const baseHeight = 1000;
+        const baseHeight = 1000;
 
         const scaleX = parentWidth / baseWidth;
         const scaleY = parentHeight / baseHeight;
