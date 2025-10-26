@@ -154,13 +154,13 @@ export function renderer(options) {
     .player-cards-container { min-height: 70px; display: flex; justify-content: center; align-items:center; gap: 8px; }
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-      width: 54px; height: 84px; border: 2px solid #202124; border-radius: 8px;
+      width: 44px; height: 70px; border: 2px solid #202124; border-radius: 8px;
       background-color: white; color: black; font-weight: bold; text-align: center; overflow: hidden; position: relative;
       padding: 6px;
       box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
     }
-    .card-rank { font-family: 'Inter' sans-serif; font-size: 36px; line-height: 1; display: block; align-self: flex-start; }
-    .card-suit { width: 40px; height: 40px; display: block; margin-bottom: 2px; }
+    .card-rank { font-family: 'Inter' sans-serif; font-size: 32px; line-height: 1; display: block; align-self: flex-start; }
+    .card-suit { width: 36px; height: 36px; display: block; margin-bottom: 2px; }
     .card-suit svg { width: 100%; height: 100%; }
     .card-red .card-rank { color: #B3261E; }
     .card-red .card-suit svg { fill: #B3261E; }
@@ -185,7 +185,7 @@ export function renderer(options) {
     .card-empty .card-rank, .card-empty .card-suit { display: none; }
     .community-cards-area { text-align: center; z-index: 10; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
     .community-cards-container { min-height: 75px; display: flex; justify-content: center; align-items:center; margin-bottom: 0.5rem; gap: 8px; }
-    .pot-display { font-size: 30px; font-weight: bold; color: #ffffff; margin-bottom: 30px; }
+    .pot-display { font-size: 30px; font-weight: bold; color: #ffffff; margin-bottom: 10px; }
     .bet-display {
       display: inline-block; padding: 10px 20px; border-radius: 30px;
       background-color: #ffffff; color: black;
