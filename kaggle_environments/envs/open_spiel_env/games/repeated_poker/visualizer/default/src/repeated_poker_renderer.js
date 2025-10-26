@@ -100,12 +100,22 @@ export function renderer(options) {
     .player-card-area {
       color: white; text-align: center;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
-      min-height: 100px; pointer-events: auto;
+      pointer-events: auto;
+      flex: 1;
+    }
+    .stack-cards-wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 12px;
       width: 100%;
     }
     .player-info-area {
       color: white;
-      width: 200px;
+      width: auto;
+      min-width: 200px;
       pointer-events: auto;
       display: flex;
       flex-direction: column;
@@ -150,7 +160,7 @@ export function renderer(options) {
     }
     .player-name.winner { color: #FFEB70; }
     .player-name.current-turn { color: #20BEFF; }
-    .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; margin: 16px 0; display: flex; justify-content: center; align-items: center; text-align: center; }
+    .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
     .player-cards-container { min-height: 70px; display: flex; justify-content: center; align-items:center; gap: 8px; }
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
@@ -336,25 +346,25 @@ export function renderer(options) {
             playerNameWrapper.appendChild(playerName);
             elements.playerNames.push(playerName);
 
-            // Info area containing stack, bet, and cards
+          // Info area containing bet, cards, and stack
             const playerInfoArea = document.createElement('div');
             playerInfoArea.className = `player-info-area`;
             playerInfoArea.innerHTML = `
             <div class="bet-display">Standby</div>
-            <div class="player-stack">
-              <span class="player-stack-value">0</span>
+            <div class="stack-cards-wrapper">
+              <div class="player-card-area">
+                <div class="player-cards-container"></div>
+              </div>
+              <div class="player-stack">
+                <span class="player-stack-value">0</span>
+              </div>
             </div>
             `;
             playerContainer.appendChild(playerInfoArea);
             elements.playerInfoAreas.push(playerInfoArea);
 
-            // Card area (inside info area)
-            const playerCardArea = document.createElement('div');
-            playerCardArea.className = `player-card-area`;
-            playerCardArea.innerHTML = `
-            <div class="player-cards-container"></div>
-            `;
-            playerInfoArea.appendChild(playerCardArea);
+          // Get reference to card area (already in DOM)
+          const playerCardArea = playerInfoArea.querySelector('.player-card-area');
             elements.playerCardAreas.push(playerCardArea);
         }
 
