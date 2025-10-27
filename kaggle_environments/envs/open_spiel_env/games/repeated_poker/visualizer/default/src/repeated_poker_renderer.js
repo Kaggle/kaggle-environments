@@ -214,7 +214,9 @@ export function renderer(options) {
     .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
     .dealer-button {
       width: 36px; height: 36px; background-color: #f0f0f0; color: #333; border-radius: 50%;
-      text-align: center; line-height: 36px; font-weight: bold; font-size: 28px; position: absolute;
+      text-align: center; font-weight: bold; font-size: 28px; position: absolute;
+      padding-left: 1px;
+      line-height: 33px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
       border: 2px solid black;
       outline: 2px solid #20BEFF;
