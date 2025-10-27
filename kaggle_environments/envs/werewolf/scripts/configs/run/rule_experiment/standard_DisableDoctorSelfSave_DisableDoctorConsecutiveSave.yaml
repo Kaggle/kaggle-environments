@@ -1,0 +1,104 @@
+# Configuration for the Werewolf game environment
+game_config:
+  seed: 123
+  actTimeout: 900
+  runTimeout: 7200
+  discussion_protocol:
+    name: "RoundRobinDiscussion"
+    params:
+      max_rounds: 2
+      assign_random_first_speaker: true
+  day_voting_protocol:
+    name: "SequentialVoting"
+    params:
+      assign_random_first_voter: true
+  werewolf_night_vote_protocol:
+    name: "SequentialVoting"
+    params:
+      assign_random_first_voter: true
+  night_elimination_reveal_level: role
+  day_exile_reveal_level: role
+  agents:
+    - role: "Werewolf"
+      id: "Kai"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm/gemini/gemini-2.5-flash"
+      display_name: "gemini-2.5-flash"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "gemini/gemini-2.5-flash"
+    - role: "Werewolf"
+      id: "Jordan"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/deepseek-ai-icon-logo-png_seeklogo-611473.png"
+      agent_id: "llm/openrouter/deepseek/deepseek-chat-v3.1"
+      display_name: "deepseek-chat-v3.1"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/deepseek/deepseek-chat-v3.1"
+    - role: "Doctor"
+      role_params:
+        allow_self_save: false
+        allow_consecutive_saves: false
+      id: "Charlie"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm/openrouter/openai/gpt-4o-mini"
+      display_name: "gpt-4o-mini"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/openai/gpt-4o-mini"
+    - role: "Seer"
+      id: "Taylor"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
+      agent_id: "llm/openrouter/qwen/qwen3-235b-a22b-2507"
+      display_name: "qwen3-235b"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/qwen/qwen3-235b-a22b-2507"
+    - role: "Villager"
+      id: "Alex"
+      thumbnail: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg"
+      agent_id: "llm/openrouter/z-ai/glm-4.5"
+      display_name: "glm-4.5"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/z-ai/glm-4.5"
+    - role: "Villager"
+      id: "Jamie"
+      thumbnail: "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png"
+      agent_id: "llm/openrouter/openai/gpt-oss-120b"
+      display_name: "gpt-oss-120b"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/openai/gpt-oss-120b"
+    - role: "Villager"
+      id: "Quinn"
+      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      agent_id: "llm/gemini/gemini-2.5-pro"
+      display_name: "gemini-2.5-pro"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "gemini/gemini-2.5-pro"
+    - role: "Villager"
+      id: "Casey"
+      thumbnail: "https://images.seeklogo.com/logo-png/61/1/qwen-icon-logo-png_seeklogo-611724.png"
+      agent_id: "llm/openrouter/qwen/qwen3-30b-a3b"
+      display_name: "qwen3-30b"
+      agent_harness_name: "llm_harness"
+      chat_mode: "text"
+      enable_bid_reasoning: false
+      llms:
+        - model_name: "openrouter/qwen/qwen3-30b-a3b"
