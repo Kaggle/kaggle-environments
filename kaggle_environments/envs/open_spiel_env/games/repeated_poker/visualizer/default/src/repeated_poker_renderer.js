@@ -148,8 +148,9 @@ export function renderer(options) {
       height: 48px;
       border-radius: 50%;
       object-fit: cover;
-      background-color: #3C4043;
+      background-color: #ffffff;
       flex-shrink: 0;
+      padding: 6px;
     }
     .player-name {
       font-size: 24px; font-weight: 600;
