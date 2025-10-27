@@ -597,7 +597,7 @@ export function renderer(options) {
       const playerNameElement = elements.playerNames[index];
       if (playerNameElement) {
         const playerNameText =
-          playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
+          !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
         playerNameElement.textContent = playerNameText;
 
         // Highlight current player's turn
@@ -661,9 +661,9 @@ export function renderer(options) {
             betDisplay.textContent = data.lastMoves[index];
           } else {
             if (playerData.isDealer) {
-              betDisplay.textContent = 'small blind';
+              betDisplay.textContent = 'Small Blind';
             } else {
-              betDisplay.textContent = 'big blind';
+              betDisplay.textContent = 'Big Blind';
             }
           }
           betDisplay.style.display = 'block';

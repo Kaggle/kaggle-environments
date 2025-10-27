@@ -701,9 +701,9 @@ function renderer(options) {
           }
           else {
             if (playerData.isDealer) {
-              betDisplay.textContent = 'small blind';
+              betDisplay.textContent = 'Small Blind';
             } else {
-              betDisplay.textContent = 'big blind';
+              betDisplay.textContent = 'Big Blind';
             }
           }
           betDisplay.style.display = 'block';
