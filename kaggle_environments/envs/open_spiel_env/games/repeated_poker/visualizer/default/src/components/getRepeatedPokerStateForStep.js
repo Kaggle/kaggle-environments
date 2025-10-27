@@ -22,15 +22,15 @@ function _getLastMovesACPC(bettingString, currentPlayer) {
       if (char === 'c') {
         // 'c' (call/check)
         if (isAggressiveActionOpen) {
-          move = 'call';
+          move = 'Call';
         } else {
-          move = 'check';
+          move = 'Check';
         }
         isAggressiveActionOpen = false; // 'c' never leaves action open
         i++;
       } else if (char === 'f') {
         // 'f' (fold)
-        move = 'fold';
+        move = 'Fold';
         isAggressiveActionOpen = false; // 'f' ends the hand
         i++;
       } else if (char === 'r') {
@@ -42,7 +42,7 @@ function _getLastMovesACPC(bettingString, currentPlayer) {
           amount += streetAction[i];
           i++;
         }
-        move = `raise ${amount}`;
+        move = `Raise ${amount}`;
         isAggressiveActionOpen = true; // 'r' always leaves action open
       } else {
         // Should not happen with valid input, but good to prevent infinite loops
