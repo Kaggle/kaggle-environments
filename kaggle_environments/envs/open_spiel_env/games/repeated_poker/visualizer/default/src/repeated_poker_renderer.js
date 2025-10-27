@@ -50,7 +50,7 @@ export function renderer(options) {
     }
     .poker-game-layout {
       width: 1000px;
-      height: 1000px;
+      height: 900px;
       display: flex;
       align-items: center;
       justify-content: center;
