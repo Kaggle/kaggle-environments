@@ -1,7 +1,20 @@
 import { getPokerStateForStep } from "./components/getRepeatedPokerStateForStep";
 import { acpcCardToDisplay, suitSVGs } from "./components/utils";
+import poker_chip_1 from "./images/poker_chip_1.svg";
+import poker_chip_5 from "./images/poker_chip_5.svg";
+import poker_chip_10 from "./images/poker_chip_10.svg";
+import poker_chip_25 from "./images/poker_chip_25.svg";
+import poker_chip_100 from "./images/poker_chip_100.svg";
 
 export function renderer(options) {
+  const chipImages = {
+    1: poker_chip_1,
+    5: poker_chip_5,
+    10: poker_chip_10,
+    25: poker_chip_25,
+    100: poker_chip_100
+  };
+
   const elements = {
     gameLayout: null,
     pokerTableContainer: null,
@@ -13,6 +26,7 @@ export function renderer(options) {
     playerInfoAreas: [],
     playerThumbnails: [],
     dealerButton: null,
+    chipStacks: [],
     diagnosticHeader: null,
     stepCounter: null
   };
@@ -85,6 +99,9 @@ export function renderer(options) {
       border-radius: 240px;
       pointer-events: none;
       z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .players-container {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;
@@ -222,14 +239,66 @@ export function renderer(options) {
       outline: 2px solid #20BEFF;
       left: 320px
     }
-    .dealer-button.dealer-player0 { bottom: 170px; }
-    .dealer-button.dealer-player1 { top: 170px; }
+    .dealer-button.dealer-player0 { top: 170px; }
+    .dealer-button.dealer-player1 { bottom: 170px; }
     .step-counter {
       position: absolute; top: 12px; right: 12px; z-index: 20;
       background-color: rgba(60, 64, 67, 0.9); color: #ffffff;
       padding: 6px 12px; border-radius: 6px;
       font-size: 14px; font-weight: 600;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    .chip-stack {
+      position: absolute;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      z-index: 12;
+      pointer-events: none;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .chip-stack.chip-stack-player0 {
+      top: 60px;
+    }
+    .chip-stack.chip-stack-player1 {
+      bottom: 60px;
+    }
+    .chip-stack-chips {
+      display: flex;
+      flex-direction: row-reverse;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+    }
+    .chip-denomination-stack {
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      position: relative;
+    }
+    .chip {
+      width: 40px;
+      height: 40px;
+      position: relative;
+      margin-bottom: -34px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+    .chip:first-child {
+      margin-bottom: 0;
+    }
+    .chip img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .chip-stack-label {
+      color: #FFFFFF;
+      font-size: 18px;
+      font-weight: bold;
+      white-space: nowrap;
     }
   `;
 
@@ -277,6 +346,51 @@ export function renderer(options) {
     return cardDiv;
   }
 
+  function updateChipStack(chipStackElement, betAmount) {
+    if (betAmount <= 0) {
+      chipStackElement.style.display = 'none';
+      return;
+    }
+
+    chipStackElement.style.display = 'flex';
+    const chipsContainer = chipStackElement.querySelector('.chip-stack-chips');
+    const labelElement = chipStackElement.querySelector('.chip-stack-label');
+
+    chipsContainer.innerHTML = '';
+    labelElement.textContent = betAmount;
+
+    // Break down bet into denominations (100, 25, 10, 5, 1)
+    const denominations = [100, 25, 10, 5, 1];
+    let remaining = betAmount;
+    const chipCounts = [];
+
+    for (const denom of denominations) {
+      const count = Math.floor(remaining / denom);
+      if (count > 0) {
+        chipCounts.push({ denom, count: Math.min(count, 5) }); // Max 5 of each denomination
+        remaining -= count * denom;
+      }
+    }
+
+    // Render chips separated by denomination (highest to lowest, left to right)
+    chipCounts.forEach(({ denom, count }) => {
+      const denomStack = document.createElement('div');
+      denomStack.className = 'chip-denomination-stack';
+
+      for (let i = 0; i < count; i++) {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        const img = document.createElement('img');
+        img.src = chipImages[denom];
+        img.alt = `${denom} chip`;
+        chip.appendChild(img);
+        denomStack.appendChild(chip);
+      }
+
+      chipsContainer.appendChild(denomStack);
+    });
+  }
+
   // --- Board Parsing and Rendering ---
   function _ensurePokerTableElements(parentElement, passedOptions) {
     if (!parentElement) return false;
@@ -309,6 +423,20 @@ export function renderer(options) {
     const muckLine = document.createElement('div');
     muckLine.className = 'muck-line';
     elements.pokerTable.appendChild(muckLine);
+
+    // Create chip stacks for each player inside the table
+    elements.chipStacks = [];
+    for (let i = 0; i < 2; i++) {
+      const chipStack = document.createElement('div');
+      chipStack.className = `chip-stack chip-stack-player${i}`;
+      chipStack.style.display = 'none';
+      chipStack.innerHTML = `
+        <div class="chip-stack-chips"></div>
+        <div class="chip-stack-label">0</div>
+      `;
+      elements.pokerTable.appendChild(chipStack);
+      elements.chipStacks.push(chipStack);
+    }
 
     const communityArea = document.createElement('div');
     communityArea.className = 'community-cards-area';
@@ -508,6 +636,11 @@ export function renderer(options) {
         (playerData.cards || [null, null]).forEach((cardStr) => {
           playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
         });
+      }
+
+      // Update chip stacks on the table
+      if (elements.chipStacks[index]) {
+        updateChipStack(elements.chipStacks[index], playerData.currentBet);
       }
 
       // Update info area (right side)

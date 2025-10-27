@@ -194,7 +194,6 @@ export const getPokerStateForStep = (environment, step) => {
     step: step,
     winOdds: [],
     fiveCardBestHands: [],
-    lastMoves: [],
     currentPlayer: -1
   };
 
