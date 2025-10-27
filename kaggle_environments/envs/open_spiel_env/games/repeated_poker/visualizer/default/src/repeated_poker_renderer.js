@@ -45,7 +45,7 @@ export function renderer(options) {
 
     .poker-renderer-host {
       width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-      font-family: 'Zeitung Pro', sans-serif; background-color: #1C1D20; color: #fff;
+      font-family: 'Zeitung Pro', sans-serif; background-color: #28303F; color: #fff;
       overflow: hidden; box-sizing: border-box; position: relative;
     }
     .poker-game-layout {
