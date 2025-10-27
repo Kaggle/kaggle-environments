@@ -19,6 +19,7 @@ export class Player {
     private playing = false;
     private speed = 500; // ms per step
     private mounted = false;
+    private showControls = true;
 
     // --- Element references ---
     private viewer: HTMLElement;
@@ -109,6 +110,11 @@ export class Player {
     private loadData() {
         const handleMessage = (event: MessageEvent) => {
             if (!event.data) return;
+
+            if (typeof event.data.controls === 'boolean') {
+                this.showControls = event.data.controls;
+                this.renderControls();
+            }
 
             let needsRender = false;
 
@@ -224,7 +230,7 @@ export class Player {
     };
 
     private renderControls() {
-        if (!this.replay) {
+        if (!this.replay || !this.showControls) {
             this.controls.style.display = 'none';
             return;
         }
