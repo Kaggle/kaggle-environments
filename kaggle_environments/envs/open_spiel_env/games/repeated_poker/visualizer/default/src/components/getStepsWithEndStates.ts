@@ -31,11 +31,46 @@ const _getMoveHistoryFromACPC = (acpcState: string): string => {
   return bettingString;
 }
 
+function _getMovesFromBettingStringACPC(bettingString: string): string[] {
+  const moves = [];
+
+  // Split the action string by street (e.g., ["r5c", "cr11f"])
+  const streets = bettingString.split('/');
+
+  // Process each street's actions
+  for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
+    const streetAction = streets[streetIndex];
+    let i = 0;
+
+    while (i < streetAction.length) {
+      const char = streetAction[i];
+
+      if (char === 'r') {
+        // 'r' (raise)
+        let amount = '';
+        i++;
+        // Continue to parse all digits of the raise amount
+        while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
+          amount += streetAction[i];
+          i++;
+        }
+        moves.push(`r${amount}`);
+      } else {
+        moves.push(char)
+        i++;
+      }
+    }
+  }
+
+  return moves;
+}
+
 
 const _getEndCondition = (stateHistory: any[], stateHistoryPointer: number, currentPlayer: string): ({
   handConclusion: "fold" | "showdown";
   winner: -1 | 0 | 1; // -1 for the rare event of a tie
-  fiveCardBestHand: string[];
+  bestFiveCardHands?: string[];
+  bestHandRankType?: string[];
 }) => {
   const current_player = parseInt(currentPlayer);
 
@@ -45,37 +80,38 @@ const _getEndCondition = (stateHistory: any[], stateHistoryPointer: number, curr
       // for now, fold + tie = impossible state
       handConclusion: "fold",
       winner: -1,
-      fiveCardBestHand: [],
+      bestFiveCardHands: [],
     }
   };
 
+  let next_prev_universal_poker_json = { acpc_state: "", best_five_card_hands: ["", ""], best_hand_rank_types: ["", ""] };
 
-  let current_universal_poker_json = { acpc_state: "", five_card_best_hand: [""] };
-  let prev_universal_poker_json = { acpc_state: "", five_card_best_hand: [""] };
+  // since the current_universal_poker_json does not contain the end move in it's history,
+  // we need to go to the prev_universal_poker_json of the next one
   try {
-    current_universal_poker_json = JSON.parse(JSON.parse(stateHistory[stateHistoryPointer]).current_universal_poker_json);
-  } catch {
-    console.log("current_universal_poker_json parse failed");
-    console.log(stateHistory.length, stateHistoryPointer)
-  }
-  try {
-    prev_universal_poker_json = JSON.parse(JSON.parse(stateHistory[stateHistoryPointer + 1]).prev_universal_poker_json);
-  } catch { console.log("prev_universal_poker_json failed") }
-  console.log("current_player", current_player)
-  console.log("current_universal_poker_json", current_universal_poker_json);
-  console.log("prev_universal_poker_json", prev_universal_poker_json);
+    next_prev_universal_poker_json = JSON.parse(JSON.parse(stateHistory[stateHistoryPointer + 1]).prev_universal_poker_json);
+  } catch { console.error("prev_universal_poker_json parsing failed") }
 
   // if the stateHistory doesn't end in a fold, it was a showdown
-  const bettingString = _getMoveHistoryFromACPC(current_universal_poker_json.acpc_state);
+  const bettingString = _getMoveHistoryFromACPC(next_prev_universal_poker_json.acpc_state);
 
-  console.log("bettingString", bettingString);
+  const moves = _getMovesFromBettingStringACPC(bettingString)
 
-  // const lastMove = bettingString[bettingString.length - 1];
+  // Fold case
+  if (moves.pop() === 'f') {
+    return {
+      handConclusion: "fold",
+      winner: current_player === 0 ? 1 : 0,
+    };
+  }
+
+  // Showdown case
   return {
-    fiveCardBestHand: current_universal_poker_json.five_card_best_hand,
-    handConclusion: "fold",
-    winner: -1,
-  };
+    handConclusion: "showdown",
+    winner: current_player === 0 ? 1 : 0,
+    bestFiveCardHands: next_prev_universal_poker_json.best_five_card_hands,
+    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types,
+  }
 }
 
 
@@ -86,7 +122,7 @@ export interface StepWithEndState {
   stateHistory: any;
   handConclusion?: "fold" | "showdown";
   winner?: -1 | 0 | 1; // -1 for the rare event of a tie
-  fiveCardBestHand?: string[]; // e.g. ['AsJhTh2h2c', 'As9s9h2h2c'] (cards to be highlighted)
+  bestFiveCardHands?: string[]; // e.g. ['AsJhTh2h2c', 'As9s9h2h2c'] (cards to be highlighted)
   bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
 }
 
@@ -125,7 +161,7 @@ export const getStepsWithEndStates = (steps: any[], stateHistory: any[]): StepWi
 
       console.log("handCount", handCount);
       console.log(step);
-      const endState = _getEndCondition(stateHistory, stateHistoryPointer, step.currentPlayer)
+      const endState = _getEndCondition(stateHistory, stateHistoryPointer, step[0].observation.currentPlayer);
 
       // push an extra step to represent the end state
       stepsWithEndStates.push(
