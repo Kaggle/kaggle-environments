@@ -158,9 +158,6 @@ export const getStepsWithEndStates = (steps: any[], stateHistory: any[]): StepWi
         : _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
 
     if (isEndState) {
-
-      console.log("handCount", handCount);
-      console.log(step);
       const endState = _getEndCondition(stateHistory, stateHistoryPointer, step[0].observation.currentPlayer);
 
       // push an extra step to represent the end state
