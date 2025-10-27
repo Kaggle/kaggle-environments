@@ -37,6 +37,10 @@ while IFS= read -r line; do
     game_dir=$(dirname "$(dirname "$pkg_path")")
     game_name=$(basename "$game_dir")
     visualizer_name=$(basename "$pkg_path")
+    # Open Spiel game names are configured dynamically to be prefixed with "open_spiel_"
+    if [[ "$pkg_path" == *"open_spiel_env"* ]]; then
+      game_name="open_spiel_$game_name"
+    fi
     dest_dir="$BUILD_DIR/$game_name/$visualizer_name"
 
     echo "Collecting '$pkg_name' from '$source_dist'"
