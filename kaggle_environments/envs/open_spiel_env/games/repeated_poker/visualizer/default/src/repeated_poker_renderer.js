@@ -703,7 +703,6 @@ export function renderer(options) {
   }
 
   const uiData = _parseKagglePokerState(options);
-  console.log(uiData);
   _renderPokerTableUI(uiData, options);
 
   // Apply initial scale
