@@ -239,8 +239,8 @@ export function renderer(options) {
       outline: 2px solid #20BEFF;
       left: 320px
     }
-    .dealer-button.dealer-player0 { bottom: 170px; }
-    .dealer-button.dealer-player1 { top: 170px; }
+    .dealer-button.dealer-player0 { top: 170px; }
+    .dealer-button.dealer-player1 { bottom: 170px; }
     .step-counter {
       position: absolute; top: 12px; right: 12px; z-index: 20;
       background-color: rgba(60, 64, 67, 0.9); color: #ffffff;
@@ -260,10 +260,10 @@ export function renderer(options) {
       transform: translateX(-50%);
     }
     .chip-stack.chip-stack-player0 {
-      bottom: 60px;
+      top: 60px;
     }
     .chip-stack.chip-stack-player1 {
-      top: 60px;
+      bottom: 60px;
     }
     .chip-stack-chips {
       display: flex;
@@ -703,6 +703,7 @@ export function renderer(options) {
   }
 
   const uiData = _parseKagglePokerState(options);
+  console.log(uiData);
   _renderPokerTableUI(uiData, options);
 
   // Apply initial scale
