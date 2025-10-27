@@ -100,7 +100,7 @@ export function renderer(options) {
     .player-container-1 { bottom: 0; flex-direction: column-reverse; }
     .player-card-area {
       color: white; text-align: center;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      display: flex; justify-content: left; align-items: left;
       pointer-events: auto;
       flex: 1;
     }
@@ -163,7 +163,7 @@ export function renderer(options) {
     .player-name.winner { color: #FFEB70; }
     .player-name.current-turn { color: #20BEFF; }
     .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-    .player-cards-container { min-height: 70px; display: flex; justify-content: center; align-items:center; gap: 8px; }
+    .player-cards-container { min-height: 80px; display: flex; justify-content: center; align-items:center;}
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
       width: 44px; height: 70px; border: 2px solid #202124; border-radius: 8px;
@@ -173,6 +173,10 @@ export function renderer(options) {
     }
     .card-rank { font-family: 'Inter' sans-serif; font-size: 32px; line-height: 1; display: block; align-self: flex-start; }
     .card-suit { width: 36px; height: 36px; display: block; margin-bottom: 2px; }
+    .player-cards-container .card { width: 38px; height: 60px; border-radius: 6px; }
+    .player-cards-container .card:nth-child(2) { transform: rotate(20deg); margin-top: 14px; margin-left: -6px; }
+    .player-cards-container .card-rank { font-size: 26px; }
+    .player-cards-container .card-suit { width: 28px; height: 28px; }
     .card-suit svg { width: 100%; height: 100%; }
     .card-red .card-rank { color: #B3261E; }
     .card-red .card-suit svg { fill: #B3261E; }
