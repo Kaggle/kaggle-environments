@@ -7,6 +7,7 @@ export default defineConfig({
         exclude: ['@kaggle-environments/core']
     },
     server: {
+        host: '0.0.0.0',
         port: 5173,
         cors: true
     },
