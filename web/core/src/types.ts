@@ -24,7 +24,6 @@ export interface BaseGameStep {
   isEndState: boolean;
   step: any;
   stateHistory: any;
-  player: Player;
 }
 
 export interface PokerGameStep extends BaseGameStep {
