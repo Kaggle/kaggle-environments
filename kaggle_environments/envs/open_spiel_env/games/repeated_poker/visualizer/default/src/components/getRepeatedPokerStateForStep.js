@@ -1,5 +1,3 @@
-import { processEpisodeData } from "@kaggle-environments/core";
-
 function _getLastMovesACPC(bettingString, currentPlayer) {
   // We will store all human-readable moves here
   const allMoves = [];
@@ -168,7 +166,7 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
-  const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, "repeated_poker");
+  const stepsWithEndStates = environment.steps;
 
   // --- Default State ---
   const stateUIData = {
