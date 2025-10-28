@@ -14,17 +14,10 @@ export interface ReplayData {
   info?: Record<string, any>;
 }
 
-export interface Player {
-  name: string;
-  thumbnailUrl: string;
-}
-
-
 export interface BaseGameStep {
   isEndState: boolean;
   step: any;
   stateHistory: any;
-  player: Player;
 }
 
 export interface PokerGameStep extends BaseGameStep {
