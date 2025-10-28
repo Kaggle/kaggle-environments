@@ -136,6 +136,22 @@ const _getEndCondition = (
   };
 };
 
+export const getPokerStepLabel = (gameStep: PokerGameStep) => {
+  const decision = gameStep.step?.action?.actionString ?? "";
+  if (decision.length > 0) {
+    return decision
+      .split("move=")[1]
+      .replace(/([a-zA-Z])(\d)/g, "$1 $2")
+      .replace(/(\d)([A-Z])/g, "$1 $2");
+  }
+
+  return "";
+};
+
+export const getPokerStepDescription = (gameStep: PokerGameStep) => {
+  return gameStep.stateHistory;
+};
+
 export const getPokerStepsWithEndStates = (
   steps: any[],
   stateHistory: any[],
