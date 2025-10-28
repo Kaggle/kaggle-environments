@@ -118,7 +118,7 @@ const _getEndCondition = (stateHistory: any[], stateHistoryPointer: number, curr
 
 
 
-export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): PokerGameStep[] => {
+export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[], players: any[]): PokerGameStep[] => {
   const stepsWithEndStates: PokerGameStep[] = [];
   let handCount = 0;
   let stateHistoryPointer = 0;
@@ -140,6 +140,7 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
         isEndState: false,
         step,
         stateHistory: stateHistory[stateHistoryPointer],
+        player: players[step.observation.currentPlayer],
       });
 
 
@@ -159,6 +160,7 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
           isEndState: true,
           step: null,
           stateHistory: stateHistory[stateHistoryPointer],
+          player: { name: "", thumbnailUrl: "" },
           ...endState,
         });
 
