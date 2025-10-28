@@ -130,7 +130,11 @@ export class Player {
                     this.replay = { name: 'unknown', version: 'unknown', steps: [], configuration: {}, info: {} };
                 }
                 // Use Object.assign to merge new data without overwriting the whole object
-                Object.assign(this.replay, event.data.environment);
+                const { steps, ...rest } = event.data.environment;
+                Object.assign(this.replay, rest);
+                if (Array.isArray(steps)) {
+                    this.replay.steps = steps;
+                }
                 needsRender = true;
             }
 
@@ -175,6 +179,7 @@ export class Player {
     }
 
     private setData(replay: ReplayData, agents: any[] = []) {
+        console.log('setData called', replay);
         this.replay = replay;
         this.agents = agents;
 
