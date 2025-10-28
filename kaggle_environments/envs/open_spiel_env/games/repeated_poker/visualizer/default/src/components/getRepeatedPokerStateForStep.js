@@ -267,7 +267,5 @@ export const getPokerStateForStep = (environment, step) => {
     }
   }
 
-  console.log(stateUIData);
-
   return stateUIData;
 }
