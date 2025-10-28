@@ -147,6 +147,7 @@ temp.*
 # node.js files
 node_modules
 **/node_modules
+**/tsconfig.tsbuildinfo
 
 # Java class files
 *.class

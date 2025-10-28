@@ -33,23 +33,53 @@ if (gameVisualizers.length === 0) {
 }
 
 /**
- * Runs a command for a single package. Used for 'dev' or building one visualizer at a time.
+ * Runs a command for a package.
+ * - For 'dev', it first builds all dependencies, then runs dev servers in parallel.
+ * - For 'build', it runs the command only for the selected package.
  */
 const runCommand = (pkg) => {
     const packageName = pkg.name;
     const relativePath = path.relative(process.cwd(), pkg.path);
 
-    // Clear the screen only for the 'dev' command to mimic Vite's behavior
+    // Clear the screen only for 'dev' to mimic Vite's behavior
     if (command === 'dev') {
         console.clear();
     }
 
-    console.log(`Running "pnpm ${command}" in ${relativePath}...`);
+    let cmdToRun, cmdArgs, cwd;
 
-    const child = spawn('pnpm', [command], {
+    if (command === 'dev') {
+        try {
+            // STEP 1: Build all dependencies of the target package first.
+            // The `...^` syntax targets all dependencies, but NOT the package itself.
+            console.log(`[1/2] Building dependencies for ${packageName}...`);
+            execSync(`pnpm --filter ${packageName}...^ build`, {
+                stdio: 'inherit',
+                cwd: process.cwd()
+            });
+            console.log(`✅ Dependencies built successfully.`);
+        } catch (e) {
+            console.error('\n❌ Initial build of dependencies failed. Aborting.');
+            process.exit(1);
+        }
+
+        // STEP 2: Now, run the parallel dev/watch commands.
+        console.log(`\n[2/2] Starting dev servers for ${packageName} and its dependencies...`);
+        cmdToRun = 'pnpm';
+        cmdArgs = ['--parallel', '--filter', `${packageName}...`, 'dev'];
+        cwd = process.cwd(); // Run from the monorepo root
+    } else {
+        // For 'build' of a single package, the original logic is fine.
+        console.log(`Running "pnpm ${command}" in ${relativePath}...`);
+        cmdToRun = 'pnpm';
+        cmdArgs = [command];
+        cwd = pkg.path; // Run inside the specific package directory
+    }
+
+    const child = spawn(cmdToRun, cmdArgs, {
         stdio: 'inherit',
-        shell: true, // Use shell: true to ensure pnpm is found in the path
-        cwd: pkg.path,
+        shell: true,
+        cwd: cwd,
         env: {
             ...process.env,
             VITE_CUSTOM_HEADER_NAME: packageName,
@@ -64,7 +94,6 @@ const runCommand = (pkg) => {
     child.on('exit', (code) => {
         if (code !== 0) {
             console.error(`\n'${packageName} ${command}' process exited with code ${code}`);
-            // Propagate the error code for CI/CD environments
             process.exit(code);
         }
     });
