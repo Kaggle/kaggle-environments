@@ -197,7 +197,7 @@ export const getPokerStateForStep = (environment, step) => {
     winOdds: [],
     fiveCardBestHands: [],
     currentPlayer: -1,
-    winner: -1 | 0 | 1,
+    winner: -1,
   };
 
   // We have two sources for current game state: stepHistory and steps
