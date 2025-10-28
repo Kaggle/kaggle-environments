@@ -14,15 +14,12 @@ export interface ReplayData {
   info?: Record<string, any>;
 }
 
-<<<<<<< HEAD
 export interface Player {
   name: string;
   thumbnailUrl: string;
 }
 
 
-=======
->>>>>>> 9e2933f961ba87f500e7bc1ab34fc75e5ab83dd9
 export interface BaseGameStep {
   isEndState: boolean;
   step: any;
