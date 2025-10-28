@@ -140,8 +140,6 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
         isEndState: false,
         step,
         stateHistory: stateHistory[stateHistoryPointer],
-        // player: { name: "System", thumbnailUrl: "" }
-        // player:  players[step.observation.currentPlayer],
       });
 
 
@@ -161,7 +159,6 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
           isEndState: true,
           step: null,
           stateHistory: stateHistory[stateHistoryPointer],
-          // player: { name: "System", thumbnailUrl: "" },
           ...endState,
         });
 
