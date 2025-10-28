@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "dev": "tsc --build --watch"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
