@@ -152,7 +152,6 @@ function _parseStepHistoryData(universalPokerJSON) {
 
 function _getCurrentUniversalPokerFromStateHistory(stateHistory, step) {
   if (stateHistory) {
-
     const agentSteps = stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
     const currentStep = agentSteps[step];
     return JSON.parse(JSON.parse(currentStep).current_universal_poker_json);
@@ -169,7 +168,7 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
-  const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, environment.info.teams, "repeated_poker");
+  const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, "repeated_poker");
 
   // --- Default State ---
   const stateUIData = {
@@ -267,6 +266,8 @@ export const getPokerStateForStep = (environment, step) => {
       pData.status = "All-in";
     }
   }
+
+  console.log(stateUIData);
 
   return stateUIData;
 }
