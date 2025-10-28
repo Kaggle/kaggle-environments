@@ -1,3 +1,5 @@
+import { processEpisodeData } from "@kaggle-environments/core";
+
 function _getLastMovesACPC(bettingString, currentPlayer) {
   // We will store all human-readable moves here
   const allMoves = [];
@@ -150,7 +152,6 @@ function _parseStepHistoryData(universalPokerJSON) {
 
 function _getCurrentUniversalPokerFromStateHistory(stateHistory, step) {
   if (stateHistory) {
-
     const agentSteps = stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
     const currentStep = agentSteps[step];
     return JSON.parse(JSON.parse(currentStep).current_universal_poker_json);
@@ -167,6 +168,8 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
+  const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, "repeated_poker");
+
   // --- Default State ---
   const stateUIData = {
     players: Array(numPlayers).fill(null).map((_, i) => {
@@ -182,29 +185,29 @@ export const getPokerStateForStep = (environment, step) => {
         currentBet: 0,
         isDealer: i === 0,
         isTurn: false,
-        reward: null
+        reward: null,
+        actionDisplayText: ""
       };
     }),
     communityCards: [],
     pot: 0,
     isTerminal: false,
-    blinds: [1, 2],
-    lastMoves: [],
     rawObservation: null, // For debugging
     step: step,
     winOdds: [],
     fiveCardBestHands: [],
-    currentPlayer: -1
+    currentPlayer: -1,
+    winner: -1,
   };
 
   // We have two sources for current game state: stepHistory and steps
   // This is because neither source contains all the information we need 
+  const currentStepData = stepsWithEndStates[step];
 
-  const p0stateFromSteps = environment.steps[step][0];
-  const p1stateFromSteps = environment.steps[step][1];
+  const currentPlayer = currentStepData?.step?.observation?.currentPlayer || 0; // TODO: find better way to get current player
 
-  const currentStateHistory = JSON.parse(environment.info.stateHistory[step]);
-  const currentStateFromStateHistory = JSON.parse(currentStateHistory.current_universal_poker_json);
+  const currentStateHistoryEntry = JSON.parse(currentStepData.stateHistory);
+  const currentStateFromStateHistory = JSON.parse(currentStateHistoryEntry.current_universal_poker_json);
 
   // TODO: Handle the flop phase steps (chance steps)
 
@@ -233,8 +236,6 @@ export const getPokerStateForStep = (environment, step) => {
   stateUIData.isTerminal = isTerminal;
   stateUIData.pot = pot_size || 0;
   stateUIData.communityCards = board_cards || [];
-  stateUIData.lastMoves = currentStepFromStateHistory.lastMoves;
-  stateUIData.blinds = currentStateFromStateHistory.blinds;
 
   // --- Update Players ---
   for (let i = 0; i < numPlayers; i++) {
@@ -245,8 +246,23 @@ export const getPokerStateForStep = (environment, step) => {
     pData.currentBet = contribution;
     pData.stack = startStack - contribution;
     pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
-    pData.isTurn = p0stateFromSteps.observation.currentPlayer === i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
-    pData.isDealer = currentStateFromStateHistory.blinds[i] === 1; // infer dealer from small blind
+    pData.isTurn = currentPlayer === i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
+    pData.isDealer = currentStateHistoryEntry.dealer === i;
+    pData.actionDisplayText = currentStepFromStateHistory.lastMoves[i];
+
+    if (currentStepData.isEndState) {
+      pData.isTurn = false;
+      pData.isWinner = currentStepData.winner === i;
+      if (currentStepData.winner === i) {
+        pData.actionDisplayText = "WINNER"
+      } else {
+        if (currentStepData.handConclusion = "fold") {
+          pData.actionDisplayText = "FOLD"
+        } else {
+          pData.actionDisplayText = "LOSER"
+        }
+      }
+    }
 
     if (isTerminal) {
       const reward = environment.rewards ? environment.rewards[i] : null;

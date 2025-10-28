@@ -85,7 +85,7 @@ const _getEndCondition = (
 } => {
   const current_player = parseInt(currentPlayer);
 
-  if (stateHistoryPointer >= stateHistory.length) {
+  if (stateHistoryPointer >= stateHistory.length - 1) {
     return {
       // TODO: handle tail end
       // for now, fold + tie = impossible state

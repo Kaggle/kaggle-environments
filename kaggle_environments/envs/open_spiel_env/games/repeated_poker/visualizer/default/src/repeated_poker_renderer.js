@@ -151,6 +151,10 @@ export function renderer(options) {
       border-color: #20BEFF;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
     }
+    .player-info-area.winner-player {
+      border-color: #FFEB70;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 235, 112, 0.6);
+    }
     .player-container-0 .player-info-area { flex-direction: column-reverse; }
     .player-name-wrapper {
       display: flex;
@@ -226,6 +230,7 @@ export function renderer(options) {
       text-align: center;
       height: 20pxrem; line-height: 20px;
       width: 150px;
+      height: 20px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
     .blind-indicator { font-size: 0.7rem; color: #a0aec0; margin-top: 3px; }
@@ -560,7 +565,7 @@ export function renderer(options) {
 
     // Update step counter
     if (elements.stepCounter && step !== undefined) {
-      elements.stepCounter.textContent = `Step: ${step}`;
+      elements.stepCounter.textContent = `Debug Step: ${step}`;
     }
 
     if (elements.diagnosticHeader && data.rawObservation) {
@@ -596,9 +601,7 @@ export function renderer(options) {
     players.forEach((playerData, index) => {
       const playerNameElement = elements.playerNames[index];
       if (playerNameElement) {
-        const playerNameText =
-          !playerData.isTurn && !isTerminal ? `${playerData.name} responding...` : playerData.name;
-        playerNameElement.textContent = playerNameText;
+        playerNameElement.textContent = playerData.name;
 
         // Highlight current player's turn
         if (playerData.isTurn && !isTerminal) {
@@ -653,18 +656,21 @@ export function renderer(options) {
           playerInfoArea.classList.remove('active-player');
         }
 
+        // Highlight winner's pod
+        if (playerData.isWinner) {
+          playerInfoArea.classList.add('winner-player');
+        } else {
+          playerInfoArea.classList.remove('winner-player');
+        }
+
         playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
 
         const betDisplay = playerInfoArea.querySelector('.bet-display');
         if (playerData.currentBet > 0) {
-          if (data.lastMoves[index]) {
-            betDisplay.textContent = data.lastMoves[index];
+          if (playerData.actionDisplayText) {
+            betDisplay.textContent = playerData.actionDisplayText;
           } else {
-            if (playerData.isDealer) {
-              betDisplay.textContent = 'Small Blind';
-            } else {
-              betDisplay.textContent = 'Big Blind';
-            }
+            betDisplay.textContent = '';
           }
           betDisplay.style.display = 'block';
         } else {
