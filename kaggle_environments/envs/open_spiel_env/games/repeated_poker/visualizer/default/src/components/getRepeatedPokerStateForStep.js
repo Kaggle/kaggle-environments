@@ -1,3 +1,5 @@
+import { processEpisodeData } from "@kaggle-environments/core";
+
 function _getLastMovesACPC(bettingString, currentPlayer) {
   // We will store all human-readable moves here
   const allMoves = [];
@@ -167,6 +169,8 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
+  const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, environment.info.teams, "repeated_poker");
+
   // --- Default State ---
   const stateUIData = {
     players: Array(numPlayers).fill(null).map((_, i) => {
@@ -199,11 +203,12 @@ export const getPokerStateForStep = (environment, step) => {
 
   // We have two sources for current game state: stepHistory and steps
   // This is because neither source contains all the information we need 
+  const currentStepData = stepsWithEndStates[step];
 
-  const p0stateFromSteps = environment.steps[step][0];
-  const p1stateFromSteps = environment.steps[step][1];
+  const p0stateFromSteps = currentStepData.step[0];
+  const p1stateFromSteps = currentStepData.step[1];
 
-  const currentStateHistory = JSON.parse(environment.info.stateHistory[step]);
+  const currentStateHistory = JSON.parse(currentStepData.stateHistory);
   const currentStateFromStateHistory = JSON.parse(currentStateHistory.current_universal_poker_json);
 
   // TODO: Handle the flop phase steps (chance steps)
