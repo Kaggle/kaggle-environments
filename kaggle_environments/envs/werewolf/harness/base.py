@@ -6,7 +6,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import litellm
 import pyjson5
@@ -361,11 +361,17 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         system_prompt: str = "",
         prompt_template: str = DEFAULT_PROMPT_TEMPLATE,
         kaggle_config=None,
+        litellm_model_proxy_kwargs: Optional[Dict[str, str]] = None,
     ):
         """This wrapper only support 1 LLM."""
         agent_config = agent_config or {}
         decoding_kwargs = agent_config.get("llms", [{}])[0].get("parameters")
+
         self._decoding_kwargs = decoding_kwargs or {}
+        # If we use Model Proxy
+        if litellm_model_proxy_kwargs is not None:
+            self._decoding_kwargs.update(litellm_model_proxy_kwargs)
+
         self._kaggle_config = kaggle_config or {}
         self._chat_mode = agent_config.get("chat_mode", "audio")
         self._enable_bid_reasoning = agent_config.get("enable_bid_reasoning", False)
