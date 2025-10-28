@@ -168,6 +168,8 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
+  // We have two sources for current game state: stepHistory and steps
+  // This is because neither source contains all the information we need 
   const stepsWithEndStates = processEpisodeData(environment.steps, environment.info.stateHistory, "repeated_poker");
 
   // --- Default State ---
@@ -200,14 +202,10 @@ export const getPokerStateForStep = (environment, step) => {
     winner: -1,
   };
 
-  // We have two sources for current game state: stepHistory and steps
-  // This is because neither source contains all the information we need 
+
   const currentStepData = stepsWithEndStates[step];
-
-  const currentPlayer = currentStepData?.step?.observation?.currentPlayer || 0; // TODO: find better way to get current player
-
+  const currentPlayer = currentStepData.currentPlayer;
   const currentStateHistoryEntry = JSON.parse(currentStepData.stateHistory);
-  const currentStateFromStateHistory = JSON.parse(currentStateHistoryEntry.current_universal_poker_json);
 
   // TODO: Handle the flop phase steps (chance steps)
 
@@ -246,7 +244,7 @@ export const getPokerStateForStep = (environment, step) => {
     pData.currentBet = contribution;
     pData.stack = startStack - contribution;
     pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
-    pData.isTurn = currentPlayer === i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
+    pData.isTurn = currentPlayer !== i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
     pData.isDealer = currentStateHistoryEntry.dealer === i;
     pData.actionDisplayText = currentStepFromStateHistory.lastMoves[i];
 
@@ -256,7 +254,7 @@ export const getPokerStateForStep = (environment, step) => {
       if (currentStepData.winner === i) {
         pData.actionDisplayText = "WINNER"
       } else {
-        if (currentStepData.handConclusion = "fold") {
+        if (currentStepData.handConclusion == "fold") {
           pData.actionDisplayText = "FOLD"
         } else {
           pData.actionDisplayText = "LOSER"

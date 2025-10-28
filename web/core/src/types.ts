@@ -18,6 +18,7 @@ export interface BaseGameStep {
   isEndState: boolean;
   step: any;
   stateHistory: any;
+  currentPlayer: number;
 }
 
 export interface PokerGameStep extends BaseGameStep {
@@ -28,5 +29,4 @@ export interface PokerGameStep extends BaseGameStep {
   bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
 }
 
-export type GameStep = PokerGameStep | BaseGameStep
-
+export type GameStep = PokerGameStep | BaseGameStep;

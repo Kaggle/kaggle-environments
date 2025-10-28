@@ -1,4 +1,4 @@
-import { PokerGameStep } from "../types";
+import { GameStep, PokerGameStep } from "../types";
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
@@ -152,6 +152,14 @@ export const getPokerStepDescription = (gameStep: PokerGameStep) => {
   return gameStep.stateHistory;
 };
 
+const extractPlayerNumber = (actionString: string) => {
+  const match = actionString.match(/player=(\d+)/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return -1;
+};
+
 export const getPokerStepsWithEndStates = (
   steps: any[],
   stateHistory: any[],
@@ -171,10 +179,14 @@ export const getPokerStepsWithEndStates = (
     }
 
     const step = steps[i];
+    const relevantSteps: PokerGameStep[] = [];
 
     step.forEach((s: any) => {
       if (s.action.submission !== -1) {
-        stepsWithEndStates.push({
+        const actionString = s.action.actionString;
+
+        relevantSteps.push({
+          currentPlayer: extractPlayerNumber(actionString),
           hand: handCount,
           isEndState: false,
           step: s,
@@ -183,6 +195,8 @@ export const getPokerStepsWithEndStates = (
       }
     });
 
+    stepsWithEndStates.push(...relevantSteps);
+
     const isEndState: boolean =
       // the state history entry is at the end
       stateHistoryPointer >= stateHistory.length - 1
@@ -190,7 +204,7 @@ export const getPokerStepsWithEndStates = (
         : // or the state history entry after it is an initial step
           _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
 
-    if (isEndState) {
+    if (isEndState && relevantSteps.length > 0) {
       const endState = _getEndCondition(
         stateHistory,
         stateHistoryPointer,
@@ -199,6 +213,8 @@ export const getPokerStepsWithEndStates = (
 
       // push an extra step to represent the end state
       stepsWithEndStates.push({
+        // Represents a "system" update
+        currentPlayer: -1,
         hand: handCount,
         isEndState: true,
         step: null,
