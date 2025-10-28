@@ -1,4 +1,4 @@
-import { PokerGameStep } from "../types";
+import { PokerGameStep } from '../types';
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json).current_player !== -1;
@@ -6,7 +6,7 @@ const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
 const _isStateHistoryEntryInitial = (stateHistoryEntry: string): boolean => {
   const state = JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json);
   return state.acpc_state.startsWith('STATE:0::2c2c|2c2c');
-}
+};
 
 const _getMoveHistoryFromACPC = (acpcState: string): string => {
   // Parse the ACPC state line to extract the betting string
@@ -30,7 +30,7 @@ const _getMoveHistoryFromACPC = (acpcState: string): string => {
 
   const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
   return bettingString;
-}
+};
 
 function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   const moves = [];
@@ -57,7 +57,7 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
         }
         moves.push(`r${amount}`);
       } else {
-        moves.push(char)
+        moves.push(char);
         i++;
       }
     }
@@ -66,57 +66,65 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   return moves;
 }
 
-
-const _getEndCondition = (stateHistory: any[], stateHistoryPointer: number, currentPlayer: string): ({
-  handConclusion: "fold" | "showdown";
+const _getEndCondition = (
+  stateHistory: any[],
+  stateHistoryPointer: number,
+  currentPlayer: string
+): {
+  handConclusion: 'fold' | 'showdown';
   winner: -1 | 0 | 1; // -1 for the rare event of a tie
   bestFiveCardHands?: string[];
   bestHandRankType?: string[];
-}) => {
+} => {
   const current_player = parseInt(currentPlayer);
 
   if (stateHistoryPointer >= stateHistory.length) {
     return {
       // TODO: handle tail end
       // for now, fold + tie = impossible state
-      handConclusion: "fold",
+      handConclusion: 'fold',
       winner: -1,
-      bestFiveCardHands: [],
-    }
-  };
+      bestFiveCardHands: []
+    };
+  }
 
-  let next_prev_universal_poker_json = { acpc_state: "", best_five_card_hands: ["", ""], best_hand_rank_types: ["", ""] };
+  let next_prev_universal_poker_json = {
+    acpc_state: '',
+    best_five_card_hands: ['', ''],
+    best_hand_rank_types: ['', '']
+  };
 
   // since the current_universal_poker_json does not contain the end move in it's history,
   // we need to go to the prev_universal_poker_json of the next one
   try {
-    next_prev_universal_poker_json = JSON.parse(JSON.parse(stateHistory[stateHistoryPointer + 1]).prev_universal_poker_json);
-  } catch { console.error("prev_universal_poker_json parsing failed") }
+    next_prev_universal_poker_json = JSON.parse(
+      JSON.parse(stateHistory[stateHistoryPointer + 1]).prev_universal_poker_json
+    );
+  } catch {
+    console.error('prev_universal_poker_json parsing failed');
+  }
 
   // if the stateHistory doesn't end in a fold, it was a showdown
   const bettingString = _getMoveHistoryFromACPC(next_prev_universal_poker_json.acpc_state);
 
-  const moves = _getMovesFromBettingStringACPC(bettingString)
+  const moves = _getMovesFromBettingStringACPC(bettingString);
 
   // Fold case
   if (moves.pop() === 'f') {
     return {
-      handConclusion: "fold",
-      winner: current_player === 0 ? 1 : 0,
+      handConclusion: 'fold',
+      winner: current_player === 0 ? 1 : 0
     };
   }
 
   // Showdown case
   return {
-    handConclusion: "showdown",
+    handConclusion: 'showdown',
     winner: current_player === 0 ? 1 : 0,
     bestFiveCardHands: next_prev_universal_poker_json.best_five_card_hands,
-    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types,
-  }
-}
-
-
-
+    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types
+  };
+};
 
 export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): PokerGameStep[] => {
   const stepsWithEndStates: PokerGameStep[] = [];
@@ -124,43 +132,46 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
   let stateHistoryPointer = 0;
 
   for (let i = 0; i < steps.length; i++) {
-
     // Find the next state history entry that is an agent action
     while (
       stateHistory[stateHistoryPointer] &&
-      !_isStateHistoryAgentAction(stateHistory[stateHistoryPointer])
-      && stateHistoryPointer < stateHistory.length - 1) {
+      !_isStateHistoryAgentAction(stateHistory[stateHistoryPointer]) &&
+      stateHistoryPointer < stateHistory.length - 1
+    ) {
       stateHistoryPointer++;
     }
 
     const step = steps[i];
-    stepsWithEndStates.push(
-      {
-        hand: handCount,
-        isEndState: false,
-        step,
-        stateHistory: stateHistory[stateHistoryPointer],
-      });
 
+    step.forEach((s: any) => {
+      if (s.action.submission !== -1) {
+        stepsWithEndStates.push({
+          hand: handCount,
+          isEndState: false,
+          step: s,
+          stateHistory: stateHistory[stateHistoryPointer]
+        });
+      }
+    });
 
     const isEndState: boolean =
-      // the state history entry is at the end  
-      stateHistoryPointer >= (stateHistory.length - 1) ? true
-        // or the state history entry after it is an initial step
-        : _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
+      // the state history entry is at the end
+      stateHistoryPointer >= stateHistory.length - 1
+        ? true
+        : // or the state history entry after it is an initial step
+        _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
 
     if (isEndState) {
       const endState = _getEndCondition(stateHistory, stateHistoryPointer, step[0].observation.currentPlayer);
 
       // push an extra step to represent the end state
-      stepsWithEndStates.push(
-        {
-          hand: handCount,
-          isEndState: true,
-          step: null,
-          stateHistory: stateHistory[stateHistoryPointer],
-          ...endState,
-        });
+      stepsWithEndStates.push({
+        hand: handCount,
+        isEndState: true,
+        step: null,
+        stateHistory: stateHistory[stateHistoryPointer],
+        ...endState
+      });
 
       // Move to next hand
       handCount++;
@@ -170,4 +181,4 @@ export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): P
   }
 
   return stepsWithEndStates;
-}
+};
