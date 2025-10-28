@@ -1,3 +1,4 @@
+import { PokerGameStep } from "../types";
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json).current_player !== -1;
@@ -115,19 +116,10 @@ const _getEndCondition = (stateHistory: any[], stateHistoryPointer: number, curr
 }
 
 
-export interface StepWithEndState {
-  hand: number;
-  isEndState: boolean;
-  step: any;
-  stateHistory: any;
-  handConclusion?: "fold" | "showdown";
-  winner?: -1 | 0 | 1; // -1 for the rare event of a tie
-  bestFiveCardHands?: string[]; // e.g. ['AsJhTh2h2c', 'As9s9h2h2c'] (cards to be highlighted)
-  bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
-}
 
-export const getStepsWithEndStates = (steps: any[], stateHistory: any[]): StepWithEndState[] => {
-  const stepsWithEndStates: StepWithEndState[] = [];
+
+export const getPokerStepsWithEndStates = (steps: any[], stateHistory: any[]): PokerGameStep[] => {
+  const stepsWithEndStates: PokerGameStep[] = [];
   let handCount = 0;
   let stateHistoryPointer = 0;
 
