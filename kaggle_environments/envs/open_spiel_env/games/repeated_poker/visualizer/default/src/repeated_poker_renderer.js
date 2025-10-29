@@ -597,6 +597,10 @@ export function renderer(options) {
     const numCommunityCards = 5;
     const numCards = communityCards ? communityCards.length : 0;
 
+    // Since the 4th and 5th street cards are appended to the communityCards array, we need to
+    // reverse it so that the added cards are put at the end of the display area on the board.
+    if (communityCards) communityCards.reverse();
+
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
       elements.communityCardsContainer.appendChild(createCardElement(communityCards[i]));
