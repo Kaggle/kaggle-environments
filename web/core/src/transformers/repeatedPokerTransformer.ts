@@ -63,6 +63,102 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   return moves;
 }
 
+export function _getReadableMovesFromBettingStringACPC(
+  bettingString: string,
+): string[] {
+  if (!bettingString) {
+    return [];
+  }
+
+  const moves: string[] = [];
+  const streets = bettingString.split("/");
+  // Heads-up specific ordering: SB acts first preflop, BB acts first postflop
+  const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
+  const NUM_PLAYERS = 2;
+
+  // Track the total amount contributed by each player across the hand.
+  // Start with blinds posted (BB=2, SB=1) for repeated poker.
+  const totalContributions: number[] = [2, 1];
+  // Track the contributions each player had at the start of the street.
+  // Preflop baseline excludes blinds so that we report the amount invested during the action.
+  let streetBaselines: number[] = [0, 0];
+
+  streets.forEach((streetAction, streetIndex) => {
+    const trimmedAction = streetAction.trim();
+    // Update baselines for every street after preflop
+    if (streetIndex > 0) {
+      streetBaselines = [...totalContributions];
+    }
+
+    if (!trimmedAction) {
+      return;
+    }
+
+    let actingPlayer =
+      FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
+
+    let i = 0;
+    while (i < trimmedAction.length) {
+      const char = trimmedAction[i];
+      const currentMax = Math.max(...totalContributions);
+
+      if (char === "r") {
+        let amount = "";
+        i++;
+        while (
+          i < trimmedAction.length &&
+          trimmedAction[i] >= "0" &&
+          trimmedAction[i] <= "9"
+        ) {
+          amount += trimmedAction[i];
+          i++;
+        }
+        const targetTotal = parseInt(amount || "0", 10);
+        const previousTotal = totalContributions[actingPlayer];
+        const roundBaseline = streetBaselines[actingPlayer];
+        const roundTotal = Math.max(targetTotal - roundBaseline, 0);
+        const hasOutstandingBet = currentMax > previousTotal;
+        const verb = hasOutstandingBet ? "Raise" : "Bet";
+
+        if (!Number.isFinite(targetTotal)) {
+          throw new Error(
+            `Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`,
+          );
+        }
+        if (targetTotal <= previousTotal) {
+          throw new Error(
+            `Invalid raise target ${targetTotal} for player ${actingPlayer} (previous total ${previousTotal}).`,
+          );
+        }
+
+        moves.push(`${verb} ${roundTotal}`);
+        totalContributions[actingPlayer] = targetTotal;
+      } else if (char === "c") {
+        const previousTotal = totalContributions[actingPlayer];
+        if (previousTotal === currentMax) {
+          moves.push("Check");
+        } else {
+          const callAmount = currentMax - previousTotal;
+          moves.push(callAmount > 0 ? `Call ${callAmount}` : "Call");
+          totalContributions[actingPlayer] = currentMax;
+        }
+        i++;
+      } else if (char === "f") {
+        moves.push("Fold");
+        i++;
+      } else {
+        throw new Error(
+          `Unknown betting token '${char}' encountered in '${bettingString}'.`,
+        );
+      }
+
+      actingPlayer = (actingPlayer + 1) % NUM_PLAYERS;
+    }
+  });
+
+  return moves;
+}
+
 const _getEndCondition = (
   stateHistory: any[],
   stateHistoryPointer: number,
@@ -316,4 +412,9 @@ export const getPokerStepsWithEndStates = (
   */
 
   return stepsWithEndStates;
+};
+
+export const __testing = {
+  _getMovesFromBettingStringACPC,
+  _getReadableMovesFromBettingStringACPC,
 };
