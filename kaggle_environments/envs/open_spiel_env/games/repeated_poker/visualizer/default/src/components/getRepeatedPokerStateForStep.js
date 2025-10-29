@@ -343,15 +343,19 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
-  // const timeline = getTimeline(environment, numPlayers);
   const event = environment.steps[step];
+
+
+
   if (!event) {
     return null;
   }
-  const stateInfo = getUniversalState(environment, event.stateIndex);
+
+  const stateInfo = getUniversalState(environment, event.stateHistoryIndex);
   if (!stateInfo) {
     return null;
   }
+
 
   const parsedStateHistory = _parseStepHistoryData(
     stateInfo.universal,

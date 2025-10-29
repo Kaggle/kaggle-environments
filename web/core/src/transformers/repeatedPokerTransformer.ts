@@ -379,7 +379,7 @@ export function buildTimeline(environment: any, numPlayers: 2) {
     hands.push({ handNumber: currentHandNumber, states: currentStates });
   }
 
-  const processedSteps = environment || [];
+  const processedSteps = environment.steps || [];
   const actionsByHand = new Map();
   processedSteps.forEach((step: PokerGameStep) => {
     const handNumber = step?.hand ?? 0;
