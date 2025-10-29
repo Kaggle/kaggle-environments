@@ -539,6 +539,8 @@ export function renderer(options) {
       return defaultStateUiData;
     }
 
+    // const actualEnvironment = environment.slice(2);
+
     return getPokerStateForStep(environment, step);
   }
 

@@ -6,15 +6,14 @@ import {
 import { GameStep, PokerGameStep } from "./types";
 
 export const processEpisodeData = (
-  steps: any[],
-  stateHistory: any[],
+  environment: any,
   gameName: string,
 ): GameStep[] => {
   switch (gameName) {
     case "repeated_poker":
-      return getPokerStepsWithEndStates(steps, stateHistory);
+      return getPokerStepsWithEndStates(environment);
     default:
-      return steps;
+      return environment.steps;
   }
 };
 
