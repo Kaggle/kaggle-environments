@@ -168,7 +168,7 @@ export const getPokerStepsWithEndStates = (
   let handCount = 0;
   let stateHistoryPointer = 0;
 
-  const stateHistory = environment.info.state_history ?? [];
+  const stateHistory = environment.info.stateHistory ?? [];
   const steps = environment.steps ?? [];
 
   const advanceToNextAgentEntry = () => {
