@@ -5,7 +5,6 @@ import poker_chip_5 from "./images/poker_chip_5.svg";
 import poker_chip_10 from "./images/poker_chip_10.svg";
 import poker_chip_25 from "./images/poker_chip_25.svg";
 import poker_chip_100 from "./images/poker_chip_100.svg";
-import { processEpisodeData } from "@kaggle-environments/core";
 
 export function renderer(options) {
   const chipImages = {
@@ -536,17 +535,11 @@ export function renderer(options) {
     };
 
     // --- Step Validation ---
-    if (!environment || !environment.steps || !environment.steps[step] || !environment.info?.stateHistory) {
+    if (!environment || !step) {
       return defaultStateUiData;
     }
 
-    const processedSteps = processEpisodeData(
-      environment.steps,
-      environment.info?.stateHistory ?? [],
-      "repeated_poker"
-    );
-
-    return getPokerStateForStep(processedSteps, step);
+    return getPokerStateForStep(environment, step);
   }
 
   function _applyScale(parentElement) {
