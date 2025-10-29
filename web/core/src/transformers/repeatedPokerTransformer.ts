@@ -160,57 +160,93 @@ export const getPokerStepsWithEndStates = (
   let handCount = 0;
   let stateHistoryPointer = 0;
 
-  for (let i = 0; i < steps.length; i++) {
-    // Find the next state history entry that is an agent action
+  const advanceToNextAgentEntry = () => {
     while (
-      stateHistory[stateHistoryPointer] &&
-      !_isStateHistoryAgentAction(stateHistory[stateHistoryPointer]) &&
-      stateHistoryPointer < stateHistory.length - 1
+      stateHistoryPointer < stateHistory.length &&
+      !_isStateHistoryAgentAction(stateHistory[stateHistoryPointer])
     ) {
       stateHistoryPointer++;
     }
+  };
 
+  advanceToNextAgentEntry();
+
+  for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
+    let lastActionPointer = -1;
 
     step.forEach((s: any) => {
       if (s.action.submission !== -1) {
+        if (stateHistoryPointer >= stateHistory.length) {
+          return;
+        }
+
+        const preActionPointer = stateHistoryPointer;
+
         stepsWithEndStates.push({
           hand: handCount,
           isEndState: false,
           step: s,
           stateHistory: stateHistory[stateHistoryPointer],
+          stateHistoryIndex: preActionPointer,
         });
+
+        lastActionPointer = preActionPointer;
+        stateHistoryPointer++;
+
+        const postActionPointer = stateHistoryPointer;
+
+        if (
+          postActionPointer < stateHistory.length &&
+          !_isStateHistoryAgentAction(stateHistory[postActionPointer]) &&
+          !_isStateHistoryEntryInitial(stateHistory[postActionPointer])
+        ) {
+          stepsWithEndStates.push({
+            hand: handCount,
+            isEndState: false,
+            step: null,
+            stateHistory: stateHistory[postActionPointer],
+            stateHistoryIndex: postActionPointer,
+            postActionOf: preActionPointer,
+          });
+        }
+
+        advanceToNextAgentEntry();
       }
     });
 
-    const isEndState: boolean =
-      // the state history entry is at the end
-      stateHistoryPointer >= stateHistory.length - 1
-        ? true
-        : // or the state history entry after it is an initial step
-          _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
+    let lookaheadPointer = lastActionPointer + 1;
+    while (
+      lookaheadPointer < stateHistory.length &&
+      !_isStateHistoryAgentAction(stateHistory[lookaheadPointer]) &&
+      !_isStateHistoryEntryInitial(stateHistory[lookaheadPointer])
+    ) {
+      lookaheadPointer++;
+    }
+
+    const isEndState =
+      lastActionPointer !== -1 &&
+      (lookaheadPointer >= stateHistory.length ||
+        _isStateHistoryEntryInitial(stateHistory[lookaheadPointer]));
 
     if (isEndState) {
       const endState = _getEndCondition(
         stateHistory,
-        stateHistoryPointer,
+        lastActionPointer,
         step[0].observation.currentPlayer,
       );
 
-      // push an extra step to represent the end state
       stepsWithEndStates.push({
         hand: handCount,
         isEndState: true,
         step: null,
-        stateHistory: stateHistory[stateHistoryPointer],
+        stateHistory: stateHistory[lastActionPointer],
+        stateHistoryIndex: lastActionPointer,
         ...endState,
       });
 
-      // Move to next hand
       handCount++;
     }
-
-    stateHistoryPointer++;
   }
 
   return stepsWithEndStates;

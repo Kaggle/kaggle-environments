@@ -1,4 +1,4 @@
-import { Player, GameAdapter, ReplayData } from '@kaggle-environments/core';
+import { Player, GameAdapter, ReplayData, processEpisodeData } from '@kaggle-environments/core';
 import { renderer } from './repeated_poker_renderer.js';
 import { render } from 'preact';
 
@@ -11,10 +11,27 @@ class LegacyAdapter implements GameAdapter {
 
     render(step: number, replay: ReplayData, agents: any[]): void {
         if (!this.container) return;
+
+        const gameName =
+            replay.configuration?.openSpielGameName ??
+            replay.configuration?.game ??
+            'repeated_poker';
+        const rawSteps = (replay as any).__rawSteps ?? replay.steps;
+        const processedSteps = processEpisodeData(
+            replay.steps,
+            replay.info?.stateHistory ?? [],
+            gameName
+        );
+        const processedReplay = {
+            ...replay,
+            steps: processedSteps as unknown as ReplayData['steps']
+        } as ReplayData & { __rawSteps?: ReplayData['steps'] };
+        processedReplay.__rawSteps = rawSteps as any;
+
         this.container.innerHTML = ''; // Clear container before rendering
         renderer({
             parent: this.container,
-            environment: replay,
+            environment: processedReplay,
             step: step,
             agents: agents,
             // These are probably not used by poker but good to have

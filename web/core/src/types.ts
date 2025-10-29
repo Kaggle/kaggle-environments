@@ -18,6 +18,8 @@ export interface BaseGameStep {
   isEndState: boolean;
   step: any;
   stateHistory: any;
+  stateHistoryIndex?: number;
+  postActionOf?: number;
 }
 
 export interface PokerGameStep extends BaseGameStep {
@@ -29,4 +31,3 @@ export interface PokerGameStep extends BaseGameStep {
 }
 
 export type GameStep = PokerGameStep | BaseGameStep
-
