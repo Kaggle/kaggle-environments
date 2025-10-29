@@ -1,5 +1,28 @@
 import { PokerGameStep } from "../types";
 
+const suitMap: Record<string, string> = {
+  s: "Spades",
+  h: "Hearts",
+  d: "Diamonds",
+  c: "Clubs",
+};
+
+const rankMap: Record<string, string> = {
+  "2": "Two",
+  "3": "Three",
+  "4": "Four",
+  "5": "Five",
+  "6": "Six",
+  "7": "Seven",
+  "8": "Eight",
+  "9": "Nine",
+  T: "Ten",
+  J: "Jack",
+  Q: "Queen",
+  K: "King",
+  A: "Ace",
+};
+
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
     .current_player !== -1;
@@ -136,6 +159,166 @@ const _getEndCondition = (
   };
 };
 
+const _getHumanReadableHand = (cards: string): string => {
+  if (!cards || cards.length === 0) return "";
+
+  // Split the input into individual cards (each card is 2 characters)
+  const cardArray = [];
+  for (let i = 0; i < cards.length; i += 2) {
+    if (i + 1 < cards.length) {
+      const rank = cards[i];
+      const suit = cards[i + 1];
+
+      if (rankMap[rank] && suitMap[suit]) {
+        cardArray.push(`${rankMap[rank]} of ${suitMap[suit]}`);
+      }
+    }
+  }
+
+  // Join the cards with commas and 'and' for the last card
+  if (cardArray.length === 0) return "";
+  if (cardArray.length === 1) return cardArray[0];
+
+  return (
+    cardArray.slice(0, -1).join(", ") + ", " + cardArray[cardArray.length - 1]
+  );
+};
+
+/**
+ * Finds new cards by comparing current and previous card states
+ */
+const _findNewCards = (
+  currentCardString: string,
+  previousCardString: string,
+): { newCards: string; isNewRound: boolean } => {
+  // Parse the current card string
+  const currentCardSegments = currentCardString.split("|");
+  const currentPlayerCards = currentCardSegments[0] || "";
+  const currentCommunitySegments =
+    currentCardSegments.length > 1 ? currentCardSegments[1].split("/") : [];
+
+  // Parse the previous card string
+  const previousCardSegments = previousCardString.split("|");
+  const previousPlayerCards = previousCardSegments[0] || "";
+  const previousCommunitySegments =
+    previousCardSegments.length > 1 ? previousCardSegments[1].split("/") : [];
+
+  // Check if this is a new hand (player cards changed)
+  const isNewRound = currentPlayerCards !== previousPlayerCards;
+
+  let newCards = "";
+
+  // If not a new hand, find which street has new cards
+  if (!isNewRound) {
+    // Find the first street that differs or is new
+    for (let i = 0; i < currentCommunitySegments.length; i++) {
+      if (
+        i >= previousCommunitySegments.length ||
+        currentCommunitySegments[i] !== previousCommunitySegments[i]
+      ) {
+        // This street has new cards
+        newCards = currentCommunitySegments[i];
+        break;
+      }
+    }
+  }
+
+  return { newCards, isNewRound };
+};
+
+const _parseCards = (
+  currentState: string,
+  previousState: string,
+  players: string[],
+) => {
+  /**
+   * Example lines:
+   * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
+   * Spent: [P0: 9  P1: 9  ]
+   */
+  const lines = currentState.trim().split("\n");
+  if (lines.length < 2) {
+    return "";
+  }
+
+  const stateParts = lines[0].split(":");
+
+  // Extract the card string from the current state
+  const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
+
+  // Extract betting information
+  const spentLine = lines.find((line) => line.startsWith("Spent:"));
+  let blindsInfo = "";
+
+  if (spentLine) {
+    // Parse the spent line to extract player bets
+    const spentMatch = spentLine.match(/\[P0:\s*(\d+)\s*P1:\s*(\d+)\s*\]/);
+    if (spentMatch && spentMatch.length >= 3) {
+      const p0Spent = parseInt(spentMatch[1], 10);
+      const p1Spent = parseInt(spentMatch[2], 10);
+
+      // In poker, typically the small blind is half the big blind
+      if (p0Spent > 0 && p1Spent > 0) {
+        const smallBlind = Math.min(p0Spent, p1Spent);
+        const bigBlind = Math.max(p0Spent, p1Spent);
+
+        if (p0Spent < p1Spent) {
+          blindsInfo = `\n\n**Blinds:** ${players[0]} (SB: ${smallBlind}), ${players[1]} (BB: ${bigBlind})`;
+        } else {
+          blindsInfo = `\n\n**Blinds:** ${players[1]} (SB: ${smallBlind}), ${players[0]} (BB: ${bigBlind})`;
+        }
+      }
+    }
+  }
+
+  // Get previous card string if available
+  let previousCardString = "";
+  if (previousState) {
+    const prevLines = previousState.trim().split("\n");
+    if (prevLines.length >= 1) {
+      const prevStateParts = prevLines[0].split(":");
+      previousCardString = prevStateParts[prevStateParts.length - 1];
+    }
+  }
+
+  // Find new cards by comparing current and previous states
+  const { newCards, isNewRound } = _findNewCards(
+    currentCardString,
+    previousCardString,
+  );
+
+  // Split card string by '/' to separate hand block from board blocks
+  const cardSegments = currentCardString.split("/"); // example: ["6cKd|AsJc", "7hQh6d", "2c"]
+
+  // Parse player hands
+  let cards;
+
+  // Parse the first segment (player hands)
+  if (cardSegments[0]) {
+    const playerHands = cardSegments[0].split("|");
+    if (playerHands.length >= 2) {
+      // example: "6cKd"
+      cards = `**Player 1:** ${_getHumanReadableHand(playerHands[0])}\n\n**Player 2:** ${_getHumanReadableHand(playerHands[1])}`;
+    }
+  }
+
+  // Append blinds info to the cards string
+  if (cards && blindsInfo) {
+    cards += blindsInfo;
+  }
+
+  const revealedCards = newCards
+    ? `**Revealed:** ${_getHumanReadableHand(newCards)}`
+    : "";
+
+  // Make sure we always return something meaningful for a new round
+  if (isNewRound) {
+    return cards ? `**New Round**\n\n${cards}` : "**New Round**";
+  }
+
+  return revealedCards;
+};
+
 export const getPokerStepLabel = (gameStep: PokerGameStep) => {
   const decision = gameStep.step?.action?.actionString ?? "";
   if (decision.length > 0) {
@@ -149,7 +332,13 @@ export const getPokerStepLabel = (gameStep: PokerGameStep) => {
 };
 
 export const getPokerStepDescription = (gameStep: PokerGameStep) => {
-  return gameStep.stateHistory;
+  if (gameStep.step.action.thoughts) {
+    return gameStep.step.action.thoughts;
+  }
+
+  // TODO we need to determine this based off previous state history and current but
+  // idk the right way to grab it, maybe previous state should be a field on PokerGameStep?
+  return _parseCards(gameStep.stateHistory);
 };
 
 export const getPokerStepsWithEndStates = (
