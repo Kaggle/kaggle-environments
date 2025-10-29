@@ -1,10 +1,10 @@
-import { getPokerStateForStep } from "./components/getRepeatedPokerStateForStep";
-import { acpcCardToDisplay, suitSVGs } from "./components/utils";
-import poker_chip_1 from "./images/poker_chip_1.svg";
-import poker_chip_5 from "./images/poker_chip_5.svg";
-import poker_chip_10 from "./images/poker_chip_10.svg";
-import poker_chip_25 from "./images/poker_chip_25.svg";
-import poker_chip_100 from "./images/poker_chip_100.svg";
+import { getPokerStateForStep } from './components/getRepeatedPokerStateForStep';
+import { acpcCardToDisplay, suitSVGs } from './components/utils';
+import poker_chip_1 from './images/poker_chip_1.svg';
+import poker_chip_5 from './images/poker_chip_5.svg';
+import poker_chip_10 from './images/poker_chip_10.svg';
+import poker_chip_25 from './images/poker_chip_25.svg';
+import poker_chip_100 from './images/poker_chip_100.svg';
 
 export function renderer(options) {
   const chipImages = {
@@ -531,14 +531,13 @@ export function renderer(options) {
       players: [],
       communityCards: [],
       pot: 0,
-      isTerminal: false,
+      isTerminal: false
     };
 
     // --- Step Validation ---
     if (!environment || !step) {
       return defaultStateUiData;
     }
-
 
     return getPokerStateForStep(environment, step);
   }
@@ -579,10 +578,6 @@ export function renderer(options) {
     // Display cards left to right, with empty slots at the end
     const numCommunityCards = 5;
     const numCards = communityCards ? communityCards.length : 0;
-
-    // Since the 4th and 5th street cards are appended to the communityCards array, we need to
-    // reverse it so that the added cards are put at the end of the display area on the board.
-    if (communityCards) communityCards.reverse();
 
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
@@ -710,7 +705,6 @@ export function renderer(options) {
 
   const uiData = _parseKagglePokerState(options);
   _renderPokerTableUI(uiData, options);
-
 
   // Apply initial scale
   _applyScale(parent);
