@@ -18,7 +18,9 @@ export interface BaseGameStep {
   isEndState: boolean;
   step: any;
   stateHistory: any;
-  currentPlayer: number;
+  // currentPlayer: number;
+  stateHistoryIndex?: number;
+  postActionOf?: number;
 }
 
 export interface PokerGameStep extends BaseGameStep {
@@ -27,7 +29,7 @@ export interface PokerGameStep extends BaseGameStep {
   winner?: -1 | 0 | 1; // -1 for the rare event of a tie
   bestFiveCardHands?: string[]; // e.g. ['AsJhTh2h2c', 'As9s9h2h2c'] (cards to be highlighted)
   bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
-  previousStateHistory: any;
+  // previousStateHistory: any;
 }
 
 export type GameStep = PokerGameStep | BaseGameStep;

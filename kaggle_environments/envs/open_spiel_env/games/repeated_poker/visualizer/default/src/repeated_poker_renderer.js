@@ -523,10 +523,10 @@ export function renderer(options) {
   }
 
   // --- State Parsing ---
+  // --- State Parsing ---
   function _parseKagglePokerState(options) {
     const { environment, step } = options;
     const numPlayers = 2;
-
     // --- Default State ---
     const defaultStateUiData = {
       players: [],
@@ -534,82 +534,65 @@ export function renderer(options) {
       pot: 0,
       isTerminal: false,
     };
-
     // --- Step Validation ---
     if (!environment || !environment.steps || !environment.steps[step] || !environment.info?.stateHistory) {
       return defaultStateUiData;
     }
-
     return getPokerStateForStep(environment, step);
   }
-
   function _applyScale(parentElement) {
     if (!parentElement || !elements.gameLayout) return;
-
     const parentWidth = parentElement.clientWidth;
     const parentHeight = parentElement.clientHeight;
-
     const baseWidth = 1000;
     const baseHeight = 1000;
-
     const scaleX = parentWidth / baseWidth;
     const scaleY = parentHeight / baseHeight;
     const scale = Math.min(scaleX, scaleY);
-
     elements.gameLayout.style.transform = `scale(${scale})`;
   }
-
   function _renderPokerTableUI(data, passedOptions) {
     if (!elements.pokerTable || !data) return;
     const { players, communityCards, pot, isTerminal, step } = data;
-
     // Update step counter
     if (elements.stepCounter && step !== undefined) {
       elements.stepCounter.textContent = `Debug Step: ${step}`;
     }
-
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
       // elements.diagnosticHeader.textContent = `[${passedOptions.step}] P_TURN:${data.rawObservation.current_player} POT:${data.pot}`;
       // elements.diagnosticHeader.style.display = 'block';
     }
-
     elements.communityCardsContainer.innerHTML = '';
     // Always show 5 slots for the river
     // Display cards left to right, with empty slots at the end
     const numCommunityCards = 5;
     const numCards = communityCards ? communityCards.length : 0;
-
     // Since the 4th and 5th street cards are appended to the communityCards array, we need to
     // reverse it so that the added cards are put at the end of the display area on the board.
     if (communityCards) communityCards.reverse();
-
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
       elements.communityCardsContainer.appendChild(createCardElement(communityCards[i]));
     }
-
     // Fill remaining slots with empty cards
     for (let i = numCards; i < numCommunityCards; i++) {
       const emptyCard = document.createElement('div');
       emptyCard.classList.add('card', 'card-empty');
       elements.communityCardsContainer.appendChild(emptyCard);
     }
-
     elements.potDisplay.textContent = `Total Pot : ${pot}`;
-
     players.forEach((playerData, index) => {
       const playerNameElement = elements.playerNames[index];
       if (playerNameElement) {
         playerNameElement.textContent = playerData.name;
 
-        // Highlight current player's turn
-        if (playerData.isTurn && !isTerminal) {
+        // Highlight the player who took the most recent action
+        if (playerData.isLastActor) {
           playerNameElement.classList.add('current-turn');
         } else {
           playerNameElement.classList.remove('current-turn');
         }
-
         // Add winner class if player won
         if (playerData.isWinner) {
           playerNameElement.classList.add('winner');
@@ -617,7 +600,6 @@ export function renderer(options) {
           playerNameElement.classList.remove('winner');
         }
       }
-
       // Update thumbnail
       const playerThumbnailElement = elements.playerThumbnails[index];
       if (playerThumbnailElement && playerData.thumbnail) {
@@ -626,45 +608,37 @@ export function renderer(options) {
       } else if (playerThumbnailElement) {
         playerThumbnailElement.style.display = 'none';
       }
-
       // Update card area (left side)
       const playerCardArea = elements.playerCardAreas[index];
       if (playerCardArea) {
         const playerCardsContainer = playerCardArea.querySelector('.player-cards-container');
         playerCardsContainer.innerHTML = '';
-
         // In heads-up, we show both hands at the end.
         const showCards = isTerminal || (playerData.cards && !playerData.cards.includes(null));
-
         (playerData.cards || [null, null]).forEach((cardStr) => {
           playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
         });
       }
-
       // Update chip stacks on the table
       if (elements.chipStacks[index]) {
         updateChipStack(elements.chipStacks[index], playerData.currentBet);
       }
-
       // Update info area (right side)
       const playerInfoArea = elements.playerInfoAreas[index];
       if (playerInfoArea) {
         // Highlight active player's pod
-        if (playerData.isTurn && !isTerminal) {
+        if (playerData.isLastActor) {
           playerInfoArea.classList.add('active-player');
         } else {
           playerInfoArea.classList.remove('active-player');
         }
-
         // Highlight winner's pod
         if (playerData.isWinner) {
           playerInfoArea.classList.add('winner-player');
         } else {
           playerInfoArea.classList.remove('winner-player');
         }
-
         playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
-
         const betDisplay = playerInfoArea.querySelector('.bet-display');
         if (playerData.currentBet > 0) {
           if (playerData.actionDisplayText) {
@@ -678,7 +652,6 @@ export function renderer(options) {
         }
       }
     });
-
     const dealerPlayerIndex = players.findIndex((p) => p.isDealer);
     if (elements.dealerButton) {
       if (dealerPlayerIndex !== -1) {
