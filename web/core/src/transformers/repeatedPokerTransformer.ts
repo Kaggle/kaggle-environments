@@ -1,4 +1,5 @@
 import { PokerGameStep } from "../types";
+import { buildTimeline } from "./buildTimeline";
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
@@ -9,7 +10,7 @@ const _isStateHistoryEntryInitial = (stateHistoryEntry: string): boolean => {
   );
   return state.acpc_state.startsWith("STATE:0::2c2c|2c2c");
 };
-const _getMoveHistoryFromACPC = (acpcState: string): string => {
+export const getMoveHistoryFromACPC = (acpcState: string): string => {
   // Parse the ACPC state line to extract the betting string
   // Example ACPC state: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
   const lines = acpcState.trim().split("\n");
@@ -29,6 +30,7 @@ const _getMoveHistoryFromACPC = (acpcState: string): string => {
   const bettingString = stateParts.slice(2, stateParts.length - 1).join(":");
   return bettingString;
 };
+
 function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   const moves = [];
   // Split the action string by street (e.g., ["r5c", "cr11f"])
@@ -61,6 +63,7 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   }
   return moves;
 }
+
 const _getEndCondition = (
   stateHistory: any[],
   stateHistoryPointer: number,
@@ -97,7 +100,7 @@ const _getEndCondition = (
     console.error("prev_universal_poker_json parsing failed");
   }
   // if the stateHistory doesn't end in a fold, it was a showdown
-  const bettingString = _getMoveHistoryFromACPC(
+  const bettingString = getMoveHistoryFromACPC(
     next_prev_universal_poker_json.acpc_state,
   );
   const moves = _getMovesFromBettingStringACPC(bettingString);
@@ -310,8 +313,6 @@ export const getPokerStepsWithEndStates = (
       };
     },
   );
-
-  console.log(timelineSteps);
 
   return timelineSteps;
 };
