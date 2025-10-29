@@ -20,6 +20,7 @@ export interface BaseGameStep {
   stateHistory: any;
   stateHistoryIndex?: number;
   postActionOf?: number;
+  actionText?: string;
 }
 
 export interface PokerGameStep extends BaseGameStep {
@@ -30,4 +31,4 @@ export interface PokerGameStep extends BaseGameStep {
   bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
 }
 
-export type GameStep = PokerGameStep | BaseGameStep
+export type GameStep = PokerGameStep | BaseGameStep;
