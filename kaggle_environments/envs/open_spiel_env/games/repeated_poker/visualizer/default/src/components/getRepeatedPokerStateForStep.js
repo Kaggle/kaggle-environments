@@ -1,6 +1,5 @@
-function _getLastMovesACPC(bettingString, currentPlayer) {
-  // We will store all human-readable moves here
-  const allMoves = [];
+function _getActionStringsFromACPC(bettingString, nextPlayerIndex, numPlayers = 2) {
+  const moves = [];
 
   // Split the action string by street (e.g., ["r5c", "cr11f"])
   const streets = bettingString.split('/');
@@ -10,70 +9,57 @@ function _getLastMovesACPC(bettingString, currentPlayer) {
     const streetAction = streets[streetIndex];
     let i = 0;
 
-    // Preflop (streetIndex 0), action is "open" due to blinds.
-    // Postflop (streetIndex > 0), action is "not open" (first player checks or bets).
-    let isAggressiveActionOpen = (streetIndex === 0);
-
     // 4. Parse the moves within the street
     while (i < streetAction.length) {
       const char = streetAction[i];
-      let move = null;
 
-      if (char === 'c') {
-        // 'c' (call/check)
-        if (isAggressiveActionOpen) {
-          move = 'Call';
-        } else {
-          move = 'Check';
-        }
-        isAggressiveActionOpen = false; // 'c' never leaves action open
-        i++;
-      } else if (char === 'f') {
-        // 'f' (fold)
-        move = 'Fold';
-        isAggressiveActionOpen = false; // 'f' ends the hand
-        i++;
-      } else if (char === 'r') {
-        // 'r' (raise/bet)
+      if (char === 'r') {
         let amount = '';
         i++;
-        // Continue to parse all digits of the raise amount
+        // parse all digits of the raise amount
         while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
           amount += streetAction[i];
           i++;
         }
-        move = `Raise ${amount}`;
-        isAggressiveActionOpen = true; // 'r' always leaves action open
+        moves.push(`r${amount}`)
       } else {
-        // Should not happen with valid input, but good to prevent infinite loops
+        moves.push(char);
         i++;
         continue;
-      }
-
-      // 5. Store this move in the history
-      if (move) {
-        allMoves.push(move);
       }
     }
   }
 
   // 6. Get the last two moves from our complete list
-  const lastMove = allMoves.length > 0 ? allMoves[allMoves.length - 1] : null;
-  const secondLastMove = allMoves.length > 1 ? allMoves[allMoves.length - 2] : null;
+  const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
 
-  const lastMoves = currentPlayer === 0 ? [secondLastMove, lastMove] : [lastMove, secondLastMove];
+  const actionStrings = Array(numPlayers).fill('');
 
-  return lastMoves;
+  if (lastMove) {
+    if (typeof nextPlayerIndex === 'number' && nextPlayerIndex >= 0) {
+      const lastActor = (nextPlayerIndex + numPlayers - 1) % numPlayers;
+      actionStrings[lastActor] = lastMove;
+    } else {
+      const inferredActor = (moves.length - 1) % numPlayers;
+      actionStrings[inferredActor] = lastMove;
+    }
+  }
+
+  return actionStrings;
 }
 
-function _parseStepHistoryData(universalPokerJSON) {
+function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers = 2) {
   const result = {
     cards: [],
     communityCards: '',
     bets: [],
-    lastMoves: ['', ''],
+    playerActionStrings: Array(numPlayers).fill(''),
     winOdds: [0, 0],
   };
+
+  if (!universalPokerJSON) {
+    return result;
+  }
 
   // Split the string into its main lines
   const lines = universalPokerJSON.acpc_state.trim().split('\n');
@@ -135,7 +121,11 @@ function _parseStepHistoryData(universalPokerJSON) {
     const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
 
     if (bettingString) {
-      result.lastMoves = _getLastMovesACPC(bettingString, universalPokerJSON.current_player);
+      result.playerActionStrings = _getActionStringsFromACPC(
+        bettingString,
+        nextPlayerIndex,
+        numPlayers
+      );
     }
   }
 
@@ -146,18 +136,6 @@ function _parseStepHistoryData(universalPokerJSON) {
 
   return result;
 }
-
-
-function _getCurrentUniversalPokerFromStateHistory(stateHistory, step) {
-  if (stateHistory) {
-    const agentSteps = stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
-    const currentStep = agentSteps[step];
-    return JSON.parse(JSON.parse(currentStep).current_universal_poker_json);
-  }
-  return null;
-}
-
-
 export const getPokerStateForStep = (environment, step) => {
   const numPlayers = 2;
   // --- Step Validation ---
@@ -202,15 +180,58 @@ export const getPokerStateForStep = (environment, step) => {
   // This is because neither source contains all the information we need 
   const currentStepData = stepsWithEndStates[step];
 
-  const currentPlayer = currentStepData?.step?.observation?.currentPlayer || 0; // TODO: find better way to get current player
+  let currentPlayer = null;
 
-  const currentStateHistoryEntry = JSON.parse(currentStepData.stateHistory);
-  const currentStateFromStateHistory = JSON.parse(currentStateHistoryEntry.current_universal_poker_json);
+  const currentStateHistoryEntry = currentStepData?.stateHistory
+    ? JSON.parse(currentStepData.stateHistory)
+    : null;
+  const currentStateFromStateHistory = currentStateHistoryEntry
+    ? JSON.parse(currentStateHistoryEntry.current_universal_poker_json)
+    : null;
 
-  // TODO: Handle the flop phase steps (chance steps)
+  const observation = currentStepData?.step?.observation;
+  if (typeof observation?.currentPlayer === "number") {
+    currentPlayer = observation.currentPlayer;
+  } else if (typeof observation?.current_player === "number") {
+    currentPlayer = observation.current_player;
+  }
 
-  const currentUniversalPokerJSON = _getCurrentUniversalPokerFromStateHistory(environment.info.stateHistory, step);
-  const currentStepFromStateHistory = _parseStepHistoryData(currentUniversalPokerJSON);
+  const currentUniversalPokerJSON = currentStateFromStateHistory;
+  const currentStepFromStateHistory = _parseStepHistoryData(
+    currentUniversalPokerJSON,
+    currentStateFromStateHistory?.current_player,
+    numPlayers
+  );
+
+  const actionString = currentStepData?.step?.action?.actionString || "";
+  let actionPlayerIndex = null;
+  let actionDisplayText = "";
+  if (actionString) {
+    const playerMatch = actionString.match(/player=(\d+)/);
+    const moveMatch = actionString.match(/move=([^\s]+)/);
+    if (playerMatch) {
+      actionPlayerIndex = parseInt(playerMatch[1], 10);
+      if (moveMatch) {
+        const moveRaw = moveMatch[1];
+        const moveLower = moveRaw.toLowerCase();
+        if (moveLower.startsWith("bet")) {
+          const amountMatch = moveRaw.match(/\d+/);
+          actionDisplayText = amountMatch ? `r${amountMatch[0]}` : "bet";
+        } else if (moveLower.startsWith("raise")) {
+          const amountMatch = moveRaw.match(/\d+/);
+          actionDisplayText = amountMatch ? `r${amountMatch[0]}` : "r";
+        } else if (moveLower === "call") {
+          actionDisplayText = "c";
+        } else if (moveLower === "check") {
+          actionDisplayText = "k";
+        } else if (moveLower === "fold") {
+          actionDisplayText = "f";
+        } else {
+          actionDisplayText = moveRaw;
+        }
+      }
+    }
+  }
 
   const currentStepAgents = environment.steps[step];
   if (!currentStepAgents || currentStepAgents.length < numPlayers) {
@@ -234,6 +255,7 @@ export const getPokerStateForStep = (environment, step) => {
   stateUIData.isTerminal = isTerminal;
   stateUIData.pot = pot_size || 0;
   stateUIData.communityCards = board_cards || [];
+  stateUIData.currentPlayer = currentPlayer ?? -1;
 
   // --- Update Players ---
   for (let i = 0; i < numPlayers; i++) {
@@ -244,9 +266,12 @@ export const getPokerStateForStep = (environment, step) => {
     pData.currentBet = contribution;
     pData.stack = startStack - contribution;
     pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
-    pData.isTurn = currentPlayer === i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
-    pData.isDealer = currentStateHistoryEntry.dealer === i;
-    pData.actionDisplayText = currentStepFromStateHistory.lastMoves[i];
+    pData.isTurn = currentPlayer === i;
+    const dealerIndex = typeof currentStateHistoryEntry?.dealer === "number"
+      ? currentStateHistoryEntry.dealer
+      : 0;
+    pData.isDealer = dealerIndex === i;
+    pData.actionDisplayText = actionPlayerIndex === i ? actionDisplayText : "";
 
     if (currentStepData.isEndState) {
       pData.isTurn = false;
