@@ -179,7 +179,6 @@ export class Player {
     }
 
     private setData(replay: ReplayData, agents: any[] = []) {
-        console.log('setData called', replay);
         this.replay = replay;
         this.agents = agents;
 

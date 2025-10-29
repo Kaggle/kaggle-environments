@@ -1,5 +1,4 @@
 import { PokerGameStep } from "../types";
-import { buildTimeline } from "./buildTimeline";
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
@@ -154,13 +153,13 @@ export const getPokerStepDescription = (gameStep: PokerGameStep) => {
   return "TODO";
 };
 
-interface TimelineEvent {
+/* interface TimelineEvent {
   stateIndex: number | undefined;
   highlightPlayer: number | null;
   actionText: string;
   hideHoleCards: boolean;
   hideCommunity: boolean;
-}
+} */
 
 export const getPokerStepsWithEndStates = (
   environment: any,
@@ -169,7 +168,7 @@ export const getPokerStepsWithEndStates = (
   let handCount = 0;
   let stateHistoryPointer = 0;
 
-  const stateHistory = environment.state_history ?? [];
+  const stateHistory = environment.info.state_history ?? [];
   const steps = environment.steps ?? [];
 
   const advanceToNextAgentEntry = () => {
@@ -263,10 +262,11 @@ export const getPokerStepsWithEndStates = (
     }
   }
 
+  /*
   // Build timeline from the environment
   const timeline: TimelineEvent[] = buildTimeline(
     environment,
-    /* numPlayers= */ 2,
+    2,
   );
 
   // Create new steps based on the timeline
@@ -313,6 +313,7 @@ export const getPokerStepsWithEndStates = (
       };
     },
   );
+  */
 
-  return timelineSteps;
+  return stepsWithEndStates;
 };
