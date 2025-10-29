@@ -539,6 +539,7 @@ export function renderer(options) {
       return defaultStateUiData;
     }
 
+
     return getPokerStateForStep(environment, step);
   }
 
@@ -709,6 +710,7 @@ export function renderer(options) {
 
   const uiData = _parseKagglePokerState(options);
   _renderPokerTableUI(uiData, options);
+
 
   // Apply initial scale
   _applyScale(parent);

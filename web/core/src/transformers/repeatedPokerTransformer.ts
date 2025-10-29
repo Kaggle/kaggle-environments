@@ -1,27 +1,24 @@
 import { PokerGameStep } from "../types";
+import { buildTimeline } from "./buildTimeline";
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
     .current_player !== -1;
-
 const _isStateHistoryEntryInitial = (stateHistoryEntry: string): boolean => {
   const state = JSON.parse(
     JSON.parse(stateHistoryEntry).current_universal_poker_json,
   );
   return state.acpc_state.startsWith("STATE:0::2c2c|2c2c");
 };
-
-const _getMoveHistoryFromACPC = (acpcState: string): string => {
+export const getMoveHistoryFromACPC = (acpcState: string): string => {
   // Parse the ACPC state line to extract the betting string
   // Example ACPC state: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
   const lines = acpcState.trim().split("\n");
   if (lines.length < 1) {
     return "";
   }
-
   const stateLine = lines[0]; // First line contains the state
   const stateParts = stateLine.split(":");
-
   // The betting string is everything between the 2nd colon and the last colon
   // stateParts[0] = "STATE"
   // stateParts[1] = "0" (hand number)
@@ -30,25 +27,20 @@ const _getMoveHistoryFromACPC = (acpcState: string): string => {
   if (stateParts.length < 4) {
     return "";
   }
-
   const bettingString = stateParts.slice(2, stateParts.length - 1).join(":");
   return bettingString;
 };
 
 function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   const moves = [];
-
   // Split the action string by street (e.g., ["r5c", "cr11f"])
   const streets = bettingString.split("/");
-
   // Process each street's actions
   for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
     const streetAction = streets[streetIndex];
     let i = 0;
-
     while (i < streetAction.length) {
       const char = streetAction[i];
-
       if (char === "r") {
         // 'r' (raise)
         let amount = "";
@@ -69,7 +61,6 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
       }
     }
   }
-
   return moves;
 }
 
@@ -84,7 +75,6 @@ const _getEndCondition = (
   bestHandRankType?: string[];
 } => {
   const current_player = parseInt(currentPlayer);
-
   if (stateHistoryPointer >= stateHistory.length - 1) {
     return {
       // TODO: handle tail end
@@ -94,13 +84,11 @@ const _getEndCondition = (
       bestFiveCardHands: [],
     };
   }
-
   let next_prev_universal_poker_json = {
     acpc_state: "",
     best_five_card_hands: ["", ""],
     best_hand_rank_types: ["", ""],
   };
-
   // since the current_universal_poker_json does not contain the end move in it's history,
   // we need to go to the prev_universal_poker_json of the next one
   try {
@@ -111,14 +99,11 @@ const _getEndCondition = (
   } catch {
     console.error("prev_universal_poker_json parsing failed");
   }
-
   // if the stateHistory doesn't end in a fold, it was a showdown
-  const bettingString = _getMoveHistoryFromACPC(
+  const bettingString = getMoveHistoryFromACPC(
     next_prev_universal_poker_json.acpc_state,
   );
-
   const moves = _getMovesFromBettingStringACPC(bettingString);
-
   // Fold case
   if (moves.pop() === "f") {
     return {
@@ -126,7 +111,6 @@ const _getEndCondition = (
       winner: current_player === 0 ? 1 : 0,
     };
   }
-
   // Showdown case
   return {
     handConclusion: "showdown",
@@ -170,13 +154,23 @@ export const getPokerStepDescription = (gameStep: PokerGameStep) => {
   return "TODO";
 };
 
+interface TimelineEvent {
+  stateIndex: number | undefined;
+  highlightPlayer: number | null;
+  actionText: string;
+  hideHoleCards: boolean;
+  hideCommunity: boolean;
+}
+
 export const getPokerStepsWithEndStates = (
-  steps: any[],
-  stateHistory: any[],
+  environment: any,
 ): PokerGameStep[] => {
   const stepsWithEndStates: PokerGameStep[] = [];
   let handCount = 0;
   let stateHistoryPointer = 0;
+
+  const stateHistory = environment.state_history ?? [];
+  const steps = environment.steps ?? [];
 
   const advanceToNextAgentEntry = () => {
     while (
@@ -192,8 +186,6 @@ export const getPokerStepsWithEndStates = (
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     let lastActionPointer = -1;
-
-    // console.log(step);
 
     if (step) {
       step.forEach((s: any) => {
@@ -271,5 +263,56 @@ export const getPokerStepsWithEndStates = (
     }
   }
 
-  return stepsWithEndStates;
+  // Build timeline from the environment
+  const timeline: TimelineEvent[] = buildTimeline(
+    environment,
+    /* numPlayers= */ 2,
+  );
+
+  // Create new steps based on the timeline
+  const timelineSteps = timeline.map(
+    (timelineEvent: TimelineEvent): PokerGameStep => {
+      // Find the corresponding step in stepsWithEndStates by matching stateHistoryIndex
+      const matchingStep = stepsWithEndStates.find(
+        (step) => step.stateHistoryIndex === timelineEvent.stateIndex,
+      );
+
+      if (!matchingStep) {
+        // Find the hand number by looking at the closest previous step
+        let handNumber = 0;
+        if (timelineEvent.stateIndex !== undefined) {
+          const previousSteps = stepsWithEndStates.filter(
+            (step) =>
+              step.stateHistoryIndex !== undefined &&
+              timelineEvent.stateIndex !== undefined &&
+              step.stateHistoryIndex < timelineEvent.stateIndex,
+          );
+          if (previousSteps.length > 0) {
+            handNumber = previousSteps[previousSteps.length - 1].hand;
+          }
+        }
+
+        // Create a new step if there's no matching step
+        return {
+          hand: handNumber,
+          isEndState: false,
+          step: null,
+          stateHistory:
+            timelineEvent.stateIndex !== undefined
+              ? stateHistory[timelineEvent.stateIndex]
+              : "",
+          stateHistoryIndex: timelineEvent.stateIndex,
+          actionText: timelineEvent.actionText,
+        };
+      }
+
+      // Return a new step with timeline data included
+      return {
+        ...matchingStep,
+        actionText: timelineEvent.actionText,
+      };
+    },
+  );
+
+  return timelineSteps;
 };
