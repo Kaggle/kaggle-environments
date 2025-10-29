@@ -550,6 +550,14 @@ export const getPokerStepDescription = (gameStep: PokerGameStep) => {
   return "TODO";
 };
 
+interface TimelineEvent {
+  stateIndex: number | undefined;
+  highlightPlayer: number | null;
+  actionText: string;
+  hideHoleCards: boolean;
+  hideCommunity: boolean;
+}
+
 export const getPokerStepsWithEndStates = (
   environment: any,
 ): PokerGameStep[] => {
@@ -574,8 +582,6 @@ export const getPokerStepsWithEndStates = (
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     let lastActionPointer = -1;
-
-    // console.log(step);
 
     if (step) {
       step.forEach((s: any) => {
@@ -653,14 +659,64 @@ export const getPokerStepsWithEndStates = (
     }
   }
 
-  const timeline = buildTimeline(stepsWithEndStates, /* numPlayers= */ 2);
-
-  const stepsWithTimeline = steps.map(
-    (step: PokerGameStep, index: number): PokerGameStep => ({
-      ...step,
-      actionText: timeline[index].actionText,
-    }),
+  // Build timeline from the environment
+  const timeline: TimelineEvent[] = buildTimeline(
+    environment,
+    /* numPlayers= */ 2,
   );
 
-  return stepsWithTimeline;
+  // Create new steps based on the timeline
+  const timelineSteps = timeline.map(
+    (timelineEvent: TimelineEvent): PokerGameStep => {
+      // Find the corresponding step in stepsWithEndStates by matching stateHistoryIndex
+      const matchingStep = stepsWithEndStates.find(
+        (step) => step.stateHistoryIndex === timelineEvent.stateIndex,
+      );
+
+      if (!matchingStep) {
+        // Find the hand number by looking at the closest previous step
+        let handNumber = 0;
+        if (timelineEvent.stateIndex !== undefined) {
+          const previousSteps = stepsWithEndStates.filter(
+            (step) =>
+              step.stateHistoryIndex !== undefined &&
+              timelineEvent.stateIndex !== undefined &&
+              step.stateHistoryIndex < timelineEvent.stateIndex,
+          );
+          if (previousSteps.length > 0) {
+            handNumber = previousSteps[previousSteps.length - 1].hand;
+          }
+        }
+
+        // Create a new step if there's no matching step
+        return {
+          hand: handNumber,
+          isEndState: false,
+          step: null,
+          stateHistory:
+            timelineEvent.stateIndex !== undefined
+              ? stateHistory[timelineEvent.stateIndex]
+              : "",
+          stateHistoryIndex: timelineEvent.stateIndex,
+          actionText: timelineEvent.actionText,
+          // highlightPlayer: timelineEvent.highlightPlayer,
+          // hideHoleCards: timelineEvent.hideHoleCards,
+          // hideCommunity: timelineEvent.hideCommunity,
+        };
+      }
+
+      // Return a new step with timeline data included
+      return {
+        ...matchingStep,
+        actionText: timelineEvent.actionText,
+        // highlightPlayer: timelineEvent.highlightPlayer,
+        // hideHoleCards: timelineEvent.hideHoleCards,
+        // hideCommunity: timelineEvent.hideCommunity,
+      };
+    },
+  );
+
+  console.log(timelineSteps);
+
+  return timelineSteps;
 };
