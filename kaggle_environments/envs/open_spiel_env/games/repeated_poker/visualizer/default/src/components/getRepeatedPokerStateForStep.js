@@ -119,17 +119,6 @@ function _parseStepHistoryData(universalPokerJSON) {
   return result;
 }
 
-
-function _getCurrentUniversalPokerFromStateHistory(stateHistory, step) {
-  if (stateHistory) {
-    const agentSteps = stateHistory.filter(s => JSON.parse(JSON.parse(s).current_universal_poker_json).current_player !== -1);
-    const currentStep = agentSteps[step];
-    return JSON.parse(JSON.parse(currentStep).current_universal_poker_json);
-  }
-  return null;
-}
-
-
 export const getPokerStateForStep = (environment, step) => {
   const numPlayers = 2;
   // --- Step Validation ---
@@ -172,16 +161,15 @@ export const getPokerStateForStep = (environment, step) => {
 
   // We have two sources for current game state: stepHistory and steps
   // This is because neither source contains all the information we need 
-  const currentStepData = stepsWithEndStates[step];
+  const currentStepData = stepsWithEndStates[step > 2 ? step - 2 : 0]; // Skip over setup steps
 
   const currentPlayer = currentStepData?.step?.observation?.currentPlayer || 0; // TODO: find better way to get current player
 
   const currentStateHistoryEntry = JSON.parse(currentStepData.stateHistory);
-  const currentStateFromStateHistory = JSON.parse(currentStateHistoryEntry.current_universal_poker_json);
+  const currentUniversalPokerJSON = JSON.parse(currentStateHistoryEntry.current_universal_poker_json);
 
   // TODO: Handle the flop phase steps (chance steps)
 
-  const currentUniversalPokerJSON = _getCurrentUniversalPokerFromStateHistory(environment.info.stateHistory, step);
   const currentStepFromStateHistory = _parseStepHistoryData(currentUniversalPokerJSON);
 
   const currentStepAgents = environment.steps[step];
@@ -226,7 +214,7 @@ export const getPokerStateForStep = (environment, step) => {
       if (currentStepData.winner === i) {
         pData.actionDisplayText = "WINNER"
       } else {
-        if (currentStepData.handConclusion = "fold") {
+        if (currentStepData.handConclusion === "fold") {
           pData.actionDisplayText = "FOLD"
         } else {
           pData.actionDisplayText = "LOSER"
