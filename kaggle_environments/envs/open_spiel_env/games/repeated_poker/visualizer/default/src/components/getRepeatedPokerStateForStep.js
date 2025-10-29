@@ -1,4 +1,4 @@
-import { getActionStringsFromACPC } from "@kaggle-environments/core";
+import { getActionStringsFromACPC } from '@kaggle-environments/core';
 
 const PLACEHOLDER_CARD = '2c';
 
@@ -8,7 +8,7 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
     communityCards: '',
     bets: [],
     playerActionStrings: Array(numPlayers).fill(''),
-    winOdds: [0, 0],
+    winOdds: [0, 0]
   };
 
   if (!universalPokerJSON) {
@@ -52,18 +52,11 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
       }
     }
 
-    result.communityCards = cardSegments
-      .slice(1)
-      .filter(Boolean)
-      .join('');
+    result.communityCards = cardSegments.slice(1).filter(Boolean).join('');
 
     const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
     if (bettingString) {
-      result.playerActionStrings = getActionStringsFromACPC(
-        bettingString,
-        nextPlayerIndex,
-        numPlayers
-      );
+      result.playerActionStrings = getActionStringsFromACPC(bettingString, nextPlayerIndex, numPlayers);
     }
   }
 
@@ -96,8 +89,6 @@ function sanitizeCardList(cards) {
   return (cards || []).filter((card) => card);
 }
 
-
-
 function getCommunityCardsFromUniversal(universal, numPlayers) {
   const parsed = _parseStepHistoryData(universal, null, numPlayers);
   const cards = splitCards(parsed.communityCards);
@@ -117,9 +108,6 @@ function getHandCardsFromUniversal(universal, numPlayers) {
     return sanitizeCardList(splitCards(cardString));
   });
 }
-
-
-
 
 function getUniversalState(environment, index) {
   const entry = environment?.info?.stateHistory?.[index];
@@ -157,7 +145,8 @@ export const getPokerStateForStep = (environment, step) => {
   );
 
   const startingStacks = stateInfo.universal?.starting_stacks || Array(numPlayers).fill(0);
-  const contributions = stateInfo.universal?.player_contributions || parsedStateHistory.bets || Array(numPlayers).fill(0);
+  const contributions =
+    stateInfo.universal?.player_contributions || parsedStateHistory.bets || Array(numPlayers).fill(0);
   const rewards = stateInfo.outer?.hand_returns || [];
   const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
 
