@@ -196,10 +196,9 @@ function getHandCardsFromUniversal(universal, numPlayers) {
 }
 
 function buildTimeline(environment, numPlayers) {
-  const timeline = [];
   const stateHistory = environment?.info?.stateHistory || [];
   if (!stateHistory.length) {
-    return timeline;
+    return [];
   }
 
   const parsedStates = stateHistory.map((entry, idx) => {
@@ -211,80 +210,102 @@ function buildTimeline(environment, numPlayers) {
     };
   });
 
-  const { bigBlind, smallBlind } = getBlinds(environment.configuration);
-  const dealer = parsedStates[0]?.outer?.dealer ?? 0;
-  const smallBlindPlayer = dealer % numPlayers;
-  const bigBlindPlayer = (dealer + 1) % numPlayers;
-
-  const rawSteps = environment.__rawSteps || [];
-  const flattenedActions = [];
-  rawSteps.forEach((stepArr) => {
-    (stepArr || []).forEach((agentStep, index) => {
-      if (agentStep?.action && agentStep.action.submission !== -1) {
-        flattenedActions.push({
-          playerIndex: index,
-          actionString: agentStep.action.actionString || ''
-        });
+  const hands = [];
+  let currentHandNumber = parsedStates[0]?.outer?.hand_number ?? 0;
+  let currentStates = [];
+  parsedStates.forEach((stateInfo) => {
+    const handNumber = stateInfo.outer?.hand_number ?? currentHandNumber;
+    if (handNumber !== currentHandNumber) {
+      if (currentStates.length) {
+        hands.push({ handNumber: currentHandNumber, states: currentStates });
       }
-    });
+      currentStates = [];
+      currentHandNumber = handNumber;
+    }
+    currentStates.push(stateInfo);
+  });
+  if (currentStates.length) {
+    hands.push({ handNumber: currentHandNumber, states: currentStates });
+  }
+
+  const processedSteps = environment.__processedSteps || environment.steps || [];
+  const actionsByHand = new Map();
+  processedSteps.forEach((step) => {
+    const handNumber = step?.hand ?? 0;
+    if (!actionsByHand.has(handNumber)) {
+      actionsByHand.set(handNumber, []);
+    }
+    if (!step?.isEndState && step?.step?.action && step.step.action.submission !== -1) {
+      const actionString = step.step.action.actionString || '';
+      const playerMatch = actionString.match(/player=(\d+)/);
+      const playerIndex = playerMatch ? parseInt(playerMatch[1], 10) : null;
+      actionsByHand.get(handNumber).push({
+        playerIndex,
+        actionText: formatActionDisplay(actionString),
+        stateHistoryIndex: step.stateHistoryIndex
+      });
+    }
   });
 
   const events = [];
-
-  const addEvent = (event) => {
-    events.push(event);
+  let orderCounter = 0;
+  const pushEvent = (stateIndex, event) => {
+    events.push({
+      order: orderCounter++,
+      stateIndex,
+      highlightPlayer: event.highlightPlayer,
+      actionText: event.actionText,
+      hideHoleCards: event.hideHoleCards,
+      hideCommunity: event.hideCommunity
+    });
   };
 
-  const initialStateIndex = parsedStates[0].idx;
-  addEvent({ order: -30, stateIndex: initialStateIndex, highlightPlayer: null, actionText: '', hideHoleCards: true, hideCommunity: true });
-  addEvent({ order: -20, stateIndex: initialStateIndex, highlightPlayer: smallBlindPlayer, actionText: smallBlind != null ? `SB ${smallBlind}` : 'SB', hideHoleCards: true, hideCommunity: true });
-  addEvent({ order: -10, stateIndex: initialStateIndex, highlightPlayer: bigBlindPlayer, actionText: bigBlind != null ? `BB ${bigBlind}` : 'BB', hideHoleCards: true, hideCommunity: true });
-
-  const firstActionIndex = parsedStates.findIndex(({ universal }) => universal.current_player !== -1);
-  const holeEventState = firstActionIndex >= 0 ? parsedStates[firstActionIndex] : parsedStates[0];
-  addEvent({ order: holeEventState.idx - 0.5, stateIndex: holeEventState.idx, highlightPlayer: null, actionText: '', hideHoleCards: false, hideCommunity: true });
-
-  let statePointer = 0;
-  flattenedActions.forEach((action) => {
-    while (statePointer < parsedStates.length && parsedStates[statePointer].universal.current_player === -1) {
-      statePointer++;
-    }
-    if (statePointer >= parsedStates.length) {
+  hands.forEach(({ handNumber, states }) => {
+    if (!states.length) {
       return;
     }
-    const preState = parsedStates[statePointer];
-    const postState = parsedStates[statePointer + 1] ? parsedStates[statePointer + 1] : preState;
-    const actionText = formatActionDisplay(action.actionString);
-    addEvent({
-      order: postState.idx,
-      stateIndex: postState.idx,
-      highlightPlayer: action.playerIndex,
-      actionText,
-      hideHoleCards: false,
-      hideCommunity: false
-    });
-    statePointer++;
-  });
 
-  let currentStageCommunityLength = 0;
-  parsedStates.forEach((stateInfo) => {
-    const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
-    const communityLength = communityCards.length;
-    if (communityLength > currentStageCommunityLength) {
-      const shouldDisplay = communityLength === 3 || communityLength === 4 || communityLength === 5;
-      currentStageCommunityLength = communityLength;
-      if (shouldDisplay) {
-        addEvent({
-          order: stateInfo.idx + 0.1,
-          stateIndex: stateInfo.idx,
-          highlightPlayer: null,
-          actionText: '',
-          hideHoleCards: false,
-          hideCommunity: false,
-          stage: true
-        });
+    const firstState = states[0];
+    const dealer = firstState.outer?.dealer ?? 0;
+    const { bigBlind, smallBlind } = getBlinds(environment.configuration);
+    const smallBlindPlayer = dealer % numPlayers;
+    const bigBlindPlayer = (dealer + 1) % numPlayers;
+
+    pushEvent(firstState.idx, { highlightPlayer: null, actionText: '', hideHoleCards: true, hideCommunity: true });
+    pushEvent(firstState.idx, { highlightPlayer: smallBlindPlayer, actionText: smallBlind != null ? `SB ${smallBlind}` : 'SB', hideHoleCards: true, hideCommunity: true });
+    pushEvent(firstState.idx, { highlightPlayer: bigBlindPlayer, actionText: bigBlind != null ? `BB ${bigBlind}` : 'BB', hideHoleCards: true, hideCommunity: true });
+
+    const firstActionState = states.find((stateInfo) => stateInfo.universal.current_player !== -1) || firstState;
+    pushEvent(firstActionState.idx, { highlightPlayer: null, actionText: '', hideHoleCards: false, hideCommunity: true });
+
+    const actions = actionsByHand.get(handNumber) || [];
+    actions.forEach((action) => {
+      const targetIndex = typeof action.stateHistoryIndex === 'number' ? action.stateHistoryIndex : states[0].idx;
+      const postState = states.find((stateInfo) => stateInfo.idx > targetIndex) || states[states.length - 1];
+      pushEvent(postState.idx, {
+        highlightPlayer: action.playerIndex,
+        actionText: action.actionText,
+        hideHoleCards: false,
+        hideCommunity: false
+      });
+    });
+
+    let currentStageCommunityLength = 0;
+    states.forEach((stateInfo) => {
+      const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
+      const communityLength = communityCards.length;
+      if (communityLength > currentStageCommunityLength) {
+        currentStageCommunityLength = communityLength;
+        if (communityLength === 3 || communityLength === 4 || communityLength === 5) {
+          pushEvent(stateInfo.idx, {
+            highlightPlayer: null,
+            actionText: '',
+            hideHoleCards: false,
+            hideCommunity: false
+          });
+        }
       }
-    }
+    });
   });
 
   events.sort((a, b) => a.order - b.order);
