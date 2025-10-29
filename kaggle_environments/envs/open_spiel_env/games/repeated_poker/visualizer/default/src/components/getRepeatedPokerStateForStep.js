@@ -1,6 +1,5 @@
-function _getLastMovesACPC(bettingString, currentPlayer) {
-  // We will store all human-readable moves here
-  const allMoves = [];
+function _getActionStringsFromACPC(bettingString, currentPlayer) {
+  const moves = [];
 
   // Split the action string by street (e.g., ["r5c", "cr11f"])
   const streets = bettingString.split('/');
@@ -10,60 +9,33 @@ function _getLastMovesACPC(bettingString, currentPlayer) {
     const streetAction = streets[streetIndex];
     let i = 0;
 
-    // Preflop (streetIndex 0), action is "open" due to blinds.
-    // Postflop (streetIndex > 0), action is "not open" (first player checks or bets).
-    let isAggressiveActionOpen = (streetIndex === 0);
-
     // 4. Parse the moves within the street
     while (i < streetAction.length) {
       const char = streetAction[i];
-      let move = null;
 
-      if (char === 'c') {
-        // 'c' (call/check)
-        if (isAggressiveActionOpen) {
-          move = 'Call';
-        } else {
-          move = 'Check';
-        }
-        isAggressiveActionOpen = false; // 'c' never leaves action open
-        i++;
-      } else if (char === 'f') {
-        // 'f' (fold)
-        move = 'Fold';
-        isAggressiveActionOpen = false; // 'f' ends the hand
-        i++;
-      } else if (char === 'r') {
-        // 'r' (raise/bet)
+      if (char === 'r') {
         let amount = '';
         i++;
-        // Continue to parse all digits of the raise amount
+        // parse all digits of the raise amount
         while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
           amount += streetAction[i];
           i++;
         }
-        move = `Raise ${amount}`;
-        isAggressiveActionOpen = true; // 'r' always leaves action open
+        moves.push(`r${amount}`)
       } else {
-        // Should not happen with valid input, but good to prevent infinite loops
+        moves.push(char);
         i++;
         continue;
-      }
-
-      // 5. Store this move in the history
-      if (move) {
-        allMoves.push(move);
       }
     }
   }
 
   // 6. Get the last two moves from our complete list
-  const lastMove = allMoves.length > 0 ? allMoves[allMoves.length - 1] : null;
-  const secondLastMove = allMoves.length > 1 ? allMoves[allMoves.length - 2] : null;
+  const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
 
-  const lastMoves = currentPlayer === 0 ? [secondLastMove, lastMove] : [lastMove, secondLastMove];
+  const actionStrings = currentPlayer === 0 ? [lastMove, ''] : ['', lastMove];
 
-  return lastMoves;
+  return actionStrings;
 }
 
 function _parseStepHistoryData(universalPokerJSON) {
@@ -71,7 +43,7 @@ function _parseStepHistoryData(universalPokerJSON) {
     cards: [],
     communityCards: '',
     bets: [],
-    lastMoves: ['', ''],
+    playerActionStrings: ['', ''],
     winOdds: [0, 0],
   };
 
@@ -135,7 +107,7 @@ function _parseStepHistoryData(universalPokerJSON) {
     const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
 
     if (bettingString) {
-      result.lastMoves = _getLastMovesACPC(bettingString, universalPokerJSON.current_player);
+      result.playerActionStrings = _getActionStringsFromACPC(bettingString);
     }
   }
 
@@ -246,7 +218,7 @@ export const getPokerStateForStep = (environment, step) => {
     pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
     pData.isTurn = currentPlayer === i; // TODO: this may need to be flipped to show the other player responding to this move, which will display instantly
     pData.isDealer = currentStateHistoryEntry.dealer === i;
-    pData.actionDisplayText = currentStepFromStateHistory.lastMoves[i];
+    pData.actionDisplayText = currentStepFromStateHistory.playerActionStrings[i];
 
     if (currentStepData.isEndState) {
       pData.isTurn = false;
