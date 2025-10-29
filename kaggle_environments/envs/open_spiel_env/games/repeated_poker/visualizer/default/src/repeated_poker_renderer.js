@@ -525,7 +525,6 @@ export function renderer(options) {
   // --- State Parsing ---
   function _parseKagglePokerState(options) {
     const { environment, step } = options;
-    const numPlayers = 2;
 
     // --- Default State ---
     const defaultStateUiData = {
@@ -536,7 +535,7 @@ export function renderer(options) {
     };
 
     // --- Step Validation ---
-    if (!environment || !environment.steps || !environment.steps[step] || !environment.info?.stateHistory) {
+    if (!environment || !step) {
       return defaultStateUiData;
     }
 
@@ -559,7 +558,7 @@ export function renderer(options) {
     elements.gameLayout.style.transform = `scale(${scale})`;
   }
 
-  function _renderPokerTableUI(data, passedOptions) {
+  function _renderPokerTableUI(data) {
     if (!elements.pokerTable || !data) return;
     const { players, communityCards, pot, isTerminal, step } = data;
 
@@ -603,8 +602,8 @@ export function renderer(options) {
       if (playerNameElement) {
         playerNameElement.textContent = playerData.name;
 
-        // Highlight current player's turn
-        if (playerData.isTurn && !isTerminal) {
+        // Highlight the player who took the most recent action
+        if (playerData.isLastActor) {
           playerNameElement.classList.add('current-turn');
         } else {
           playerNameElement.classList.remove('current-turn');
@@ -650,7 +649,7 @@ export function renderer(options) {
       const playerInfoArea = elements.playerInfoAreas[index];
       if (playerInfoArea) {
         // Highlight active player's pod
-        if (playerData.isTurn && !isTerminal) {
+        if (playerData.isLastActor) {
           playerInfoArea.classList.add('active-player');
         } else {
           playerInfoArea.classList.remove('active-player');
