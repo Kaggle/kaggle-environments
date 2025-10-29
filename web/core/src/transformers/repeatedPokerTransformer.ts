@@ -1,5 +1,39 @@
 import { PokerGameStep } from "../types";
 
+const _parseRoundState = (currentStateHistory: string) => {
+  const currentState = JSON.parse(
+    JSON.parse(currentStateHistory).current_universal_poker_json,
+  ).acpc_state;
+
+  /**
+   * Example lines:
+   * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
+   * Spent: [P0: 9  P1: 9  ]
+   */
+  const lines = currentState.trim().split("\n");
+  if (lines.length < 2) {
+    return "";
+  }
+  const stateParts = lines[0].split(":");
+
+  const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
+  // Grab the hand and board blocks
+  const currentCardSegments = currentCardString.split("|");
+  // Split card string by '/' to separate hand and board blocks
+  const currentCommunitySegments =
+    currentCardSegments.length > 1 ? currentCardSegments[1].split("/") : [];
+
+  if (currentCommunitySegments.length === 2) {
+    return "### Flop";
+  } else if (currentCommunitySegments.length === 3) {
+    return "### 4th Street";
+  } else if (currentCommunitySegments.length === 4) {
+    return "### 5th Street";
+  } else {
+    return "";
+  }
+};
+
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
     .current_player !== -1;
@@ -95,7 +129,9 @@ export function _getReadableMovesFromBettingStringACPC(
     }
 
     let actingPlayer =
-      FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
+      FIRST_ACTOR_BY_STREET[
+        Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)
+      ];
 
     let i = 0;
     while (i < trimmedAction.length) {
@@ -227,26 +263,34 @@ export const getPokerStepLabel = (gameStep: PokerGameStep) => {
   return "";
 };
 
-export const getPokerStepDescription = (gameStep: PokerGameStep) => {
+export const getPokerStepDescription = (
+  gameStep: PokerGameStep,
+  playerNames: string[],
+) => {
   if (gameStep.step?.action?.thoughts) {
     return gameStep.step.action.thoughts;
-  } else if (gameStep.isEndState) {
+  } else if (gameStep.isEndState && gameStep.winner !== undefined) {
+    if (gameStep.winner === -1) {
+      return `
+### ${playerNames.join(" and ")} tie
+`;
+    }
+
+    const loser = gameStep.winner.toString() === "0" ? 1 : 0;
     if (gameStep.handConclusion === "showdown") {
       return `
-## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
-### Wins with ${gameStep.bestHandRankType} 
-### ${gameStep.bestFiveCardHands} 
+###🎉 ${playerNames[gameStep.winner]} wins round ${gameStep.hand + 1}
+#### ${gameStep.bestHandRankType?.join(" and ")}
 `;
     } else {
       return `
-## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
-### Other player folds
+###🎉 ${playerNames[gameStep.winner]} wins round ${gameStep.hand + 1}
+#### ${playerNames[loser]} folds
 `;
     }
   }
 
-  // TODO player names
-  return "TODO";
+  return _parseRoundState(gameStep.stateHistory);
 };
 
 /* interface TimelineEvent {

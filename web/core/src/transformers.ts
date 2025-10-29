@@ -31,11 +31,12 @@ export const getGameStepLabel = (
 
 export const getGameStepDescription = (
   gameStep: GameStep,
+  players: string[],
   gameName: string,
 ): string => {
   switch (gameName) {
     case "repeated_poker":
-      return getPokerStepDescription(gameStep as PokerGameStep);
+      return getPokerStepDescription(gameStep as PokerGameStep, players);
     default:
       return "";
   }
