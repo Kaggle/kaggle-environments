@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.23.10"
+version = "1.23.11"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
