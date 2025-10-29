@@ -56,63 +56,59 @@ interface UniversalPokerJSON {
   player_contributions?: number[];
 }
 
-interface ParsedStepHistoryData {
-  cards: string[];
-  communityCards: string;
-  bets: number[];
-  playerActionStrings: string[];
-  winOdds: (string | number)[]; // Changed to allow both number and string for win odds
-}
+// interface ParsedStepHistoryData {
+//   cards: string[];
+//   communityCards: string;
+//   bets: number[];
+//   playerActionStrings: string[];
+//   winOdds: (string | number)[]; // Changed to allow both number and string for win odds
+// }
 
 function _parseStepHistoryData(
-  universalPokerJSON: UniversalPokerJSON | null,
+  universalPokerJSON: any,
   nextPlayerIndex: number | null,
-  numPlayers: number = 2,
-): ParsedStepHistoryData {
-  const result: ParsedStepHistoryData = {
-    cards: [],
+  numPlayers = 2,
+) {
+  const result = {
+    cards: [[], []],
     communityCards: "",
-    bets: [],
+    bets: [0, 0],
     playerActionStrings: Array(numPlayers).fill(""),
-    winOdds: [0, 0],
+    winOdds: ["50%", "50%"],
   };
 
   if (!universalPokerJSON) {
     return result;
   }
 
-  const lines: string[] = universalPokerJSON.acpc_state.trim().split("\n");
+  const lines = universalPokerJSON.acpc_state.trim().split("\n");
   if (lines.length < 2) {
     return result;
   }
 
-  const stateLine: string = lines[0];
-  const spentLine: string = lines[1];
+  const stateLine = lines[0];
+  const spentLine = lines[1];
 
   if (spentLine) {
     const p0BetMatch = spentLine.match(/P0:\s*(\d+)/);
     const p1BetMatch = spentLine.match(/P1:\s*(\d+)/);
-
-    const bets: number[] = [0, 0];
-
+    const bets = [0, 0];
     if (p0BetMatch) {
       bets[0] = parseInt(p0BetMatch[1], 10);
     }
-
     if (p1BetMatch) {
       bets[1] = parseInt(p1BetMatch[1], 10);
     }
-
     result.bets = bets;
   }
 
   if (stateLine) {
-    const stateParts: string[] = stateLine.split(":");
-    const cardString: string = stateParts[stateParts.length - 1];
-    const cardSegments: string[] = cardString.split("/");
+    const stateParts = stateLine.split(":");
+    const cardString = stateParts[stateParts.length - 1];
+    const cardSegments = cardString.split("/");
 
     if (cardSegments[0]) {
-      const playerHands: string[] = cardSegments[0].split("|");
+      const playerHands = cardSegments[0].split("|");
       if (playerHands.length >= 2) {
         result.cards = [playerHands[0], playerHands[1]];
       }
@@ -120,9 +116,7 @@ function _parseStepHistoryData(
 
     result.communityCards = cardSegments.slice(1).filter(Boolean).join("");
 
-    const bettingString: string = stateParts
-      .slice(2, stateParts.length - 1)
-      .join(":");
+    const bettingString = stateParts.slice(2, stateParts.length - 1).join(":");
     if (bettingString) {
       result.playerActionStrings = getActionStringsFromACPC(
         bettingString,
@@ -132,12 +126,12 @@ function _parseStepHistoryData(
     }
   }
 
-  const odds: number[] = universalPokerJSON.odds || [];
-  const p0WinOdds: string = Number(odds[0] ?? 0).toLocaleString(undefined, {
+  const odds = universalPokerJSON.odds || [];
+  const p0WinOdds = Number(odds[0] ?? 0).toLocaleString(undefined, {
     style: "percent",
     minimumFractionDigits: 2,
   });
-  const p1WinOdds: string = Number(odds[1] ?? 0).toLocaleString(undefined, {
+  const p1WinOdds = Number(odds[1] ?? 0).toLocaleString(undefined, {
     style: "percent",
     minimumFractionDigits: 2,
   });
@@ -213,11 +207,7 @@ function getCommunityCardsFromUniversal(
   universal: UniversalPokerJSON,
   numPlayers: number,
 ): string[] {
-  const parsed: ParsedStepHistoryData = _parseStepHistoryData(
-    universal,
-    null,
-    numPlayers,
-  );
+  const parsed: any = _parseStepHistoryData(universal, null, numPlayers);
   const cards: string[] = splitCards(parsed.communityCards);
   const actual: string[] = cards.filter(
     (card) => card && card.toLowerCase() !== PLACEHOLDER_CARD,
@@ -232,11 +222,7 @@ function getHandCardsFromUniversal(
   universal: UniversalPokerJSON,
   numPlayers: number,
 ): string[][] {
-  const parsed: ParsedStepHistoryData = _parseStepHistoryData(
-    universal,
-    null,
-    numPlayers,
-  );
+  const parsed: any = _parseStepHistoryData(universal, null, numPlayers);
   return (parsed.cards || []).map((cardString: string) => {
     if (isPlaceholderString(cardString)) {
       return [];
@@ -543,7 +529,7 @@ export const getPokerStateForStep = (
     return null;
   }
 
-  const parsedStateHistory: ParsedStepHistoryData = _parseStepHistoryData(
+  const parsedStateHistory = _parseStepHistoryData(
     stateInfo.universal,
     stateInfo.universal?.current_player ?? null,
     numPlayers,
