@@ -149,7 +149,25 @@ export const getPokerStepLabel = (gameStep: PokerGameStep) => {
 };
 
 export const getPokerStepDescription = (gameStep: PokerGameStep) => {
-  return gameStep.stateHistory;
+  if (gameStep.step?.action?.thoughts) {
+    return gameStep.step.action.thoughts;
+  } else if (gameStep.isEndState) {
+    if (gameStep.handConclusion === "showdown") {
+      return `
+## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
+### Wins with ${gameStep.bestHandRankType} 
+### ${gameStep.bestFiveCardHands} 
+`;
+    } else {
+      return `
+## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
+### Other player folds
+`;
+    }
+  }
+
+  // TODO player names
+  return "TODO";
 };
 
 export const getPokerStepsWithEndStates = (
@@ -175,45 +193,49 @@ export const getPokerStepsWithEndStates = (
     const step = steps[i];
     let lastActionPointer = -1;
 
-    step.forEach((s: any) => {
-      if (s.action.submission !== -1) {
-        if (stateHistoryPointer >= stateHistory.length) {
-          return;
-        }
+    // console.log(step);
 
-        const preActionPointer = stateHistoryPointer;
+    if (step) {
+      step.forEach((s: any) => {
+        if (s.action.submission !== -1) {
+          if (stateHistoryPointer >= stateHistory.length) {
+            return;
+          }
 
-        stepsWithEndStates.push({
-          hand: handCount,
-          isEndState: false,
-          step: s,
-          stateHistory: stateHistory[stateHistoryPointer],
-          stateHistoryIndex: preActionPointer,
-        });
+          const preActionPointer = stateHistoryPointer;
 
-        lastActionPointer = preActionPointer;
-        stateHistoryPointer++;
-
-        const postActionPointer = stateHistoryPointer;
-
-        if (
-          postActionPointer < stateHistory.length &&
-          !_isStateHistoryAgentAction(stateHistory[postActionPointer]) &&
-          !_isStateHistoryEntryInitial(stateHistory[postActionPointer])
-        ) {
           stepsWithEndStates.push({
             hand: handCount,
             isEndState: false,
-            step: null,
-            stateHistory: stateHistory[postActionPointer],
-            stateHistoryIndex: postActionPointer,
-            postActionOf: preActionPointer,
+            step: s,
+            stateHistory: stateHistory[stateHistoryPointer],
+            stateHistoryIndex: preActionPointer,
           });
-        }
 
-        advanceToNextAgentEntry();
-      }
-    });
+          lastActionPointer = preActionPointer;
+          stateHistoryPointer++;
+
+          const postActionPointer = stateHistoryPointer;
+
+          if (
+            postActionPointer < stateHistory.length &&
+            !_isStateHistoryAgentAction(stateHistory[postActionPointer]) &&
+            !_isStateHistoryEntryInitial(stateHistory[postActionPointer])
+          ) {
+            stepsWithEndStates.push({
+              hand: handCount,
+              isEndState: false,
+              step: null,
+              stateHistory: stateHistory[postActionPointer],
+              stateHistoryIndex: postActionPointer,
+              postActionOf: preActionPointer,
+            });
+          }
+
+          advanceToNextAgentEntry();
+        }
+      });
+    }
 
     let lookaheadPointer = lastActionPointer + 1;
     while (
