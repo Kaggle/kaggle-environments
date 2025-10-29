@@ -1,10 +1,10 @@
 import { PokerGameStep } from "../types";
 
 const suitMap: Record<string, string> = {
-  s: "Spades",
-  h: "Hearts",
-  d: "Diamonds",
-  c: "Clubs",
+  s: "♠️",
+  h: "❤️",
+  d: "♦️",
+  c: "♣️",
 };
 
 const rankMap: Record<string, string> = {
@@ -227,10 +227,17 @@ const _findNewCards = (
 };
 
 const _parseCards = (
-  currentState: string,
-  previousState: string,
+  currentStateHistory: string,
+  previousStateHistory: string,
   players: string[],
 ) => {
+  const currentState = JSON.parse(
+    JSON.parse(currentStateHistory).current_universal_poker_json,
+  );
+  const previousState = JSON.parse(
+    JSON.parse(previousStateHistory).current_universal_poker_json,
+  );
+
   /**
    * Example lines:
    * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
@@ -247,7 +254,7 @@ const _parseCards = (
   const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
 
   // Extract betting information
-  const spentLine = lines.find((line) => line.startsWith("Spent:"));
+  const spentLine = lines.find((line: string) => line.startsWith("Spent:"));
   let blindsInfo = "";
 
   if (spentLine) {
@@ -332,13 +339,28 @@ export const getPokerStepLabel = (gameStep: PokerGameStep) => {
 };
 
 export const getPokerStepDescription = (gameStep: PokerGameStep) => {
-  if (gameStep.step.action.thoughts) {
+  if (gameStep.step?.action?.thoughts) {
     return gameStep.step.action.thoughts;
+  } else if (gameStep.isEndState) {
+    if (gameStep.handConclusion === "showdown") {
+      return `
+## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
+### Wins with ${gameStep.bestHandRankType} 
+### ${gameStep.bestFiveCardHands} 
+`;
+    } else {
+      return `
+## Player ${gameStep.winner} wins round ${gameStep.hand + 1} 
+### Other player folds
+`;
+    }
   }
 
-  // TODO we need to determine this based off previous state history and current but
-  // idk the right way to grab it, maybe previous state should be a field on PokerGameStep?
-  return _parseCards(gameStep.stateHistory);
+  // TODO player names
+  return _parseCards(gameStep.stateHistory, gameStep.previousStateHistory, [
+    "Player 1",
+    "Player 2",
+  ]);
 };
 
 export const getPokerStepsWithEndStates = (
@@ -360,6 +382,9 @@ export const getPokerStepsWithEndStates = (
     }
 
     const step = steps[i];
+    const currentPlayer = stateHistory[stateHistoryPointer]
+      ? JSON.parse(stateHistory[stateHistoryPointer]).current_player
+      : -1;
 
     step.forEach((s: any) => {
       if (s.action.submission !== -1) {
@@ -368,6 +393,8 @@ export const getPokerStepsWithEndStates = (
           isEndState: false,
           step: s,
           stateHistory: stateHistory[stateHistoryPointer],
+          previousStateHistory: "",
+          currentPlayer,
         });
       }
     });
@@ -379,7 +406,7 @@ export const getPokerStepsWithEndStates = (
         : // or the state history entry after it is an initial step
           _isStateHistoryEntryInitial(stateHistory[stateHistoryPointer + 1]);
 
-    if (isEndState) {
+    if (isEndState && i !== 0) {
       const endState = _getEndCondition(
         stateHistory,
         stateHistoryPointer,
@@ -392,6 +419,8 @@ export const getPokerStepsWithEndStates = (
         isEndState: true,
         step: null,
         stateHistory: stateHistory[stateHistoryPointer],
+        currentPlayer,
+        previousStateHistory: "",
         ...endState,
       });
 

@@ -1,4 +1,5 @@
 import {
+  getPokerStepDescription,
   getPokerStepLabel,
   getPokerStepsWithEndStates,
 } from "./transformers/repeatedPokerTransformer";
@@ -24,6 +25,18 @@ export const getGameStepLabel = (
   switch (gameName) {
     case "repeated_poker":
       return getPokerStepLabel(gameStep as PokerGameStep);
+    default:
+      return "";
+  }
+};
+
+export const getGameStepDescription = (
+  gameStep: GameStep,
+  gameName: string,
+): string => {
+  switch (gameName) {
+    case "repeated_poker":
+      return getPokerStepDescription(gameStep as PokerGameStep);
     default:
       return "";
   }

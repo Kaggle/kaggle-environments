@@ -50,7 +50,6 @@ function _parseStepHistoryData(universalPokerJSON) {
   // Split the string into its main lines
   const lines = universalPokerJSON.acpc_state.trim().split('\n');
   if (lines.length < 2) {
-    console.error("Invalid state string format.");
     return result;
   }
 
