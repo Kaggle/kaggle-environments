@@ -1,38 +1,29 @@
+const PLACEHOLDER_CARD = '2c';
+
 function _getActionStringsFromACPC(bettingString, nextPlayerIndex, numPlayers = 2) {
   const moves = [];
-
-  // Split the action string by street (e.g., ["r5c", "cr11f"])
   const streets = bettingString.split('/');
-
-  // Process each street's actions
   for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
     const streetAction = streets[streetIndex];
     let i = 0;
-
-    // 4. Parse the moves within the street
     while (i < streetAction.length) {
       const char = streetAction[i];
-
       if (char === 'r') {
         let amount = '';
         i++;
-        // parse all digits of the raise amount
         while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
           amount += streetAction[i];
           i++;
         }
-        moves.push(`r${amount}`)
+        moves.push(`r${amount}`);
       } else {
         moves.push(char);
         i++;
-        continue;
       }
     }
   }
 
-  // 6. Get the last two moves from our complete list
   const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
-
   const actionStrings = Array(numPlayers).fill('');
 
   if (lastMove) {
@@ -61,17 +52,14 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
     return result;
   }
 
-  // Split the string into its main lines
   const lines = universalPokerJSON.acpc_state.trim().split('\n');
   if (lines.length < 2) {
-    console.error("Invalid state string format.");
     return result;
   }
 
-  const stateLine = lines[0]; // example: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
-  const spentLine = lines[1]; // example: "Spent: [P0: 11  P1: 11  ]"
+  const stateLine = lines[0];
+  const spentLine = lines[1];
 
-  // --- Parse the Spent Line ---
   if (spentLine) {
     const p0BetMatch = spentLine.match(/P0:\s*(\d+)/);
     const p1BetMatch = spentLine.match(/P1:\s*(\d+)/);
@@ -89,37 +77,24 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
     result.bets = bets;
   }
 
-  // --- Parse the State Line ---
   if (stateLine) {
     const stateParts = stateLine.split(':');
+    const cardString = stateParts[stateParts.length - 1];
+    const cardSegments = cardString.split('/');
 
-    // --- Parse Cards ---
-    // The card string is always the last part
-    const cardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
-
-    // Split card string by '/' to separate hand block from board blocks
-    const cardSegments = cardString.split('/'); // example: ["6cKd|AsJc", "7hQh6d", "2c"]
-
-    // Parse the first segment (player hands)
     if (cardSegments[0]) {
       const playerHands = cardSegments[0].split('|');
       if (playerHands.length >= 2) {
-        // example: "6cKd"
         result.cards = [playerHands[0], playerHands[1]];
       }
     }
 
-    // The rest of the segments are community cards, one per street
     result.communityCards = cardSegments
-      .slice(1) // gets all elements AFTER the player hands
-      .filter(Boolean) // removes any empty strings (e.g., from a trailing "/")
-      .join(''); // joins the remaining segments into a single string
+      .slice(1)
+      .filter(Boolean)
+      .join('');
 
-    // --- Parse Betting String --
-    // The betting string is everything between the 2nd colon and the last colon.
-    // This handles edge cases like "STATE:0:r5c/cr11c/:cards"
     const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
-
     if (bettingString) {
       result.playerActionStrings = _getActionStringsFromACPC(
         bettingString,
@@ -129,178 +104,287 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
     }
   }
 
-  // Parse win odds
-  const p0WinOdds = Number(universalPokerJSON.odds[0]).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 })
-  const p1WinOdds = Number(universalPokerJSON.odds[1]).toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 })
+  const odds = universalPokerJSON.odds || [];
+  const p0WinOdds = Number(odds[0] ?? 0).toLocaleString(undefined, {
+    style: 'percent',
+    minimumFractionDigits: 2
+  });
+  const p1WinOdds = Number(odds[1] ?? 0).toLocaleString(undefined, {
+    style: 'percent',
+    minimumFractionDigits: 2
+  });
   result.winOdds = [p0WinOdds, p1WinOdds];
 
   return result;
 }
+
+function splitCards(cardString) {
+  if (!cardString) {
+    return [];
+  }
+  return cardString.match(/.{1,2}/g) || [];
+}
+
+function isPlaceholderString(cardString) {
+  return typeof cardString === 'string' && /^((2c)+)$/i.test(cardString);
+}
+
+function sanitizeCardList(cards) {
+  return (cards || []).filter((card) => card);
+}
+
+function formatActionDisplay(actionString) {
+  if (!actionString) {
+    return '';
+  }
+  const playerMatch = actionString.match(/move=([^\s]+)/);
+  if (!playerMatch) {
+    return '';
+  }
+  const moveRaw = playerMatch[1];
+  const moveLower = moveRaw.toLowerCase();
+  if (moveLower.startsWith('bet') || moveLower.startsWith('raise')) {
+    const amountMatch = moveRaw.match(/\d+/);
+    return amountMatch ? `r${amountMatch[0]}` : 'r';
+  }
+  if (moveLower === 'call') {
+    return 'c';
+  }
+  if (moveLower === 'check') {
+    return 'k';
+  }
+  if (moveLower === 'fold') {
+    return 'f';
+  }
+  return moveRaw;
+}
+
+function getBlinds(configuration) {
+  const blindConfig = configuration?.openSpielGameParameters?.universal_poker_game_string?.blind;
+  if (typeof blindConfig !== 'string') {
+    return { bigBlind: null, smallBlind: null };
+  }
+  const parts = blindConfig
+    .trim()
+    .split(/\s+/)
+    .map((entry) => Number(entry))
+    .filter((n) => !Number.isNaN(n));
+  if (parts.length >= 2) {
+    return { bigBlind: parts[0], smallBlind: parts[1] };
+  }
+  return { bigBlind: null, smallBlind: null };
+}
+
+function getCommunityCardsFromUniversal(universal, numPlayers) {
+  const parsed = _parseStepHistoryData(universal, null, numPlayers);
+  const cards = splitCards(parsed.communityCards);
+  const actual = cards.filter((card) => card && card.toLowerCase() !== PLACEHOLDER_CARD);
+  if (actual.length < 3) {
+    return [];
+  }
+  return actual;
+}
+
+function getHandCardsFromUniversal(universal, numPlayers) {
+  const parsed = _parseStepHistoryData(universal, null, numPlayers);
+  return (parsed.cards || []).map((cardString) => {
+    if (isPlaceholderString(cardString)) {
+      return [];
+    }
+    return sanitizeCardList(splitCards(cardString));
+  });
+}
+
+function buildTimeline(environment, numPlayers) {
+  const timeline = [];
+  const stateHistory = environment?.info?.stateHistory || [];
+  if (!stateHistory.length) {
+    return timeline;
+  }
+
+  const parsedStates = stateHistory.map((entry, idx) => {
+    const outer = JSON.parse(entry);
+    return {
+      idx,
+      outer,
+      universal: JSON.parse(outer.current_universal_poker_json)
+    };
+  });
+
+  const { bigBlind, smallBlind } = getBlinds(environment.configuration);
+  const dealer = parsedStates[0]?.outer?.dealer ?? 0;
+  const smallBlindPlayer = dealer % numPlayers;
+  const bigBlindPlayer = (dealer + 1) % numPlayers;
+
+  const rawSteps = environment.__rawSteps || [];
+  const flattenedActions = [];
+  rawSteps.forEach((stepArr) => {
+    (stepArr || []).forEach((agentStep, index) => {
+      if (agentStep?.action && agentStep.action.submission !== -1) {
+        flattenedActions.push({
+          playerIndex: index,
+          actionString: agentStep.action.actionString || ''
+        });
+      }
+    });
+  });
+
+  const events = [];
+
+  const addEvent = (event) => {
+    events.push(event);
+  };
+
+  const initialStateIndex = parsedStates[0].idx;
+  addEvent({ order: -30, stateIndex: initialStateIndex, highlightPlayer: null, actionText: '', hideHoleCards: true, hideCommunity: true });
+  addEvent({ order: -20, stateIndex: initialStateIndex, highlightPlayer: smallBlindPlayer, actionText: smallBlind != null ? `SB ${smallBlind}` : 'SB', hideHoleCards: true, hideCommunity: true });
+  addEvent({ order: -10, stateIndex: initialStateIndex, highlightPlayer: bigBlindPlayer, actionText: bigBlind != null ? `BB ${bigBlind}` : 'BB', hideHoleCards: true, hideCommunity: true });
+
+  const firstActionIndex = parsedStates.findIndex(({ universal }) => universal.current_player !== -1);
+  const holeEventState = firstActionIndex >= 0 ? parsedStates[firstActionIndex] : parsedStates[0];
+  addEvent({ order: holeEventState.idx - 0.5, stateIndex: holeEventState.idx, highlightPlayer: null, actionText: '', hideHoleCards: false, hideCommunity: true });
+
+  let statePointer = 0;
+  flattenedActions.forEach((action) => {
+    while (statePointer < parsedStates.length && parsedStates[statePointer].universal.current_player === -1) {
+      statePointer++;
+    }
+    if (statePointer >= parsedStates.length) {
+      return;
+    }
+    const preState = parsedStates[statePointer];
+    const postState = parsedStates[statePointer + 1] ? parsedStates[statePointer + 1] : preState;
+    const actionText = formatActionDisplay(action.actionString);
+    addEvent({
+      order: postState.idx,
+      stateIndex: postState.idx,
+      highlightPlayer: action.playerIndex,
+      actionText,
+      hideHoleCards: false,
+      hideCommunity: false
+    });
+    statePointer++;
+  });
+
+  let currentStageCommunityLength = 0;
+  parsedStates.forEach((stateInfo) => {
+    const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
+    const communityLength = communityCards.length;
+    if (communityLength > currentStageCommunityLength) {
+      const shouldDisplay = communityLength === 3 || communityLength === 4 || communityLength === 5;
+      currentStageCommunityLength = communityLength;
+      if (shouldDisplay) {
+        addEvent({
+          order: stateInfo.idx + 0.1,
+          stateIndex: stateInfo.idx,
+          highlightPlayer: null,
+          actionText: '',
+          hideHoleCards: false,
+          hideCommunity: false,
+          stage: true
+        });
+      }
+    }
+  });
+
+  events.sort((a, b) => a.order - b.order);
+  return events.map(({ stateIndex, highlightPlayer, actionText, hideHoleCards, hideCommunity }) => ({
+    stateIndex,
+    highlightPlayer,
+    actionText,
+    hideHoleCards: !!hideHoleCards,
+    hideCommunity: !!hideCommunity
+  }));
+}
+
+function getTimeline(environment, numPlayers) {
+  if (!environment.__timeline) {
+    environment.__timeline = buildTimeline(environment, numPlayers);
+  }
+  return environment.__timeline;
+}
+
+function getUniversalState(environment, index) {
+  const entry = environment?.info?.stateHistory?.[index];
+  if (!entry) {
+    return null;
+  }
+  const outer = JSON.parse(entry);
+  return {
+    outer,
+    universal: JSON.parse(outer.current_universal_poker_json)
+  };
+}
+
 export const getPokerStateForStep = (environment, step) => {
   const numPlayers = 2;
-  // --- Step Validation ---
-  if (!environment || !environment.steps || !environment.steps[step] || !environment.info) {
-    // return default state
+  if (!environment || !environment.info?.stateHistory) {
     return null;
   }
 
-  const stepsWithEndStates = environment.steps;
-
-  // --- Default State ---
-  const stateUIData = {
-    players: Array(numPlayers).fill(null).map((_, i) => {
-      const agentName = environment?.info?.TeamNames?.[i] ||
-        `Player ${i}`;
-      const thumbnail = environment?.info?.Agents?.[i].ThumbnailUrl;
-      return {
-        id: `player${i}`,
-        name: agentName,
-        thumbnail: thumbnail,
-        stack: 0,
-        cards: [], // Will be filled with nulls or cards
-        currentBet: 0,
-        isDealer: i === 0,
-        isTurn: false,
-        reward: null,
-        actionDisplayText: ""
-      };
-    }),
-    communityCards: [],
-    pot: 0,
-    isTerminal: false,
-    rawObservation: null, // For debugging
-    step: step,
-    winOdds: [],
-    fiveCardBestHands: [],
-    currentPlayer: -1,
-    winner: -1,
-  };
-
-  // We have two sources for current game state: stepHistory and steps
-  // This is because neither source contains all the information we need 
-  const currentStepData = stepsWithEndStates[step];
-
-  let currentPlayer = null;
-
-  const currentStateHistoryEntry = currentStepData?.stateHistory
-    ? JSON.parse(currentStepData.stateHistory)
-    : null;
-  const currentStateFromStateHistory = currentStateHistoryEntry
-    ? JSON.parse(currentStateHistoryEntry.current_universal_poker_json)
-    : null;
-
-  const observation = currentStepData?.step?.observation;
-  if (typeof observation?.currentPlayer === "number") {
-    currentPlayer = observation.currentPlayer;
-  } else if (typeof observation?.current_player === "number") {
-    currentPlayer = observation.current_player;
+  const timeline = getTimeline(environment, numPlayers);
+  const event = timeline[step];
+  if (!event) {
+    return null;
   }
 
-  const currentUniversalPokerJSON = currentStateFromStateHistory;
-  const currentStepFromStateHistory = _parseStepHistoryData(
-    currentUniversalPokerJSON,
-    currentStateFromStateHistory?.current_player,
+  const stateInfo = getUniversalState(environment, event.stateIndex);
+  if (!stateInfo) {
+    return null;
+  }
+
+  const parsedStateHistory = _parseStepHistoryData(
+    stateInfo.universal,
+    stateInfo.universal?.current_player,
     numPlayers
   );
 
-  const actionString = currentStepData?.step?.action?.actionString || "";
-  let actionPlayerIndex = null;
-  let actionDisplayText = "";
-  if (actionString) {
-    const playerMatch = actionString.match(/player=(\d+)/);
-    const moveMatch = actionString.match(/move=([^\s]+)/);
-    if (playerMatch) {
-      actionPlayerIndex = parseInt(playerMatch[1], 10);
-      if (moveMatch) {
-        const moveRaw = moveMatch[1];
-        const moveLower = moveRaw.toLowerCase();
-        if (moveLower.startsWith("bet")) {
-          const amountMatch = moveRaw.match(/\d+/);
-          actionDisplayText = amountMatch ? `r${amountMatch[0]}` : "bet";
-        } else if (moveLower.startsWith("raise")) {
-          const amountMatch = moveRaw.match(/\d+/);
-          actionDisplayText = amountMatch ? `r${amountMatch[0]}` : "r";
-        } else if (moveLower === "call") {
-          actionDisplayText = "c";
-        } else if (moveLower === "check") {
-          actionDisplayText = "k";
-        } else if (moveLower === "fold") {
-          actionDisplayText = "f";
-        } else {
-          actionDisplayText = moveRaw;
-        }
-      }
+  const startingStacks = stateInfo.universal?.starting_stacks || Array(numPlayers).fill(0);
+  const contributions = stateInfo.universal?.player_contributions || parsedStateHistory.bets || Array(numPlayers).fill(0);
+  const rewards = stateInfo.outer?.hand_returns || [];
+  const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
+
+  const players = Array(numPlayers)
+    .fill(null)
+    .map((_, i) => {
+      const agentName = environment?.info?.TeamNames?.[i] || `Player ${i}`;
+      const thumbnail = environment?.info?.Agents?.[i]?.ThumbnailUrl;
+      return {
+        id: `player${i}`,
+        name: agentName,
+        thumbnail,
+        stack: startingStacks[i] - (contributions[i] || 0),
+        cards: [],
+        currentBet: contributions[i] || 0,
+        isDealer: stateInfo.outer?.dealer === i,
+        isTurn: stateInfo.universal?.current_player === i,
+        isLastActor: event.highlightPlayer === i,
+        reward: rewards[0]?.[i] ?? null,
+        actionDisplayText: event.highlightPlayer === i ? event.actionText : ''
+      };
+    });
+
+  const handCards = getHandCardsFromUniversal(stateInfo.universal, numPlayers);
+  players.forEach((player, index) => {
+    if (event.hideHoleCards) {
+      player.cards = [];
+    } else {
+      player.cards = handCards[index] || [];
     }
-  }
+  });
 
-  const currentStepAgents = environment.steps[step];
-  if (!currentStepAgents || currentStepAgents.length < numPlayers) {
-    return stateUIData;
-  }
+  const displayCommunity = event.hideCommunity ? [] : communityCards;
 
-  const pot_size = currentStepFromStateHistory.bets.reduce((a, b) => a + b, 0);
-  const player_contributions = currentStepFromStateHistory.bets;
-  const starting_stacks = currentUniversalPokerJSON.starting_stacks;
-  const player_hands = [
-    currentStepFromStateHistory.cards[0]?.match(/.{1,2}/g) || [],
-    currentStepFromStateHistory.cards[1]?.match(/.{1,2}/g) || []
-  ];
-  const board_cards = currentStepFromStateHistory.communityCards ? currentStepFromStateHistory.communityCards.match(/.{1,2}/g).reverse() : [];
-
-  // TODO: Add odds, best_five_card_hands best_hand_rank_types
-
-  // TODO: Add current player
-
-  const isTerminal = false // TODO: read isTerminal from observation
-  stateUIData.isTerminal = isTerminal;
-  stateUIData.pot = pot_size || 0;
-  stateUIData.communityCards = board_cards || [];
-  stateUIData.currentPlayer = currentPlayer ?? -1;
-
-  // --- Update Players ---
-  for (let i = 0; i < numPlayers; i++) {
-    const pData = stateUIData.players[i];
-    const contribution = player_contributions ? player_contributions[i] : 0;
-    const startStack = starting_stacks ? starting_stacks[i] : 0;
-
-    pData.currentBet = contribution;
-    pData.stack = startStack - contribution;
-    pData.cards = (player_hands[i] || []).map(c => c === "??" ? null : c);
-    pData.isTurn = currentPlayer === i;
-    const dealerIndex = typeof currentStateHistoryEntry?.dealer === "number"
-      ? currentStateHistoryEntry.dealer
-      : 0;
-    pData.isDealer = dealerIndex === i;
-    pData.actionDisplayText = actionPlayerIndex === i ? actionDisplayText : "";
-
-    if (currentStepData.isEndState) {
-      pData.isTurn = false;
-      pData.isWinner = currentStepData.winner === i;
-      if (currentStepData.winner === i) {
-        pData.actionDisplayText = "WINNER"
-      } else {
-        if (currentStepData.handConclusion = "fold") {
-          pData.actionDisplayText = "FOLD"
-        } else {
-          pData.actionDisplayText = "LOSER"
-        }
-      }
-    }
-
-    if (isTerminal) {
-      const reward = environment.rewards ? environment.rewards[i] : null;
-      pData.reward = reward;
-      if (reward > 0) {
-        pData.name = `${pData.name} wins 🎉`;
-        pData.isWinner = true;
-        pData.status = null;
-      } else {
-        pData.status = null;
-      }
-    } else if (pData.stack === 0 && pData.currentBet > 0) {
-      pData.status = "All-in";
-    }
-  }
-
-  return stateUIData;
-}
+  return {
+    players,
+    communityCards: displayCommunity,
+    pot: contributions.reduce((sum, value) => sum + (value || 0), 0),
+    isTerminal: false,
+    rawObservation: stateInfo.universal,
+    step,
+    winOdds: parsedStateHistory.winOdds,
+    fiveCardBestHands: [],
+    currentPlayer: stateInfo.universal?.current_player ?? -1,
+    winner: -1
+  };
+};

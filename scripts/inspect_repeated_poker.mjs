@@ -57,6 +57,7 @@ const processedSteps = processEpisodeData(
 const environment = {
   ...replay,
   steps: processedSteps,
+  __rawSteps: replay.steps,
 };
 
 const pokerStateModule = path.resolve(

@@ -16,6 +16,7 @@ class LegacyAdapter implements GameAdapter {
             replay.configuration?.openSpielGameName ??
             replay.configuration?.game ??
             'repeated_poker';
+        const rawSteps = (replay as any).__rawSteps ?? replay.steps;
         const processedSteps = processEpisodeData(
             replay.steps,
             replay.info?.stateHistory ?? [],
@@ -24,7 +25,8 @@ class LegacyAdapter implements GameAdapter {
         const processedReplay = {
             ...replay,
             steps: processedSteps as unknown as ReplayData['steps']
-        };
+        } as ReplayData & { __rawSteps?: ReplayData['steps'] };
+        processedReplay.__rawSteps = rawSteps as any;
 
         this.container.innerHTML = ''; // Clear container before rendering
         renderer({

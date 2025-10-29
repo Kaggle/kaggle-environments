@@ -181,15 +181,36 @@ export const getPokerStepsWithEndStates = (
           return;
         }
 
+        const preActionPointer = stateHistoryPointer;
+
         stepsWithEndStates.push({
           hand: handCount,
           isEndState: false,
           step: s,
           stateHistory: stateHistory[stateHistoryPointer],
+          stateHistoryIndex: preActionPointer,
         });
 
-        lastActionPointer = stateHistoryPointer;
+        lastActionPointer = preActionPointer;
         stateHistoryPointer++;
+
+        const postActionPointer = stateHistoryPointer;
+
+        if (
+          postActionPointer < stateHistory.length &&
+          !_isStateHistoryAgentAction(stateHistory[postActionPointer]) &&
+          !_isStateHistoryEntryInitial(stateHistory[postActionPointer])
+        ) {
+          stepsWithEndStates.push({
+            hand: handCount,
+            isEndState: false,
+            step: null,
+            stateHistory: stateHistory[postActionPointer],
+            stateHistoryIndex: postActionPointer,
+            postActionOf: preActionPointer,
+          });
+        }
+
         advanceToNextAgentEntry();
       }
     });
@@ -220,6 +241,7 @@ export const getPokerStepsWithEndStates = (
         isEndState: true,
         step: null,
         stateHistory: stateHistory[lastActionPointer],
+        stateHistoryIndex: lastActionPointer,
         ...endState,
       });
 
