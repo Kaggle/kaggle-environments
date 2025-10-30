@@ -1,43 +1,34 @@
+import { debugRepeatedPokerTransformer } from './transformers/debugRepeatedPokerTransformer';
 import {
   getPokerStepDescription,
   getPokerStepLabel,
-  getPokerStepsWithEndStates,
-} from "./transformers/repeatedPokerTransformer";
-import { GameStep, PokerGameStep } from "./types";
+  getPokerStepsWithEndStates
+} from './transformers/repeatedPokerTransformer';
+import { GameStep, PokerGameStep } from './types';
 
-export const processEpisodeData = (
-  environment: any,
-  gameName: string,
-): GameStep[] => {
+export const processEpisodeData = (environment: any, gameName: string): GameStep[] => {
   switch (gameName) {
-    case "repeated_poker":
-      return getPokerStepsWithEndStates(environment);
+    case 'repeated_poker':
+      return debugRepeatedPokerTransformer(environment);
     default:
       return environment.steps;
   }
 };
 
-export const getGameStepLabel = (
-  gameStep: GameStep,
-  gameName: string,
-): string => {
+export const getGameStepLabel = (gameStep: GameStep, gameName: string): string => {
   switch (gameName) {
-    case "repeated_poker":
+    case 'repeated_poker':
       return getPokerStepLabel(gameStep as PokerGameStep);
     default:
-      return "";
+      return '';
   }
 };
 
-export const getGameStepDescription = (
-  gameStep: GameStep,
-  players: string[],
-  gameName: string,
-): string => {
+export const getGameStepDescription = (gameStep: GameStep, players: string[], gameName: string): string => {
   switch (gameName) {
-    case "repeated_poker":
+    case 'repeated_poker':
       return getPokerStepDescription(gameStep as PokerGameStep, players);
     default:
-      return "";
+      return '';
   }
 };
