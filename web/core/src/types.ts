@@ -14,6 +14,13 @@ export interface ReplayData {
   info?: Record<string, any>;
 }
 
+/**
+ * only-stream: used for recording videos that show a play-by-play with agent reasoning
+ * zen: a similar streaming view but for replays with interactive controls
+ * logs: a condensed view of the episode without reasoning
+ */
+export type ReplayMode = "only-stream" | "zen" | "condensed";
+
 export interface BaseGameStep {
   isEndState: boolean;
   step: any;
