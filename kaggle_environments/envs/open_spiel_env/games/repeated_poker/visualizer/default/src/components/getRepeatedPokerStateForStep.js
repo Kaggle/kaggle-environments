@@ -109,7 +109,6 @@ function getHandCardsFromUniversal(universal, numPlayers) {
   });
 }
 
-
 function getUniversalState(environment, index) {
   const entry = environment?.info?.stateHistory?.[index];
   if (!entry) {
