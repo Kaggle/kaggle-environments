@@ -188,6 +188,58 @@ export const getPokerStateForStep = (environment, step) => {
   });
 
   const displayCommunity = event.hideCommunity ? [] : communityCards;
+
+  const hand_returns = stateInfo.outer?.hand_returns || [];
+  const cumulativeWinnings = Array(numPlayers).fill(0);
+  const previousHands = [];
+
+  for (let i = 0; i < hand_returns.length; i++) {
+    const handReturn = hand_returns[i];
+    if (!handReturn) continue;
+
+    let winner = -1;
+    let winAmount = 0;
+    if (handReturn[0] > handReturn[1]) {
+      winner = 0;
+      winAmount = handReturn[0];
+    } else if (handReturn[1] > handReturn[0]) {
+      winner = 1;
+      winAmount = handReturn[1];
+    }
+
+    if (winner !== -1) {
+      previousHands.push({
+        handNum: i + 1,
+        winnerIndex: winner,
+        winnerName: environment?.info?.TeamNames?.[winner] || `Player ${winner}`,
+        winnerThumbnail: environment?.info?.Agents?.[winner]?.ThumbnailUrl,
+        amount: winAmount
+      });
+    }
+
+    cumulativeWinnings[0] += handReturn[0] || 0;
+    cumulativeWinnings[1] += handReturn[1] || 0;
+  }
+
+  let leadingPlayer = -1;
+  let leadingWinnings = 0;
+  if (cumulativeWinnings[0] > cumulativeWinnings[1]) {
+    leadingPlayer = 0;
+    leadingWinnings = cumulativeWinnings[0];
+  } else if (cumulativeWinnings[1] > cumulativeWinnings[0]) {
+    leadingPlayer = 1;
+    leadingWinnings = cumulativeWinnings[1];
+  }
+
+  const leaderInfo =
+    leadingPlayer !== -1
+      ? {
+          name: environment?.info?.TeamNames?.[leadingPlayer] || `Player ${leadingPlayer}`,
+          thumbnail: environment?.info?.Agents?.[leadingPlayer]?.ThumbnailUrl,
+          winnings: leadingWinnings
+        }
+      : null;
+
   return {
     players,
     communityCards: displayCommunity,
@@ -201,5 +253,7 @@ export const getPokerStateForStep = (environment, step) => {
     currentPlayer: stateInfo.universal?.current_player ?? -1,
     winner: -1,
     handCount: event.hand,
+    previousHands,
+    leaderInfo
   };
 };
