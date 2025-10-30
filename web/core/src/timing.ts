@@ -1,5 +1,5 @@
 /**
- * Shoutout to rileyjones@ for the first implementations of the token streaming helpers. Originals are at:
+ * Shoutout to Riley Jones for the first implementations of token streaming helpers. Originals are at:
  * https://github.com/rileyajones/kaggle-gamearena-gamestream-ui/blob/main/ui/src/context/utils.ts
  */
 import { GameStep, ReplayMode } from "./types";
