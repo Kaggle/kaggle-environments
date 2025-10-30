@@ -147,7 +147,7 @@ export const getPokerStateForStep = (environment, step) => {
 
   const parsedStateHistory = _parseStepHistoryData(
     stateInfo.universal,
-    event.activePlayer,
+    event.actingPlayer,
     numPlayers
   );
 
@@ -170,7 +170,7 @@ export const getPokerStateForStep = (environment, step) => {
         cards: [],
         currentBet: contributions[i] || 0,
         isDealer: stateInfo.outer?.dealer === i,
-        isTurn: event.activePlayer === i,
+        isTurn: event.actingPlayer === i,
         isLastActor: event.highlightPlayer === i,
         reward: rewards[0]?.[i] ?? null,
         actionDisplayText: event.winner === i ? "Winner" : parsedStateHistory.playerActionStrings[i],
@@ -235,10 +235,10 @@ export const getPokerStateForStep = (environment, step) => {
   const leaderInfo =
     leadingPlayer !== -1
       ? {
-          name: environment?.info?.TeamNames?.[leadingPlayer] || `Player ${leadingPlayer}`,
-          thumbnail: environment?.info?.Agents?.[leadingPlayer]?.ThumbnailUrl,
-          winnings: leadingWinnings
-        }
+        name: environment?.info?.TeamNames?.[leadingPlayer] || `Player ${leadingPlayer}`,
+        thumbnail: environment?.info?.Agents?.[leadingPlayer]?.ThumbnailUrl,
+        winnings: leadingWinnings
+      }
       : null;
 
   return {
