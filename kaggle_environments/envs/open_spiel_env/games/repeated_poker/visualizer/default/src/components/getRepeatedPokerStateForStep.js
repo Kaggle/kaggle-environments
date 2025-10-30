@@ -1,4 +1,5 @@
-import { getActionStringsFromACPC } from '@kaggle-environments/core';
+import { getActionStringsFromACPC } from '../../../../../../../../../web/core/dist/transformers/buildTimeline.js';
+import { getPokerStepsWithEndStates } from '../../../../../../../../../web/core/dist/transformers/repeatedPokerTransformer.js';
 
 const PLACEHOLDER_CARD = '2c';
 
@@ -96,6 +97,157 @@ function sanitizeCardList(cards) {
   return (cards || []).filter((card) => card);
 }
 
+function extractStateHistory(environment) {
+  return (
+    environment?.info?.stateHistory ||
+    environment?.info?.state_history ||
+    environment?.stateHistory ||
+    environment?.state_history ||
+    []
+  );
+}
+
+function ensurePokerEnvironment(environment) {
+  if (!environment || !Array.isArray(environment.steps)) {
+    return { environment, stepMap: null };
+  }
+
+  if (!Array.isArray(environment.steps[0])) {
+    // Already transformed into PokerGameStep objects.
+    return { environment, stepMap: environment.__pokerStepMap || null };
+  }
+
+  if (environment.__pokerEnvironmentCache) {
+    return environment.__pokerEnvironmentCache;
+  }
+
+  const stateHistory = extractStateHistory(environment);
+  if (!Array.isArray(stateHistory) || stateHistory.length === 0) {
+    const cacheEntry = { environment, stepMap: null };
+    environment.__pokerEnvironmentCache = cacheEntry;
+    return cacheEntry;
+  }
+
+  const derivedEnvironment = {
+    configuration: environment.configuration ?? null,
+    info: {
+      ...(environment.info || {}),
+      stateHistory
+    },
+    steps: []
+  };
+
+  const stepsWithEndStates = getPokerStepsWithEndStates({
+    configuration: derivedEnvironment.configuration,
+    info: derivedEnvironment.info,
+    steps: environment.steps || []
+  });
+
+  derivedEnvironment.steps = stepsWithEndStates;
+
+  const rawStepRefs = new Map();
+  (environment.steps || []).forEach((rawStep, rawIndex) => {
+    if (Array.isArray(rawStep)) {
+      rawStep.forEach((entry) => {
+        if (entry && typeof entry === 'object') {
+          rawStepRefs.set(entry, rawIndex);
+        }
+      });
+    }
+  });
+
+  const stepMap = new Map();
+  stepsWithEndStates.forEach((entry, index) => {
+    if (entry?.step && rawStepRefs.has(entry.step)) {
+      const rawIndex = rawStepRefs.get(entry.step);
+      if (!stepMap.has(rawIndex)) {
+        stepMap.set(rawIndex, index);
+      }
+    }
+  });
+
+  let lastKnownIndex = 0;
+  for (let i = 0; i < (environment.steps?.length || 0); i += 1) {
+    if (stepMap.has(i)) {
+      lastKnownIndex = stepMap.get(i);
+    } else {
+      stepMap.set(i, lastKnownIndex);
+    }
+  }
+
+  const cacheEntry = { environment: derivedEnvironment, stepMap };
+  environment.__pokerEnvironmentCache = cacheEntry;
+  return cacheEntry;
+}
+
+function getCurrentStreetContributions(universalPokerJSON, numPlayers) {
+  if (!universalPokerJSON) {
+    return Array(numPlayers).fill(0);
+  }
+
+  const blinds = Array.from({ length: numPlayers }, (_, idx) => {
+    const blindValue = universalPokerJSON.blinds?.[idx];
+    const numericBlind = Number(blindValue);
+    return Number.isFinite(numericBlind) ? numericBlind : 0;
+  });
+
+  const contributions = blinds.slice();
+  let streetBaseline = Array(numPlayers).fill(0);
+  const bettingHistory = universalPokerJSON.betting_history || '';
+  const streets = bettingHistory.length > 0 ? bettingHistory.split('/') : [''];
+  const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
+
+  streets.forEach((streetAction, streetIndex) => {
+    if (streetIndex > 0) {
+      streetBaseline = contributions.slice();
+    }
+
+    const trimmedAction = streetAction.trim();
+    if (!trimmedAction) {
+      return;
+    }
+
+    let actingPlayer =
+      FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
+
+    let i = 0;
+    while (i < trimmedAction.length) {
+      const char = trimmedAction[i];
+      const currentMax = Math.max(...contributions);
+
+      if (char === 'r') {
+        let amount = '';
+        i += 1;
+        while (i < trimmedAction.length && trimmedAction[i] >= '0' && trimmedAction[i] <= '9') {
+          amount += trimmedAction[i];
+          i += 1;
+        }
+        const targetTotal = parseInt(amount || '0', 10);
+        if (Number.isFinite(targetTotal)) {
+          contributions[actingPlayer] = targetTotal;
+        }
+      } else if (char === 'c') {
+        if (contributions[actingPlayer] < currentMax) {
+          contributions[actingPlayer] = currentMax;
+        }
+        i += 1;
+      } else if (char === 'f') {
+        i += 1;
+      } else {
+        i += 1;
+      }
+
+      actingPlayer = (actingPlayer + 1) % numPlayers;
+    }
+  });
+
+  const finalTotals = Array.isArray(universalPokerJSON.player_contributions)
+    ? universalPokerJSON.player_contributions.slice(0, numPlayers)
+    : contributions;
+
+  return finalTotals.map((value, idx) => Math.max(value - (streetBaseline[idx] || 0), 0));
+}
+
 function getCommunityCardsFromUniversal(universal, numPlayers) {
   const parsed = _parseStepHistoryData(universal, null, numPlayers);
   const cards = splitCards(parsed.communityCards);
@@ -134,13 +286,22 @@ export const getPokerStateForStep = (environment, step) => {
     return null;
   }
 
-  const event = environment.steps[step];
+  const { environment: derivedEnvironment, stepMap } = ensurePokerEnvironment(environment);
+  if (!derivedEnvironment || !Array.isArray(derivedEnvironment.steps)) {
+    return null;
+  }
+
+  const mappedStep =
+    (stepMap && stepMap.has(step) ? stepMap.get(step) : null) ??
+    Math.min(step, Math.max(derivedEnvironment.steps.length - 1, 0));
+
+  const event = derivedEnvironment.steps[mappedStep];
 
   if (!event) {
     return null;
   }
 
-  const stateInfo = getUniversalState(environment, event.stateHistoryIndex);
+  const stateInfo = getUniversalState(derivedEnvironment, event.stateHistoryIndex);
   if (!stateInfo) {
     return null;
   }
@@ -154,6 +315,7 @@ export const getPokerStateForStep = (environment, step) => {
   const startingStacks = stateInfo.universal?.starting_stacks || Array(numPlayers).fill(0);
   const contributions =
     stateInfo.universal?.player_contributions || parsedStateHistory.bets || Array(numPlayers).fill(0);
+  const currentStreetBets = getCurrentStreetContributions(stateInfo.universal, numPlayers);
   const rewards = stateInfo.outer?.hand_returns || [];
   const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
 
@@ -168,7 +330,7 @@ export const getPokerStateForStep = (environment, step) => {
         thumbnail,
         stack: startingStacks[i] - (contributions[i] || 0),
         cards: [],
-        currentBet: contributions[i] || 0,
+        currentBet: currentStreetBets[i] || 0,
         isDealer: stateInfo.outer?.dealer === i,
         isTurn: stateInfo.universal?.current_player === i,
         isLastActor: event.highlightPlayer === i,
