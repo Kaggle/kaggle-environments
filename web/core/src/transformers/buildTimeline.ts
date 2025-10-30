@@ -10,10 +10,7 @@ export function getActionStringsFromACPC(
 
   const moves = _getReadableMovesFromBettingStringACPC(bettingString)
 
-  console.log(moves);
-
   const move = moves.slice(-1);
-  console.log(move)
 
   const actionStrings = ["", ""]
 
