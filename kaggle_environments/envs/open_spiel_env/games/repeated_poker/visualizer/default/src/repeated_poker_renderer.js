@@ -603,13 +603,13 @@ export function renderer(options) {
     elements.dealerButton.style.display = 'none';
     elements.playersContainer.appendChild(elements.dealerButton);
 
-    elements.legend = document.createElement('div');
-    elements.legend.className = 'legend';
-    elements.legend.innerHTML = `
-      <div class="legend-title"></div>
-      <div class="legend-body"></div>
-    `;
-    elements.gameLayout.appendChild(elements.legend);
+    // elements.legend = document.createElement('div');
+    // elements.legend.className = 'legend';
+    // elements.legend.innerHTML = `
+    //   <div class="legend-title"></div>
+    //   <div class="legend-body"></div>
+    // `;
+    // elements.gameLayout.appendChild(elements.legend);
 
     return true;
   } // --- State Parsing ---
@@ -664,108 +664,108 @@ export function renderer(options) {
     } = data;
 
     // Update legend
-    const legendTitle = elements.legend.querySelector('.legend-title');
-    const legendBody = elements.legend.querySelector('.legend-body');
+    // const legendTitle = elements.legend.querySelector('.legend-title');
+    // const legendBody = elements.legend.querySelector('.legend-body');
 
-    legendTitle.innerHTML = ''; // Clear existing content
+    // legendTitle.innerHTML = ''; // Clear existing content
 
-    const handSpan = document.createElement('span');
-    handSpan.textContent = `Hand: ${handCount !== undefined && handCount !== null ? handCount + 1 : 'Standby'}`;
-    legendTitle.appendChild(handSpan);
+    // const handSpan = document.createElement('span');
+    // handSpan.textContent = `Hand: ${handCount !== undefined && handCount !== null ? handCount + 1 : 'Standby'}`;
+    // legendTitle.appendChild(handSpan);
 
-    if (leaderInfo) {
-      const leaderInfoDiv = document.createElement('div');
-      leaderInfoDiv.className = 'legend-leader-info';
+    // if (leaderInfo) {
+    //   const leaderInfoDiv = document.createElement('div');
+    //   leaderInfoDiv.className = 'legend-leader-info';
 
-      if (leaderInfo.thumbnail) {
-        const leaderThumbnail = document.createElement('img');
-        leaderThumbnail.src = leaderInfo.thumbnail;
-        leaderThumbnail.className = 'legend-title-avatar';
-        leaderInfoDiv.appendChild(leaderThumbnail);
-      }
+    //   if (leaderInfo.thumbnail) {
+    //     const leaderThumbnail = document.createElement('img');
+    //     leaderThumbnail.src = leaderInfo.thumbnail;
+    //     leaderThumbnail.className = 'legend-title-avatar';
+    //     leaderInfoDiv.appendChild(leaderThumbnail);
+    //   }
 
-      const leaderNameSpan = document.createElement('span');
-      const leaderName = leaderInfo.name.split(' ')[0];
-      leaderNameSpan.textContent = `${leaderName} is up ${leaderInfo.winnings}`;
-      leaderInfoDiv.appendChild(leaderNameSpan);
-      legendTitle.appendChild(leaderInfoDiv);
-    }
+    //   const leaderNameSpan = document.createElement('span');
+    //   const leaderName = leaderInfo.name.split(' ')[0];
+    //   leaderNameSpan.textContent = `${leaderName} is up ${leaderInfo.winnings}`;
+    //   leaderInfoDiv.appendChild(leaderNameSpan);
+    //   legendTitle.appendChild(leaderInfoDiv);
+    // }
 
-    legendBody.innerHTML = ''; // Clear existing content
+    // legendBody.innerHTML = ''; // Clear existing content
 
-    const table = document.createElement('div');
-    table.className = 'legend-table';
+    // const table = document.createElement('div');
+    // table.className = 'legend-table';
 
-    const headerRow = document.createElement('div');
-    headerRow.className = 'legend-row legend-header';
+    // const headerRow = document.createElement('div');
+    // headerRow.className = 'legend-row legend-header';
 
-    const handHeader = document.createElement('div');
-    handHeader.className = 'legend-cell';
-    handHeader.textContent = 'Hand';
-    headerRow.appendChild(handHeader);
+    // const handHeader = document.createElement('div');
+    // handHeader.className = 'legend-cell';
+    // handHeader.textContent = 'Hand';
+    // headerRow.appendChild(handHeader);
 
-    const winnerHeader = document.createElement('div');
-    winnerHeader.className = 'legend-cell';
-    winnerHeader.textContent = 'Winner';
-    headerRow.appendChild(winnerHeader);
+    // const winnerHeader = document.createElement('div');
+    // winnerHeader.className = 'legend-cell';
+    // winnerHeader.textContent = 'Winner';
+    // headerRow.appendChild(winnerHeader);
 
-    const amountHeader = document.createElement('div');
-    amountHeader.className = 'legend-cell';
-    amountHeader.textContent = 'Amount';
-    headerRow.appendChild(amountHeader);
+    // const amountHeader = document.createElement('div');
+    // amountHeader.className = 'legend-cell';
+    // amountHeader.textContent = 'Amount';
+    // headerRow.appendChild(amountHeader);
 
-    table.appendChild(headerRow);
+    // table.appendChild(headerRow);
 
-    if (previousHands && previousHands.length > 0) {
-      previousHands
-        .slice()
-        .reverse()
-        .forEach((hand) => {
-          const row = document.createElement('div');
-          row.className = 'legend-row';
+    // if (previousHands && previousHands.length > 0) {
+    //   previousHands
+    //     .slice()
+    //     .reverse()
+    //     .forEach((hand) => {
+    //       const row = document.createElement('div');
+    //       row.className = 'legend-row';
 
-          const handCell = document.createElement('div');
-          handCell.className = 'legend-cell';
-          handCell.textContent = hand.handNum;
-          row.appendChild(handCell);
+    //       const handCell = document.createElement('div');
+    //       handCell.className = 'legend-cell';
+    //       handCell.textContent = hand.handNum;
+    //       row.appendChild(handCell);
 
-          const winnerCell = document.createElement('div');
-          winnerCell.className = 'legend-cell';
-          const winnerCellContainer = document.createElement('div');
-          winnerCellContainer.className = 'legend-winner-cell';
+    //       const winnerCell = document.createElement('div');
+    //       winnerCell.className = 'legend-cell';
+    //       const winnerCellContainer = document.createElement('div');
+    //       winnerCellContainer.className = 'legend-winner-cell';
 
-          if (hand.winnerThumbnail) {
-            const winnerThumbnail = document.createElement('img');
-            winnerThumbnail.src = hand.winnerThumbnail;
-            winnerThumbnail.className = 'legend-avatar';
-            winnerCellContainer.appendChild(winnerThumbnail);
-          }
+    //       if (hand.winnerThumbnail) {
+    //         const winnerThumbnail = document.createElement('img');
+    //         winnerThumbnail.src = hand.winnerThumbnail;
+    //         winnerThumbnail.className = 'legend-avatar';
+    //         winnerCellContainer.appendChild(winnerThumbnail);
+    //       }
 
-          const winnerNameSpan = document.createElement('span');
-          winnerNameSpan.textContent = hand.winnerName.split(' ')[0];
-          winnerCellContainer.appendChild(winnerNameSpan);
+    //       const winnerNameSpan = document.createElement('span');
+    //       winnerNameSpan.textContent = hand.winnerName.split(' ')[0];
+    //       winnerCellContainer.appendChild(winnerNameSpan);
 
-          winnerCell.appendChild(winnerCellContainer);
-          row.appendChild(winnerCell);
+    //       winnerCell.appendChild(winnerCellContainer);
+    //       row.appendChild(winnerCell);
 
-          const amountCell = document.createElement('div');
-          amountCell.className = 'legend-cell';
-          amountCell.textContent = hand.amount;
-          row.appendChild(amountCell);
+    //       const amountCell = document.createElement('div');
+    //       amountCell.className = 'legend-cell';
+    //       amountCell.textContent = hand.amount;
+    //       row.appendChild(amountCell);
 
-          table.appendChild(row);
-        });
-    } else {
-      const emptyRow = document.createElement('div');
-      emptyRow.className = 'legend-row';
-      const emptyCell = document.createElement('div');
-      emptyCell.className = 'legend-cell';
-      emptyCell.setAttribute('colspan', '3');
-      emptyRow.appendChild(emptyCell);
-      table.appendChild(emptyRow);
-    }
+    //       table.appendChild(row);
+    //     });
+    // } else {
+    //   const emptyRow = document.createElement('div');
+    //   emptyRow.className = 'legend-row';
+    //   const emptyCell = document.createElement('div');
+    //   emptyCell.className = 'legend-cell';
+    //   emptyCell.setAttribute('colspan', '3');
+    //   emptyRow.appendChild(emptyCell);
+    //   table.appendChild(emptyRow);
+    // }
 
-    legendBody.appendChild(table);
+    // legendBody.appendChild(table);
 
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
@@ -859,7 +859,6 @@ export function renderer(options) {
         }
 
         playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
-
 
         const handRankElement = playerInfoArea.querySelector('.player-hand-rank');
         if (handRankElement && handRank && handRank[index]) {
