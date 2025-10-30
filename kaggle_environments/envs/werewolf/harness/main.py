@@ -1,17 +1,15 @@
 """Main file for the Game Arena submission."""
 
 import os
-import random
 import sys
 
 _AGENT_OBJECT = None
 _SETUP_COMPLETE = False
-_TELEMETRY = None
 
 
 def agent(observation, configuration):
     """Kaggle agent for Game Arena."""
-    global _AGENT_OBJECT, _SETUP_COMPLETE, _TELEMETRY
+    global _AGENT_OBJECT, _SETUP_COMPLETE
 
     if not _SETUP_COMPLETE:
         print("--- Performing one-time agent setup... ---")
@@ -30,47 +28,27 @@ def agent(observation, configuration):
         from kaggle_environments.envs.werewolf.werewolf import AgentFactoryWrapper, LLM_SYSTEM_PROMPT
         from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
 
-        from game_arena.harness import telemetry
-        from game_arena.google import model_proxy_telemetry
-        print("Successfully imported game_arena modules.")
-        print("Setting up telemetry...")
-        telemetry.set_exporter(model_proxy_telemetry.send)
-        _TELEMETRY = telemetry.get_logger(__name__)
+        if "MODEL_NAME" not in os.environ:
+            raise ValueError("MODEL_NAME was not specified as an environment variable. Agent cannot be configured.")
 
-        if "MODEL_ENUM" not in globals():
-            raise ValueError("MODEL_ENUM was not injected. Agent cannot run.")
-        model_enum = globals()["MODEL_ENUM"]  # pylint: disable=invalid-name
-        print(f"MODEL_ENUM is {model_enum}")
+        if "MODEL_PROXY_KEY" not in os.environ:
+            raise ValueError("MODEL_PROXY_KEY was not specified as an environment variable. "
+                             "Model proxy cannot function correctly.")
 
-        chosen_key = None
-        if "MODEL_PROXY_KEY" in os.environ:
-            chosen_key = os.environ["MODEL_PROXY_KEY"]
-            print("API key found in environment.")
-        if chosen_key is None:
-            if "MODEL_API_KEY" not in globals():
-                raise ValueError("MODEL_API_KEY was not injected. Agent cannot run.")
-            model_api_key = globals()["MODEL_API_KEY"]
-            print("API Key found in globals.")
-            # If comma separated, choose one at random.
-            all_keys = model_api_key.split(",")
-            all_keys = [key.strip() for key in all_keys]
-            all_keys = [key for key in all_keys if key]
-            chosen_key = random.choice(all_keys)
         if "MODEL_PROXY_URL" not in os.environ:
             raise ValueError("MODEL_PROXY_URL was not injected. Agent cannot run.")
 
         _AGENT_OBJECT = AgentFactoryWrapper(
             agent_class=LLMWerewolfAgent,
-            model_name=model_enum,
+            model_name=os.environ["MODEL_NAME"],
             system_prompt=LLM_SYSTEM_PROMPT,
             litellm_model_proxy_kwargs={
                 "api_base": os.environ["MODEL_PROXY_URL"],
-                "api_key": chosen_key
+                "api_key": os.environ["MODEL_PROXY_KEY"]
             }
         )
 
         _SETUP_COMPLETE = True
-        _TELEMETRY(setup_complete=True)
         print("--- Agent setup complete. ---")
 
     return _AGENT_OBJECT(observation, configuration)
