@@ -1,3 +1,5 @@
+import JSONFormatter from 'json-formatter-js';
+
 export function renderer(options: any) {
   const { parent } = options;
   if (!parent) {
@@ -5,9 +7,10 @@ export function renderer(options: any) {
     return;
   }
 
-  console.log('options is', options);
+  const openLevels = 1;
 
-  // Clear the parent and append the new element
-  parent.innerHTML = '<div>hello</div>';
-  parent.classList.add('json-renderer-host');
+  const formatter = new JSONFormatter(options, openLevels, { theme: 'dark' });
+
+  parent.innerHTML = '';
+  parent.appendChild(formatter.render());
 }
