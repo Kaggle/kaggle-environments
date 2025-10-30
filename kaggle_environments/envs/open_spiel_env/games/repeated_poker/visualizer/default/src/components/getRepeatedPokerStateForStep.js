@@ -318,12 +318,20 @@ export const getPokerStateForStep = (environment, step) => {
   const currentStreetBets = getCurrentStreetContributions(stateInfo.universal, numPlayers);
   const rewards = stateInfo.outer?.hand_returns || [];
   const communityCards = getCommunityCardsFromUniversal(stateInfo.universal, numPlayers);
+  const actionStrings = Array.isArray(parsedStateHistory.playerActionStrings)
+    ? parsedStateHistory.playerActionStrings
+    : Array(numPlayers).fill('');
 
   const players = Array(numPlayers)
     .fill(null)
     .map((_, i) => {
       const agentName = environment?.info?.TeamNames?.[i] || `Player ${i}`;
       const thumbnail = environment?.info?.Agents?.[i]?.ThumbnailUrl;
+      const actionText = typeof actionStrings[i] === 'string' ? actionStrings[i] : '';
+      const actedThisStep =
+        (event?.actingPlayer !== undefined && event.actingPlayer === i) ||
+        (event?.highlightPlayer !== undefined && event.highlightPlayer === i) ||
+        actionText.length > 0;
       return {
         id: `player${i}`,
         name: agentName,
@@ -333,9 +341,9 @@ export const getPokerStateForStep = (environment, step) => {
         currentBet: currentStreetBets[i] || 0,
         isDealer: stateInfo.outer?.dealer === i,
         isTurn: stateInfo.universal?.current_player === i,
-        isLastActor: event.highlightPlayer === i,
+        isLastActor: actedThisStep,
         reward: rewards[0]?.[i] ?? null,
-        actionDisplayText: event.highlightPlayer === i ? event.actionText : '',
+        actionDisplayText: actionText,
         handCount: 0
       };
     });
