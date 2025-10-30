@@ -21,6 +21,10 @@ export interface BaseGameStep {
   stateHistoryIndex?: number;
   postActionOf?: number;
   actionText?: string;
+  currentPlayer?: number | null;
+  currentPlayerName?: string | null;
+  actingPlayer?: number | null;
+  actingPlayerName?: string | null;
 }
 
 export interface PokerGameStep extends BaseGameStep {
