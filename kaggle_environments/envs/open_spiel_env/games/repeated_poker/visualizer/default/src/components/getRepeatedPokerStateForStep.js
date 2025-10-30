@@ -166,7 +166,8 @@ export const getPokerStateForStep = (environment, step) => {
         isTurn: stateInfo.universal?.current_player === i,
         isLastActor: event.highlightPlayer === i,
         reward: rewards[0]?.[i] ?? null,
-        actionDisplayText: event.highlightPlayer === i ? event.actionText : ''
+        actionDisplayText: event.highlightPlayer === i ? event.actionText : '',
+        handCount: 0
       };
     });
 
@@ -191,6 +192,7 @@ export const getPokerStateForStep = (environment, step) => {
     winOdds: parsedStateHistory.winOdds,
     fiveCardBestHands: [],
     currentPlayer: stateInfo.universal?.current_player ?? -1,
-    winner: -1
+    winner: -1,
+    handCount: event.hand,
   };
 };

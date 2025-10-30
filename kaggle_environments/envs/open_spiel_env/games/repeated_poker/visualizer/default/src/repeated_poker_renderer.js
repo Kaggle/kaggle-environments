@@ -28,7 +28,8 @@ export function renderer(options) {
     dealerButton: null,
     chipStacks: [],
     diagnosticHeader: null,
-    stepCounter: null
+    stepCounter: null,
+    handCounter: null
   };
 
   const css = `
@@ -252,6 +253,12 @@ export function renderer(options) {
       padding: 6px 12px; border-radius: 6px;
       font-size: 14px; font-weight: 600;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    .hand-counter {
+      position: absolute; bottom: 12px; right: 12px; z-index: 20;
+      color: #535965;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 40px; font-weight: 600;
     }
     .chip-stack {
       position: absolute;
@@ -519,6 +526,12 @@ export function renderer(options) {
     elements.stepCounter.className = 'step-counter';
     elements.stepCounter.textContent = 'Standby';
     elements.gameLayout.appendChild(elements.stepCounter);
+
+    elements.handCounter = document.createElement('div');
+    elements.handCounter.className = 'hand-counter';
+    elements.handCounter.textContent = '';
+    elements.gameLayout.appendChild(elements.handCounter);
+
     return true;
   }
 
@@ -560,11 +573,16 @@ export function renderer(options) {
 
   function _renderPokerTableUI(data) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal, step } = data;
+    const { players, communityCards, pot, isTerminal, step, handCount } = data;
 
     // Update step counter
     if (elements.stepCounter && step !== undefined) {
       elements.stepCounter.textContent = `Debug Step: ${step}`;
+    }
+
+    // Update hand counter
+    if (elements.handCounter && handCount !== undefined) {
+      elements.handCounter.textContent = `Hand ${handCount + 1}/100`; // 1-index hands
     }
 
     if (elements.diagnosticHeader && data.rawObservation) {
