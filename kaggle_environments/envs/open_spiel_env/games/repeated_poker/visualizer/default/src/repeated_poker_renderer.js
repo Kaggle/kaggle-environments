@@ -29,7 +29,7 @@ export function renderer(options) {
     chipStacks: [],
     diagnosticHeader: null,
     stepCounter: null,
-    handCounter: null
+    legend: null
   };
 
   const css = `
@@ -325,6 +325,70 @@ export function renderer(options) {
       font-weight: bold;
       white-space: nowrap;
     }
+    .legend {
+      position: absolute;
+      top: 0px;
+      right: 0px;
+      width: 280px;
+      background-color: rgba(32, 33, 36, 0.70);
+      border-radius: 8px;
+      color: white;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      max-height: 212px;
+    }
+    .legend-title {
+      padding: 10px;
+      font-weight: bold;
+      border-bottom: 1px solid #555;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .legend-leader-info {
+      display: flex;
+      align-items: center;
+    }
+    .legend-title-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .legend-body {
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .legend-table {
+      display: table;
+      width: 100%;
+    }
+    .legend-row {
+      display: table-row;
+    }
+    .legend-header .legend-cell {
+      font-weight: bold;
+    }
+    .legend-cell {
+      display: table-cell;
+      padding: 2px 5px;
+      vertical-align: middle;
+    }
+    .legend-cell:nth-child(1) { width: 20%; }
+    .legend-cell:nth-child(2) { width: 50%; }
+    .legend-cell:nth-child(3) { width: 30%; text-align: right; }
+    .legend-winner-cell {
+      display: flex;
+      align-items: center;
+    }
+    .legend-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
   `;
 
   function _injectStyles(passedOptions) {
@@ -540,15 +604,13 @@ export function renderer(options) {
     elements.dealerButton.style.display = 'none';
     elements.playersContainer.appendChild(elements.dealerButton);
 
-    elements.stepCounter = document.createElement('div');
-    elements.stepCounter.className = 'step-counter';
-    elements.stepCounter.textContent = 'Standby';
-    elements.gameLayout.appendChild(elements.stepCounter);
-
-    elements.handCounter = document.createElement('div');
-    elements.handCounter.className = 'hand-counter';
-    elements.handCounter.textContent = '';
-    elements.gameLayout.appendChild(elements.handCounter);
+    elements.legend = document.createElement('div');
+    elements.legend.className = 'legend';
+    elements.legend.innerHTML = `
+      <div class="legend-title"></div>
+      <div class="legend-body"></div>
+    `;
+    elements.gameLayout.appendChild(elements.legend);
 
     return true;
   } // --- State Parsing ---
@@ -589,17 +651,122 @@ export function renderer(options) {
 
   function _renderPokerTableUI(data) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal, step, handCount, winProb, tieProb, handRank } = data;
+    const {
+      players,
+      communityCards,
+      pot,
+      isTerminal,
+      handCount,
+      winProb,
+      tieProb,
+      handRank,
+      previousHands,
+      leaderInfo
+    } = data;
 
-    // Update step counter
-    if (elements.stepCounter && step !== undefined) {
-      elements.stepCounter.textContent = `Debug Step: ${step}`;
+    // Update legend
+    const legendTitle = elements.legend.querySelector('.legend-title');
+    const legendBody = elements.legend.querySelector('.legend-body');
+
+    legendTitle.innerHTML = ''; // Clear existing content
+
+    const handSpan = document.createElement('span');
+    handSpan.textContent = `Hand: ${handCount !== undefined && handCount !== null ? handCount + 1 : 'Standby'}`;
+    legendTitle.appendChild(handSpan);
+
+    if (leaderInfo) {
+      const leaderInfoDiv = document.createElement('div');
+      leaderInfoDiv.className = 'legend-leader-info';
+
+      if (leaderInfo.thumbnail) {
+        const leaderThumbnail = document.createElement('img');
+        leaderThumbnail.src = leaderInfo.thumbnail;
+        leaderThumbnail.className = 'legend-title-avatar';
+        leaderInfoDiv.appendChild(leaderThumbnail);
+      }
+
+      const leaderNameSpan = document.createElement('span');
+      const leaderName = leaderInfo.name.split(' ')[0];
+      leaderNameSpan.textContent = `${leaderName} is up ${leaderInfo.winnings}`;
+      leaderInfoDiv.appendChild(leaderNameSpan);
+      legendTitle.appendChild(leaderInfoDiv);
     }
 
-    // Update hand counter
-    if (elements.handCounter && handCount !== undefined) {
-      elements.handCounter.textContent = `Hand ${handCount + 1}/100`; // 1-index hands
+    legendBody.innerHTML = ''; // Clear existing content
+
+    const table = document.createElement('div');
+    table.className = 'legend-table';
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'legend-row legend-header';
+
+    const handHeader = document.createElement('div');
+    handHeader.className = 'legend-cell';
+    handHeader.textContent = 'Hand';
+    headerRow.appendChild(handHeader);
+
+    const winnerHeader = document.createElement('div');
+    winnerHeader.className = 'legend-cell';
+    winnerHeader.textContent = 'Winner';
+    headerRow.appendChild(winnerHeader);
+
+    const amountHeader = document.createElement('div');
+    amountHeader.className = 'legend-cell';
+    amountHeader.textContent = 'Amount';
+    headerRow.appendChild(amountHeader);
+
+    table.appendChild(headerRow);
+
+    if (previousHands && previousHands.length > 0) {
+      previousHands
+        .slice()
+        .reverse()
+        .forEach((hand) => {
+          const row = document.createElement('div');
+          row.className = 'legend-row';
+
+          const handCell = document.createElement('div');
+          handCell.className = 'legend-cell';
+          handCell.textContent = hand.handNum;
+          row.appendChild(handCell);
+
+          const winnerCell = document.createElement('div');
+          winnerCell.className = 'legend-cell';
+          const winnerCellContainer = document.createElement('div');
+          winnerCellContainer.className = 'legend-winner-cell';
+
+          if (hand.winnerThumbnail) {
+            const winnerThumbnail = document.createElement('img');
+            winnerThumbnail.src = hand.winnerThumbnail;
+            winnerThumbnail.className = 'legend-avatar';
+            winnerCellContainer.appendChild(winnerThumbnail);
+          }
+
+          const winnerNameSpan = document.createElement('span');
+          winnerNameSpan.textContent = hand.winnerName.split(' ')[0];
+          winnerCellContainer.appendChild(winnerNameSpan);
+
+          winnerCell.appendChild(winnerCellContainer);
+          row.appendChild(winnerCell);
+
+          const amountCell = document.createElement('div');
+          amountCell.className = 'legend-cell';
+          amountCell.textContent = hand.amount;
+          row.appendChild(amountCell);
+
+          table.appendChild(row);
+        });
+    } else {
+      const emptyRow = document.createElement('div');
+      emptyRow.className = 'legend-row';
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'legend-cell';
+      emptyCell.setAttribute('colspan', '3');
+      emptyRow.appendChild(emptyCell);
+      table.appendChild(emptyRow);
     }
+
+    legendBody.appendChild(table);
 
     if (elements.diagnosticHeader && data.rawObservation) {
       // Optional: Show diagnostics for debugging
