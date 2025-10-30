@@ -134,14 +134,14 @@ export function renderer(options) {
     .player-info-area {
       color: white;
       width: auto;
-      min-width: 200px;
+      min-width: 280px;
       pointer-events: auto;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      margin: 20px auto;
-      padding: 20px;
+      margin: 10px auto;
+      padding: 10px;
       background-color: rgba(32, 33, 36, 0.70);;
       border-radius: 16px;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -163,7 +163,7 @@ export function renderer(options) {
       justify-content: center;
       gap: 16px;
       margin: 0 60px;
-      padding: 10px 0;
+      padding: 5px 0;
     }
     .player-thumbnail {
       width: 48px;
@@ -185,6 +185,20 @@ export function renderer(options) {
     .player-name.winner { color: #FFEB70; }
     .player-name.current-turn { color: #20BEFF; }
     .player-stack { font-size: 20px; font-weight: 600; color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+    .player-stats-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      margin: 0 12px;
+    }
+    .player-hand-rank, .player-win-prob, .player-tie-prob {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e0e0e0;
+      height: 20px;
+      align-self: flex-start;
+    }
     .player-cards-container { min-height: 80px; display: flex; justify-content: center; align-items:center;}
     .card {
       display: flex; flex-direction: column; justify-content: space-between; align-items: center;
@@ -243,7 +257,6 @@ export function renderer(options) {
       box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 15; pointer-events: auto;
       border: 2px solid black;
       outline: 2px solid #20BEFF;
-      left: 320px
     }
     .dealer-button.dealer-player0 { top: 170px; }
     .dealer-button.dealer-player1 { bottom: 170px; }
@@ -503,6 +516,11 @@ export function renderer(options) {
               <div class="player-card-area">
                 <div class="player-cards-container"></div>
               </div>
+              <div class="player-stats-container">
+                <div class="player-hand-rank"></div>
+                <div class="player-win-prob"></div>
+                <div class="player-tie-prob"></div>
+              </div>
               <div class="player-stack">
                 <span class="player-stack-value">0</span>
               </div>
@@ -533,9 +551,7 @@ export function renderer(options) {
     elements.gameLayout.appendChild(elements.handCounter);
 
     return true;
-  }
-
-  // --- State Parsing ---
+  } // --- State Parsing ---
   function _parseKagglePokerState(options) {
     const { environment, step } = options;
 
@@ -573,7 +589,7 @@ export function renderer(options) {
 
   function _renderPokerTableUI(data) {
     if (!elements.pokerTable || !data) return;
-    const { players, communityCards, pot, isTerminal, step, handCount } = data;
+    const { players, communityCards, pot, isTerminal, step, handCount, winProb, tieProb, handRank } = data;
 
     // Update step counter
     if (elements.stepCounter && step !== undefined) {
@@ -689,6 +705,27 @@ export function renderer(options) {
         } else {
           betDisplay.style.display = 'none';
         }
+
+        const handRankElement = playerInfoArea.querySelector('.player-hand-rank');
+        if (handRankElement && handRank && handRank[index]) {
+          handRankElement.textContent = handRank[index];
+        } else if (handRankElement) {
+          handRankElement.textContent = '';
+        }
+
+        const winProbElement = playerInfoArea.querySelector('.player-win-prob');
+        if (winProbElement && winProb && winProb[index] && !isTerminal) {
+          winProbElement.textContent = `Win: ${winProb[index]}`;
+        } else if (winProbElement) {
+          winProbElement.textContent = '';
+        }
+
+        const tieProbElement = playerInfoArea.querySelector('.player-tie-prob');
+        if (tieProbElement && tieProb && !isTerminal) {
+          tieProbElement.textContent = `Tie: ${tieProb}`;
+        } else if (tieProbElement) {
+          tieProbElement.textContent = '';
+        }
       }
     });
 
@@ -696,10 +733,16 @@ export function renderer(options) {
     if (elements.dealerButton) {
       if (dealerPlayerIndex !== -1) {
         elements.dealerButton.style.display = 'block';
-        // Remove previous dealer class
         elements.dealerButton.classList.remove('dealer-player0', 'dealer-player1');
-        // Add new dealer class based on player index
         elements.dealerButton.classList.add(`dealer-player${dealerPlayerIndex}`);
+
+        const playerInfoArea = elements.playerInfoAreas[dealerPlayerIndex];
+        if (playerInfoArea) {
+          const boxRect = playerInfoArea.getBoundingClientRect();
+          const containerRect = elements.playersContainer.getBoundingClientRect();
+          const left = boxRect.left - containerRect.left - elements.dealerButton.offsetWidth - 20;
+          elements.dealerButton.style.left = `${left}px`;
+        }
       } else {
         elements.dealerButton.style.display = 'none';
       }

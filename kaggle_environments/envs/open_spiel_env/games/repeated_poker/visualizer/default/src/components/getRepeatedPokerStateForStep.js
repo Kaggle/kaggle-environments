@@ -61,15 +61,22 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
   }
 
   const odds = universalPokerJSON.odds || [];
-  const p0WinOdds = Number(odds[0] ?? 0).toLocaleString(undefined, {
+  // The odds array is structured as [Player1_Win_Prob, Tie_Prob, Player2_Win_Prob, Tie_Prob_Repeated]
+  const p0WinProb = Number(odds[0] ?? 0);
+  const tieProb = Number(odds[1] ?? 0);
+  const p1WinProb = Number(odds[2] ?? 0);
+  const fiveCardBestHands = universalPokerJSON.best_hand_rank_types || [];
+
+  result.winProb = [
+    p0WinProb.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    p1WinProb.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  ];
+  result.tieProb = tieProb.toLocaleString(undefined, {
     style: 'percent',
-    minimumFractionDigits: 2
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
   });
-  const p1WinOdds = Number(odds[1] ?? 0).toLocaleString(undefined, {
-    style: 'percent',
-    minimumFractionDigits: 2
-  });
-  result.winOdds = [p0WinOdds, p1WinOdds];
+  result.handRank = fiveCardBestHands;
 
   return result;
 }
@@ -181,7 +188,6 @@ export const getPokerStateForStep = (environment, step) => {
   });
 
   const displayCommunity = event.hideCommunity ? [] : communityCards;
-
   return {
     players,
     communityCards: displayCommunity,
@@ -189,8 +195,9 @@ export const getPokerStateForStep = (environment, step) => {
     isTerminal: false,
     rawObservation: stateInfo.universal,
     step,
-    winOdds: parsedStateHistory.winOdds,
-    fiveCardBestHands: [],
+    winProb: parsedStateHistory.winProb,
+    tieProb: parsedStateHistory.tieProb,
+    handRank: parsedStateHistory.handRank,
     currentPlayer: stateInfo.universal?.current_player ?? -1,
     winner: -1,
     handCount: event.hand,
