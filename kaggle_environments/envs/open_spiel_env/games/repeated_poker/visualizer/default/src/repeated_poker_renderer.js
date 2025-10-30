@@ -575,7 +575,6 @@ export function renderer(options) {
       const playerInfoArea = document.createElement('div');
       playerInfoArea.className = `player-info-area`;
       playerInfoArea.innerHTML = `
-            <div class="bet-display">Standby</div>
             <div class="stack-cards-wrapper">
               <div class="player-card-area">
                 <div class="player-cards-container"></div>
@@ -861,17 +860,6 @@ export function renderer(options) {
 
         playerInfoArea.querySelector('.player-stack-value').textContent = `${playerData.stack}`;
 
-        const betDisplay = playerInfoArea.querySelector('.bet-display');
-        if (playerData.currentBet > 0) {
-          if (playerData.actionDisplayText) {
-            betDisplay.textContent = playerData.actionDisplayText;
-          } else {
-            betDisplay.textContent = '';
-          }
-          betDisplay.style.display = 'block';
-        } else {
-          betDisplay.style.display = 'none';
-        }
 
         const handRankElement = playerInfoArea.querySelector('.player-hand-rank');
         if (handRankElement && handRank && handRank[index]) {
