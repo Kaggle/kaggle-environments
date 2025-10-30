@@ -10,17 +10,15 @@ export function getActionStringsFromACPC(
 
   const moves = _getReadableMovesFromBettingStringACPC(bettingString)
 
-  const lastMove: string | null =
-    moves.length > 0 ? moves[moves.length - 1] : null;
-  const actionStrings: string[] = Array(numPlayers).fill("");
+  const move = moves.slice(-1);
 
-  if (lastMove) {
-    if (typeof nextPlayerIndex === "number" && nextPlayerIndex >= 0) {
-      const lastActor = (nextPlayerIndex + numPlayers - 1) % numPlayers;
-      actionStrings[lastActor] = lastMove;
+  const actionStrings = ["", ""]
+
+  if (nextPlayerIndex !== null) {
+    if (nextPlayerIndex === 0) {
+      actionStrings[1] = move[0];
     } else {
-      const inferredActor = (moves.length - 1) % numPlayers;
-      actionStrings[inferredActor] = lastMove;
+      actionStrings[0] = move[0];
     }
   }
 
