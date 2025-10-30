@@ -310,6 +310,53 @@ export const getPokerStepsWithEndStates = (
 
   const stateHistory = environment.info.stateHistory ?? [];
   const steps = environment.steps ?? [];
+  const teamNames: string[] = Array.isArray(environment?.info?.TeamNames)
+    ? environment.info.TeamNames
+    : Array.isArray(environment?.info?.Names)
+    ? environment.info.Names
+    : [];
+
+  const normalizePlayerIndex = (value: any): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = parseInt(value, 10);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  };
+
+  const getPlayerName = (index: number | null): string | null => {
+    if (index === null || index === undefined || index < 0) {
+      return null;
+    }
+    return teamNames[index] ?? `Player ${index}`;
+  };
+
+  const extractCurrentPlayerFromStateHistory = (
+    index: number | null,
+  ): number | null => {
+    if (index === null || index === undefined) {
+      return null;
+    }
+    if (index < 0 || index >= stateHistory.length) {
+      return null;
+    }
+    try {
+      const outer = JSON.parse(stateHistory[index]);
+      const universal = JSON.parse(outer.current_universal_poker_json ?? "null");
+      const outerCurrent = normalizePlayerIndex(outer?.current_player);
+      if (outerCurrent !== null) {
+        return outerCurrent;
+      }
+      return normalizePlayerIndex(universal?.current_player ?? null);
+    } catch {
+      return null;
+    }
+  };
 
   const advanceToNextAgentEntry = () => {
     while (
@@ -334,6 +381,14 @@ export const getPokerStepsWithEndStates = (
           }
 
           const preActionPointer = stateHistoryPointer;
+          const actionString: string = s?.action?.actionString ?? "";
+          const playerMatch = actionString.match(/player=(\d+)/);
+          const actingPlayer = playerMatch
+            ? normalizePlayerIndex(playerMatch[1])
+            : normalizePlayerIndex(s?.observation?.playerId);
+          const currentPlayer = normalizePlayerIndex(
+            s?.observation?.currentPlayer,
+          );
 
           stepsWithEndStates.push({
             hand: handCount,
@@ -341,12 +396,18 @@ export const getPokerStepsWithEndStates = (
             step: s,
             stateHistory: stateHistory[stateHistoryPointer],
             stateHistoryIndex: preActionPointer,
+            actingPlayer,
+            actingPlayerName: getPlayerName(actingPlayer),
+            currentPlayer,
+            currentPlayerName: getPlayerName(currentPlayer),
           });
 
           lastActionPointer = preActionPointer;
           stateHistoryPointer++;
 
           const postActionPointer = stateHistoryPointer;
+          const postActionCurrentPlayer =
+            extractCurrentPlayerFromStateHistory(postActionPointer);
 
           if (
             postActionPointer < stateHistory.length &&
@@ -360,6 +421,10 @@ export const getPokerStepsWithEndStates = (
               stateHistory: stateHistory[postActionPointer],
               stateHistoryIndex: postActionPointer,
               postActionOf: preActionPointer,
+              actingPlayer,
+              actingPlayerName: getPlayerName(actingPlayer),
+              currentPlayer: postActionCurrentPlayer,
+              currentPlayerName: getPlayerName(postActionCurrentPlayer),
             });
           }
 
@@ -388,6 +453,9 @@ export const getPokerStepsWithEndStates = (
         lastActionPointer,
         step[0].observation.currentPlayer,
       );
+      const endStateCurrentPlayer = extractCurrentPlayerFromStateHistory(
+        lastActionPointer,
+      );
 
       stepsWithEndStates.push({
         hand: handCount,
@@ -395,6 +463,8 @@ export const getPokerStepsWithEndStates = (
         step: null,
         stateHistory: stateHistory[lastActionPointer],
         stateHistoryIndex: lastActionPointer,
+        currentPlayer: endStateCurrentPlayer,
+        currentPlayerName: getPlayerName(endStateCurrentPlayer),
         ...endState,
       });
 
