@@ -1,3 +1,5 @@
+import { _getReadableMovesFromBettingStringACPC } from "./repeatedPokerTransformer";
+
 const PLACEHOLDER_CARD = "2c";
 
 export function getActionStringsFromACPC(
@@ -5,31 +7,8 @@ export function getActionStringsFromACPC(
   nextPlayerIndex: number | null,
   numPlayers: number = 2,
 ): string[] {
-  const moves: string[] = [];
-  const streets: string[] = bettingString.split("/");
-  for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
-    const streetAction = streets[streetIndex];
-    let i = 0;
-    while (i < streetAction.length) {
-      const char = streetAction[i];
-      if (char === "r") {
-        let amount = "";
-        i++;
-        while (
-          i < streetAction.length &&
-          streetAction[i] >= "0" &&
-          streetAction[i] <= "9"
-        ) {
-          amount += streetAction[i];
-          i++;
-        }
-        moves.push(`r${amount}`);
-      } else {
-        moves.push(char);
-        i++;
-      }
-    }
-  }
+
+  const moves = _getReadableMovesFromBettingStringACPC(bettingString)
 
   const lastMove: string | null =
     moves.length > 0 ? moves[moves.length - 1] : null;

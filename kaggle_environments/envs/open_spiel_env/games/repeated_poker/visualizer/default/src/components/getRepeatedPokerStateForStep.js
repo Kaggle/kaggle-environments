@@ -173,7 +173,7 @@ export const getPokerStateForStep = (environment, step) => {
         isTurn: stateInfo.universal?.current_player === i,
         isLastActor: event.highlightPlayer === i,
         reward: rewards[0]?.[i] ?? null,
-        actionDisplayText: event.highlightPlayer === i ? event.actionText : '',
+        actionDisplayText: parsedStateHistory.playerActionStrings[i],
         handCount: 0
       };
     });
