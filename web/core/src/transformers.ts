@@ -1,9 +1,10 @@
+import { defaultGetStepRenderTime } from "./timing";
 import {
   getPokerStepDescription,
   getPokerStepLabel,
   getPokerStepsWithEndStates,
 } from "./transformers/repeatedPokerTransformer";
-import { GameStep, PokerGameStep } from "./types";
+import { GameStep, PokerGameStep, ReplayMode } from "./types";
 
 export const processEpisodeData = (
   environment: any,
@@ -39,5 +40,24 @@ export const getGameStepDescription = (
       return getPokerStepDescription(gameStep as PokerGameStep, players);
     default:
       return "";
+  }
+};
+
+export const getGameStepRenderTime = (
+  gameStep: GameStep,
+  gameName: string,
+  replayMode: ReplayMode,
+  speedModifier: number,
+  defaultDuration?: number,
+): number => {
+  switch (gameName) {
+    case "repeated_poker":
+    default:
+      return defaultGetStepRenderTime(
+        gameStep,
+        replayMode,
+        speedModifier,
+        defaultDuration,
+      );
   }
 };
