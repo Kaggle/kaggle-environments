@@ -29,7 +29,7 @@ export interface BaseGameStep {
 
 export interface PokerGameStep extends BaseGameStep {
   hand: number;
-  handConclusion?: "fold" | "showdown";
+  handConclusion?: 'fold' | 'showdown';
   winner?: -1 | 0 | 1; // -1 for the rare event of a tie
   bestFiveCardHands?: string[]; // e.g. ['AsJhTh2h2c', 'As9s9h2h2c'] (cards to be highlighted)
   bestHandRankType?: string[]; // e.g. ['High Card', 'Two Pair'] (human-readable string)
