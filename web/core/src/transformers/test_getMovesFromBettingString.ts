@@ -89,6 +89,11 @@ const readableTestCases: TestCase[] = [
     expected: ["Raise 4", "Call 2"],
   },
   {
+    name: "small blind call then big blind raise",
+    bettingString: "cr6c",
+    expected: ["Call 1", "Raise 6", "Call 4"],
+  },
+  {
     name: "flop betting with call",
     bettingString: "r4c/cr8c",
     expected: ["Raise 4", "Call 2", "Check", "Bet 4", "Call 4"],

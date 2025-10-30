@@ -137,6 +137,7 @@ export function _getReadableMovesFromBettingStringACPC(
     while (i < trimmedAction.length) {
       const char = trimmedAction[i];
       const currentMax = Math.max(...totalContributions);
+      const highestBaseline = Math.max(...streetBaselines);
 
       if (char === "r") {
         let amount = "";
@@ -153,7 +154,7 @@ export function _getReadableMovesFromBettingStringACPC(
         const previousTotal = totalContributions[actingPlayer];
         const roundBaseline = streetBaselines[actingPlayer];
         const roundTotal = Math.max(targetTotal - roundBaseline, 0);
-        const hasOutstandingBet = currentMax > previousTotal;
+        const hasOutstandingBet = currentMax > highestBaseline;
         const verb = hasOutstandingBet ? "Raise" : "Bet";
 
         if (!Number.isFinite(targetTotal)) {
