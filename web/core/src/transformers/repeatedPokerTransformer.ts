@@ -452,14 +452,15 @@ export const getPokerStepsWithEndStates = (
         _isStateHistoryEntryInitial(stateHistory[lookaheadPointer]));
 
     if (isEndState) {
+      const endStateCurrentPlayer = extractCurrentPlayerFromStateHistory(
+        lastActionPointer,
+      );
       const endState = _getEndCondition(
         stateHistory,
         lastActionPointer,
-        step[0].observation.currentPlayer,
+        endStateCurrentPlayer?.toString() ?? "",
       );
-      const endStateCurrentPlayer =
-        extractCurrentPlayerFromStateHistory(lastActionPointer);
-
+      
       stepsWithEndStates.push({
         hand: handCount,
         isEndState: true,
