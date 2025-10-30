@@ -582,7 +582,7 @@ export function renderer(options) {
 
     // Update hand counter
     if (elements.handCounter && handCount !== undefined) {
-      elements.handCounter.textContent = `Hand ${handCount}/100`;
+      elements.handCounter.textContent = `Hand ${handCount + 1}/100`; // 1-index hands
     }
 
     if (elements.diagnosticHeader && data.rawObservation) {
