@@ -4,4 +4,4 @@ export * from "./preact-adapter";
 export * from "./player";
 export * from "./transformers";
 export * from "./transformers/buildTimeline";
-export * from "./timing";
+export { generateDelayDistribution } from "./timing";

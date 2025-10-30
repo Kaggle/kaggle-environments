@@ -75,8 +75,8 @@ export const generateDelayDistribution = (
 /**
  * Determine how long a turn is based on how long it takes to render each chunk.
  */
-export function getStepRenderTime(
-  action: GameStep,
+export function defaultGetStepRenderTime(
+  gameStep: GameStep,
   replayMode: ReplayMode,
   speedModifier: number,
   defaultDuration?: number,
@@ -85,16 +85,17 @@ export function getStepRenderTime(
   // Example: if we're at 2x speed, we want the render time to be half as long
   const multiplier = 1 / speedModifier;
 
-  if (replayMode !== "condensed" && action.step !== null) {
-    const thoughts = action.step.action?.thoughts;
+  if (replayMode !== "condensed" && gameStep.step !== null) {
+    const thoughts = gameStep.step.action?.thoughts;
     if (thoughts) {
       const chunks = thoughts.split(" ");
+      // 250ms buffer allows a bit extra time for any UI elements to render
       return chunks.length * TIME_PER_CHUNK * multiplier + 250;
     }
   }
 
   // "system actions" aren't as interesting, breeze right past them
-  if (action.step === null && !action.isEndState) {
+  if (gameStep.step === null && !gameStep.isEndState) {
     return stepDuration * 0.5 * (1 / speedModifier);
   }
 
