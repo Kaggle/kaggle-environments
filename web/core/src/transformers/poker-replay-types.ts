@@ -119,3 +119,17 @@ export interface PokerReplayStepHistory {
   small_blind: number;
   stacks: number[];
 }
+
+export interface PokerReplayStepHistoryParsed {
+  big_blind: number;
+  current_universal_poker_json: PokerReplayUniversalPokerJson;
+  dealer: number;
+  hand_number: number;
+  hand_returns: number[][];
+  max_num_hands: number;
+  prev_universal_poker_json: PokerReplayUniversalPokerJson;
+  small_blind: number;
+  stacks: number[];
+  step?: PokerReplayStep;
+  stepIndex?: number;
+}
