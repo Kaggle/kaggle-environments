@@ -499,7 +499,6 @@ export const getPokerStepsWithEndStates = (
       // Get action strings for each player
       const playerActionStrings = getActionStringsFromACPC(
         bettingString,
-        nextPlayerIndex,
         2, // Assuming 2 players for poker
       );
 

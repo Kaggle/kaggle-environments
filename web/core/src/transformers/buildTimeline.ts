@@ -16,6 +16,12 @@ export function getActionStringsFromACPC(
   // If there are no moves, return empty strings
   if (!moves.length) return actionStrings;
 
+  // Initialize playerMoves more explicitly
+  const playerMoves: string[][] = [];
+  for (let i = 0; i < numPlayers; i++) {
+    playerMoves[i] = [];
+  }
+
   // In poker, players alternate actions, but street transitions can change this pattern
   // Preflop: SB (player 1) posts first, BB (player 0) responds
   // Postflop: BB (player 0) acts first
@@ -23,9 +29,6 @@ export function getActionStringsFromACPC(
   // Split the betting string by streets
   const streets = bettingString.split("/");
   let currentPlayerIndex = 1; // SB acts first preflop
-  const playerMoves: string[][] = Array(numPlayers)
-    .fill(null)
-    .map(() => []);
 
   // Process each street
   let moveIndex = 0;
@@ -44,7 +47,10 @@ export function getActionStringsFromACPC(
     // Assign each move to the player who made it
     for (let i = 0; i < streetMoves.length; i++) {
       if (moveIndex < moves.length) {
-        playerMoves[currentPlayerIndex].push(moves[moveIndex]);
+        // Safety check to ensure currentPlayerIndex is valid
+        if (currentPlayerIndex >= 0 && currentPlayerIndex < numPlayers) {
+          playerMoves[currentPlayerIndex].push(moves[moveIndex]);
+        }
         moveIndex++;
         // Switch to the other player for next move
         currentPlayerIndex = (currentPlayerIndex + 1) % numPlayers;
@@ -54,14 +60,13 @@ export function getActionStringsFromACPC(
 
   // For each player, get their last action (if any)
   for (let i = 0; i < numPlayers; i++) {
-    if (playerMoves[i].length > 0) {
+    if (playerMoves[i] && playerMoves[i].length > 0) {
       actionStrings[i] = playerMoves[i][playerMoves[i].length - 1];
     }
   }
 
   return actionStrings;
 }
-
 interface UniversalPokerJSON {
   acpc_state: string;
   odds?: number[];
@@ -80,7 +85,6 @@ interface ParsedStepHistoryData {
 
 function _parseStepHistoryData(
   universalPokerJSON: UniversalPokerJSON | null,
-  nextPlayerIndex: number | null,
   numPlayers: number = 2,
 ): ParsedStepHistoryData {
   const result: ParsedStepHistoryData = {
@@ -140,7 +144,6 @@ function _parseStepHistoryData(
     if (bettingString) {
       result.playerActionStrings = getActionStringsFromACPC(
         bettingString,
-        nextPlayerIndex,
         numPlayers,
       );
     }
@@ -229,7 +232,6 @@ function getCommunityCardsFromUniversal(
 ): string[] {
   const parsed: ParsedStepHistoryData = _parseStepHistoryData(
     universal,
-    null,
     numPlayers,
   );
   const cards: string[] = splitCards(parsed.communityCards);
@@ -248,7 +250,6 @@ function getHandCardsFromUniversal(
 ): string[][] {
   const parsed: ParsedStepHistoryData = _parseStepHistoryData(
     universal,
-    null,
     numPlayers,
   );
   return (parsed.cards || []).map((cardString: string) => {
@@ -559,7 +560,6 @@ export const getPokerStateForStep = (
 
   const parsedStateHistory: ParsedStepHistoryData = _parseStepHistoryData(
     stateInfo.universal,
-    stateInfo.universal?.current_player ?? null,
     numPlayers,
   );
 
