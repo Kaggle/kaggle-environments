@@ -173,8 +173,9 @@ export const getPokerStateForStep = (environment, step) => {
         isTurn: event.activePlayer === i,
         isLastActor: event.highlightPlayer === i,
         reward: rewards[0]?.[i] ?? null,
-        actionDisplayText: parsedStateHistory.playerActionStrings[i],
-        handCount: 0
+        actionDisplayText: event.winner === i ? "Winner" : parsedStateHistory.playerActionStrings[i],
+        isWinner: event.winner === i,
+        handCount: 0,
       };
     });
 
