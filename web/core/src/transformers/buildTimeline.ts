@@ -4,69 +4,83 @@ const PLACEHOLDER_CARD = "2c";
 
 export function getActionStringsFromACPC(
   bettingString: string,
-  nextPlayerIndex: number | null,
+  player: number,
   numPlayers: number = 2,
 ): string[] {
-  // Get the readable moves from the betting string
-  const moves = _getReadableMovesFromBettingStringACPC(bettingString);
-
-  // Initialize empty action strings for each player
+  console.log(player);
+  // Initialize action strings for each player
   const actionStrings = Array(numPlayers).fill("");
 
-  // If there are no moves, return empty strings
-  if (!moves.length) return actionStrings;
-
-  // Initialize playerMoves more explicitly
-  const playerMoves: string[][] = [];
-  for (let i = 0; i < numPlayers; i++) {
-    playerMoves[i] = [];
-  }
-
-  // In poker, players alternate actions, but street transitions can change this pattern
-  // Preflop: SB (player 1) posts first, BB (player 0) responds
-  // Postflop: BB (player 0) acts first
+  // If there's no betting string, return empty strings
+  if (!bettingString) return actionStrings;
 
   // Split the betting string by streets
   const streets = bettingString.split("/");
-  let currentPlayerIndex = 1; // SB acts first preflop
 
-  // Process each street
-  let moveIndex = 0;
+  // In heads-up poker:
+  // Preflop: SB (player 1) acts first, then BB (player 0)
+  // Postflop: BB (player 0) acts first, then SB (player 1)
+
+  // Track which player made each action
+  let currentPlayer = 1; // SB acts first preflop
+  const playerActions: { [key: number]: string } = {};
+
   for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
-    // Postflop streets start with BB (player 0)
+    // Reset player order for postflop streets
     if (streetIndex > 0) {
-      currentPlayerIndex = 0;
+      currentPlayer = 0; // BB acts first postflop
     }
 
-    // Count moves in this street
-    const streetMoves =
-      streets[streetIndex].length > 0
-        ? _getReadableMovesFromBettingStringACPC(streets[streetIndex])
-        : [];
+    const streetBetting = streets[streetIndex];
+    let i = 0;
 
-    // Assign each move to the player who made it
-    for (let i = 0; i < streetMoves.length; i++) {
-      if (moveIndex < moves.length) {
-        // Safety check to ensure currentPlayerIndex is valid
-        if (currentPlayerIndex >= 0 && currentPlayerIndex < numPlayers) {
-          playerMoves[currentPlayerIndex].push(moves[moveIndex]);
+    while (i < streetBetting.length) {
+      const char = streetBetting[i];
+
+      if (char === "c" || char === "f") {
+        // Call/Check or Fold - simple actions
+        const readableAction = _getReadableMovesFromBettingStringACPC(char)[0];
+        playerActions[currentPlayer] = readableAction;
+        i++;
+      } else if (char === "r") {
+        // Raise/Bet - need to extract the amount
+        let raiseAmount = "";
+        i++; // Move past 'r'
+
+        // Extract the raise amount
+        while (
+          i < streetBetting.length &&
+          streetBetting[i] >= "0" &&
+          streetBetting[i] <= "9"
+        ) {
+          raiseAmount += streetBetting[i];
+          i++;
         }
-        moveIndex++;
-        // Switch to the other player for next move
-        currentPlayerIndex = (currentPlayerIndex + 1) % numPlayers;
+
+        const readableAction = _getReadableMovesFromBettingStringACPC(
+          `r${raiseAmount}`,
+        )[0];
+        playerActions[currentPlayer] = readableAction;
+      } else {
+        // Unknown character, just skip
+        i++;
       }
+
+      // Move to next player
+      currentPlayer = (currentPlayer + 1) % numPlayers;
     }
   }
 
-  // For each player, get their last action (if any)
+  // Set the action strings for each player
   for (let i = 0; i < numPlayers; i++) {
-    if (playerMoves[i] && playerMoves[i].length > 0) {
-      actionStrings[i] = playerMoves[i][playerMoves[i].length - 1];
+    if (playerActions[i]) {
+      actionStrings[i] = playerActions[i];
     }
   }
 
   return actionStrings;
 }
+
 interface UniversalPokerJSON {
   acpc_state: string;
   odds?: number[];
