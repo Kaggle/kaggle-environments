@@ -1,4 +1,5 @@
 import { PokerGameStep } from "../types";
+import { getActionStringsFromACPC } from "./buildTimeline";
 
 const _parseRoundState = (currentStateHistory: string) => {
   const currentState = JSON.parse(
@@ -314,8 +315,8 @@ export const getPokerStepsWithEndStates = (
   const teamNames: string[] = Array.isArray(environment?.info?.TeamNames)
     ? environment.info.TeamNames
     : Array.isArray(environment?.info?.Names)
-    ? environment.info.Names
-    : [];
+      ? environment.info.Names
+      : [];
 
   const normalizePlayerIndex = (value: any): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -348,7 +349,9 @@ export const getPokerStepsWithEndStates = (
     }
     try {
       const outer = JSON.parse(stateHistory[index]);
-      const universal = JSON.parse(outer.current_universal_poker_json ?? "null");
+      const universal = JSON.parse(
+        outer.current_universal_poker_json ?? "null",
+      );
       const outerCurrent = normalizePlayerIndex(outer?.current_player);
       if (outerCurrent !== null) {
         return outerCurrent;
@@ -454,9 +457,8 @@ export const getPokerStepsWithEndStates = (
         lastActionPointer,
         step[0].observation.currentPlayer,
       );
-      const endStateCurrentPlayer = extractCurrentPlayerFromStateHistory(
-        lastActionPointer,
-      );
+      const endStateCurrentPlayer =
+        extractCurrentPlayerFromStateHistory(lastActionPointer);
 
       stepsWithEndStates.push({
         hand: handCount,
@@ -472,6 +474,50 @@ export const getPokerStepsWithEndStates = (
       handCount++;
     }
   }
+
+  // After building the original stepsWithEndStates, add action strings to each step
+  const enhancedSteps = stepsWithEndStates.map((step) => {
+    try {
+      // Only process steps that have stateHistory
+      if (!step.stateHistory) {
+        return step;
+      }
+
+      const outer = JSON.parse(step.stateHistory);
+      const universal = JSON.parse(
+        outer.current_universal_poker_json ?? "null",
+      );
+
+      // Extract betting string from universal poker JSON
+      const bettingString = getMoveHistoryFromACPC(universal?.acpc_state || "");
+
+      // Get the next player index for this state
+      const nextPlayerIndex = normalizePlayerIndex(
+        universal?.current_player ?? null,
+      );
+
+      // Get action strings for each player
+      const playerActionStrings = getActionStringsFromACPC(
+        bettingString,
+        nextPlayerIndex,
+        2, // Assuming 2 players for poker
+      );
+
+      // Return a new step with action strings added
+      return {
+        ...step,
+        actionText: nextPlayerIndex
+          ? playerActionStrings[nextPlayerIndex]
+          : undefined,
+      };
+    } catch (error) {
+      console.error("Error adding action strings to step:", error);
+      // If there's an error, return the original step
+      return step;
+    }
+  });
+
+  return enhancedSteps;
 
   /*
   // Build timeline from the environment

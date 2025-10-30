@@ -7,18 +7,55 @@ export function getActionStringsFromACPC(
   nextPlayerIndex: number | null,
   numPlayers: number = 2,
 ): string[] {
+  // Get the readable moves from the betting string
+  const moves = _getReadableMovesFromBettingStringACPC(bettingString);
 
-  const moves = _getReadableMovesFromBettingStringACPC(bettingString)
+  // Initialize empty action strings for each player
+  const actionStrings = Array(numPlayers).fill("");
 
-  const move = moves.slice(-1);
+  // If there are no moves, return empty strings
+  if (!moves.length) return actionStrings;
 
-  const actionStrings = ["", ""]
+  // In poker, players alternate actions, but street transitions can change this pattern
+  // Preflop: SB (player 1) posts first, BB (player 0) responds
+  // Postflop: BB (player 0) acts first
 
-  if (nextPlayerIndex !== null) {
-    if (nextPlayerIndex === 0) {
-      actionStrings[1] = move[0];
-    } else {
-      actionStrings[0] = move[0];
+  // Split the betting string by streets
+  const streets = bettingString.split("/");
+  let currentPlayerIndex = 1; // SB acts first preflop
+  const playerMoves: string[][] = Array(numPlayers)
+    .fill(null)
+    .map(() => []);
+
+  // Process each street
+  let moveIndex = 0;
+  for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
+    // Postflop streets start with BB (player 0)
+    if (streetIndex > 0) {
+      currentPlayerIndex = 0;
+    }
+
+    // Count moves in this street
+    const streetMoves =
+      streets[streetIndex].length > 0
+        ? _getReadableMovesFromBettingStringACPC(streets[streetIndex])
+        : [];
+
+    // Assign each move to the player who made it
+    for (let i = 0; i < streetMoves.length; i++) {
+      if (moveIndex < moves.length) {
+        playerMoves[currentPlayerIndex].push(moves[moveIndex]);
+        moveIndex++;
+        // Switch to the other player for next move
+        currentPlayerIndex = (currentPlayerIndex + 1) % numPlayers;
+      }
+    }
+  }
+
+  // For each player, get their last action (if any)
+  for (let i = 0; i < numPlayers; i++) {
+    if (playerMoves[i].length > 0) {
+      actionStrings[i] = playerMoves[i][playerMoves[i].length - 1];
     }
   }
 
