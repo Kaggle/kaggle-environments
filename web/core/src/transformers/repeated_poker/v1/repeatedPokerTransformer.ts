@@ -1,4 +1,4 @@
-import { PokerGameStep } from '../types';
+import { PokerGameStep } from '../../../types';
 import { getActionStringsFromACPC } from './buildTimeline';
 
 const _parseRoundState = (currentStateHistory: string) => {

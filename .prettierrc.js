@@ -6,7 +6,7 @@ module.exports = {
       options: {
         tabWidth: 2,
         singleQuote: true,
-        trailingComma: 'none',
+        trailingComma: 'preserve',
         quoteProps: 'preserve',
         semi: true,
         printWidth: 120

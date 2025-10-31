@@ -1,5 +1,4 @@
-import { Player, GameAdapter, ReplayData } from '@kaggle-environments/core';
-// import { renderer } from "./repeated_poker_renderer.js";
+import { Player, GameAdapter, ReplayData} from '@kaggle-environments/core';
 import { renderer } from './debug_repeated_poker_renderer';
 import { render } from 'preact';
 

@@ -1,4 +1,3 @@
-import { processEpisodeData } from '@kaggle-environments/core';
 import JSONFormatter from 'json-formatter-js';
 
 // We'll add our new class styles here.
@@ -24,7 +23,7 @@ function _injectStyles() {
 export function renderer(options: any) {
   const { parent } = options;
   const { environment } = options;
-  const transformedResults = processEpisodeData(environment, 'repeated_poker');
+  const transformedResults = environment;
 
   if (!parent) {
     console.error('Renderer: Parent element not provided.');
@@ -35,9 +34,9 @@ export function renderer(options: any) {
   _injectStyles();
 
   // Prune data and limit open levels for performance (from previous step)
-  const openLevels = 1;
+  const openLevels = 3;
 
-  const formatter = new JSONFormatter(transformedResults, openLevels, { theme: 'dark' });
+  const formatter = new JSONFormatter(transformedResults.steps[options.step], openLevels, { theme: 'dark' });
 
   // Clear the parent and append the rendered tree.
   parent.innerHTML = '';

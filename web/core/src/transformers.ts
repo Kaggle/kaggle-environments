@@ -1,12 +1,9 @@
-import { debugRepeatedPokerTransformer } from './transformers/debugRepeatedPokerTransformer';
-import {
-  getPokerStepDescription,
-  getPokerStepLabel,
-  getPokerStepsWithEndStates
-} from './transformers/repeatedPokerTransformer';
+import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
+import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
+import { debugRepeatedPokerTransformer } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
 import { GameStep, PokerGameStep } from './types';
 
-export const processEpisodeData = (environment: any, gameName: string): GameStep[] => {
+export const processEpisodeData = (environment: any, gameName: string): RepeatedPokerStep[] => {
   switch (gameName) {
     case 'repeated_poker':
       return debugRepeatedPokerTransformer(environment);
