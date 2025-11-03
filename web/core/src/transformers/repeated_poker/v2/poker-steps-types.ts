@@ -1,3 +1,5 @@
+import { BaseGamePlayer, BaseGameStep } from "../../../types";
+
 export type RepeatedPokerStepType =
   | 'small-blind-post'
   | 'big-blind-post'
@@ -8,28 +10,20 @@ export type RepeatedPokerStepType =
   | 'deal-river'
   | 'final';
 
-export interface RepeatedPokerStep {
+export interface RepeatedPokerStep extends BaseGameStep {
   stepType: RepeatedPokerStepType;
-  communityCards: string[];
+  communityCards: string;
   pot: number;
-  step: number;
   winOdds: number[];
   fiveCardBestHands: string[];
   currentPlayer: number;
-  players: RepeatedPokerStepPlayer[];
 }
 
-export interface RepeatedPokerStepPlayer {
-  id: number;
-  name: string;
-  thumbnail: string;
+export interface RepeatedPokerStepPlayer extends BaseGamePlayer {
   cards: string;
   chipStack: number;
   currentBet: number;
   reward: number | null;
-  actionDisplayText: string;
-  thoughts?: string;
   isDealer: boolean;
-  isTurn: boolean;
   isWinner: boolean;
 }

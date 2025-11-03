@@ -1,36 +1,37 @@
-import { PokerGameStep } from '../../../types';
+import { RepeatedPokerStep } from '../v2/poker-steps-types';
 import { getActionStringsFromACPC } from './buildTimeline';
 
-const _parseRoundState = (currentStateHistory: string) => {
-  const currentState = JSON.parse(JSON.parse(currentStateHistory).current_universal_poker_json).acpc_state;
+// const _parseRoundState = (currentStateHistory: string) => {
+//   const currentState = JSON.parse(JSON.parse(currentStateHistory).current_universal_poker_json).acpc_state;
+// 
+//   /**
+//    * Example lines:
+//    * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
+//    * Spent: [P0: 9  P1: 9  ]
+//    */
+//   const lines = currentState.trim().split('\n');
+//   if (lines.length < 2) {
+//     return '';
+//   }
+//   const stateParts = lines[0].split(':');
+// 
+//   const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
+//   // Grab the hand and board blocks
+//   const currentCardSegments = currentCardString.split('|');
+//   // Split card string by '/' to separate hand and board blocks
+//   const currentCommunitySegments = currentCardSegments.length > 1 ? currentCardSegments[1].split('/') : [];
+// 
+//   if (currentCommunitySegments.length === 2) {
+//     return '### Flop';
+//   } else if (currentCommunitySegments.length === 3) {
+//     return '### 4th Street';
+//   } else if (currentCommunitySegments.length === 4) {
+//     return '### 5th Street';
+//   } else {
+//     return '';
+//   }
+// };
 
-  /**
-   * Example lines:
-   * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
-   * Spent: [P0: 9  P1: 9  ]
-   */
-  const lines = currentState.trim().split('\n');
-  if (lines.length < 2) {
-    return '';
-  }
-  const stateParts = lines[0].split(':');
-
-  const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
-  // Grab the hand and board blocks
-  const currentCardSegments = currentCardString.split('|');
-  // Split card string by '/' to separate hand and board blocks
-  const currentCommunitySegments = currentCardSegments.length > 1 ? currentCardSegments[1].split('/') : [];
-
-  if (currentCommunitySegments.length === 2) {
-    return '### Flop';
-  } else if (currentCommunitySegments.length === 3) {
-    return '### 4th Street';
-  } else if (currentCommunitySegments.length === 4) {
-    return '### 5th Street';
-  } else {
-    return '';
-  }
-};
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json).current_player !== -1;
@@ -227,20 +228,24 @@ const _getEndCondition = (
   };
 };
 
-export const getPokerStepLabel = (gameStep: PokerGameStep) => {
-  const decision = gameStep.step?.action?.actionString ?? '';
-  if (decision.length > 0) {
-    return decision
-      .split('move=')[1]
-      .replace(/([a-zA-Z])(\d)/g, '$1 $2')
-      .replace(/(\d)([A-Z])/g, '$1 $2');
+export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
+  let pokerStepLabel = `TODO - label ${gameStep.stepType}`;
+  if(gameStep.stepType === 'player-action') {
+    pokerStepLabel = gameStep.players[gameStep.currentPlayer].actionDisplayText ?? "";
   }
 
-  return '';
+  return pokerStepLabel;
 };
 
-export const getPokerStepDescription = (gameStep: PokerGameStep, playerNames: string[]) => {
-  if (gameStep.step?.action?.thoughts) {
+export const getPokerStepDescription = (gameStep: RepeatedPokerStep) => {
+  let pokerStepDescription = `TODO - description ${gameStep.stepType}`;
+  if(gameStep.stepType === 'player-action') {
+    pokerStepDescription = gameStep.players[gameStep.currentPlayer].thoughts ?? "";
+  }
+
+  return pokerStepDescription;
+
+  /* if (gameStep.step?.action?.thoughts) {
     return gameStep.step.action.thoughts;
   } else if (gameStep.isEndState && gameStep.winner !== undefined) {
     if (gameStep.winner === -1) {
@@ -263,7 +268,8 @@ export const getPokerStepDescription = (gameStep: PokerGameStep, playerNames: st
     }
   }
 
-  return _parseRoundState(gameStep.stateHistory);
+  return _parseRoundState(gameStep.stateHistory); */
+  return 'TODO - get Step Description if needed'
 };
 
 /* interface TimelineEvent {
@@ -274,9 +280,8 @@ export const getPokerStepDescription = (gameStep: PokerGameStep, playerNames: st
   hideCommunity: boolean;
 } */
 
-export const getPokerStepsWithEndStates = (environment: any): PokerGameStep[] => {
-  console.log('environment', environment);
-  const stepsWithEndStates: PokerGameStep[] = [];
+export const getPokerStepsWithEndStates = (environment: any): any[] => {
+  const stepsWithEndStates: any[] = [];
   let handCount = 0;
   let stateHistoryPointer = 0;
 
@@ -527,9 +532,9 @@ export const getPokerStepsWithEndStates = (environment: any): PokerGameStep[] =>
       };
     },
   );
-  */
 
   return stepsWithEndStates;
+  */
 };
 
 export const __testing = {

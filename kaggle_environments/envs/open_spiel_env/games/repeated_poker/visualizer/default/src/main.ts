@@ -1,5 +1,5 @@
-import { Player, GameAdapter, ReplayData} from '@kaggle-environments/core';
-import { renderer } from './debug_repeated_poker_renderer';
+import { Player, GameAdapter, ReplayData, RepeatedPokerStep} from '@kaggle-environments/core';
+import { renderer } from './repeated_poker_renderer';
 import { render } from 'preact';
 
 class LegacyAdapter implements GameAdapter {
@@ -9,14 +9,13 @@ class LegacyAdapter implements GameAdapter {
     this.container = container;
   }
 
-  render(step: number, replay: ReplayData, agents: any[]): void {
+  render(step: number, replay: ReplayData): void {
     if (!this.container) return;
     this.container.innerHTML = ''; // Clear container before rendering
     renderer({
       parent: this.container,
-      environment: replay,
+      steps: replay.steps as RepeatedPokerStep[],
       step: step,
-      agents: agents,
       // These are probably not used by poker but good to have
       width: this.container.clientWidth,
       height: this.container.clientHeight

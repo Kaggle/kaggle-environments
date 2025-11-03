@@ -2,7 +2,7 @@ import { PokerReplay, PokerReplayStepHistoryParsed } from './poker-replay-types'
 
 import { createVisualStepsFromRepeatedPokerReplay } from './repeatedPokerTransformerUtils';
 
-export const debugRepeatedPokerTransformer = (environment: any) => {
+export const repeatedPokerTransformerV2 = (environment: any) => {
   const repeatedPokerReplay: PokerReplay = environment as PokerReplay;
   const repeatedPokerReplayStateHistory = environment.info.stateHistory;
   const agents = environment.info.Agents;

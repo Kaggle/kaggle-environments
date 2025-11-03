@@ -191,7 +191,12 @@ export class Player {
             this.mounted = true;
         }
 
-        this.replay.steps = processEpisodeData(this.replay, 'repeated_poker')
+
+        // TODO(michaelaaron) - clean this up into something sane - we should ideally have this in a single location
+        // At the moment this is just a terrible way to tell if processEpisodeData has already been called for steps
+        if(this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType) {
+          this.replay.steps = processEpisodeData(this.replay, 'repeated_poker')
+        }
 
         // Always update controls and render the current state.
         this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
