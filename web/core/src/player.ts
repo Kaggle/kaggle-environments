@@ -1,6 +1,7 @@
 import { GameAdapter } from './adapter';
 import { ReplayData } from './types';
 import cssString from './style.css?raw';
+import { processEpisodeData } from './transformers';
 
 // Inject CSS for a library bundle/build
 (() => {
@@ -168,7 +169,10 @@ export class Player {
             if (replayFile) {
                 fetch(replayFile)
                     .then((res) => res.json())
-                    .then((data) => this.setData(data))
+                    .then((data) => {
+                      this.setData(data)
+
+                    })
                     .catch((err) => console.error(`Error fetching ${replayFile}:`, err));
             } else {
                 this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
@@ -185,6 +189,13 @@ export class Player {
         if (!this.mounted) {
             this.adapter.mount(this.viewer, this.replay);
             this.mounted = true;
+        }
+
+
+        // TODO(michaelaaron) - clean this up into something sane - we should ideally have this in a single location
+        // At the moment this is just a terrible way to tell if processEpisodeData has already been called for steps
+        if(this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType) {
+          this.replay.steps = processEpisodeData(this.replay, 'repeated_poker')
         }
 
         // Always update controls and render the current state.

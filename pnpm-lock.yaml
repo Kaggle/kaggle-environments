@@ -75,6 +75,9 @@ importers:
       htm:
         specifier: ^3.1.1
         version: 3.1.1
+      json-formatter-js:
+        specifier: ^2.5.23
+        version: 2.5.23
       preact:
         specifier: ^10.13.2
         version: 10.27.2
@@ -1070,6 +1073,9 @@ packages:
 
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
+
+  json-formatter-js@2.5.23:
+    resolution: {integrity: sha512-Cbm8wHXjo/C56aCePP1VuKvjxoMEmL7g7Ckss1oWFFlCsvOEEbye1kTeaNNaqba1Cl6YpIOYAnK65pUQ8mDIUQ==}
 
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
@@ -2508,6 +2514,8 @@ snapshots:
       argparse: 2.0.1
 
   json-buffer@3.0.1: {}
+
+  json-formatter-js@2.5.23: {}
 
   json-parse-even-better-errors@2.3.1: {}
 
