@@ -262,7 +262,7 @@ export function renderer(options: RendererOptions): void {
       const playerInfoArea = document.createElement('div');
       playerInfoArea.className = `player-info-area`;
       playerInfoArea.innerHTML = `
-            <div class="bet-display">Standby</div>
+            <div class="bet-display"></div>
             <div class="stack-cards-wrapper">
               <div class="player-card-area">
                 <div class="player-cards-container"></div>
@@ -495,8 +495,6 @@ export function renderer(options: RendererOptions): void {
               betDisplay.textContent = '';
             }
             betDisplay.style.display = 'block';
-          } else {
-            betDisplay.style.display = 'none';
           }
         }
 
