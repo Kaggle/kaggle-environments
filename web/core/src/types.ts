@@ -17,7 +17,7 @@ export interface BaseGameStep {
   step: number;
   players: BaseGamePlayer[];
 }
-
+  
 export interface BaseGamePlayer {
   id: number;
   name: string;

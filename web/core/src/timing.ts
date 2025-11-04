@@ -2,7 +2,7 @@
  * Shoutout to Riley Jones for the first implementations of token streaming helpers. Originals are at:
  * https://github.com/rileyajones/kaggle-gamearena-gamestream-ui/blob/main/ui/src/context/utils.ts
  */
-import { ReplayMode } from "./types";
+import { BaseGamePlayer, BaseGameStep, ReplayMode } from "./types";
 
 const TIME_PER_CHUNK = 80;
 
@@ -76,18 +76,30 @@ export const generateDelayDistribution = (
  * Determine how long a turn is based on how long it takes to render each chunk.
  */
 export function defaultGetStepRenderTime(
+  gameStep: BaseGameStep,
   replayMode: ReplayMode,
   speedModifier: number,
   defaultDuration?: number,
-  thoughts?: string,
 ) {
   const stepDuration = defaultDuration ?? 2000;
   // Example: if we're at 2x speed, we want the render time to be half as long
   const multiplier = 1 / speedModifier;
 
+  let currentPlayer: BaseGamePlayer = {
+    id: -1,
+    name: "System",
+    thumbnail: "",
+    isTurn: false,
+  };
+  gameStep.players.forEach((player) => {
+    if (player.isTurn) {
+      currentPlayer = player;
+    }
+  });
+
   if (replayMode !== "condensed") {
-    if (thoughts) {
-      const chunks = thoughts.split(" ");
+    if (currentPlayer.thoughts) {
+      const chunks = currentPlayer.thoughts.split(" ");
       // 250ms buffer allows a bit extra time for any UI elements to render
       return chunks.length * TIME_PER_CHUNK * multiplier + 250;
     }
