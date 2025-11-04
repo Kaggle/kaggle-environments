@@ -117,8 +117,8 @@ const generateHandEndStepSequence: StepGenerator = (remainingRawSteps, agents, s
     } as PokerReplayStepHistoryParsed;
 
     const actionStep = createPlayerActionStep(
-      stateBeforeEnd,   // state *before* action
-      stateAfterAction, // state *after* action
+      stateBeforeEnd,
+      stateAfterAction,
       agents,
       visualStepIndex
     );
@@ -306,6 +306,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     const curr = remainingRawSteps[i];
 
     // : Check for new hand *before* consuming ---
+    // Most often this is a hand transition, but it can also be the very end of the episode.
     if (curr.hand_number > preDealStep.hand_number) {
       // We found a new hand before finding an action. This is the ALL-IN case.
       endOfHand = true;
@@ -388,88 +389,95 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     };
   }
 
-  // --- CASE 2: All-In Runout, we hit end of hand ---
-  // (This logic is new)
-  if (endOfHand) {
-    // We found no action. We must generate *only* the deal step.
-    // The main loop consumed all steps up to the hand end. We need to
-    // find the *correct* step for *this* street's deal.
-    
-    // 1. Determine which street we're looking for
-    const targetBoardLength = (preDealBoardLength === 0) ? 6 : (preDealBoardLength === 6) ? 8 : 10;
+  // --- CASE 2: All-In Runout, we hit end of hand OR the end of the episode---
+  if (endOfHand || actionStepIndex === -1) {
 
-    // 2. Find the *last* step that has that board length
-    let lastStepOfThisStreetIdx = -1;
-    // We only scan up to `rawStepsConsumed` (the steps we already validated)
-    for (let i = 1; i < rawStepsConsumed; i++) {
-        const currBoardLength = remainingRawSteps[i].current_universal_poker_json.board_cards.length;
-        if (currBoardLength === targetBoardLength) {
-            lastStepOfThisStreetIdx = i;
+    const newSteps: RepeatedPokerStep[] = [];
+    let visualStepIndex = startIndex;
+
+    // We start by looking for the street *after* the current one.
+    let boardLengthToFind = (preDealBoardLength === 0) ? 6 : (preDealBoardLength === 6) ? 8 : 10;
+
+    // We will loop for Flop (6), Turn (8), and River (10)
+    while (boardLengthToFind <= 10) {
+        const targetBoardLength = boardLengthToFind;
+        let stepType: RepeatedPokerStepType;
+        if (targetBoardLength === 6) { 
+          stepType = 'deal-flop';
         }
-        // If we find a *later* street, stop. lastStepOfThisStreetIdx will hold the correct one.
-        if (currBoardLength > targetBoardLength) {
+        else if (targetBoardLength === 8) {
+          stepType = 'deal-turn';
+        }
+        else {
+          stepType = 'deal-river'
+        }
+        let stateForThisStreetIdx = -1;
+
+        // Find the *last* raw step that contains this board.
+        // We scan all steps consumed by the outer loop (`rawStepsConsumed`).
+        for (let i = 1; i < rawStepsConsumed; i++) {
+            const currBoardLength = remainingRawSteps[i].current_universal_poker_json.board_cards.length;
+            if (currBoardLength === targetBoardLength) {
+                stateForThisStreetIdx = i;
+            }
+            // If we find a *later* street, stop. stateForThisStreetIdx will hold the correct one.
+            if (currBoardLength > targetBoardLength) {
+                break;
+            }
+        }
+
+        // If we didn't find a step for this street, it means the runout
+        // ended before this street was dealt (e.g. all-in on turn, we're looking for river).
+        // We can stop.
+        if (stateForThisStreetIdx === -1) {
             break;
         }
+
+        const stateForDeal = remainingRawSteps[stateForThisStreetIdx];
+        // --- Visual Step: The "Deal" Step (All-In) ---
+        const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => ({
+            id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
+            cards: stateForDeal.current_universal_poker_json.player_hands[id],
+            chipStack: STARTING_STACK_SIZE - stateForDeal.current_universal_poker_json.player_contributions[id],
+            currentBet: stateForDeal.current_universal_poker_json.player_contributions[id],
+            reward: null,
+            actionDisplayText: '',
+            thoughts: '',
+            isDealer: preDealStep.dealer === id,
+            isTurn: false,
+            isWinner: false,
+        }));
+
+        const dealStep: RepeatedPokerStep = {
+            stepType,
+            communityCards: stateForDeal.current_universal_poker_json.board_cards,
+            pot: stateForDeal.current_universal_poker_json.pot_size,
+            step: visualStepIndex,
+            winOdds: stateForDeal.current_universal_poker_json.odds,
+            fiveCardBestHands: stateForDeal.current_universal_poker_json.best_five_card_hands,
+            currentPlayer: -1,
+            players: dealStepPlayers,
+        };
+
+        newSteps.push(dealStep);
+        visualStepIndex++;
+
+        // Set up for next street
+        if (boardLengthToFind === 6) boardLengthToFind = 8;
+        else if (boardLengthToFind === 8) boardLengthToFind = 10;
+        else boardLengthToFind = 11; // exit condition
     }
 
-    // If we didn't find an exact match (e.g., hand ended mid-deal),
-    // just use the last step we consumed.
-    if (lastStepOfThisStreetIdx === -1) {
-        lastStepOfThisStreetIdx = rawStepsConsumed - 1;
-    }
-
-    const stateForDeal = remainingRawSteps[lastStepOfThisStreetIdx];
-    // We only consume the steps *up to and including* this one.
-    const newRawStepsConsumed = lastStepOfThisStreetIdx + 1; 
-
-    const boardCards = stateForDeal.current_universal_poker_json.board_cards;
-    let stepType: RepeatedPokerStepType;
-    if (boardCards.length === 6) stepType = 'deal-flop';
-    else if (boardCards.length === 8) stepType = 'deal-turn';
-    else if (boardCards.length === 10) stepType = 'deal-river';
-    else {
-      // This street's deal didn't complete, or data is bad.
-      // This is an error because `determineGenerator` should only call us
-      // if a new street is *starting*.
-       throw new Error(
-         `Unexpected board cards length ${boardCards.length} in all-in sequence for hand ${preDealStep.hand_number}. ` +
-         `Was looking for length ${targetBoardLength}.`
-       );
-    }
-    
-    // --- Visual Step: The "Deal" Step (All-In) ---
-    const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => ({
-        id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
-        cards: stateForDeal.current_universal_poker_json.player_hands[id],
-        chipStack: STARTING_STACK_SIZE - stateForDeal.current_universal_poker_json.player_contributions[id],
-        currentBet: stateForDeal.current_universal_poker_json.player_contributions[id],
-        reward: null,
-        actionDisplayText: '',
-        thoughts: '',
-        isDealer: preDealStep.dealer === id,
-        isTurn: false,
-        isWinner: false,
-    }));
-
-    const dealStep: RepeatedPokerStep = {
-        stepType,
-        communityCards: boardCards,
-        pot: stateForDeal.current_universal_poker_json.pot_size,
-        step: startIndex,
-        winOdds: stateForDeal.current_universal_poker_json.odds,
-        fiveCardBestHands: stateForDeal.current_universal_poker_json.best_five_card_hands,
-        currentPlayer: -1,
-        players: dealStepPlayers,
-    };
-
+    // If we are in an all-in, we must consume ALL steps up to the hand transition.
+    // The outer loop already calculated this for us in `rawStepsConsumed`.
     return {
-      newSteps: [dealStep], // <-- ONLY the deal step
-      rawStepsConsumed: newRawStepsConsumed, // <-- Consume ONLY steps for this street
+        newSteps: newSteps,
+        rawStepsConsumed: rawStepsConsumed,
     };
   }
 
   // --- CASE 3: Error ---
-  // This means the loop finished without finding an action OR a new hand
+  // This means the loop finished without finding an action OR a new hand OR the end of the episode.
   throw new Error(
     `Data inconsistency: Could not find a player action step OR end of hand after the community card deal on hand ${preDealStep.hand_number}.`
   );
