@@ -7,5 +7,6 @@ if (!app) {
   throw new Error("Could not find app element");
 }
 
-const adapter = new PreactAdapter(Renderer);
+// TODO - fix this when we figure out a global format
+const adapter = new PreactAdapter(Renderer as any);
 new Player(app, adapter);

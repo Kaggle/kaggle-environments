@@ -1,7 +1,22 @@
 import { h, FunctionComponent } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import htm from "htm";
-import { ReplayData } from "@kaggle-environments/core";
+
+interface ReplayStep {
+  observation: Record<string, any>;
+  action: Record<string, any> | null;
+  reward: Record<string, number> | number | null;
+  info: Record<string, any>;
+  status: string;
+}
+
+interface ReplayData {
+    name: string;
+    version: string;
+    steps: ReplayStep[][];
+    configuration: Record<string, any>;
+    info?: Record<string, any>;
+}
 
 const html = htm.bind(h);
 

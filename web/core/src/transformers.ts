@@ -2,49 +2,49 @@ import { defaultGetStepRenderTime } from "./timing";
 import {
   getPokerStepDescription,
   getPokerStepLabel,
-  getPokerStepsWithEndStates,
-} from "./transformers/repeatedPokerTransformer";
-import { GameStep, PokerGameStep, ReplayMode } from "./types";
+} from "./transformers/repeated_poker/v1/repeatedPokerTransformer";
+import { RepeatedPokerStep } from "./transformers/repeated_poker/v2/poker-steps-types";
+import { repeatedPokerTransformerV2 } from "./transformers/repeated_poker/v2/repeatedPokerTransformerV2";
+import { BaseGameStep, ReplayMode } from "./types";
 
 export const processEpisodeData = (
   environment: any,
   gameName: string,
-): GameStep[] => {
+): RepeatedPokerStep[] => {
   switch (gameName) {
     case "repeated_poker":
-      return getPokerStepsWithEndStates(environment);
+      return repeatedPokerTransformerV2(environment);
     default:
       return environment.steps;
   }
 };
 
 export const getGameStepLabel = (
-  gameStep: GameStep,
+  gameStep: BaseGameStep,
   gameName: string,
 ): string => {
   switch (gameName) {
     case "repeated_poker":
-      return getPokerStepLabel(gameStep as PokerGameStep);
+      return getPokerStepLabel(gameStep as RepeatedPokerStep);
     default:
       return "";
   }
 };
 
 export const getGameStepDescription = (
-  gameStep: GameStep,
-  players: string[],
+  gameStep: BaseGameStep,
   gameName: string,
 ): string => {
   switch (gameName) {
     case "repeated_poker":
-      return getPokerStepDescription(gameStep as PokerGameStep, players);
+      return getPokerStepDescription(gameStep as RepeatedPokerStep);
     default:
       return "";
   }
 };
 
 export const getGameStepRenderTime = (
-  gameStep: GameStep,
+  gameStep: BaseGameStep,
   gameName: string,
   replayMode: ReplayMode,
   speedModifier: number,

@@ -1,90 +1,81 @@
-import { PokerGameStep } from "../types";
-import { getActionStringsFromACPC } from "./buildTimeline";
+import { RepeatedPokerStep } from '../v2/poker-steps-types';
+import { getActionStringsFromACPC } from './buildTimeline';
 
-const _parseRoundState = (currentStateHistory: string) => {
-  const currentState = JSON.parse(
-    JSON.parse(currentStateHistory).current_universal_poker_json,
-  ).acpc_state;
+// const _parseRoundState = (currentStateHistory: string) => {
+//   const currentState = JSON.parse(JSON.parse(currentStateHistory).current_universal_poker_json).acpc_state;
+// 
+//   /**
+//    * Example lines:
+//    * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
+//    * Spent: [P0: 9  P1: 9  ]
+//    */
+//   const lines = currentState.trim().split('\n');
+//   if (lines.length < 2) {
+//     return '';
+//   }
+//   const stateParts = lines[0].split(':');
+// 
+//   const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
+//   // Grab the hand and board blocks
+//   const currentCardSegments = currentCardString.split('|');
+//   // Split card string by '/' to separate hand and board blocks
+//   const currentCommunitySegments = currentCardSegments.length > 1 ? currentCardSegments[1].split('/') : [];
+// 
+//   if (currentCommunitySegments.length === 2) {
+//     return '### Flop';
+//   } else if (currentCommunitySegments.length === 3) {
+//     return '### 4th Street';
+//   } else if (currentCommunitySegments.length === 4) {
+//     return '### 5th Street';
+//   } else {
+//     return '';
+//   }
+// };
 
-  /**
-   * Example lines:
-   * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
-   * Spent: [P0: 9  P1: 9  ]
-   */
-  const lines = currentState.trim().split("\n");
-  if (lines.length < 2) {
-    return "";
-  }
-  const stateParts = lines[0].split(":");
-
-  const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
-  // Grab the hand and board blocks
-  const currentCardSegments = currentCardString.split("|");
-  // Split card string by '/' to separate hand and board blocks
-  const currentCommunitySegments =
-    currentCardSegments.length > 1 ? currentCardSegments[1].split("/") : [];
-
-  if (currentCommunitySegments.length === 2) {
-    return "### Flop";
-  } else if (currentCommunitySegments.length === 3) {
-    return "### 4th Street";
-  } else if (currentCommunitySegments.length === 4) {
-    return "### 5th Street";
-  } else {
-    return "";
-  }
-};
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
-  JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json)
-    .current_player !== -1;
+  JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json).current_player !== -1;
 const _isStateHistoryEntryInitial = (stateHistoryEntry: string): boolean => {
-  const state = JSON.parse(
-    JSON.parse(stateHistoryEntry).current_universal_poker_json,
-  );
-  return state.acpc_state.startsWith("STATE:0::2c2c|2c2c");
+  const state = JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json);
+  return state.acpc_state.startsWith('STATE:0::2c2c|2c2c');
 };
 export const getMoveHistoryFromACPC = (acpcState: string): string => {
   // Parse the ACPC state line to extract the betting string
   // Example ACPC state: "STATE:0:r5c/cr11c/:6cKd|AsJc/7hQh6d/2c"
-  const lines = acpcState.trim().split("\n");
+  const lines = acpcState.trim().split('\n');
   if (lines.length < 1) {
-    return "";
+    return '';
   }
   const stateLine = lines[0]; // First line contains the state
-  const stateParts = stateLine.split(":");
+  const stateParts = stateLine.split(':');
   // The betting string is everything between the 2nd colon and the last colon
   // stateParts[0] = "STATE"
   // stateParts[1] = "0" (hand number)
   // stateParts[2...-1] = betting string
   // stateParts[last] = cards
   if (stateParts.length < 4) {
-    return "";
+    return '';
   }
-  const bettingString = stateParts.slice(2, stateParts.length - 1).join(":");
+  const bettingString = stateParts.slice(2, stateParts.length - 1).join(':');
   return bettingString;
 };
 
 function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   const moves = [];
   // Split the action string by street (e.g., ["r5c", "cr11f"])
-  const streets = bettingString.split("/");
+  const streets = bettingString.split('/');
   // Process each street's actions
   for (let streetIndex = 0; streetIndex < streets.length; streetIndex++) {
     const streetAction = streets[streetIndex];
     let i = 0;
     while (i < streetAction.length) {
       const char = streetAction[i];
-      if (char === "r") {
+      if (char === 'r') {
         // 'r' (raise)
-        let amount = "";
+        let amount = '';
         i++;
         // Continue to parse all digits of the raise amount
-        while (
-          i < streetAction.length &&
-          streetAction[i] >= "0" &&
-          streetAction[i] <= "9"
-        ) {
+        while (i < streetAction.length && streetAction[i] >= '0' && streetAction[i] <= '9') {
           amount += streetAction[i];
           i++;
         }
@@ -98,15 +89,13 @@ function _getMovesFromBettingStringACPC(bettingString: string): string[] {
   return moves;
 }
 
-export function _getReadableMovesFromBettingStringACPC(
-  bettingString: string,
-): string[] {
+export function _getReadableMovesFromBettingStringACPC(bettingString: string): string[] {
   if (!bettingString) {
     return [];
   }
 
   const moves: string[] = [];
-  const streets = bettingString.split("/");
+  const streets = bettingString.split('/');
   // Heads-up specific ordering: SB acts first preflop, BB acts first postflop
   const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
   const NUM_PLAYERS = 2;
@@ -129,10 +118,7 @@ export function _getReadableMovesFromBettingStringACPC(
       return;
     }
 
-    let actingPlayer =
-      FIRST_ACTOR_BY_STREET[
-        Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)
-      ];
+    let actingPlayer = FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
 
     let i = 0;
     while (i < trimmedAction.length) {
@@ -140,54 +126,46 @@ export function _getReadableMovesFromBettingStringACPC(
       const currentMax = Math.max(...totalContributions);
       const highestBaseline = Math.max(...streetBaselines);
 
-      if (char === "r") {
-        let amount = "";
+      if (char === 'r') {
+        let amount = '';
         i++;
-        while (
-          i < trimmedAction.length &&
-          trimmedAction[i] >= "0" &&
-          trimmedAction[i] <= "9"
-        ) {
+        while (i < trimmedAction.length && trimmedAction[i] >= '0' && trimmedAction[i] <= '9') {
           amount += trimmedAction[i];
           i++;
         }
-        const targetTotal = parseInt(amount || "0", 10);
+        const targetTotal = parseInt(amount || '0', 10);
         const previousTotal = totalContributions[actingPlayer];
         const roundBaseline = streetBaselines[actingPlayer];
         const roundTotal = Math.max(targetTotal - roundBaseline, 0);
         const hasOutstandingBet = currentMax > highestBaseline;
-        const verb = hasOutstandingBet ? "Raise" : "Bet";
+        const verb = hasOutstandingBet ? 'Raise' : 'Bet';
 
         if (!Number.isFinite(targetTotal)) {
-          throw new Error(
-            `Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`,
-          );
+          throw new Error(`Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`);
         }
         if (targetTotal <= previousTotal) {
           throw new Error(
-            `Invalid raise target ${targetTotal} for player ${actingPlayer} (previous total ${previousTotal}).`,
+            `Invalid raise target ${targetTotal} for player ${actingPlayer} (previous total ${previousTotal}).`
           );
         }
 
         moves.push(`${verb} ${roundTotal}`);
         totalContributions[actingPlayer] = targetTotal;
-      } else if (char === "c") {
+      } else if (char === 'c') {
         const previousTotal = totalContributions[actingPlayer];
         if (previousTotal === currentMax) {
-          moves.push("Check");
+          moves.push('Check');
         } else {
           const callAmount = currentMax - previousTotal;
-          moves.push(callAmount > 0 ? `Call ${callAmount}` : "Call");
+          moves.push(callAmount > 0 ? `Call ${callAmount}` : 'Call');
           totalContributions[actingPlayer] = currentMax;
         }
         i++;
-      } else if (char === "f") {
-        moves.push("Fold");
+      } else if (char === 'f') {
+        moves.push('Fold');
         i++;
       } else {
-        throw new Error(
-          `Unknown betting token '${char}' encountered in '${bettingString}'.`,
-        );
+        throw new Error(`Unknown betting token '${char}' encountered in '${bettingString}'.`);
       }
 
       actingPlayer = (actingPlayer + 1) % NUM_PLAYERS;
@@ -200,9 +178,9 @@ export function _getReadableMovesFromBettingStringACPC(
 const _getEndCondition = (
   stateHistory: any[],
   stateHistoryPointer: number,
-  currentPlayer: string,
+  currentPlayer: string
 ): {
-  handConclusion: "fold" | "showdown";
+  handConclusion: 'fold' | 'showdown';
   winner: -1 | 0 | 1; // -1 for the rare event of a tie
   bestFiveCardHands?: string[];
   bestHandRankType?: string[];
@@ -212,77 +190,75 @@ const _getEndCondition = (
     return {
       // TODO: handle tail end
       // for now, fold + tie = impossible state
-      handConclusion: "fold",
+      handConclusion: 'fold',
       winner: -1,
-      bestFiveCardHands: [],
+      bestFiveCardHands: []
     };
   }
   let next_prev_universal_poker_json = {
-    acpc_state: "",
-    best_five_card_hands: ["", ""],
-    best_hand_rank_types: ["", ""],
+    acpc_state: '',
+    best_five_card_hands: ['', ''],
+    best_hand_rank_types: ['', '']
   };
   // since the current_universal_poker_json does not contain the end move in it's history,
   // we need to go to the prev_universal_poker_json of the next one
   try {
     next_prev_universal_poker_json = JSON.parse(
-      JSON.parse(stateHistory[stateHistoryPointer + 1])
-        .prev_universal_poker_json,
+      JSON.parse(stateHistory[stateHistoryPointer + 1]).prev_universal_poker_json
     );
   } catch {
-    console.error("prev_universal_poker_json parsing failed");
+    console.error('prev_universal_poker_json parsing failed');
   }
   // if the stateHistory doesn't end in a fold, it was a showdown
-  const bettingString = getMoveHistoryFromACPC(
-    next_prev_universal_poker_json.acpc_state,
-  );
+  const bettingString = getMoveHistoryFromACPC(next_prev_universal_poker_json.acpc_state);
   const moves = _getMovesFromBettingStringACPC(bettingString);
   // Fold case
-  if (moves.pop() === "f") {
+  if (moves.pop() === 'f') {
     return {
-      handConclusion: "fold",
-      winner: current_player === 0 ? 1 : 0,
+      handConclusion: 'fold',
+      winner: current_player === 0 ? 1 : 0
     };
   }
   // Showdown case
   return {
-    handConclusion: "showdown",
+    handConclusion: 'showdown',
     winner: current_player === 0 ? 1 : 0,
     bestFiveCardHands: next_prev_universal_poker_json.best_five_card_hands,
-    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types,
+    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types
   };
 };
 
-export const getPokerStepLabel = (gameStep: PokerGameStep) => {
-  const decision = gameStep.step?.action?.actionString ?? "";
-  if (decision.length > 0) {
-    return decision
-      .split("move=")[1]
-      .replace(/([a-zA-Z])(\d)/g, "$1 $2")
-      .replace(/(\d)([A-Z])/g, "$1 $2");
+export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
+  let pokerStepLabel = `TODO - label ${gameStep.stepType}`;
+  if(gameStep.stepType === 'player-action') {
+    pokerStepLabel = gameStep.players[gameStep.currentPlayer].actionDisplayText ?? "";
   }
 
-  return "";
+  return pokerStepLabel;
 };
 
-export const getPokerStepDescription = (
-  gameStep: PokerGameStep,
-  playerNames: string[],
-) => {
-  if (gameStep.step?.action?.thoughts) {
+export const getPokerStepDescription = (gameStep: RepeatedPokerStep) => {
+  let pokerStepDescription = `TODO - description ${gameStep.stepType}`;
+  if(gameStep.stepType === 'player-action') {
+    pokerStepDescription = gameStep.players[gameStep.currentPlayer].thoughts ?? "";
+  }
+
+  return pokerStepDescription;
+
+  /* if (gameStep.step?.action?.thoughts) {
     return gameStep.step.action.thoughts;
   } else if (gameStep.isEndState && gameStep.winner !== undefined) {
     if (gameStep.winner === -1) {
       return `
-### ${playerNames.join(" and ")} tie
+### ${playerNames.join(' and ')} tie
 `;
     }
 
-    const loser = gameStep.winner.toString() === "0" ? 1 : 0;
-    if (gameStep.handConclusion === "showdown") {
+    const loser = gameStep.winner.toString() === '0' ? 1 : 0;
+    if (gameStep.handConclusion === 'showdown') {
       return `
 ###🎉 ${playerNames[gameStep.winner]} wins round ${gameStep.hand + 1}
-#### ${gameStep.bestHandRankType?.join(" and ")}
+#### ${gameStep.bestHandRankType?.join(' and ')}
 `;
     } else {
       return `
@@ -292,7 +268,8 @@ export const getPokerStepDescription = (
     }
   }
 
-  return _parseRoundState(gameStep.stateHistory);
+  return _parseRoundState(gameStep.stateHistory); */
+  return 'TODO - get Step Description if needed'
 };
 
 /* interface TimelineEvent {
@@ -303,14 +280,19 @@ export const getPokerStepDescription = (
   hideCommunity: boolean;
 } */
 
-export const getPokerStepsWithEndStates = (
-  environment: any,
-): PokerGameStep[] => {
-  const stepsWithEndStates: PokerGameStep[] = [];
+export const getPokerStepsWithEndStates = (environment: any): any[] => {
+  const stepsWithEndStates: any[] = [];
   let handCount = 0;
   let stateHistoryPointer = 0;
 
   const stateHistory = environment.info.stateHistory ?? [];
+  stateHistory.forEach((entry: string, idx: number) => {
+    if (idx === 74) {
+      console.log(JSON.parse(entry));
+      console.log('!!!!');
+      console.log(JSON.parse(JSON.parse(entry).current_universal_poker_json));
+    }
+  });
   const steps = environment.steps ?? [];
   const teamNames: string[] = Array.isArray(environment?.info?.TeamNames)
     ? environment.info.TeamNames
@@ -319,10 +301,10 @@ export const getPokerStepsWithEndStates = (
       : [];
 
   const normalizePlayerIndex = (value: any): number | null => {
-    if (typeof value === "number" && Number.isFinite(value)) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
     }
-    if (typeof value === "string" && value.trim().length > 0) {
+    if (typeof value === 'string' && value.trim().length > 0) {
       const parsed = parseInt(value, 10);
       if (Number.isFinite(parsed)) {
         return parsed;
@@ -338,9 +320,7 @@ export const getPokerStepsWithEndStates = (
     return teamNames[index] ?? `Player ${index}`;
   };
 
-  const extractCurrentPlayerFromStateHistory = (
-    index: number | null,
-  ): number | null => {
+  const extractCurrentPlayerFromStateHistory = (index: number | null): number | null => {
     if (index === null || index === undefined) {
       return null;
     }
@@ -349,9 +329,7 @@ export const getPokerStepsWithEndStates = (
     }
     try {
       const outer = JSON.parse(stateHistory[index]);
-      const universal = JSON.parse(
-        outer.current_universal_poker_json ?? "null",
-      );
+      const universal = JSON.parse(outer.current_universal_poker_json ?? 'null');
       const outerCurrent = normalizePlayerIndex(outer?.current_player);
       if (outerCurrent !== null) {
         return outerCurrent;
@@ -385,14 +363,12 @@ export const getPokerStepsWithEndStates = (
           }
 
           const preActionPointer = stateHistoryPointer;
-          const actionString: string = s?.action?.actionString ?? "";
+          const actionString: string = s?.action?.actionString ?? '';
           const playerMatch = actionString.match(/player=(\d+)/);
           const actingPlayer = playerMatch
             ? normalizePlayerIndex(playerMatch[1])
             : normalizePlayerIndex(s?.observation?.playerId);
-          const currentPlayer = normalizePlayerIndex(
-            s?.observation?.currentPlayer,
-          );
+          const currentPlayer = normalizePlayerIndex(s?.observation?.currentPlayer);
 
           stepsWithEndStates.push({
             hand: handCount,
@@ -403,15 +379,14 @@ export const getPokerStepsWithEndStates = (
             actingPlayer,
             actingPlayerName: getPlayerName(actingPlayer),
             currentPlayer,
-            currentPlayerName: getPlayerName(currentPlayer),
+            currentPlayerName: getPlayerName(currentPlayer)
           });
 
           lastActionPointer = preActionPointer;
           stateHistoryPointer++;
 
           const postActionPointer = stateHistoryPointer;
-          const postActionCurrentPlayer =
-            extractCurrentPlayerFromStateHistory(postActionPointer);
+          const postActionCurrentPlayer = extractCurrentPlayerFromStateHistory(postActionPointer);
 
           if (
             postActionPointer < stateHistory.length &&
@@ -428,7 +403,7 @@ export const getPokerStepsWithEndStates = (
               actingPlayer,
               actingPlayerName: getPlayerName(actingPlayer),
               currentPlayer: postActionCurrentPlayer,
-              currentPlayerName: getPlayerName(postActionCurrentPlayer),
+              currentPlayerName: getPlayerName(postActionCurrentPlayer)
             });
           }
 
@@ -448,19 +423,12 @@ export const getPokerStepsWithEndStates = (
 
     const isEndState =
       lastActionPointer !== -1 &&
-      (lookaheadPointer >= stateHistory.length ||
-        _isStateHistoryEntryInitial(stateHistory[lookaheadPointer]));
+      (lookaheadPointer >= stateHistory.length || _isStateHistoryEntryInitial(stateHistory[lookaheadPointer]));
 
     if (isEndState) {
-      const endStateCurrentPlayer = extractCurrentPlayerFromStateHistory(
-        lastActionPointer,
-      );
-      const endState = _getEndCondition(
-        stateHistory,
-        lastActionPointer,
-        endStateCurrentPlayer?.toString() ?? "",
-      );
-      
+      const endStateCurrentPlayer = extractCurrentPlayerFromStateHistory(lastActionPointer);
+      const endState = _getEndCondition(stateHistory, lastActionPointer, endStateCurrentPlayer?.toString() ?? '');
+
       stepsWithEndStates.push({
         hand: handCount,
         isEndState: true,
@@ -469,7 +437,7 @@ export const getPokerStepsWithEndStates = (
         stateHistoryIndex: lastActionPointer,
         currentPlayer: endStateCurrentPlayer,
         currentPlayerName: getPlayerName(endStateCurrentPlayer),
-        ...endState,
+        ...endState
       });
 
       handCount++;
@@ -485,33 +453,27 @@ export const getPokerStepsWithEndStates = (
       }
 
       const outer = JSON.parse(step.stateHistory);
-      const universal = JSON.parse(
-        outer.current_universal_poker_json ?? "null",
-      );
+      const universal = JSON.parse(outer.current_universal_poker_json ?? 'null');
 
       // Extract betting string from universal poker JSON
-      const bettingString = getMoveHistoryFromACPC(universal?.acpc_state || "");
+      const bettingString = getMoveHistoryFromACPC(universal?.acpc_state || '');
 
       // Get the next player index for this state
-      const nextPlayerIndex = normalizePlayerIndex(
-        universal?.current_player ?? null,
-      );
+      const nextPlayerIndex = normalizePlayerIndex(universal?.current_player ?? null);
 
       // Get action strings for each player
       const playerActionStrings = getActionStringsFromACPC(
         bettingString,
-        2, // Assuming 2 players for poker
+        2 // Assuming 2 players for poker
       );
 
       // Return a new step with action strings added
       return {
         ...step,
-        actionText: nextPlayerIndex
-          ? playerActionStrings[nextPlayerIndex]
-          : undefined,
+        actionText: nextPlayerIndex ? playerActionStrings[nextPlayerIndex] : undefined
       };
     } catch (error) {
-      console.error("Error adding action strings to step:", error);
+      console.error('Error adding action strings to step:', error);
       // If there's an error, return the original step
       return step;
     }
@@ -570,12 +532,12 @@ export const getPokerStepsWithEndStates = (
       };
     },
   );
-  */
 
   return stepsWithEndStates;
+  */
 };
 
 export const __testing = {
   _getMovesFromBettingStringACPC,
-  _getReadableMovesFromBettingStringACPC,
+  _getReadableMovesFromBettingStringACPC
 };
