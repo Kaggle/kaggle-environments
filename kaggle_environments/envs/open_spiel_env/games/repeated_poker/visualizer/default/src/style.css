@@ -267,24 +267,13 @@
 }
 
 .player-cards-container .card {
-  width: 38px;
-  height: 60px;
-  border-radius: 6px;
+  transform: scale(0.8);
 }
 
 .player-cards-container .card:nth-child(2) {
-  transform: rotate(20deg);
-  margin-top: 14px;
-  margin-left: -6px;
-}
-
-.player-cards-container .card-rank {
-  font-size: 26px;
-}
-
-.player-cards-container .card-suit {
-  width: 28px;
-  height: 28px;
+  transform: rotate(20deg) scale(0.8);
+  margin-top: 13px;
+  margin-left: -17px;
 }
 
 .card-suit svg {
