@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
 @font-face {
   font-family: 'Zeitung Pro';
   src:
@@ -34,7 +36,7 @@
 
 .poker-game-layout {
   width: 1000px;
-  height: 900px;
+  height: 980px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,24 +122,23 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin: 12px;
   width: 100%;
 }
 
 .player-info-area {
   color: white;
   width: auto;
-  min-width: 280px;
+  width: 260px;
+  height: 200px;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   margin: 10px auto;
-  padding: 10px;
+  padding: 20px;
   background-color: rgba(32, 33, 36, 0.70);
-  ;
-  border-radius: 16px;
+  border-radius: 32px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   border: 2px solid transparent;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
@@ -210,17 +211,22 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin: 0 12px;
+  background-color: #3C4043;
+  border-radius: 22px;
+  padding: 10px;
+  color: #E8EAED;
+  width: 240px;
+  height: 36px;
 }
 
 .player-hand-rank,
-.player-win-prob,
-.player-tie-prob {
-  font-size: 16px;
+.player-odds {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: #E8EAED;
   height: 20px;
-  align-self: flex-start;
+  align-self: center;
 }
 
 .player-cards-container {
@@ -250,7 +256,7 @@
 }
 
 .card-rank {
-  font-family: 'Inter' sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 32px;
   line-height: 1;
   display: block;
@@ -265,24 +271,13 @@
 }
 
 .player-cards-container .card {
-  width: 38px;
-  height: 60px;
-  border-radius: 6px;
+  transform: scale(0.8);
 }
 
 .player-cards-container .card:nth-child(2) {
-  transform: rotate(20deg);
-  margin-top: 14px;
-  margin-left: -6px;
-}
-
-.player-cards-container .card-rank {
-  font-size: 26px;
-}
-
-.player-cards-container .card-suit {
-  width: 28px;
-  height: 28px;
+  transform: rotate(20deg) scale(0.8);
+  margin-top: 13px;
+  margin-left: -17px;
 }
 
 .card-suit svg {
@@ -373,18 +368,18 @@
 
 .bet-display {
   display: inline-block;
-  padding: 10px 20px;
+  padding: 10px;
   border-radius: 30px;
   background-color: #ffffff;
   color: black;
-  font-family: 'Inter' sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 20px;
   font-weight: 600;
   text-align: center;
   height: 20pxrem;
   line-height: 20px;
-  width: 150px;
-  height: 20px;
+  width: 240px;
+  min-height: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
