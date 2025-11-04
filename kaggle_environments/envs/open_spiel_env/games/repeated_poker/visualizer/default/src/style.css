@@ -129,7 +129,7 @@
   color: white;
   width: auto;
   width: 260px;
-  height: 210px;
+  height: 200px;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -215,13 +215,12 @@
   border-radius: 22px;
   padding: 10px;
   color: #E8EAED;
-  text-transform: uppercase;
   width: 240px;
   height: 36px;
 }
 
 .player-hand-rank,
-.player-probability-section {
+.player-odds {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 600;

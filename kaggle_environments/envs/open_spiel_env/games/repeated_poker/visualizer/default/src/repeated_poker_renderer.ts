@@ -267,14 +267,13 @@ export function renderer(options: RendererOptions): void {
               <div class="player-card-area">
                 <div class="player-cards-container"></div>
               </div>
-              <div class="player-stats-container">
-                <div class="player-hand-rank"></div>
-                <div class="player-win-prob"></div>
-                <div class="player-tie-prob"></div>
-              </div>
               <div class="player-stack">
                 <span class="player-stack-value">0</span>
               </div>
+            </div>
+            <div class="player-stats-container">
+              <div class="player-hand-rank"></div>
+              <div class="player-odds"></div>
             </div>
             `;
       playerContainer.appendChild(playerInfoArea);
@@ -498,6 +497,7 @@ export function renderer(options: RendererOptions): void {
           }
         }
 
+        // TODO: swap this out bestHandRankType
         const handRankElement = playerInfoArea.querySelector('.player-hand-rank') as HTMLElement;
         if (handRankElement && handRank && handRank[index]) {
           handRankElement.textContent = handRank[index];
@@ -505,18 +505,23 @@ export function renderer(options: RendererOptions): void {
           handRankElement.textContent = '';
         }
 
-        const winProbElement = playerInfoArea.querySelector('.player-win-prob') as HTMLElement;
-        if (winProbElement && winProb && winProb[index] && !isTerminal) {
-          winProbElement.textContent = `Win: ${winProb[index]}`;
-        } else if (winProbElement) {
-          winProbElement.textContent = '';
-        }
+        const playerOddsElement = playerInfoArea.querySelector('.player-odds') as HTMLElement;
+        if (playerOddsElement && winProb && winProb[index] && !isTerminal) {
+          let oddsString = `WIN: ${winProb[index].toLocaleString(undefined, {
+            style: 'percent',
+            minimumFractionDigits: 2
+          })}`;
 
-        const tieProbElement = playerInfoArea.querySelector('.player-tie-prob') as HTMLElement;
-        if (tieProbElement && tieProb && !isTerminal) {
-          tieProbElement.textContent = `Tie: ${tieProb}`;
-        } else if (tieProbElement) {
-          tieProbElement.textContent = '';
+          if (winProb[index + 2]) {
+            oddsString = oddsString + ` ·  TIE: ${winProb[index + 1].toLocaleString(undefined, {
+              style: 'percent',
+              minimumFractionDigits: 2
+            })}`
+          }
+
+          playerOddsElement.textContent = oddsString;
+        } else if (playerOddsElement) {
+          playerOddsElement.textContent = '';
         }
       }
     });
