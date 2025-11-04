@@ -192,9 +192,8 @@ export class Player {
         }
 
 
-        // TODO(michaelaaron) - clean this up into something sane - we should ideally have this in a single location
-        // At the moment this is just a terrible way to tell if processEpisodeData has already been called for steps
-        if(this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType) {
+        // TODO(michaelaaron) - Turn this into something more reasonable.
+        if(this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType && this?.replay?.configuration?.game === 'repeated_poker') {
           this.replay.steps = processEpisodeData(this.replay, 'repeated_poker')
         }
 
