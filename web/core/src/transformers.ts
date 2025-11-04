@@ -44,20 +44,20 @@ export const getGameStepDescription = (
 };
 
 export const getGameStepRenderTime = (
-  gameStep: BaseGameStep,
   gameName: string,
   replayMode: ReplayMode,
   speedModifier: number,
   defaultDuration?: number,
+  thoughts?: string,
 ): number => {
   switch (gameName) {
     case "repeated_poker":
     default:
       return defaultGetStepRenderTime(
-        gameStep,
         replayMode,
         speedModifier,
         defaultDuration,
+        thoughts,
       );
   }
 };
