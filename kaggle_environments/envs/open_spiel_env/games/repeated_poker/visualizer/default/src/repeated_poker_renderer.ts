@@ -402,7 +402,6 @@ export function renderer(options: RendererOptions): void {
 
     // TODO: [TYPE_MISMATCH] 'communityCards' is a string, but the code expects an array of card strings - move this to the transformer
     const communityCardsArray = communityCards.match(/.{1,2}/g) || [] as string[];
-    communityCardsArray.reverse();
     const numCards = communityCardsArray.length;
     
     // Get winning player's best hand for highlighting (only on final step with all 5 community cards)
