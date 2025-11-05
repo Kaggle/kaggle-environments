@@ -36,7 +36,7 @@
 
 .poker-game-layout {
   width: 1000px;
-  height: 980px;
+  height: 950px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,7 +58,7 @@
   background: radial-gradient(43.33% 50% at 50% 50%, #20BD48 0%, #0A4018 99.99%);
   border-radius: 300px;
   position: relative;
-  border: 20px solid #5C3A21;
+  border: 15px solid #5C3A21;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,18 +140,16 @@
   background-color: rgba(32, 33, 36, 0.70);
   border-radius: 32px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .player-info-area.active-player {
   border-color: #20BEFF;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
 }
 
 .player-info-area.winner-player {
   border-color: #FFEB70;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 235, 112, 0.6);
 }
 
 .player-container-0 .player-info-area {
@@ -168,8 +166,8 @@
 }
 
 .player-thumbnail {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
   background-color: #ffffff;
@@ -213,7 +211,7 @@
   align-items: center;
   background-color: #3C4043;
   border-radius: 22px;
-  padding: 10px;
+  padding: 2px 6px;
   color: #E8EAED;
   width: 240px;
   height: 36px;
@@ -223,6 +221,7 @@
 .player-odds {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
+  line-height: 14px;
   font-weight: 600;
   color: #E8EAED;
   height: 20px;
@@ -381,6 +380,10 @@
   width: 240px;
   min-height: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bet-display.winner-player {
+  background-color: #FFEB70;
 }
 
 .blind-indicator {
