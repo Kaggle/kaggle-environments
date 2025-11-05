@@ -330,16 +330,16 @@ export function renderer(options: RendererOptions): void {
     const {
       players, // This exists in BaseGameStep
       communityCards, // This is a string in RepeatedPokerStep, but JS expects string[]
-      pot, // This exists
-      winOdds, // This exists
-      fiveCardBestHands, // This exists
+      pot,
+      winOdds,
+      bestHandRankTypes,
     } = data;
 
     // TODO: [TYPE_MISMATCH] Manually defining missing properties from the type.
     const isTerminal = false; // 'isTerminal' is not in RepeatedPokerStep
     const handCount = 0; // 'handCount' is not in RepeatedPokerStep
     const winProb = winOdds; // 'winProb' is not in type, mapping 'winOdds'
-    const handRank = fiveCardBestHands; // 'handRank' is not in type, mapping 'fiveCardBestHands'
+    const handRank = bestHandRankTypes;
     const leaderInfo: any = null; // 'leaderInfo' is not in type. Using 'any' to allow compilation.
 
     // Update legend
