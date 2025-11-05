@@ -211,7 +211,7 @@
   align-items: center;
   background-color: #3C4043;
   border-radius: 22px;
-  padding: 10px;
+  padding: 2px 6px;
   color: #E8EAED;
   width: 240px;
   height: 36px;
@@ -221,6 +221,7 @@
 .player-odds {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
+  line-height: 14px;
   font-weight: 600;
   color: #E8EAED;
   height: 20px;
