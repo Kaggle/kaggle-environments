@@ -92,7 +92,7 @@ export function renderer(options: RendererOptions): void {
     window.__poker_styles_injected = true;
   }
 
-  function createCardElement(cardStr: string | null, isHidden: boolean = false): HTMLElement {
+  function createCardElement(cardStr: string | null, isHidden: boolean = false, shouldHighlight: boolean = false): HTMLElement {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('card');
     if (isHidden || !cardStr || cardStr === '?' || cardStr === '??') {
@@ -120,6 +120,11 @@ export function renderer(options: RendererOptions): void {
       else if (suit === 'spades') cardDiv.classList.add('card-black');
       else if (suit === 'diamonds') cardDiv.classList.add('card-blue');
       else if (suit === 'clubs') cardDiv.classList.add('card-green');
+      
+      // Add highlight class if this card is part of the winning hand
+      if (shouldHighlight) {
+        cardDiv.classList.add('card-highlighted');
+      }
     }
     return cardDiv;
   }
@@ -330,8 +335,10 @@ export function renderer(options: RendererOptions): void {
     const {
       players, // This exists in BaseGameStep
       communityCards, // This is a string in RepeatedPokerStep, but JS expects string[]
+      stepType,
       pot,
       winOdds,
+      bestFiveCardHands,
       bestHandRankTypes,
     } = data;
 
@@ -394,12 +401,20 @@ export function renderer(options: RendererOptions): void {
     const numCommunityCards = 5;
 
     // TODO: [TYPE_MISMATCH] 'communityCards' is a string, but the code expects an array of card strings - move this to the transformer
-    const communityCardsArray = communityCards.match(/.{1,2}/g) || [];
+    const communityCardsArray = communityCards.match(/.{1,2}/g) || [] as string[];
     const numCards = communityCardsArray.length;
+    
+    // Get winning player's best hand for highlighting (only on final step with all 5 community cards)
+    const isShowdown = numCards === 5 && stepType === 'final';
+    const winnerIndex = players.findIndex((p) => (p as RepeatedPokerStepPlayer).isWinner);
+    const winnerBestHand = winnerIndex !== -1 && isShowdown && bestFiveCardHands?.[winnerIndex]
+      ? bestFiveCardHands[winnerIndex].match(/.{1,2}/g) || [] as string[]
+      : [] as string[];
 
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
-      elements.communityCardsContainer.appendChild(createCardElement(communityCardsArray[i]));
+      const shouldHighlight = winnerBestHand.includes(communityCardsArray[i]);
+      elements.communityCardsContainer.appendChild(createCardElement(communityCardsArray[i], false, shouldHighlight));
     }
 
     // Fill remaining slots with empty cards
@@ -455,9 +470,16 @@ export function renderer(options: RendererOptions): void {
 
         // TODO: [TYPE_MISMATCH] 'playerData.cards' is a string, but code expects an array - move this to the transformer
         const playerCardsArray = playerData.cards ? playerData.cards.match(/.{1,2}/g) : [null, null];
+        
+        // Parse the best hand for this player to determine which cards to highlight (only on showdown)
+        const bestHandArray = bestFiveCardHands && bestFiveCardHands[index] 
+          ? bestFiveCardHands[index].match(/.{1,2}/g) || [] as string[]
+          : [] as string[];
+        const shouldHighlightWinningHand = playerData.isWinner && showCards && isShowdown && bestHandArray.length > 0;
 
         (playerCardsArray || [null, null]).forEach((cardStr) => {
-          playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null));
+          const shouldHighlight = shouldHighlightWinningHand && cardStr && bestHandArray.includes(cardStr);
+          playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null, !!shouldHighlight));
         });
       }
 

@@ -345,6 +345,25 @@
   display: none;
 }
 
+.card-highlighted {
+  box-shadow: 0 0 0 3px #FFEB70, 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
+  border-color: #FFEB70;
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px #FFEB70, 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
+  }
+
+  50% {
+    box-shadow: 0 0 0 3px #FFEB70, 0 0 20px 8px rgba(255, 235, 112, 0.5), 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
+  }
+}
+
+
 .community-cards-area {
   text-align: center;
   z-index: 10;
