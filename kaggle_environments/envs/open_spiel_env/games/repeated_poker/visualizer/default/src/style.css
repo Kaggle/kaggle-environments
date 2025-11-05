@@ -211,10 +211,14 @@
   align-items: center;
   background-color: #3C4043;
   border-radius: 22px;
-  padding: 2px 6px;
+  padding-top: 4px;
   color: #E8EAED;
-  width: 240px;
+  width: 260px;
   height: 36px;
+}
+
+.player-container-0 .player-stats-container {
+  flex-direction: column-reverse;
 }
 
 .player-hand-rank,
@@ -226,6 +230,7 @@
   color: #E8EAED;
   height: 20px;
   align-self: center;
+  text-transform: uppercase;
 }
 
 .player-cards-container {

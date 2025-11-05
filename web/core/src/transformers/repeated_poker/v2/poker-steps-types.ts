@@ -15,7 +15,8 @@ export interface RepeatedPokerStep extends BaseGameStep {
   communityCards: string;
   pot: number;
   winOdds: number[];
-  fiveCardBestHands: string[];
+  bestFiveCardHands: string[];
+  bestHandRankTypes: string[];
   currentPlayer: number;
 }
 

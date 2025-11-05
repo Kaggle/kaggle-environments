@@ -191,7 +191,8 @@ const createPlayerActionStep = (
     pot: afterJson.pot_size,
     step: stepIndex,
     winOdds: afterJson.odds,
-    fiveCardBestHands: afterJson.best_five_card_hands,
+    bestFiveCardHands: afterJson.best_five_card_hands,
+    bestHandRankTypes: afterJson.best_hand_rank_types,
     currentPlayer: actingPlayerId,
     players,
   };
@@ -290,7 +291,8 @@ const generateHandEndStepSequence: StepGenerator = (remainingRawSteps, agents, s
     pot: finalJson.pot_size,
     step: visualStepIndex, // This is either startIndex or startIndex + 1
     winOdds: finalJson.odds,
-    fiveCardBestHands: finalJson.best_five_card_hands,
+    bestFiveCardHands: finalJson.best_five_card_hands,
+    bestHandRankTypes: finalJson.best_hand_rank_types,
     currentPlayer: -1,
     players: finalStepPlayers,
   };
@@ -337,7 +339,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
 
   // Get the two steps we need for data:
   // The last "deal" step (Raw Step 3)
-  const lastDealStep = remainingRawSteps[rawStepsConsumed - 1]; 
+  const lastDealStep = remainingRawSteps[rawStepsConsumed - 1];
   // The first "action" step (Raw Step 4), which we "peek" at but do not consume.
   const firstActionStep = remainingRawSteps[rawStepsConsumed];
 
@@ -346,10 +348,10 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     dealer,
     small_blind,
     big_blind,
-  } = lastDealStep; 
+  } = lastDealStep;
 
   // The complete hand/odds data comes from the firstActionStep
-  const { player_hands, best_five_card_hands, odds } =
+  const { player_hands, best_five_card_hands, best_hand_rank_types, odds } =
     firstActionStep.current_universal_poker_json;
 
   // in heads up the dealer is the small blind
@@ -377,7 +379,8 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     pot: small_blind,
     step: startIndex,
     winOdds: [],
-    fiveCardBestHands: ['', ''],
+    bestFiveCardHands: ['', ''],
+    bestHandRankTypes: ['', ''],
     currentPlayer: -1,
     players: sbPostPlayers
   };
@@ -415,7 +418,8 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     step: startIndex + 2,
     currentPlayer: -1,
     players: dealCardsPlayers,
-    fiveCardBestHands: best_five_card_hands, // Using data from firstActionStep
+    bestFiveCardHands: best_five_card_hands, // Using data from firstActionStep
+    bestHandRankTypes: best_hand_rank_types,
     winOdds: odds // Using data from firstActionStep
   };
 
@@ -502,7 +506,8 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
       pot: stateBeforeAction.current_universal_poker_json.pot_size,
       step: startIndex,
       winOdds: stateBeforeAction.current_universal_poker_json.odds,
-      fiveCardBestHands: stateBeforeAction.current_universal_poker_json.best_five_card_hands,
+      bestFiveCardHands: stateBeforeAction.current_universal_poker_json.best_five_card_hands,
+      bestHandRankTypes: stateBeforeAction.current_universal_poker_json.best_hand_rank_types,
       currentPlayer: -1,
       players: dealStepPlayers,
     };
@@ -586,7 +591,8 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
             pot: stateForDeal.current_universal_poker_json.pot_size,
             step: visualStepIndex,
             winOdds: stateForDeal.current_universal_poker_json.odds,
-            fiveCardBestHands: stateForDeal.current_universal_poker_json.best_five_card_hands,
+            bestFiveCardHands: stateForDeal.current_universal_poker_json.best_five_card_hands,
+            bestHandRankTypes: stateForDeal.current_universal_poker_json.best_hand_rank_types,
             currentPlayer: -1,
             players: dealStepPlayers,
         };
