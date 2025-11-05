@@ -92,7 +92,11 @@ export function renderer(options: RendererOptions): void {
     window.__poker_styles_injected = true;
   }
 
-  function createCardElement(cardStr: string | null, isHidden: boolean = false): HTMLElement {
+  function createCardElement(
+    cardStr: string | null,
+    isHidden: boolean = false,
+    shouldHighlight: boolean = true
+  ): HTMLElement {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('card');
     if (isHidden || !cardStr || cardStr === '?' || cardStr === '??') {
@@ -120,6 +124,11 @@ export function renderer(options: RendererOptions): void {
       else if (suit === 'spades') cardDiv.classList.add('card-black');
       else if (suit === 'diamonds') cardDiv.classList.add('card-blue');
       else if (suit === 'clubs') cardDiv.classList.add('card-green');
+      
+      // Add highlight class if this card is part of the winning hand
+      if (shouldHighlight) {
+        cardDiv.classList.add('card-highlighted');
+      }
     }
     return cardDiv;
   }
