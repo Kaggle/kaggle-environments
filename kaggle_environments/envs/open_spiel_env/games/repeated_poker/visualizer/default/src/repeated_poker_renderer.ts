@@ -490,6 +490,9 @@ export function renderer(options: RendererOptions): void {
 
         const betDisplay = playerInfoArea.querySelector('.bet-display') as HTMLElement;
         if (betDisplay) {
+          if (playerData.isWinner) {
+            betDisplay.classList.add('winner-player');
+          }
           if (playerData.currentBet > 0) {
             if (playerData.actionDisplayText) {
               betDisplay.textContent = playerData.actionDisplayText;

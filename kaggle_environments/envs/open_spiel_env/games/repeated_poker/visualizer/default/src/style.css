@@ -36,7 +36,7 @@
 
 .poker-game-layout {
   width: 1000px;
-  height: 980px;
+  height: 950px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,18 +140,16 @@
   background-color: rgba(32, 33, 36, 0.70);
   border-radius: 32px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .player-info-area.active-player {
   border-color: #20BEFF;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
 }
 
 .player-info-area.winner-player {
   border-color: #FFEB70;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 235, 112, 0.6);
 }
 
 .player-container-0 .player-info-area {
@@ -381,6 +379,10 @@
   width: 240px;
   min-height: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bet-display.winner-player {
+  background-color: #FFEB70;
 }
 
 .blind-indicator {
