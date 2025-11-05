@@ -23,7 +23,6 @@ export function renderer(options: RendererOptions) {
   }
 
   function _buildVisualizer(parentElement: HTMLElement, rows: number, cols: number) {
-    // Check for mobile screen size to apply responsive styles.
     const isMobile = window.innerWidth < 768;
 
     currentRendererContainer = document.createElement('div');
@@ -64,7 +63,7 @@ export function renderer(options: RendererOptions) {
       const whitePlayerName = document.createElement('span');
       whitePlayerName.textContent = playerNames.length > 1 ? playerNames[1] : 'White';
       Object.assign(whitePlayerName.style, {
-        fontSize: isMobile ? '1rem' : '1.1rem', // Responsive font size
+        fontSize: isMobile ? '1rem' : '1.1rem',
         fontWeight: 'bold',
       });
       whitePlayerContainer.appendChild(whitePawnImg);
@@ -74,11 +73,11 @@ export function renderer(options: RendererOptions) {
       currentTitleElement = document.createElement('h1');
       currentTitleElement.textContent = 'Chess';
       Object.assign(currentTitleElement.style, {
-        fontSize: isMobile ? '1.5rem' : '1.875rem', // Responsive font size
+        fontSize: isMobile ? '1.5rem' : '1.875rem',
         fontWeight: 'bold',
         textAlign: 'center',
         color: '#e5e7eb',
-        margin: isMobile ? '10px 0' : '0 40px', // Responsive margin
+        margin: isMobile ? '10px 0' : '0 40px',
         order: isMobile ? '0' : 'initial', // Ensures title is between players on desktop
       });
 
@@ -91,7 +90,7 @@ export function renderer(options: RendererOptions) {
       const blackPlayerName = document.createElement('span');
       blackPlayerName.textContent = playerNames.length > 1 ? playerNames[0] : 'Black';
       Object.assign(blackPlayerName.style, {
-        fontSize: isMobile ? '1rem' : '1.1rem', // Responsive font size
+        fontSize: isMobile ? '1rem' : '1.1rem',
         fontWeight: 'bold',
       });
       const blackPawnImg = document.createElement('img');
@@ -174,7 +173,7 @@ export function renderer(options: RendererOptions) {
 
     currentStatusTextElement = document.createElement('p');
     Object.assign(currentStatusTextElement.style, {
-      fontSize: isMobile ? '0.8rem' : '1.1rem', // Responsive font size
+      fontSize: isMobile ? '0.8rem' : '1.1rem',
       fontWeight: '600',
       margin: '0 0 5px 0',
     });
@@ -182,7 +181,7 @@ export function renderer(options: RendererOptions) {
 
     currentWinnerTextElement = document.createElement('p');
     Object.assign(currentWinnerTextElement.style, {
-      fontSize: isMobile ? '0.9rem' : '1.1rem', // Responsive font size
+      fontSize: isMobile ? '0.9rem' : '1.1rem',
       fontWeight: '700',
       margin: '5px 0 0 0',
     });
