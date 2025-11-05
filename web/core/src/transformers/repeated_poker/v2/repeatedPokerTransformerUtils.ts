@@ -1,4 +1,4 @@
-import { PokerReplayInfoAgent, PokerReplayStepHistoryParsed, } from './poker-replay-types';
+import { PokerReplayInfoAgent, PokerReplayStepHistoryParsed, PokerReplayUniversalPokerJson } from './poker-replay-types';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer, RepeatedPokerStepType } from './poker-steps-types';
 
 interface GeneratorResult {
@@ -16,7 +16,136 @@ type StepGenerator = (
 ) => GeneratorResult;
 
 // We aren't quite sure where to get this from so just hardcode it to 200 for now
-const STARTING_STACK_SIZE = 200
+const STARTING_STACK_SIZE = 200;
+const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
+const NUM_PLAYERS = 2;
+
+export function getBettingStringFromACPCState(acpcState: string): string {
+  if (!acpcState) {
+    return '';
+  }
+
+  const lines = acpcState.trim().split('\n');
+  if (lines.length === 0) {
+    return '';
+  }
+
+  const stateParts = lines[0].split(':');
+  if (stateParts.length < 4) {
+    return '';
+  }
+
+  return stateParts.slice(2, stateParts.length - 1).join(':');
+}
+
+export function getReadableActionsFromACPC(acpcState: string): string[] {
+  const bettingString = getBettingStringFromACPCState(acpcState);
+  if (!bettingString) {
+    return [];
+  }
+
+  const moves: string[] = [];
+  const streets = bettingString.split('/');
+  
+  const totalContributions: number[] = [2, 1];
+  let streetBaselines: number[] = [0, 0];
+
+  // Example:
+  // Input: "r5c/cc/r11c/r122r200c"
+  // Output: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"]
+  streets.forEach((streetAction, streetIndex) => {
+    const trimmedAction = streetAction.trim();
+    if (streetIndex > 0) {
+      streetBaselines = [...totalContributions];
+    }
+
+    if (!trimmedAction) {
+      return;
+    }
+
+    let actingPlayer = FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
+
+    let i = 0;
+    while (i < trimmedAction.length) {
+      const char = trimmedAction[i];
+      const currentMax = Math.max(...totalContributions);
+      const highestBaseline = Math.max(...streetBaselines);
+
+      // the existance of a 'r' char in the ACPC string signifies the actor is 'Raising' by some amount
+      if (char === 'r') {
+        let amount = '';
+        i++;
+        while (i < trimmedAction.length && trimmedAction[i] >= '0' && trimmedAction[i] <= '9') {
+          amount += trimmedAction[i];
+          i++;
+        }
+        const targetTotal = parseInt(amount || '0', 10);
+        const previousTotal = totalContributions[actingPlayer];
+        const roundBaseline = streetBaselines[actingPlayer];
+        const roundTotal = Math.max(targetTotal - roundBaseline, 0);
+        const hasOutstandingBet = currentMax > highestBaseline;
+        const verb = hasOutstandingBet ? 'Raise' : 'Bet';
+
+        if (!Number.isFinite(targetTotal)) {
+          throw new Error(`Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`);
+        }
+        if (targetTotal <= previousTotal) {
+          throw new Error(
+            `Invalid raise target ${targetTotal} for player ${actingPlayer} (previous total ${previousTotal}).`
+          );
+        }
+
+        moves.push(`${verb} ${roundTotal}`);
+        totalContributions[actingPlayer] = targetTotal;
+      } else if (char === 'c') {
+        const previousTotal = totalContributions[actingPlayer];
+        if (previousTotal === currentMax) {
+          moves.push('Check');
+        } else {
+          const callAmount = currentMax - previousTotal;
+          moves.push(callAmount > 0 ? `Call ${callAmount}` : 'Call');
+          totalContributions[actingPlayer] = currentMax;
+        }
+        i++;
+
+      // the existance of an 'f' char in the ACPC string signifies the actor is 'Folding'
+      } else if (char === 'f') {
+        moves.push('Fold');
+        i++;
+      } else {
+        throw new Error(`Unknown betting token '${char}' encountered in '${bettingString}'.`);
+      }
+
+      actingPlayer = (actingPlayer + 1) % NUM_PLAYERS;
+    }
+  });
+
+  return moves;
+}
+
+const getReadableActionDelta = (
+  beforeJson: PokerReplayUniversalPokerJson,
+  afterJson: PokerReplayUniversalPokerJson
+): string | null => {
+  if (!beforeJson || !afterJson) {
+    return null;
+  }
+
+  const beforeMoves = getReadableActionsFromACPC(beforeJson.acpc_state);
+  const afterMoves = getReadableActionsFromACPC(afterJson.acpc_state);
+
+  if (afterMoves.length <= beforeMoves.length) {
+    return null;
+  }
+
+  const newMoves = afterMoves.slice(beforeMoves.length);
+
+  if (newMoves.length === 0) {
+    return null;
+  }
+
+  return newMoves[newMoves.length - 1];
+};
 
 // Utility to create the player action step from both a raw step and the end of a community card sequence.
 const createPlayerActionStep = (
@@ -36,17 +165,20 @@ const createPlayerActionStep = (
 
   // TODO(jhtschultz): Better/more clear actionString support
   const parsedActionStringTuple = actionString.match(/move=(\S+)/);
-  let parsedActionString = ''
-  if(parsedActionStringTuple && parsedActionStringTuple[1]) {
-    parsedActionString = parsedActionStringTuple[1]
-  }  
+  let parsedActionString = '';
+  if (parsedActionStringTuple && parsedActionStringTuple[1]) {
+    parsedActionString = parsedActionStringTuple[1];
+  }
+
+  const readableActionDisplay = getReadableActionDelta(beforeJson, afterJson);
+  const finalActionDisplay = readableActionDisplay ?? parsedActionString ?? '';
   const players = [0, 1].map(id => ({
     id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
     cards: afterJson.player_hands[id],
     chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
     currentBet: afterJson.player_contributions[id], 
     reward: null,
-    actionDisplayText: id === actingPlayerId ? (parsedActionString ?? '') : '',
+    actionDisplayText: id === actingPlayerId ? finalActionDisplay : '',
     thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
     isDealer: stateAfterAction.dealer === id,
     isTurn: id === actingPlayerId,
