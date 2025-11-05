@@ -335,7 +335,6 @@ export function renderer(options: RendererOptions): void {
     const isTerminal = false; // 'isTerminal' is not in RepeatedPokerStep
     const handCount = 0; // 'handCount' is not in RepeatedPokerStep
     const winProb = winOdds; // 'winProb' is not in type, mapping 'winOdds'
-    const tieProb = null; // 'tieProb' is not in type
     const handRank = fiveCardBestHands; // 'handRank' is not in type, mapping 'fiveCardBestHands'
     const leaderInfo: any = null; // 'leaderInfo' is not in type. Using 'any' to allow compilation.
 
@@ -513,7 +512,7 @@ export function renderer(options: RendererOptions): void {
           })}`;
 
           if (winProb[index + 2]) {
-            oddsString = oddsString + ` ·  TIE: ${winProb[index + 1].toLocaleString(undefined, {
+            oddsString = `${oddsString} · TIE: ${winProb[index + 1].toLocaleString(undefined, {
               style: 'percent',
               minimumFractionDigits: 2
             })}`
