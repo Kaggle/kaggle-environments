@@ -3,6 +3,7 @@ import poker_chip_5 from './images/poker_chip_5.svg';
 import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
+import poker_card_back from './images/poker_card_back.svg';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from "./style.css?inline";
@@ -96,6 +97,9 @@ export function renderer(options: RendererOptions): void {
     cardDiv.classList.add('card');
     if (isHidden || !cardStr || cardStr === '?' || cardStr === '??') {
       cardDiv.classList.add('card-back');
+      cardDiv.style.backgroundImage = `url(${poker_card_back})`;
+      cardDiv.style.backgroundSize = 'cover';
+      cardDiv.style.backgroundPosition = 'center';
     } else {
       const { rank, suit } = acpcCardToDisplay(cardStr);
       const rankSpan = document.createElement('span');
