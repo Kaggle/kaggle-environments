@@ -1,45 +1,69 @@
 import { defaultGetStepRenderTime } from './timing';
-import {
-  getPokerStepDescription,
-  getPokerStepLabel,
-} from './transformers/repeated_poker/v1/repeatedPokerTransformer';
+import { chessTransformer } from './transformers/chess/chessTransformer';
+import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import { repeatedPokerTransformerV2 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGameStep, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
 
-export const processEpisodeData = (
-  environment: any,
-  gameName: string,
-): RepeatedPokerStep[] => {
+const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
+  let i = 0;
+  while (i < gameStep.players.length) {
+    const player: BaseGamePlayer = gameStep.players[i];
+    if (player.isTurn) {
+      return player.actionDisplayText ?? '';
+    }
+    i++;
+  }
+  return '';
+};
+
+const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
+  let i = 0;
+  while (i < gameStep.players.length) {
+    const player: BaseGamePlayer = gameStep.players[i];
+    if (player.isTurn) {
+      return player.thoughts ?? '';
+    }
+    i++;
+  }
+  return '';
+};
+
+export const processEpisodeData = (environment: any, gameName: string): BaseGameStep[] => {
+  console.log(gameName);
   switch (gameName) {
     case 'repeated_poker':
       return repeatedPokerTransformerV2(environment);
+    case 'chess':
+      return chessTransformer(environment);
     default:
-      return environment.steps;
+      return [];
   }
 };
 
-export const getGameStepLabel = (
-  gameStep: BaseGameStep,
-  gameName: string,
-): string => {
+/**
+ * A top level summary of the step. Usually the action taken
+ * by the player whose turn it is.
+ */
+export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): string => {
   switch (gameName) {
     case 'repeated_poker':
       return getPokerStepLabel(gameStep as RepeatedPokerStep);
     default:
-      return '';
+      return defaultGetGameStepLabel(gameStep);
   }
 };
 
-export const getGameStepDescription = (
-  gameStep: BaseGameStep,
-  gameName: string,
-): string => {
+/**
+ * More details on what happened during the step. Usually
+ * the thoughts from the current player.
+ */
+export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string): string => {
   switch (gameName) {
     case 'repeated_poker':
       return getPokerStepDescription(gameStep as RepeatedPokerStep);
     default:
-      return '';
+      return defaultGetGameStepDescription(gameStep);
   }
 };
 
@@ -48,16 +72,11 @@ export const getGameStepRenderTime = (
   gameName: string,
   replayMode: ReplayMode,
   speedModifier: number,
-  defaultDuration?: number,
+  defaultDuration?: number
 ): number => {
   switch (gameName) {
     case 'repeated_poker':
     default:
-      return defaultGetStepRenderTime(
-        gameStep,
-        replayMode,
-        speedModifier,
-        defaultDuration,
-      );
+      return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
   }
 };
