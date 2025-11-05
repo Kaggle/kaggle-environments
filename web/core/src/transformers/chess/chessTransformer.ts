@@ -42,6 +42,38 @@ function parseFen(fen?: string): FenState {
   };
 }
 
+export function getChessStepLabel(step: ChessStep) {
+  if (step.isTerminal) {
+    return '';
+  }
+
+  return step.players.find((player) => player.isTurn)?.actionDisplayText ?? '';
+}
+
+export function getChessStepDescription(step: ChessStep) {
+  if (step.isTerminal) {
+    return step.winner ?? '';
+  }
+
+  return step.players.find((player) => player.isTurn)?.thoughts ?? '';
+}
+
+export function deriveWinnerFromRewards(players: ChessPlayer[]) {
+  if (players.length < 2) return '';
+
+  const player0Reward = players[0].reward;
+  const player1Reward = players[1].reward;
+
+  if (player0Reward === player1Reward) {
+    return 'Draw';
+  }
+
+  const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
+  const color = winnerPlayerIndex === 0 ? 'Black' : 'White';
+
+  return `🎉 ${color} (${players[winnerPlayerIndex].name}) Wins!`;
+}
+
 export const chessTransformer = (environment: any) => {
   const chessReplay = environment as ChessReplay;
   const agents = environment.info.TeamNames;
@@ -73,6 +105,28 @@ export const chessTransformer = (environment: any) => {
         winner: '',
       });
     }
+  });
+
+  const lastStep = chessSteps[chessSteps.length - 1];
+  const winDescription = deriveWinnerFromRewards(lastStep.players);
+
+  // Artificially insert a step at the end to emphasize the win state
+  chessSteps.push({
+    players: [
+      {
+        id: -1,
+        name: 'System',
+        thumbnail: '',
+        isTurn: false,
+        actionDisplayText: '',
+        thoughts: '',
+        reward: 0,
+      },
+    ],
+    isTerminal: true,
+    fenState: lastStep.fenState,
+    step: lastStep.step + 1,
+    winner: winDescription,
   });
 
   return chessSteps;

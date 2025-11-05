@@ -1,5 +1,6 @@
 import { defaultGetStepRenderTime } from './timing';
-import { chessTransformer } from './transformers/chess/chessTransformer';
+import { chessTransformer, getChessStepDescription, getChessStepLabel } from './transformers/chess/chessTransformer';
+import { ChessStep } from './transformers/chess/chessReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import { repeatedPokerTransformerV2 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
@@ -48,6 +49,8 @@ export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): stri
   switch (gameName) {
     case 'repeated_poker':
       return getPokerStepLabel(gameStep as RepeatedPokerStep);
+    case 'chess':
+      return getChessStepLabel(gameStep as ChessStep);
     default:
       return defaultGetGameStepLabel(gameStep);
   }
@@ -61,6 +64,8 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
   switch (gameName) {
     case 'repeated_poker':
       return getPokerStepDescription(gameStep as RepeatedPokerStep);
+    case 'chess':
+      return getChessStepDescription(gameStep as ChessStep);
     default:
       return defaultGetGameStepDescription(gameStep);
   }

@@ -1,13 +1,5 @@
 import { ChessStep } from '@kaggle-environments/core';
-import {
-  _getTeamNameForColor,
-  _deriveWinnerFromRewards,
-  DARK_SQUARE_COLOR,
-  DEFAULT_NUM_COLS,
-  DEFAULT_NUM_ROWS,
-  LIGHT_SQUARE_COLOR,
-  PIECE_IMAGES_SRC,
-} from './utils';
+import { DARK_SQUARE_COLOR, DEFAULT_NUM_COLS, DEFAULT_NUM_ROWS, LIGHT_SQUARE_COLOR, PIECE_IMAGES_SRC } from './consts';
 import { RendererOptions } from './main';
 
 export function renderer(options: RendererOptions) {
@@ -21,6 +13,9 @@ export function renderer(options: RendererOptions) {
   let currentTitleElement: HTMLElement | null = null;
   let squareSize = 0;
 
+  /* We need to clear the board and redraw it every time 
+  because we are appending elements to the document and
+  they could get stale. */
   function _clearState(parentElementToClear: HTMLElement) {
     if (!parentElementToClear) return false;
     parentElementToClear.innerHTML = '';
@@ -28,7 +23,7 @@ export function renderer(options: RendererOptions) {
   }
 
   function _buildVisualizer(parentElement: HTMLElement, rows: number, cols: number) {
-    // NEW: Check for mobile screen size to apply responsive styles.
+    // Check for mobile screen size to apply responsive styles.
     const isMobile = window.innerWidth < 768;
 
     currentRendererContainer = document.createElement('div');
@@ -36,7 +31,7 @@ export function renderer(options: RendererOptions) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: isMobile ? '10px' : '20px', // Responsive padding
+      padding: isMobile ? '10px' : '20px',
       boxSizing: 'border-box',
       width: '100%',
       height: '100%',
@@ -203,8 +198,9 @@ export function renderer(options: RendererOptions) {
       !currentStatusTextElement ||
       !currentWinnerTextElement ||
       !chessStep
-    )
+    ) {
       return;
+    }
 
     const isMobile = window.innerWidth < 768;
 
@@ -293,10 +289,6 @@ export function renderer(options: RendererOptions) {
     }
     return;
   }
-
-  //   if (currentStatusTextElement) {
-  //     currentStatusTextElement.textContent = 'Initializing environment...';
-  //   }
 
   _buildVisualizer(parent, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
 
