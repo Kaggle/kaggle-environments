@@ -264,8 +264,8 @@ export function renderer(options: RendererOptions) {
         currentStatusTextElement.innerHTML = `<div style="font-size: 0.9rem; color: #666;">Winner</div>`;
         currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${chessStep.winner}</div>`;
       } else {
-        currentStatusTextElement.textContent = 'Game Over!';
-        currentWinnerTextElement.innerHTML = `Winner: <span style="font-weight: bold;">${chessStep.winner}</span>`;
+        currentStatusTextElement.textContent = '';
+        currentWinnerTextElement.innerHTML = `<span style="font-weight: bold; color: black;">${chessStep.winner}</span>`;
       }
     } else {
       const currentPlayer = chessStep.players.find((player) => player.isTurn);
@@ -275,7 +275,7 @@ export function renderer(options: RendererOptions) {
         currentStatusTextElement.innerHTML = `<div style="font-size: 0.9rem; color: #666;">Current Player</div>`;
         currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${currentPlayerText}</div>`;
       } else {
-        currentStatusTextElement.innerHTML = `<span style="font-weight: bold; color: black">Current Player: ${currentPlayerText}</span>`;
+        currentStatusTextElement.innerHTML = `<span style="font-weight: bold; color: black;">Current Player: ${currentPlayerText}</span>`;
         currentWinnerTextElement.innerHTML = ''; // Clear winner text when game is active
       }
     }
