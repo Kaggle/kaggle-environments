@@ -17,6 +17,8 @@ type StepGenerator = (
 
 // We aren't quite sure where to get this from so just hardcode it to 200 for now
 const STARTING_STACK_SIZE = 200;
+const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
+const NUM_PLAYERS = 2;
 
 export function getBettingStringFromACPCState(acpcState: string): string {
   if (!acpcState) {
@@ -44,12 +46,13 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
 
   const moves: string[] = [];
   const streets = bettingString.split('/');
-  const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
-  const NUM_PLAYERS = 2;
-
+  
   const totalContributions: number[] = [2, 1];
   let streetBaselines: number[] = [0, 0];
 
+  // Example:
+  // Input: "r5c/cc/r11c/r122r200c"
+  // Output: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"]
   streets.forEach((streetAction, streetIndex) => {
     const trimmedAction = streetAction.trim();
     if (streetIndex > 0) {
@@ -68,6 +71,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
       const currentMax = Math.max(...totalContributions);
       const highestBaseline = Math.max(...streetBaselines);
 
+      // the existance of a 'r' char in the ACPC string signifies the actor is 'Raising' by some amount
       if (char === 'r') {
         let amount = '';
         i++;
@@ -103,6 +107,8 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
           totalContributions[actingPlayer] = currentMax;
         }
         i++;
+
+      // the existance of an 'f' char in the ACPC string signifies the actor is 'Folding'
       } else if (char === 'f') {
         moves.push('Fold');
         i++;
