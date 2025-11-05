@@ -8,21 +8,10 @@ import {
   LIGHT_SQUARE_COLOR,
   PIECE_IMAGES_SRC,
 } from './utils';
-
-interface RendererOptions {
-  steps: ChessStep[];
-  step: number;
-  parent: HTMLElement;
-  width?: number;
-  height?: number;
-  /* I think this is meant to represent the HTML element
-  in which to render the visualizer? I couldn't find a replay
-  that includes that property but we'll keep it just in case. */
-  viewer?: any;
-}
+import { RendererOptions } from './main';
 
 export function renderer(options: RendererOptions) {
-  const { steps, step, parent, width = 400, height = 400, viewer } = options;
+  const { steps, step, parent, playerNames, width = 400, height = 400, viewer } = options;
 
   let currentBoardElement: HTMLElement | null = null;
   let currentStatusTextElement: HTMLParagraphElement | null = null;
@@ -32,10 +21,13 @@ export function renderer(options: RendererOptions) {
   let currentTitleElement: HTMLElement | null = null;
   let squareSize = 0;
 
-  function _buildVisualizer(parentElementToClear: HTMLElement, rows: number, cols: number) {
+  function _clearState(parentElementToClear: HTMLElement) {
     if (!parentElementToClear) return false;
     parentElementToClear.innerHTML = '';
+    return true;
+  }
 
+  function _buildVisualizer(parentElement: HTMLElement, rows: number, cols: number) {
     // NEW: Check for mobile screen size to apply responsive styles.
     const isMobile = window.innerWidth < 768;
 
@@ -50,7 +42,7 @@ export function renderer(options: RendererOptions) {
       height: '100%',
       fontFamily: "'Inter', sans-serif",
     });
-    parentElementToClear.appendChild(currentRendererContainer);
+    parentElement.appendChild(currentRendererContainer);
 
     if (!viewer) {
       const headerContainer = document.createElement('div');
@@ -75,7 +67,7 @@ export function renderer(options: RendererOptions) {
       whitePawnImg.src = PIECE_IMAGES_SRC.P;
       Object.assign(whitePawnImg.style, { height: '30px', marginRight: '8px' });
       const whitePlayerName = document.createElement('span');
-      // whitePlayerName.textContent = currentStep.players[1].name;
+      whitePlayerName.textContent = playerNames.length > 1 ? playerNames[1] : 'White';
       Object.assign(whitePlayerName.style, {
         fontSize: isMobile ? '1rem' : '1.1rem', // Responsive font size
         fontWeight: 'bold',
@@ -102,7 +94,7 @@ export function renderer(options: RendererOptions) {
         alignItems: 'center',
       });
       const blackPlayerName = document.createElement('span');
-      // blackPlayerName.textContent = currentStep.players[0].name;
+      blackPlayerName.textContent = playerNames.length > 1 ? playerNames[0] : 'Black';
       Object.assign(blackPlayerName.style, {
         fontSize: isMobile ? '1rem' : '1.1rem', // Responsive font size
         fontWeight: 'bold',
@@ -253,6 +245,7 @@ export function renderer(options: RendererOptions) {
     }
 
     const { board, activeColor } = chessStep.fenState;
+
     const pieceSize = Math.floor(squareSize * 0.9);
     for (let r_data = 0; r_data < displayRows; r_data++) {
       for (let c_data = 0; c_data < displayCols; c_data++) {
@@ -280,21 +273,20 @@ export function renderer(options: RendererOptions) {
         currentWinnerTextElement.innerHTML = `Winner: <span style="font-weight: bold;">${chessStep.winner}</span>`;
       }
     } else {
-      const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
-      const teamName = _getTeamNameForColor(playerColor, currentStep.players);
-      const currentPlayerText = teamName ? `${playerColor} (${teamName})` : playerColor;
+      const currentPlayer = chessStep.players.find((player) => player.isTurn);
+      const currentPlayerText = currentPlayer ? `${activeColor} (${currentPlayer.name})` : activeColor;
 
       if (isMobile) {
         currentStatusTextElement.innerHTML = `<div style="font-size: 0.9rem; color: #666;">Current Player</div>`;
         currentWinnerTextElement.innerHTML = `<div style="font-size: 1.1rem; font-weight: bold;">${currentPlayerText}</div>`;
       } else {
-        currentStatusTextElement.innerHTML = `Current Player: <span style="font-weight: bold;">${currentPlayerText}</span>`;
+        currentStatusTextElement.innerHTML = `<span style="font-weight: bold; color: black">Current Player: ${currentPlayerText}</span>`;
         currentWinnerTextElement.innerHTML = ''; // Clear winner text when game is active
       }
     }
   }
 
-  if (!_buildVisualizer(parent, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS)) {
+  if (!_clearState(parent)) {
     if (parent && typeof parent.innerHTML !== 'undefined') {
       parent.innerHTML =
         "<p style='color:red; font-family: sans-serif;'>Critical Error: Renderer element setup failed.</p>";
@@ -302,15 +294,18 @@ export function renderer(options: RendererOptions) {
     return;
   }
 
+  //   if (currentStatusTextElement) {
+  //     currentStatusTextElement.textContent = 'Initializing environment...';
+  //   }
+
+  _buildVisualizer(parent, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
+
   if (!steps || steps.length === 0 || steps.length < step) {
     _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
     return;
   }
 
   const currentStep: ChessStep = steps[step];
-
-  console.log(currentStep);
-  console.log(step);
 
   if (!currentStep) {
     _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);

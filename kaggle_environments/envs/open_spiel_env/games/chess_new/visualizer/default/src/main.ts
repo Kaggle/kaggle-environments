@@ -2,6 +2,19 @@ import { Player, GameAdapter, ReplayData, ChessStep } from '@kaggle-environments
 import { renderer } from './chess_renderer';
 import { render } from 'preact';
 
+export interface RendererOptions {
+  steps: ChessStep[];
+  step: number;
+  parent: HTMLElement;
+  playerNames: string[];
+  width?: number;
+  height?: number;
+  /* I think this is meant to represent the HTML element
+  in which to render the visualizer? I couldn't find a replay
+  that includes that property but we'll keep it just in case. */
+  viewer?: any;
+}
+
 class LegacyAdapter implements GameAdapter {
   private container: HTMLElement | null = null;
 
@@ -12,14 +25,17 @@ class LegacyAdapter implements GameAdapter {
   render(step: number, replay: ReplayData): void {
     if (!this.container) return;
     this.container.innerHTML = ''; // Clear container before rendering
-    renderer({
+
+    const renderData: RendererOptions = {
       parent: this.container,
       steps: replay.steps as ChessStep[],
       step: step,
-      // These are probably not used but good to have
+      playerNames: replay.info?.TeamNames ?? ['', ''],
       width: this.container.clientWidth,
       height: this.container.clientHeight,
-    });
+    };
+
+    renderer(renderData);
   }
 
   unmount(): void {

@@ -13,6 +13,8 @@ function parseFen(fen?: string): FenState {
   }
 
   const [piecePlacement, activeColor, castling, enPassant, halfmoveClock, fullmoveNumber] = fen.split(' ');
+  const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
+
   const board = [];
   const rows = piecePlacement.split('/');
 
@@ -32,7 +34,7 @@ function parseFen(fen?: string): FenState {
 
   return {
     board,
-    activeColor,
+    activeColor: playerColor,
     castling,
     enPassant,
     halfmoveClock,
@@ -59,17 +61,19 @@ export const chessTransformer = (environment: any) => {
         reward: player.reward,
       };
     });
-    chessSteps.push({
-      step: index,
-      players: stepPlayers,
-      // Both agents have the same observation string for the step, just grab the first one
-      fenState: parseFen(step[0].observation.observationString),
-      isTerminal: false,
-      winner: '',
-    });
-  });
 
-  console.log(chessSteps);
+    // Ignore setup steps where no one acted
+    if (stepPlayers.findIndex((player) => player.isTurn) !== -1) {
+      chessSteps.push({
+        step: index,
+        players: stepPlayers,
+        // Both agents have the same observation string for the step, just grab the first one
+        fenState: parseFen(step[0].observation.observationString),
+        isTerminal: false,
+        winner: '',
+      });
+    }
+  });
 
   return chessSteps;
 };
