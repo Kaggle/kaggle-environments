@@ -16,15 +16,15 @@ interface ReplayVisualizerState {
 let hmrReplayVisualizerStates: Map<string, ReplayVisualizerState>;
 let hmrReplayVisualizerInstances: Map<string, ReplayVisualizer>;
 
-if (import.meta?.env?.DEV && import.meta?.hot) {
+if (import.meta.env?.DEV && import.meta.hot) {
   // 2. Initialize or retrieve the persistent state Map
-  if (!import.meta?.hot?.data?.replayVisualizerStates) {
+  if (!import.meta.hot?.data?.replayVisualizerStates) {
     import.meta.hot.data.replayVisualizerStates = new Map<string, ReplayVisualizerState>();
   }
-  hmrReplayVisualizerStates = import.meta?.hot?.data?.replayVisualizerStates;
+  hmrReplayVisualizerStates = import.meta.hot?.data?.replayVisualizerStates;
 
   // 3. Initialize or retrieve the instance Map (for cleanup)
-  if (!import.meta?.hot?.data?.replayVisualizerInstances) {
+  if (!import.meta.hot?.data?.replayVisualizerInstances) {
     import.meta.hot.data.replayVisualizerInstances = new Map<string, ReplayVisualizer>();
   }
   hmrReplayVisualizerInstances = import.meta.hot.data.replayVisualizerInstances;
@@ -41,7 +41,7 @@ if (import.meta?.env?.DEV && import.meta?.hot) {
  */
 export function createReplayVisualizer(container: HTMLElement, adapter: GameAdapter): ReplayVisualizer {
   // --- Production Build ---
-  if (!import.meta?.env?.DEV || !import.meta?.hot) {
+  if (!import.meta.env?.DEV || !import.meta.hot) {
     return new ReplayVisualizer(container, adapter);
   }
 

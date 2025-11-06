@@ -277,18 +277,6 @@ export class ReplayVisualizer {
     this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
     this.renderControls();
 
-    // If we have steps but no agents, don't try to render.
-    // The player will wait until agents are provided (e.g., via postMessage)
-    // and handleMessage calls setData again.
-    if (this.replay && this.replay.steps.length > 0 && (!this.agents || this.agents.length === 0)) {
-      console.warn('setData: Have replay data, but no agents. Skipping render and waiting for agents.');
-      // Optionally update the viewer to show we're waiting
-      if (!options.skipRender) {
-        this.viewer.innerHTML = '<div>Replay loaded, waiting for agent data...</div>';
-      }
-      return;
-    }
-
     // Only render/tick if not told to skip (e.g., during HMR restore)
     if (!options.skipRender) {
       this.adapter.render(this.step, this.replay, this.agents);
