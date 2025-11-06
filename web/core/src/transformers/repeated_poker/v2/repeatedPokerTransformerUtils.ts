@@ -1,4 +1,8 @@
-import { PokerReplayInfoAgent, PokerReplayStepHistoryParsed, PokerReplayUniversalPokerJson } from './poker-replay-types';
+import {
+  PokerReplayInfoAgent,
+  PokerReplayStepHistoryParsed,
+  PokerReplayUniversalPokerJson,
+} from './poker-replay-types';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer, RepeatedPokerStepType } from './poker-steps-types';
 
 interface GeneratorResult {
@@ -46,7 +50,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
 
   const moves: string[] = [];
   const streets = bettingString.split('/');
-  
+
   const totalContributions: number[] = [2, 1];
   let streetBaselines: number[] = [0, 0];
 
@@ -108,7 +112,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
         }
         i++;
 
-      // the existance of an 'f' char in the ACPC string signifies the actor is 'Folding'
+        // the existance of an 'f' char in the ACPC string signifies the actor is 'Folding'
       } else if (char === 'f') {
         moves.push('Fold');
         i++;
@@ -157,13 +161,11 @@ const createPlayerActionStep = (
   const { current_universal_poker_json: beforeJson } = stateBeforeAction;
   const { current_universal_poker_json: afterJson } = stateAfterAction;
 
-
   const actionObject = stateBeforeAction.step;
 
   const actingPlayerId = beforeJson.current_player;
   const actionString = actionObject?.action?.actionString ?? '';
 
-  // TODO(jhtschultz): Better/more clear actionString support
   const parsedActionStringTuple = actionString.match(/move=(\S+)/);
   let parsedActionString = '';
   if (parsedActionStringTuple && parsedActionStringTuple[1]) {
@@ -172,11 +174,13 @@ const createPlayerActionStep = (
 
   const readableActionDisplay = getReadableActionDelta(beforeJson, afterJson);
   const finalActionDisplay = readableActionDisplay ?? parsedActionString ?? '';
-  const players = [0, 1].map(id => ({
-    id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
+  const players = [0, 1].map((id) => ({
+    id,
+    name: agents[id].Name,
+    thumbnail: agents[id].ThumbnailUrl,
     cards: afterJson.player_hands[id],
     chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
-    currentBet: afterJson.player_contributions[id], 
+    currentBet: afterJson.player_contributions[id],
     reward: null,
     actionDisplayText: id === actingPlayerId ? finalActionDisplay : '',
     thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
@@ -198,27 +202,70 @@ const createPlayerActionStep = (
   };
 };
 
+// Reusable helper to create the 'final' step of a hand.
+// It requires the *next* hand's start step because that's where the final state data lives.
+const createFinalHandStep = (
+  nextHandStartStep: PokerReplayStepHistoryParsed,
+  agents: PokerReplayInfoAgent[],
+  dealerId: number,
+  stepIndex: number
+): RepeatedPokerStep => {
+  if (!nextHandStartStep.prev_universal_poker_json) {
+    throw new Error("Cannot create final step: nextHandStartStep is missing 'prev_universal_poker_json'.");
+  }
+
+  const finalJson = nextHandStartStep.prev_universal_poker_json;
+  // hand_returns is 0-indexed, hand_number is 1-indexed.
+  // We want returns for the hand that JUST finished, so we use (nextHand.hand_number - 1).
+  const handReturnIndex = nextHandStartStep.hand_number - 1;
+  const finalRewards = nextHandStartStep.hand_returns?.[handReturnIndex] ?? [0, 0];
+
+  const players: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
+    const reward = finalRewards[id];
+    const isWinner = reward > 0;
+    return {
+      id,
+      name: agents[id].Name,
+      thumbnail: agents[id].ThumbnailUrl,
+      cards: finalJson.player_hands[id],
+      chipStack: STARTING_STACK_SIZE - finalJson.player_contributions[id],
+      currentBet: finalJson.player_contributions[id],
+      reward,
+      actionDisplayText: isWinner ? `WINS ${reward}` : '',
+      thoughts: '',
+      isDealer: dealerId === id,
+      isTurn: false,
+      isWinner,
+    };
+  });
+
+  return {
+    stepType: 'final',
+    communityCards: finalJson.board_cards,
+    pot: finalJson.pot_size,
+    step: stepIndex,
+    winOdds: finalJson.odds,
+    bestFiveCardHands: finalJson.best_five_card_hands,
+    bestHandRankTypes: finalJson.best_hand_rank_types,
+    currentPlayer: -1,
+    players,
+  };
+};
+
 const generatePlayerActionStep: StepGenerator = (remainingRawSteps, agents, startIndex) => {
   const stateBeforeAction = remainingRawSteps[0];
   const stateAfterAction = remainingRawSteps[1]; // Look ahead one step
 
   if (!stateAfterAction) {
     // This should, in theory, be caught by the router, but good to have.
-    throw new Error(
-      `Data inconsistency: generatePlayerActionStep was called but no "after" state exists.`
-    );
+    throw new Error(`Data inconsistency: generatePlayerActionStep was called but no "after" state exists.`);
   }
 
-  const newStep = createPlayerActionStep(
-    stateBeforeAction,
-    stateAfterAction,
-    agents,
-    startIndex
-  );
+  const newStep = createPlayerActionStep(stateBeforeAction, stateAfterAction, agents, startIndex);
 
   return {
     newSteps: [newStep],
-    rawStepsConsumed: 1
+    rawStepsConsumed: 1,
   };
 };
 
@@ -229,13 +276,13 @@ const generateHandEndStepSequence: StepGenerator = (remainingRawSteps, agents, s
   if (!nextHandStartStep || !nextHandStartStep.prev_universal_poker_json) {
     throw new Error(
       `Data inconsistency: generateHandEndSequence was called for hand ${stateBeforeEnd.hand_number} ` +
-      `but the next step (for hand ${nextHandStartStep?.hand_number}) is missing 'prev_universal_poker_json'.`
+        `but the next step (for hand ${nextHandStartStep?.hand_number}) is missing 'prev_universal_poker_json'.`
     );
   }
 
   const visualSteps: RepeatedPokerStep[] = [];
   let visualStepIndex = startIndex;
-  
+
   // This is the data we need for the *final* summary, regardless of what came before.
   const finalJson = nextHandStartStep.prev_universal_poker_json;
 
@@ -246,64 +293,23 @@ const generateHandEndStepSequence: StepGenerator = (remainingRawSteps, agents, s
     const stateAfterAction = {
       ...stateBeforeEnd, // Copy base properties
       current_universal_poker_json: finalJson, // Use final state JSON
-      dealer: stateBeforeEnd.dealer // IMPORTANT: Preserve dealer from *before* action
+      dealer: stateBeforeEnd.dealer, // IMPORTANT: Preserve dealer from *before* action
     } as PokerReplayStepHistoryParsed;
 
-    const actionStep = createPlayerActionStep(
-      stateBeforeEnd,
-      stateAfterAction,
-      agents,
-      visualStepIndex
-    );
+    const actionStep = createPlayerActionStep(stateBeforeEnd, stateAfterAction, agents, visualStepIndex);
     visualSteps.push(actionStep);
     visualStepIndex++;
   }
-  
+
   // --- CASE 2: The "Final" Hand Summary (ALWAYS runs) ---
   // This runs for both "Fold" (Case 1) and "Runout" (no .step object) scenarios.
+  visualSteps.push(createFinalHandStep(nextHandStartStep, agents, stateBeforeEnd.dealer, visualStepIndex++));
 
-  const finalStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
-    // hand_returns is 0-indexed, hand_number is 1-indexed
-    const handReturnIndex = nextHandStartStep.hand_number - 1;
-    const reward = nextHandStartStep.hand_returns[handReturnIndex][id];
-    const isWinner = reward > 0;
-    const actionDisplayText = isWinner ? `WINS ${reward}` : '';
-
-    return {
-      id,
-      name: agents[id].Name,
-      thumbnail: agents[id].ThumbnailUrl,
-      cards: finalJson.player_hands[id],
-      chipStack: STARTING_STACK_SIZE - finalJson.player_contributions[id],
-      currentBet: finalJson.player_contributions[id],
-      reward,
-      actionDisplayText,
-      thoughts: '',
-      isDealer: stateBeforeEnd.dealer === id, // Get dealer from the last step of *this* hand
-      isTurn: false,
-      isWinner,
-    };
-  });
-
-  const finalStep: RepeatedPokerStep = {
-    stepType: 'final',
-    communityCards: finalJson.board_cards,
-    pot: finalJson.pot_size,
-    step: visualStepIndex, // This is either startIndex or startIndex + 1
-    winOdds: finalJson.odds,
-    bestFiveCardHands: finalJson.best_five_card_hands,
-    bestHandRankTypes: finalJson.best_hand_rank_types,
-    currentPlayer: -1,
-    players: finalStepPlayers,
-  };
-  visualSteps.push(finalStep);
-  
   return {
     newSteps: visualSteps,
-    rawStepsConsumed: 1 // Still only consumes the one "end" step
+    rawStepsConsumed: 1, // Still only consumes the one "end" step
   };
 };
-
 
 const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, startIndex) => {
   if (!remainingRawSteps || remainingRawSteps.length === 0) {
@@ -321,7 +327,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     }
     // Safety break if we somehow hit a new hand
     if (i > 0 && step.hand_number > remainingRawSteps[0].hand_number) {
-        break;
+      break;
     }
   }
 
@@ -344,11 +350,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
   const firstActionStep = remainingRawSteps[rawStepsConsumed];
 
   // Blinds/dealer info comes from the deal steps.
-  const {
-    dealer,
-    small_blind,
-    big_blind,
-  } = lastDealStep;
+  const { dealer, small_blind, big_blind } = lastDealStep;
 
   // The complete hand/odds data comes from the firstActionStep
   const { player_hands, best_five_card_hands, best_hand_rank_types, odds } =
@@ -371,31 +373,30 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     thoughts: '',
     isDealer: id === dealer,
     isTurn: false,
-    isWinner: false
+    isWinner: false,
   }));
   const sbPostStep: RepeatedPokerStep = {
     stepType: 'small-blind-post',
-    communityCards: "",
+    communityCards: '',
     pot: small_blind,
     step: startIndex,
     winOdds: [],
     bestFiveCardHands: ['', ''],
     bestHandRankTypes: ['', ''],
     currentPlayer: -1,
-    players: sbPostPlayers
+    players: sbPostPlayers,
   };
 
   // Visual Step 2: Big Blind Post
   const bbPostPlayers: RepeatedPokerStepPlayer[] = sbPostPlayers.map((player) =>
     player.id === bbPlayerId
-      ? { 
-          ...player, 
+      ? {
+          ...player,
           chipStack: STARTING_STACK_SIZE - big_blind,
-          currentBet: big_blind, 
-          actionDisplayText: 'BB' 
+          currentBet: big_blind,
+          actionDisplayText: 'BB',
         }
-      : { ...player, 
-          actionDisplayText: '' }
+      : { ...player, actionDisplayText: '' }
   );
   const bbPostStep: RepeatedPokerStep = {
     ...sbPostStep,
@@ -403,14 +404,14 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     pot: small_blind + big_blind,
     currentPlayer: -1,
     step: startIndex + 1,
-    players: bbPostPlayers
+    players: bbPostPlayers,
   };
 
   // Visual Step 3: Deal Player Cards
   const dealCardsPlayers: RepeatedPokerStepPlayer[] = bbPostPlayers.map((player) => ({
     ...player,
     actionDisplayText: '',
-    cards: player_hands[player.id] // Using hands from firstActionStep
+    cards: player_hands[player.id], // Using hands from firstActionStep
   }));
   const dealCardsStep: RepeatedPokerStep = {
     ...bbPostStep,
@@ -420,12 +421,12 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     players: dealCardsPlayers,
     bestFiveCardHands: best_five_card_hands, // Using data from firstActionStep
     bestHandRankTypes: best_hand_rank_types,
-    winOdds: odds // Using data from firstActionStep
+    winOdds: odds, // Using data from firstActionStep
   };
 
   return {
     newSteps: [sbPostStep, bbPostStep, dealCardsStep],
-    rawStepsConsumed: rawStepsConsumed
+    rawStepsConsumed: rawStepsConsumed,
   };
 };
 
@@ -453,7 +454,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
 
     // The original safety break is now redundant, but we'll leave it
     if (i > 0 && curr.hand_number > remainingRawSteps[0].hand_number) {
-        break;
+      break;
     }
 
     if (curr.step) {
@@ -488,7 +489,9 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
 
     // --- Visual Step 1: The "Deal" Step ---
     const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => ({
-      id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
+      id,
+      name: agents[id].Name,
+      thumbnail: agents[id].ThumbnailUrl,
       cards: stateBeforeAction.current_universal_poker_json.player_hands[id],
       chipStack: STARTING_STACK_SIZE - stateBeforeAction.current_universal_poker_json.player_contributions[id],
       currentBet: stateBeforeAction.current_universal_poker_json.player_contributions[id],
@@ -528,89 +531,91 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
 
   // --- CASE 2: All-In Runout, we hit end of hand OR the end of the episode---
   if (endOfHand || actionStepIndex === -1) {
-
     const newSteps: RepeatedPokerStep[] = [];
     let visualStepIndex = startIndex;
 
-    // We start by looking for the street *after* the current one.
-    let boardLengthToFind = (preDealBoardLength === 0) ? 6 : (preDealBoardLength === 6) ? 8 : 10;
+    // 1. Gather all relevant JSON states for this runout.
+    const runoutJsonStates: PokerReplayUniversalPokerJson[] = [];
+    // Start at 1 because index 0 (preDealStep) is already gathered by the calling context usually,
+    // but for runouts we need to process from the *next* card onwards.
+    // Actually, wait, we need to include the current step's state too if it wasn't processed in CASE 1.
+    // Let's stick to gathering from 0 to be safe and let the board-length check filter duplicates.
+    for (let i = 0; i < rawStepsConsumed; i++) {
+      runoutJsonStates.push(remainingRawSteps[i].current_universal_poker_json);
+    }
 
-    // We will loop for Flop (6), Turn (8), and River (10)
-    while (boardLengthToFind <= 10) {
-        const targetBoardLength = boardLengthToFind;
+    // Peek ahead: The absolute final state of this hand (e.g. the River in an all-in)
+    // often only exists in the 'prev_' JSON of the *next* hand's first step.
+    const nextHandStep = endOfHand ? remainingRawSteps[rawStepsConsumed] : null;
+    if (nextHandStep?.prev_universal_poker_json) {
+      runoutJsonStates.push(nextHandStep.prev_universal_poker_json);
+    }
+
+    // 2. Linear scan to generate DEAL steps for new streets
+    // We start with 0 so the very first step (e.g. Flop) is detected if it's new.
+    let lastProcessedBoardLength = preDealBoardLength === 0 ? -1 : preDealBoardLength;
+    // (Optimization: if preDeal was 0, setting to -1 ensures standard flop (len 6) is caught)
+
+    for (let i = 0; i < runoutJsonStates.length; i++) {
+      const currentState = runoutJsonStates[i];
+      const currentBoardLen = currentState.board_cards.length;
+
+      // Detect new streets (Flop=6, Turn=8, River=10)
+      if (currentBoardLen > lastProcessedBoardLength && [6, 8, 10].includes(currentBoardLen)) {
+        // Find the BEST state for this street (latest one before next deal)
+        let bestStateIndex = i;
+        while (
+          bestStateIndex + 1 < runoutJsonStates.length &&
+          runoutJsonStates[bestStateIndex + 1].board_cards.length === currentBoardLen
+        ) {
+          bestStateIndex++;
+        }
+
+        i = bestStateIndex; // Fast-forward loop
+        const stateForDeal = runoutJsonStates[bestStateIndex];
+
         let stepType: RepeatedPokerStepType;
-        if (targetBoardLength === 6) { 
-          stepType = 'deal-flop';
-        }
-        else if (targetBoardLength === 8) {
-          stepType = 'deal-turn';
-        }
-        else {
-          stepType = 'deal-river'
-        }
-        let stateForThisStreetIdx = -1;
+        if (currentBoardLen === 6) stepType = 'deal-flop';
+        else if (currentBoardLen === 8) stepType = 'deal-turn';
+        else stepType = 'deal-river';
 
-        // Find the *last* raw step that contains this board.
-        // We scan all steps consumed by the outer loop (`rawStepsConsumed`).
-        for (let i = 1; i < rawStepsConsumed; i++) {
-            const currBoardLength = remainingRawSteps[i].current_universal_poker_json.board_cards.length;
-            if (currBoardLength === targetBoardLength) {
-                stateForThisStreetIdx = i;
-            }
-            // If we find a *later* street, stop. stateForThisStreetIdx will hold the correct one.
-            if (currBoardLength > targetBoardLength) {
-                break;
-            }
-        }
-
-        // If we didn't find a step for this street, it means the runout
-        // ended before this street was dealt (e.g. all-in on turn, we're looking for river).
-        // We can stop.
-        if (stateForThisStreetIdx === -1) {
-            break;
-        }
-
-        const stateForDeal = remainingRawSteps[stateForThisStreetIdx];
-        // --- Visual Step: The "Deal" Step (All-In) ---
-        const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => ({
-            id, name: agents[id].Name, thumbnail: agents[id].ThumbnailUrl,
-            cards: stateForDeal.current_universal_poker_json.player_hands[id],
-            chipStack: STARTING_STACK_SIZE - stateForDeal.current_universal_poker_json.player_contributions[id],
-            currentBet: stateForDeal.current_universal_poker_json.player_contributions[id],
+        newSteps.push({
+          stepType,
+          communityCards: stateForDeal.board_cards,
+          pot: stateForDeal.pot_size,
+          step: visualStepIndex++,
+          winOdds: stateForDeal.odds,
+          bestFiveCardHands: stateForDeal.best_five_card_hands,
+          bestHandRankTypes: stateForDeal.best_hand_rank_types,
+          currentPlayer: -1,
+          players: [0, 1].map((id) => ({
+            id,
+            name: agents[id].Name,
+            thumbnail: agents[id].ThumbnailUrl,
+            cards: stateForDeal.player_hands[id],
+            chipStack: STARTING_STACK_SIZE - stateForDeal.player_contributions[id],
+            currentBet: stateForDeal.player_contributions[id],
             reward: null,
             actionDisplayText: '',
             thoughts: '',
             isDealer: preDealStep.dealer === id,
             isTurn: false,
             isWinner: false,
-        }));
+          })),
+        });
 
-        const dealStep: RepeatedPokerStep = {
-            stepType,
-            communityCards: stateForDeal.current_universal_poker_json.board_cards,
-            pot: stateForDeal.current_universal_poker_json.pot_size,
-            step: visualStepIndex,
-            winOdds: stateForDeal.current_universal_poker_json.odds,
-            bestFiveCardHands: stateForDeal.current_universal_poker_json.best_five_card_hands,
-            bestHandRankTypes: stateForDeal.current_universal_poker_json.best_hand_rank_types,
-            currentPlayer: -1,
-            players: dealStepPlayers,
-        };
-
-        newSteps.push(dealStep);
-        visualStepIndex++;
-
-        // Set up for next street
-        if (boardLengthToFind === 6) boardLengthToFind = 8;
-        else if (boardLengthToFind === 8) boardLengthToFind = 10;
-        else boardLengthToFind = 11; // exit condition
+        lastProcessedBoardLength = currentBoardLen;
+      }
     }
 
-    // If we are in an all-in, we must consume ALL steps up to the hand transition.
-    // The outer loop already calculated this for us in `rawStepsConsumed`.
+    // 3. Generate the FINAL summary step if we reached the end of the hand.
+    // This ensures we don't miss the winner banners.
+    if (endOfHand && nextHandStep && nextHandStep.prev_universal_poker_json) {
+      newSteps.push(createFinalHandStep(nextHandStep, agents, preDealStep.dealer, visualStepIndex++));
+    }
     return {
-        newSteps: newSteps,
-        rawStepsConsumed: rawStepsConsumed,
+      newSteps: newSteps,
+      rawStepsConsumed: rawStepsConsumed,
     };
   }
 
@@ -621,82 +626,84 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
   );
 };
 
-
 // Returning null from this function will throw an error in the outer loop
 function determineGenerator(remainingSteps: PokerReplayStepHistoryParsed[]): StepGenerator | null {
-    if (!remainingSteps || remainingSteps.length === 0) {
-        return null;
-    }
-
-    const currentReplayStep = remainingSteps[0];
-    const nextReplayStep = remainingSteps.length > 1 ? remainingSteps[1] : null;
-
-    // Rule 1: Is this a boundary between hands
-    if (nextReplayStep && nextReplayStep.hand_number > currentReplayStep.hand_number) {
-        // This is the *last* step of the current hand.
-        // It could be an action (Fold) or a result (Runout).
-        // `generateHandEndSequence` handles both cases.
-        return generateHandEndStepSequence;
-    }
-    // Rule 2: Is this the very last step of the entire replay?
-    // TODO - we need an actual final state here - I
-    // It should at the very least call generateFinalPlayerActionStep
-    if (nextReplayStep === null) {
-      return null
-    }
-
-    // Rule 3: Is this the start of a new hand?
-    const hands = currentReplayStep.current_universal_poker_json.player_hands;
-    if (hands[0] === '' && hands[1] === '') {
-        return generatePreFlopStepSequence;
-    }
-
-    // Rule 4: Are community cards about to be dealt?
-    if (nextReplayStep.current_universal_poker_json.board_cards.length > currentReplayStep.current_universal_poker_json.board_cards.length) {
-        return generateCommunityCardStepSequence;
-    }
-
-    // Rule 5: Is this a standard player action?
-    if (currentReplayStep.step) {
-        return generatePlayerActionStep;
-    }
-
-    // If no rule matches, it's an unhandled state.
+  if (!remainingSteps || remainingSteps.length === 0) {
     return null;
+  }
+
+  const currentReplayStep = remainingSteps[0];
+  const nextReplayStep = remainingSteps.length > 1 ? remainingSteps[1] : null;
+
+  // Rule 1: Is this a boundary between hands
+  if (nextReplayStep && nextReplayStep.hand_number > currentReplayStep.hand_number) {
+    // This is the *last* step of the current hand.
+    // It could be an action (Fold) or a result (Runout).
+    // `generateHandEndSequence` handles both cases.
+    return generateHandEndStepSequence;
+  }
+  // Rule 2: Is this the very last step of the entire replay?
+  // TODO - we need an actual final state here - I
+  // It should at the very least call generateFinalPlayerActionStep
+  if (nextReplayStep === null) {
+    return null;
+  }
+
+  // Rule 3: Is this the start of a new hand?
+  const hands = currentReplayStep.current_universal_poker_json.player_hands;
+  if (hands[0] === '' && hands[1] === '') {
+    return generatePreFlopStepSequence;
+  }
+
+  // Rule 4: Are community cards about to be dealt?
+  if (
+    nextReplayStep.current_universal_poker_json.board_cards.length >
+    currentReplayStep.current_universal_poker_json.board_cards.length
+  ) {
+    return generateCommunityCardStepSequence;
+  }
+
+  // Rule 5: Is this a standard player action?
+  if (currentReplayStep.step) {
+    return generatePlayerActionStep;
+  }
+
+  // If no rule matches, it's an unhandled state.
+  return null;
 }
 
 export const createVisualStepsFromRepeatedPokerReplay = (
-    parsedSteps: PokerReplayStepHistoryParsed[],
-    agents: PokerReplayInfoAgent[]
+  parsedSteps: PokerReplayStepHistoryParsed[],
+  agents: PokerReplayInfoAgent[]
 ): RepeatedPokerStep[] => {
-    const allVisualSteps: RepeatedPokerStep[] = [];
-    let rawStepIndex = 0;
+  const allVisualSteps: RepeatedPokerStep[] = [];
+  let rawStepIndex = 0;
 
-    while (rawStepIndex < parsedSteps.length) {
-        const remainingRawSteps = parsedSteps.slice(rawStepIndex);
-        const generator = determineGenerator(remainingRawSteps);
+  while (rawStepIndex < parsedSteps.length) {
+    const remainingRawSteps = parsedSteps.slice(rawStepIndex);
+    const generator = determineGenerator(remainingRawSteps);
 
-        if (!generator) {
-            // It means we hit the last un-processable step or an error.
-            // If it's an error, we throw. If it's just the end, we break.
-            const problematicStep = remainingRawSteps[0];
-            const nextReplayStep = remainingRawSteps.length > 1 ? remainingRawSteps[1] : null;
+    if (!generator) {
+      // It means we hit the last un-processable step or an error.
+      // If it's an error, we throw. If it's just the end, we break.
+      const problematicStep = remainingRawSteps[0];
+      const nextReplayStep = remainingRawSteps.length > 1 ? remainingRawSteps[1] : null;
 
-            if (nextReplayStep === null) {
-                break;
-            }
+      if (nextReplayStep === null) {
+        break;
+      }
 
-            throw new Error(
-                `Could not determine a generator for the raw step at index ${rawStepIndex}. ` +
-                `This indicates an unexpected data format or an unhandled game state. ` +
-                `Problematic Step Data: ${JSON.stringify(problematicStep, null, 2)}`
-            );
-        }
-
-        const result = generator(remainingRawSteps, agents, allVisualSteps.length);
-        allVisualSteps.push(...result.newSteps);
-        // All generators consume at least 1 step.
-        rawStepIndex += result.rawStepsConsumed;
+      throw new Error(
+        `Could not determine a generator for the raw step at index ${rawStepIndex}. ` +
+          `This indicates an unexpected data format or an unhandled game state. ` +
+          `Problematic Step Data: ${JSON.stringify(problematicStep, null, 2)}`
+      );
     }
-    return allVisualSteps;
+
+    const result = generator(remainingRawSteps, agents, allVisualSteps.length);
+    allVisualSteps.push(...result.newSteps);
+    // All generators consume at least 1 step.
+    rawStepIndex += result.rawStepsConsumed;
+  }
+  return allVisualSteps;
 };
