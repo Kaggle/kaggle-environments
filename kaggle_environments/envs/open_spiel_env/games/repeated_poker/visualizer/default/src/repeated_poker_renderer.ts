@@ -6,7 +6,7 @@ import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
-import cssContent from "./style.css?inline";
+import cssContent from './style.css?inline';
 
 // Add property to global window object
 declare global {
@@ -24,7 +24,6 @@ interface RendererOptions {
   step?: number;
   width: number;
   height: number;
-
 }
 
 /**
@@ -78,21 +77,37 @@ export function renderer(options: RendererOptions): void {
   };
 
   function _injectStyles(passedOptions: Partial<RendererOptions>): void {
-    if (typeof document === 'undefined' || window.__poker_styles_injected) {
+    if (typeof document === 'undefined') {
       return;
     }
-    const style = document.createElement('style');
-    style.textContent = cssContent;
+
+    const styleId = 'data-poker-renderer-styles';
     const parentForStyles =
       passedOptions && passedOptions.parent ? passedOptions.parent.ownerDocument.head : document.head;
-    if (parentForStyles && !parentForStyles.querySelector('style[data-poker-renderer-styles]')) {
-      style.setAttribute('data-poker-renderer-styles', 'true');
+
+    if (!parentForStyles) {
+      return;
+    }
+
+    // Find the existing style tag
+    let style = parentForStyles.querySelector(`style[${styleId}]`);
+
+    // If it doesn't exist, create it and append it
+    if (!style) {
+      style = document.createElement('style');
+      style.setAttribute(styleId, 'true');
       parentForStyles.appendChild(style);
     }
-    window.__poker_styles_injected = true;
+
+    // 3. ALWAYS update the textContent
+    style.textContent = cssContent;
   }
 
-  function createCardElement(cardStr: string | null, isHidden: boolean = false, shouldHighlight: boolean = false): HTMLElement {
+  function createCardElement(
+    cardStr: string | null,
+    isHidden: boolean = false,
+    shouldHighlight: boolean = false
+  ): HTMLElement {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('card');
     if (isHidden || !cardStr || cardStr === '?' || cardStr === '??') {
@@ -120,7 +135,7 @@ export function renderer(options: RendererOptions): void {
       else if (suit === 'spades') cardDiv.classList.add('card-black');
       else if (suit === 'diamonds') cardDiv.classList.add('card-blue');
       else if (suit === 'clubs') cardDiv.classList.add('card-green');
-      
+
       // Add highlight class if this card is part of the winning hand
       if (shouldHighlight) {
         cardDiv.classList.add('card-highlighted');
@@ -327,7 +342,6 @@ export function renderer(options: RendererOptions): void {
   }
 
   function _renderPokerTableUI(data: RepeatedPokerStep): void {
-    console.log('data is', data);
     if (!elements.pokerTable || !data || !elements.legend) return;
 
     // TODO: [TYPE_MISMATCH] The 'RepeatedPokerStep' type is missing many properties
@@ -401,15 +415,16 @@ export function renderer(options: RendererOptions): void {
     const numCommunityCards = 5;
 
     // TODO: [TYPE_MISMATCH] 'communityCards' is a string, but the code expects an array of card strings - move this to the transformer
-    const communityCardsArray = communityCards.match(/.{1,2}/g) || [] as string[];
+    const communityCardsArray = communityCards.match(/.{1,2}/g) || ([] as string[]);
     const numCards = communityCardsArray.length;
-    
+
     // Get winning player's best hand for highlighting (only on final step with all 5 community cards)
     const isShowdown = numCards === 5 && stepType === 'final';
     const winnerIndex = players.findIndex((p) => (p as RepeatedPokerStepPlayer).isWinner);
-    const winnerBestHand = winnerIndex !== -1 && isShowdown && bestFiveCardHands?.[winnerIndex]
-      ? bestFiveCardHands[winnerIndex].match(/.{1,2}/g) || [] as string[]
-      : [] as string[];
+    const winnerBestHand =
+      winnerIndex !== -1 && isShowdown && bestFiveCardHands?.[winnerIndex]
+        ? bestFiveCardHands[winnerIndex].match(/.{1,2}/g) || ([] as string[])
+        : ([] as string[]);
 
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
@@ -470,16 +485,19 @@ export function renderer(options: RendererOptions): void {
 
         // TODO: [TYPE_MISMATCH] 'playerData.cards' is a string, but code expects an array - move this to the transformer
         const playerCardsArray = playerData.cards ? playerData.cards.match(/.{1,2}/g) : [null, null];
-        
+
         // Parse the best hand for this player to determine which cards to highlight (only on showdown)
-        const bestHandArray = bestFiveCardHands && bestFiveCardHands[index] 
-          ? bestFiveCardHands[index].match(/.{1,2}/g) || [] as string[]
-          : [] as string[];
+        const bestHandArray =
+          bestFiveCardHands && bestFiveCardHands[index]
+            ? bestFiveCardHands[index].match(/.{1,2}/g) || ([] as string[])
+            : ([] as string[]);
         const shouldHighlightWinningHand = playerData.isWinner && showCards && isShowdown && bestHandArray.length > 0;
 
         (playerCardsArray || [null, null]).forEach((cardStr) => {
           const shouldHighlight = shouldHighlightWinningHand && cardStr && bestHandArray.includes(cardStr);
-          playerCardsContainer.appendChild(createCardElement(cardStr, !showCards && cardStr !== null, !!shouldHighlight));
+          playerCardsContainer.appendChild(
+            createCardElement(cardStr, !showCards && cardStr !== null, !!shouldHighlight)
+          );
         });
       }
 
@@ -537,14 +555,14 @@ export function renderer(options: RendererOptions): void {
         if (playerOddsElement && winProb && winProb[index] && !isTerminal) {
           let oddsString = `WIN: ${winProb[index].toLocaleString(undefined, {
             style: 'percent',
-            minimumFractionDigits: 2
+            minimumFractionDigits: 2,
           })}`;
 
           if (winProb[index + 2]) {
             oddsString = `${oddsString} · TIE: ${winProb[index + 1].toLocaleString(undefined, {
               style: 'percent',
-              minimumFractionDigits: 2
-            })}`
+              minimumFractionDigits: 2,
+            })}`;
           }
 
           playerOddsElement.textContent = oddsString;
