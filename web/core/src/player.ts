@@ -195,6 +195,8 @@ export class Player {
         // TODO(michaelaaron) - Turn this into something more reasonable.
         if(this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType && this?.replay?.configuration?.game === 'repeated_poker') {
           this.replay.steps = processEpisodeData(this.replay, 'repeated_poker')
+        } else if (this?.replay?.steps && !(this?.replay?.steps as any)?.[0]?.stepType && this?.replay?.configuration?.game === 'chess') {
+          this.replay.steps = processEpisodeData(this.replay, 'chess')
         }
 
         // Always update controls and render the current state.
