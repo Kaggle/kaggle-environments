@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "cross-env VITE_REPLAY_FILE=./replays/test-replay.json vite",
-    "dev:iframe": "vite",
+    "dev": "vite",
+    "dev-with-replay": "cross-env VITE_REPLAY_FILE=./replays/test-replay.json vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

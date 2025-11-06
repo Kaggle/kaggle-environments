@@ -11,7 +11,7 @@ if (!app) {
 const adapter = new PreactAdapter(Renderer as any);
 if (app) {
   // Set up an HMR boundary for development
-  if (import.meta?.env?.DEV && import.meta?.hot) {
+  if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
   createReplayVisualizer(app, adapter);
