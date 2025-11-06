@@ -103,6 +103,21 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "array",
         "items": {"type": "integer"},
     },
+    "loadPresetHands": {
+        "description": "Repeated poker only. Load preset hand chance actions from preset_hands.jsonl.",
+        "type": "boolean",
+        "default": False,
+    },
+    "presetHands": {
+        "description": (
+            "Repeated poker only. List of per-hand chance action sequences to use instead of random chance."
+        ),
+        "type": "array",
+        "items": {
+            "type": "array",
+            "items": {"type": "integer"},
+        },
+    },
     "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
 }
 
@@ -181,6 +196,30 @@ def _get_initial_actions(
         return initial_actions, opening
 
 
+# TODO(jhtschultz): General method for handling state setup functions.
+def _get_preset_hands(configuration: dict[str, Any]) -> list[list[int]]:
+    preset_hands = configuration.get("presetHands")
+    if not preset_hands:
+        return []
+    if configuration.get("useOpenings"):
+        raise ValueError("Cannot set both useOpenings and presetHands.")
+    if configuration.get("loadPresetHands") and "presetHands" in configuration and not configuration.get("_presetHandsLoaded"):
+        raise ValueError("Cannot set both loadPresetHands and presetHands.")
+    if configuration.get("initialActions"):
+        raise ValueError("Cannot set both initialActions and presetHands.")
+    game_name = configuration.get("openSpielGameName")
+    if game_name != "repeated_poker":
+        raise ValueError(f"presetHands only supported for repeated_poker, not {game_name}.")
+    validated: list[list[int]] = []
+    for hand_index, hand in enumerate(preset_hands):
+        if not isinstance(hand, list):
+            raise ValueError(f"presetHands[{hand_index}] must be a list of integers.")
+        if any(not isinstance(action, int) for action in hand):
+            raise ValueError(f"presetHands[{hand_index}] must contain only integers.")
+        validated.append(list(hand))
+    return validated
+
+
 def _get_image_config(configuration: dict[str, Any]) -> dict[str, Any]:
     use_image = configuration.get("useImage", None)
     if use_image is None:
@@ -201,6 +240,63 @@ def _get_image_config(configuration: dict[str, Any]) -> dict[str, Any]:
         image_configs = f.readlines()
         image_config = json.loads(image_configs[seed % len(image_configs)])
         return image_config
+
+
+def _load_preset_hands_from_file(configuration: dict[str, Any]) -> list[list[int]]:
+    if configuration.get("openSpielGameName") != "repeated_poker":
+        raise ValueError("loadPresetHands only supported for repeated_poker.")
+    seed = configuration.get("seed", None)
+    if seed is None:
+        raise ValueError("Must provide seed if loadPresetHands is True.")
+    preset_path = pathlib.Path(
+        GAMES_DIR,
+        configuration.get("openSpielGameName"),
+        "preset_hands.jsonl",
+    )
+    if not preset_path.is_file():
+        raise ValueError(f"No preset hands file found at {preset_path}")
+    with open(preset_path, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f if line.strip()]
+    if not lines:
+        raise ValueError(f"Preset hands file at {preset_path} is empty.")
+    entry = json.loads(lines[seed % len(lines)])
+    preset_hands = entry.get("presetHands")
+    if not preset_hands:
+        raise ValueError("Preset hands entry missing presetHands data.")
+    return preset_hands
+
+
+def _get_preset_chance_action(
+    env: core.Environment,
+    os_state: pyspiel.State,
+    outcomes: tuple[int, ...],
+) -> int | None:
+    preset_state = env.info.get("presetHandsState")
+    if not preset_state:
+        return None
+    hand_idx = len(os_state.acpc_hand_histories())
+    current_hand_index: int = preset_state["current_hand_index"]
+    hands: list[tuple[int, ...]] = preset_state["hands"]
+    next_index: list[int] = preset_state["next_index"]
+    if hand_idx > current_hand_index:
+        preset_state["current_hand_index"] = hand_idx
+    if hand_idx >= len(hands):
+        raise ValueError(
+            f"Ran out of presetHands entries while attempting to start hand {hand_idx}."
+        )
+    hand_actions = hands[hand_idx]
+    action_pos = next_index[hand_idx]
+    if action_pos >= len(hand_actions):
+        raise ValueError(
+            f"presetHands[{hand_idx}] does not contain enough chance actions for the hand."
+        )
+    next_action = hand_actions[action_pos]
+    if next_action not in outcomes:
+        raise ValueError(
+            f"presetHands[{hand_idx}] specified chance action {next_action} which is not available in the current chance outcomes."
+        )
+    next_index[hand_idx] = action_pos + 1
+    return next_action
 
 
 # --- Core step logic ---
@@ -243,6 +339,14 @@ def interpreter(
         env.info["actionHistory"] = []
         env.info["moveDurations"] = []
         initial_actions, metadata = _get_initial_actions(env.configuration)
+        if env.configuration.get("loadPresetHands", False):
+            if env.configuration.get("presetHands"):
+                raise ValueError("Cannot provide presetHands when loadPresetHands is True.")
+            preset_hands_from_file = _load_preset_hands_from_file(env.configuration)
+            env.configuration["presetHands"] = preset_hands_from_file
+            env.configuration["_presetHandsLoaded"] = True
+        preset_hands = _get_preset_hands(env.configuration)
+        env.configuration.pop("_presetHandsLoaded", None)
         if initial_actions:
             env.info["initialActions"] = initial_actions
             env.info["openingMetadata"] = metadata
@@ -250,6 +354,13 @@ def interpreter(
                 env.os_state.apply_action(action)
                 env.info["actionHistory"].append(str(action))
                 env.info["stateHistory"].append(str(env.os_state))
+        if preset_hands:
+            env.info["presetHands"] = copy.deepcopy(preset_hands)
+            env.info["presetHandsState"] = {
+                "hands": [tuple(hand) for hand in preset_hands],
+                "next_index": [0 for _ in preset_hands],
+                "current_hand_index": 0,
+            }
     if env.configuration.get("useImage", False):
         env.configuration["imageConfig"] = _get_image_config(env.configuration)
 
@@ -307,7 +418,11 @@ def interpreter(
     # --- Step chance nodes ---
     while os_state.is_chance_node():
         outcomes, probs = zip(*os_state.chance_outcomes())
-        chance_action = np.random.choice(outcomes, p=probs)
+        preset_action = _get_preset_chance_action(env, os_state, outcomes)
+        if preset_action is not None:
+            chance_action = preset_action
+        else:
+            chance_action = np.random.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
         env.info["stateHistory"].append(str(os_state))
