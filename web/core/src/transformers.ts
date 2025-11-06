@@ -33,6 +33,7 @@ const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
 export const processEpisodeData = (environment: any, gameName: string): BaseGameStep[] => {
   switch (gameName) {
     case 'repeated_poker':
+      console.log('trasnsforming the entire thing');
       return repeatedPokerTransformerV2(environment);
     case 'chess':
       return chessTransformer(environment);

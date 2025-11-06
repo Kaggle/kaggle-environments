@@ -1,4 +1,4 @@
-import { BaseGamePlayer, BaseGameStep } from "../../../types";
+import { BaseGamePlayer, BaseGameStep } from '../../../types';
 
 export type RepeatedPokerStepType =
   | 'small-blind-post'
@@ -18,6 +18,7 @@ export interface RepeatedPokerStep extends BaseGameStep {
   bestFiveCardHands: string[];
   bestHandRankTypes: string[];
   currentPlayer: number;
+  currentHandIndex: number;
 }
 
 export interface RepeatedPokerStepPlayer extends BaseGamePlayer {
