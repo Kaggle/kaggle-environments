@@ -6,11 +6,11 @@ module.exports = {
       options: {
         tabWidth: 2,
         singleQuote: true,
-        trailingComma: 'preserve',
+        trailingComma: 'es5',
         quoteProps: 'preserve',
         semi: true,
-        printWidth: 120
-      }
-    }
-  ]
+        printWidth: 120,
+      },
+    },
+  ],
 };

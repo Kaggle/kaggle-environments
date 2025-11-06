@@ -1,21 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 
 @font-face {
-  font-family: 'Zeitung Pro';
+  font-family: "Zeitung Pro";
   src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("woff2"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("woff"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("opentype");
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Zeitung Pro';
+  font-family: "Zeitung Pro";
   src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("woff2"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("woff"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
+      format("opentype");
   font-weight: bold;
   font-style: normal;
 }
@@ -26,8 +32,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Zeitung Pro', sans-serif;
-  background-color: #28303F;
+  font-family: "Zeitung Pro", sans-serif;
+  background-color: #28303f;
   color: #fff;
   overflow: hidden;
   box-sizing: border-box;
@@ -36,7 +42,7 @@
 
 .poker-game-layout {
   width: 1000px;
-  height: 980px;
+  height: 950px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -55,22 +61,28 @@
 .poker-table {
   width: 900px;
   height: 400px;
-  background: radial-gradient(43.33% 50% at 50% 50%, #20BD48 0%, #0A4018 99.99%);
+  background: radial-gradient(
+    43.33% 50% at 50% 50%,
+    #20bd48 0%,
+    #0a4018 99.99%
+  );
   border-radius: 300px;
   position: relative;
-  border: 20px solid #5C3A21;
+  border: 15px solid #5c3a21;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0;
-  box-shadow: 0 8px 12px 6px rgba(0, 0, 0, 0.15), 0 4px 4px 0 rgba(0, 0, 0, 0.30);
+  box-shadow:
+    0 8px 12px 6px rgba(0, 0, 0, 0.15),
+    0 4px 4px 0 rgba(0, 0, 0, 0.3);
 }
 
 .muck-line {
   position: absolute;
   width: 780px;
   height: 300px;
-  border: 1px solid #9AA0A6;
+  border: 1px solid #9aa0a6;
   border-radius: 240px;
   pointer-events: none;
   z-index: 1;
@@ -137,21 +149,21 @@
   align-items: center;
   margin: 10px auto;
   padding: 20px;
-  background-color: rgba(32, 33, 36, 0.70);
+  background-color: rgba(32, 33, 36, 0.7);
   border-radius: 32px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid transparent;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  border: 3px solid transparent;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .player-info-area.active-player {
-  border-color: #20BEFF;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
+  border-color: #20beff;
 }
 
 .player-info-area.winner-player {
-  border-color: #FFEB70;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 235, 112, 0.6);
+  border-color: #ffeb70;
 }
 
 .player-container-0 .player-info-area {
@@ -168,8 +180,8 @@
 }
 
 .player-thumbnail {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
   background-color: #ffffff;
@@ -188,11 +200,11 @@
 }
 
 .player-name.winner {
-  color: #FFEB70;
+  color: #ffeb70;
 }
 
 .player-name.current-turn {
-  color: #20BEFF;
+  color: #20beff;
 }
 
 .player-stack {
@@ -211,22 +223,28 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #3C4043;
+  background-color: #3c4043;
   border-radius: 22px;
-  padding: 10px;
-  color: #E8EAED;
-  width: 240px;
+  padding-top: 4px;
+  color: #e8eaed;
+  width: 260px;
   height: 36px;
+}
+
+.player-container-0 .player-stats-container {
+  flex-direction: column-reverse;
 }
 
 .player-hand-rank,
 .player-odds {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 14px;
+  line-height: 14px;
   font-weight: 600;
-  color: #E8EAED;
+  color: #e8eaed;
   height: 20px;
   align-self: center;
+  text-transform: uppercase;
 }
 
 .player-cards-container {
@@ -252,11 +270,13 @@
   overflow: hidden;
   position: relative;
   padding: 6px;
-  box-shadow: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.30);
+  box-shadow:
+    0 6px 10px 4px rgba(0, 0, 0, 0.15),
+    0 2px 3px 0 rgba(0, 0, 0, 0.3);
 }
 
 .card-rank {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 32px;
   line-height: 1;
   display: block;
@@ -286,11 +306,11 @@
 }
 
 .card-red .card-rank {
-  color: #B3261E;
+  color: #b3261e;
 }
 
 .card-red .card-suit svg {
-  fill: #B3261E;
+  fill: #b3261e;
 }
 
 .card-black .card-rank {
@@ -302,25 +322,40 @@
 }
 
 .card-blue .card-rank {
-  color: #0B57D0;
+  color: #0b57d0;
 }
 
 .card-blue .card-suit svg {
-  fill: #0B57D0;
+  fill: #0b57d0;
 }
 
 .card-green .card-rank {
-  color: #146C2E;
+  color: #146c2e;
 }
 
 .card-green .card-suit svg {
-  fill: #146C2E;
+  fill: #146c2e;
 }
 
 .card-back {
   background-color: #2b6cb0;
-  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.1) 75%, rgba(255, 255, 255, 0.1)),
-    linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.1) 75%, rgba(255, 255, 255, 0.1));
+  background-image:
+    linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.1) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(255, 255, 255, 0.1) 75%,
+      rgba(255, 255, 255, 0.1)
+    ),
+    linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.1) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(255, 255, 255, 0.1) 75%,
+      rgba(255, 255, 255, 0.1)
+    );
   background-size: 10px 10px;
   border: 2px solid #63b3ed;
 }
@@ -333,12 +368,39 @@
 .card-empty {
   background-color: rgba(232, 234, 237, 0.1);
   border: 2px solid rgba(154, 160, 166, 0.5);
-  box-shadow: none
+  box-shadow: none;
 }
 
 .card-empty .card-rank,
 .card-empty .card-suit {
   display: none;
+}
+
+.card-highlighted {
+  box-shadow:
+    0 0 0 3px #ffeb70,
+    0 6px 10px 4px rgba(0, 0, 0, 0.15),
+    0 2px 3px 0 rgba(0, 0, 0, 0.3);
+  border-color: #ffeb70;
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px #ffeb70,
+      0 6px 10px 4px rgba(0, 0, 0, 0.15),
+      0 2px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 3px #ffeb70,
+      0 0 20px 8px rgba(255, 235, 112, 0.5),
+      0 6px 10px 4px rgba(0, 0, 0, 0.15),
+      0 2px 3px 0 rgba(0, 0, 0, 0.3);
+  }
 }
 
 .community-cards-area {
@@ -372,7 +434,7 @@
   border-radius: 30px;
   background-color: #ffffff;
   color: black;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 20px;
   font-weight: 600;
   text-align: center;
@@ -381,6 +443,10 @@
   width: 240px;
   min-height: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.bet-display.winner-player {
+  background-color: #ffeb70;
 }
 
 .blind-indicator {
@@ -405,7 +471,7 @@
   z-index: 15;
   pointer-events: auto;
   border: 2px solid black;
-  outline: 2px solid #20BEFF;
+  outline: 2px solid #20beff;
 }
 
 .dealer-button.dealer-player0 {
@@ -497,7 +563,7 @@
 }
 
 .chip-stack-label {
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 18px;
   font-weight: bold;
   white-space: nowrap;
@@ -508,7 +574,7 @@
   top: 0px;
   right: 0px;
   width: 280px;
-  background-color: rgba(32, 33, 36, 0.70);
+  background-color: rgba(32, 33, 36, 0.7);
   border-radius: 8px;
   color: white;
   z-index: 100;
