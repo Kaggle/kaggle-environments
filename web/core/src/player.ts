@@ -264,6 +264,12 @@ export class ReplayVisualizer {
       this?.replay?.configuration?.openSpielGameName === 'repeated_poker'
     ) {
       this.replay.steps = processEpisodeData(this.replay, 'repeated_poker');
+    } else if (
+      this?.replay?.steps &&
+      !(this?.replay?.steps as any)?.[0]?.stepType &&
+      this?.replay?.configuration?.game === 'chess'
+    ) {
+      this.replay.steps = processEpisodeData(this.replay, 'chess');
     }
 
     // --- HMR State Update ---
