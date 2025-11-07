@@ -8,7 +8,8 @@ export type RepeatedPokerStepType =
   | 'deal-flop'
   | 'deal-turn'
   | 'deal-river'
-  | 'final';
+  | 'final'
+  | 'game-over';
 
 export interface RepeatedPokerStep extends BaseGameStep {
   stepType: RepeatedPokerStepType;

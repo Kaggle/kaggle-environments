@@ -204,25 +204,16 @@ const createPlayerActionStep = (
 };
 
 // Reusable helper to create the 'final' step of a hand.
-// It requires the *next* hand's start step because that's where the final state data lives.
 const createFinalHandStep = (
-  nextHandStartStep: PokerReplayStepHistoryParsed,
-  agents: PokerReplayInfoAgent[],
+  finalJson: PokerReplayUniversalPokerJson,
+  handRewards: number[],
+  finishedHandNumber: number,
   dealerId: number,
+  agents: PokerReplayInfoAgent[],
   stepIndex: number
 ): RepeatedPokerStep => {
-  if (!nextHandStartStep.prev_universal_poker_json) {
-    throw new Error("Cannot create final step: nextHandStartStep is missing 'prev_universal_poker_json'.");
-  }
-
-  const finalJson = nextHandStartStep.prev_universal_poker_json;
-  // hand_returns is 0-indexed, hand_number is 1-indexed.
-  // We want returns for the hand that JUST finished, so we use (nextHand.hand_number - 1).
-  const handReturnIndex = nextHandStartStep.hand_number - 1;
-  const finalRewards = nextHandStartStep.hand_returns?.[handReturnIndex] ?? [0, 0];
-
   const players: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
-    const reward = finalRewards[id];
+    const reward = handRewards[id];
     const isWinner = reward > 0;
     return {
       id,
@@ -249,8 +240,80 @@ const createFinalHandStep = (
     bestFiveCardHands: finalJson.best_five_card_hands,
     bestHandRankTypes: finalJson.best_hand_rank_types,
     currentPlayer: -1,
-    currentHandIndex: handReturnIndex,
+    currentHandIndex: finishedHandNumber,
     players,
+  };
+};
+
+const generateFinalReplaySequence: StepGenerator = (remainingRawSteps, agents, startIndex) => {
+  const lastStepOfReplay = remainingRawSteps[0];
+
+  // At the very end of the tape, the current JSON is the final state.
+  const finalJson = lastStepOfReplay.current_universal_poker_json;
+  const handIndex = lastStepOfReplay.hand_number;
+  const finalRewards = lastStepOfReplay.hand_returns?.[handIndex] ?? [0, 0];
+
+  const finalHandStep = createFinalHandStep(
+    finalJson,
+    finalRewards,
+    lastStepOfReplay.hand_number,
+    lastStepOfReplay.dealer,
+    agents,
+    startIndex
+  );
+
+  // Generate Game Over step based on the final step
+  // This is mostly for UI so just using empty state mostly, but we do mark the over all winner for the action string
+  const allReturns = lastStepOfReplay.hand_returns ?? [];
+  const totalReturns = [0, 0];
+
+  allReturns.forEach((handReturn) => {
+    totalReturns[0] += handReturn[0];
+    totalReturns[1] += handReturn[1];
+  });
+
+  // Determine overall winner based on net returns.
+  // TODO - handle ties
+  let overallWinnerId = -1;
+  if (totalReturns[0] > totalReturns[1]) overallWinnerId = 0;
+  else if (totalReturns[1] > totalReturns[0]) overallWinnerId = 1;
+
+  // Generate Game Over step with overall stats
+  const gameOverPlayers: RepeatedPokerStepPlayer[] = (finalHandStep.players as RepeatedPokerStepPlayer[]).map(
+    (player) => {
+      const totalWinnings = totalReturns[player.id];
+      const isOverallWinner = player.id === overallWinnerId;
+
+      return {
+        ...player,
+        chipStack: totalWinnings,
+        currentBet: 0,
+        cards: '',
+        reward: totalWinnings,
+        isWinner: isOverallWinner,
+        actionDisplayText: '',
+        isTurn: false,
+        isDealer: false,
+      };
+    }
+  );
+
+  const gameOverStep: RepeatedPokerStep = {
+    stepType: 'game-over',
+    communityCards: '',
+    pot: 0,
+    step: startIndex + 1,
+    winOdds: [],
+    bestFiveCardHands: ['', ''],
+    bestHandRankTypes: ['', ''],
+    currentPlayer: -1,
+    currentHandIndex: lastStepOfReplay.hand_number,
+    players: gameOverPlayers,
+  };
+
+  return {
+    newSteps: [finalHandStep, gameOverStep],
+    rawStepsConsumed: 1,
   };
 };
 
@@ -285,27 +348,33 @@ const generateHandEndStepSequence: StepGenerator = (remainingRawSteps, agents, s
   const visualSteps: RepeatedPokerStep[] = [];
   let visualStepIndex = startIndex;
 
-  // This is the data we need for the *final* summary, regardless of what came before.
+  // Generate the final action if it exists (e.g., the 'Call' that ends the hand)
+  // We use the final confirmed JSON for this visualization so the pot looks right immediately.
   const finalJson = nextHandStartStep.prev_universal_poker_json;
 
-  // --- CASE 1: Hand ends on an Action (e.g., Fold) ---
   if (stateBeforeEnd.step) {
-    // We must create a "fake" stateAfterAction to show the result of the action (e.g., pot size, cards)
-    // This "after" state's data comes from the `prev_universal_poker_json` of the *next* hand.
     const stateAfterAction = {
-      ...stateBeforeEnd, // Copy base properties
-      current_universal_poker_json: finalJson, // Use final state JSON
-      dealer: stateBeforeEnd.dealer, // IMPORTANT: Preserve dealer from *before* action
+      ...stateBeforeEnd,
+      current_universal_poker_json: finalJson,
+      dealer: stateBeforeEnd.dealer,
     } as PokerReplayStepHistoryParsed;
 
-    const actionStep = createPlayerActionStep(stateBeforeEnd, stateAfterAction, agents, visualStepIndex);
-    visualSteps.push(actionStep);
-    visualStepIndex++;
+    visualSteps.push(createPlayerActionStep(stateBeforeEnd, stateAfterAction, agents, visualStepIndex++));
   }
 
-  // --- CASE 2: The "Final" Hand Summary (ALWAYS runs) ---
-  // This runs for both "Fold" (Case 1) and "Runout" (no .step object) scenarios.
-  visualSteps.push(createFinalHandStep(nextHandStartStep, agents, stateBeforeEnd.dealer, visualStepIndex++));
+  const handIndex = stateBeforeEnd.hand_number;
+  const finalRewards = nextHandStartStep.hand_returns?.[handIndex] ?? [0, 0];
+
+  visualSteps.push(
+    createFinalHandStep(
+      finalJson,
+      finalRewards,
+      stateBeforeEnd.hand_number,
+      stateBeforeEnd.dealer,
+      agents,
+      visualStepIndex++
+    )
+  );
 
   return {
     newSteps: visualSteps,
@@ -616,7 +685,20 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     // 3. Generate the FINAL summary step if we reached the end of the hand.
     // This ensures we don't miss the winner banners.
     if (endOfHand && nextHandStep && nextHandStep.prev_universal_poker_json) {
-      newSteps.push(createFinalHandStep(nextHandStep, agents, preDealStep.dealer, visualStepIndex++));
+      const finalJson = nextHandStep.prev_universal_poker_json;
+      const handIndex = preDealStep.hand_number;
+      const finalRewards = nextHandStep.hand_returns?.[handIndex] ?? [0, 0];
+
+      newSteps.push(
+        createFinalHandStep(
+          finalJson,
+          finalRewards,
+          preDealStep.hand_number,
+          preDealStep.dealer,
+          agents,
+          visualStepIndex++
+        )
+      );
     }
     return {
       newSteps: newSteps,
@@ -648,10 +730,8 @@ function determineGenerator(remainingSteps: PokerReplayStepHistoryParsed[]): Ste
     return generateHandEndStepSequence;
   }
   // Rule 2: Is this the very last step of the entire replay?
-  // TODO - we need an actual final state here - I
-  // It should at the very least call generateFinalPlayerActionStep
   if (nextReplayStep === null) {
-    return null;
+    return generateFinalReplaySequence;
   }
 
   // Rule 3: Is this the start of a new hand?
