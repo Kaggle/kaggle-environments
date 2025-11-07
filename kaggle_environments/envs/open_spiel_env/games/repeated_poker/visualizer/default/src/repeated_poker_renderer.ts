@@ -344,23 +344,10 @@ export function renderer(options: RendererOptions): void {
   function _renderPokerTableUI(data: RepeatedPokerStep): void {
     if (!elements.pokerTable || !data || !elements.legend) return;
 
-    // TODO: [TYPE_MISMATCH] The 'RepeatedPokerStep' type is missing many properties
-    // that the original JS code expects.
-    const {
-      players, // This exists in BaseGameStep
-      communityCards, // This is a string in RepeatedPokerStep, but JS expects string[]
-      stepType,
-      pot,
-      winOdds,
-      bestFiveCardHands,
-      bestHandRankTypes,
-    } = data;
+    const { players, communityCards, stepType, pot, winOdds, bestFiveCardHands, bestHandRankTypes, currentHandIndex } =
+      data;
 
     // TODO: [TYPE_MISMATCH] Manually defining missing properties from the type.
-    const isTerminal = false; // 'isTerminal' is not in RepeatedPokerStep
-    const handCount = 0; // 'handCount' is not in RepeatedPokerStep
-    const winProb = winOdds; // 'winProb' is not in type, mapping 'winOdds'
-    const handRank = bestHandRankTypes;
     const leaderInfo: any = null; // 'leaderInfo' is not in type. Using 'any' to allow compilation.
 
     // Update legend
@@ -372,7 +359,7 @@ export function renderer(options: RendererOptions): void {
     legendTitle.innerHTML = ''; // Clear existing content
 
     const handSpan = document.createElement('span');
-    handSpan.textContent = `Hand: ${handCount !== undefined && handCount !== null ? handCount + 1 : 'Standby'}`;
+    handSpan.textContent = `Hand: ${currentHandIndex != null ? currentHandIndex + 1 : 'Standby'}`;
     legendTitle.appendChild(handSpan);
 
     if (leaderInfo) {
@@ -481,7 +468,7 @@ export function renderer(options: RendererOptions): void {
         playerCardsContainer.innerHTML = '';
 
         // In heads-up, we show both hands at the end.
-        const showCards = isTerminal || (playerData.cards && !playerData.cards.includes(null!));
+        const showCards = playerData.cards && !playerData.cards.includes(null!);
 
         // TODO: [TYPE_MISMATCH] 'playerData.cards' is a string, but code expects an array - move this to the transformer
         const playerCardsArray = playerData.cards ? playerData.cards.match(/.{1,2}/g) : [null, null];
@@ -543,27 +530,28 @@ export function renderer(options: RendererOptions): void {
           }
         }
 
-        // TODO: swap this out bestHandRankType
         const handRankElement = playerInfoArea.querySelector('.player-hand-rank') as HTMLElement;
-        if (handRankElement && handRank && handRank[index]) {
-          handRankElement.textContent = handRank[index];
+        if (handRankElement && bestHandRankTypes && bestHandRankTypes[index]) {
+          handRankElement.textContent = bestHandRankTypes[index];
         } else if (handRankElement) {
           handRankElement.textContent = '';
         }
 
         const playerOddsElement = playerInfoArea.querySelector('.player-odds') as HTMLElement;
-        if (playerOddsElement && winProb && winProb[index] && !isTerminal) {
-          let oddsString = `WIN: ${winProb[index].toLocaleString(undefined, {
+        // WinOdds is an array like [P0WinOdds, P0TieOdds, P1WinOdds, P1TieOdds] - our index is either 0 or 1, so
+        // for the P1 case just set the index to 2
+        const winOddsIndex = index === 0 ? 0 : 2;
+        if (playerOddsElement && winOdds && winOdds[winOddsIndex] != undefined) {
+          const winOddsStringForPlayer = `WIN: ${winOdds[winOddsIndex].toLocaleString(undefined, {
+            style: 'percent',
+            minimumFractionDigits: 2,
+          })}`;
+          const tieOddsStringForPlayer = `TIE: ${winOdds[winOddsIndex + 1].toLocaleString(undefined, {
             style: 'percent',
             minimumFractionDigits: 2,
           })}`;
 
-          if (winProb[index + 2]) {
-            oddsString = `${oddsString} · TIE: ${winProb[index + 1].toLocaleString(undefined, {
-              style: 'percent',
-              minimumFractionDigits: 2,
-            })}`;
-          }
+          const oddsString = `${winOddsStringForPlayer} · ${tieOddsStringForPlayer}`;
 
           playerOddsElement.textContent = oddsString;
         } else if (playerOddsElement) {

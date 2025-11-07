@@ -56,7 +56,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
 
   // Example:
   // Input: "r5c/cc/r11c/r122r200c"
-  // Output: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"]
+  // Output: ["Raise to 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise to 189", "Call 78"]
   streets.forEach((streetAction, streetIndex) => {
     const trimmedAction = streetAction.trim();
     if (streetIndex > 0) {
@@ -88,7 +88,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
         const roundBaseline = streetBaselines[actingPlayer];
         const roundTotal = Math.max(targetTotal - roundBaseline, 0);
         const hasOutstandingBet = currentMax > highestBaseline;
-        const verb = hasOutstandingBet ? 'Raise' : 'Bet';
+        const verb = hasOutstandingBet ? 'Raise to ' : 'Bet';
 
         if (!Number.isFinite(targetTotal)) {
           throw new Error(`Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`);
@@ -198,6 +198,7 @@ const createPlayerActionStep = (
     bestFiveCardHands: afterJson.best_five_card_hands,
     bestHandRankTypes: afterJson.best_hand_rank_types,
     currentPlayer: actingPlayerId,
+    currentHandIndex: stateAfterAction.hand_number,
     players,
   };
 };
@@ -248,6 +249,7 @@ const createFinalHandStep = (
     bestFiveCardHands: finalJson.best_five_card_hands,
     bestHandRankTypes: finalJson.best_hand_rank_types,
     currentPlayer: -1,
+    currentHandIndex: handReturnIndex,
     players,
   };
 };
@@ -384,6 +386,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     bestFiveCardHands: ['', ''],
     bestHandRankTypes: ['', ''],
     currentPlayer: -1,
+    currentHandIndex: lastDealStep.hand_number,
     players: sbPostPlayers,
   };
 
@@ -512,6 +515,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
       bestFiveCardHands: stateBeforeAction.current_universal_poker_json.best_five_card_hands,
       bestHandRankTypes: stateBeforeAction.current_universal_poker_json.best_hand_rank_types,
       currentPlayer: -1,
+      currentHandIndex: stateBeforeAction.hand_number,
       players: dealStepPlayers,
     };
 
@@ -588,6 +592,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
           bestFiveCardHands: stateForDeal.best_five_card_hands,
           bestHandRankTypes: stateForDeal.best_hand_rank_types,
           currentPlayer: -1,
+          currentHandIndex: preDealStep.hand_number,
           players: [0, 1].map((id) => ({
             id,
             name: agents[id].Name,

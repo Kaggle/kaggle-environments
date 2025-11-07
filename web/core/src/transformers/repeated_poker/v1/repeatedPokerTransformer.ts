@@ -1,9 +1,9 @@
-import { RepeatedPokerStep } from '../v2/poker-steps-types';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '../v2/poker-steps-types';
 import { getActionStringsFromACPC } from './buildTimeline';
 
 // const _parseRoundState = (currentStateHistory: string) => {
 //   const currentState = JSON.parse(JSON.parse(currentStateHistory).current_universal_poker_json).acpc_state;
-// 
+//
 //   /**
 //    * Example lines:
 //    * STATE:0:r5c/cr9c/:Ks4s|5hAs/2dJs7s/Qh
@@ -14,13 +14,13 @@ import { getActionStringsFromACPC } from './buildTimeline';
 //     return '';
 //   }
 //   const stateParts = lines[0].split(':');
-// 
+//
 //   const currentCardString = stateParts[stateParts.length - 1]; // example: "6cKd|AsJc/7hQh6d/2c"
 //   // Grab the hand and board blocks
 //   const currentCardSegments = currentCardString.split('|');
 //   // Split card string by '/' to separate hand and board blocks
 //   const currentCommunitySegments = currentCardSegments.length > 1 ? currentCardSegments[1].split('/') : [];
-// 
+//
 //   if (currentCommunitySegments.length === 2) {
 //     return '### Flop';
 //   } else if (currentCommunitySegments.length === 3) {
@@ -31,7 +31,6 @@ import { getActionStringsFromACPC } from './buildTimeline';
 //     return '';
 //   }
 // };
-
 
 const _isStateHistoryAgentAction = (stateHistoryEntry: string): boolean =>
   JSON.parse(JSON.parse(stateHistoryEntry).current_universal_poker_json).current_player !== -1;
@@ -192,13 +191,13 @@ const _getEndCondition = (
       // for now, fold + tie = impossible state
       handConclusion: 'fold',
       winner: -1,
-      bestFiveCardHands: []
+      bestFiveCardHands: [],
     };
   }
   let next_prev_universal_poker_json = {
     acpc_state: '',
     best_five_card_hands: ['', ''],
-    best_hand_rank_types: ['', '']
+    best_hand_rank_types: ['', ''],
   };
   // since the current_universal_poker_json does not contain the end move in it's history,
   // we need to go to the prev_universal_poker_json of the next one
@@ -216,7 +215,7 @@ const _getEndCondition = (
   if (moves.pop() === 'f') {
     return {
       handConclusion: 'fold',
-      winner: current_player === 0 ? 1 : 0
+      winner: current_player === 0 ? 1 : 0,
     };
   }
   // Showdown case
@@ -224,61 +223,66 @@ const _getEndCondition = (
     handConclusion: 'showdown',
     winner: current_player === 0 ? 1 : 0,
     bestFiveCardHands: next_prev_universal_poker_json.best_five_card_hands,
-    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types
+    bestHandRankType: next_prev_universal_poker_json.best_hand_rank_types,
   };
 };
 
 export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
-  let pokerStepLabel = `TODO - label ${gameStep.stepType}`;
-  if(gameStep.stepType === 'player-action') {
-    pokerStepLabel = gameStep.players[gameStep.currentPlayer].actionDisplayText ?? "";
+  const currentHandNumber = gameStep.currentHandIndex + 1;
+  switch (gameStep.stepType) {
+    case 'player-action':
+      return `**Decision**: ${gameStep.players[gameStep.currentPlayer].actionDisplayText ?? ''}`;
+    case 'deal-player-hands':
+      return `**Hand ${currentHandNumber}**: Dealing...`;
+    case 'deal-flop':
+      return `**Hand ${currentHandNumber}**: Flop`;
+    case 'deal-turn':
+      return `**Hand ${currentHandNumber}**: Turn`;
+    case 'deal-river':
+      return `**Hand ${currentHandNumber}**: River`;
+    case 'big-blind-post':
+      return `**Hand ${currentHandNumber}**: Post Big Blind`;
+    case 'small-blind-post':
+      return `**Hand ${currentHandNumber}**: Post Small Blind`;
+    case 'final': {
+      const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
+      return `**Hand ${currentHandNumber}**: 🎉 ${winningPlayer?.name} wins ${winningPlayer?.reward}! 🎉`;
+    }
+    default: {
+      // If you missed a case, TypeScript will complain here because
+      // it cannot assign the missed type to 'never'.
+      const _exhaustiveCheck: never = gameStep.stepType;
+      return `Unknown step: ${_exhaustiveCheck}`;
+    }
   }
-
-  return pokerStepLabel;
 };
 
 export const getPokerStepDescription = (gameStep: RepeatedPokerStep) => {
-  let pokerStepDescription = `TODO - description ${gameStep.stepType}`;
-  if(gameStep.stepType === 'player-action') {
-    pokerStepDescription = gameStep.players[gameStep.currentPlayer].thoughts ?? "";
-  }
-
-  return pokerStepDescription;
-
-  /* if (gameStep.step?.action?.thoughts) {
-    return gameStep.step.action.thoughts;
-  } else if (gameStep.isEndState && gameStep.winner !== undefined) {
-    if (gameStep.winner === -1) {
-      return `
-### ${playerNames.join(' and ')} tie
-`;
-    }
-
-    const loser = gameStep.winner.toString() === '0' ? 1 : 0;
-    if (gameStep.handConclusion === 'showdown') {
-      return `
-###🎉 ${playerNames[gameStep.winner]} wins round ${gameStep.hand + 1}
-#### ${gameStep.bestHandRankType?.join(' and ')}
-`;
-    } else {
-      return `
-###🎉 ${playerNames[gameStep.winner]} wins round ${gameStep.hand + 1}
-#### ${playerNames[loser]} folds
-`;
+  switch (gameStep.stepType) {
+    case 'player-action':
+      return gameStep.players[gameStep.currentPlayer].thoughts ?? '';
+    case 'deal-player-hands':
+      return '';
+    case 'deal-flop':
+      return '';
+    case 'deal-turn':
+      return '';
+    case 'deal-river':
+      return '';
+    case 'big-blind-post':
+      return '';
+    case 'small-blind-post':
+      return '';
+    case 'final':
+      return '';
+    default: {
+      // If you missed a case, TypeScript will complain here because
+      // it cannot assign the missed type to 'never'.
+      const _exhaustiveCheck: never = gameStep.stepType;
+      return `Unknown step: ${_exhaustiveCheck}`;
     }
   }
-
-  return _parseRoundState(gameStep.stateHistory); */
-  return 'TODO - get Step Description if needed'
 };
-
-/* interface TimelineEvent {
-  stateIndex: number | undefined;
-  highlightPlayer: number | null;
-  actionText: string;
-  hideHoleCards: boolean;
-  hideCommunity: boolean;
-} */
 
 export const getPokerStepsWithEndStates = (environment: any): any[] => {
   const stepsWithEndStates: any[] = [];
@@ -379,7 +383,7 @@ export const getPokerStepsWithEndStates = (environment: any): any[] => {
             actingPlayer,
             actingPlayerName: getPlayerName(actingPlayer),
             currentPlayer,
-            currentPlayerName: getPlayerName(currentPlayer)
+            currentPlayerName: getPlayerName(currentPlayer),
           });
 
           lastActionPointer = preActionPointer;
@@ -403,7 +407,7 @@ export const getPokerStepsWithEndStates = (environment: any): any[] => {
               actingPlayer,
               actingPlayerName: getPlayerName(actingPlayer),
               currentPlayer: postActionCurrentPlayer,
-              currentPlayerName: getPlayerName(postActionCurrentPlayer)
+              currentPlayerName: getPlayerName(postActionCurrentPlayer),
             });
           }
 
@@ -437,7 +441,7 @@ export const getPokerStepsWithEndStates = (environment: any): any[] => {
         stateHistoryIndex: lastActionPointer,
         currentPlayer: endStateCurrentPlayer,
         currentPlayerName: getPlayerName(endStateCurrentPlayer),
-        ...endState
+        ...endState,
       });
 
       handCount++;
@@ -470,7 +474,7 @@ export const getPokerStepsWithEndStates = (environment: any): any[] => {
       // Return a new step with action strings added
       return {
         ...step,
-        actionText: nextPlayerIndex ? playerActionStrings[nextPlayerIndex] : undefined
+        actionText: nextPlayerIndex ? playerActionStrings[nextPlayerIndex] : undefined,
       };
     } catch (error) {
       console.error('Error adding action strings to step:', error);
@@ -539,5 +543,5 @@ export const getPokerStepsWithEndStates = (environment: any): any[] => {
 
 export const __testing = {
   _getMovesFromBettingStringACPC,
-  _getReadableMovesFromBettingStringACPC
+  _getReadableMovesFromBettingStringACPC,
 };
