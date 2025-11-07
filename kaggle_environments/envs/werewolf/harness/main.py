@@ -40,7 +40,7 @@ def agent(observation, configuration):
 
         _AGENT_OBJECT = AgentFactoryWrapper(
             agent_class=LLMWerewolfAgent,
-            model_name=os.environ["MODEL_NAME"],
+            model_name=f"openai/{os.environ["MODEL_NAME"]}",
             system_prompt=LLM_SYSTEM_PROMPT,
             litellm_model_proxy_kwargs={
                 "api_base": os.environ["MODEL_PROXY_URL"],
