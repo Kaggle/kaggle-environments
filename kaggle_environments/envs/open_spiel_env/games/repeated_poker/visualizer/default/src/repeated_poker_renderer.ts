@@ -341,58 +341,244 @@ export function renderer(options: RendererOptions): void {
     elements.gameLayout.style.transform = `scale(${scale})`;
   }
 
-  function _renderPokerTableUI(data: RepeatedPokerStep): void {
-    if (!elements.pokerTable || !data || !elements.legend) return;
+  // Helper to find the shortest unique name by skipping common prefixes
+  function _getDistinguishingNameMap(names: string[]): Map<string, string> {
+    const map = new Map<string, string>();
+    if (names.length === 0) return map;
+    // If only one name, just take the first word as before
+    if (names.length === 1) {
+      map.set(names[0], names[0].split(' ')[0]);
+      return map;
+    }
 
-    const { players, communityCards, stepType, pot, winOdds, bestFiveCardHands, bestHandRankTypes, currentHandIndex } =
-      data;
+    const splitNames = names.map((n) => n.split(' '));
+    let diffIndex = 0;
+    const maxWords = Math.max(...splitNames.map((s) => s.length));
 
-    // TODO: [TYPE_MISMATCH] Manually defining missing properties from the type.
-    const leaderInfo: any = null; // 'leaderInfo' is not in type. Using 'any' to allow compilation.
+    // Step through words until we find one that doesn't match across all players
+    for (let i = 0; i < maxWords; i++) {
+      const firstVal = splitNames[0][i];
+      // Check if ALL players have the exact same word at this index
+      const allMatch = splitNames.every((parts) => parts[i] === firstVal && parts[i] !== undefined);
+      if (!allMatch) {
+        diffIndex = i;
+        break;
+      }
+    }
 
-    // Update legend
+    // Build the map using the word at the differentiating index
+    names.forEach((fullName, i) => {
+      // Fallback to the full name if the split name is too short to have a word at diffIndex
+      const shortName = splitNames[i][diffIndex] || fullName;
+      map.set(fullName, shortName);
+    });
+
+    return map;
+  }
+
+  interface CompletedHand {
+    handNum: number;
+    winnerName: string;
+    winnerThumbnail?: string;
+    amount: number;
+  }
+
+  interface DerivedLeaderboardInfo {
+    topLeader: { name: string; winnings: number; thumbnail?: string } | null;
+    completedHands: CompletedHand[];
+  }
+
+  function _deriveLeaderboardData(steps: RepeatedPokerStep[], currentStepIndex: number): DerivedLeaderboardInfo {
+    const playerCumulativeRewards = new Map<number, number>();
+    const playerDetails = new Map<number, { name: string; thumbnail?: string }>();
+    const completedHands: CompletedHand[] = [];
+
+    // Identify unique hands up to the current step
+    const relevantSteps = steps.slice(0, currentStepIndex + 1);
+    const hands = new Map<number, RepeatedPokerStep>();
+
+    // We only need the *last* step of any given hand to see its final result/rewards
+    relevantSteps.forEach((step) => {
+      hands.set(step.currentHandIndex, step);
+    });
+
+    // Iterate through finished hands to build history and totals
+    hands.forEach((lastStepOfHand, handIndex) => {
+      const lastStepOfHandPlayers = lastStepOfHand.players as RepeatedPokerStepPlayer[];
+      // Assume a hand is "complete" if any player has a non-null reward
+      const isHandComplete = lastStepOfHandPlayers.some((p) => p.reward !== null);
+
+      if (isHandComplete) {
+        // Update cumulative totals for ALL players in this hand
+        lastStepOfHandPlayers.forEach((p) => {
+          // Save player details for later lookups
+          if (!playerDetails.has(p.id)) {
+            playerDetails.set(p.id, { name: p.name, thumbnail: p.thumbnail });
+          }
+
+          const currentTotal = playerCumulativeRewards.get(p.id) || 0;
+          // Ensure we don't add null/undefined rewards
+          playerCumulativeRewards.set(p.id, currentTotal + (p.reward || 0));
+        });
+
+        // Add to hand history table
+        // Find the winner(s). There might be multiple in a split pot.
+        const winners = lastStepOfHandPlayers.filter((p) => p.isWinner);
+        winners.forEach((winner) => {
+          completedHands.push({
+            handNum: handIndex + 1,
+            winnerName: winner.name,
+            winnerThumbnail: winner.thumbnail,
+            amount: winner.reward || 0,
+          });
+        });
+      }
+    });
+
+    // Find the current leader
+    let topLeader = null;
+    let maxWinnings = -Infinity;
+
+    playerCumulativeRewards.forEach((winnings, playerId) => {
+      if (winnings > maxWinnings) {
+        maxWinnings = winnings;
+        const details = playerDetails.get(playerId);
+        topLeader = {
+          name: details?.name || 'Unknown',
+          thumbnail: details?.thumbnail,
+          winnings: winnings,
+        };
+      }
+    });
+
+    return {
+      topLeader,
+      completedHands: completedHands.sort((a, b) => a.handNum - b.handNum),
+    };
+  }
+
+  function _renderLegendUI(steps: RepeatedPokerStep[], currentStepIndex: number): void {
+    if (!elements.legend || !steps || !steps[currentStepIndex]) return;
+
     const legendTitle = elements.legend.querySelector('.legend-title') as HTMLElement;
     const legendBody = elements.legend.querySelector('.legend-body') as HTMLElement;
-
     if (!legendTitle || !legendBody) return;
 
-    legendTitle.innerHTML = ''; // Clear existing content
+    const currentStepData = steps[currentStepIndex];
+    const { currentHandIndex } = currentStepData;
+    // Calculate derived data specifically for this frame
+    const { topLeader, completedHands } = _deriveLeaderboardData(steps, currentStepIndex);
+
+    // Gather ALL unique player full names encountered so far for disambiguation
+    const allPlayerNames = new Set<string>();
+    if (topLeader) allPlayerNames.add(topLeader.name);
+    completedHands.forEach((h) => allPlayerNames.add(h.winnerName));
+    // Also add current players to ensure complete set if they haven't won yet
+    currentStepData.players.forEach((p) => allPlayerNames.add(p.name));
+
+    // 2. Generate the short name map
+    const shortNameMap = _getDistinguishingNameMap(Array.from(allPlayerNames));
+
+    // --- RENDER TITLE SECTION ---
+    legendTitle.innerHTML = '';
 
     const handSpan = document.createElement('span');
     handSpan.textContent = `Hand: ${currentHandIndex != null ? currentHandIndex + 1 : 'Standby'}`;
     legendTitle.appendChild(handSpan);
 
-    if (leaderInfo) {
+    if (topLeader) {
       const leaderInfoDiv = document.createElement('div');
       leaderInfoDiv.className = 'legend-leader-info';
 
-      if (leaderInfo.thumbnail) {
+      if (topLeader.thumbnail) {
         const leaderThumbnail = document.createElement('img');
-        leaderThumbnail.src = leaderInfo.thumbnail;
+        leaderThumbnail.src = topLeader.thumbnail;
         leaderThumbnail.className = 'legend-title-avatar';
         leaderInfoDiv.appendChild(leaderThumbnail);
       }
 
       const leaderNameSpan = document.createElement('span');
-      const leaderName = leaderInfo.name.split(' ')[0];
-      leaderNameSpan.textContent = `${leaderName} is up ${leaderInfo.winnings}`;
+      const leaderShortName = shortNameMap.get(topLeader.name) || topLeader.name;
+      leaderNameSpan.textContent = `${leaderShortName} is up ${topLeader.winnings}`;
       leaderInfoDiv.appendChild(leaderNameSpan);
       legendTitle.appendChild(leaderInfoDiv);
     }
 
-    legendBody.innerHTML = ''; // Clear existing content
+    // --- RENDER BODY/TABLE SECTION ---
+    legendBody.innerHTML = '';
 
     const table = document.createElement('div');
     table.className = 'legend-table';
 
-    // ... (rest of legend rendering. It will be mostly empty due to missing 'previousHands') ...
-    // (Legend rendering code omitted for brevity as it relies on 'any' types)
+    const headerRow = document.createElement('div');
+    headerRow.className = 'legend-row legend-header';
+    ['Hand', 'Winner', 'Amount'].forEach((text) => {
+      const cell = document.createElement('div');
+      cell.className = 'legend-cell';
+      cell.textContent = text;
+      headerRow.appendChild(cell);
+    });
+    table.appendChild(headerRow);
 
-    if (elements.diagnosticHeader && (data as any).rawObservation) {
-      // Optional: Show diagnostics for debugging
-      // elements.diagnosticHeader.textContent = `[${passedOptions.step}] P_TURN:${(data as any).rawObservation.current_player} POT:${data.pot}`;
-      // elements.diagnosticHeader.style.display = 'block';
+    if (completedHands.length > 0) {
+      // Slice and reverse to show newest hands first
+      completedHands
+        .slice()
+        .reverse()
+        .forEach((hand) => {
+          const row = document.createElement('div');
+          row.className = 'legend-row';
+
+          const handCell = document.createElement('div');
+          handCell.className = 'legend-cell';
+          handCell.textContent = hand.handNum.toString();
+          row.appendChild(handCell);
+
+          const winnerCell = document.createElement('div');
+          winnerCell.className = 'legend-cell';
+          const winnerCellContainer = document.createElement('div');
+          winnerCellContainer.className = 'legend-winner-cell';
+
+          if (hand.winnerThumbnail) {
+            const winnerThumbnail = document.createElement('img');
+            winnerThumbnail.src = hand.winnerThumbnail;
+            winnerThumbnail.className = 'legend-avatar';
+            winnerCellContainer.appendChild(winnerThumbnail);
+          }
+
+          const winnerNameSpan = document.createElement('span');
+          winnerNameSpan.textContent = shortNameMap.get(hand.winnerName) || hand.winnerName;
+          winnerCellContainer.appendChild(winnerNameSpan);
+
+          winnerCell.appendChild(winnerCellContainer);
+          row.appendChild(winnerCell);
+
+          const amountCell = document.createElement('div');
+          amountCell.className = 'legend-cell';
+          amountCell.textContent = hand.amount.toString();
+          row.appendChild(amountCell);
+
+          table.appendChild(row);
+        });
+    } else {
+      const emptyRow = document.createElement('div');
+      emptyRow.className = 'legend-row';
+      const emptyCell = document.createElement('div');
+      emptyCell.className = 'legend-cell';
+      emptyCell.style.textAlign = 'center';
+      emptyCell.textContent = '-';
+      // We used 3 columns in the header
+      emptyCell.style.gridColumn = '1 / span 3';
+      emptyRow.appendChild(emptyCell);
+      table.appendChild(emptyRow);
     }
+    legendBody.appendChild(table);
+  }
+
+  function _renderPokerTableUI(currentStepData: RepeatedPokerStep): void {
+    if (!elements.pokerTable || !currentStepData) return;
+
+    const { players, communityCards, stepType, pot, winOdds, bestFiveCardHands, bestHandRankTypes } = currentStepData;
 
     if (!elements.communityCardsContainer || !elements.potDisplay) return;
 
@@ -596,6 +782,7 @@ export function renderer(options: RendererOptions): void {
   }
 
   _renderPokerTableUI(options.steps[options.step ?? 0]);
+  _renderLegendUI(options.steps, options.step ?? 0);
 
   // Apply initial scale
   _applyScale(parent);
