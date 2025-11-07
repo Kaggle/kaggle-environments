@@ -575,6 +575,104 @@ export function renderer(options: RendererOptions): void {
     legendBody.appendChild(table);
   }
 
+  function _renderFinalScreenUI(currentStepData: RepeatedPokerStep): void {
+    if (!elements.gameLayout) return;
+
+    // Clear the standard table layout for this screen
+    elements.gameLayout.innerHTML = '';
+
+    // Identify Winner
+    // Try finding explicitly marked winner, otherwise fallback to highest chip stack
+    let winner = (currentStepData.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
+    if (!winner) {
+      const sortedPlayers = [...(currentStepData.players as RepeatedPokerStepPlayer[])].sort(
+        (a, b) => b.chipStack - a.chipStack
+      );
+      winner = sortedPlayers[0];
+    }
+
+    // --- Container Styles ---
+    const container = document.createElement('div');
+    container.className = 'final-screen-container';
+    // Using inline styles here to ensure it looks acceptable immediately without CSS file updates.
+    // You can move these to your style.css later, but as this is just a placeholder screen making it easy to clean up for now.
+    container.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.95); /* Dark blue-gray background */
+        color: white;
+        font-family: sans-serif;
+        padding: 40px;
+        box-sizing: border-box;
+    `;
+
+    // --- Winner Section ---
+    const winnerSection = document.createElement('div');
+    winnerSection.className = 'final-winner-section';
+    winnerSection.style.cssText = 'text-align: center; margin-bottom: 60px; flex-shrink: 0;';
+
+    if (winner) {
+      if (winner.thumbnail) {
+        const thumb = document.createElement('img');
+        thumb.src = winner.thumbnail;
+        thumb.style.cssText =
+          'width: 180px; height: 180px; border-radius: 50%; border: 6px solid #eab308; box-shadow: 0 0 30px rgba(234, 179, 8, 0.4); margin-bottom: 20px;';
+        winnerSection.appendChild(thumb);
+      }
+
+      const winnerName = document.createElement('div');
+      winnerName.textContent = `${winner.name} Wins!`;
+      winnerName.style.cssText = 'font-size: 3.5em; color: #eab308; font-weight: bold;';
+      winnerSection.appendChild(winnerName);
+
+      const finalStack = document.createElement('div');
+      finalStack.textContent = `Final Rewards: ${winner.chipStack}`;
+      finalStack.style.cssText = 'font-size: 2em; color: #9ca3af; margin-top: 10px;';
+      winnerSection.appendChild(finalStack);
+    }
+
+    // --- Placeholder Feedback Box ---
+    const placeholderBox = document.createElement('div');
+    placeholderBox.className = 'final-feedback-placeholder';
+    placeholderBox.style.cssText = `
+        flex-grow: 1;
+        width: 80%;
+        max-height: 400px;
+        border: 5px dashed #64748b;
+        border-radius: 30px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(100, 116, 139, 0.1);
+        color: #94a3b8;
+        text-align: center;
+        padding: 20px;
+        transition: all 0.3s ease;
+    `;
+
+    const placeholderText = document.createElement('h2');
+    placeholderText.textContent = 'Statistics & Analysis Coming Soon';
+    placeholderText.style.cssText = 'margin: 0; font-size: 2.5em; color: #cbd5e1;';
+
+    const placeholderSubText = document.createElement('p');
+    placeholderSubText.textContent = 'What data would you like to see here? Let us know!';
+    placeholderSubText.style.cssText = 'font-size: 1.5em; margin-top: 15px;';
+
+    placeholderBox.appendChild(placeholderText);
+    placeholderBox.appendChild(placeholderSubText);
+
+    container.appendChild(winnerSection);
+    container.appendChild(placeholderBox);
+
+    elements.gameLayout.appendChild(container);
+    //TODO - implement
+  }
+
   function _renderPokerTableUI(currentStepData: RepeatedPokerStep): void {
     if (!elements.pokerTable || !currentStepData) return;
 
@@ -781,8 +879,12 @@ export function renderer(options: RendererOptions): void {
     return;
   }
 
-  _renderPokerTableUI(options.steps[options.step ?? 0]);
-  _renderLegendUI(options.steps, options.step ?? 0);
+  if (options.steps[options.step ?? 0].stepType === 'game-over') {
+    _renderFinalScreenUI(options.steps[options.step ?? 0]);
+  } else {
+    _renderPokerTableUI(options.steps[options.step ?? 0]);
+    _renderLegendUI(options.steps, options.step ?? 0);
+  }
 
   // Apply initial scale
   _applyScale(parent);

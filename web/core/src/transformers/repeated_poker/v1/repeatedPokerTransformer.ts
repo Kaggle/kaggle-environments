@@ -248,6 +248,10 @@ export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
       return `**Hand ${currentHandNumber}**: 🎉 ${winningPlayer?.name} wins ${winningPlayer?.reward}! 🎉`;
     }
+    case 'game-over': {
+      const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
+      return `🎉🎉🎉  ${winningPlayer?.name} WINS 🎉🎉🎉  `;
+    }
     default: {
       // If you missed a case, TypeScript will complain here because
       // it cannot assign the missed type to 'never'.
@@ -274,6 +278,8 @@ export const getPokerStepDescription = (gameStep: RepeatedPokerStep) => {
     case 'small-blind-post':
       return '';
     case 'final':
+      return '';
+    case 'game-over':
       return '';
     default: {
       // If you missed a case, TypeScript will complain here because
