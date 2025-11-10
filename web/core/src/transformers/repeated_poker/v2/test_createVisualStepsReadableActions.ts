@@ -90,7 +90,7 @@ if (playerActionStep) {
   const actingPlayerDisplay = playerActionStep.players[1].actionDisplayText;
   const nonActingPlayerDisplay = playerActionStep.players[0].actionDisplayText;
 
-  const expected = "Raise 5";
+  const expected = "Raise to 5";
 
   if (actingPlayerDisplay === expected && nonActingPlayerDisplay === "") {
     console.log("✅ player action step uses readable ACPC action");
