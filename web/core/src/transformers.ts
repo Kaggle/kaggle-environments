@@ -3,7 +3,10 @@ import { chessTransformer, getChessStepDescription, getChessStepLabel } from './
 import { ChessStep } from './transformers/chess/chessReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
-import { repeatedPokerTransformerV2 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
+import {
+  getPokerStepRenderTime,
+  repeatedPokerTransformerV2,
+} from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
 import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
@@ -80,6 +83,7 @@ export const getGameStepRenderTime = (
 ): number => {
   switch (gameName) {
     case 'repeated_poker':
+      return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
   }
