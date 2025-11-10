@@ -127,7 +127,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
   return moves;
 }
 
-function getCommunityCardsFromACPC(acpcState: string): string {
+export function getCommunityCardsFromACPC(acpcState: string): string {
   if (!acpcState) {
     return '';
   }
