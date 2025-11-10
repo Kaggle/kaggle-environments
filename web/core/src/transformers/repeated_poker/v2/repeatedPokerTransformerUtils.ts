@@ -214,7 +214,8 @@ const createFinalHandStep = (
 ): RepeatedPokerStep => {
   const players: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
     const reward = handRewards[id];
-    const isWinner = reward > 0;
+    const isWinner = reward >= 0;
+    const actionDisplayText = reward > 0 ? `WINS ${reward}` : reward === 0 ? 'SPLIT POT' : '';
     return {
       id,
       name: agents[id].Name,
@@ -223,7 +224,7 @@ const createFinalHandStep = (
       chipStack: STARTING_STACK_SIZE - finalJson.player_contributions[id],
       currentBet: finalJson.player_contributions[id],
       reward,
-      actionDisplayText: isWinner ? `WINS ${reward}` : '',
+      actionDisplayText: actionDisplayText,
       thoughts: '',
       isDealer: dealerId === id,
       isTurn: false,
@@ -722,30 +723,39 @@ function determineGenerator(remainingSteps: PokerReplayStepHistoryParsed[]): Ste
   const currentReplayStep = remainingSteps[0];
   const nextReplayStep = remainingSteps.length > 1 ? remainingSteps[1] : null;
 
-  // Rule 1: Is this a boundary between hands
-  if (nextReplayStep && nextReplayStep.hand_number > currentReplayStep.hand_number) {
+  // Rule 1: Is this the very last step of the entire replay?
+  if (nextReplayStep === null) {
+    return generateFinalReplaySequence;
+  }
+
+  const isHandBoundary = nextReplayStep.hand_number > currentReplayStep.hand_number;
+
+  // Rule 2: Community Cards take precedence over simple hand boundaries.
+  // This ensures all-in runouts (Turn/River) are generated before we close the hand.
+  // We also need a special 2nd condition here to handle the 'all-in' on the Turn case,
+  // we only have information about the River from the prev_universal_poker_json on the start of the next hand.
+  if (
+    nextReplayStep.current_universal_poker_json.board_cards.length >
+      currentReplayStep.current_universal_poker_json.board_cards.length ||
+    (isHandBoundary &&
+      nextReplayStep.prev_universal_poker_json.board_cards.length >
+        currentReplayStep.current_universal_poker_json.board_cards.length)
+  ) {
+    return generateCommunityCardStepSequence;
+  }
+
+  // Rule 3: Is this a boundary between hands
+  if (isHandBoundary) {
     // This is the *last* step of the current hand.
     // It could be an action (Fold) or a result (Runout).
     // `generateHandEndSequence` handles both cases.
     return generateHandEndStepSequence;
   }
-  // Rule 2: Is this the very last step of the entire replay?
-  if (nextReplayStep === null) {
-    return generateFinalReplaySequence;
-  }
 
-  // Rule 3: Is this the start of a new hand?
+  // Rule 4: Is this the start of a new hand?
   const hands = currentReplayStep.current_universal_poker_json.player_hands;
   if (hands[0] === '' && hands[1] === '') {
     return generatePreFlopStepSequence;
-  }
-
-  // Rule 4: Are community cards about to be dealt?
-  if (
-    nextReplayStep.current_universal_poker_json.board_cards.length >
-    currentReplayStep.current_universal_poker_json.board_cards.length
-  ) {
-    return generateCommunityCardStepSequence;
   }
 
   // Rule 5: Is this a standard player action?
