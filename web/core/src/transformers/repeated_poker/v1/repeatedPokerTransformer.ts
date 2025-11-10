@@ -246,11 +246,19 @@ export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
       return `**Hand ${currentHandNumber}**: Post Small Blind`;
     case 'final': {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
-      return `**Hand ${currentHandNumber}**: 🎉 ${winningPlayer?.name} wins ${winningPlayer?.reward}! 🎉`;
+      if (winningPlayer) {
+        return `**Hand ${currentHandNumber}**: 🎉 ${winningPlayer?.name} wins ${winningPlayer?.reward}! 🎉`;
+      } else {
+        return `**Hand ${currentHandNumber}**: Split Pot`;
+      }
     }
     case 'game-over': {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
-      return `🎉🎉🎉  ${winningPlayer?.name} WINS 🎉🎉🎉  `;
+      if (winningPlayer) {
+        return `🎉🎉🎉  ${winningPlayer?.name} WINS 🎉🎉🎉  `;
+      } else {
+        return 'MATCH IS A DRAW';
+      }
     }
     default: {
       // If you missed a case, TypeScript will complain here because

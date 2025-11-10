@@ -378,9 +378,8 @@ export function renderer(options: RendererOptions): void {
 
   interface CompletedHand {
     handNum: number;
-    winnerName: string;
-    winnerThumbnail?: string;
     amount: number;
+    winners: { name: string; thumbnail?: string }[];
   }
 
   interface DerivedLeaderboardInfo {
@@ -422,16 +421,15 @@ export function renderer(options: RendererOptions): void {
         });
 
         // Add to hand history table
-        // Find the winner(s). There might be multiple in a split pot.
         const winners = lastStepOfHandPlayers.filter((p) => p.isWinner);
-        winners.forEach((winner) => {
+        if (winners.length > 0) {
           completedHands.push({
             handNum: handIndex + 1,
-            winnerName: winner.name,
-            winnerThumbnail: winner.thumbnail,
-            amount: winner.reward || 0,
+            // In a split pot, players usually get the same reward. Taking the first one for display.
+            amount: winners[0].reward || 0,
+            winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
           });
-        });
+        }
       }
     });
 
@@ -466,22 +464,19 @@ export function renderer(options: RendererOptions): void {
 
     const currentStepData = steps[currentStepIndex];
     const { currentHandIndex } = currentStepData;
-    // Calculate derived data specifically for this frame
     const { topLeader, completedHands } = _deriveLeaderboardData(steps, currentStepIndex);
 
-    // Gather ALL unique player full names encountered so far for disambiguation
     const allPlayerNames = new Set<string>();
     if (topLeader) allPlayerNames.add(topLeader.name);
-    completedHands.forEach((h) => allPlayerNames.add(h.winnerName));
-    // Also add current players to ensure complete set if they haven't won yet
+    completedHands.forEach((h) => {
+      h.winners.forEach((w) => allPlayerNames.add(w.name));
+    });
     currentStepData.players.forEach((p) => allPlayerNames.add(p.name));
 
-    // 2. Generate the short name map
     const shortNameMap = _getDistinguishingNameMap(Array.from(allPlayerNames));
 
     // --- RENDER TITLE SECTION ---
     legendTitle.innerHTML = '';
-
     const handSpan = document.createElement('span');
     handSpan.textContent = `Hand: ${currentHandIndex != null ? currentHandIndex + 1 : 'Standby'}`;
     legendTitle.appendChild(handSpan);
@@ -489,14 +484,12 @@ export function renderer(options: RendererOptions): void {
     if (topLeader) {
       const leaderInfoDiv = document.createElement('div');
       leaderInfoDiv.className = 'legend-leader-info';
-
       if (topLeader.thumbnail) {
         const leaderThumbnail = document.createElement('img');
         leaderThumbnail.src = topLeader.thumbnail;
         leaderThumbnail.className = 'legend-title-avatar';
         leaderInfoDiv.appendChild(leaderThumbnail);
       }
-
       const leaderNameSpan = document.createElement('span');
       const leaderShortName = shortNameMap.get(topLeader.name) || topLeader.name;
       leaderNameSpan.textContent = `${leaderShortName} is up ${topLeader.winnings}`;
@@ -506,7 +499,6 @@ export function renderer(options: RendererOptions): void {
 
     // --- RENDER BODY/TABLE SECTION ---
     legendBody.innerHTML = '';
-
     const table = document.createElement('div');
     table.className = 'legend-table';
 
@@ -521,7 +513,6 @@ export function renderer(options: RendererOptions): void {
     table.appendChild(headerRow);
 
     if (completedHands.length > 0) {
-      // Slice and reverse to show newest hands first
       completedHands
         .slice()
         .reverse()
@@ -539,17 +530,23 @@ export function renderer(options: RendererOptions): void {
           const winnerCellContainer = document.createElement('div');
           winnerCellContainer.className = 'legend-winner-cell';
 
-          if (hand.winnerThumbnail) {
-            const winnerThumbnail = document.createElement('img');
-            winnerThumbnail.src = hand.winnerThumbnail;
-            winnerThumbnail.className = 'legend-avatar';
-            winnerCellContainer.appendChild(winnerThumbnail);
+          if (hand.winners.length > 1) {
+            const splitSpan = document.createElement('span');
+            splitSpan.textContent = 'Split Pot';
+            splitSpan.classList.add('legend-split-pot');
+            winnerCellContainer.appendChild(splitSpan);
+          } else {
+            const winner = hand.winners[0];
+            if (winner.thumbnail) {
+              const winnerThumbnail = document.createElement('img');
+              winnerThumbnail.src = winner.thumbnail;
+              winnerThumbnail.className = 'legend-avatar';
+              winnerCellContainer.appendChild(winnerThumbnail);
+            }
+            const winnerNameSpan = document.createElement('span');
+            winnerNameSpan.textContent = shortNameMap.get(winner.name) || winner.name;
+            winnerCellContainer.appendChild(winnerNameSpan);
           }
-
-          const winnerNameSpan = document.createElement('span');
-          winnerNameSpan.textContent = shortNameMap.get(hand.winnerName) || hand.winnerName;
-          winnerCellContainer.appendChild(winnerNameSpan);
-
           winnerCell.appendChild(winnerCellContainer);
           row.appendChild(winnerCell);
 
@@ -567,7 +564,6 @@ export function renderer(options: RendererOptions): void {
       emptyCell.className = 'legend-cell';
       emptyCell.style.textAlign = 'center';
       emptyCell.textContent = '-';
-      // We used 3 columns in the header
       emptyCell.style.gridColumn = '1 / span 3';
       emptyRow.appendChild(emptyCell);
       table.appendChild(emptyRow);
