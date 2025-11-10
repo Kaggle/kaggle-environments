@@ -49,10 +49,10 @@ vertex_ai/gemini-2.5-flash:
 vertex_ai/gemini-2.5-flash-lite:
   input_cost_per_token: 1e-7
   output_cost_per_token: 4e-7
-openai/anthropic/claude-3-5-haiku:
+openai/anthropic/claude-3-5-haiku@20241022:
   input_cost_per_token: 8e-7
   output_cost_per_token: 4e-6
-openai/anthropic/claude-3-5-sonnet-v2:
+openai/anthropic/claude-3-5-sonnet-v2@20241022:
   input_cost_per_token: 3e-6
   output_cost_per_token: 1.5e-5
 openai/anthropic/claude-opus-4@20250514:
