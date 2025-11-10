@@ -43,7 +43,7 @@ def agent(observation, configuration):
             model_name=f"openai/{os.environ['MODEL_NAME']}",
             system_prompt=LLM_SYSTEM_PROMPT,
             litellm_model_proxy_kwargs={
-                "api_base": os.environ["MODEL_PROXY_URL"],
+                "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
                 "api_key": os.environ["MODEL_PROXY_KEY"]
             }
         )
