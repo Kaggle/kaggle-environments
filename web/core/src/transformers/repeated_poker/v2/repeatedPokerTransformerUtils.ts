@@ -127,6 +127,42 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
   return moves;
 }
 
+function getCommunityCardsFromACPC(acpcState: string): string {
+  if (!acpcState) {
+    return '';
+  }
+
+  const lines = acpcState.trim().split('\n');
+  if (lines.length === 0) {
+    return '';
+  }
+
+  const stateParts = lines[0].split(':');
+  if (stateParts.length < 4) {
+    return '';
+  }
+
+  // Last part contains the cards (e.g., "6cKd|AsJc/7hQh6d/2h")
+  const cardString = stateParts[stateParts.length - 1];
+  
+  // Split by '|' to separate player hands from community cards
+  const cardSegments = cardString.split('|');
+  
+  if (cardSegments.length < 2) {
+    return '';
+  }
+
+  // After '|' we have: player1hand/flop/turn/river
+  // Split by '/' and skip the first segment (player 1's hand)
+  const segments = cardSegments[1].split('/');
+  
+  // Community cards start from index 1 (skip player 1's hand at index 0)
+  const communitySegments = segments.slice(1);
+  const fullBoardString = communitySegments.join('');
+  
+  return fullBoardString;
+}
+
 const getReadableActionDelta = (
   beforeJson: PokerReplayUniversalPokerJson,
   afterJson: PokerReplayUniversalPokerJson
@@ -189,9 +225,11 @@ const createPlayerActionStep = (
     isWinner: false,
   }));
 
+  const communityCards = getCommunityCardsFromACPC(beforeJson.acpc_state);
+
   return {
     stepType: 'player-action',
-    communityCards: afterJson.board_cards,
+    communityCards,
     pot: afterJson.pot_size,
     step: stepIndex,
     winOdds: afterJson.odds,
@@ -232,9 +270,11 @@ const createFinalHandStep = (
     };
   });
 
+  const communityCards = getCommunityCardsFromACPC(finalJson.acpc_state);
+
   return {
     stepType: 'final',
-    communityCards: finalJson.board_cards,
+    communityCards,
     pot: finalJson.pot_size,
     step: stepIndex,
     winOdds: finalJson.odds,
@@ -551,13 +591,14 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     }
 
     // Determine the step type
-    const boardCards = stateBeforeAction.current_universal_poker_json.board_cards;
+    const communityCards = getCommunityCardsFromACPC(stateBeforeAction.current_universal_poker_json.acpc_state);
+
     let stepType: RepeatedPokerStepType;
-    if (boardCards.length === 6) stepType = 'deal-flop';
-    else if (boardCards.length === 8) stepType = 'deal-turn';
-    else if (boardCards.length === 10) stepType = 'deal-river';
+    if (communityCards.length === 6) stepType = 'deal-flop';
+    else if (communityCards.length === 8) stepType = 'deal-turn';
+    else if (communityCards.length === 10) stepType = 'deal-river';
     else {
-      throw new Error(`Unexpected board cards length: ${boardCards.length}.`);
+      throw new Error(`Unexpected board cards length: ${communityCards.length}.`);
     }
 
     // --- Visual Step 1: The "Deal" Step ---
@@ -578,7 +619,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
 
     const dealStep: RepeatedPokerStep = {
       stepType,
-      communityCards: boardCards,
+      communityCards,
       pot: stateBeforeAction.current_universal_poker_json.pot_size,
       step: startIndex,
       winOdds: stateBeforeAction.current_universal_poker_json.odds,
@@ -653,9 +694,12 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
         else if (currentBoardLen === 8) stepType = 'deal-turn';
         else stepType = 'deal-river';
 
+        // When dealing cards, the acpc uses '2c' as a placeholder for cards about to be dealt. This removes those.
+        const communityCards = getCommunityCardsFromACPC(stateForDeal.acpc_state).substring(0, currentBoardLen);
+        
         newSteps.push({
           stepType,
-          communityCards: stateForDeal.board_cards,
+          communityCards,
           pot: stateForDeal.pot_size,
           step: visualStepIndex++,
           winOdds: stateForDeal.odds,
