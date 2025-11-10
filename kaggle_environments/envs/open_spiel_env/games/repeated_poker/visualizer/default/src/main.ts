@@ -1,33 +1,5 @@
-import { GameAdapter, ReplayData, RepeatedPokerStep, createReplayVisualizer } from '@kaggle-environments/core';
+import { createReplayVisualizer, LegacyAdapter } from '@kaggle-environments/core';
 import { renderer } from './repeated_poker_renderer';
-
-class LegacyAdapter implements GameAdapter {
-  private container: HTMLElement | null = null;
-
-  mount(container: HTMLElement): void {
-    this.container = container;
-  }
-
-  render(step: number, replay: ReplayData): void {
-    if (!this.container) return;
-    this.container.innerHTML = ''; // Clear container before rendering
-    renderer({
-      parent: this.container,
-      steps: replay.steps as RepeatedPokerStep[],
-      step: step,
-      // These are probably not used by poker but good to have
-      width: this.container.clientWidth,
-      height: this.container.clientHeight,
-    });
-  }
-
-  unmount(): void {
-    if (this.container) {
-      this.container.innerHTML = '';
-    }
-    this.container = null;
-  }
-}
 
 const app = document.getElementById('app');
 if (app) {
@@ -36,5 +8,5 @@ if (app) {
     import.meta.hot.accept();
   }
 
-  createReplayVisualizer(app, new LegacyAdapter());
+  createReplayVisualizer(app, new LegacyAdapter(renderer as any));
 }
