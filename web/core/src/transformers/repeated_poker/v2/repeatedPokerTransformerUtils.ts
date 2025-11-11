@@ -88,7 +88,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
         const roundBaseline = streetBaselines[actingPlayer];
         const roundTotal = Math.max(targetTotal - roundBaseline, 0);
         const hasOutstandingBet = currentMax > highestBaseline;
-        const verb = hasOutstandingBet ? 'Raise to ' : 'Bet';
+        const verb = hasOutstandingBet ? 'Raise to' : 'Bet';
 
         if (!Number.isFinite(targetTotal)) {
           throw new Error(`Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`);
