@@ -1,8 +1,7 @@
 import { ChessStep } from '@kaggle-environments/core';
 import { DARK_SQUARE_COLOR, DEFAULT_NUM_COLS, DEFAULT_NUM_ROWS, LIGHT_SQUARE_COLOR, PIECE_IMAGES_SRC } from './consts';
-import { RendererOptions } from './main';
 
-export function renderer(options: RendererOptions) {
+export function renderer(options: any) {
   const { steps, step, parent, playerNames, width = 400, height = 400, viewer } = options;
 
   let currentBoardElement: HTMLElement | null = null;
