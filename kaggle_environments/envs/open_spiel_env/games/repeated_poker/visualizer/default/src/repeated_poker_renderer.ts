@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, RepeatedPokerStepType } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
 
@@ -21,6 +21,7 @@ declare global {
 interface RendererOptions {
   parent: HTMLElement;
   steps: RepeatedPokerStep[]; // This is the main data object
+  replay?: any;
   step?: number;
   width: number;
   height: number;
@@ -46,6 +47,76 @@ interface PokerTableElements {
   diagnosticHeader: HTMLElement | null;
   stepCounter: HTMLElement | null; // Note: stepCounter is in 'elements' but not created in _ensurePokerTableElements
   legend: HTMLElement | null;
+}
+
+interface RoundBetCacheEntry {
+  stepsRef: RepeatedPokerStep[];
+  length: number;
+  bets: number[][];
+}
+
+const ROUND_RESET_STEP_TYPES: Set<RepeatedPokerStepType> = new Set([
+  'deal-flop',
+  'deal-turn',
+  'deal-river',
+  'final',
+  'game-over',
+]);
+
+const replayRoundBetCache = new WeakMap<object, RoundBetCacheEntry>();
+
+function computeRoundBets(steps: RepeatedPokerStep[]): number[][] {
+  if (!steps || steps.length === 0) {
+    return [];
+  }
+
+  const result: number[][] = steps.map(() => []);
+  let currentHandIndex = steps[0]?.currentHandIndex ?? 0;
+  let baselines: Record<number, number> = {};
+
+  steps.forEach((step, stepIndex) => {
+    if (step.currentHandIndex !== currentHandIndex) {
+      currentHandIndex = step.currentHandIndex;
+      baselines = {};
+    }
+
+    if (ROUND_RESET_STEP_TYPES.has(step.stepType)) {
+      const resetPlayers = step.players as RepeatedPokerStepPlayer[];
+      baselines = resetPlayers.reduce((acc, player) => {
+        acc[player.id] = player.currentBet;
+        return acc;
+      }, {} as Record<number, number>);
+    }
+
+    const players = step.players as RepeatedPokerStepPlayer[];
+
+    result[stepIndex] = players.map((player) => {
+      const baseline = baselines[player.id] ?? 0;
+      const contribution = player.currentBet - baseline;
+      return contribution > 0 ? contribution : 0;
+    });
+  });
+
+  return result;
+}
+
+function getRoundBetsForReplay(replay: any, steps: RepeatedPokerStep[]): number[][] {
+  if (!steps || steps.length === 0) {
+    return [];
+  }
+
+  if (!replay) {
+    return computeRoundBets(steps);
+  }
+
+  const cached = replayRoundBetCache.get(replay);
+  if (cached && cached.stepsRef === steps && cached.length === steps.length) {
+    return cached.bets;
+  }
+
+  const computed = computeRoundBets(steps);
+  replayRoundBetCache.set(replay, { stepsRef: steps, length: steps.length, bets: computed });
+  return computed;
 }
 
 export function renderer(options: RendererOptions): void {
@@ -669,7 +740,7 @@ export function renderer(options: RendererOptions): void {
     //TODO - implement
   }
 
-  function _renderPokerTableUI(currentStepData: RepeatedPokerStep): void {
+  function _renderPokerTableUI(currentStepData: RepeatedPokerStep, roundBetsForStep?: number[]): void {
     if (!elements.pokerTable || !currentStepData) return;
 
     const { players, communityCards, stepType, pot, winOdds, bestFiveCardHands, bestHandRankTypes } = currentStepData;
@@ -768,9 +839,12 @@ export function renderer(options: RendererOptions): void {
         });
       }
 
+      const roundBetAmount =
+        roundBetsForStep && roundBetsForStep[index] != null ? roundBetsForStep[index] : playerData.currentBet;
+
       // Update chip stacks on the table
       if (elements.chipStacks[index]) {
-        updateChipStack(elements.chipStacks[index], playerData.currentBet);
+        updateChipStack(elements.chipStacks[index], roundBetAmount);
       }
 
       // Update info area (right side)
@@ -800,13 +874,14 @@ export function renderer(options: RendererOptions): void {
           if (playerData.isWinner) {
             betDisplay.classList.add('winner-player');
           }
-          if (playerData.currentBet > 0) {
-            if (playerData.actionDisplayText) {
-              betDisplay.textContent = playerData.actionDisplayText;
-            } else {
-              betDisplay.textContent = '';
-            }
+          const hasActionText = !!playerData.actionDisplayText;
+          const hasChipsInFront = playerData.currentBet > 0;
+
+          if (hasActionText || hasChipsInFront) {
+            betDisplay.textContent = hasActionText ? playerData.actionDisplayText || '' : '';
             betDisplay.style.display = 'block';
+          } else {
+            betDisplay.style.display = 'none';
           }
         }
 
@@ -875,11 +950,22 @@ export function renderer(options: RendererOptions): void {
     return;
   }
 
-  if (options.steps[options.step ?? 0].stepType === 'game-over') {
-    _renderFinalScreenUI(options.steps[options.step ?? 0]);
+  if (!options.steps || options.steps.length === 0) {
+    console.error('Renderer: No steps provided.');
+    return;
+  }
+
+  const totalSteps = options.steps;
+  const clampedStep = Math.max(0, Math.min(totalSteps.length - 1, options.step ?? 0));
+  const currentStepData = totalSteps[clampedStep];
+  const roundBetMatrix = getRoundBetsForReplay(options.replay, totalSteps);
+  const roundBetsForStep = roundBetMatrix[clampedStep];
+
+  if (currentStepData.stepType === 'game-over') {
+    _renderFinalScreenUI(currentStepData);
   } else {
-    _renderPokerTableUI(options.steps[options.step ?? 0]);
-    _renderLegendUI(options.steps, options.step ?? 0);
+    _renderPokerTableUI(currentStepData, roundBetsForStep);
+    _renderLegendUI(totalSteps, clampedStep);
   }
 
   // Apply initial scale

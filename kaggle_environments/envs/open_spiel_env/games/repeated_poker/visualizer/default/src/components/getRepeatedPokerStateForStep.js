@@ -2,13 +2,38 @@ import { getActionStringsFromACPC } from '@kaggle-environments/core';
 
 const PLACEHOLDER_CARD = '2c';
 
-function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers = 2) {
+function countRoundTransitions(bettingString) {
+  if (!bettingString) {
+    return 0;
+  }
+  return bettingString.split('/').length - 1;
+}
+
+function buildRoundInfo(universalPokerJSON, prevUniversalPokerJSON) {
+  const bettingString = universalPokerJSON?.betting_history || '';
+  const prevBettingString = prevUniversalPokerJSON?.betting_history || '';
+  const roundIndex = countRoundTransitions(bettingString);
+  const prevRoundIndex = countRoundTransitions(prevBettingString);
+
+  return {
+    roundIndex,
+    isNewRound: roundIndex > prevRoundIndex,
+    bettingString,
+  };
+}
+
+function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers = 2, prevUniversalPokerJSON = null) {
   const result = {
     cards: [],
     communityCards: '',
     bets: [],
     playerActionStrings: Array(numPlayers).fill(''),
-    winOdds: [0, 0]
+    winOdds: [0, 0],
+    roundInfo: {
+      roundIndex: 0,
+      isNewRound: false,
+      bettingString: ''
+    }
   };
 
   if (!universalPokerJSON) {
@@ -58,6 +83,8 @@ function _parseStepHistoryData(universalPokerJSON, nextPlayerIndex, numPlayers =
     if (bettingString) {
       result.playerActionStrings = getActionStringsFromACPC(bettingString, nextPlayerIndex, numPlayers);
     }
+
+    result.roundInfo = buildRoundInfo(universalPokerJSON, prevUniversalPokerJSON);
   }
 
   const odds = universalPokerJSON.odds || [];
@@ -122,9 +149,11 @@ function getUniversalState(environment, index) {
     return null;
   }
   const outer = JSON.parse(entry);
+  const prevUniversal = outer?.prev_universal_poker_json ? JSON.parse(outer.prev_universal_poker_json) : null;
   return {
     outer,
-    universal: JSON.parse(outer.current_universal_poker_json)
+    universal: JSON.parse(outer.current_universal_poker_json),
+    prevUniversal
   };
 }
 
@@ -148,7 +177,8 @@ export const getPokerStateForStep = (environment, step) => {
   const parsedStateHistory = _parseStepHistoryData(
     stateInfo.universal,
     event.actingPlayer,
-    numPlayers
+    numPlayers,
+    stateInfo.prevUniversal
   );
 
   const startingStacks = stateInfo.universal?.starting_stacks || Array(numPlayers).fill(0);
@@ -255,6 +285,7 @@ export const getPokerStateForStep = (environment, step) => {
     winner: -1,
     handCount: event.hand,
     previousHands,
-    leaderInfo
+    leaderInfo,
+    roundInfo: parsedStateHistory.roundInfo
   };
 };
