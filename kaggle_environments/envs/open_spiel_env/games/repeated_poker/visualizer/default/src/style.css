@@ -463,10 +463,11 @@
   border-radius: 50%;
   text-align: center;
   font-weight: bold;
-  font-size: 28px;
+  font-family: "Inter", sans-serif;
+  font-size: 30px;
   position: absolute;
   padding-left: 1px;
-  line-height: 33px;
+  line-height: 36px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   z-index: 15;
   pointer-events: auto;
