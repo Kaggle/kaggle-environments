@@ -68,23 +68,23 @@ openai/anthropic/claude-sonnet-4-5@20250929:
   input_cost_per_token: 3e-6
   output_cost_per_token: 1.5e-5
 openai/deepseek-ai/deepseek-r1-0528:
-  input_cost_per_token: 3e-7
-  output_cost_per_token: 1.2e-6
+  input_cost_per_token: 1.35e-6
+  output_cost_per_token: 5.4e-6
 openai/google/gemini-1.5-flash:
   input_cost_per_token: 7.5e-8
-  output_cost_per_token: 3e-7
+  output_cost_per_token: 6e-7
 openai/google/gemini-1.5-pro:
-  input_cost_per_token: 3.5e-6
-  output_cost_per_token: 1.05e-5
-openai/google/gemini-2.0-flash:
+  input_cost_per_token: 2.5e-6
+  output_cost_per_token: 1e-5
+openai/google/gemini-2.0-flash-001:
   input_cost_per_token: 1e-7
   output_cost_per_token: 4e-7
 openai/google/gemini-2.0-flash-lite:
   input_cost_per_token: 7.5e-8
   output_cost_per_token: 3e-7
 openai/google/gemini-2.5-flash:
-  input_cost_per_token: 1.5e-7
-  output_cost_per_token: 6e-7
+  input_cost_per_token: 3e-7
+  output_cost_per_token: 2.5e-6
 openai/google/gemini-2.5-flash-lite:
   input_cost_per_token: 1e-7
   output_cost_per_token: 4e-7
@@ -92,8 +92,8 @@ openai/google/gemini-2.5-pro:
   input_cost_per_token: 1.25e-6
   output_cost_per_token: 1e-5
 openai/meta/llama-3.1-70b:
-  input_cost_per_token: 4e-7
-  output_cost_per_token: 4e-7
+  input_cost_per_token: 1.25e-6
+  output_cost_per_token: 4e-6
 openai/openai/gpt-4-0125-preview:
   input_cost_per_token: 1e-5
   output_cost_per_token: 3e-5
@@ -104,8 +104,8 @@ openai/openai/gpt-4.1-mini-2025-04-14:
   input_cost_per_token: 4e-7
   output_cost_per_token: 1.6e-6
 openai/openai/gpt-4o-2024-08-06:
-  input_cost_per_token: 2.5e-6
-  output_cost_per_token: 1e-5
+  input_cost_per_token: 3.75e-6
+  output_cost_per_token: 1.5e-5
 openai/openai/gpt-5-2025-08-07:
   input_cost_per_token: 1.25e-6
   output_cost_per_token: 1e-5
@@ -131,8 +131,8 @@ openai/openai/o4-mini-2025-04-16:
   input_cost_per_token: 1.1e-6
   output_cost_per_token: 4.4e-6
 openai/qwen/qwen3-235b-a22b-instruct-2507:
-  input_cost_per_token: 7.8e-8
-  output_cost_per_token: 3.12e-7
+  input_cost_per_token: 2.5e-7
+  output_cost_per_token: 1e-6
 openai/xai/grok-4-fast-reasoning:
   input_cost_per_token: 2e-7
   output_cost_per_token: 5e-7
