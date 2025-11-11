@@ -42,7 +42,7 @@
 
 .poker-game-layout {
   width: 1000px;
-  height: 950px;
+  height: 1000px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,11 +110,11 @@
 }
 
 .player-container-0 {
-  top: 0;
+  top: 30px;
 }
 
 .player-container-1 {
-  bottom: 0;
+  bottom: 30px;
   flex-direction: column-reverse;
 }
 
@@ -463,10 +463,11 @@
   border-radius: 50%;
   text-align: center;
   font-weight: bold;
-  font-size: 28px;
+  font-family: "Inter", sans-serif;
+  font-size: 30px;
   position: absolute;
   padding-left: 1px;
-  line-height: 33px;
+  line-height: 36px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   z-index: 15;
   pointer-events: auto;
@@ -571,8 +572,8 @@
 
 .legend {
   position: absolute;
-  top: 0px;
-  right: 0px;
+  top: 20px;
+  right: 0;
   width: 280px;
   background-color: rgba(32, 33, 36, 0.7);
   border-radius: 8px;
@@ -608,6 +609,7 @@
   padding: 10px;
   max-height: 200px;
   overflow-y: auto;
+  font-family: "Inter", sans-serif;
 }
 
 .legend-table {
