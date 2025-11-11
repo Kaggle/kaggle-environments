@@ -571,8 +571,8 @@
 
 .legend {
   position: absolute;
-  top: 0px;
-  right: 0px;
+  top: 20px;
+  right: 0;
   width: 280px;
   background-color: rgba(32, 33, 36, 0.7);
   border-radius: 8px;
