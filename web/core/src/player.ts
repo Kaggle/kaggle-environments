@@ -218,10 +218,13 @@ export class ReplayVisualizer {
       needsRender = true;
     }
 
-    // Update steps from 'setSteps'
+    // Update steps from 'setSteps' - this is a special case.
+    // The renderer is taking control of the steps, and we just need to update
+    // our controls to match, not trigger a destructive re-render.
     if (event.data.setSteps && this.replay) {
       this.replay.steps = event.data.setSteps;
-      needsRender = true;
+      this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
+      this.renderControls();
     }
 
     // Overwrite replay object if a full 'replay' is provided
@@ -285,7 +288,7 @@ export class ReplayVisualizer {
 
     // Only render/tick if not told to skip (e.g., during HMR restore)
     if (!options.skipRender) {
-      this.adapter.render(this.step, this.replay, this.agents);
+      this.adapter.render(this.step, this.replay, this.agents, this);
       this.tick();
     }
   }
@@ -300,7 +303,7 @@ export class ReplayVisualizer {
     }
     // --- End HMR Logic ---
 
-    this.adapter.render(this.step, this.replay, this.agents);
+    this.adapter.render(this.step, this.replay, this.agents, this);
     this.renderControls();
   }
 
@@ -331,6 +334,18 @@ export class ReplayVisualizer {
     }
     // --- End HMR Logic ---
 
+    this.renderControls();
+  }
+
+  /**
+   * Sets the playing state directly and updates controls, but does not trigger
+   * the timer-based 'tick()' method. Useful for renderers that implement their
+   * own playback logic (e.g., audio-driven).
+   * @param playing The new playing state.
+   */
+  public setPlayingState(playing: boolean) {
+    if (this.playing === playing) return;
+    this.playing = playing;
     this.renderControls();
   }
 
