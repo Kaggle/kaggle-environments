@@ -110,11 +110,11 @@
 }
 
 .player-container-0 {
-  top: 0;
+  top: 30px;
 }
 
 .player-container-1 {
-  bottom: 0;
+  bottom: 30px;
   flex-direction: column-reverse;
 }
 
