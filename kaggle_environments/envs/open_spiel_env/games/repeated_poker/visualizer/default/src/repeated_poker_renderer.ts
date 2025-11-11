@@ -770,7 +770,7 @@ export function renderer(options: RendererOptions): void {
 
       // Update chip stacks on the table
       if (elements.chipStacks[index]) {
-        updateChipStack(elements.chipStacks[index], playerData.currentBet);
+        updateChipStack(elements.chipStacks[index], playerData.currentBetForStreet);
       }
 
       // Update info area (right side)

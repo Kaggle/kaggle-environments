@@ -144,10 +144,10 @@ export function getCommunityCardsFromACPC(acpcState: string): string {
 
   // Last part contains the cards (e.g., "6cKd|AsJc/7hQh6d/2h")
   const cardString = stateParts[stateParts.length - 1];
-  
+
   // Split by '|' to separate player hands from community cards
   const cardSegments = cardString.split('|');
-  
+
   if (cardSegments.length < 2) {
     return '';
   }
@@ -155,12 +155,65 @@ export function getCommunityCardsFromACPC(acpcState: string): string {
   // After '|' we have: player1hand/flop/turn/river
   // Split by '/' and skip the first segment (player 1's hand)
   const segments = cardSegments[1].split('/');
-  
+
   // Community cards start from index 1 (skip player 1's hand at index 0)
   const communitySegments = segments.slice(1);
   const fullBoardString = communitySegments.join('');
-  
+
   return fullBoardString;
+}
+
+// Calculates the total chip contribution per player at the END of the previous street.
+// This serves as the "baseline" to subtract from the total to get the current street's bet.
+function getStreetBaselinesFromACPC(acpcState: string): number[] {
+  const bettingString = getBettingStringFromACPCState(acpcState);
+  if (!bettingString) return [0, 0];
+
+  const streets = bettingString.split('/');
+
+  // If we are in pre-flop (length 1), there are no previous streets.
+  if (streets.length <= 1) {
+    return [0, 0];
+  }
+
+  // We sum up contributions from all streets EXCEPT the last one (the current one)
+  const previousStreets = streets.slice(0, streets.length - 1);
+
+  const totalContributions: number[] = [2, 1]; // Standard blinds start
+
+  previousStreets.forEach((streetAction, streetIndex) => {
+    const trimmedAction = streetAction.trim();
+    if (!trimmedAction) return;
+
+    let actingPlayer = FIRST_ACTOR_BY_STREET[Math.min(streetIndex, FIRST_ACTOR_BY_STREET.length - 1)];
+
+    let i = 0;
+    while (i < trimmedAction.length) {
+      const char = trimmedAction[i];
+      const currentMax = Math.max(...totalContributions);
+
+      if (char === 'r') {
+        let amount = '';
+        i++;
+        while (i < trimmedAction.length && trimmedAction[i] >= '0' && trimmedAction[i] <= '9') {
+          amount += trimmedAction[i];
+          i++;
+        }
+        const targetTotal = parseInt(amount || '0', 10);
+        if (Number.isFinite(targetTotal)) {
+          totalContributions[actingPlayer] = targetTotal;
+        }
+      } else if (char === 'c') {
+        totalContributions[actingPlayer] = currentMax;
+        i++;
+      } else {
+        i++;
+      }
+      actingPlayer = (actingPlayer + 1) % NUM_PLAYERS;
+    }
+  });
+
+  return totalContributions;
 }
 
 const getReadableActionDelta = (
@@ -210,6 +263,9 @@ const createPlayerActionStep = (
 
   const readableActionDisplay = getReadableActionDelta(beforeJson, afterJson);
   const finalActionDisplay = readableActionDisplay ?? parsedActionString ?? '';
+
+  const baselines = getStreetBaselinesFromACPC(beforeJson.acpc_state);
+
   const players = [0, 1].map((id) => ({
     id,
     name: agents[id].Name,
@@ -217,6 +273,7 @@ const createPlayerActionStep = (
     cards: afterJson.player_hands[id],
     chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
     currentBet: afterJson.player_contributions[id],
+    currentBetForStreet: Math.max(0, afterJson.player_contributions[id] - baselines[id]),
     reward: null,
     actionDisplayText: id === actingPlayerId ? finalActionDisplay : '',
     thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
@@ -261,6 +318,7 @@ const createFinalHandStep = (
       cards: finalJson.player_hands[id],
       chipStack: STARTING_STACK_SIZE - finalJson.player_contributions[id],
       currentBet: finalJson.player_contributions[id],
+      currentBetForStreet: 0,
       reward,
       actionDisplayText: actionDisplayText,
       thoughts: '',
@@ -480,6 +538,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     cards: '',
     chipStack: id === sbPlayerId ? STARTING_STACK_SIZE - small_blind : STARTING_STACK_SIZE,
     currentBet: id === sbPlayerId ? small_blind : 0,
+    currentBetForStreet: id === sbPlayerId ? small_blind : 0,
     reward: null,
     actionDisplayText: id === sbPlayerId ? 'SB' : '',
     thoughts: '',
@@ -507,6 +566,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
           ...player,
           chipStack: STARTING_STACK_SIZE - big_blind,
           currentBet: big_blind,
+          currentBetForStreet: big_blind,
           actionDisplayText: 'BB',
         }
       : { ...player, actionDisplayText: '' }
@@ -609,6 +669,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
       cards: stateBeforeAction.current_universal_poker_json.player_hands[id],
       chipStack: STARTING_STACK_SIZE - stateBeforeAction.current_universal_poker_json.player_contributions[id],
       currentBet: stateBeforeAction.current_universal_poker_json.player_contributions[id],
+      currentBetForStreet: 0,
       reward: null,
       actionDisplayText: '',
       thoughts: '',
@@ -696,7 +757,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
 
         // When dealing cards, the acpc uses '2c' as a placeholder for cards about to be dealt. This removes those.
         const communityCards = getCommunityCardsFromACPC(stateForDeal.acpc_state).substring(0, currentBoardLen);
-        
+
         newSteps.push({
           stepType,
           communityCards,
@@ -714,6 +775,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
             cards: stateForDeal.player_hands[id],
             chipStack: STARTING_STACK_SIZE - stateForDeal.player_contributions[id],
             currentBet: stateForDeal.player_contributions[id],
+            currentBetForStreet: 0,
             reward: null,
             actionDisplayText: '',
             thoughts: '',
