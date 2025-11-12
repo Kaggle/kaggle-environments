@@ -699,7 +699,7 @@ export function renderer(options: RendererOptions): void {
     if (stepType === 'final' && players.every((p) => (p as RepeatedPokerStepPlayer).isWinner)) {
       isSplitPot = true;
     }
-    
+
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
       const shouldHighlight = !isSplitPot && winnerBestHand.includes(communityCardsArray[i]);
@@ -770,7 +770,7 @@ export function renderer(options: RendererOptions): void {
           bestFiveCardHands && bestFiveCardHands[index]
             ? bestFiveCardHands[index].match(/.{1,2}/g) || ([] as string[])
             : ([] as string[]);
-            
+
         const shouldHighlightWinningHand = isWinner && showCards && isShowdown && bestHandArray.length > 0;
         (playerCardsArray || [null, null]).forEach((cardStr) => {
           const shouldHighlight = shouldHighlightWinningHand && cardStr && bestHandArray.includes(cardStr);
@@ -794,13 +794,13 @@ export function renderer(options: RendererOptions): void {
         } else {
           playerInfoArea.classList.remove('active-player');
         }
-        if (isSplitPot){
+        if (isSplitPot) {
           playerInfoArea.classList.add('split-pot');
         }
 
         // Highlight winner's pod
         if (isWinner) {
-          playerInfoArea.classList.add('winner-player');    
+          playerInfoArea.classList.add('winner-player');
         } else {
           playerInfoArea.classList.remove('winner-player');
         }
@@ -813,14 +813,14 @@ export function renderer(options: RendererOptions): void {
         const betDisplay = playerInfoArea.querySelector('.bet-display') as HTMLElement;
         if (betDisplay) {
           if (isWinner) {
-              betDisplay.classList.add('winner-player');
-          } else if (isSplitPot){
-              betDisplay.classList.add('split-pot');
+            betDisplay.classList.add('winner-player');
+          } else if (isSplitPot) {
+            betDisplay.classList.add('split-pot');
           } else {
-            if (isTurn){
+            if (isTurn) {
               betDisplay.classList.add('active-player');
             }
-            if (isAllIn){
+            if (isAllIn) {
               betDisplay.classList.add('all-in');
             }
           }
