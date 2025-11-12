@@ -266,21 +266,28 @@ const createPlayerActionStep = (
 
   const baselines = getStreetBaselinesFromACPC(beforeJson.acpc_state);
 
-  const players = [0, 1].map((id) => ({
-    id,
-    name: agents[id].Name,
-    thumbnail: agents[id].ThumbnailUrl,
-    cards: afterJson.player_hands[id],
-    chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
-    currentBet: afterJson.player_contributions[id],
-    currentBetForStreet: Math.max(0, afterJson.player_contributions[id] - baselines[id]),
-    reward: null,
-    actionDisplayText: id === actingPlayerId ? finalActionDisplay : '',
-    thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
-    isDealer: stateAfterAction.dealer === id,
-    isTurn: id === actingPlayerId,
-    isWinner: false,
-  }));
+  const streetContributions = [0, 1].map((id) => afterJson.player_contributions[id] - baselines[id]);
+  const maxStreetContribution = Math.max(...streetContributions);
+  const players = [0, 1].map((id) => {
+    const callAmount = maxStreetContribution - streetContributions[id];
+    const waitingDisplay = callAmount === 0 ? '' : `${callAmount} to call`;
+    
+    return {
+      id,
+      name: agents[id].Name,
+      thumbnail: agents[id].ThumbnailUrl,
+      cards: afterJson.player_hands[id],
+      chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
+      currentBet: afterJson.player_contributions[id],
+      currentBetForStreet: Math.max(0, afterJson.player_contributions[id] - baselines[id]),
+      reward: null,
+      actionDisplayText: id === actingPlayerId ? finalActionDisplay : waitingDisplay,
+      thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
+      isDealer: stateAfterAction.dealer === id,
+      isTurn: id === actingPlayerId,
+      isWinner: false,
+    };
+  });
 
   const communityCards = getCommunityCardsFromACPC(beforeJson.acpc_state);
 
