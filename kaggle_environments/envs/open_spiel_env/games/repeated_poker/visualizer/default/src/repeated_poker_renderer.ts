@@ -693,9 +693,16 @@ export function renderer(options: RendererOptions): void {
         ? bestFiveCardHands[winnerIndex].match(/.{1,2}/g) || ([] as string[])
         : ([] as string[]);
 
+    // Check for split pot
+    let isSplitPot = false;
+    // If both players are winners, then it's a split pot
+    if (stepType === 'final' && players.every((p) => (p as RepeatedPokerStepPlayer).isWinner)) {
+      isSplitPot = true;
+    }
+
     // Add actual cards
     for (let i = 0; i < numCards; i++) {
-      const shouldHighlight = winnerBestHand.includes(communityCardsArray[i]);
+      const shouldHighlight = !isSplitPot && winnerBestHand.includes(communityCardsArray[i]);
       elements.communityCardsContainer.appendChild(createCardElement(communityCardsArray[i], false, shouldHighlight));
     }
 
@@ -713,18 +720,23 @@ export function renderer(options: RendererOptions): void {
       // Casting 'basePlayerData' to 'RepeatedPokerStepPlayer' to access properties.
       const playerData = basePlayerData as RepeatedPokerStepPlayer;
 
+      const isWinner = playerData.actionDisplayText !== 'SPLIT POT' && playerData.isWinner;
+      const isSplitPot = playerData.actionDisplayText === 'SPLIT POT';
+      const isAllIn = playerData.actionDisplayText === 'ALL-IN';
+      const isTurn = playerData.isTurn;
+
       const playerNameElement = elements.playerNames[index];
       if (playerNameElement) {
         playerNameElement.textContent = playerData.name;
 
-        if (playerData.isTurn) {
+        if (isTurn) {
           playerNameElement.classList.add('current-turn');
         } else {
           playerNameElement.classList.remove('current-turn');
         }
 
         // Add winner class if player won
-        if (playerData.isWinner) {
+        if (isWinner) {
           playerNameElement.classList.add('winner');
         } else {
           playerNameElement.classList.remove('winner');
@@ -758,8 +770,8 @@ export function renderer(options: RendererOptions): void {
           bestFiveCardHands && bestFiveCardHands[index]
             ? bestFiveCardHands[index].match(/.{1,2}/g) || ([] as string[])
             : ([] as string[]);
-        const shouldHighlightWinningHand = playerData.isWinner && showCards && isShowdown && bestHandArray.length > 0;
 
+        const shouldHighlightWinningHand = isWinner && showCards && isShowdown && bestHandArray.length > 0;
         (playerCardsArray || [null, null]).forEach((cardStr) => {
           const shouldHighlight = shouldHighlightWinningHand && cardStr && bestHandArray.includes(cardStr);
           playerCardsContainer.appendChild(
@@ -777,14 +789,17 @@ export function renderer(options: RendererOptions): void {
       const playerInfoArea = elements.playerInfoAreas[index];
       if (playerInfoArea) {
         // Highlight active player's pod
-        if (playerData.isTurn) {
+        if (isTurn) {
           playerInfoArea.classList.add('active-player');
         } else {
           playerInfoArea.classList.remove('active-player');
         }
+        if (isSplitPot) {
+          playerInfoArea.classList.add('split-pot');
+        }
 
         // Highlight winner's pod
-        if (playerData.isWinner) {
+        if (isWinner) {
           playerInfoArea.classList.add('winner-player');
         } else {
           playerInfoArea.classList.remove('winner-player');
@@ -797,8 +812,17 @@ export function renderer(options: RendererOptions): void {
 
         const betDisplay = playerInfoArea.querySelector('.bet-display') as HTMLElement;
         if (betDisplay) {
-          if (playerData.isWinner) {
+          if (isWinner) {
             betDisplay.classList.add('winner-player');
+          } else if (isSplitPot) {
+            betDisplay.classList.add('split-pot');
+          } else {
+            if (isTurn) {
+              betDisplay.classList.add('active-player');
+            }
+            if (isAllIn) {
+              betDisplay.classList.add('all-in');
+            }
           }
           if (playerData.currentBet > 0) {
             if (playerData.actionDisplayText) {
@@ -806,7 +830,6 @@ export function renderer(options: RendererOptions): void {
             } else {
               betDisplay.textContent = '';
             }
-            betDisplay.style.display = 'block';
           }
         }
 
