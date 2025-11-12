@@ -262,7 +262,7 @@ const createPlayerActionStep = (
   }
 
   const readableActionDisplay = getReadableActionDelta(beforeJson, afterJson);
-  const finalActionDisplay = readableActionDisplay ?? parsedActionString ?? '';
+  const activeActionDisplay = readableActionDisplay ?? parsedActionString ?? '';
 
   const baselines = getStreetBaselinesFromACPC(beforeJson.acpc_state);
 
@@ -270,7 +270,7 @@ const createPlayerActionStep = (
   const maxStreetContribution = Math.max(...streetContributions);
   const players = [0, 1].map((id) => {
     const callAmount = maxStreetContribution - streetContributions[id];
-    const waitingDisplay = callAmount === 0 ? '' : `${callAmount} to call`;
+    const waitingActionDisplay = callAmount === 0 ? '' : `${callAmount} to call`;
     
     return {
       id,
@@ -281,7 +281,7 @@ const createPlayerActionStep = (
       currentBet: afterJson.player_contributions[id],
       currentBetForStreet: Math.max(0, afterJson.player_contributions[id] - baselines[id]),
       reward: null,
-      actionDisplayText: id === actingPlayerId ? finalActionDisplay : waitingDisplay,
+      actionDisplayText: id === actingPlayerId ? activeActionDisplay : waitingActionDisplay,
       thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
       isDealer: stateAfterAction.dealer === id,
       isTurn: id === actingPlayerId,
