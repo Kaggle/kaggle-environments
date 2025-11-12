@@ -271,17 +271,28 @@ const createPlayerActionStep = (
   const players = [0, 1].map((id) => {
     const callAmount = maxStreetContribution - streetContributions[id];
     const waitingActionDisplay = callAmount === 0 ? '' : `${callAmount} to call`;
+    const chipStack = STARTING_STACK_SIZE - afterJson.player_contributions[id];
+    const isAllIn = chipStack === 0;
+    
+    let actionDisplayText: string;
+    if (isAllIn) {
+      actionDisplayText = 'ALL-IN';
+    } else if (id === actingPlayerId) {
+      actionDisplayText = activeActionDisplay;
+    } else {
+      actionDisplayText = waitingActionDisplay;
+    }
     
     return {
       id,
       name: agents[id].Name,
       thumbnail: agents[id].ThumbnailUrl,
       cards: afterJson.player_hands[id],
-      chipStack: STARTING_STACK_SIZE - afterJson.player_contributions[id],
+      chipStack,
       currentBet: afterJson.player_contributions[id],
       currentBetForStreet: Math.max(0, afterJson.player_contributions[id] - baselines[id]),
       reward: null,
-      actionDisplayText: id === actingPlayerId ? activeActionDisplay : waitingActionDisplay,
+      actionDisplayText,
       thoughts: id === actingPlayerId ? (actionObject?.action?.thoughts ?? '') : '',
       isDealer: stateAfterAction.dealer === id,
       isTurn: id === actingPlayerId,
