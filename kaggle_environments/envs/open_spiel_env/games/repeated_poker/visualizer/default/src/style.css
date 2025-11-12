@@ -166,6 +166,10 @@
   border-color: #ffeb70;
 }
 
+.player-info-area.split-pot {
+  border-color: #FF5C19;
+}
+
 .player-container-0 .player-info-area {
   flex-direction: column-reverse;
 }
@@ -433,20 +437,36 @@
   padding: 10px;
   border-radius: 30px;
   background-color: #ffffff;
+  opacity: 0.7;
   color: black;
   font-family: "Inter", sans-serif;
   font-size: 20px;
   font-weight: 600;
   text-align: center;
-  height: 20pxrem;
+  height: 20px;
   line-height: 20px;
   width: 240px;
   min-height: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+.bet-display.active-player {
+  opacity: 1;
+}
+
 .bet-display.winner-player {
   background-color: #ffeb70;
+  opacity: 1;
+}
+
+.bet-display.split-pot {
+  opacity: 1;
+  background-color: #FF5C19;
+}
+
+.bet-display.all-in {
+  color: white;
+  background-color: #B3261E;
 }
 
 .blind-indicator {
