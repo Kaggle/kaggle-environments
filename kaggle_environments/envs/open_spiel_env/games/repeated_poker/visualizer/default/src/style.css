@@ -619,10 +619,12 @@
 }
 
 .legend-title-avatar {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   margin-right: 8px;
+  background-color: white;
+  padding: 3px;
 }
 
 .legend-body {
@@ -670,8 +672,10 @@
 }
 
 .legend-avatar {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   margin-right: 5px;
+  background-color: white;
+  padding: 2px;
 }
