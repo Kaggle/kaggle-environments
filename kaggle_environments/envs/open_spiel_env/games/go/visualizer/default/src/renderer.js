@@ -1,4 +1,10 @@
-// Go Board Renderer for OpenSpiel
+/**
+ * Go Board Renderer for OpenSpiel.
+ * [dominoweir] NOTE: do not treat this code as sacred. We ported this to the new
+ * vite build system without having a replay file on hand to test, and although
+ * it is a clone of the original go.js, there's always a chance something broke
+ * along the way. Code is meant to be deleted- do it if you need to!
+ * */
 export function renderer(options) {
   const { environment, step, parent, interactive, isInteractive, maxBoardSize = 800 } = options;
 
