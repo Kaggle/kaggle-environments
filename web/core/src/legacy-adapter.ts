@@ -61,6 +61,23 @@ export class LegacyAdapter implements GameAdapter {
       height: this.container.clientHeight,
 
       unstable_replayerControls: unstable_replayerControls,
+
+      // For message passing to an outer frame
+      setCurrentStep: (step: number) =>
+        window.parent.postMessage(
+          {
+            step,
+          },
+          '*'
+        ),
+      setPlaying: (playing?: boolean) => {
+        window.parent.postMessage(
+          {
+            playing,
+          },
+          '*'
+        );
+      },
     };
 
     // Some legacy renderers take the container as a second argument.
