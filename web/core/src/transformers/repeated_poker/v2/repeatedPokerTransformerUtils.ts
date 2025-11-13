@@ -23,6 +23,7 @@ type StepGenerator = (
 const STARTING_STACK_SIZE = 200;
 const FIRST_ACTOR_BY_STREET = [1, 0, 0, 0];
 const NUM_PLAYERS = 2;
+const ALL_IN_STRING = 'ALL-IN';
 
 export function getBettingStringFromACPCState(acpcState: string): string {
   if (!acpcState) {
@@ -276,7 +277,7 @@ const createPlayerActionStep = (
     
     let actionDisplayText: string;
     if (isAllIn) {
-      actionDisplayText = 'ALL-IN';
+      actionDisplayText = ALL_IN_STRING;
     } else if (id === actingPlayerId) {
       actionDisplayText = activeActionDisplay;
     } else {
@@ -687,21 +688,25 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     }
 
     // --- Visual Step 1: The "Deal" Step ---
-    const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => ({
-      id,
-      name: agents[id].Name,
-      thumbnail: agents[id].ThumbnailUrl,
-      cards: stateBeforeAction.current_universal_poker_json.player_hands[id],
-      chipStack: STARTING_STACK_SIZE - stateBeforeAction.current_universal_poker_json.player_contributions[id],
-      currentBet: stateBeforeAction.current_universal_poker_json.player_contributions[id],
-      currentBetForStreet: 0,
-      reward: null,
-      actionDisplayText: '',
-      thoughts: '',
-      isDealer: preDealStep.dealer === id,
-      isTurn: false,
-      isWinner: false,
-    }));
+    const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
+      const chipStack = STARTING_STACK_SIZE - stateBeforeAction.current_universal_poker_json.player_contributions[id];
+      
+      return {
+        id,
+        name: agents[id].Name,
+        thumbnail: agents[id].ThumbnailUrl,
+        cards: stateBeforeAction.current_universal_poker_json.player_hands[id],
+        chipStack,
+        currentBet: stateBeforeAction.current_universal_poker_json.player_contributions[id],
+        currentBetForStreet: 0,
+        reward: null,
+        actionDisplayText: chipStack === 0 ? ALL_IN_STRING : '',
+        thoughts: '',
+        isDealer: preDealStep.dealer === id,
+        isTurn: false,
+        isWinner: false,
+      }
+    });
 
     const dealStep: RepeatedPokerStep = {
       stepType,
@@ -793,21 +798,24 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
           bestHandRankTypes: stateForDeal.best_hand_rank_types,
           currentPlayer: -1,
           currentHandIndex: preDealStep.hand_number,
-          players: [0, 1].map((id) => ({
-            id,
-            name: agents[id].Name,
-            thumbnail: agents[id].ThumbnailUrl,
-            cards: stateForDeal.player_hands[id],
-            chipStack: STARTING_STACK_SIZE - stateForDeal.player_contributions[id],
-            currentBet: stateForDeal.player_contributions[id],
-            currentBetForStreet: 0,
-            reward: null,
-            actionDisplayText: '',
-            thoughts: '',
-            isDealer: preDealStep.dealer === id,
-            isTurn: false,
-            isWinner: false,
-          })),
+          players: [0, 1].map((id) => {
+            const chipStack = STARTING_STACK_SIZE - stateForDeal.player_contributions[id];
+
+            return {
+              id,
+              name: agents[id].Name,
+              thumbnail: agents[id].ThumbnailUrl,
+              cards: stateForDeal.player_hands[id],
+              chipStack,
+              currentBet: stateForDeal.player_contributions[id],
+              currentBetForStreet: 0,
+              reward: null,
+              actionDisplayText: chipStack === 0 ? ALL_IN_STRING : '',
+              thoughts: '',
+              isDealer: preDealStep.dealer === id,
+              isTurn: false,
+              isWinner: false,
+          }}),
         });
 
         lastProcessedBoardLength = currentBoardLen;
