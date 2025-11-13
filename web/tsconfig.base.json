@@ -17,7 +17,7 @@
     "skipLibCheck": true,
     "jsx": "preserve",
     "jsxImportSource": "preact",
-    "types": ["vite/client", "DOM"],
+    "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
       "@kaggle-environments/core": ["core/src/index.ts"]
