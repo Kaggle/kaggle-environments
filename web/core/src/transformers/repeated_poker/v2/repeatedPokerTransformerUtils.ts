@@ -561,9 +561,10 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
     actionDisplayText: id === sbPlayerId ? 'SB' : '',
     thoughts: '',
     isDealer: id === dealer,
-    isTurn: false,
+    isTurn: id === sbPlayerId,
     isWinner: false,
   }));
+
   const sbPostStep: RepeatedPokerStep = {
     stepType: 'small-blind-post',
     communityCards: '',
@@ -586,8 +587,13 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
           currentBet: big_blind,
           currentBetForStreet: big_blind,
           actionDisplayText: 'BB',
+          isTurn: true,
         }
-      : { ...player, actionDisplayText: '' }
+      : {
+          ...player,
+          actionDisplayText: '',
+          isTurn: false
+        }
   );
   const bbPostStep: RepeatedPokerStep = {
     ...sbPostStep,
@@ -601,6 +607,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
   // Visual Step 3: Deal Player Cards
   const dealCardsPlayers: RepeatedPokerStepPlayer[] = bbPostPlayers.map((player) => ({
     ...player,
+    isTurn: false,
     actionDisplayText: '',
     cards: player_hands[player.id], // Using hands from firstActionStep
   }));
