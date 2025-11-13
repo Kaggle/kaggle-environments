@@ -590,44 +590,28 @@ export function renderer(options: RendererOptions): void {
     // --- Container Styles ---
     const container = document.createElement('div');
     container.className = 'final-screen-container';
-    // Using inline styles here to ensure it looks acceptable immediately without CSS file updates.
-    // You can move these to your style.css later, but as this is just a placeholder screen making it easy to clean up for now.
-    container.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        width: 100%;
-        background: rgba(15, 23, 42, 0.95); /* Dark blue-gray background */
-        color: white;
-        font-family: sans-serif;
-        padding: 40px;
-        box-sizing: border-box;
-    `;
 
     // --- Winner Section ---
     const winnerSection = document.createElement('div');
     winnerSection.className = 'final-winner-section';
-    winnerSection.style.cssText = 'text-align: center; margin-bottom: 60px; flex-shrink: 0;';
+    winnerSection.classList.add('winner-section');
 
     if (winner) {
       if (winner.thumbnail) {
         const thumb = document.createElement('img');
         thumb.src = winner.thumbnail;
-        thumb.style.cssText =
-          'width: 180px; height: 180px; border-radius: 50%; border: 6px solid #eab308; box-shadow: 0 0 30px rgba(234, 179, 8, 0.4); margin-bottom: 20px;';
+        thumb.classList.add('winner-thumbnail');
         winnerSection.appendChild(thumb);
       }
 
       const winnerName = document.createElement('div');
       winnerName.textContent = `${winner.name} Wins!`;
-      winnerName.style.cssText = 'font-size: 3.5em; color: #eab308; font-weight: bold;';
+      winnerName.classList.add('winner-name');
       winnerSection.appendChild(winnerName);
 
       const finalStack = document.createElement('div');
       finalStack.textContent = `Final Rewards: ${winner.chipStack}`;
-      finalStack.style.cssText = 'font-size: 2em; color: #9ca3af; margin-top: 10px;';
+      finalStack.classList.add('winner-final-rewards');
       winnerSection.appendChild(finalStack);
     }
 
