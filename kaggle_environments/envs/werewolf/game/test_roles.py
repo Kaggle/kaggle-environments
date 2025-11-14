@@ -102,3 +102,52 @@ def test_create_players_no_shuffling_without_flag(sample_agents_config):
     assigned_roles = [p.role.name for p in players]
     
     assert original_roles == assigned_roles
+
+
+def test_shuffle_ids_and_roles_are_uncorrelated(sample_agents_config):
+    """
+    Tests that when both IDs and roles are shuffled, the assignments are
+    uncorrelated and deterministic.
+    """
+    seed = 44
+    
+    # --- First run ---
+    players1 = create_players_from_agents_config(
+        sample_agents_config, randomize_roles=True, randomize_ids=True, seed=seed
+    )
+    
+    # --- Second run with same seed ---
+    players2 = create_players_from_agents_config(
+        sample_agents_config, randomize_roles=True, randomize_ids=True, seed=seed
+    )
+
+    # 1. Check for determinism
+    player1_map = {p.id: p.role.name for p in players1}
+    player2_map = {p.id: p.role.name for p in players2}
+    assert player1_map == player2_map
+
+    # 2. Check that shuffling happened and is uncorrelated
+    original_ids = [agent["id"] for agent in sample_agents_config]
+    shuffled_ids = list(player1_map.keys())
+    
+    original_roles = [agent["role"] for agent in sample_agents_config]
+    shuffled_roles = list(player1_map.values())
+
+    # Assert that both lists were actually shuffled
+    assert original_ids != shuffled_ids
+    assert original_roles != shuffled_roles
+    
+    # Assert that the original pairings are broken
+    # e.g., Player1 is no longer guaranteed to be a Werewolf
+    original_map = {agent["id"]: agent["role"] for agent in sample_agents_config}
+    assert player1_map != original_map
+
+    # 3. Check a specific known outcome for the given seed to prevent regression
+    # Based on seed=44 for roles and seed=44+123=167 for ids
+    expected_map_seed42 = {
+        'Player3': 'Villager',
+        'Player2': 'Werewolf',
+        'Player1': 'Doctor',
+        'Player4': 'Seer'
+    }
+    assert player1_map == expected_map_seed42
