@@ -117,7 +117,7 @@ class Doctor(Role):
             if not self.allow_self_save and action.target_id == me.id:
                 moderator.state.push_event(
                     description=f'Player "{me.id}", doctor is not allowed to self save. '
-                    f"Your target is {action.target_id}, which is your own id.",
+                                f"Your target is {action.target_id}, which is your own id.",
                     event_name=EventName.ERROR,
                     public=False,
                     visible_to=[me.id],
@@ -125,11 +125,11 @@ class Doctor(Role):
                 return
 
             if not self.allow_consecutive_saves and action.target_id == me.get_role_state(
-                DoctorStateKey.LAST_SAVED_PLAYER_ID
+                    DoctorStateKey.LAST_SAVED_PLAYER_ID
             ):
                 moderator.state.push_event(
                     description=f'Player "{me.id}", you cannot save the same player on consecutive nights. '
-                    f'Your target "{action.target_id}" was also saved last night.',
+                                f'Your target "{action.target_id}" was also saved last night.',
                     event_name=EventName.ERROR,
                     public=False,
                     visible_to=[me.id],
@@ -181,7 +181,7 @@ class Seer(Role):
                 action_cls=InspectAction,
                 player_id=me.id,
                 prompt=f"Wake up Seer. Who would you like to see their true {self.reveal_level}? "
-                f"The options are {data_entry.valid_candidates}.",
+                       f"The options are {data_entry.valid_candidates}.",
                 data=data_entry,
                 event_name=EventName.INSPECT_REQUEST,
             )
@@ -216,7 +216,7 @@ class Seer(Role):
         else:
             moderator.state.push_event(
                 description=f'Player "{actor_id}", you inspected player "{action.target_id}",'
-                f" but this player could not be found.",
+                            f" but this player could not be found.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=[actor_id],
@@ -332,7 +332,7 @@ def get_permutation(items: List, seed: int) -> List:
         A new list containing the items in a permuted order.
     """
     # LCG parameters (from glibc)
-    m = 2**31
+    m = 2 ** 31
     a = 1103515245
     c = 12345
 
@@ -356,21 +356,21 @@ def get_permutation(items: List, seed: int) -> List:
 
 
 def shuffle_roles(agents_config, seed):
-    roles_config = [{'role': agent['role'], 'role_params': agent.get('role_params', {})} for agent in agents_config]
+    roles_config = [{"role": agent["role"], "role_params": agent.get("role_params", {})} for agent in agents_config]
     permuted_roles_config = get_permutation(roles_config, seed)
     new_agents_config = deepcopy(agents_config)
     for role, agent in zip(permuted_roles_config, new_agents_config):
-        agent['role'] = role['role']
-        agent['role_params'] = role['role_params']
+        agent["role"] = role["role"]
+        agent["role_params"] = role["role_params"]
     return new_agents_config
 
 
 def shuffle_ids(agents_config, seed):
-    ids = [agent['id'] for agent in agents_config]
+    ids = [agent["id"] for agent in agents_config]
     permuted_ids = get_permutation(ids, seed)
     new_agents_config = deepcopy(agents_config)
     for player_id, agent in zip(permuted_ids, new_agents_config):
-        agent['id'] = player_id
+        agent["id"] = player_id
     return new_agents_config
 
 
@@ -380,7 +380,6 @@ def create_players_from_agents_config(
         randomize_ids: bool = False,
         seed: Optional[int] = None
 ) -> List[Player]:
-
     if randomize_roles:
         assert seed is not None
         agents_config = shuffle_roles(agents_config, seed)
