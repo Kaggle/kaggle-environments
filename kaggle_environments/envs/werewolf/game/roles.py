@@ -365,10 +365,33 @@ def shuffle_roles(agents_config, seed):
     return new_agents_config
 
 
-def create_players_from_agents_config(agents_config: List[Dict], randomize_roles: bool = False, seed: Optional[int] = None) -> List[Player]:
+def shuffle_ids(agents_config, seed):
+    ids = [agent['id'] for agent in agents_config]
+    permuted_ids = get_permutation(ids, seed)
+    new_agents_config = deepcopy(agents_config)
+    for player_id, agent in zip(permuted_ids, new_agents_config):
+        agent['id'] = player_id
+    return new_agents_config
+
+
+def create_players_from_agents_config(
+        agents_config: List[Dict],
+        randomize_roles: bool = False,
+        randomize_ids: bool = False,
+        seed: Optional[int] = None
+) -> List[Player]:
+
     if randomize_roles:
         assert seed is not None
         agents_config = shuffle_roles(agents_config, seed)
+
+    if randomize_ids:
+        assert seed is not None
+        # Note that we have to use a different seed for shuffle_ids vs shuffle_roles, otherwise the ids and roles
+        # arrangement will remain the same. Also, using different seed (even just a simple arithmatic addition),
+        # LCG ensures that the sequence of random numbers will be uncorrelated.
+        agents_config = shuffle_ids(agents_config, seed + 123)
+
     # check all agents have unique ids
     agent_ids = [agent_config["id"] for agent_config in agents_config]
     if len(agent_ids) != len(set(agent_ids)):
