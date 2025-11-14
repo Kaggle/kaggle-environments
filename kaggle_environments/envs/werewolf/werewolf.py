@@ -527,10 +527,26 @@ def parse_player_actions(state, moderator, game_state):
     return parsed_player_actions
 
 
+def inject_kaggle_scheduler_info(agents_from_config, env):
+    """
+    TODO: this is a temporary hack to inject additional info from kaggle scheduler to set up agents. To be removed once
+    scheduler has run config generator plugin.
+    """
+    kaggle_agents_info = env.info.get('Agents')
+    if kaggle_agents_info and isinstance(kaggle_agents_info, list):
+        for agent, kaggle_agent_info in zip(agents_from_config, kaggle_agents_info):
+            display_name = kaggle_agent_info.get("Name", "")
+            agent["display_name"] = display_name or agent['display_name']
+            agent["thumbnail"] = kaggle_agent_info.get("ThumbnailUrl", "")
+
+
 def initialize_moderator(state, env):
     num_players = len(state)
 
     agents_from_config = env.configuration.agents
+
+    if env.info.get('Agents'):
+        inject_kaggle_scheduler_info(agents_from_config, env)
 
     # below checks for configuration consistency with agent count. If inconsistent, it will cause down stream subtle error.
     if len(agents_from_config) < num_players:
@@ -539,7 +555,11 @@ def initialize_moderator(state, env):
         )
 
     players = create_players_from_agents_config(
-        agents_from_config, randomize_roles=env.configuration.randomize_roles, seed=env.configuration.seed)
+        agents_from_config,
+        randomize_roles=env.configuration.randomize_roles,
+        randomize_ids=env.configuration.randomize_ids,
+        seed=env.configuration.seed
+    )
 
     env.game_state = GameState(
         players=players,
