@@ -1,4 +1,4 @@
-import { createReplayVisualizer, LegacyAdapter } from '@kaggle-environments/core';
+import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
 import { renderer as legacyRenderer } from './legacy-renderer.js';
 import './style.css';
 
@@ -13,5 +13,7 @@ if (app) {
   if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
-  createReplayVisualizer(app, adapter);
+  createReplayVisualizer(app, adapter, {
+    transformer: (replay) => processEpisodeData(replay, 'werewolf'),
+  });
 }

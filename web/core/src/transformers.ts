@@ -7,7 +7,7 @@ import {
   getPokerStepRenderTime,
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   let i = 0;
@@ -33,15 +33,29 @@ const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
   return '';
 };
 
-export const processEpisodeData = (environment: any, gameName: string): BaseGameStep[] => {
+export const processEpisodeData = (environment: ReplayData, gameName: string): ReplayData<BaseGameStep[]> => {
+  // Check for a marker to see if it's already been transformed.
+  if (environment.isTransformed) {
+    return environment as ReplayData<BaseGameStep[]>;
+  }
+
+  let transformedSteps: BaseGameStep[] = [];
   switch (gameName) {
     case 'repeated_poker':
-      return repeatedPokerTransformerV2(environment);
+      transformedSteps = repeatedPokerTransformerV2(environment);
+      break;
     case 'chess':
-      return chessTransformer(environment);
+      transformedSteps = chessTransformer(environment);
+      break;
     default:
-      return [];
+      // If no transformer, return the original environment
+      return environment as ReplayData<BaseGameStep[]>;
   }
+
+  // Replace the steps, add the marker, and return the modified environment.
+  environment.steps = transformedSteps;
+  environment.isTransformed = true;
+  return environment as ReplayData<BaseGameStep[]>;
 };
 
 /**
