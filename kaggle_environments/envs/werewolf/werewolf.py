@@ -328,8 +328,11 @@ def log_error(status_code, state, env):
         logger.error(f"{status_code} DETECTED")
         for i, player_state in enumerate(state):
             if player_state["status"] == status_code:
-                agent_config = env.configuration["agents"][i]
-                logger.error(f"agent_id={agent_config['id']} returns action with status code {status_code}.")
+                player = env.game_state.players[i]
+                logger.error(
+                    f"player.id={player.id}, player.agent.agent_id={player.agent.agent_id} "
+                    f"returns action with status code {status_code}."
+                )
     return invalid_action
 
 
@@ -535,7 +538,8 @@ def initialize_moderator(state, env):
             f"Configuration has {len(agents_from_config)} agents, but {num_players} kaggle agents are present."
         )
 
-    players = create_players_from_agents_config(agents_from_config)
+    players = create_players_from_agents_config(
+        agents_from_config, randomize_roles=env.configuration.randomize_roles, seed=env.configuration.seed)
 
     env.game_state = GameState(
         players=players,

@@ -5995,43 +5995,72 @@ export function renderer(context, parent) {
     playerThreatLevels: new Map(),
   };
 
-  const firstObs = originalSteps[0]?.[0]?.observation?.raw_observation;
-  let allPlayerNamesList;
-  let playerThumbnails = {};
-
-  if (firstObs && firstObs.all_player_ids) {
-    allPlayerNamesList = firstObs.all_player_ids;
-    playerThumbnails = firstObs.player_thumbnails || {};
-    playerNamesFor3D = [...allPlayerNamesList];
-    playerThumbnailsFor3D = { ...playerThumbnails };
-  } else if (environment.configuration && environment.configuration.agents) {
-    // console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
-    allPlayerNamesList = environment.configuration.agents.map((agent) => agent.id);
+  // 1. Create a Metadata Lookup Map from configuration (Key: ID -> Value: Agent Config)
+  // We do NOT use the role from here because it may have been shuffled.
+  const agentConfigMap = new Map();
+  if (environment.configuration && environment.configuration.agents) {
     environment.configuration.agents.forEach((agent) => {
-      if (agent.id && agent.thumbnail) {
-        playerThumbnails[agent.id] = agent.thumbnail;
+      if (agent && agent.id) {
+        agentConfigMap.set(agent.id, agent);
       }
     });
-    playerNamesFor3D = [...allPlayerNamesList];
-    playerThumbnailsFor3D = { ...playerThumbnails };
   }
+
+  const firstObs = originalSteps[0]?.[0]?.observation?.raw_observation;
+  let allPlayerNamesList = [];
+  let playerThumbnails = {};
+
+  // 2. Get the authoritative list of Player IDs from the Observation (State)
+  if (firstObs && firstObs.all_player_ids) {
+    allPlayerNamesList = firstObs.all_player_ids;
+    // Use thumbnails from observation if available
+    playerThumbnails = firstObs.player_thumbnails || {};
+  } else {
+    // Fallback: If observation is missing ID list, extract keys from the config map
+    console.warn("Renderer: all_player_ids missing in first observation. Falling back to configuration IDs.");
+    allPlayerNamesList = Array.from(agentConfigMap.keys());
+  }
+
+  // 3. Sync 3D globals
+  playerNamesFor3D = [...allPlayerNamesList];
+  playerThumbnailsFor3D = { ...playerThumbnails };
+  
+  // Ensure every player has a thumbnail (fallback to config if not in obs)
+  allPlayerNamesList.forEach(id => {
+      if (!playerThumbnailsFor3D[id]) {
+          const conf = agentConfigMap.get(id);
+          if (conf && conf.thumbnail) playerThumbnailsFor3D[id] = conf.thumbnail;
+      }
+  });
 
   if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
     const tempContainer = document.createElement('div');
-    tempContainer.textContent = 'Waiting for game data: No players found in observation or configuration.';
+    tempContainer.textContent = 'Waiting for game data: No players found in observation.';
     parent.appendChild(tempContainer);
     return;
   }
 
-  gameState.players = environment.configuration.agents.map((agent) => ({
-    name: agent.id,
-    is_alive: true,
-    role: agent.role,
-    team: 'Unknown',
-    status: 'Alive',
-    thumbnail: agent.thumbnail || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${agent.id.charAt(0)}`,
-    display_name: agent.display_name,
-  }));
+  // 4. Construct gameState.players iterating over the AUTHORITATIVE ID list
+  gameState.players = allPlayerNamesList.map((playerId) => {
+    const configAgent = agentConfigMap.get(playerId) || {};
+    
+    // Determine thumbnail: Observation -> Config -> Placeholder
+    const thumbnail = playerThumbnails[playerId] || 
+                      configAgent.thumbnail || 
+                      `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${playerId.charAt(0)}`;
+    
+    return {
+      name: playerId,
+      is_alive: true, 
+      // Initialize role as 'Unknown'. The moderator log parsing (immediately below in the file)
+      // will assign the correct shuffled role from 'GameStartRoleDataEntry'.
+      role: 'Unknown', 
+      team: 'Unknown',
+      status: 'Alive',
+      thumbnail: thumbnail,
+      display_name: configAgent.display_name || playerId,
+    };
+  });
   const playerMap = new Map(gameState.players.map((p) => [p.name, p]));
 
   // Initialize and cache the replacer function if it doesn't exist

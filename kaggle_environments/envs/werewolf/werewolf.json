@@ -8,7 +8,8 @@
         "episodeSteps": { "type": "integer", "default": 1000 },
         "actTimeout": { "type": "number", "default": 3 },
         "runTimeout": { "type": "number", "default": 1800 },
-        "seed": { "type": "integer", "description": "Seed to use for episodes" },
+        "seed": { "type": "integer", "description": "Seed to use for episodes", "default": 123 },
+        "randomize_roles": { "type":  "boolean", "default":  false, "description": "If set to true, the roles would be randomized according to seed." },
         "night_elimination_reveal_level": {
             "type": "string",
             "enum": ["no_reveal", "team", "role"],

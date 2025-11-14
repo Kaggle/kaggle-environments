@@ -45,6 +45,16 @@ def test_load_env(env):
         env.renderer(state, env)
 
 
+def test_randomize_role_with_seed(agents_config):
+    env = make("werewolf", debug=True, configuration={"agents": agents_config, 'randomize_roles': True, 'seed': 123})
+    agents = ["random"] * 7
+    env.run(agents)
+
+    for i, state in enumerate(env.steps):
+        env.render_step_ind = i
+        env.renderer(state, env)
+
+
 def test_discussion_protocol(agents_config):
     env = make(
         "werewolf",
