@@ -1,70 +1,51 @@
 import { GameAdapter } from './adapter';
-import { ReplayData } from './types';
+import { BaseGameStep, ReplayData } from './types';
 import { render } from 'preact';
 
 // The legacy renderer function signature
-type LegacyRenderer = (options: any, container?: HTMLElement) => void;
+export type LegacyRenderer<TSteps = BaseGameStep[]> = (
+  options: LegacyRendererOptions<TSteps>,
+  container?: HTMLElement
+) => void;
 
-// const parent = window.parent
+function handleSetCurrentStep(step: number) {
+  window.parent.postMessage({ step }, '*');
+}
 
-// function handleSetCurrentStep(step: number) {
-//   window.parent.postMessage(
-//     {
-//       step,
-//     },
-//     '*'
-//   );
-// }
-
-// function handleSetPlaying(playing: boolean) {
-//   window.parent.postMessage(
-//     {
-//       playing,
-//     },
-//     '*'
-//   );
-// }
+function handleSetPlaying(playing: boolean) {
+  window.parent.postMessage({ playing }, '*');
+}
 
 interface UnstableReplayerControls {
-  setStep: (newStep: number) => void;
+  setStep: (step: number) => void;
   play: (continuing?: boolean) => void;
   pause: () => void;
   setPlaying: (playing: boolean) => void;
-  // Expose current step and playing state for renderer to read
   step: number;
   playing: boolean;
-  // Expose the actual player object for advanced scenarios if needed
   _replayerInstance: any;
 }
 
-export interface RenderOptions {
-  // For chess/poker
+export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
   parent: HTMLElement;
-  steps: any[];
+  steps: TSteps;
   playerNames: string[];
-
-  // For werewolf and others
-  replay: ReplayData;
-  agents: any;
-
-  // Common properties
-  step?: number;
+  replay: ReplayData<TSteps>;
+  agents: any[];
+  step: number;
   width: number;
   height: number;
-
   unstable_replayerControls?: UnstableReplayerControls;
-
-  // For message passing to an outer frame
-  // setCurrentStep: (currentStep: number) => void;
-  // setPlaying: (playing: boolean) => void;
+  setCurrentStep: (step: number) => void;
+  setPlaying: (playing: boolean) => void;
 }
 
-export class LegacyAdapter implements GameAdapter {
+export class LegacyAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TSteps> {
   private container: HTMLElement | null = null;
-  private renderer: LegacyRenderer;
+  private renderer: LegacyRenderer<TSteps>;
   private isInitialRender = true;
 
-  constructor(renderer: LegacyRenderer) {
+  constructor(renderer: LegacyRenderer<TSteps>) {
     this.renderer = renderer;
   }
 
@@ -73,7 +54,7 @@ export class LegacyAdapter implements GameAdapter {
   }
 
   // replayerInstance passing is a bit of a hack for werewolf - would be nice to eliminate it
-  render(step: number, replay: ReplayData, agents: any[], replayerInstance?: any): void {
+  render(step: number, replay: ReplayData<TSteps>, agents: any[], replayerInstance?: any): void {
     if (!this.container) return;
 
     // Clear container only on the first render pass.
@@ -99,7 +80,8 @@ export class LegacyAdapter implements GameAdapter {
         }
       : undefined;
 
-    const renderOptions: RenderOptions = {
+    const renderOptions: LegacyRendererOptions<TSteps> = {
+      // For chess/poker
       parent: this.container,
       steps: replay.steps,
       playerNames: replay.info?.TeamNames || agents.map((a) => a.name),
@@ -109,8 +91,8 @@ export class LegacyAdapter implements GameAdapter {
       width: this.container.clientWidth,
       height: this.container.clientHeight,
       unstable_replayerControls: unstable_replayerControls,
-      // setCurrentStep: handleSetCurrentStep,
-      // setPlaying: handleSetPlaying,
+      setCurrentStep: handleSetCurrentStep,
+      setPlaying: handleSetPlaying,
     };
 
     // Some legacy renderers take the container as a second argument.
