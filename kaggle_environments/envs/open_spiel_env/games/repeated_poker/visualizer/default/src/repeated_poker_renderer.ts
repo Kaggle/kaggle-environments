@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, RenderOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
 
@@ -13,17 +13,6 @@ declare global {
   interface Window {
     __poker_styles_injected?: boolean;
   }
-}
-
-/**
- * Options for the renderer
- */
-interface RendererOptions {
-  parent: HTMLElement;
-  steps: RepeatedPokerStep[]; // This is the main data object
-  step?: number;
-  width: number;
-  height: number;
 }
 
 /**
@@ -48,7 +37,7 @@ interface PokerTableElements {
   legend: HTMLElement | null;
 }
 
-export function renderer(options: RendererOptions): void {
+export function renderer(options: RenderOptions): void {
   const chipImages: Record<number, string> = {
     1: poker_chip_1,
     5: poker_chip_5,
@@ -76,7 +65,7 @@ export function renderer(options: RendererOptions): void {
     legend: null,
   };
 
-  function _injectStyles(passedOptions: Partial<RendererOptions>): void {
+  function _injectStyles(passedOptions: Partial<RenderOptions>): void {
     if (typeof document === 'undefined') {
       return;
     }
@@ -380,6 +369,7 @@ export function renderer(options: RendererOptions): void {
     handNum: number;
     amount: number;
     winners: { name: string; thumbnail?: string }[];
+    startingStep: number;
   }
 
   interface DerivedLeaderboardInfo {
@@ -428,6 +418,7 @@ export function renderer(options: RendererOptions): void {
             // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
+            startingStep: lastStepOfHand.step,
           });
         }
       }
@@ -519,6 +510,8 @@ export function renderer(options: RendererOptions): void {
         .forEach((hand) => {
           const row = document.createElement('div');
           row.className = 'legend-row';
+          row.role = 'button';
+          // row.onclick = () => options.setCurrentStep(hand.startingStep);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';

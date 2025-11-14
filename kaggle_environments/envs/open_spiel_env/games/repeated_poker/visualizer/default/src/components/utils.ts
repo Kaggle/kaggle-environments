@@ -31,9 +31,7 @@ export interface DisplayCard {
  * @param acpcCard The card string from the ACPC data.
  * @returns An object with `rank`, `suit`, and `original` properties.
  */
-export function acpcCardToDisplay(
-  acpcCard: string | null | undefined
-): DisplayCard {
+export function acpcCardToDisplay(acpcCard: string | null | undefined): DisplayCard {
   if (!acpcCard || acpcCard.length < 2) {
     return { rank: '?', suit: '', original: acpcCard };
   }

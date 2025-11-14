@@ -5,6 +5,60 @@ import { render } from 'preact';
 // The legacy renderer function signature
 type LegacyRenderer = (options: any, container?: HTMLElement) => void;
 
+// const parent = window.parent
+
+// function handleSetCurrentStep(step: number) {
+//   window.parent.postMessage(
+//     {
+//       step,
+//     },
+//     '*'
+//   );
+// }
+
+// function handleSetPlaying(playing: boolean) {
+//   window.parent.postMessage(
+//     {
+//       playing,
+//     },
+//     '*'
+//   );
+// }
+
+interface UnstableReplayerControls {
+  setStep: (newStep: number) => void;
+  play: (continuing?: boolean) => void;
+  pause: () => void;
+  setPlaying: (playing: boolean) => void;
+  // Expose current step and playing state for renderer to read
+  step: number;
+  playing: boolean;
+  // Expose the actual player object for advanced scenarios if needed
+  _replayerInstance: any;
+}
+
+export interface RenderOptions {
+  // For chess/poker
+  parent: HTMLElement;
+  steps: any[];
+  playerNames: string[];
+
+  // For werewolf and others
+  replay: ReplayData;
+  agents: any;
+
+  // Common properties
+  step?: number;
+  width: number;
+  height: number;
+
+  unstable_replayerControls?: UnstableReplayerControls;
+
+  // For message passing to an outer frame
+  // setCurrentStep: (currentStep: number) => void;
+  // setPlaying: (playing: boolean) => void;
+}
+
 export class LegacyAdapter implements GameAdapter {
   private container: HTMLElement | null = null;
   private renderer: LegacyRenderer;
@@ -31,7 +85,7 @@ export class LegacyAdapter implements GameAdapter {
     // Generally it would be better to not do this - but werewolf needs some inner frame control
     // that conforms to this interface - marking as unstable for now to see if we can figure out
     // a better long-term solution here
-    const unstable_replayerControls = replayerInstance
+    const unstable_replayerControls: UnstableReplayerControls | undefined = replayerInstance
       ? {
           setStep: (newStep: number) => replayerInstance.setStep(newStep),
           play: (continuing?: boolean) => replayerInstance.play(continuing),
@@ -45,39 +99,18 @@ export class LegacyAdapter implements GameAdapter {
         }
       : undefined;
 
-    const renderOptions = {
-      // For chess/poker
+    const renderOptions: RenderOptions = {
       parent: this.container,
       steps: replay.steps,
       playerNames: replay.info?.TeamNames || agents.map((a) => a.name),
-
-      // For werewolf and others
       replay: replay,
       agents: agents,
-
-      // Common properties
       step: step,
       width: this.container.clientWidth,
       height: this.container.clientHeight,
-
       unstable_replayerControls: unstable_replayerControls,
-
-      // For message passing to an outer frame
-      setCurrentStep: (step: number) =>
-        window.parent.postMessage(
-          {
-            step,
-          },
-          '*'
-        ),
-      setPlaying: (playing?: boolean) => {
-        window.parent.postMessage(
-          {
-            playing,
-          },
-          '*'
-        );
-      },
+      // setCurrentStep: handleSetCurrentStep,
+      // setPlaying: handleSetPlaying,
     };
 
     // Some legacy renderers take the container as a second argument.
