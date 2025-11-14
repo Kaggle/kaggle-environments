@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer, RenderOptions } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
 
@@ -37,7 +37,7 @@ interface PokerTableElements {
   legend: HTMLElement | null;
 }
 
-export function renderer(options: RenderOptions): void {
+export function renderer(options: LegacyRendererOptions): void {
   const chipImages: Record<number, string> = {
     1: poker_chip_1,
     5: poker_chip_5,
@@ -65,7 +65,7 @@ export function renderer(options: RenderOptions): void {
     legend: null,
   };
 
-  function _injectStyles(passedOptions: Partial<RenderOptions>): void {
+  function _injectStyles(passedOptions: Partial<LegacyRendererOptions>): void {
     if (typeof document === 'undefined') {
       return;
     }
@@ -418,7 +418,7 @@ export function renderer(options: RenderOptions): void {
             // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
-            startingStep: lastStepOfHand.step,
+            startingStep: handIndex === 0 ? 0 : relevantSteps[handIndex - 1].step + 1,
           });
         }
       }
@@ -511,7 +511,7 @@ export function renderer(options: RenderOptions): void {
           const row = document.createElement('div');
           row.className = 'legend-row';
           row.role = 'button';
-          // row.onclick = () => options.setCurrentStep(hand.startingStep);
+          row.onclick = () => options.setCurrentStep(hand.startingStep);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';
@@ -891,11 +891,13 @@ export function renderer(options: RenderOptions): void {
     return;
   }
 
-  if (options.steps[options.step ?? 0].stepType === 'game-over') {
-    _renderFinalScreenUI(options.steps[options.step ?? 0]);
+  const currentStep = options.steps[options.step ?? 0] as RepeatedPokerStep;
+
+  if (currentStep.stepType === 'game-over') {
+    _renderFinalScreenUI(currentStep);
   } else {
-    _renderPokerTableUI(options.steps[options.step ?? 0]);
-    _renderLegendUI(options.steps, options.step ?? 0);
+    _renderPokerTableUI(currentStep);
+    _renderLegendUI(options.steps as RepeatedPokerStep[], options.step ?? 0);
   }
 
   // Apply initial scale
