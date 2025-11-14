@@ -1,9 +1,10 @@
-export interface ReplayData {
+export interface ReplayData<TSteps = BaseGameStep[]> {
   name: string;
   version: string;
-  steps: BaseGameStep[];
+  steps: TSteps;
   configuration: Record<string, any>;
   info?: Record<string, any>;
+  isTransformed?: boolean;
 }
 
 /**
@@ -11,13 +12,13 @@ export interface ReplayData {
  * zen: a similar streaming view but for replays with interactive controls
  * logs: a condensed view of the episode without reasoning
  */
-export type ReplayMode = "only-stream" | "zen" | "condensed";
+export type ReplayMode = 'only-stream' | 'zen' | 'condensed';
 
 export interface BaseGameStep {
   step: number;
   players: BaseGamePlayer[];
 }
-  
+
 export interface BaseGamePlayer {
   id: number;
   name: string;
@@ -26,4 +27,3 @@ export interface BaseGamePlayer {
   actionDisplayText?: string;
   thoughts?: string;
 }
-
