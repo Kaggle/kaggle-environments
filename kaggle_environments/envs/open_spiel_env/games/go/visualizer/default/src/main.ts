@@ -1,4 +1,4 @@
-import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
+import { createReplayVisualizer, LegacyAdapter } from '@kaggle-environments/core';
 import { renderer } from './renderer.js';
 
 const app = document.getElementById('app');
@@ -12,7 +12,5 @@ if (app) {
   if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
-  createReplayVisualizer(app, adapter, {
-    transformer: (replay) => processEpisodeData(replay, 'go'),
-  });
+  createReplayVisualizer(app, adapter);
 }

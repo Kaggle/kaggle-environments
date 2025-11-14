@@ -1,27 +1,27 @@
 import { h, render, FunctionComponent } from 'preact';
 import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData } from './types';
+import { ReplayData } from './types';
 
-export interface RendererProps<TSteps = BaseGameStep[]> {
-  replay: ReplayData<TSteps>;
+interface RendererProps {
+  replay: ReplayData;
   step: number;
   agents: any[];
 }
 
-export class PreactAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TSteps> {
+export class PreactAdapter implements GameAdapter {
   private container: HTMLElement | null = null;
-  private renderer: FunctionComponent<RendererProps<TSteps>>;
+  private renderer: FunctionComponent<RendererProps>;
 
-  constructor(renderer: FunctionComponent<RendererProps<TSteps>>) {
+  constructor(renderer: FunctionComponent<RendererProps>) {
     this.renderer = renderer;
   }
 
-  mount(container: HTMLElement, initialData: ReplayData<TSteps>): void {
+  mount(container: HTMLElement, initialData: ReplayData): void {
     this.container = container;
     this.render(0, initialData, []);
   }
 
-  render(step: number, replay: ReplayData<TSteps>, agents: any[]): void {
+  render(step: number, replay: ReplayData, agents: any[]): void {
     if (!this.container) return;
     render(h(this.renderer, { replay, step, agents }), this.container);
   }

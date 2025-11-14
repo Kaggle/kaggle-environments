@@ -1,4 +1,4 @@
-import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
+import { createReplayVisualizer, LegacyAdapter } from '@kaggle-environments/core';
 import { renderer } from './repeated_poker_renderer';
 
 const app = document.getElementById('app');
@@ -8,7 +8,5 @@ if (app) {
     import.meta.hot.accept();
   }
 
-  createReplayVisualizer(app, new LegacyAdapter(renderer), {
-    transformer: (replay) => processEpisodeData(replay, 'repeated_poker'),
-  });
+  createReplayVisualizer(app, new LegacyAdapter(renderer as any));
 }

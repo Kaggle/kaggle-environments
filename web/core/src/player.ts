@@ -1,6 +1,7 @@
 import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData } from './types';
+import { ReplayData } from './types';
 import cssString from './style.css?raw';
+import { processEpisodeData } from './transformers';
 
 // Inject CSS for a library bundle/build
 (() => {
@@ -10,10 +11,10 @@ import cssString from './style.css?raw';
   document.head.appendChild(style);
 })();
 
-export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
+export class ReplayVisualizer {
   private container: HTMLElement;
-  private adapter: GameAdapter<TSteps>;
-  private replay: ReplayData<TSteps> | null = null;
+  private adapter: GameAdapter;
+  private replay: ReplayData | null = null;
   private agents: any[] = [];
   private step = 0;
   private playing = false;
@@ -21,7 +22,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private mounted = false;
   private showControls = true;
   private hmrState?: any; // Will hold the persistent state dev HMR
-  private transformer?: (replay: ReplayData) => ReplayData;
 
   // --- Element references ---
   private viewer: HTMLElement;
@@ -33,14 +33,9 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private stepSlider: HTMLInputElement;
   private stepCounter: HTMLSpanElement;
 
-  constructor(
-    container: HTMLElement,
-    adapter: GameAdapter<TSteps>,
-    options: { hmrState?: any; transformer?: (replay: ReplayData) => ReplayData } = {}
-  ) {
+  constructor(container: HTMLElement, adapter: GameAdapter, options: { hmrState?: any } = {}) {
     this.container = container;
     this.adapter = adapter;
-    this.transformer = options.transformer;
 
     // Store the HMR state if it was passed in
     if (import.meta.env?.DEV && options.hmrState) {
@@ -205,22 +200,20 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     // Update replay object from 'environment'
     if (event.data.environment) {
-      const { steps, ...rest } = event.data.environment;
       if (!this.replay) {
         this.replay = {
           name: 'unknown',
           version: 'unknown',
-          steps: [] as unknown as TSteps,
+          steps: [],
           configuration: {},
           info: {},
-          ...rest,
         };
-      } else {
-        Object.assign(this.replay, rest);
       }
-
-      if (this.replay && Array.isArray(steps)) {
-        this.replay.steps = steps as TSteps;
+      // Use Object.assign to merge new data without overwriting the whole object
+      const { steps, ...rest } = event.data.environment;
+      Object.assign(this.replay, rest);
+      if (Array.isArray(steps)) {
+        this.replay.steps = steps;
       }
       needsRender = true;
     }
@@ -258,16 +251,28 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
   };
 
-  private setData(replay: ReplayData<TSteps>, agents: any[] = [], options: { skipRender?: boolean } = {}) {
-    // Apply the transformer if one is provided
-    const transformedReplay = this.transformer ? this.transformer(replay) : replay;
-
-    this.replay = transformedReplay as ReplayData<TSteps>;
+  private setData(replay: ReplayData, agents: any[] = [], options: { skipRender?: boolean } = {}) {
+    this.replay = replay;
     this.agents = agents;
 
-    if (!this.mounted && this.replay) {
+    if (!this.mounted) {
       this.adapter.mount(this.viewer, this.replay);
       this.mounted = true;
+    }
+
+    // TODO(michaelaaron) - Turn this into something more reasonable.
+    if (
+      this?.replay?.steps &&
+      !(this?.replay?.steps as any)?.[0]?.stepType &&
+      this?.replay?.configuration?.openSpielGameName === 'repeated_poker'
+    ) {
+      this.replay.steps = processEpisodeData(this.replay, 'repeated_poker');
+    } else if (
+      this?.replay?.steps &&
+      !(this?.replay?.steps as any)?.[0]?.stepType &&
+      this?.replay?.configuration?.game === 'chess'
+    ) {
+      this.replay.steps = processEpisodeData(this.replay, 'chess');
     }
 
     // --- HMR State Update ---
@@ -278,13 +283,11 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     // --- End HMR Logic ---
 
     // Always update controls and render the current state.
-    if (this.replay) {
-      this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
-    }
+    this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
     this.renderControls();
 
     // Only render/tick if not told to skip (e.g., during HMR restore)
-    if (!options.skipRender && this.replay) {
+    if (!options.skipRender) {
       this.adapter.render(this.step, this.replay, this.agents, this);
       this.tick();
     }
