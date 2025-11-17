@@ -8,7 +8,6 @@ import {
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
 import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
-import { cabtTransformer } from './transformers/cabt/cabtTransformer';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   let i = 0;
@@ -40,8 +39,6 @@ export const processEpisodeData = (environment: any, gameName: string): BaseGame
       return repeatedPokerTransformerV2(environment);
     case 'chess':
       return chessTransformer(environment);
-    case 'cabt':
-      return cabtTransformer(environment);
     default:
       return environment.steps?.flat() ?? [];
   }
