@@ -1,4 +1,6 @@
-import { ENERGY_TEXT } from './consts';
+const ENERGY_TEXT = 'CGRWLPFDM A';
+const WIDTH = 750;
+const HEIGHT = 700;
 
 const posY = (index: number, len: number) => {
   const center = 290;
@@ -45,16 +47,38 @@ export function renderer(options: RendererOptions) {
   const visList = options.steps[0][0].visualize;
   const players = [options.playerNames[0] || 'Player 0', options.playerNames[1] || 'Player 1'];
 
-  let canvasElement = options.parent.querySelector('canvas');
+  let canvas = options.parent.querySelector('canvas');
 
-  if (!canvasElement) {
+  if (!canvas) {
     const container = document.createElement('div');
+
+    // Style the container to be centered in its parent
+    container.style.width = `${WIDTH}px`;
+    container.style.height = `${HEIGHT}px`;
+    container.style.margin = '0 auto'; // Center horizontally
+    container.style.position = 'relative';
     options.parent.appendChild(container);
 
-    canvasElement = document.createElement('canvas');
-    canvasElement.width = 750;
-    canvasElement.height = 700;
-    container.appendChild(canvasElement);
+    canvas = document.createElement('canvas');
+
+    // The following block ensures the canvas renders without fuzzy text
+    const pixelRatio = window.devicePixelRatio || 1;
+
+    // Set actual size in memory
+    canvas.width = WIDTH * pixelRatio;
+    canvas.height = HEIGHT * pixelRatio;
+
+    // Set displayed size
+    canvas.style.width = `${WIDTH}px`;
+    canvas.style.height = `${HEIGHT}px`;
+
+    container.appendChild(canvas);
+
+    // Get context and scale it
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(pixelRatio, pixelRatio);
+    }
 
     if (visList) {
       for (let k = 0; k < 2; k++) {
@@ -96,7 +120,7 @@ export function renderer(options: RendererOptions) {
         container.appendChild(button);
       }
     } else {
-      const ctx = canvasElement.getContext('2d');
+      const ctx = canvas.getContext('2d');
 
       if (ctx) {
         ctx.strokeStyle = '#ccc';
@@ -117,31 +141,31 @@ export function renderer(options: RendererOptions) {
   const vis = visList[step];
   const state = vis.current;
 
-  const canvas = canvasElement.getContext('2d');
-  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
-  canvas.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  canvas.strokeStyle = '#ccc';
-  canvas.fillStyle = '#fff';
-  canvas.lineWidth = 2;
-  canvas.font = '20px sans-serif';
+  ctx.strokeStyle = '#ccc';
+  ctx.fillStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.font = '20px sans-serif';
 
   // Label for result at the end of the game
   if (state.result >= 0) {
     if (state.result == 2) {
-      canvas.fillText('Draw', 330, 125);
+      ctx.fillText('Draw', 330, 125);
     } else {
-      canvas.fillText(players[state.result] + ' Win', 290, 140);
+      ctx.fillText(players[state.result] + ' Win', 290, 140);
     }
   }
 
-  canvas.font = '12px sans-serif';
+  ctx.font = '12px sans-serif';
 
   const drawCard = (x: number, y: number, card: any) => {
-    canvas.beginPath();
-    canvas.rect(x, y, 80, 60);
-    canvas.stroke();
+    ctx.beginPath();
+    ctx.rect(x, y, 80, 60);
+    ctx.stroke();
     let nm = card.name;
     let nm2 = null;
     if (nm.length >= 13) {
@@ -153,20 +177,20 @@ export function renderer(options: RendererOptions) {
         }
       }
     }
-    canvas.fillText(nm, x + 5, y + 13);
+    ctx.fillText(nm, x + 5, y + 13);
     if (nm2 != null) {
-      canvas.fillText(nm2, x + 5, y + 27);
+      ctx.fillText(nm2, x + 5, y + 27);
     }
   };
 
   const drawField = (x: number, y: number, card: any) => {
     drawCard(x, y, card);
-    canvas.fillText('HP ' + card.hp, x + 5, y + 41);
+    ctx.fillText('HP ' + card.hp, x + 5, y + 41);
     let energy = '';
     for (const e of card.energies) {
       energy = energy + ENERGY_TEXT[e];
     }
-    canvas.fillText(energy, x + 5, y + 55);
+    ctx.fillText(energy, x + 5, y + 55);
   };
 
   for (let j = 0; j < state.stadium.length; j++) {
@@ -176,12 +200,12 @@ export function renderer(options: RendererOptions) {
   for (let i = 0; i < 2; i++) {
     const playerState = state.players[i];
 
-    canvas.fillText('Active', i == 0 ? 245 : 425, 270);
-    canvas.fillText('Bench', i == 0 ? 145 : 525, 10);
-    canvas.fillText('Hand', i == 0 ? 15 : 655, 10);
-    canvas.fillText('Deck ' + playerState.deckCount, i == 0 ? 258 : 438, 165);
-    canvas.fillText('Discard ' + playerState.discard.length, i == 0 ? 245 : 425, 185);
-    canvas.fillText('Prize ' + playerState.prize.length, i == 0 ? 258 : 438, 220);
+    ctx.fillText('Active', i == 0 ? 245 : 425, 270);
+    ctx.fillText('Bench', i == 0 ? 145 : 525, 10);
+    ctx.fillText('Hand', i == 0 ? 15 : 655, 10);
+    ctx.fillText('Deck ' + playerState.deckCount, i == 0 ? 258 : 438, 165);
+    ctx.fillText('Discard ' + playerState.discard.length, i == 0 ? 245 : 425, 185);
+    ctx.fillText('Prize ' + playerState.prize.length, i == 0 ? 258 : 438, 220);
 
     for (let j = 0; j < playerState.active.length; j++) {
       drawField(i == 0 ? 240 : 420, posY(j, playerState.active.length), playerState.active[j]);
