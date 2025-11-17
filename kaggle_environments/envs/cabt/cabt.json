@@ -1,0 +1,28 @@
+{
+  "name": "cabt",
+  "title": "Card Battle",
+  "description": "Limited Card Battle.",
+  "version": "1.0.0",
+  "agents": [2],
+  "configuration": {
+    "episodeSteps": 10000,
+    "actTimeout": 0,
+    "runTimeout": 3000
+  },
+  "reward": {
+    "description": "Lost:-1, Won:1, Draw:0",
+    "enum": [-1, 0, 1],
+    "default": 0
+  },
+  "observation": {
+    "remainingOverageTime": 600
+  },
+  "action": {
+    "description": "List of option index.",
+    "type": "array",
+    "default": []
+  },
+  "status": {
+    "defaults": ["INACTIVE", "INACTIVE"]
+  }
+}
