@@ -1,4 +1,4 @@
-import { createReplayVisualizer, PreactAdapter } from '@kaggle-environments/core';
+import { createReplayVisualizer, PreactAdapter, processEpisodeData } from '@kaggle-environments/core';
 import { Renderer } from './renderer';
 import './style.css';
 
@@ -14,5 +14,7 @@ if (app) {
   if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
-  createReplayVisualizer(app, adapter);
+  createReplayVisualizer(app, adapter, {
+    transformer: (replay) => processEpisodeData(replay, 'connectx'),
+  });
 }

@@ -1,4 +1,5 @@
 import { GameAdapter } from './adapter';
+import { BaseGameStep, ReplayData } from './types';
 import { ReplayVisualizer } from './player';
 
 /**
@@ -39,10 +40,14 @@ if (import.meta.env?.DEV && import.meta.hot) {
  * A factory to create a new ReplayVisualizer, automatically handling
  * HMR state persistence and cleanup.
  */
-export function createReplayVisualizer(container: HTMLElement, adapter: GameAdapter): ReplayVisualizer {
+export function createReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]>(
+  container: HTMLElement,
+  adapter: GameAdapter<TSteps>,
+  options: { transformer?: (replay: ReplayData) => ReplayData } = {}
+): ReplayVisualizer<TSteps> {
   // --- Production Build ---
   if (!import.meta.env?.DEV || !import.meta.hot) {
-    return new ReplayVisualizer(container, adapter);
+    return new ReplayVisualizer(container, adapter, options);
   }
 
   // --- Development Build (HMR Logic) ---
@@ -55,7 +60,7 @@ export function createReplayVisualizer(container: HTMLElement, adapter: GameAdap
       container
     );
     // Fail gracefully by returning a non-HMR-aware replayVisualizer
-    return new ReplayVisualizer(container, adapter);
+    return new ReplayVisualizer(container, adapter, options);
   }
 
   const key = container.id;
@@ -84,7 +89,10 @@ export function createReplayVisualizer(container: HTMLElement, adapter: GameAdap
   }
 
   // 3. Create the new ReplayVisualizer, passing it its persistent state
-  const newReplayVisualizer = new ReplayVisualizer(container, adapter, { hmrState: state });
+  const newReplayVisualizer = new ReplayVisualizer(container, adapter, {
+    hmrState: state,
+    ...options,
+  });
 
   // 4. Store the *new* instance for cleanup on the *next* HMR reload
   hmrReplayVisualizerInstances.set(key, newReplayVisualizer);
