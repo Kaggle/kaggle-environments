@@ -132,7 +132,8 @@ class GameSetEvaluator:
                 self.metrics[agent_name].gte_contributions[task_name] = (
                     contributions_mean[i, j], contributions_std[i, j])
 
-    def _bootstrap_solve(self, rnd, games, agents, tasks):
+    @staticmethod
+    def _bootstrap_solve(rnd, games, agents, tasks):
         # Convert lists to sets for O(1) lookups
         agent_set = set(agents)
         task_set = set(tasks)
