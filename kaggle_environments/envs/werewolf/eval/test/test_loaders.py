@@ -12,7 +12,3 @@ def test_load_games():
     games = loaders.get_games(input_dir)
 
     game = loaders.GameResult(games[0])
-
-    assert 0
-
-
