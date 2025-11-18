@@ -1,6 +1,7 @@
 import json
 import os
 from collections import namedtuple
+from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 
@@ -15,6 +16,15 @@ from kaggle_environments.envs.werewolf.game.roles import Player, ROLE_CLASS_MAP
 from kaggle_environments.utils import structify
 
 
+def _load_json(file_path):
+    with open(file_path, 'r') as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            print(f"Warning: Could not decode JSON from {file_path}")
+            return None
+
+
 def get_games(input_dir: str) -> List[dict]:
     """Loads all game replay JSONs from a directory, walking subdirectories."""
     game_files = []
@@ -23,14 +33,34 @@ def get_games(input_dir: str) -> List[dict]:
             if file.endswith('.json'):
                 game_files.append(os.path.join(root, file))
 
-    games = []
-    for file_path in game_files:
-        with open(file_path, 'r') as f:
-            try:
-                games.append(json.load(f))
-            except json.JSONDecodeError:
-                print(f"Warning: Could not decode JSON from {file_path}")
-    return games
+    with ProcessPoolExecutor() as executor:
+        games = list(executor.map(_load_json, game_files))
+    
+    return [g for g in games if g is not None]
+
+
+def _load_game_result(args):
+    file_path, preserve_full_record = args
+    game_json = _load_json(file_path)
+    if game_json is None:
+        return None
+    return GameResult(game_json, preserve_full_record=preserve_full_record)
+
+
+def get_game_results(input_dir: str, preserve_full_record: bool = False,
+                     max_workers: Optional[int] = None) -> List["GameResult"]:
+    """Loads all game replays and returns GameResult objects, in parallel."""
+    game_files = []
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.endswith('.json'):
+                game_files.append(os.path.join(root, file))
+    
+    args = [(f, preserve_full_record) for f in game_files]
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(_load_game_result, args))
+        
+    return [r for r in results if r is not None]
 
 
 GameWinScore = namedtuple("GameWinScore", ['models', 'scores', 'roles'])

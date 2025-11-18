@@ -29,7 +29,7 @@ try:
 except ImportError:
     ALTAIR_AVAILABLE = False
 
-from kaggle_environments.envs.werewolf.eval.loaders import get_games, GameResult
+from kaggle_environments.envs.werewolf.eval.loaders import get_game_results
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
@@ -372,13 +372,12 @@ class GameSetEvaluator:
         else:
             input_dirs = input_dir
 
-        all_games = []
+        self.games = []
         for directory in input_dirs:
-            all_games.extend(get_games(directory))
+            self.games.extend(get_game_results(directory, preserve_full_record=preserve_full_game_records))
 
         self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
 
-        self.games = [GameResult(g, preserve_full_record=preserve_full_game_records) for g in all_games]
         self.metrics: Dict[str, AgentMetrics] = defaultdict(
             lambda: AgentMetrics(agent_name=None, openskill_model=self.openskill_model))
 
