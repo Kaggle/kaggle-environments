@@ -17,9 +17,19 @@ export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
   step: number;
   width: number;
   height: number;
-  unstable_replayerControls?: any;
   setCurrentStep: (step: number) => void;
   setPlaying: (playing?: boolean) => void;
+  // Generally not recommended: setAgents is a bit of a hack is for older renderers that need to update
+  // the visualizer's state (e.g. agents for the legend).
+  setAgents?: (agents: any[]) => void;
+  unstable_replayerControls?: {
+    step: number;
+    setStep: (step: number) => void;
+    play: (continuing?: boolean) => void;
+    pause: () => void;
+    setPlaying: (playing: boolean) => void;
+    [key: string]: any;
+  };
 }
 
 export class LegacyAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TSteps> {
@@ -62,6 +72,12 @@ export class LegacyAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TStep
         }
       : undefined;
 
+    const setAgents = (agents: any[]) => {
+      if (replayerInstance) {
+        replayerInstance.setAgents(agents);
+      }
+    };
+
     const renderOptions: LegacyRendererOptions<TSteps> = {
       // For chess/poker
       parent: this.container,
@@ -95,6 +111,7 @@ export class LegacyAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TStep
           '*'
         );
       },
+      setAgents: setAgents,
     };
 
     // Some legacy renderers take the container as a second argument.
