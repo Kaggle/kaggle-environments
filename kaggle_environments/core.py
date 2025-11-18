@@ -394,7 +394,7 @@ class Environment:
               current and the previous step.
 
         Example:
-            env = make("tictactoe")
+            env = make("rps")
             # Training agent in first position (player 1) against the default random agent.
             trainer = env.train([None, "random"])
 
