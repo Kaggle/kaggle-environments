@@ -15,12 +15,21 @@ from kaggle_environments.envs.werewolf.game.roles import Player, ROLE_CLASS_MAP
 from kaggle_environments.utils import structify
 
 
-def get_games(input_dir):
+def get_games(input_dir: str) -> List[dict]:
+    """Loads all game replay JSONs from a directory, walking subdirectories."""
+    game_files = []
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.endswith('.json'):
+                game_files.append(os.path.join(root, file))
+
     games = []
-    for root, dirs, files in os.walk(input_dir):
-        for fname in files:
-            if fname == 'werewolf_game.json':
-                games.append(json.load(open(os.path.join(root, fname))))
+    for file_path in game_files:
+        with open(file_path, 'r') as f:
+            try:
+                games.append(json.load(f))
+            except json.JSONDecodeError:
+                print(f"Warning: Could not decode JSON from {file_path}")
     return games
 
 
@@ -63,9 +72,10 @@ class PlayerResult(BaseModel):
 
 
 class GameResult:
-    def __init__(self, game_json: Dict):
-        self.game_json = structify(game_json)
-        self.game_end_info = self.game_json.info.GAME_END
+    def __init__(self, game_json: Dict, preserve_full_record: bool = False):
+        game_json_struct = structify(game_json)
+        self.game_end_info = game_json_struct.info.GAME_END
+        self.moderator_observation = game_json_struct.info.MODERATOR_OBSERVATION
         self.winner_team: Team = Team(self.game_end_info.winner_team)
         self.costs = self.game_end_info.get('cost_summary')
         self.players = self._get_players()
@@ -73,14 +83,13 @@ class GameResult:
         self.villagers = {player.id for player in self.players if player.role.team == Team.VILLAGERS}
         self.wolves = {player.id for player in self.players if player.role.team == Team.WEREWOLVES}
 
-        # self.werewolf_ids = {p.id for p in self.players if p.team == Team.WEREWOLVES}
-
         self.id_to_agent = {player.id: player.agent.display_name for player in self.players}
-        # self.agent_to_id = {player.display_name: player.id for player in self.players}
-
-        # self.winner_agents = {self.id_to_agent[wid] for wid in self.game_end_info.winner_ids}
-        # self.loser_agents = {self.id_to_agent[lid] for lid in self.game_end_info.loser_ids}
         self.survive_to_end = {player.agent.display_name: player.alive for player in self.players}
+
+        if preserve_full_record:
+            self.game_json = game_json_struct
+        else:
+            self.game_json = None
 
     def __repr__(self) -> str:
         player_lines = []
@@ -117,10 +126,9 @@ class GameResult:
                 A list of (agent_name, score) for villager votes on days a werewolf was exiled.
                 Score is 1 if they voted for the exiled werewolf, 0 otherwise.
         """
-        info = self.game_json.info
         day_vote_events = {}
         werewolf_exile_events = {}
-        for step in info.MODERATOR_OBSERVATION:
+        for step in self.moderator_observation:
             for entry in step:
                 if entry.data_type == "DayExileVoteDataEntry":
                     json_data = json.loads(entry.json_str)
