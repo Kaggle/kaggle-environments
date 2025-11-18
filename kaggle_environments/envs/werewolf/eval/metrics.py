@@ -1,8 +1,8 @@
 import functools
-from collections import defaultdict
-from typing import Dict, List, Tuple, Union
-from pathlib import Path
 import os
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -18,10 +18,10 @@ try:
     import pandas as pd
     import chex
     import jax.numpy as jnp
+
     ALTAIR_AVAILABLE = True
 except ImportError:
     ALTAIR_AVAILABLE = False
-
 
 from kaggle_environments.envs.werewolf.eval.loaders import get_games, GameResult
 
@@ -40,246 +40,246 @@ _WIDTH = 600
 
 
 def _gte_rating_contribution_chart(
-    game,
-    joint: chex.Array,
-    contributions: chex.Array,
-    *,
-    rating_player: int,
-    contrib_player: int,
-    rating_metadata: "pd.DataFrame | None" = None,
-    contrib_metadata: "pd.DataFrame | None" = None,
-    top_k: int = 100,
+        game,
+        joint: chex.Array,
+        contributions: chex.Array,
+        *,
+        rating_player: int,
+        contrib_player: int,
+        rating_metadata: "pd.DataFrame | None" = None,
+        contrib_metadata: "pd.DataFrame | None" = None,
+        top_k: int = 100,
 ) -> "alt.Chart":
-  """Plots the rating contribution of a player to another player's ratings."""
-  if game.players is None:
-    raise ValueError("Game must have player names explicitly defined.")
+    """Plots the rating contribution of a player to another player's ratings."""
+    if game.players is None:
+        raise ValueError("Game must have player names explicitly defined.")
 
-  rating_name = game.players[rating_player]
-  contrib_name = game.players[contrib_player]
-  rating_actions = game.actions[rating_player]
-  contrib_actions = game.actions[contrib_player]
+    rating_name = game.players[rating_player]
+    contrib_name = game.players[contrib_player]
+    rating_actions = game.actions[rating_player]
+    contrib_actions = game.actions[contrib_player]
 
-  if rating_metadata is not None:
-    nunique_by_rating_name = rating_metadata.groupby(rating_name).nunique(False)
-    if np.any(nunique_by_rating_name != 1):
-      raise ValueError(
-          "Rating metadata must be unique per rating action, but is not"
-          f" ({nunique_by_rating_name.reset_index()})."
-      )
+    if rating_metadata is not None:
+        nunique_by_rating_name = rating_metadata.groupby(rating_name).nunique(False)
+        if np.any(nunique_by_rating_name != 1):
+            raise ValueError(
+                "Rating metadata must be unique per rating action, but is not"
+                f" ({nunique_by_rating_name.reset_index()})."
+            )
 
-  joint_support = jnp.sum(
-      jnp.moveaxis(joint, (rating_player, contrib_player), (0, 1)),
-      axis=tuple(range(2, len(joint.shape))),
-  )  # [num_rating_actions, num_contrib_actions]
-  rating_actions_grid, contrib_actions_grid = np.meshgrid(
-      jnp.arange(len(game.actions[rating_player])),
-      jnp.arange(len(game.actions[contrib_player])),
-      indexing="ij",
-  )
-
-  data = pd.DataFrame.from_dict({
-      game.players[rating_player]: rating_actions_grid.ravel(),
-      game.players[contrib_player]: contrib_actions_grid.ravel(),
-      "contrib": contributions.ravel(),
-      "support": joint_support.ravel(),
-  })
-
-  # Computes rating player's action ratings to order rows by.
-  sorted_rating_actions = (
-      (data[[rating_name, "contrib"]].groupby(rating_name).sum().reset_index())
-      .sort_values(by="contrib", ascending=False)[rating_name]
-      .values
-  )
-
-  # Computes the height of the rating chart.
-  num_actions = len(rating_actions)
-  top_k = min(top_k, num_actions)
-  num_actions_to_display = min(num_actions, top_k)
-  height = num_actions_to_display * _HEIGHT
-
-  sorted_rating_actions = sorted_rating_actions[:top_k]
-  data = data[data[rating_name].isin(sorted_rating_actions)]
-  data[rating_name] = data[rating_name].apply(lambda a: rating_actions[a])
-  data[contrib_name] = data[contrib_name].apply(lambda a: contrib_actions[a])
-  sorted_rating_actions = [rating_actions[a] for a in sorted_rating_actions]
-
-  # Interval for selecting a subset of rating actions.
-  ratings_data = (
-      data[[rating_name, "contrib", "support"]]
-      .groupby(rating_name)
-      .sum()
-      .reset_index()
-  )
-
-  if rating_metadata is not None:
-    ratings_data = pd.merge(
-        ratings_data,
-        rating_metadata,
-        on=rating_name,
-        how="left",
-        suffixes=(None, "_metadata"),
-        validate="many_to_one",
-    )
-  ratings_data = ratings_data.rename(columns={"contrib": "rating"})
-  ratings_data["rating_str"] = ratings_data["rating"].apply(lambda c: f"{c:.2%}")
-  ratings_data["rating_ci_str"] = ratings_data["rating_ci"].apply(lambda c: f"{c:.2%}")
-
-  if contrib_metadata is not None:
-    merge_on = contrib_name
-    if rating_name in contrib_metadata.columns:
-      merge_on = (rating_name, contrib_name)
-    data = pd.merge(
-        data,
-        contrib_metadata,
-        on=merge_on,
-        how="left",
-        suffixes=(None, "_metadata"),
-        validate="many_to_one",
+    joint_support = jnp.sum(
+        jnp.moveaxis(joint, (rating_player, contrib_player), (0, 1)),
+        axis=tuple(range(2, len(joint.shape))),
+    )  # [num_rating_actions, num_contrib_actions]
+    rating_actions_grid, contrib_actions_grid = np.meshgrid(
+        jnp.arange(len(game.actions[rating_player])),
+        jnp.arange(len(game.actions[contrib_player])),
+        indexing="ij",
     )
 
-  color = alt.Color(
-      f"{contrib_name}:N",
-      scale=alt.Scale(scheme="category10"),
-      legend=alt.Legend(title=contrib_name.capitalize()),
-  )
-  grouping = list(
-      filter(lambda c: c not in ["contrib", "support"], data.columns)
-  )
+    data = pd.DataFrame.from_dict({
+        game.players[rating_player]: rating_actions_grid.ravel(),
+        game.players[contrib_player]: contrib_actions_grid.ravel(),
+        "contrib": contributions.ravel(),
+        "support": joint_support.ravel(),
+    })
 
-  x = alt.X(
-      "sum(contrib):Q",
-      title=(
-          "Win (loss) rate contribution to agent ratings (stars), broken down"
-          " by role"
-      ),
-      axis=alt.Axis(grid=False, format="%"),
-  )
-  y = alt.Y(
-      f"{rating_name}:N",
-      sort=sorted_rating_actions,
-      title=None,
-      axis=alt.Axis(
-          grid=True,
-          labels=True,
-      ),
-  )
-  data = data[[*grouping, "contrib"]].groupby(grouping).sum().reset_index()
+    # Computes rating player's action ratings to order rows by.
+    sorted_rating_actions = (
+        (data[[rating_name, "contrib"]].groupby(rating_name).sum().reset_index())
+        .sort_values(by="contrib", ascending=False)[rating_name]
+        .values
+    )
 
-  data["contrib_str"] = data["contrib"].apply(lambda c: f"{c:.2%}")
+    # Computes the height of the rating chart.
+    num_actions = len(rating_actions)
+    top_k = min(top_k, num_actions)
+    num_actions_to_display = min(num_actions, top_k)
+    height = num_actions_to_display * _HEIGHT
 
-  category_chart = alt.Chart(data)
-  bars = category_chart.mark_bar().encode(
-      x=x,
-      y=y,
-      color=color,
-      tooltip=[
-          alt.Tooltip(rating_name),
-          alt.Tooltip(contrib_name),
-          alt.Tooltip("contrib_with_ci:N", title="Role contribution"),
-      ],
-  ).transform_calculate(
-      contrib_with_ci=alt.datum.contrib_str + " (± " + alt.datum.contrib_ci + ")"
-  )
+    sorted_rating_actions = sorted_rating_actions[:top_k]
+    data = data[data[rating_name].isin(sorted_rating_actions)]
+    data[rating_name] = data[rating_name].apply(lambda a: rating_actions[a])
+    data[contrib_name] = data[contrib_name].apply(lambda a: contrib_actions[a])
+    sorted_rating_actions = [rating_actions[a] for a in sorted_rating_actions]
 
-  # Order pos and neg contributions separately to address vega/altair bug.
-  bars = alt.layer(
-      bars.transform_filter(alt.datum.contrib < 0).encode(
-          order=alt.Order("contrib:Q", sort="descending"),
-      ),
-      bars.transform_filter(alt.datum.contrib >= 0).encode(
-          order=alt.Order("contrib:Q", sort="ascending"),
-      ),
-  ).resolve_scale(color="shared")
-  rule = (
-      alt.Chart(pd.DataFrame({"x": [1e-4]}))
-      .mark_rule(opacity=0.5, size=1, strokeDash=[2, 2])
-      .encode(x="x:Q")
-  )
+    # Interval for selecting a subset of rating actions.
+    ratings_data = (
+        data[[rating_name, "contrib", "support"]]
+        .groupby(rating_name)
+        .sum()
+        .reset_index()
+    )
 
-  overlay_points = (
-      alt.Chart(ratings_data)
-      .mark_point(
-          shape=(
-              "M0,.5L.6,.8L.5,.1L1,-.3L.3,-.4L0,-1L-.3,-.4L-1,-.3L-.5,.1L-.6,.8L0,.5Z"
-          ),
-          stroke="black",
-          fill="gold",
-          size=200,
-          strokeWidth=2,
-      )
-      .encode(
-          y=alt.Y(
-              f"{rating_name}:N",
-              sort=sorted_rating_actions,
-              title=None,
-              axis=alt.Axis(labels=True, grid=True),
-          ),
-          x=alt.X(
-              "rating:Q",
-              title=alt.Undefined,
-              axis=alt.Axis(grid=True),
-          ),
-          tooltip=[
-              alt.Tooltip(rating_name),
-              alt.Tooltip(
-                  'ratings_with_ci:N',
-                  title="Relative winrate vs equilibrium",
-              ),
-              alt.Tooltip(
-                  "support",
-                  format=".2%",
-                  title="Probability of play at equilibrium",
-              ),
-          ],
-      ).transform_calculate(
-          ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
-      )
-  )
+    if rating_metadata is not None:
+        ratings_data = pd.merge(
+            ratings_data,
+            rating_metadata,
+            on=rating_name,
+            how="left",
+            suffixes=(None, "_metadata"),
+            validate="many_to_one",
+        )
+    ratings_data = ratings_data.rename(columns={"contrib": "rating"})
+    ratings_data["rating_str"] = ratings_data["rating"].apply(lambda c: f"{c:.2%}")
+    ratings_data["rating_ci_str"] = ratings_data["rating_ci"].apply(lambda c: f"{c:.2%}")
 
-  overlay_points_ci = (
-      alt.Chart(ratings_data).mark_errorbar(
-          color="black", ticks=True, size=0.8 * height // num_actions
-      )
-      .encode(
-          x=alt.X("ratings_lo:Q"),
-          x2=alt.X2("ratings_hi:Q"),
-          y=alt.Y(
-              f"{rating_name}:N",
-              sort=sorted_rating_actions,
-              title=None,
-              axis=alt.Axis(labels=True, grid=True),
-          ),
-          strokeWidth=alt.value(1),
-          tooltip=alt.Tooltip('ratings_with_ci:N'),
-      )
-      .transform_calculate(
-          ratings_lo="datum.rating - datum.rating_ci",
-          ratings_hi="datum.rating + datum.rating_ci",
-          ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
-      )
-      .properties(height=height)
-  )
+    if contrib_metadata is not None:
+        merge_on = contrib_name
+        if rating_name in contrib_metadata.columns:
+            merge_on = (rating_name, contrib_name)
+        data = pd.merge(
+            data,
+            contrib_metadata,
+            on=merge_on,
+            how="left",
+            suffixes=(None, "_metadata"),
+            validate="many_to_one",
+        )
 
-  chart = (
-      (
-          alt.layer(bars, rule, overlay_points_ci, overlay_points)
-          .resolve_scale(x="shared", y="shared", color="independent")
-          .properties(
-              width=_WIDTH,
-              height=height,
-              title=alt.TitleParams(
-                  "Game-theoretic Ratings: win probabilities against the"
-                  " equilibrium strategy",
-                  subtitle=(
-                      "An equilibrium is a mixture of current best agents and"
-                      " most discriminative roles."
-                  ),
-              ),
-          )
-      )
-  )
+    color = alt.Color(
+        f"{contrib_name}:N",
+        scale=alt.Scale(scheme="category10"),
+        legend=alt.Legend(title=contrib_name.capitalize()),
+    )
+    grouping = list(
+        filter(lambda c: c not in ["contrib", "support"], data.columns)
+    )
 
-  return chart
+    x = alt.X(
+        "sum(contrib):Q",
+        title=(
+            "Win (loss) rate contribution to agent ratings (stars), broken down"
+            " by role"
+        ),
+        axis=alt.Axis(grid=False, format="%"),
+    )
+    y = alt.Y(
+        f"{rating_name}:N",
+        sort=sorted_rating_actions,
+        title=None,
+        axis=alt.Axis(
+            grid=True,
+            labels=True,
+        ),
+    )
+    data = data[[*grouping, "contrib"]].groupby(grouping).sum().reset_index()
+
+    data["contrib_str"] = data["contrib"].apply(lambda c: f"{c:.2%}")
+
+    category_chart = alt.Chart(data)
+    bars = category_chart.mark_bar().encode(
+        x=x,
+        y=y,
+        color=color,
+        tooltip=[
+            alt.Tooltip(rating_name),
+            alt.Tooltip(contrib_name),
+            alt.Tooltip("contrib_with_ci:N", title="Role contribution"),
+        ],
+    ).transform_calculate(
+        contrib_with_ci=alt.datum.contrib_str + " (± " + alt.datum.contrib_ci + ")"
+    )
+
+    # Order pos and neg contributions separately to address vega/altair bug.
+    bars = alt.layer(
+        bars.transform_filter(alt.datum.contrib < 0).encode(
+            order=alt.Order("contrib:Q", sort="descending"),
+        ),
+        bars.transform_filter(alt.datum.contrib >= 0).encode(
+            order=alt.Order("contrib:Q", sort="ascending"),
+        ),
+    ).resolve_scale(color="shared")
+    rule = (
+        alt.Chart(pd.DataFrame({"x": [1e-4]}))
+        .mark_rule(opacity=0.5, size=1, strokeDash=[2, 2])
+        .encode(x="x:Q")
+    )
+
+    overlay_points = (
+        alt.Chart(ratings_data)
+        .mark_point(
+            shape=(
+                "M0,.5L.6,.8L.5,.1L1,-.3L.3,-.4L0,-1L-.3,-.4L-1,-.3L-.5,.1L-.6,.8L0,.5Z"
+            ),
+            stroke="black",
+            fill="gold",
+            size=200,
+            strokeWidth=2,
+        )
+        .encode(
+            y=alt.Y(
+                f"{rating_name}:N",
+                sort=sorted_rating_actions,
+                title=None,
+                axis=alt.Axis(labels=True, grid=True),
+            ),
+            x=alt.X(
+                "rating:Q",
+                title=alt.Undefined,
+                axis=alt.Axis(grid=True),
+            ),
+            tooltip=[
+                alt.Tooltip(rating_name),
+                alt.Tooltip(
+                    'ratings_with_ci:N',
+                    title="Relative winrate vs equilibrium",
+                ),
+                alt.Tooltip(
+                    "support",
+                    format=".2%",
+                    title="Probability of play at equilibrium",
+                ),
+            ],
+        ).transform_calculate(
+            ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
+        )
+    )
+
+    overlay_points_ci = (
+        alt.Chart(ratings_data).mark_errorbar(
+            color="black", ticks=True, size=0.8 * height // num_actions
+        )
+        .encode(
+            x=alt.X("ratings_lo:Q"),
+            x2=alt.X2("ratings_hi:Q"),
+            y=alt.Y(
+                f"{rating_name}:N",
+                sort=sorted_rating_actions,
+                title=None,
+                axis=alt.Axis(labels=True, grid=True),
+            ),
+            strokeWidth=alt.value(1),
+            tooltip=alt.Tooltip('ratings_with_ci:N'),
+        )
+        .transform_calculate(
+            ratings_lo="datum.rating - datum.rating_ci",
+            ratings_hi="datum.rating + datum.rating_ci",
+            ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
+        )
+        .properties(height=height)
+    )
+
+    chart = (
+        (
+            alt.layer(bars, rule, overlay_points_ci, overlay_points)
+            .resolve_scale(x="shared", y="shared", color="independent")
+            .properties(
+                width=_WIDTH,
+                height=height,
+                title=alt.TitleParams(
+                    "Game-theoretic Ratings: win probabilities against the"
+                    " equilibrium strategy",
+                    subtitle=(
+                        "An equilibrium is a mixture of current best agents and"
+                        " most discriminative roles."
+                    ),
+                ),
+            )
+        )
+    )
+
+    return chart
 
 
 class AgentMetrics:
@@ -487,9 +487,10 @@ class GameSetEvaluator:
         joints_std = np.std(joints, axis=0)
         contributions_mean = np.mean(contributions, axis=0)
         contributions_std = np.std(contributions, axis=0)
-        return (ratings_mean, ratings_std), (joints_mean, joints_std), None, (contributions_mean, contributions_std), games[0]
+        return (ratings_mean, ratings_std), (joints_mean, joints_std), None, (contributions_mean, contributions_std), \
+        games[0]
 
-    def plot_gte_evaluation(self, top_k: int = 100):
+    def plot_gte_evaluation(self, top_k: int = 100, output_path="gte_evaluation.html"):
         if not POLARIX_AVAILABLE or not ALTAIR_AVAILABLE:
             print("Warning: `polarix` or `altair` library not found. Cannot plot GTE results.")
             return None
@@ -535,6 +536,8 @@ class GameSetEvaluator:
             contrib_player=0,
             top_k=top_k)
 
+        if output_path:
+            chart.save(output_path)
         return chart
 
     def print_results(self):
@@ -578,6 +581,76 @@ class GameSetEvaluator:
 
             print("-" * 30)
 
+    def _prepare_plot_data(self):
+        plot_data = []
+        for agent_name, metrics in self.metrics.items():
+            # Overall metrics
+            win_rate, win_std = metrics.get_win_rate()
+            ksr, ksr_std = metrics.get_ksr()
+            irp, irp_std = metrics.get_irp()
+            vss, vss_std = metrics.get_vss()
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'std': win_std, 'category': 'Overall'})
+            plot_data.append({'agent': agent_name, 'metric': 'Survival Rate (KSR)', 'value': ksr, 'std': ksr_std,
+                              'category': 'Overall'})
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'std': irp_std, 'category': 'Voting Accuracy'})
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'std': vss_std, 'category': 'Voting Accuracy'})
+
+            # Role-specific metrics
+            for role in sorted(metrics.wins_by_role.keys()):
+                role_rate, role_std = metrics.get_win_rate_for_role(role)
+                plot_data.append(
+                    {'agent': agent_name, 'metric': f'Win Rate ({role})', 'value': role_rate, 'std': role_std,
+                     'category': 'Role-Specific Win Rate'})
+            for role in sorted(metrics.survival_by_role.keys()):
+                role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
+                plot_data.append(
+                    {'agent': agent_name, 'metric': f'KSR ({role})', 'value': role_ksr, 'std': role_ksr_std,
+                     'category': 'Role-Specific Survival'})
+        return pd.DataFrame(plot_data)
+
+    def plot_metrics(self, output_path="metrics.html"):
+        if not ALTAIR_AVAILABLE:
+            print("Warning: `altair` and `pandas` not found. Cannot plot metrics.")
+            return
+
+        df = self._prepare_plot_data()
+
+        charts = []
+        for category in df['category'].unique():
+            chart_data = df[df['category'] == category]
+
+            base = alt.Chart(chart_data).encode(
+                x=alt.X('agent:N', title="Agent"),
+                y=alt.Y('value:Q', title="Score", scale=alt.Scale(zero=False)),
+                color='agent:N'
+            )
+
+            bars = base.mark_bar().encode(
+                tooltip=['agent', 'metric', 'value', 'std']
+            )
+
+            error_bars = base.mark_errorbar(extent='ci').encode(
+                y='value:Q',
+                yError='std:Q'
+            )
+
+            chart = (bars + error_bars).properties(
+                title=category
+            ).facet(
+                column=alt.Column('metric:N', title=None)
+            )
+            charts.append(chart)
+
+        if charts:
+            final_chart = alt.vconcat(*charts).resolve_scale(
+                y='shared'
+            )
+            final_chart.save(output_path)
+            print(f"Metrics chart saved to {output_path}")
+
 
 if __name__ == '__main__':
     # Example usage:
@@ -586,6 +659,7 @@ if __name__ == '__main__':
     evaluator = GameSetEvaluator(SMOKE_TEST_DATA_DIR)
     evaluator.evaluate()
     evaluator.print_results()
+    evaluator.plot_metrics()
     chart = evaluator.plot_gte_evaluation()
     if chart:
         chart.save("gte_evaluation.html")
