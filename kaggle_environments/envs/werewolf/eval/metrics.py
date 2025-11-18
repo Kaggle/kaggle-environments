@@ -14,6 +14,12 @@ except ImportError:
     POLARIX_AVAILABLE = False
 
 try:
+    from openskill.models import PlackettLuce
+    OPENSKILL_AVAILABLE = True
+except ImportError:
+    OPENSKILL_AVAILABLE = False
+
+try:
     import altair as alt
     import pandas as pd
     import chex
@@ -24,6 +30,7 @@ except ImportError:
     ALTAIR_AVAILABLE = False
 
 from kaggle_environments.envs.werewolf.eval.loaders import get_games, GameResult
+from kaggle_environments.envs.werewolf.game.consts import Team
 
 
 def _mean_std(values: List[float]) -> Tuple[float, float]:
@@ -31,6 +38,19 @@ def _mean_std(values: List[float]) -> Tuple[float, float]:
     if not values:
         return 0.0, 0.0
     return np.mean(values), np.std(values)
+
+
+def calculate_elo_change(p1_elo, p2_elo, result, k=32):
+    """
+    Calculates the change in Elo rating for Player 1.
+    :param p1_elo: Rating of Player 1
+    :param p2_elo: Rating of Player 2
+    :param result: 1 if Player 1 wins, 0 if Player 1 loses, 0.5 for draw
+    :param k: K-factor
+    :return: Change in rating for Player 1
+    """
+    expected = 1 / (1 + 10 ** ((p2_elo - p1_elo) / 400))
+    return k * (result - expected)
 
 
 # --- Plotting utils from game_theoretic.py ---
@@ -285,7 +305,7 @@ def _gte_rating_contribution_chart(
 class AgentMetrics:
     """Stores and calculates performance metrics for a single agent."""
 
-    def __init__(self, agent_name: str):
+    def __init__(self, agent_name: str, openskill_model):
         self.agent_name = agent_name
         self.wins: List[int] = []
         self.wins_by_role: Dict[str, List[int]] = defaultdict(list)
@@ -297,6 +317,15 @@ class AgentMetrics:
         # For GTE
         self.gte_rating: Tuple[float, float] = (0.0, 0.0)
         self.gte_contributions: Dict[str, Tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
+
+        # Ratings
+        self.elo: float = 1200.0
+        self.openskill_model = openskill_model
+        self.openskill_rating = None
+
+    def set_agent_name(self, name: str):
+        self.agent_name = name
+        self.openskill_rating = self.openskill_model.rating(name=name) if self.openskill_model else None
 
     def get_win_rate(self) -> Tuple[float, float]:
         return _mean_std(self.wins)
@@ -347,8 +376,11 @@ class GameSetEvaluator:
         for directory in input_dirs:
             all_games.extend(get_games(directory))
 
+        self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
+
         self.games = [GameResult(g, preserve_full_record=preserve_full_game_records) for g in all_games]
-        self.metrics: Dict[str, AgentMetrics] = defaultdict(lambda: AgentMetrics(agent_name=None))
+        self.metrics: Dict[str, AgentMetrics] = defaultdict(
+            lambda: AgentMetrics(agent_name=None, openskill_model=self.openskill_model))
 
         # For GTE
         self.gte_game = None
@@ -365,14 +397,14 @@ class GameSetEvaluator:
         else:
             self.gte_tasks = gte_tasks
 
-    def evaluate(self, gte_samples=100):
+    def evaluate(self, gte_samples=3):
         """Processes all games and aggregates the metrics."""
         for game in self.games:
             # --- Win Rate & Survival Metrics ---
             for player in game.players:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
-                    self.metrics[agent_name].agent_name = agent_name
+                    self.metrics[agent_name].set_agent_name(agent_name)
 
                 won = 1 if player.role.team == game.winner_team else 0
                 survived = 1 if player.alive else 0
@@ -388,6 +420,58 @@ class GameSetEvaluator:
                 self.metrics[agent_name].irp_scores.append(score)
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
+
+        # --- Rating Updates ---
+        for game in self.games:
+            villager_agents = []
+            werewolf_agents = []
+
+            for player in game.players:
+                agent_name = player.agent.display_name
+                if player.role.team == Team.VILLAGERS:
+                    villager_agents.append(agent_name)
+                else:
+                    werewolf_agents.append(agent_name)
+
+            # TrueSkill Update
+            if OPENSKILL_AVAILABLE:
+                # openskill expects [[r1, r2], [r3, r4]]
+                # ranks=[0, 1] means first team won.
+                team_v = [self.metrics[a].openskill_rating for a in villager_agents]
+                team_w = [self.metrics[a].openskill_rating for a in werewolf_agents]
+
+                teams = None
+                if game.winner_team == Team.VILLAGERS:
+                    teams = [team_v, team_w]
+                elif game.winner_team == Team.WEREWOLVES:
+                    teams = [team_w, team_v]
+
+                # If a team is empty (shouldn't happen in normal games but safety check), skip
+                if teams:
+                    new_ratings = self.openskill_model.rate(teams)
+                    openskill_ratings = [rate for team in new_ratings for rate in team]
+                    for rating in openskill_ratings:
+                        self.metrics[rating.name].openskill_rating = rating
+
+            # Elo Update
+            # Calculate team average Elo
+            v_elos = [self.metrics[a].elo for a in villager_agents]
+            w_elos = [self.metrics[a].elo for a in werewolf_agents]
+
+            if v_elos and w_elos:
+                avg_v_elo = np.mean(v_elos)
+                avg_w_elo = np.mean(w_elos)
+
+                # Result for Villagers
+                result_v = 1 if game.winner_team == Team.VILLAGERS else 0
+
+                for agent in villager_agents:
+                    change = calculate_elo_change(self.metrics[agent].elo, avg_w_elo, result_v)
+                    self.metrics[agent].elo += change
+
+                for agent in werewolf_agents:
+                    change = calculate_elo_change(self.metrics[agent].elo, avg_v_elo, 1 - result_v)
+                    self.metrics[agent].elo += change
 
         self._run_gte_evaluation(num_samples=gte_samples)
 
@@ -571,6 +655,11 @@ class GameSetEvaluator:
             print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std:.2f} ({len(stats.irp_scores)} votes)")
             print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std:.2f} ({len(stats.vss_scores)} votes)")
 
+            print("  Ratings:")
+            print(f"    Elo: {stats.elo:.2f}")
+            if OPENSKILL_AVAILABLE and stats.openskill_rating:
+                print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
+
             if POLARIX_AVAILABLE:
                 print("  Game Theoretic Evaluation (GTE):")
                 gte_mean, gte_std = stats.gte_rating
@@ -609,6 +698,15 @@ class GameSetEvaluator:
                 plot_data.append(
                     {'agent': agent_name, 'metric': f'KSR ({role})', 'value': role_ksr, 'std': role_ksr_std,
                      'category': 'Role-Specific Survival'})
+
+            # Ratings
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': 0.0, 'category': 'Elo Rating'})
+            if OPENSKILL_AVAILABLE and metrics.openskill_rating:
+                plot_data.append(
+                    {'agent': agent_name, 'metric': 'TrueSkill (mu)', 'value': metrics.openskill_rating.mu,
+                     'std': metrics.openskill_rating.sigma, 'category': 'TrueSkill Rating'})
+
         return pd.DataFrame(plot_data)
 
     def plot_metrics(self, output_path="metrics.html"):
@@ -646,7 +744,7 @@ class GameSetEvaluator:
 
         if charts:
             final_chart = alt.vconcat(*charts).resolve_scale(
-                y='shared'
+                color='shared'
             )
             final_chart.save(output_path)
             print(f"Metrics chart saved to {output_path}")
@@ -657,7 +755,7 @@ if __name__ == '__main__':
     DIR_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
     SMOKE_TEST_DATA_DIR = str(DIR_PATH / "test" / "data" / "w_replace")
     evaluator = GameSetEvaluator(SMOKE_TEST_DATA_DIR)
-    evaluator.evaluate()
+    evaluator.evaluate(gte_samples=2)
     evaluator.print_results()
     evaluator.plot_metrics()
     chart = evaluator.plot_gte_evaluation()
