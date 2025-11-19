@@ -484,11 +484,12 @@ class GameSetEvaluator:
         agents = sorted(list(self.metrics.keys()))
         rnd = np.random.default_rng(42)
 
-        ratings, joints, _, contributions, self.gte_game = self._bootstrap_stats(
+        ratings, joints, marginals, contributions, self.gte_game = self._bootstrap_stats(
             rnd, self.games, agents, self.gte_tasks, num_samples=num_samples
         )
         self.gte_ratings = ratings
         self.gte_joint = joints
+        self.gte_marginals = marginals
         self.gte_contributions_raw = contributions
 
         ratings_mean, ratings_std = self.gte_ratings
@@ -573,9 +574,14 @@ class GameSetEvaluator:
         ratings_std = [np.std(r, axis=0) for r in zip(*ratings)]
         joints_mean = np.mean(joints, axis=0)
         joints_std = np.std(joints, axis=0)
+
+        marginals_by_dim = list(zip(*marginals))
+        marginals_mean = [np.mean(m, axis=0) for m in marginals_by_dim]
+        marginals_std = [np.std(m, axis=0) for m in marginals_by_dim]
+
         contributions_mean = np.mean(contributions, axis=0)
         contributions_std = np.std(contributions, axis=0)
-        return (ratings_mean, ratings_std), (joints_mean, joints_std), None, (contributions_mean, contributions_std), \
+        return (ratings_mean, ratings_std), (joints_mean, joints_std), (marginals_mean, marginals_std), (contributions_mean, contributions_std), \
         games[0]
 
     def plot_gte_evaluation(self, top_k: int = 100, output_path="gte_evaluation.html"):
@@ -614,7 +620,7 @@ class GameSetEvaluator:
 
         # The game object has 'metric' and 'agent' as players.
         # rating_player=1 is 'agent', contrib_player=0 is 'metric'.
-        chart = _gte_rating_contribution_chart(
+        rating_chart = _gte_rating_contribution_chart(
             game=self.gte_game,
             joint=joint_avg,
             contributions=contribution_avg,
@@ -624,9 +630,48 @@ class GameSetEvaluator:
             contrib_player=0,
             top_k=top_k)
 
+        # --- Chart 2: Task Importance (Marginal Probability) ---
+        # marginals[0] is for Player 0 (Metric/Task)
+        # self.gte_marginals is (marginals_mean, marginals_std)
+        # marginals_mean is [mean_p0, mean_p1], marginals_std is [std_p0, std_p1]
+        task_marginals_mean = self.gte_marginals[0][0]
+        task_marginals_std = self.gte_marginals[1][0]
+
+        task_importance_df = pd.DataFrame({
+            'metric': tasks,
+            'importance': task_marginals_mean,
+            'std': task_marginals_std
+        })
+        # 95% CI
+        task_importance_df['ci'] = task_importance_df['std'] * 1.96
+        task_importance_df['min_val'] = task_importance_df['importance'] - task_importance_df['ci']
+        task_importance_df['max_val'] = task_importance_df['importance'] + task_importance_df['ci']
+
+        base = alt.Chart(task_importance_df).encode(
+            y=alt.Y('metric:N', sort='-x', title="Task"),
+            x=alt.X('importance:Q', title="Marginal Probability (Importance)"),
+        )
+
+        bars = base.mark_bar().encode(
+            tooltip=['metric', 'importance', 'std']
+        )
+
+        error_bars = alt.Chart(task_importance_df).mark_rule(color='black').encode(
+            y=alt.Y('metric:N', sort='-x'),
+            x=alt.X('min_val:Q'),
+            x2=alt.X2('max_val:Q'),
+            tooltip=['metric', 'importance', 'std']
+        )
+
+        importance_chart = (bars + error_bars).properties(
+            title="Task Importance (Marginal Probability in Equilibrium)"
+        )
+
+        final_chart = alt.vconcat(rating_chart, importance_chart).resolve_scale(color='independent')
+
         if output_path:
-            chart.save(output_path)
-        return chart
+            final_chart.save(output_path)
+        return final_chart
 
     def print_results(self):
         """Prints a formatted summary of the evaluation results."""
@@ -736,7 +781,8 @@ class GameSetEvaluator:
 
             error_bars = base.mark_errorbar(extent='ci').encode(
                 y='value:Q',
-                yError='std:Q'
+                yError='std:Q',
+                color=alt.value('black')
             )
 
             chart = (bars + error_bars).properties(
