@@ -2,18 +2,30 @@ import { GameAdapter } from './adapter';
 import { BaseGameStep, ReplayData } from './types';
 import { render } from 'preact';
 
-// The legacy renderer function signature
-export type LegacyRenderer<TSteps = BaseGameStep[]> = (
-  options: LegacyRendererOptions<TSteps>,
-  container?: HTMLElement
-) => void;
-
 function handleSetCurrentStep(step: number) {
   window.parent.postMessage({ step }, '*');
 }
 
 function handleSetPlaying(playing: boolean) {
   window.parent.postMessage({ playing }, '*');
+}
+
+// The legacy renderer function signature
+export type LegacyRenderer<TSteps = BaseGameStep[]> = (
+  options: LegacyRendererOptions<TSteps>,
+  container?: HTMLElement
+) => void;
+
+interface UnstableReplayerControls {
+  setStep: (newStep: number) => void;
+  play: (continuing?: boolean) => void;
+  pause: () => void;
+  setPlaying: (playing: boolean) => void;
+  // Expose current step and playing state for renderer to read
+  step: number;
+  playing: boolean;
+  // Expose the actual player object for advanced scenarios if needed
+  _replayerInstance: any;
 }
 
 export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
@@ -25,7 +37,7 @@ export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
   step: number;
   width: number;
   height: number;
-  unstable_replayerControls?: any;
+  unstable_replayerControls?: UnstableReplayerControls;
   setCurrentStep: (step: number) => void;
   setPlaying: (playing: boolean) => void;
 }
