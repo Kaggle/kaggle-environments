@@ -10,6 +10,7 @@
         "runTimeout": { "type": "number", "default": 1800 },
         "seed": { "type": "integer", "description": "Seed to use for episodes", "default": 123 },
         "randomize_roles": { "type":  "boolean", "default":  false, "description": "If set to true, the roles would be randomized according to seed." },
+        "randomize_ids": { "type":  "boolean", "default":  false, "description": "If set to true, the player ids would be randomized according to seed + offset." },
         "night_elimination_reveal_level": {
             "type": "string",
             "enum": ["no_reveal", "team", "role"],
