@@ -20,12 +20,14 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private speed = 500; // ms per step
   private mounted = false;
   private showControls = true;
+  private showLegend = false;
   private hmrState?: any; // Will hold the persistent state dev HMR
   private transformer?: (replay: ReplayData) => ReplayData;
 
   // --- Element references ---
   private viewer: HTMLElement;
   private controls: HTMLElement;
+  private legend: HTMLElement;
   private playPauseButton: HTMLButtonElement;
   private playPauseIconPath: SVGPathElement;
   private prevButton: HTMLButtonElement;
@@ -53,10 +55,14 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     this.viewer = document.createElement('div');
     this.viewer.className = 'viewer';
 
+    this.legend = document.createElement('div');
+    this.legend.className = 'legend';
+
     this.controls = document.createElement('div');
     this.controls.className = 'controls';
 
     playerDiv.appendChild(this.viewer);
+    playerDiv.appendChild(this.legend);
     playerDiv.appendChild(this.controls);
     this.container.innerHTML = '';
     this.container.appendChild(playerDiv);
@@ -124,6 +130,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     //    We use nullish coalescing (??) to set defaults if state is empty.
     if (this.hmrState) {
       this.showControls = this.hmrState.controls ?? true;
+      this.showLegend = this.hmrState.legend ?? true;
       this.playing = this.hmrState.playing ?? false;
     }
 
@@ -139,6 +146,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       // renderControls() is called by setStep, but we call it
       // again to ensure the play/pause icon is correct.
       this.renderControls();
+      this.renderLegend();
 
       if (this.playing) {
         this.tick();
@@ -154,6 +162,10 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
           .then((res) => res.json())
           .then((data) => {
             this.setData(data, data.info.Agents);
+            // TODO: Move to game-specific config for showControls/showLegend/stepTime/etc.
+            if (this.replay?.name === 'halite') {
+              this.showLegend = true;
+            }
           })
           .catch((err) => {
             console.error(`Error fetching ${replayFile}:`, err);
@@ -164,6 +176,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
         // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
         this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
         this.renderControls(); // Apply restored showControls state
+        this.renderLegend();
       }
     }
 
@@ -171,6 +184,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     else {
       this.viewer.innerHTML = '<div>Loading...</div>';
       this.renderControls();
+      this.renderLegend();
     }
 
     // 5. Add listener (always)
@@ -192,6 +206,12 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       this.showControls = event.data.controls;
       updateHMRState('controls', this.showControls); // Save to HMR
       this.renderControls();
+    }
+
+    if (typeof event.data.legend === 'boolean') {
+      this.showLegend = event.data.legend;
+      updateHMRState('legend', this.showLegend);
+      this.renderLegend();
     }
 
     let needsRender = false;
@@ -282,6 +302,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
     }
     this.renderControls();
+    this.renderLegend();
 
     // Only render/tick if not told to skip (e.g., during HMR restore)
     if (!options.skipRender && this.replay) {
@@ -302,6 +323,14 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     this.adapter.render(this.step, this.replay, this.agents, this);
     this.renderControls();
+  }
+
+  public setAgents(agents: any[]) {
+    this.agents = agents;
+    if (this.hmrState) {
+      this.hmrState.agents = this.agents;
+    }
+    this.renderLegend();
   }
 
   private play() {
@@ -347,6 +376,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   }
 
   private tick = () => {
+    console.log('tick called');
     if (!this.playing || !this.replay) return;
 
     if (this.step >= this.replay.steps.length - 1) {
@@ -410,6 +440,58 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     // Ensure max is set correctly
     this.stepSlider.max = (maxSteps >= 0 ? maxSteps : 0).toString();
     this.stepCounter.textContent = `${this.step + 1} / ${maxSteps + 1}`;
+  }
+
+  private renderLegend() {
+    if (!this.showLegend || !this.agents || this.agents.length === 0) {
+      this.legend.style.display = 'none';
+      return;
+    }
+    this.legend.style.display = 'flex';
+    this.legend.innerHTML = ''; // Clear previous content
+
+    // Logic from player.html to group agents
+    const groupIntoSets = (arr: any[], num: number) => {
+      const sets: any[][] = [];
+      arr.forEach((a) => {
+        if (sets.length === 0 || sets[sets.length - 1].length === num) {
+          sets.push([]);
+        }
+        sets[sets.length - 1].push(a);
+      });
+      return sets;
+    };
+
+    const sortedAgents = [...this.agents];
+    if (typeof sortedAgents[0]?.index === 'number') {
+      sortedAgents.sort((a, b) => a.index - b.index);
+    }
+
+    const agentPairs = groupIntoSets(sortedAgents, 2);
+
+    agentPairs.forEach((agentList) => {
+      const ul = document.createElement('ul');
+      agentList.forEach((agent) => {
+        const li = document.createElement('li');
+        if (agent.id) {
+          li.title = `id: ${agent.id}`;
+        }
+        li.style.color = agent.color || '#FFF';
+
+        if (agent.image) {
+          const img = document.createElement('img');
+          img.src = agent.image;
+          li.appendChild(img);
+        }
+
+        const span = document.createElement('span');
+        span.textContent = agent.name;
+        li.appendChild(span);
+
+        ul.appendChild(li);
+      });
+      this.legend.appendChild(ul);
+    });
   }
 
   /**

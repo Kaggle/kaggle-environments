@@ -1,3 +1,5 @@
+import { LegacyRendererOptions } from '@kaggle-environments/core';
+
 const ENERGY_TEXT = 'CGRWLPFDM A';
 const WIDTH = 750;
 const HEIGHT = 700;
@@ -13,38 +15,9 @@ const posY = (index: number, len: number) => {
   return center + (height * (2 * index + 1 - len)) / len;
 };
 
-interface RendererOptions {
-  step: number;
-  width: number;
-  height: number;
-  parent: HTMLElement;
-  steps: Array<Array<any>>;
-  replay: {
-    name: string;
-    version: string;
-    steps: Array<any>;
-    configuration: Record<string, any>;
-    info: Record<string, any>;
-  };
-  agents: Array<any>;
-  playerNames: string[];
-
-  setCurrentStep: (step: number) => void;
-  setPlaying: (playing: boolean) => void;
-
-  unstable_replayerControls?: {
-    step: number;
-    setStep: (step: number) => void;
-    play: (continuing?: boolean) => void;
-    pause: () => void;
-    setPlaying: (playing: boolean) => void;
-    [key: string]: any;
-  };
-}
-
-export function renderer(options: RendererOptions) {
+export function renderer(options: LegacyRendererOptions) {
   const step = options.step;
-  const visList = options.steps[0][0].visualize;
+  const visList = (options.steps as any)[0][0].visualize;
   const players = [options.playerNames[0] || 'Player 0', options.playerNames[1] || 'Player 1'];
 
   let canvas = options.parent.querySelector('canvas');
@@ -93,7 +66,9 @@ export function renderer(options: RendererOptions) {
         button.addEventListener('click', () => {
           for (let i = 0; i < visList.length; i++) {
             for (let j = 0; j < 2; j++) {
-              visList[i].current.players[j].ramainingTime = options.steps[i][j].observation.remainingOverageTime;
+              visList[i].current.players[j].ramainingTime = (options.steps as any)[i][
+                j
+              ].observation.remainingOverageTime;
             }
           }
           visList[0].ps = players;
@@ -106,7 +81,7 @@ export function renderer(options: RendererOptions) {
           const form = document.createElement('form');
           form.method = 'POST';
           form.action = 'https://ptcgvis.heroz.jp/Visualizer/Replay/';
-          if (options.replay.info.EpisodeId == null) {
+          if (options?.replay?.info?.EpisodeId == null) {
             form.action += k;
           } else {
             form.action += options.replay.info.EpisodeId + '/' + k;
@@ -127,7 +102,7 @@ export function renderer(options: RendererOptions) {
         ctx.fillStyle = '#fff';
         ctx.font = '30px sans-serif';
         ctx.fillText('No visualizer data.', 10, 100);
-        const error = options.steps[0][0].error;
+        const error = (options.steps as any)[0][0].error;
         if (error) {
           ctx.fillText(error, 10, 150);
         }
