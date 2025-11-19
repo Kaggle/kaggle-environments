@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
 
@@ -13,18 +13,6 @@ declare global {
   interface Window {
     __poker_styles_injected?: boolean;
   }
-}
-
-/**
- * Options for the renderer
- */
-interface RendererOptions {
-  parent: HTMLElement;
-  steps: RepeatedPokerStep[]; // This is the main data object
-  step?: number;
-  width: number;
-  height: number;
-  setCurrentStep: (step: number) => void;
 }
 
 /**
@@ -49,7 +37,7 @@ interface PokerTableElements {
   legend: HTMLElement | null;
 }
 
-export function renderer(options: RendererOptions): void {
+export function renderer(options: LegacyRendererOptions): void {
   const chipImages: Record<number, string> = {
     1: poker_chip_1,
     5: poker_chip_5,
@@ -77,7 +65,7 @@ export function renderer(options: RendererOptions): void {
     legend: null,
   };
 
-  function _injectStyles(passedOptions: Partial<RendererOptions>): void {
+  function _injectStyles(passedOptions: Partial<LegacyRendererOptions>): void {
     if (typeof document === 'undefined') {
       return;
     }
@@ -908,11 +896,13 @@ export function renderer(options: RendererOptions): void {
     return;
   }
 
-  if (options.steps[options.step ?? 0].stepType === 'game-over') {
-    _renderFinalScreenUI(options.steps[options.step ?? 0]);
+  const currentStep = options.steps[options.step ?? 0] as RepeatedPokerStep;
+
+  if (currentStep.stepType === 'game-over') {
+    _renderFinalScreenUI(currentStep);
   } else {
-    _renderPokerTableUI(options.steps[options.step ?? 0]);
-    _renderLegendUI(options.steps, options.step ?? 0, options.setCurrentStep);
+    _renderPokerTableUI(currentStep);
+    _renderLegendUI(options.steps as RepeatedPokerStep[], options.step ?? 0, options.setCurrentStep);
   }
 
   // Apply initial scale
