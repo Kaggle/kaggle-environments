@@ -322,6 +322,7 @@ class AgentMetrics:
 
         # Ratings
         self.elo: float = 1200.0
+        self.elo_std: float = 0.0
         self.openskill_model = openskill_model
         self.openskill_rating = None
 
@@ -387,6 +388,7 @@ class GameSetEvaluator:
         self.gte_game = None
         self.gte_joint = None
         self.gte_ratings = None
+        self.gte_marginals = None
         self.gte_contributions_raw = None
 
         if gte_tasks is None:
@@ -398,7 +400,66 @@ class GameSetEvaluator:
         else:
             self.gte_tasks = gte_tasks
 
-    def evaluate(self, gte_samples=3):
+    def _compute_elo_ratings(self, games: List) -> Dict[str, float]:
+        """Computes Elo ratings for a given sequence of games."""
+        elos = defaultdict(lambda: 1200.0)
+
+        for game in games:
+            villager_agents = []
+            werewolf_agents = []
+
+            for player in game.players:
+                agent_name = player.agent.display_name
+                if player.role.team == Team.VILLAGERS:
+                    villager_agents.append(agent_name)
+                else:
+                    werewolf_agents.append(agent_name)
+
+            v_elos = [elos[a] for a in villager_agents]
+            w_elos = [elos[a] for a in werewolf_agents]
+
+            if v_elos and w_elos:
+                avg_v_elo = np.mean(v_elos)
+                avg_w_elo = np.mean(w_elos)
+
+                result_v = 1 if game.winner_team == Team.VILLAGERS else 0
+
+                for agent in villager_agents:
+                    elos[agent] += calculate_elo_change(elos[agent], avg_w_elo, result_v)
+
+                for agent in werewolf_agents:
+                    elos[agent] += calculate_elo_change(elos[agent], avg_v_elo, 1 - result_v)
+        
+        return elos
+
+    def _bootstrap_elo(self, num_samples=100):
+        """Estimates Elo standard error via bootstrapping."""
+        if not self.games:
+            return
+
+        rnd = np.random.default_rng(42)
+        bootstrapped_elos = defaultdict(list)
+
+        # We need to know all agents to initialize lists, in case an agent isn't picked in a sample
+        all_agents = list(self.metrics.keys())
+        
+        for _ in range(num_samples):
+            sampled_games = rnd.choice(self.games, size=len(self.games), replace=True)
+            sample_elos = self._compute_elo_ratings(sampled_games)
+            
+            for agent in all_agents:
+                # If agent wasn't in the sample, they stay at 1200 (or we could skip, 
+                # but sticking to 1200 might bias if they rarely play. 
+                # Better to track only if they played, but for simplicity we assume 1200).
+                # However, typically we only care about variance of active play.
+                # Let's use the calculated value or 1200 default.
+                bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
+
+        for agent, values in bootstrapped_elos.items():
+            if len(values) > 1:
+                self.metrics[agent].elo_std = float(np.std(values, ddof=1))
+
+    def evaluate(self, gte_samples=3, elo_samples=100):
         """Processes all games and aggregates the metrics."""
         for game in self.games:
             # --- Win Rate & Survival Metrics ---
@@ -422,22 +483,25 @@ class GameSetEvaluator:
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
 
-        # --- Rating Updates ---
-        for game in self.games:
-            villager_agents = []
-            werewolf_agents = []
-
-            for player in game.players:
-                agent_name = player.agent.display_name
-                if player.role.team == Team.VILLAGERS:
-                    villager_agents.append(agent_name)
-                else:
-                    werewolf_agents.append(agent_name)
-
-            # TrueSkill Update
-            if OPENSKILL_AVAILABLE:
-                # openskill expects [[r1, r2], [r3, r4]]
-                # ranks=[0, 1] means first team won.
+        # --- Rating Updates (Point Estimates) ---
+        # 1. Elo
+        final_elos = self._compute_elo_ratings(self.games)
+        for agent, rating in final_elos.items():
+            self.metrics[agent].elo = rating
+        
+        # 2. TrueSkill (OpenSkill)
+        # OpenSkill is order dependent too, but we just run it once sequentially here.
+        if OPENSKILL_AVAILABLE and self.openskill_model:
+             for game in self.games:
+                villager_agents = []
+                werewolf_agents = []
+                for player in game.players:
+                    agent_name = player.agent.display_name
+                    if player.role.team == Team.VILLAGERS:
+                        villager_agents.append(agent_name)
+                    else:
+                        werewolf_agents.append(agent_name)
+                
                 team_v = [self.metrics[a].openskill_rating for a in villager_agents]
                 team_w = [self.metrics[a].openskill_rating for a in werewolf_agents]
 
@@ -447,33 +511,14 @@ class GameSetEvaluator:
                 elif game.winner_team == Team.WEREWOLVES:
                     teams = [team_w, team_v]
 
-                # If a team is empty (shouldn't happen in normal games but safety check), skip
                 if teams:
                     new_ratings = self.openskill_model.rate(teams)
                     openskill_ratings = [rate for team in new_ratings for rate in team]
                     for rating in openskill_ratings:
                         self.metrics[rating.name].openskill_rating = rating
 
-            # Elo Update
-            # Calculate team average Elo
-            v_elos = [self.metrics[a].elo for a in villager_agents]
-            w_elos = [self.metrics[a].elo for a in werewolf_agents]
-
-            if v_elos and w_elos:
-                avg_v_elo = np.mean(v_elos)
-                avg_w_elo = np.mean(w_elos)
-
-                # Result for Villagers
-                result_v = 1 if game.winner_team == Team.VILLAGERS else 0
-
-                for agent in villager_agents:
-                    change = calculate_elo_change(self.metrics[agent].elo, avg_w_elo, result_v)
-                    self.metrics[agent].elo += change
-
-                for agent in werewolf_agents:
-                    change = calculate_elo_change(self.metrics[agent].elo, avg_v_elo, 1 - result_v)
-                    self.metrics[agent].elo += change
-
+        # --- Bootstrapping for Errors ---
+        self._bootstrap_elo(num_samples=elo_samples)
         self._run_gte_evaluation(num_samples=gte_samples)
 
     def _run_gte_evaluation(self, num_samples: int):
@@ -750,7 +795,7 @@ class GameSetEvaluator:
 
             # Ratings
             plot_data.append(
-                {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': 0.0, 'category': 'Elo Rating'})
+                {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': metrics.elo_std, 'category': 'Elo Rating'})
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
                 plot_data.append(
                     {'agent': agent_name, 'metric': 'TrueSkill (mu)', 'value': metrics.openskill_rating.mu,
