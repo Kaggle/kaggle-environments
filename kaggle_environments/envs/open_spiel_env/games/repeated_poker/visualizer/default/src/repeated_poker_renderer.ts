@@ -418,7 +418,8 @@ export function renderer(options: LegacyRendererOptions): void {
             // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
-            startingStep: handIndex === 0 ? 0 : relevantSteps[handIndex - 1].step + 1,
+            // Starting step is directly after the last step of the previous hand
+            startingStep: handIndex !== 0 && hands.get(handIndex - 1) ? hands.get(handIndex - 1)!.step + 1 : 0,
           });
         }
       }
