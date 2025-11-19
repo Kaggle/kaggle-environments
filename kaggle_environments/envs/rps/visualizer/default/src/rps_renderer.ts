@@ -20,11 +20,26 @@ export async function renderer(context: LegacyRendererOptions) {
     parent.appendChild(canvas);
   }
 
-  // Canvas setup and reset.
-  const c = canvas.getContext('2d');
-  canvas.width = Math.min(maxWidth, width);
-  canvas.height = Math.min(maxHeight, height);
-  c?.clearRect(0, 0, canvas.width, canvas.height);
+  // Set display size (css pixels)
+  canvas.style.width = `${Math.min(maxWidth, width)}px`;
+  canvas.style.height = `${Math.min(maxHeight, height)}px`;
+
+  // Get the device pixel ratio
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set actual size in memory (scaled for device pixel ratio)
+  canvas.width = Math.min(maxWidth, width) * dpr;
+  canvas.height = Math.min(maxHeight, height) * dpr;
+
+  // Get context and scale it
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  // Scale all drawing operations by the dpr
+  ctx.scale(dpr, dpr);
+
+  // Clear with the scaled dimensions
+  ctx.clearRect(0, 0, Math.min(maxWidth, width), Math.min(maxHeight, height));
 
   if (step < steps.length - 1) {
     const state: any = steps[step + 1];
