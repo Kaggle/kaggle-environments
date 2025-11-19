@@ -24,6 +24,7 @@ interface RendererOptions {
   step?: number;
   width: number;
   height: number;
+  setCurrentStep: (step: number) => void;
 }
 
 /**
@@ -380,6 +381,7 @@ export function renderer(options: RendererOptions): void {
     handNum: number;
     amount: number;
     winners: { name: string; thumbnail?: string }[];
+    startingStep: number;
   }
 
   interface DerivedLeaderboardInfo {
@@ -428,6 +430,8 @@ export function renderer(options: RendererOptions): void {
             // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
+            // Starting step is directly after the last step of the previous hand
+            startingStep: handIndex !== 0 && hands.get(handIndex - 1) ? hands.get(handIndex - 1)!.step + 1 : 0,
           });
         }
       }
@@ -455,7 +459,11 @@ export function renderer(options: RendererOptions): void {
     };
   }
 
-  function _renderLegendUI(steps: RepeatedPokerStep[], currentStepIndex: number): void {
+  function _renderLegendUI(
+    steps: RepeatedPokerStep[],
+    currentStepIndex: number,
+    setCurrentStep: (step: number) => void
+  ): void {
     if (!elements.legend || !steps || !steps[currentStepIndex]) return;
 
     const legendTitle = elements.legend.querySelector('.legend-title') as HTMLElement;
@@ -519,6 +527,8 @@ export function renderer(options: RendererOptions): void {
         .forEach((hand) => {
           const row = document.createElement('div');
           row.className = 'legend-row';
+          row.role = 'button';
+          row.onclick = () => setCurrentStep(hand.startingStep);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';
@@ -902,7 +912,7 @@ export function renderer(options: RendererOptions): void {
     _renderFinalScreenUI(options.steps[options.step ?? 0]);
   } else {
     _renderPokerTableUI(options.steps[options.step ?? 0]);
-    _renderLegendUI(options.steps, options.step ?? 0);
+    _renderLegendUI(options.steps, options.step ?? 0, options.setCurrentStep);
   }
 
   // Apply initial scale
