@@ -33,11 +33,13 @@ from kaggle_environments.envs.werewolf.eval.loaders import get_game_results
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
-def _mean_std(values: List[float]) -> Tuple[float, float]:
-    """Helper to calculate mean and standard deviation, handling empty lists."""
+def _mean_sem(values: List[float]) -> Tuple[float, float]:
+    """Helper to calculate mean and standard error of the mean, handling empty lists."""
     if not values:
         return 0.0, 0.0
-    return np.mean(values), np.std(values)
+    if len(values) < 2:
+        return float(np.mean(values)), 0.0
+    return float(np.mean(values)), float(np.std(values, ddof=1) / np.sqrt(len(values)))
 
 
 def calculate_elo_change(p1_elo, p2_elo, result, k=32):
@@ -328,22 +330,22 @@ class AgentMetrics:
         self.openskill_rating = self.openskill_model.rating(name=name) if self.openskill_model else None
 
     def get_win_rate(self) -> Tuple[float, float]:
-        return _mean_std(self.wins)
+        return _mean_sem(self.wins)
 
     def get_win_rate_for_role(self, role: str) -> Tuple[float, float]:
-        return _mean_std(self.wins_by_role.get(role, []))
+        return _mean_sem(self.wins_by_role.get(role, []))
 
     def get_irp(self) -> Tuple[float, float]:
-        return _mean_std(self.irp_scores)
+        return _mean_sem(self.irp_scores)
 
     def get_vss(self) -> Tuple[float, float]:
-        return _mean_std(self.vss_scores)
+        return _mean_sem(self.vss_scores)
 
     def get_ksr(self) -> Tuple[float, float]:
-        return _mean_std(self.survival_scores)
+        return _mean_sem(self.survival_scores)
 
     def get_ksr_for_role(self, role: str) -> Tuple[float, float]:
-        return _mean_std(self.survival_by_role.get(role, []))
+        return _mean_sem(self.survival_by_role.get(role, []))
 
 
 class GameSetEvaluator:
@@ -539,7 +541,10 @@ class GameSetEvaluator:
                 scores = agent_scores[agent][task]
                 if scores:
                     mean_matrix[i, j] = np.mean(scores)
-                    stddev_matrix[i, j] = np.std(scores)
+                    if len(scores) > 1:
+                        stddev_matrix[i, j] = np.std(scores, ddof=1) / np.sqrt(len(scores))
+                    else:
+                        stddev_matrix[i, j] = 0.0
 
         for j in range(mean_matrix.shape[1]):  # Iterate over tasks (columns)
             # If all agents have the same score for a task, add noise to avoid ptp=0 error
