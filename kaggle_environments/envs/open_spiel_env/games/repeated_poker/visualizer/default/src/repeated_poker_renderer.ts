@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
 
@@ -13,17 +13,6 @@ declare global {
   interface Window {
     __poker_styles_injected?: boolean;
   }
-}
-
-/**
- * Options for the renderer
- */
-interface RendererOptions {
-  parent: HTMLElement;
-  steps: RepeatedPokerStep[]; // This is the main data object
-  step?: number;
-  width: number;
-  height: number;
 }
 
 /**
@@ -48,7 +37,7 @@ interface PokerTableElements {
   legend: HTMLElement | null;
 }
 
-export function renderer(options: RendererOptions): void {
+export function renderer(options: LegacyRendererOptions): void {
   const chipImages: Record<number, string> = {
     1: poker_chip_1,
     5: poker_chip_5,
@@ -76,7 +65,7 @@ export function renderer(options: RendererOptions): void {
     legend: null,
   };
 
-  function _injectStyles(passedOptions: Partial<RendererOptions>): void {
+  function _injectStyles(passedOptions: Partial<LegacyRendererOptions>): void {
     if (typeof document === 'undefined') {
       return;
     }
@@ -380,6 +369,7 @@ export function renderer(options: RendererOptions): void {
     handNum: number;
     amount: number;
     winners: { name: string; thumbnail?: string }[];
+    startingStep: number;
   }
 
   interface DerivedLeaderboardInfo {
@@ -428,6 +418,8 @@ export function renderer(options: RendererOptions): void {
             // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
+            // Starting step is directly after the last step of the previous hand
+            startingStep: handIndex !== 0 && hands.get(handIndex - 1) ? hands.get(handIndex - 1)!.step + 1 : 0,
           });
         }
       }
@@ -455,7 +447,11 @@ export function renderer(options: RendererOptions): void {
     };
   }
 
-  function _renderLegendUI(steps: RepeatedPokerStep[], currentStepIndex: number): void {
+  function _renderLegendUI(
+    steps: RepeatedPokerStep[],
+    currentStepIndex: number,
+    setCurrentStep: (step: number) => void
+  ): void {
     if (!elements.legend || !steps || !steps[currentStepIndex]) return;
 
     const legendTitle = elements.legend.querySelector('.legend-title') as HTMLElement;
@@ -519,6 +515,8 @@ export function renderer(options: RendererOptions): void {
         .forEach((hand) => {
           const row = document.createElement('div');
           row.className = 'legend-row';
+          row.role = 'button';
+          row.onclick = () => setCurrentStep(hand.startingStep);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';
@@ -898,11 +896,13 @@ export function renderer(options: RendererOptions): void {
     return;
   }
 
-  if (options.steps[options.step ?? 0].stepType === 'game-over') {
-    _renderFinalScreenUI(options.steps[options.step ?? 0]);
+  const currentStep = options.steps[options.step ?? 0] as RepeatedPokerStep;
+
+  if (currentStep.stepType === 'game-over') {
+    _renderFinalScreenUI(currentStep);
   } else {
-    _renderPokerTableUI(options.steps[options.step ?? 0]);
-    _renderLegendUI(options.steps, options.step ?? 0);
+    _renderPokerTableUI(currentStep);
+    _renderLegendUI(options.steps as RepeatedPokerStep[], options.step ?? 0, options.setCurrentStep);
   }
 
   // Apply initial scale
