@@ -1,7 +1,9 @@
-import playAudioFrom from './functions/playAudioFrom.js';
-import loadQueueFrom from './functions/loadQueueFrom.js';
-import playNextInQueue from './functions/playNextInQueue.js';
-import stopAndClearAudio from './functions/stopAndClearAudio.js';
+import {
+  playAudioFrom,
+  loadQueueFrom,
+  playNextInQueue,
+  stopAndClearAudio
+} from './functions/audioFunctions.js'
 import {
   formatTimestamp,
   createPlayerIdReplacer,
