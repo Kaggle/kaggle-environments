@@ -10,7 +10,7 @@ const sign_icon_y = 160;
 const result_y = 200;
 const score_y = 240;
 
-export async function renderer(context: LegacyRendererOptions) {
+export function renderer(context: LegacyRendererOptions) {
   const { steps, replay, height = 400, parent, step, width = 400 } = context;
 
   // Canvas Setup.
