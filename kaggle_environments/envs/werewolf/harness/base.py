@@ -422,7 +422,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         )
 
     @tenacity.retry(
-        retry=tenacity.retry_if_exception(_is_rate_limit_error),
+        retry=tenacity.retry_if_exception(lambda e: isinstance(e, Exception)),
         stop=tenacity.stop_after_attempt(5),
         wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         reraise=True,
@@ -760,11 +760,6 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 raw_completion=e.raw_out,  # <-- Preserved data
                 raw_prompt=e.prompt,  # <-- Preserved data
             )
-        except Exception:
-            error_trace = traceback.format_exc()
-            logger.error("An error occurred:\n%s", error_trace)
-            logger.error(f'The model failed to act is model_name="{self._model_name}".')
-            action = NoOpAction(**common_args, reasoning="", error=error_trace)
         self.log_token_usage()
         # record self action
         self._event_logs.append(
