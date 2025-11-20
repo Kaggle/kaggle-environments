@@ -13,6 +13,6 @@ if (app) {
     import.meta.hot.accept();
   }
   createReplayVisualizer(app, adapter, {
-    transformer: (replay) => processEpisodeData(replay, 'go'),
+    transformer: (replay) => processEpisodeData(replay, 'open_spiel_go'),
   });
 }

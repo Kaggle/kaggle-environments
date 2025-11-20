@@ -1,5 +1,5 @@
 {
-  "name": "@kaggle-environments/chess-visualizer",
+  "name": "@kaggle-environments/open-spiel-chess-visualizer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
