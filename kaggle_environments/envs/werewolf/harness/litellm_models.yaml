@@ -118,6 +118,9 @@ openai/openai/gpt-5-mini-2025-08-07:
 openai/openai/gpt-5-nano-2025-08-07:
   input_cost_per_token: 5e-8
   output_cost_per_token: 4e-7
+openai/openai/gpt-5.1-2025-11-13:
+  input_cost_per_token: 1.25e-6
+  output_cost_per_token: 1e-5
 openai/openai/gpt-oss-20b:
   input_cost_per_token: 7.5e-8
   output_cost_per_token: 3e-7
@@ -136,6 +139,15 @@ openai/qwen/qwen3-235b-a22b-instruct-2507:
 openai/xai/grok-4-fast-reasoning:
   input_cost_per_token: 2e-7
   output_cost_per_token: 5e-7
+openai/xai/grok-4-fast-non-reasoning:
+  input_cost_per_token: 2e-7
+  output_cost_per_token: 5e-7
 openai/xai/grok-4-0709:
   input_cost_per_token: 3e-6
   output_cost_per_token: 1.5e-5
+openai/xai/grok-4-1-fast-reasoning:
+  input_cost_per_token: 2e-7
+  output_cost_per_token: 5e-7
+openai/xai/grok-4-1-fast-non-reasoning:
+  input_cost_per_token: 2e-7
+  output_cost_per_token: 5e-7
