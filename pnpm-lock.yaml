@@ -114,6 +114,45 @@ importers:
         specifier: ^5.0.0
         version: 5.4.20
 
+  kaggle_environments/envs/lux_ai_2021/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      typescript:
+        specifier: ^5.2.2
+        version: 5.9.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.20
+
+  kaggle_environments/envs/lux_ai_s2/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      typescript:
+        specifier: ^5.2.2
+        version: 5.9.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.20
+
+  kaggle_environments/envs/lux_ai_s3/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+    devDependencies:
+      typescript:
+        specifier: ^5.2.2
+        version: 5.9.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.20
+
   kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
