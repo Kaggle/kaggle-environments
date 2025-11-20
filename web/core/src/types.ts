@@ -27,3 +27,8 @@ export interface BaseGamePlayer {
   actionDisplayText?: string;
   thoughts?: string;
 }
+
+export interface InterestingEvent {
+  step: number;
+  description: string;
+}
