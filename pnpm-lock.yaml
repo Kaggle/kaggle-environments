@@ -153,6 +153,31 @@ importers:
         specifier: ^5.2.0
         version: 5.4.20
 
+  kaggle_environments/envs/mab/visualizer/default:
+    dependencies:
+      '@kaggle-environments/core':
+        specifier: workspace:*
+        version: link:../../../../../web/core
+      htm:
+        specifier: ^3.1.1
+        version: 3.1.1
+      json-formatter-js:
+        specifier: ^2.5.23
+        version: 2.5.23
+      preact:
+        specifier: ^10.13.2
+        version: 10.27.2
+    devDependencies:
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.20
+
   kaggle_environments/envs/open_spiel_env/games/chess/visualizer/default:
     dependencies:
       '@kaggle-environments/core':
