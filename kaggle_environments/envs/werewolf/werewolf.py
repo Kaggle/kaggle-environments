@@ -599,7 +599,7 @@ def initialize_moderator(state, env):
     )
 
     env.player_full_visible_history_cache = {p_id: [] for p_id in env.player_id_str_list}
-    env.info = {EnvInfoKeys.MODERATOR_OBS: []}
+    env.info[EnvInfoKeys.MODERATOR_OBS] = []
     env.agents = agents
 
 

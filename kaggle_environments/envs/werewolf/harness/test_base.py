@@ -1,9 +1,12 @@
 import json
 import os
+from unittest.mock import patch, MagicMock
 
 import litellm
 import pytest
 from dotenv import load_dotenv
+
+from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
 
 load_dotenv()
 
@@ -33,3 +36,98 @@ def test_together():
     model = "together_ai/deepseek-ai/DeepSeek-R1"
     response = litellm.completion(model=model, messages=[{"role": "user", "content": "hi"}])
     print(response)
+
+
+def test_agent_propagates_query_error():
+    # Setup
+    agent = LLMWerewolfAgent(model_name="fake-model")
+    LLMWerewolfAgent.query.retry.sleep = lambda x: None
+
+    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
+         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
+         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
+
+        # Mock Observation
+        mock_obs_model = MagicMock()
+        mock_obs_model.player_id = "player_0"
+        mock_obs_model.role = "Villager"
+        mock_obs_model.detailed_phase = "DAY_CHAT_AWAIT"
+        mock_obs_model.game_state_phase = "Day"
+        mock_obs_model.day = 1
+        mock_obs_model.team = "Villagers"
+        mock_obs_model.all_player_ids = ["player_0", "player_1"]
+        mock_obs_model.alive_players = ["player_0", "player_1"]
+        mock_obs_model.revealed_players = []
+
+        # Mock Entry to trigger logic
+        mock_entry = MagicMock()
+        mock_entry.day = 1
+        mock_entry.phase = "Day"
+        mock_entry.description = "Game started"
+        mock_entry.action_field = None
+        mock_obs_model.new_player_event_views = [mock_entry]
+
+        mock_get_raw_obs.return_value = mock_obs_model
+
+        # Mock completion to raise exception
+        mock_completion.side_effect = Exception("Network Failure")
+
+        # Assert exception is raised
+        with pytest.raises(Exception, match="Network Failure"):
+            agent("dummy_obs")
+
+        assert mock_completion.call_count == 5
+
+
+def test_agent_handles_parsing_error():
+    # Setup
+    agent = LLMWerewolfAgent(model_name="fake-model")
+
+    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
+         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
+         patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost, \
+         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
+
+        # Mock Observation (same as above)
+        mock_obs_model = MagicMock()
+        mock_obs_model.player_id = "player_0"
+        mock_obs_model.role = "Villager"
+        mock_obs_model.detailed_phase = "DAY_CHAT_AWAIT"
+        mock_obs_model.game_state_phase = "Day"
+        mock_obs_model.day = 1
+        mock_obs_model.team = "Villagers"
+        mock_obs_model.all_player_ids = ["player_0", "player_1"]
+        mock_obs_model.alive_players = ["player_0", "player_1"]
+        mock_obs_model.revealed_players = []
+
+        mock_entry = MagicMock()
+        mock_entry.day = 1
+        mock_entry.phase = "Day"
+        mock_entry.description = "Game started"
+        mock_entry.action_field = None
+        mock_obs_model.new_player_event_views = [mock_entry]
+
+        mock_get_raw_obs.return_value = mock_obs_model
+        mock_cost.return_value = (0.0, 0.0)
+
+        # Mock completion to return invalid JSON
+        mock_response = {
+            "choices": [{"message": {"content": "Invalid JSON"}}],
+            "usage": {"completion_tokens": 10, "prompt_tokens": 10}
+        }
+        mock_model_resp = MagicMock()
+        mock_model_resp.__getitem__.side_effect = lambda key: mock_response[key]
+        mock_model_resp.usage = mock_response["usage"]
+        mock_model_resp._hidden_params = {"response_cost": 0.001}
+        mock_completion.return_value = mock_model_resp
+
+        # Assert action is NoOp with correct reasoning
+        action = agent("dummy_obs")
+        # When an action is serialized, it returns a dict.
+        # For NoOpAction, it should have a 'reasoning' field if included in serialization.
+        # However, the serialize() method on BaseAction might exclude some fields or rename them.
+        # Let's check the keys first.
+        print(f"Action keys: {action.keys()}")
+        
+        assert action["action_type"] == "NoOpAction"
+        assert "Fell back to NoOp after multiple parsing failures" in action["kwargs"]["reasoning"]

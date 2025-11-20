@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from kaggle_environments import make
@@ -169,3 +171,27 @@ def test_html_render(env, tmp_path):
     with open(replay_file, "w") as handle:
         handle.write(content)
     assert replay_file.exists()
+
+
+def test_env_info_not_overwritten(agents_config):
+    initial_info = {
+        "Agents": [{"Name": "External Agent Info"}],
+        "custom_key": "custom_value"
+    }
+    env = make("werewolf", debug=True, configuration={"agents": agents_config}, info=initial_info)
+    agents = ["random"] * 7
+    env.run(agents)
+
+    assert env.info.get("custom_key") == "custom_value"
+    assert env.info.get("Agents")[0]["Name"] == "External Agent Info"
+    # Check if werewolf specific keys are added (MODERATOR_OBS)
+    # We assume MODERATOR_OBS is added during initialization
+    assert len(env.info) > 2
+
+    # Dump and load back
+    json_str = json.dumps(env.toJSON())
+    loaded_info = json.loads(json_str)["info"]
+
+    assert loaded_info.get("custom_key") == "custom_value"
+    assert loaded_info.get("Agents")[0]["Name"] == "External Agent Info"
+    assert "MODERATOR_OBSERVATION" in loaded_info
