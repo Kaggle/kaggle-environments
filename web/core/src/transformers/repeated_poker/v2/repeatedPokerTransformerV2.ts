@@ -71,7 +71,14 @@ export const getPokerStepRenderTime = (
 
 export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): InterestingEvent[] => {
   const interestingEvents: InterestingEvent[] = [];
-  const largePotIndices = new Set(gameSteps.filter((s) => s.pot >= 300).map((s) => s.currentHandIndex));
+  const largePotIndices = new Set(
+    gameSteps
+      .filter((s) => {
+        return s.pot >= 300 && s.pot < 400;
+      })
+      .map((s) => s.currentHandIndex)
+  );
+  const showdownIndices = new Set(gameSteps.filter((s) => s.pot === 400).map((s) => s.currentHandIndex));
   let lastHandIndex = -1;
 
   for (const step of gameSteps) {
@@ -80,6 +87,12 @@ export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): I
         interestingEvents.push({
           step: step.step,
           description: `Big Pot`,
+        });
+      }
+      if (showdownIndices.has(step.currentHandIndex)) {
+        interestingEvents.push({
+          step: step.step,
+          description: `All-in Showdown`,
         });
       }
       lastHandIndex = step.currentHandIndex;
