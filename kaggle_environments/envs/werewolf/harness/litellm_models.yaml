@@ -49,6 +49,9 @@ vertex_ai/gemini-2.5-flash:
 vertex_ai/gemini-2.5-flash-lite:
   input_cost_per_token: 1e-7
   output_cost_per_token: 4e-7
+vertex_ai/gemini-3-pro-preview:
+  input_cost_per_token: 2e-6
+  output_cost_per_token: 1.2e-5
 openai/anthropic/claude-3-5-haiku@20241022:
   input_cost_per_token: 8e-7
   output_cost_per_token: 4e-6
@@ -91,6 +94,9 @@ openai/google/gemini-2.5-flash-lite:
 openai/google/gemini-2.5-pro:
   input_cost_per_token: 1.25e-6
   output_cost_per_token: 1e-5
+openai/google/gemini-3-pro-preview:
+  input_cost_per_token: 2e-6
+  output_cost_per_token: 1.2e-5
 openai/meta/llama-3.1-70b:
   input_cost_per_token: 1.25e-6
   output_cost_per_token: 4e-6
