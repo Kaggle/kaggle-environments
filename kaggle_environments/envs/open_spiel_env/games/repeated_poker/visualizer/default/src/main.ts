@@ -9,6 +9,6 @@ if (app) {
   }
 
   createReplayVisualizer(app, new LegacyAdapter(renderer), {
-    transformer: (replay) => processEpisodeData(replay, 'repeated_poker'),
+    transformer: (replay) => processEpisodeData(replay, 'open_spiel_repeated_poker'),
   });
 }

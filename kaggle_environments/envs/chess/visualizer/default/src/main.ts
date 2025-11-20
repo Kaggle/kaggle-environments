@@ -7,7 +7,7 @@ if (app) {
   if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
-  createReplayVisualizer(app, new LegacyAdapter(renderer), {
-    transformer: (replay) => processEpisodeData(replay, 'open_spiel_chess'),
+  createReplayVisualizer(app, new LegacyAdapter(renderer as any), {
+    transformer: (replay) => processEpisodeData(replay, 'chess'),
   });
 }

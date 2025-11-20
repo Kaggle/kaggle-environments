@@ -1,5 +1,5 @@
 {
-  "name": "@kaggle-environments/go-visualizer",
+  "name": "@kaggle-environments/open-spiel-go-visualizer",
   "private": true,
   "version": "0.0.0",
   "type": "module",

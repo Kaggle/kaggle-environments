@@ -42,10 +42,10 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
 
   let transformedSteps: BaseGameStep[] = [];
   switch (gameName) {
-    case 'repeated_poker':
+    case 'open_spiel_repeated_poker':
       transformedSteps = repeatedPokerTransformerV2(environment);
       break;
-    case 'chess':
+    case 'open_spiel_chess':
       transformedSteps = chessTransformer(environment);
       break;
     default:
@@ -65,9 +65,9 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
  */
 export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): string => {
   switch (gameName) {
-    case 'repeated_poker':
+    case 'open_spiel_repeated_poker':
       return getPokerStepLabel(gameStep as RepeatedPokerStep);
-    case 'chess':
+    case 'open_spiel_chess':
       return getChessStepLabel(gameStep as ChessStep);
     default:
       return defaultGetGameStepLabel(gameStep);
@@ -80,9 +80,9 @@ export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): stri
  */
 export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string): string => {
   switch (gameName) {
-    case 'repeated_poker':
+    case 'open_spiel_repeated_poker':
       return getPokerStepDescription(gameStep as RepeatedPokerStep);
-    case 'chess':
+    case 'open_spiel_chess':
       return getChessStepDescription(gameStep as ChessStep);
     default:
       return defaultGetGameStepDescription(gameStep);
@@ -97,7 +97,7 @@ export const getGameStepRenderTime = (
   defaultDuration?: number
 ): number => {
   switch (gameName) {
-    case 'repeated_poker':
+    case 'open_spiel_repeated_poker':
       return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
