@@ -1,5 +1,5 @@
 import { defaultGetStepRenderTime } from '../../../timing';
-import { ReplayMode } from '../../../types';
+import { InterestingEvent, ReplayMode } from '../../../types';
 import { PokerReplay, PokerReplayStepHistoryParsed } from './poker-replay-types';
 import { RepeatedPokerStep } from './poker-steps-types';
 
@@ -67,4 +67,24 @@ export const getPokerStepRenderTime = (
     default:
       return defaultTime;
   }
+};
+
+export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): InterestingEvent[] => {
+  const interestingEvents: InterestingEvent[] = [];
+  const largePotIndices = new Set(gameSteps.filter((s) => s.pot >= 300).map((s) => s.currentHandIndex));
+  let lastHandIndex = -1;
+
+  for (const step of gameSteps) {
+    if (step.currentHandIndex > lastHandIndex) {
+      if (largePotIndices.has(step.currentHandIndex)) {
+        interestingEvents.push({
+          step: step.step,
+          description: `Big Pot`,
+        });
+      }
+      lastHandIndex = step.currentHandIndex;
+    }
+  }
+
+  return interestingEvents;
 };

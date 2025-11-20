@@ -4,10 +4,11 @@ import { ChessStep } from './transformers/chess/chessReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import {
+  getPokerStepInterestingEvents,
   getPokerStepRenderTime,
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGamePlayer, BaseGameStep, ReplayData, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   let i = 0;
@@ -100,5 +101,14 @@ export const getGameStepRenderTime = (
       return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
+  }
+};
+
+export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string): InterestingEvent[] => {
+  switch (gameName) {
+    case 'repeated_poker':
+      return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    default:
+      return [];
   }
 };
