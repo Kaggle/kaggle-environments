@@ -105,6 +105,12 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
+def _default_elo():
+    return 1200.0
+
+def _default_gte_contrib():
+    return 0.0, 0.0
+
 class AgentMetrics:
     """Stores and calculates performance metrics for a single agent."""
 
@@ -119,13 +125,14 @@ class AgentMetrics:
 
         # For GTE
         self.gte_rating: Tuple[float, float] = (0.0, 0.0)
-        self.gte_contributions: Dict[str, Tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
+        self.gte_contributions: Dict[str, Tuple[float, float]] = defaultdict(_default_gte_contrib)
 
         # Ratings
         self.elo: float = 1200.0
         self.elo_std: float = 0.0
         self.openskill_model = openskill_model
         self.openskill_rating = None
+        self.openskill_mu_std: float = 0.0
 
     def set_agent_name(self, name: str):
         self.agent_name = name
@@ -186,7 +193,7 @@ class GameSetEvaluator:
 
     @staticmethod
     def _compute_elo_ratings(games: List) -> Dict[str, float]:
-        elos = defaultdict(lambda: 1200.0)
+        elos = defaultdict(_default_elo)
         for game in games:
             villager_agents = []
             werewolf_agents = []
@@ -208,23 +215,115 @@ class GameSetEvaluator:
                     elos[agent] += calculate_elo_change(elos[agent], avg_v_elo, 1 - result_v)
         return elos
 
+    @staticmethod
+    def _compute_openskill_ratings(games: List, model) -> Dict[str, object]:
+        if not OPENSKILL_AVAILABLE or not model:
+            return {}
+
+        # Initialize ratings for all agents encountered
+        current_ratings = {}
+
+        for game in games:
+            villager_agents = []
+            werewolf_agents = []
+            
+            # Ensure all players have a rating object in our local scope
+            for player in game.players:
+                agent_name = player.agent.display_name
+                if agent_name not in current_ratings:
+                    current_ratings[agent_name] = model.rating(name=agent_name)
+                
+                if player.role.team == Team.VILLAGERS:
+                    villager_agents.append(agent_name)
+                else:
+                    werewolf_agents.append(agent_name)
+            
+            team_v = [current_ratings[a] for a in villager_agents]
+            team_w = [current_ratings[a] for a in werewolf_agents]
+            
+            teams = None
+            if game.winner_team == Team.VILLAGERS:
+                teams = [team_v, team_w]
+            elif game.winner_team == Team.WEREWOLVES:
+                teams = [team_w, team_v]
+            
+            if teams:
+                # rate() returns updated rating objects in the same structure as input
+                try:
+                    new_ratings = model.rate(teams)
+                    flat_ratings = [r for team in new_ratings for r in team]
+                    for r in flat_ratings:
+                        current_ratings[r.name] = r
+                except Exception:
+                    # Fallback for degenerate cases (e.g. empty teams)
+                    pass
+                    
+        return current_ratings
+
+    @staticmethod
+    def _bootstrap_elo_sample(seed, games):
+        rnd = np.random.default_rng(seed)
+        sampled_games = rnd.choice(games, size=len(games), replace=True)
+        return GameSetEvaluator._compute_elo_ratings(sampled_games)
+
+    @staticmethod
+    def _bootstrap_openskill_sample(seed, games, model):
+        rnd = np.random.default_rng(seed)
+        sampled_games = rnd.choice(games, size=len(games), replace=True)
+        ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, model)
+        # Return only mu to avoid pickling issues with openskill Rating objects
+        return {name: r.mu for name, r in ratings.items()}
+
     def _bootstrap_elo(self, num_samples=100):
-        # [Keep original code]
         if not self.games: return
-        rnd = np.random.default_rng(42)
+        
+        rnd_master = np.random.default_rng(42)
+        seeds = rnd_master.integers(0, 2**32, size=num_samples)
+        
+        worker = functools.partial(self._bootstrap_elo_sample, games=self.games)
+        
+        with ProcessPoolExecutor() as executor:
+            results = list(executor.map(worker, seeds))
+
         bootstrapped_elos = defaultdict(list)
         all_agents = list(self.metrics.keys())
-        for _ in range(num_samples):
-            sampled_games = rnd.choice(self.games, size=len(self.games), replace=True)
-            sample_elos = self._compute_elo_ratings(sampled_games)
+        for sample_elos in results:
             for agent in all_agents:
                 bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
+                
         for agent, values in bootstrapped_elos.items():
             if len(values) > 1:
                 self.metrics[agent].elo_std = float(np.std(values, ddof=1))
 
-    def evaluate(self, gte_samples=3, elo_samples=100):
-        # [Keep original code]
+    def _bootstrap_openskill(self, num_samples=100):
+        if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
+            return
+            
+        rnd_master = np.random.default_rng(42)
+        seeds = rnd_master.integers(0, 2**32, size=num_samples)
+        
+        worker = functools.partial(self._bootstrap_openskill_sample, games=self.games, model=self.openskill_model)
+        
+        with ProcessPoolExecutor() as executor:
+            results = list(executor.map(worker, seeds))
+            
+        bootstrapped_mus = defaultdict(list)
+        all_agents = list(self.metrics.keys())
+        
+        default_mu = self.openskill_model.rating().mu
+        
+        for sample_ratings in results:
+            for agent in all_agents:
+                if agent in sample_ratings:
+                    bootstrapped_mus[agent].append(sample_ratings[agent])
+                else:
+                    bootstrapped_mus[agent].append(default_mu)
+                    
+        for agent, values in bootstrapped_mus.items():
+            if len(values) > 1:
+                self.metrics[agent].openskill_mu_std = float(np.std(values, ddof=1))
+
+    def evaluate(self, gte_samples=3, elo_samples=3, openskill_samples=3):
         for game in self.games:
             for player in game.players:
                 agent_name = player.agent.display_name
@@ -241,36 +340,23 @@ class GameSetEvaluator:
                 self.metrics[agent_name].irp_scores.append(score)
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
+        
+        # Elo
         final_elos = self._compute_elo_ratings(self.games)
         for agent, rating in final_elos.items():
             self.metrics[agent].elo = rating
+            
+        # OpenSkill
         if OPENSKILL_AVAILABLE and self.openskill_model:
-            for game in self.games:
-                villager_agents = []
-                werewolf_agents = []
-                for player in game.players:
-                    agent_name = player.agent.display_name
-                    if player.role.team == Team.VILLAGERS:
-                        villager_agents.append(agent_name)
-                    else:
-                        werewolf_agents.append(agent_name)
-                team_v = [self.metrics[a].openskill_rating for a in villager_agents]
-                team_w = [self.metrics[a].openskill_rating for a in werewolf_agents]
-                teams = None
-                if game.winner_team == Team.VILLAGERS:
-                    teams = [team_v, team_w]
-                elif game.winner_team == Team.WEREWOLVES:
-                    teams = [team_w, team_v]
-                if teams:
-                    new_ratings = self.openskill_model.rate(teams)
-                    openskill_ratings = [rate for team in new_ratings for rate in team]
-                    for rating in openskill_ratings:
-                        self.metrics[rating.name].openskill_rating = rating
+            final_openskill_ratings = self._compute_openskill_ratings(self.games, self.openskill_model)
+            for agent, rating in final_openskill_ratings.items():
+                self.metrics[agent].openskill_rating = rating
+
         self._bootstrap_elo(num_samples=elo_samples)
+        self._bootstrap_openskill(num_samples=openskill_samples)
         self._run_gte_evaluation(num_samples=gte_samples)
 
     def _run_gte_evaluation(self, num_samples: int):
-        # [Keep original code]
         if not POLARIX_AVAILABLE:
             print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
             return
@@ -406,9 +492,9 @@ class GameSetEvaluator:
             print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std:.2f} ({len(stats.irp_scores)} votes)")
             print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std:.2f} ({len(stats.vss_scores)} votes)")
             print("  Ratings:")
-            print(f"    Elo: {stats.elo:.2f}")
+            print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std:.2f}")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
-                print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
+                print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
             if POLARIX_AVAILABLE:
                 print("  Game Theoretic Evaluation (GTE):")
                 gte_mean, gte_std = stats.gte_rating
@@ -456,7 +542,7 @@ class GameSetEvaluator:
 
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
-                                  'std': metrics.openskill_rating.sigma, 'category': 'Ratings'})
+                                  'std': metrics.openskill_mu_std, 'category': 'Ratings'})
 
         return pd.DataFrame(plot_data)
 
