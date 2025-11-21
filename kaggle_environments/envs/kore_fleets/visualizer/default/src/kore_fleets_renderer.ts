@@ -1,5 +1,5 @@
 import { PIECE_IMAGES, COLORS } from './consts';
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+// import { LegacyRendererOptions } from '@kaggle-environments/core';
 import { data, getSpawnValue } from './utils';
 
 const directions = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
@@ -20,16 +20,12 @@ interface MoveOptions {
   scale?: number;
 }
 
-export function renderer(options: LegacyRendererOptions) {
-  console.log(options);
-  const { step, parent, replay, width = 400, height = 400 } = options;
-  const frame = 0;
+export function renderer(options: any) {
+  const { step, parent, replay, width, height, agents, steps, frame, setAgents } = options;
 
   // Configuration.
   const { size } = replay.configuration;
-  const steps = replay.steps as any[];
-  const agents = replay.info?.agents;
-  const state: any = steps[step];
+  const state = steps[step];
   const { kore, players } = state[0].observation;
 
   // Helper Functions.
@@ -379,7 +375,7 @@ export function renderer(options: LegacyRendererOptions) {
       .fill(0)
       .map(() => ({ shipyard: -1, ship: null, collision: false, shipPlayer: null }));
     players.forEach((player: any, playerIndex: number) => {
-      const [shipyards, ships] = player;
+      const [, shipyards, ships] = player;
       // For shipyards
       Object.entries(shipyards).forEach(([, shipyardData]) => {
         if (Array.isArray(shipyardData) && shipyardData.length >= 2) {
@@ -405,8 +401,8 @@ export function renderer(options: LegacyRendererOptions) {
         // First, ensure fleetData is an array with the expected structure
         if (Array.isArray(fleetData) && fleetData.length >= 3) {
           const pos = fleetData[0];
-          const directionIdx = fleetData[1];
-          let flightPath = fleetData[2];
+          const directionIdx = fleetData[3];
+          let flightPath = fleetData[4];
 
           let dir = getDirStrFromIdx(directionIdx);
           while (flightPath.length > 0 && flightPath[0] == '0') {
@@ -451,30 +447,27 @@ export function renderer(options: LegacyRendererOptions) {
   const getCargo = (player: any[]) =>
     Object.entries(player[2])
       .map(([, v]) => {
-        // Check if v is an array with at least 2 elements
         if (Array.isArray(v) && v.length >= 2) {
-          return v[1]; // Access the cargo value
+          return v[1];
         }
-        return 0; // Default value if structure doesn't match
+        return 0;
       })
       .reduce((a, b) => a + b, 0);
   const getShipCount = (player: any[]) =>
     Object.entries(player[2])
       .map(([, v]) => {
-        // Check if v is an array with at least 2 elements
         if (Array.isArray(v) && v.length >= 2) {
-          return v[2]; // Access the cargo value
+          return v[2];
         }
-        return 0; // Default value if structure doesn't match
+        return 0;
       })
       .reduce((a, b) => a + b, 0) +
     Object.entries(player[1])
       .map(([, v]) => {
-        // Check if v is an array with at least 2 elements
         if (Array.isArray(v) && v.length >= 2) {
-          return v[1]; // Access the cargo value
+          return v[1];
         }
-        return 0; // Default value if structure doesn't match
+        return 0;
       })
       .reduce((a, b) => a + b, 0);
   const getNumFleets = (player: any[]) => Object.entries(player[2]).length;
@@ -489,8 +482,9 @@ export function renderer(options: LegacyRendererOptions) {
   };
 
   const scoreboardShipSizePx = scoreboardFontSizePx * 1.7;
-  const drawShip = (ctx: any, playerIndex: number, x: number, y: number, iconSize = scoreboardShipSizePx) =>
+  const drawShip = (ctx: any, playerIndex: number, x: number, y: number, iconSize = scoreboardShipSizePx) => {
     ctx.drawImage(bufferCanvas, 500 + 100 * playerIndex, 0, fixedCellSize, fixedCellSize, x, y, iconSize, iconSize);
+  };
   const drawShipYard = (ctx: any, playerIndex: number, x: number, y: number, iconSize = scoreboardShipSizePx) =>
     ctx.drawImage(bufferCanvas, 500 + 100 * playerIndex, 400, fixedCellSize, fixedCellSize, x, y, iconSize, iconSize);
 
@@ -516,6 +510,7 @@ export function renderer(options: LegacyRendererOptions) {
       .filter((a: string) => a.includes('LAUNCH'))
       .map((a: string) => a.substring(7).replace(/_/, ' '))
       .sort((a, b) => (parseInt(a.split(' ')[0]) < parseInt(b.split(' ')[0]) ? 1 : -1));
+
     if (launches.length > 0) {
       ctx.fillText('Launches:', x, y);
     }
@@ -554,27 +549,5 @@ export function renderer(options: LegacyRendererOptions) {
         drawFleetLaunches(fgCtx, playerIndex, x, actionY);
       }
     });
-  }
-
-  // Populate the legend which renders agent icons and names (see player.html).
-  if (agents && agents.length && (!agents[0].color || !agents[0].image)) {
-    const getPieceImage = (playerIndex: number) => {
-      const pieceCanvas: any = document.createElement('canvas');
-      parent.appendChild(pieceCanvas);
-      pieceCanvas.style.marginLeft = '10000px';
-      pieceCanvas.width = 100;
-      pieceCanvas.height = 100;
-      const ctx = pieceCanvas.getContext('2d');
-      drawShip(ctx, playerIndex, 0, 0, 100);
-      const dataUrl = pieceCanvas.toDataURL();
-      parent.removeChild(pieceCanvas);
-      return dataUrl;
-    };
-
-    agents.forEach((agent: any) => {
-      agent.color = '#FFFFFF';
-      agent.image = getPieceImage(agent.index);
-    });
-    // update({ agents });
   }
 }
