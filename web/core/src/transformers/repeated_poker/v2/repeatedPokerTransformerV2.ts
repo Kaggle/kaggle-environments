@@ -1,7 +1,7 @@
 import { defaultGetStepRenderTime } from '../../../timing';
 import { InterestingEvent, ReplayMode } from '../../../types';
 import { PokerReplay, PokerReplayStepHistoryParsed } from './poker-replay-types';
-import { RepeatedPokerStep } from './poker-steps-types';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer } from './poker-steps-types';
 
 import { createVisualStepsFromRepeatedPokerReplay } from './repeatedPokerTransformerUtils';
 
@@ -71,15 +71,53 @@ export const getPokerStepRenderTime = (
 
 export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): InterestingEvent[] => {
   const interestingEvents: InterestingEvent[] = [];
-  const largePotIndices = new Set(gameSteps.filter((s) => s.pot >= 300).map((s) => s.currentHandIndex));
+  const largePotIndices = new Set(
+    gameSteps
+      .filter((s) => {
+        return s.pot >= 350 && s.pot < 400;
+      })
+      .map((s) => s.currentHandIndex)
+  );
+  const showdownIndices = new Set(gameSteps.filter((s) => s.pot === 400).map((s) => s.currentHandIndex));
   let lastHandIndex = -1;
 
   for (const step of gameSteps) {
+    const hasLargePot = largePotIndices.has(step.currentHandIndex);
+    const hasShowdown = showdownIndices.has(step.currentHandIndex);
+
+    // Check for high hands
+    const highHandTypes = ['Full House', 'Four of a Kind', 'Straight Flush', 'Royal Flush'];
+    const handSteps = gameSteps.filter((s) => s.currentHandIndex === step.currentHandIndex);
+    const hasHighHand = handSteps.some((s) => s.bestHandRankTypes?.some((rank) => highHandTypes.includes(rank)));
+
+    // Check for upsets (winner had < 20% odds on turn or river)
+    const turnOrRiverStep = handSteps.find((s) => s.stepType === 'deal-turn' || s.stepType === 'deal-river');
+    const winnerIndex =
+      handSteps
+        .find((s) => s.stepType === 'final')
+        ?.players.findIndex((p) => (p as RepeatedPokerStepPlayer).isWinner) ?? -1;
+    const hasUpset = turnOrRiverStep && turnOrRiverStep.winOdds && turnOrRiverStep.winOdds[winnerIndex * 2] < 0.2;
+
     if (step.currentHandIndex > lastHandIndex) {
-      if (largePotIndices.has(step.currentHandIndex)) {
+      if (hasUpset) {
         interestingEvents.push({
           step: step.step,
-          description: `Big Pot`,
+          description: 'Upset',
+        });
+      } else if (hasHighHand) {
+        interestingEvents.push({
+          step: step.step,
+          description: 'High Hand',
+        });
+      } else if (hasLargePot) {
+        interestingEvents.push({
+          step: step.step,
+          description: 'Big Pot',
+        });
+      } else if (hasShowdown) {
+        interestingEvents.push({
+          step: step.step,
+          description: 'All-in Showdown',
         });
       }
       lastHandIndex = step.currentHandIndex;
