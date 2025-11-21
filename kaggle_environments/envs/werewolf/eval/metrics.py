@@ -4,6 +4,7 @@ from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
+import multiprocessing
 
 import jax.numpy as jnp
 import numpy as np
@@ -18,6 +19,7 @@ except ImportError:
 
 try:
     from openskill.models import PlackettLuce
+
     OPENSKILL_AVAILABLE = True
 except ImportError:
     OPENSKILL_AVAILABLE = False
@@ -36,6 +38,8 @@ except ImportError:
 
 from kaggle_environments.envs.werewolf.eval.loaders import get_game_results
 from kaggle_environments.envs.werewolf.game.consts import Team
+
+
 
 
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
@@ -61,6 +65,7 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
 
 
 # --- Plotting utils ---
+
 
 def _save_figure(fig: "go.Figure", output_path: Union[str, List[str], None], width=None, height=None):
     """
@@ -105,11 +110,80 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
+# --- Lightweight classes and workers for multiprocessing ---
+
+class LightAgent:
+    __slots__ = ('display_name',)
+
+    def __init__(self, display_name):
+        self.display_name = display_name
+
+
+class LightRole:
+    __slots__ = ('team',)
+
+    def __init__(self, team):
+        self.team = team
+
+
+class LightPlayer:
+    __slots__ = ('agent', 'role')
+
+    def __init__(self, name, team):
+        self.agent = LightAgent(name)
+
+        self.role = LightRole(team)
+
+
+class LightGame:
+    __slots__ = ('players', 'winner_team')
+
+    def __init__(self, players, winner_team):
+        self.players = players
+
+        self.winner_team = winner_team
+
+
+# Globals for worker processes
+
+_worker_games = None
+
+_worker_model = None
+
+
+def _worker_init(games, model=None):
+    global _worker_games, _worker_model
+
+    _worker_games = games
+
+    _worker_model = model
+
+
+def _bootstrap_elo_worker(seed):
+    rnd = np.random.default_rng(seed)
+
+    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
+
+    return GameSetEvaluator._compute_elo_ratings(sampled_games)
+
+
+def _bootstrap_openskill_worker(seed):
+    rnd = np.random.default_rng(seed)
+
+    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
+
+    ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, _worker_model)
+
+    return {name: r.mu for name, r in ratings.items()}
+
+
 def _default_elo():
     return 1200.0
 
+
 def _default_gte_contrib():
     return 0.0, 0.0
+
 
 class AgentMetrics:
     """Stores and calculates performance metrics for a single agent."""
@@ -226,27 +300,27 @@ class GameSetEvaluator:
         for game in games:
             villager_agents = []
             werewolf_agents = []
-            
+
             # Ensure all players have a rating object in our local scope
             for player in game.players:
                 agent_name = player.agent.display_name
                 if agent_name not in current_ratings:
                     current_ratings[agent_name] = model.rating(name=agent_name)
-                
+
                 if player.role.team == Team.VILLAGERS:
                     villager_agents.append(agent_name)
                 else:
                     werewolf_agents.append(agent_name)
-            
+
             team_v = [current_ratings[a] for a in villager_agents]
             team_w = [current_ratings[a] for a in werewolf_agents]
-            
+
             teams = None
             if game.winner_team == Team.VILLAGERS:
                 teams = [team_v, team_w]
             elif game.winner_team == Team.WEREWOLVES:
                 teams = [team_w, team_v]
-            
+
             if teams:
                 # rate() returns updated rating objects in the same structure as input
                 try:
@@ -257,40 +331,32 @@ class GameSetEvaluator:
                 except Exception:
                     # Fallback for degenerate cases (e.g. empty teams)
                     pass
-                    
+
         return current_ratings
-
-    @staticmethod
-    def _bootstrap_elo_sample(seed, games):
-        rnd = np.random.default_rng(seed)
-        sampled_games = rnd.choice(games, size=len(games), replace=True)
-        return GameSetEvaluator._compute_elo_ratings(sampled_games)
-
-    @staticmethod
-    def _bootstrap_openskill_sample(seed, games, model):
-        rnd = np.random.default_rng(seed)
-        sampled_games = rnd.choice(games, size=len(games), replace=True)
-        ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, model)
-        # Return only mu to avoid pickling issues with openskill Rating objects
-        return {name: r.mu for name, r in ratings.items()}
 
     def _bootstrap_elo(self, num_samples=100):
         if not self.games: return
-        
+
+        # Create lightweight games to save memory during multiprocessing
+        light_games = [
+            LightGame(
+                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
+                g.winner_team
+            ) for g in self.games
+        ]
+
         rnd_master = np.random.default_rng(42)
-        seeds = rnd_master.integers(0, 2**32, size=num_samples)
-        
-        worker = functools.partial(self._bootstrap_elo_sample, games=self.games)
-        
-        with ProcessPoolExecutor() as executor:
-            results = list(executor.map(worker, seeds))
+        seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
+
+        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games,)) as pool:
+            results = pool.map(_bootstrap_elo_worker, seeds)
 
         bootstrapped_elos = defaultdict(list)
         all_agents = list(self.metrics.keys())
         for sample_elos in results:
             for agent in all_agents:
                 bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
-                
+
         for agent, values in bootstrapped_elos.items():
             if len(values) > 1:
                 self.metrics[agent].elo_std = float(np.std(values, ddof=1))
@@ -298,27 +364,34 @@ class GameSetEvaluator:
     def _bootstrap_openskill(self, num_samples=100):
         if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
             return
-            
+
+        # Create lightweight games
+        light_games = [
+            LightGame(
+                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
+                g.winner_team
+            ) for g in self.games
+        ]
+
         rnd_master = np.random.default_rng(42)
-        seeds = rnd_master.integers(0, 2**32, size=num_samples)
-        
-        worker = functools.partial(self._bootstrap_openskill_sample, games=self.games, model=self.openskill_model)
-        
-        with ProcessPoolExecutor() as executor:
-            results = list(executor.map(worker, seeds))
-            
+        seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
+
+        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init,
+                                  initargs=(light_games, self.openskill_model)) as pool:
+            results = pool.map(_bootstrap_openskill_worker, seeds)
+
         bootstrapped_mus = defaultdict(list)
         all_agents = list(self.metrics.keys())
-        
+
         default_mu = self.openskill_model.rating().mu
-        
+
         for sample_ratings in results:
             for agent in all_agents:
                 if agent in sample_ratings:
                     bootstrapped_mus[agent].append(sample_ratings[agent])
                 else:
                     bootstrapped_mus[agent].append(default_mu)
-                    
+
         for agent, values in bootstrapped_mus.items():
             if len(values) > 1:
                 self.metrics[agent].openskill_mu_std = float(np.std(values, ddof=1))
@@ -340,12 +413,12 @@ class GameSetEvaluator:
                 self.metrics[agent_name].irp_scores.append(score)
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
-        
+
         # Elo
         final_elos = self._compute_elo_ratings(self.games)
         for agent, rating in final_elos.items():
             self.metrics[agent].elo = rating
-            
+
         # OpenSkill
         if OPENSKILL_AVAILABLE and self.openskill_model:
             final_openskill_ratings = self._compute_openskill_ratings(self.games, self.openskill_model)
@@ -465,7 +538,7 @@ class GameSetEvaluator:
         contributions_std = np.std(contributions, axis=0)
 
         return (ratings_mean, ratings_std), (joints_mean, joints_std), (marginals_mean, marginals_std), (
-        contributions_mean, contributions_std), games[0]
+            contributions_mean, contributions_std), games[0]
 
     def print_results(self):
         # [Keep original code]
@@ -494,7 +567,8 @@ class GameSetEvaluator:
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std:.2f}")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
-                print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
+                print(
+                    f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
             if POLARIX_AVAILABLE:
                 print("  Game Theoretic Evaluation (GTE):")
                 gte_mean, gte_std = stats.gte_rating
