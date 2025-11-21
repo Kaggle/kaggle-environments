@@ -2,8 +2,8 @@ import functools
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
-import multiprocessing
+from typing import Dict, List, Tuple, Union, Iterator
+from concurrent.futures import ProcessPoolExecutor
 
 import jax.numpy as jnp
 import numpy as np
@@ -118,83 +118,68 @@ class LightAgent:
 
 
 class LightRole:
-    __slots__ = ('team',)
+    __slots__ = ('team', 'name')
 
-    def __init__(self, team):
+    def __init__(self, team, name=None):
         self.team = team
+        self.name = name
 
 
 class LightPlayer:
-    __slots__ = ('agent', 'role')
+    __slots__ = ('agent', 'role', 'alive')
 
-    def __init__(self, name, team):
+    def __init__(self, name, team, role_name=None, alive=None):
         self.agent = LightAgent(name)
-        self.role = LightRole(team)
+        self.role = LightRole(team, name=role_name)
+        self.alive = alive
 
 
 class LightGame:
-    __slots__ = ('players', 'winner_team')
+    __slots__ = ('players', 'winner_team', 'irp_results', 'vss_results')
 
-    def __init__(self, players, winner_team):
+    def __init__(self, players, winner_team, irp_results=None, vss_results=None):
         self.players = players
         self.winner_team = winner_team
+        self.irp_results = irp_results
+        self.vss_results = vss_results
 
 
 # --- Worker Globals and Functions ---
 
-_worker_games = None
-_worker_model = None
-
-
-def _worker_init(games, model=None):
-    """Initializer for worker processes to load data once."""
-    global _worker_games, _worker_model
-    _worker_games = games
-    _worker_model = model
-
-
-def _bootstrap_elo_worker(seed):
-    rnd = np.random.default_rng(seed)
-    # Use global variable to avoid pickling large data per task
-    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
-    return GameSetEvaluator._compute_elo_ratings(sampled_games)
-
-
-def _bootstrap_openskill_worker(seed):
-    rnd = np.random.default_rng(seed)
-    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
-    ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, _worker_model)
+def _openskill_bootstrap_worker(games_sample, model):
+    if model is None:
+        return {}
+    ratings = GameSetEvaluator._compute_openskill_ratings(games_sample, model)
     return {name: r.mu for name, r in ratings.items()}
 
 
-def _bootstrap_gte_solve_worker(seed, agents, tasks):
-    rnd = np.random.default_rng(seed)
-    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
-    
+def _gte_bootstrap_worker(sampled_games, agents, tasks):
+    rnd = np.random.default_rng()
+
     agent_set = set(agents)
     task_set = set(tasks)
     agent_scores = {agent: {task: [] for task in tasks} for agent in agents}
-    
+
     for game in sampled_games:
         # 1. Collect basic stats (WinRate, KSR)
         for player in game.players:
             agent_name = player.agent.display_name
             if agent_name in agent_set:
                 role_name = player.role.name
-                
+
                 win_rate_task = f'WinRate-{role_name}'
                 if win_rate_task in task_set:
                     agent_scores[agent_name][win_rate_task].append(1 if player.role.team == game.winner_team else 0)
-                
+
                 ksr_task = f'KSR-{role_name}'
                 if ksr_task in task_set:
                     agent_scores[agent_name][ksr_task].append(1 if player.alive else 0)
-                
+
                 if 'KSR' in task_set:
                     agent_scores[agent_name]['KSR'].append(1 if player.alive else 0)
-        
+
         # 2. Collect complex stats (IRP, VSS) requiring mini-game iteration
-        irp_results, vss_results = game.iterate_voting_mini_game()
+        irp_results, vss_results = game.irp_results, game.vss_results
         if 'IRP' in task_set:
             for agent_name, score in irp_results:
                 if agent_name in agent_set:
@@ -216,13 +201,13 @@ def _bootstrap_gte_solve_worker(seed, agents, tasks):
                     stddev_matrix[i, j] = np.std(scores, ddof=1) / np.sqrt(len(scores))
                 else:
                     stddev_matrix[i, j] = 0.0
-    
+
     # Regularization for degenerate cases
     for j in range(mean_matrix.shape[1]):
         if np.ptp(mean_matrix[:, j]) < 1e-9:
             mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
-            stddev_matrix[:, j] += rnd.random(stddev_matrix.shape[0]) * 1e-6
-            
+            stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
+
     # 4. Solve Game
     game_plx = plx.agent_vs_task_game(
         agents=agents, tasks=tasks, agent_vs_task=mean_matrix, agent_vs_task_stddev=stddev_matrix,
@@ -393,25 +378,31 @@ class GameSetEvaluator:
 
         return current_ratings
 
+    def _generate_bootstrap_samples(self, light_games_iterator: Iterator[LightGame], num_samples: int) -> Iterator[List[LightGame]]:
+        light_games = list(light_games_iterator)
+        if not light_games:
+            return
+
+        light_games_np = np.array(light_games, dtype=object)
+        rnd_master = np.random.default_rng(42)
+        
+        for _ in range(num_samples):
+            yield light_games_np[rnd_master.integers(0, len(light_games), size=len(light_games))].tolist()
+
     def _bootstrap_elo(self, num_samples=100):
         if not self.games: return
 
-        # optimize: use lightweight games for serialization if possible
-        light_games = [
-            LightGame(
-                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                g.winner_team
-            ) for g in self.games
-        ]
+        def light_games_iter():
+            for g in self.games:
+                yield LightGame(
+                    [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
+                    g.winner_team
+                )
+        
+        samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
-        rnd_master = np.random.default_rng(42)
-        seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
-
-        # Use Multiprocessing with Initializer to handle memory efficiently
-        # Use 'spawn' context to avoid deadlocks with JAX/Threading
-        ctx = multiprocessing.get_context("spawn")
-        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games,)) as pool:
-            results = list(tqdm(pool.imap(_bootstrap_elo_worker, seeds), total=len(seeds), desc="Elo Bootstrap"))
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            results = list(tqdm(executor.map(GameSetEvaluator._compute_elo_ratings, samples_iterator), total=num_samples, desc="Elo Bootstrap"))
 
         bootstrapped_elos = defaultdict(list)
         all_agents = list(self.metrics.keys())
@@ -427,19 +418,19 @@ class GameSetEvaluator:
         if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
             return
 
-        light_games = [
-            LightGame(
-                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                g.winner_team
-            ) for g in self.games
-        ]
+        def light_games_iter():
+            for g in self.games:
+                yield LightGame(
+                    [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
+                    g.winner_team
+                )
+        
+        samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
-        rnd_master = np.random.default_rng(42)
-        seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
+        worker = functools.partial(_openskill_bootstrap_worker, model=self.openskill_model)
 
-        ctx = multiprocessing.get_context("spawn")
-        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games, self.openskill_model)) as pool:
-            results = list(tqdm(pool.imap(_bootstrap_openskill_worker, seeds), total=len(seeds), desc="OpenSkill Bootstrap"))
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
         all_agents = list(self.metrics.keys())
@@ -495,16 +486,22 @@ class GameSetEvaluator:
             print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
             return
         agents = sorted(list(self.metrics.keys()))
-        rnd = np.random.default_rng(42)
         
-        seeds = rnd.integers(1_000_000, size=num_samples)
+        def light_gte_games_iter():
+            for g in tqdm(self.games, desc="Pre-calculating GTE data"):
+                irp_results, vss_results = g.iterate_voting_mini_game()
+                players = [
+                    LightPlayer(p.agent.display_name, p.role.team, p.role.name, p.alive)
+                    for p in g.players
+                ]
+                yield LightGame(players, g.winner_team, irp_results, vss_results)
+
+        samples_iterator = self._generate_bootstrap_samples(light_gte_games_iter(), num_samples)
         
-        # For GTE, we need full game objects to run iterate_voting_mini_game, so we pass self.games
-        worker_func = functools.partial(_bootstrap_gte_solve_worker, agents=agents, tasks=self.gte_tasks)
+        worker_func = functools.partial(_gte_bootstrap_worker, agents=agents, tasks=self.gte_tasks)
         
-        ctx = multiprocessing.get_context("spawn")
-        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(self.games,)) as pool:
-            res = list(tqdm(pool.imap(worker_func, seeds), total=len(seeds), desc="GTE Bootstrap"))
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
             
         # Unpack
         ratings, joints, marginals, contributions, games = zip(*res)
