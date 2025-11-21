@@ -163,7 +163,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
           .then((data) => {
             this.setData(data, data.info.Agents);
             // TODO: Move to game-specific config for showControls/showLegend/stepTime/etc.
-            if (this.replay?.name === 'halite') {
+            if (this.replay?.name === 'halite' || this.replay?.name === 'hungry_geese') {
               this.showLegend = true;
             }
           })

@@ -1,0 +1,5186 @@
+{
+  "configuration": {
+    "actTimeout": 1,
+    "columns": 11,
+    "episodeSteps": 200,
+    "hunger_rate": 40,
+    "max_length": 99,
+    "min_food": 2,
+    "rows": 7,
+    "runTimeout": 1200
+  },
+  "description": "Similar to the classic snake game with multiple players",
+  "id": "07be43a6-f95f-11eb-9d22-0242ac130202",
+  "info": {
+    "EpisodeId": 26316666,
+    "LiveVideoPath": null,
+    "TeamNames": ["HandyRL", "takedarts", "Kirill Shipitsyn", "Goosebumps"]
+  },
+  "name": "hungry_geese",
+  "rewards": [10115, 10110, 8713, 10215],
+  "schema_version": 1,
+  "specification": {
+    "action": {
+      "default": "NORTH",
+      "description": "Direction to move the head of your players goose.",
+      "enum": ["NORTH", "EAST", "SOUTH", "WEST"],
+      "type": "string"
+    },
+    "agents": [1, 2, 3, 4, 5, 6, 7, 8],
+    "configuration": {
+      "actTimeout": {
+        "default": 1,
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "minimum": 0,
+        "type": "number"
+      },
+      "columns": {
+        "default": 11,
+        "description": "Horizontal number of cells on the board.",
+        "minimum": 3,
+        "type": "integer"
+      },
+      "episodeSteps": {
+        "default": 200,
+        "description": "Maximum number of steps in the episode.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "hunger_rate": {
+        "default": 40,
+        "description": "The number of steps before the goose shrinks a cell.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "max_length": {
+        "default": 99,
+        "description": "The max length any goose can be. Total reward = (max length + 1) * steps survived + goose length.",
+        "type": "integer"
+      },
+      "min_food": {
+        "default": 2,
+        "description": "The minimum amount of food present for all steps.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "rows": {
+        "default": 7,
+        "description": "Vertical number of cells on the board.",
+        "minimum": 3,
+        "type": "integer"
+      },
+      "runTimeout": {
+        "default": 1200,
+        "description": "Maximum runtime (seconds) of an episode (not necessarily DONE).",
+        "minimum": 0,
+        "type": "number"
+      }
+    },
+    "info": {},
+    "observation": {
+      "food": {
+        "default": [],
+        "description": "Positions on the board where food is present.",
+        "shared": true,
+        "type": "array"
+      },
+      "geese": {
+        "default": [],
+        "description": "List of geese in order by the agent index.",
+        "shared": true,
+        "type": "array"
+      },
+      "index": {
+        "defaults": [0, 1, 2, 3, 4, 5, 6, 7],
+        "description": "Index of the current agent's goose in the list of geese.",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "remainingOverageTime": {
+        "default": 60,
+        "description": "Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0.",
+        "minimum": 0,
+        "shared": false,
+        "type": "number"
+      },
+      "step": {
+        "default": 0,
+        "description": "Current step within the episode.",
+        "minimum": 0,
+        "shared": true,
+        "type": "integer"
+      }
+    },
+    "reward": {
+      "default": 0,
+      "description": "steps survived * (max goose length + 1) + current goose length.",
+      "minimum": 0,
+      "type": ["integer", "null"]
+    }
+  },
+  "statuses": ["DONE", "DONE", "DONE", "DONE"],
+  "steps": [
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [68, 42],
+          "geese": [[62], [54], [25], [27]],
+          "index": 0,
+          "remainingOverageTime": 60,
+          "step": 0
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 60
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 60
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 60
+        },
+        "reward": 0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [68, 42],
+          "geese": [[63], [53], [14], [28]],
+          "index": 0,
+          "remainingOverageTime": 54.608583,
+          "step": 1
+        },
+        "reward": 201,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 47.969715
+        },
+        "reward": 201,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 201,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.903392
+        },
+        "reward": 201,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [68, 37],
+          "geese": [[74], [42, 53], [3], [39]],
+          "index": 0,
+          "remainingOverageTime": 54.608583,
+          "step": 2
+        },
+        "reward": 301,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 47.665018
+        },
+        "reward": 302,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 301,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 301,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [68, 37],
+          "geese": [[8], [31, 42], [69], [38]],
+          "index": 0,
+          "remainingOverageTime": 54.586124000000005,
+          "step": 3
+        },
+        "reward": 401,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 47.356732
+        },
+        "reward": 402,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 401,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 401,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [2, 15],
+          "geese": [[9], [20, 31], [68, 69], [37, 38]],
+          "index": 0,
+          "remainingOverageTime": 54.581405000000004,
+          "step": 4
+        },
+        "reward": 501,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 47.042985
+        },
+        "reward": 502,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 502,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 502,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [15, 31],
+          "geese": [[75], [19, 20], [2, 68, 69], [26, 37]],
+          "index": 0,
+          "remainingOverageTime": 54.581405000000004,
+          "step": 5
+        },
+        "reward": 601,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 46.746424000000005
+        },
+        "reward": 602,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 603,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 602,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [31, 55],
+          "geese": [[64], [30, 19], [13, 2, 68], [15, 26, 37]],
+          "index": 0,
+          "remainingOverageTime": 54.581405000000004,
+          "step": 6
+        },
+        "reward": 701,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 46.450540000000004
+        },
+        "reward": 702,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 703,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 703,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [55, 61],
+          "geese": [[65], [31, 30, 19], [12, 13, 2], [16, 15, 26]],
+          "index": 0,
+          "remainingOverageTime": 54.493192,
+          "step": 7
+        },
+        "reward": 801,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 46.158823000000005
+        },
+        "reward": 803,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 803,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 54.337931999999995
+        },
+        "reward": 803,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [61, 7],
+          "geese": [
+            [55, 65],
+            [42, 31, 30],
+            [1, 12, 13],
+            [5, 16, 15]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.493192,
+          "step": 8
+        },
+        "reward": 902,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 45.86937400000001
+        },
+        "reward": 903,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 903,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 903,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [61, 7],
+          "geese": [
+            [56, 55],
+            [41, 42, 31],
+            [67, 1, 12],
+            [6, 5, 16]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.491151,
+          "step": 9
+        },
+        "reward": 1002,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 45.563311000000006
+        },
+        "reward": 1003,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1003,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1003,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [61, 63],
+          "geese": [
+            [45, 56],
+            [40, 41, 42],
+            [66, 67, 1],
+            [7, 6, 5, 16]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.491151,
+          "step": 10
+        },
+        "reward": 1102,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 45.274035000000005
+        },
+        "reward": 1103,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1103,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1104,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [61, 63],
+          "geese": [
+            [46, 45],
+            [51, 40, 41],
+            [76, 66, 67],
+            [73, 7, 6, 5]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.446162,
+          "step": 11
+        },
+        "reward": 1202,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 44.96598600000001
+        },
+        "reward": 1203,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1203,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1204,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [61, 63],
+          "geese": [
+            [57, 46],
+            [50, 51, 40],
+            [75, 76, 66],
+            [72, 73, 7, 6]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.42351,
+          "step": 12
+        },
+        "reward": 1302,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 44.68021200000001
+        },
+        "reward": 1303,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1303,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1304,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [61, 63],
+          "geese": [
+            [58, 57],
+            [49, 50, 51],
+            [74, 75, 76],
+            [71, 72, 73, 7]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.42351,
+          "step": 13
+        },
+        "reward": 1402,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 44.382036000000014
+        },
+        "reward": 1403,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1403,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1404,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [61, 70],
+          "geese": [
+            [47, 58],
+            [48, 49, 50],
+            [63, 74, 75, 76],
+            [5, 71, 72, 73]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.42351,
+          "step": 14
+        },
+        "reward": 1502,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 44.09750500000001
+        },
+        "reward": 1503,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1504,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1504,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [61, 70],
+          "geese": [
+            [46, 47],
+            [59, 48, 49],
+            [62, 63, 74, 75],
+            [4, 5, 71, 72]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.390604,
+          "step": 15
+        },
+        "reward": 1602,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 43.79221500000001
+        },
+        "reward": 1603,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1604,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1604,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [70, 53],
+          "geese": [
+            [57, 46],
+            [60, 59, 48],
+            [61, 62, 63, 74, 75],
+            [3, 4, 5, 71]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.390604,
+          "step": 16
+        },
+        "reward": 1702,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 43.49524800000001
+        },
+        "reward": 1703,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1705,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1704,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [70, 53],
+          "geese": [
+            [56, 57],
+            [71, 60, 59],
+            [50, 61, 62, 63, 74],
+            [69, 3, 4, 5]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.390604,
+          "step": 17
+        },
+        "reward": 1802,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 43.23842600000001
+        },
+        "reward": 1803,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1805,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 53.272893999999994
+        },
+        "reward": 1804,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [70, 53],
+          "geese": [
+            [45, 56],
+            [72, 71, 60],
+            [51, 50, 61, 62, 63],
+            [58, 69, 3, 4]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.390604,
+          "step": 18
+        },
+        "reward": 1902,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 42.94295100000001
+        },
+        "reward": 1903,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 1905,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73941599999999
+        },
+        "reward": 1904,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [70, 53],
+          "geese": [
+            [44, 45],
+            [6, 72, 71],
+            [52, 51, 50, 61, 62],
+            [59, 58, 69, 3]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.327812,
+          "step": 19
+        },
+        "reward": 2002,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 42.68183500000001
+        },
+        "reward": 2003,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2005,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73941599999999
+        },
+        "reward": 2004,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [67, 18],
+          "geese": [
+            [54, 44],
+            [5, 6, 72],
+            [53, 52, 51, 50, 61, 62],
+            [70, 59, 58, 69, 3]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.291491,
+          "step": 20
+        },
+        "reward": 2102,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 42.394259000000005
+        },
+        "reward": 2103,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2106,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73941599999999
+        },
+        "reward": 2105,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [67, 18],
+          "geese": [
+            [65, 54],
+            [16, 5, 6],
+            [42, 53, 52, 51, 50, 61],
+            [4, 70, 59, 58, 69]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.291491,
+          "step": 21
+        },
+        "reward": 2202,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 42.14390600000001
+        },
+        "reward": 2203,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73422599999999
+        },
+        "reward": 2205,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [67, 18],
+          "geese": [
+            [76, 65],
+            [17, 16, 5],
+            [41, 42, 53, 52, 51, 50],
+            [3, 4, 70, 59, 58]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.291491,
+          "step": 22
+        },
+        "reward": 2302,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 41.89620200000001
+        },
+        "reward": 2303,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2306,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73422599999999
+        },
+        "reward": 2305,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [67, 25],
+          "geese": [
+            [66, 76],
+            [18, 17, 16, 5],
+            [40, 41, 42, 53, 52, 51],
+            [2, 3, 4, 70, 59]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.254348,
+          "step": 23
+        },
+        "reward": 2402,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 41.64875700000001
+        },
+        "reward": 2404,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73422599999999
+        },
+        "reward": 2405,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [25, 37],
+          "geese": [
+            [67, 66, 76],
+            [7, 18, 17, 16],
+            [39, 40, 41, 42, 53, 52],
+            [13, 2, 3, 4, 70]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 24
+        },
+        "reward": 2503,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 41.39252800000001
+        },
+        "reward": 2504,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 52.73422599999999
+        },
+        "reward": 2505,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [25, 37],
+          "geese": [
+            [56, 67, 66],
+            [8, 7, 18, 17],
+            [38, 39, 40, 41, 42, 53],
+            [14, 13, 2, 3, 4]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 25
+        },
+        "reward": 2603,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 41.13644200000001
+        },
+        "reward": 2604,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.745121999999995
+        },
+        "reward": 2605,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [10, 50],
+          "geese": [
+            [55, 56, 67],
+            [9, 8, 7, 18],
+            [37, 38, 39, 40, 41, 42, 53],
+            [25, 14, 13, 2, 3, 4]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 26
+        },
+        "reward": 2703,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 40.89997300000001
+        },
+        "reward": 2704,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2707,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.745121999999995
+        },
+        "reward": 2706,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [50, 1],
+          "geese": [
+            [65, 55, 56],
+            [10, 9, 8, 7, 18],
+            [48, 37, 38, 39, 40, 41, 42],
+            [24, 25, 14, 13, 2, 3]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 27
+        },
+        "reward": 2803,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 40.64466100000001
+        },
+        "reward": 2805,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2807,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.745121999999995
+        },
+        "reward": 2806,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [50, 1],
+          "geese": [
+            [64, 65, 55],
+            [0, 10, 9, 8, 7],
+            [49, 48, 37, 38, 39, 40, 41],
+            [23, 24, 25, 14, 13, 2]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 28
+        },
+        "reward": 2903,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 40.411586000000014
+        },
+        "reward": 2905,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 2907,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.745121999999995
+        },
+        "reward": 2906,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [75, 36],
+          "geese": [
+            [63, 64, 65],
+            [1, 0, 10, 9, 8, 7],
+            [50, 49, 48, 37, 38, 39, 40, 41],
+            [22, 23, 24, 25, 14, 13]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.236568,
+          "step": 29
+        },
+        "reward": 3003,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 40.160131000000014
+        },
+        "reward": 3006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3008,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.745121999999995
+        },
+        "reward": 3006,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [75, 36],
+          "geese": [
+            [74, 63, 64],
+            [67, 1, 0, 10, 9, 8],
+            [51, 50, 49, 48, 37, 38, 39, 40],
+            [33, 22, 23, 24, 25, 14]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.206016999999996,
+          "step": 30
+        },
+        "reward": 3103,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 39.937655000000014
+        },
+        "reward": 3106,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3108,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.743826999999996
+        },
+        "reward": 3106,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [36, 53],
+          "geese": [
+            [75, 74, 63, 64],
+            [56, 67, 1, 0, 10, 9],
+            [40, 51, 50, 49, 48, 37, 38, 39],
+            [34, 33, 22, 23, 24, 25]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.19104899999999,
+          "step": 31
+        },
+        "reward": 3204,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 39.708097000000016
+        },
+        "reward": 3206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3208,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.743826999999996
+        },
+        "reward": 3206,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [36, 53],
+          "geese": [
+            [64, 75, 74, 63],
+            [55, 56, 67, 1, 0, 10],
+            [41, 40, 51, 50, 49, 48, 37, 38],
+            [35, 34, 33, 22, 23, 24]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.19104899999999,
+          "step": 32
+        },
+        "reward": 3304,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 39.45535000000002
+        },
+        "reward": 3306,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3308,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.712802999999994
+        },
+        "reward": 3306,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [61, 8],
+          "geese": [
+            [53, 64, 75, 74, 63],
+            [66, 55, 56, 67, 1, 0],
+            [42, 41, 40, 51, 50, 49, 48, 37],
+            [36, 35, 34, 33, 22, 23, 24]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.19104899999999,
+          "step": 33
+        },
+        "reward": 3405,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 39.24099800000002
+        },
+        "reward": 3406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3408,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.712802999999994
+        },
+        "reward": 3407,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [61, 8],
+          "geese": [
+            [52, 53, 64, 75, 74],
+            [0, 66, 55, 56, 67, 1],
+            [31, 42, 41, 40, 51, 50, 49, 48],
+            [47, 36, 35, 34, 33, 22, 23]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.18623499999999,
+          "step": 34
+        },
+        "reward": 3505,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 39.02695000000002
+        },
+        "reward": 3506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3508,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.712802999999994
+        },
+        "reward": 3507,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [61, 8],
+          "geese": [
+            [63, 52, 53, 64, 75],
+            [10, 0, 66, 55, 56, 67],
+            [20, 31, 42, 41, 40, 51, 50, 49],
+            [58, 47, 36, 35, 34, 33, 22]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.18623499999999,
+          "step": 35
+        },
+        "reward": 3605,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 38.77309200000002
+        },
+        "reward": 3606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3608,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.67518499999999
+        },
+        "reward": 3607,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [61, 8],
+          "geese": [
+            [62, 63, 52, 53, 64],
+            [76, 10, 0, 66, 55, 56],
+            [19, 20, 31, 42, 41, 40, 51, 50],
+            [59, 58, 47, 36, 35, 34, 33]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.13572499999999,
+          "step": 36
+        },
+        "reward": 3705,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 38.55746200000002
+        },
+        "reward": 3706,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3708,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.635375999999994
+        },
+        "reward": 3707,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [11, 74],
+          "geese": [
+            [61, 62, 63, 52, 53, 64],
+            [65, 76, 10, 0, 66, 55],
+            [8, 19, 20, 31, 42, 41, 40, 51, 50],
+            [60, 59, 58, 47, 36, 35, 34]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.13572499999999,
+          "step": 37
+        },
+        "reward": 3806,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 38.29634000000002
+        },
+        "reward": 3806,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3809,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.635375999999994
+        },
+        "reward": 3807,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [11, 75],
+          "geese": [
+            [72, 61, 62, 63, 52, 53],
+            [55, 65, 76, 10, 0, 66],
+            [74, 8, 19, 20, 31, 42, 41, 40, 51, 50],
+            [71, 60, 59, 58, 47, 36, 35]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.12885499999999,
+          "step": 38
+        },
+        "reward": 3906,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 38.09037600000002
+        },
+        "reward": 3906,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 3910,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 3907,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [11, 45],
+          "geese": [
+            [6, 72, 61, 62, 63, 52],
+            [66, 55, 65, 76, 10, 0],
+            [75, 74, 8, 19, 20, 31, 42, 41, 40, 51, 50],
+            [5, 71, 60, 59, 58, 47, 36]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.12885499999999,
+          "step": 39
+        },
+        "reward": 4006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 37.87972700000002
+        },
+        "reward": 4006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4011,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 4007,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [11, 45],
+          "geese": [
+            [17, 6, 72, 61, 62],
+            [0, 66, 55, 65, 76],
+            [64, 75, 74, 8, 19, 20, 31, 42, 41, 40],
+            [16, 5, 71, 60, 59, 58]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.09282799999999,
+          "step": 40
+        },
+        "reward": 4105,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 37.67747700000002
+        },
+        "reward": 4105,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4110,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 4106,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [45, 50],
+          "geese": [
+            [28, 17, 6, 72, 61],
+            [11, 0, 66, 55, 65, 76],
+            [53, 64, 75, 74, 8, 19, 20, 31, 42, 41],
+            [27, 16, 5, 71, 60, 59]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.05772999999999,
+          "step": 41
+        },
+        "reward": 4205,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 37.466203000000014
+        },
+        "reward": 4206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4210,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 4206,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [45, 50],
+          "geese": [
+            [39, 28, 17, 6, 72],
+            [22, 11, 0, 66, 55, 65],
+            [54, 53, 64, 75, 74, 8, 19, 20, 31, 42],
+            [38, 27, 16, 5, 71, 60]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.05772999999999,
+          "step": 42
+        },
+        "reward": 4305,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 37.26829100000001
+        },
+        "reward": 4306,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4310,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 4306,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [45, 26],
+          "geese": [
+            [50, 39, 28, 17, 6, 72],
+            [33, 22, 11, 0, 66, 55],
+            [44, 54, 53, 64, 75, 74, 8, 19, 20, 31],
+            [49, 38, 27, 16, 5, 71]
+          ],
+          "index": 0,
+          "remainingOverageTime": 54.042311999999995,
+          "step": 43
+        },
+        "reward": 4406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 37.062725000000015
+        },
+        "reward": 4406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4410,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.626144999999994
+        },
+        "reward": 4406,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [26, 36],
+          "geese": [
+            [61, 50, 39, 28, 17, 6],
+            [34, 33, 22, 11, 0, 66],
+            [45, 44, 54, 53, 64, 75, 74, 8, 19, 20, 31],
+            [48, 49, 38, 27, 16, 5]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.981511,
+          "step": 44
+        },
+        "reward": 4506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 36.859918000000015
+        },
+        "reward": 4506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4511,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.59175499999999
+        },
+        "reward": 4506,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [26, 36],
+          "geese": [
+            [72, 61, 50, 39, 28, 17],
+            [35, 34, 33, 22, 11, 0],
+            [56, 45, 44, 54, 53, 64, 75, 74, 8, 19, 20],
+            [47, 48, 49, 38, 27, 16]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.979405,
+          "step": 45
+        },
+        "reward": 4606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 36.623775000000016
+        },
+        "reward": 4606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4611,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.056476999999994
+        },
+        "reward": 4606,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [26, 17],
+          "geese": [
+            [6, 72, 61, 50, 39, 28],
+            [24, 35, 34, 33, 22, 11],
+            [67, 56, 45, 44, 54, 53, 64, 75, 74, 8, 19],
+            [36, 47, 48, 49, 38, 27, 16]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.979405,
+          "step": 46
+        },
+        "reward": 4706,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 36.409959000000015
+        },
+        "reward": 4706,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4711,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 51.05528399999999
+        },
+        "reward": 4707,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [26, 18],
+          "geese": [
+            [17, 6, 72, 61, 50, 39, 28],
+            [23, 24, 35, 34, 33, 22],
+            [1, 67, 56, 45, 44, 54, 53, 64, 75, 74, 8],
+            [37, 36, 47, 48, 49, 38, 27]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.942942,
+          "step": 47
+        },
+        "reward": 4807,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 36.21614300000002
+        },
+        "reward": 4806,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4811,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 50.566463999999996
+        },
+        "reward": 4807,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [8, 21],
+          "geese": [
+            [18, 17, 6, 72, 61, 50, 39, 28],
+            [22, 23, 24, 35, 34, 33],
+            [0, 1, 67, 56, 45, 44, 54, 53, 64, 75, 74],
+            [26, 37, 36, 47, 48, 49, 38, 27]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.925945,
+          "step": 48
+        },
+        "reward": 4908,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 36.02548700000002
+        },
+        "reward": 4906,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 4911,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 50.47848
+        },
+        "reward": 4908,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [8, 21],
+          "geese": [
+            [19, 18, 17, 6, 72, 61, 50, 39],
+            [32, 22, 23, 24, 35, 34],
+            [10, 0, 1, 67, 56, 45, 44, 54, 53, 64, 75],
+            [27, 26, 37, 36, 47, 48, 49, 38]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.877750999999996,
+          "step": 49
+        },
+        "reward": 5008,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 35.83134000000002
+        },
+        "reward": 5006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5011,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 49.475111
+        },
+        "reward": 5008,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [21, 13],
+          "geese": [
+            [8, 19, 18, 17, 6, 72, 61, 50, 39],
+            [31, 32, 22, 23, 24, 35],
+            [9, 10, 0, 1, 67, 56, 45, 44, 54, 53, 64],
+            [38, 27, 26, 37, 36, 47, 48, 49]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.869271999999995,
+          "step": 50
+        },
+        "reward": 5109,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 35.642738000000016
+        },
+        "reward": 5106,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5111,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 48.890919
+        },
+        "reward": 5108,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [21, 13],
+          "geese": [
+            [74, 8, 19, 18, 17, 6, 72, 61, 50],
+            [42, 31, 32, 22, 23, 24],
+            [20, 9, 10, 0, 1, 67, 56, 45, 44, 54, 53],
+            [49, 38, 27, 26, 37, 36, 47, 48]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.869271999999995,
+          "step": 51
+        },
+        "reward": 5209,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 35.44947600000002
+        },
+        "reward": 5206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5211,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 48.890919
+        },
+        "reward": 5208,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [13, 50],
+          "geese": [
+            [73, 74, 8, 19, 18, 17, 6, 72, 61],
+            [43, 42, 31, 32, 22, 23],
+            [21, 20, 9, 10, 0, 1, 67, 56, 45, 44, 54, 53],
+            [60, 49, 38, 27, 26, 37, 36, 47]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.831540999999994,
+          "step": 52
+        },
+        "reward": 5309,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 35.24672000000002
+        },
+        "reward": 5306,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5312,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.802454
+        },
+        "reward": 5308,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [13, 50],
+          "geese": [
+            [62, 73, 74, 8, 19, 18, 17, 6, 72],
+            [33, 43, 42, 31, 32, 22],
+            [11, 21, 20, 9, 10, 0, 1, 67, 56, 45, 44, 54],
+            [61, 60, 49, 38, 27, 26, 37, 36]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.780885999999995,
+          "step": 53
+        },
+        "reward": 5409,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 35.04229800000002
+        },
+        "reward": 5406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5412,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.802454
+        },
+        "reward": 5408,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [13, 28],
+          "geese": [
+            [51, 62, 73, 74, 8, 19, 18, 17, 6],
+            [34, 33, 43, 42, 31, 32],
+            [12, 11, 21, 20, 9, 10, 0, 1, 67, 56, 45, 44],
+            [50, 61, 60, 49, 38, 27, 26, 37, 36]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.780885999999995,
+          "step": 54
+        },
+        "reward": 5509,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 34.85194600000002
+        },
+        "reward": 5506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5512,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.802454
+        },
+        "reward": 5509,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [28, 14],
+          "geese": [
+            [40, 51, 62, 73, 74, 8, 19, 18, 17],
+            [35, 34, 33, 43, 42, 31],
+            [13, 12, 11, 21, 20, 9, 10, 0, 1, 67, 56, 45, 44],
+            [39, 50, 61, 60, 49, 38, 27, 26, 37]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.72362,
+          "step": 55
+        },
+        "reward": 5609,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 34.64966200000002
+        },
+        "reward": 5606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5613,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.802454
+        },
+        "reward": 5609,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [64, 65],
+          "geese": [
+            [29, 40, 51, 62, 73, 74, 8, 19, 18],
+            [46, 35, 34, 33, 43, 42],
+            [14, 13, 12, 11, 21, 20, 9, 10, 0, 1, 67, 56, 45, 44],
+            [28, 39, 50, 61, 60, 49, 38, 27, 26, 37]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.673002,
+          "step": 56
+        },
+        "reward": 5709,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 34.46608900000002
+        },
+        "reward": 5706,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5714,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.802454
+        },
+        "reward": 5710,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [64, 65],
+          "geese": [
+            [30, 29, 40, 51, 62, 73, 74, 8, 19],
+            [47, 46, 35, 34, 33, 43],
+            [3, 14, 13, 12, 11, 21, 20, 9, 10, 0, 1, 67, 56, 45],
+            [17, 28, 39, 50, 61, 60, 49, 38, 27, 26]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.618083999999996,
+          "step": 57
+        },
+        "reward": 5809,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 34.26469500000002
+        },
+        "reward": 5806,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5814,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.795559999999995
+        },
+        "reward": 5810,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [64, 65],
+          "geese": [
+            [31, 30, 29, 40, 51, 62, 73, 74, 8],
+            [58, 47, 46, 35, 34, 33],
+            [69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 0, 1, 67, 56],
+            [16, 17, 28, 39, 50, 61, 60, 49, 38, 27]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.611599999999996,
+          "step": 58
+        },
+        "reward": 5909,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 34.068275000000014
+        },
+        "reward": 5906,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 5914,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 46.795559999999995
+        },
+        "reward": 5910,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [64, 65],
+          "geese": [
+            [42, 31, 30, 29, 40, 51, 62, 73, 74],
+            [57, 58, 47, 46, 35, 34],
+            [68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 0, 1, 67],
+            [27, 16, 17, 28, 39, 50, 61, 60, 49, 38]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.54317399999999,
+          "step": 59
+        },
+        "reward": 6009,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 33.874366000000016
+        },
+        "reward": 6006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6014,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 45.29099899999999
+        },
+        "reward": 6010,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [64, 65],
+          "geese": [
+            [53, 42, 31, 30, 29, 40, 51, 62, 73],
+            [56, 57, 58, 47, 46, 35],
+            [67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 0, 1],
+            [26, 27, 16, 17, 28, 39, 50, 61, 60, 49]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.429458,
+          "step": 60
+        },
+        "reward": 6109,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 33.67868100000002
+        },
+        "reward": 6106,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6114,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 44.798359999999995
+        },
+        "reward": 6110,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 72],
+          "geese": [
+            [64, 53, 42, 31, 30, 29, 40, 51, 62, 73],
+            [55, 56, 57, 58, 47, 46],
+            [66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 0],
+            [37, 26, 27, 16, 17, 28, 39, 50, 61, 60]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.422824,
+          "step": 61
+        },
+        "reward": 6210,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 33.48039100000002
+        },
+        "reward": 6206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6214,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 42.702904
+        },
+        "reward": 6210,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 72],
+          "geese": [
+            [75, 64, 53, 42, 31, 30, 29, 40, 51, 62],
+            [44, 55, 56, 57, 58, 47],
+            [76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10],
+            [48, 37, 26, 27, 16, 17, 28, 39, 50, 61]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.325328,
+          "step": 62
+        },
+        "reward": 6310,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 33.289377000000016
+        },
+        "reward": 6306,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6314,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 42.702904
+        },
+        "reward": 6310,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 72],
+          "geese": [
+            [74, 75, 64, 53, 42, 31, 30, 29, 40, 51],
+            [54, 44, 55, 56, 57, 58],
+            [10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9],
+            [59, 48, 37, 26, 27, 16, 17, 28, 39, 50]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.242258,
+          "step": 63
+        },
+        "reward": 6410,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 33.09399800000001
+        },
+        "reward": 6406,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6414,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.702225999999996
+        },
+        "reward": 6410,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 72],
+          "geese": [
+            [73, 74, 75, 64, 53, 42, 31, 30, 29, 40],
+            [43, 54, 44, 55, 56, 57],
+            [9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20],
+            [60, 59, 48, 37, 26, 27, 16, 17, 28, 39]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.202487,
+          "step": 64
+        },
+        "reward": 6510,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.918351000000015
+        },
+        "reward": 6506,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6514,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.702225999999996
+        },
+        "reward": 6510,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 71],
+          "geese": [
+            [72, 73, 74, 75, 64, 53, 42, 31, 30, 29, 40],
+            [32, 43, 54, 44, 55, 56],
+            [20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21],
+            [61, 60, 59, 48, 37, 26, 27, 16, 17, 28]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.171771,
+          "step": 65
+        },
+        "reward": 6611,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.72442800000002
+        },
+        "reward": 6606,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6614,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.692823999999995
+        },
+        "reward": 6610,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [71, 72, 73, 74, 75, 64, 53, 42, 31, 30, 29, 40],
+            [22, 32, 43, 54, 44, 55],
+            [21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11],
+            [50, 61, 60, 59, 48, 37, 26, 27, 16, 17]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.142777,
+          "step": 66
+        },
+        "reward": 6712,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.53104000000002
+        },
+        "reward": 6706,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6714,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.68178999999999
+        },
+        "reward": 6710,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [5, 71, 72, 73, 74, 75, 64, 53, 42, 31, 30, 29],
+            [23, 22, 32, 43, 54, 44],
+            [11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12],
+            [39, 50, 61, 60, 59, 48, 37, 26, 27, 16]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.11019,
+          "step": 67
+        },
+        "reward": 6812,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.37917700000002
+        },
+        "reward": 6806,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6814,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.667362999999995
+        },
+        "reward": 6810,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [16, 5, 71, 72, 73, 74, 75, 64, 53, 42, 31, 30],
+            [24, 23, 22, 32, 43, 54],
+            [12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13],
+            [28, 39, 50, 61, 60, 59, 48, 37, 26, 27]
+          ],
+          "index": 0,
+          "remainingOverageTime": 53.026514000000006,
+          "step": 68
+        },
+        "reward": 6912,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.21723800000002
+        },
+        "reward": 6906,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 6914,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.667362999999995
+        },
+        "reward": 6910,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [15, 16, 5, 71, 72, 73, 74, 75, 64, 53, 42, 31],
+            [25, 24, 23, 22, 32, 43],
+            [13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14],
+            [29, 28, 39, 50, 61, 60, 59, 48, 37, 26]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.938331000000005,
+          "step": 69
+        },
+        "reward": 7012,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 32.07491700000002
+        },
+        "reward": 7006,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7014,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.667362999999995
+        },
+        "reward": 7010,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [26, 15, 16, 5, 71, 72, 73, 74, 75, 64, 53, 42],
+            [36, 25, 24, 23, 22, 32],
+            [14, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3],
+            [40, 29, 28, 39, 50, 61, 60, 59, 48, 37]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.930322000000004,
+          "step": 70
+        },
+        "reward": 7112,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.89550800000002
+        },
+        "reward": 7106,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7114,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.63601799999999
+        },
+        "reward": 7110,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 58],
+          "geese": [
+            [37, 26, 15, 16, 5, 71, 72, 73, 74, 75, 64, 53],
+            [47, 36, 25, 24, 23, 22],
+            [3, 14, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69],
+            [41, 40, 29, 28, 39, 50, 61, 60, 59, 48]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.862457000000006,
+          "step": 71
+        },
+        "reward": 7212,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.736529000000022
+        },
+        "reward": 7206,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7214,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.59251199999999
+        },
+        "reward": 7210,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [65, 35],
+          "geese": [
+            [38, 37, 26, 15, 16, 5, 71, 72, 73, 74, 75, 64],
+            [58, 47, 36, 25, 24, 23, 22],
+            [69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68],
+            [42, 41, 40, 29, 28, 39, 50, 61, 60, 59]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.835592000000005,
+          "step": 72
+        },
+        "reward": 7312,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.598632000000023
+        },
+        "reward": 7307,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7314,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 40.08780999999999
+        },
+        "reward": 7310,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [65, 35],
+          "geese": [
+            [49, 38, 37, 26, 15, 16, 5, 71, 72, 73, 74, 75],
+            [57, 58, 47, 36, 25, 24, 23],
+            [68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67],
+            [53, 42, 41, 40, 29, 28, 39, 50, 61, 60]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.78949000000001,
+          "step": 73
+        },
+        "reward": 7412,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.461643000000024
+        },
+        "reward": 7407,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7414,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00216499999999
+        },
+        "reward": 7410,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 35],
+          "geese": [
+            [48, 49, 38, 37, 26, 15, 16, 5, 71, 72, 73, 74],
+            [56, 57, 58, 47, 36, 25, 24],
+            [67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 76, 66],
+            [54, 53, 42, 41, 40, 29, 28, 39, 50, 61]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.73690100000001,
+          "step": 74
+        },
+        "reward": 7512,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.323939000000024
+        },
+        "reward": 7507,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7514,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00216499999999
+        },
+        "reward": 7510,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [35, 64],
+          "geese": [
+            [59, 48, 49, 38, 37, 26, 15, 16, 5, 71, 72, 73],
+            [45, 56, 57, 58, 47, 36, 25],
+            [66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10, 76],
+            [65, 54, 53, 42, 41, 40, 29, 28, 39, 50, 61]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.64181800000001,
+          "step": 75
+        },
+        "reward": 7612,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.174939000000023
+        },
+        "reward": 7607,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7614,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00216499999999
+        },
+        "reward": 7611,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [35, 22],
+          "geese": [
+            [60, 59, 48, 49, 38, 37, 26, 15, 16, 5, 71, 72],
+            [44, 45, 56, 57, 58, 47, 36],
+            [76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9, 10],
+            [64, 65, 54, 53, 42, 41, 40, 29, 28, 39, 50, 61]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.58585000000001,
+          "step": 76
+        },
+        "reward": 7712,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 31.040037000000023
+        },
+        "reward": 7707,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7714,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00188499999999
+        },
+        "reward": 7712,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [35, 22],
+          "geese": [
+            [61, 60, 59, 48, 49, 38, 37, 26, 15, 16, 5, 71],
+            [33, 44, 45, 56, 57, 58, 47],
+            [10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20, 9],
+            [63, 64, 65, 54, 53, 42, 41, 40, 29, 28, 39, 50]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.477168000000006,
+          "step": 77
+        },
+        "reward": 7812,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.887936000000025
+        },
+        "reward": 7807,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7814,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00188499999999
+        },
+        "reward": 7812,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [35, 22],
+          "geese": [
+            [72, 61, 60, 59, 48, 49, 38, 37, 26, 15, 16, 5],
+            [43, 33, 44, 45, 56, 57, 58],
+            [9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21, 20],
+            [74, 63, 64, 65, 54, 53, 42, 41, 40, 29, 28, 39]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.44595,
+          "step": 78
+        },
+        "reward": 7912,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.747821000000023
+        },
+        "reward": 7907,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 7914,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 39.00188499999999
+        },
+        "reward": 7912,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [35, 22],
+          "geese": [
+            [6, 72, 61, 60, 59, 48, 49, 38, 37, 26, 15, 16],
+            [32, 43, 33, 44, 45, 56, 57],
+            [20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12, 11, 21],
+            [73, 74, 63, 64, 65, 54, 53, 42, 41, 40, 29, 28]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.382193,
+          "step": 79
+        },
+        "reward": 8012,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.599709000000022
+        },
+        "reward": 8007,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8014,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.52706199999999
+        },
+        "reward": 8012,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [35, 70],
+          "geese": [
+            [17, 6, 72, 61, 60, 59, 48, 49, 38, 37, 26],
+            [22, 32, 43, 33, 44, 45, 56],
+            [21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13, 12],
+            [62, 73, 74, 63, 64, 65, 54, 53, 42, 41, 40]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.370036,
+          "step": 80
+        },
+        "reward": 8111,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.472163000000023
+        },
+        "reward": 8107,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8113,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.456454999999984
+        },
+        "reward": 8111,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [35, 70],
+          "geese": [
+            [16, 17, 6, 72, 61, 60, 59, 48, 49, 38, 37],
+            [23, 22, 32, 43, 33, 44, 45],
+            [11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14, 13],
+            [51, 62, 73, 74, 63, 64, 65, 54, 53, 42, 41]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.307465,
+          "step": 81
+        },
+        "reward": 8211,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.325756000000023
+        },
+        "reward": 8207,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8213,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.417318999999985
+        },
+        "reward": 8211,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [35, 70],
+          "geese": [
+            [15, 16, 17, 6, 72, 61, 60, 59, 48, 49, 38],
+            [24, 23, 22, 32, 43, 33, 44],
+            [12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3, 14],
+            [40, 51, 62, 73, 74, 63, 64, 65, 54, 53, 42]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.28433,
+          "step": 82
+        },
+        "reward": 8311,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.18961900000002
+        },
+        "reward": 8307,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8313,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.417318999999985
+        },
+        "reward": 8311,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [70, 5],
+          "geese": [
+            [14, 15, 16, 17, 6, 72, 61, 60, 59, 48, 49],
+            [35, 24, 23, 22, 32, 43, 33, 44],
+            [13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69, 3],
+            [39, 40, 51, 62, 73, 74, 63, 64, 65, 54, 53]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.233598,
+          "step": 83
+        },
+        "reward": 8411,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 30.033146000000023
+        },
+        "reward": 8408,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8413,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.40909999999999
+        },
+        "reward": 8411,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [70, 5],
+          "geese": [
+            [3, 14, 15, 16, 17, 6, 72, 61, 60, 59, 48],
+            [46, 35, 24, 23, 22, 32, 43, 33],
+            [2, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68, 69],
+            [38, 39, 40, 51, 62, 73, 74, 63, 64, 65, 54]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.114232,
+          "step": 84
+        },
+        "reward": 8511,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.880829000000023
+        },
+        "reward": 8508,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8513,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.40909999999999
+        },
+        "reward": 8511,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [70, 5],
+          "geese": [
+            [4, 3, 14, 15, 16, 17, 6, 72, 61, 60, 59],
+            [57, 46, 35, 24, 23, 22, 32, 43],
+            [1, 2, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67, 68],
+            [27, 38, 39, 40, 51, 62, 73, 74, 63, 64, 65]
+          ],
+          "index": 0,
+          "remainingOverageTime": 52.018215,
+          "step": 85
+        },
+        "reward": 8611,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.723820000000025
+        },
+        "reward": 8608,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8613,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 8611,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [70, 65],
+          "geese": [
+            [5, 4, 3, 14, 15, 16, 17, 6, 72, 61, 60, 59],
+            [68, 57, 46, 35, 24, 23, 22, 32],
+            [0, 1, 2, 13, 12, 11, 21, 20, 9, 10, 76, 66, 67],
+            [28, 27, 38, 39, 40, 51, 62, 73, 74, 63, 64]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.996565,
+          "step": 86
+        },
+        "reward": 8712,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.552048000000024
+        },
+        "reward": 8708,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 8711,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [70, 65],
+          "geese": [
+            [71, 5, 4, 3, 14, 15, 16, 17, 6, 72, 61, 60],
+            [67, 68, 57, 46, 35, 24, 23, 22],
+            [],
+            [29, 28, 27, 38, 39, 40, 51, 62, 73, 74, 63]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.895661,
+          "step": 87
+        },
+        "reward": 8812,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.434725000000025
+        },
+        "reward": 8808,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 8811,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [65, 20],
+          "geese": [
+            [70, 71, 5, 4, 3, 14, 15, 16, 17, 6, 72, 61, 60],
+            [66, 67, 68, 57, 46, 35, 24, 23],
+            [],
+            [30, 29, 28, 27, 38, 39, 40, 51, 62, 73, 74]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.879082,
+          "step": 88
+        },
+        "reward": 8913,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.321127000000025
+        },
+        "reward": 8908,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 8911,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [65, 20],
+          "geese": [
+            [59, 70, 71, 5, 4, 3, 14, 15, 16, 17, 6, 72, 61],
+            [76, 66, 67, 68, 57, 46, 35, 24],
+            [],
+            [31, 30, 29, 28, 27, 38, 39, 40, 51, 62, 73]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.879082,
+          "step": 89
+        },
+        "reward": 9013,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.204416000000027
+        },
+        "reward": 9008,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 9011,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "food": [12, 26],
+          "geese": [
+            [60, 59, 70, 71, 5, 4, 3, 14, 15, 16, 17, 6, 72],
+            [65, 76, 66, 67, 68, 57, 46, 35, 24],
+            [],
+            [20, 31, 30, 29, 28, 27, 38, 39, 40, 51, 62, 73]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.798024999999996,
+          "step": 90
+        },
+        "reward": 9113,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 29.064896000000026
+        },
+        "reward": 9109,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 9112,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [12, 26],
+          "geese": [
+            [49, 60, 59, 70, 71, 5, 4, 3, 14, 15, 16, 17, 6],
+            [55, 65, 76, 66, 67, 68, 57, 46, 35],
+            [],
+            [21, 20, 31, 30, 29, 28, 27, 38, 39, 40, 51, 62]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.798024999999996,
+          "step": 91
+        },
+        "reward": 9213,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.948741000000027
+        },
+        "reward": 9209,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 9212,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [12, 26],
+          "geese": [
+            [48, 49, 60, 59, 70, 71, 5, 4, 3, 14, 15, 16, 17],
+            [44, 55, 65, 76, 66, 67, 68, 57, 46],
+            [],
+            [11, 21, 20, 31, 30, 29, 28, 27, 38, 39, 40, 51]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.798024999999996,
+          "step": 92
+        },
+        "reward": 9313,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.827833000000027
+        },
+        "reward": 9309,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 9312,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [26, 53],
+          "geese": [
+            [47, 48, 49, 60, 59, 70, 71, 5, 4, 3, 14, 15, 16],
+            [54, 44, 55, 65, 76, 66, 67, 68, 57],
+            [],
+            [12, 11, 21, 20, 31, 30, 29, 28, 27, 38, 39, 40, 51]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.792905999999995,
+          "step": 93
+        },
+        "reward": 9413,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.716211000000026
+        },
+        "reward": 9409,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.37447799999999
+        },
+        "reward": 9413,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [26, 35],
+          "geese": [
+            [36, 47, 48, 49, 60, 59, 70, 71, 5, 4, 3, 14, 15],
+            [53, 54, 44, 55, 65, 76, 66, 67, 68, 57],
+            [],
+            [13, 12, 11, 21, 20, 31, 30, 29, 28, 27, 38, 39, 40]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.759654,
+          "step": 94
+        },
+        "reward": 9513,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.579348000000024
+        },
+        "reward": 9510,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 9513,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [26, 46],
+          "geese": [
+            [35, 36, 47, 48, 49, 60, 59, 70, 71, 5, 4, 3, 14, 15],
+            [64, 53, 54, 44, 55, 65, 76, 66, 67, 68],
+            [],
+            [24, 13, 12, 11, 21, 20, 31, 30, 29, 28, 27, 38, 39]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.759654,
+          "step": 95
+        },
+        "reward": 9614,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.473382000000026
+        },
+        "reward": 9610,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 9613,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [26, 32],
+          "geese": [
+            [46, 35, 36, 47, 48, 49, 60, 59, 70, 71, 5, 4, 3, 14, 15],
+            [63, 64, 53, 54, 44, 55, 65, 76, 66, 67],
+            [],
+            [25, 24, 13, 12, 11, 21, 20, 31, 30, 29, 28, 27, 38]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.759654,
+          "step": 96
+        },
+        "reward": 9715,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.370890000000024
+        },
+        "reward": 9710,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 9713,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [32, 39],
+          "geese": [
+            [57, 46, 35, 36, 47, 48, 49, 60, 59, 70, 71, 5, 4, 3, 14],
+            [74, 63, 64, 53, 54, 44, 55, 65, 76, 66],
+            [],
+            [26, 25, 24, 13, 12, 11, 21, 20, 31, 30, 29, 28, 27, 38]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.736799,
+          "step": 97
+        },
+        "reward": 9815,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.266803000000024
+        },
+        "reward": 9810,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 9814,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "food": [32, 39],
+          "geese": [
+            [68, 57, 46, 35, 36, 47, 48, 49, 60, 59, 70, 71, 5, 4, 3],
+            [75, 74, 63, 64, 53, 54, 44, 55, 65, 76],
+            [],
+            [37, 26, 25, 24, 13, 12, 11, 21, 20, 31, 30, 29, 28, 27]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.670797,
+          "step": 98
+        },
+        "reward": 9915,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.153829000000023
+        },
+        "reward": 9910,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "SOUTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 9914,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [32, 39],
+          "geese": [
+            [67, 68, 57, 46, 35, 36, 47, 48, 49, 60, 59, 70, 71, 5, 4],
+            [76, 75, 74, 63, 64, 53, 54, 44, 55, 65],
+            [],
+            [38, 37, 26, 25, 24, 13, 12, 11, 21, 20, 31, 30, 29, 28]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.612536,
+          "step": 99
+        },
+        "reward": 10015,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 28.048394000000023
+        },
+        "reward": 10010,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 10014,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "food": [32, 66],
+          "geese": [
+            [56, 67, 68, 57, 46, 35, 36, 47, 48, 49, 60, 59, 70, 71, 5],
+            [65, 76, 75, 74, 63, 64, 53, 54, 44, 55],
+            [],
+            [39, 38, 37, 26, 25, 24, 13, 12, 11, 21, 20, 31, 30, 29, 28]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.612536,
+          "step": 100
+        },
+        "reward": 10115,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 27.901461000000022
+        },
+        "reward": 10110,
+        "status": "ACTIVE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 38.349006999999986
+        },
+        "reward": 10115,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": "WEST",
+        "info": {},
+        "observation": {
+          "food": [32, 66],
+          "geese": [
+            [],
+            [],
+            [],
+            [28, 39, 38, 37, 26, 25, 24, 13, 12, 11, 21, 20, 31, 30, 29]
+          ],
+          "index": 0,
+          "remainingOverageTime": 51.59178,
+          "step": 101
+        },
+        "reward": 10115,
+        "status": "DONE"
+      },
+      {
+        "action": "EAST",
+        "info": {},
+        "observation": {
+          "index": 1,
+          "remainingOverageTime": 27.784825000000023
+        },
+        "reward": 10110,
+        "status": "DONE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 2,
+          "remainingOverageTime": 55.658028
+        },
+        "reward": 8713,
+        "status": "DONE"
+      },
+      {
+        "action": "NORTH",
+        "info": {},
+        "observation": {
+          "index": 3,
+          "remainingOverageTime": 36.84620799999998
+        },
+        "reward": 10215,
+        "status": "DONE"
+      }
+    ]
+  ],
+  "title": "Hungry Geese",
+  "version": "1.0.0"
+}
