@@ -408,7 +408,9 @@ class GameSetEvaluator:
         seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
 
         # Use Multiprocessing with Initializer to handle memory efficiently
-        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games,)) as pool:
+        # Use 'spawn' context to avoid deadlocks with JAX/Threading
+        ctx = multiprocessing.get_context("spawn")
+        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games,)) as pool:
             results = list(tqdm(pool.imap(_bootstrap_elo_worker, seeds), total=len(seeds), desc="Elo Bootstrap"))
 
         bootstrapped_elos = defaultdict(list)
@@ -435,7 +437,8 @@ class GameSetEvaluator:
         rnd_master = np.random.default_rng(42)
         seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
 
-        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games, self.openskill_model)) as pool:
+        ctx = multiprocessing.get_context("spawn")
+        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games, self.openskill_model)) as pool:
             results = list(tqdm(pool.imap(_bootstrap_openskill_worker, seeds), total=len(seeds), desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
@@ -499,7 +502,8 @@ class GameSetEvaluator:
         # For GTE, we need full game objects to run iterate_voting_mini_game, so we pass self.games
         worker_func = functools.partial(_bootstrap_gte_solve_worker, agents=agents, tasks=self.gte_tasks)
         
-        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(self.games,)) as pool:
+        ctx = multiprocessing.get_context("spawn")
+        with ctx.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(self.games,)) as pool:
             res = list(tqdm(pool.imap(worker_func, seeds), total=len(seeds), desc="GTE Bootstrap"))
             
         # Unpack
