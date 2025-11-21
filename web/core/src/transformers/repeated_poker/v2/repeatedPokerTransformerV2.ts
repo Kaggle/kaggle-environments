@@ -70,8 +70,6 @@ export const getPokerStepRenderTime = (
 };
 
 export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): InterestingEvent[] => {
-  console.log(gameSteps);
-
   const interestingEvents: InterestingEvent[] = [];
   const largePotIndices = new Set(
     gameSteps
