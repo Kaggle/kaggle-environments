@@ -106,7 +106,7 @@ export const getGameStepRenderTime = (
 
 export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string): InterestingEvent[] => {
   switch (gameName) {
-    case 'repeated_poker':
+    case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
     default:
       return [];
