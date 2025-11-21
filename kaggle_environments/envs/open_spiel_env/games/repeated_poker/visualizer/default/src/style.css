@@ -3,12 +3,9 @@
 @font-face {
   font-family: "Zeitung Pro";
   src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("woff2"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("woff"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("opentype");
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
   font-weight: normal;
   font-style: normal;
 }
@@ -16,12 +13,9 @@
 @font-face {
   font-family: "Zeitung Pro";
   src:
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("woff2"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("woff"),
-    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3")
-      format("opentype");
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"),
+    url("https://use.typekit.net/af/37ff2c/00000000000000003b9b2a25/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
   font-weight: bold;
   font-style: normal;
 }
@@ -61,11 +55,9 @@
 .poker-table {
   width: 900px;
   height: 400px;
-  background: radial-gradient(
-    43.33% 50% at 50% 50%,
-    #20bd48 0%,
-    #0a4018 99.99%
-  );
+  background: radial-gradient(43.33% 50% at 50% 50%,
+      #20bd48 0%,
+      #0a4018 99.99%);
   border-radius: 300px;
   position: relative;
   border: 15px solid #5c3a21;
@@ -344,22 +336,18 @@
 .card-back {
   background-color: #2b6cb0;
   background-image:
-    linear-gradient(
-      45deg,
+    linear-gradient(45deg,
       rgba(255, 255, 255, 0.1) 25%,
       transparent 25%,
       transparent 75%,
       rgba(255, 255, 255, 0.1) 75%,
-      rgba(255, 255, 255, 0.1)
-    ),
-    linear-gradient(
-      -45deg,
+      rgba(255, 255, 255, 0.1)),
+    linear-gradient(-45deg,
       rgba(255, 255, 255, 0.1) 25%,
       transparent 25%,
       transparent 75%,
       rgba(255, 255, 255, 0.1) 75%,
-      rgba(255, 255, 255, 0.1)
-    );
+      rgba(255, 255, 255, 0.1));
   background-size: 10px 10px;
   border: 2px solid #63b3ed;
 }
@@ -390,6 +378,7 @@
 }
 
 @keyframes pulse-highlight {
+
   0%,
   100% {
     box-shadow:
@@ -486,21 +475,24 @@
   font-family: "Inter", sans-serif;
   font-size: 30px;
   position: absolute;
-  padding-left: 1px;
   line-height: 36px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   z-index: 15;
   pointer-events: auto;
-  border: 2px solid black;
-  outline: 2px solid #20beff;
+  border: 3px solid black;
+  outline: 3px solid #20beff;
+
+  /* center the D */
+  padding-left: 1px;
+  padding-top: 2px;
 }
 
 .dealer-button.dealer-player0 {
-  top: 170px;
+  top: 200px;
 }
 
 .dealer-button.dealer-player1 {
-  bottom: 170px;
+  bottom: 200px;
 }
 
 .step-counter {
@@ -691,7 +683,8 @@
   justify-content: center;
   height: 100%;
   width: 100%;
-  background: rgba(15, 23, 42, 0.95); /* Dark blue-gray background */
+  background: rgba(15, 23, 42, 0.95);
+  /* Dark blue-gray background */
   color: white;
   font-family: sans-serif;
   padding: 40px;
