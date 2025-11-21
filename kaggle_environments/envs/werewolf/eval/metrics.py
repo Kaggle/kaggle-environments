@@ -662,7 +662,13 @@ class GameSetEvaluator:
             metrics = category_metrics_map[cat]
             for col_idx, metric in enumerate(metrics):
                 metric_data = df[(df['category'] == cat) & (df['metric'] == metric)]
-                agents = sorted(metric_data['agent'].unique())
+                
+                if cat == 'Ratings':
+                    # Sort agents by value for rating plots
+                    sorted_agents = metric_data.sort_values('value', ascending=False)['agent'].tolist()
+                    fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents, row=row_idx + 1, col=col_idx + 1)
+                else:
+                    sorted_agents = sorted(metric_data['agent'].unique())
 
                 fig.add_trace(
                     go.Bar(
@@ -670,7 +676,7 @@ class GameSetEvaluator:
                         x=metric_data['agent'],
                         y=metric_data['value'],
                         error_y=dict(type='data', array=metric_data['CI95']),
-                        marker_color=metric_data['agent'].apply(lambda x: colors[agents.index(x) % len(colors)]),
+                        marker_color=metric_data['agent'].apply(lambda x: colors[sorted_agents.index(x) % len(colors)]),
                         showlegend=False,
                         hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>"
                     ),
