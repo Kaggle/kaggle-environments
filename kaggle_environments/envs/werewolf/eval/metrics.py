@@ -1,12 +1,13 @@
 import functools
 import os
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import jax.numpy as jnp
 
 try:
     import polarix as plx
@@ -346,19 +347,37 @@ class GameSetEvaluator:
         return res.ratings, res.joint, marginals, contributions, game
 
     def _bootstrap_stats(self, rnd, games, agents, tasks, num_samples=10):
-        rnds = [np.random.default_rng(s) for s in rnd.integers(1_000_000, size=num_samples)]
+        # 1. Generate Seeds
+        seeds = rnd.integers(1_000_000, size=num_samples)
+        rnds = [np.random.default_rng(s) for s in seeds]
+
+        # 2. Create Partial Function
+        # Note: We bind the heavy data (games) here.
+        # Multiprocessing will handle the serialization.
         solve_func = functools.partial(self._bootstrap_solve, games=games, agents=agents, tasks=tasks)
-        res = list(map(solve_func, rnds))
+
+        # 3. Execute in Parallel
+        # We use ProcessPoolExecutor to bypass the GIL for the heavy Python loops
+        with ProcessPoolExecutor() as executor:
+            # map preserves order, which is nice (though not strictly required for bootstrap)
+            res = list(executor.map(solve_func, rnds))
+
+        # 4. Unpack and Aggregate (Standard NumPy work)
         ratings, joints, marginals, contributions, games = zip(*res)
+
         ratings_mean = [np.mean(r, axis=0) for r in zip(*ratings)]
         ratings_std = [np.std(r, axis=0) for r in zip(*ratings)]
+
         joints_mean = np.mean(joints, axis=0)
         joints_std = np.std(joints, axis=0)
+
         marginals_by_dim = list(zip(*marginals))
         marginals_mean = [np.mean(m, axis=0) for m in marginals_by_dim]
         marginals_std = [np.std(m, axis=0) for m in marginals_by_dim]
+
         contributions_mean = np.mean(contributions, axis=0)
         contributions_std = np.std(contributions, axis=0)
+
         return (ratings_mean, ratings_std), (joints_mean, joints_std), (marginals_mean, marginals_std), (
         contributions_mean, contributions_std), games[0]
 
