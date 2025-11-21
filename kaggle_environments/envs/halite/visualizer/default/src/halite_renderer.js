@@ -18,8 +18,7 @@ export function renderer({
   step,
   // Optional list of agents which will render a legend with player names.
   agents,
-  // update fn which lets us pass rendering info for `agents` for the legend.
-  update,
+  setAgents,
   replay,
   width = 800,
   height = 600,
@@ -152,21 +151,19 @@ export function renderer({
     ctx.restore();
   };
 
-    const drawRects = (
+  const drawRects = (
+    ctx,
 
-      ctx,
+    rects,
 
-      rects,
+    color,
 
-      color,
+    scale = 1,
 
-      scale = 1,
+    gridSize = 20,
 
-      gridSize = 20,
-
-      drawFrame = 1
-
-    ) => {
+    drawFrame = 1
+  ) => {
     if (drawFrame == -1) drawFrame = frame;
     // rects="x,y,w,h,specials,minFrame,maxFrame;..."
     ctx.save();
@@ -522,7 +519,7 @@ export function renderer({
   }
 
   // Populate the legend which renders agent icons and names (see player.html).
-    // Populate the legend which renders agent icons and names (see player.html).
+  // Populate the legend which renders agent icons and names (see player.html).
   if (agents && agents.length && (!agents[0].color || !agents[0].image)) {
     const getPieceImage = (playerIndex, bufferCanvas) => {
       const pieceCanvas = document.createElement('canvas');
