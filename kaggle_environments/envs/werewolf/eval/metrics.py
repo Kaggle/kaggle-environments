@@ -1,6 +1,6 @@
 import functools
 import os
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from pathlib import Path
 from typing import Dict, List, Tuple, Union, Iterator
 from concurrent.futures import ProcessPoolExecutor
@@ -36,7 +36,7 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-from kaggle_environments.envs.werewolf.eval.loaders import get_game_results
+from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
@@ -108,40 +108,7 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
-# --- Lightweight classes for multiprocessing optimization ---
-
-class LightAgent:
-    __slots__ = ('display_name',)
-
-    def __init__(self, display_name):
-        self.display_name = display_name
-
-
-class LightRole:
-    __slots__ = ('team', 'name')
-
-    def __init__(self, team, name=None):
-        self.team = team
-        self.name = name
-
-
-class LightPlayer:
-    __slots__ = ('agent', 'role', 'alive')
-
-    def __init__(self, name, team, role_name=None, alive=None):
-        self.agent = LightAgent(name)
-        self.role = LightRole(team, name=role_name)
-        self.alive = alive
-
-
-class LightGame:
-    __slots__ = ('players', 'winner_team', 'irp_results', 'vss_results')
-
-    def __init__(self, players, winner_team, irp_results=None, vss_results=None):
-        self.players = players
-        self.winner_team = winner_team
-        self.irp_results = irp_results
-        self.vss_results = vss_results
+LightGame = namedtuple('LightGame', ['players', 'winner_team', 'irp_results', 'vss_results'])
 
 
 # --- Worker Globals and Functions ---
@@ -383,22 +350,25 @@ class GameSetEvaluator:
         if not light_games:
             return
 
-        light_games_np = np.array(light_games, dtype=object)
+        # Create an object array and fill it to prevent numpy from unpacking the tuples
+        light_games_np = np.empty(len(light_games), dtype=object)
+        light_games_np[:] = light_games
+        
         rnd_master = np.random.default_rng(42)
         
         for _ in range(num_samples):
-            yield light_games_np[rnd_master.integers(0, len(light_games), size=len(light_games))].tolist()
+            sampled_array = light_games_np[rnd_master.integers(0, len(light_games), size=len(light_games))]
+            yield list(sampled_array)
 
     def _bootstrap_elo(self, num_samples=100):
         if not self.games: return
 
         def light_games_iter():
             for g in self.games:
-                yield LightGame(
-                    [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                    g.winner_team
-                )
-        
+                # Re-create lightweight players for this specific bootstrap
+                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
+                yield LightGame(players, g.winner_team, None, None)
+
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
@@ -420,10 +390,8 @@ class GameSetEvaluator:
 
         def light_games_iter():
             for g in self.games:
-                yield LightGame(
-                    [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                    g.winner_team
-                )
+                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
+                yield LightGame(players, g.winner_team, None, None)
         
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
@@ -491,7 +459,7 @@ class GameSetEvaluator:
             for g in tqdm(self.games, desc="Pre-calculating GTE data"):
                 irp_results, vss_results = g.iterate_voting_mini_game()
                 players = [
-                    LightPlayer(p.agent.display_name, p.role.team, p.role.name, p.alive)
+                    Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
                     for p in g.players
                 ]
                 yield LightGame(players, g.winner_team, irp_results, vss_results)
@@ -665,7 +633,7 @@ class GameSetEvaluator:
                 
                 if cat == 'Ratings':
                     # Sort agents by value for rating plots
-                    sorted_agents = metric_data.sort_values('value', ascending=False)['agent'].tolist()
+                    sorted_agents = metric_data.sort_values('value', ascending=True)['agent'].tolist()
                     fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents, row=row_idx + 1, col=col_idx + 1)
                 else:
                     sorted_agents = sorted(metric_data['agent'].unique())
