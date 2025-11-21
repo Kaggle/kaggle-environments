@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
+import pandas as pd
+import jax.numpy as jnp
 
 try:
     import polarix as plx
@@ -20,14 +22,16 @@ except ImportError:
     OPENSKILL_AVAILABLE = False
 
 try:
-    import altair as alt
-    import pandas as pd
-    import chex
-    import jax.numpy as jnp
+    import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    import plotly.io as pio
 
-    ALTAIR_AVAILABLE = True
+    # Set a default sophisticated template
+    pio.templates.default = "plotly_white"
+    PLOTLY_AVAILABLE = True
 except ImportError:
-    ALTAIR_AVAILABLE = False
+    PLOTLY_AVAILABLE = False
 
 from kaggle_environments.envs.werewolf.eval.loaders import get_game_results
 from kaggle_environments.envs.werewolf.game.consts import Team
@@ -55,253 +59,37 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
     return k * (result - expected)
 
 
-# --- Plotting utils from game_theoretic.py ---
+# --- Plotting utils ---
 
-_HEIGHT = 25
-_WIDTH = 600
+def _save_figure(fig: "go.Figure", output_path: str, width=None, height=None):
+    """Saves a Plotly figure to HTML or static image based on extension."""
+    if not output_path:
+        return
+
+    ext = os.path.splitext(output_path)[1].lower()
+    try:
+        if ext == '.html':
+            fig.write_html(output_path)
+        elif ext in ['.png', '.jpg', '.jpeg']:
+            # scale=3 ensures high DPI (Retina quality)
+            fig.write_image(output_path, width=width, height=height, scale=3)
+        elif ext in ['.pdf', '.svg']:
+            fig.write_image(output_path, width=width, height=height)
+        else:
+            print(f"Unknown format {ext}, defaulting to HTML.")
+            fig.write_html(output_path + ".html")
+        print(f"Saved chart to {output_path}")
+    except ValueError as e:
+        print(f"Error saving figure (did you install 'kaleido'?): {e}")
 
 
-def _gte_rating_contribution_chart(
-        game,
-        joint: chex.Array,
-        contributions: chex.Array,
-        *,
-        rating_player: int,
-        contrib_player: int,
-        rating_metadata: "pd.DataFrame | None" = None,
-        contrib_metadata: "pd.DataFrame | None" = None,
-        top_k: int = 100,
-) -> "alt.Chart":
-    """Plots the rating contribution of a player to another player's ratings."""
-    if game.players is None:
-        raise ValueError("Game must have player names explicitly defined.")
-
-    rating_name = game.players[rating_player]
-    contrib_name = game.players[contrib_player]
-    rating_actions = game.actions[rating_player]
-    contrib_actions = game.actions[contrib_player]
-
-    if rating_metadata is not None:
-        nunique_by_rating_name = rating_metadata.groupby(rating_name).nunique(False)
-        if np.any(nunique_by_rating_name != 1):
-            raise ValueError(
-                "Rating metadata must be unique per rating action, but is not"
-                f" ({nunique_by_rating_name.reset_index()})."
-            )
-
-    joint_support = jnp.sum(
-        jnp.moveaxis(joint, (rating_player, contrib_player), (0, 1)),
-        axis=tuple(range(2, len(joint.shape))),
-    )  # [num_rating_actions, num_contrib_actions]
-    rating_actions_grid, contrib_actions_grid = np.meshgrid(
-        jnp.arange(len(game.actions[rating_player])),
-        jnp.arange(len(game.actions[contrib_player])),
-        indexing="ij",
-    )
-
-    data = pd.DataFrame.from_dict({
-        game.players[rating_player]: rating_actions_grid.ravel(),
-        game.players[contrib_player]: contrib_actions_grid.ravel(),
-        "contrib": contributions.ravel(),
-        "support": joint_support.ravel(),
-    })
-
-    # Computes rating player's action ratings to order rows by.
-    sorted_rating_actions = (
-        (data[[rating_name, "contrib"]].groupby(rating_name).sum().reset_index())
-        .sort_values(by="contrib", ascending=False)[rating_name]
-        .values
-    )
-
-    # Computes the height of the rating chart.
-    num_actions = len(rating_actions)
-    top_k = min(top_k, num_actions)
-    num_actions_to_display = min(num_actions, top_k)
-    height = num_actions_to_display * _HEIGHT
-
-    sorted_rating_actions = sorted_rating_actions[:top_k]
-    data = data[data[rating_name].isin(sorted_rating_actions)]
-    data[rating_name] = data[rating_name].apply(lambda a: rating_actions[a])
-    data[contrib_name] = data[contrib_name].apply(lambda a: contrib_actions[a])
-    sorted_rating_actions = [rating_actions[a] for a in sorted_rating_actions]
-
-    # Interval for selecting a subset of rating actions.
-    ratings_data = (
-        data[[rating_name, "contrib", "support"]]
-        .groupby(rating_name)
-        .sum()
-        .reset_index()
-    )
-
-    if rating_metadata is not None:
-        ratings_data = pd.merge(
-            ratings_data,
-            rating_metadata,
-            on=rating_name,
-            how="left",
-            suffixes=(None, "_metadata"),
-            validate="many_to_one",
-        )
-    ratings_data = ratings_data.rename(columns={"contrib": "rating"})
-    ratings_data["rating_str"] = ratings_data["rating"].apply(lambda c: f"{c:.2%}")
-    ratings_data["rating_ci_str"] = ratings_data["rating_ci"].apply(lambda c: f"{c:.2%}")
-
-    if contrib_metadata is not None:
-        merge_on = contrib_name
-        if rating_name in contrib_metadata.columns:
-            merge_on = (rating_name, contrib_name)
-        data = pd.merge(
-            data,
-            contrib_metadata,
-            on=merge_on,
-            how="left",
-            suffixes=(None, "_metadata"),
-            validate="many_to_one",
-        )
-
-    color = alt.Color(
-        f"{contrib_name}:N",
-        scale=alt.Scale(scheme="category10"),
-        legend=alt.Legend(title=contrib_name.capitalize()),
-    )
-    grouping = list(
-        filter(lambda c: c not in ["contrib", "support"], data.columns)
-    )
-
-    x = alt.X(
-        "sum(contrib):Q",
-        title=(
-            "Win (loss) rate contribution to agent ratings (stars), broken down"
-            " by role"
-        ),
-        axis=alt.Axis(grid=False, format="%"),
-    )
-    y = alt.Y(
-        f"{rating_name}:N",
-        sort=sorted_rating_actions,
-        title=None,
-        axis=alt.Axis(
-            grid=True,
-            labels=True,
-        ),
-    )
-    data = data[[*grouping, "contrib"]].groupby(grouping).sum().reset_index()
-
-    data["contrib_str"] = data["contrib"].apply(lambda c: f"{c:.2%}")
-
-    category_chart = alt.Chart(data)
-    bars = category_chart.mark_bar().encode(
-        x=x,
-        y=y,
-        color=color,
-        tooltip=[
-            alt.Tooltip(rating_name),
-            alt.Tooltip(contrib_name),
-            alt.Tooltip("contrib_with_ci:N", title="Role contribution"),
-        ],
-    ).transform_calculate(
-        contrib_with_ci=alt.datum.contrib_str + " (± " + alt.datum.contrib_ci + ")"
-    )
-
-    # Order pos and neg contributions separately to address vega/altair bug.
-    bars = alt.layer(
-        bars.transform_filter(alt.datum.contrib < 0).encode(
-            order=alt.Order("contrib:Q", sort="descending"),
-        ),
-        bars.transform_filter(alt.datum.contrib >= 0).encode(
-            order=alt.Order("contrib:Q", sort="ascending"),
-        ),
-    ).resolve_scale(color="shared")
-    rule = (
-        alt.Chart(pd.DataFrame({"x": [1e-4]}))
-        .mark_rule(opacity=0.5, size=1, strokeDash=[2, 2])
-        .encode(x="x:Q")
-    )
-
-    overlay_points = (
-        alt.Chart(ratings_data)
-        .mark_point(
-            shape=(
-                "M0,.5L.6,.8L.5,.1L1,-.3L.3,-.4L0,-1L-.3,-.4L-1,-.3L-.5,.1L-.6,.8L0,.5Z"
-            ),
-            stroke="black",
-            fill="gold",
-            size=200,
-            strokeWidth=2,
-        )
-        .encode(
-            y=alt.Y(
-                f"{rating_name}:N",
-                sort=sorted_rating_actions,
-                title=None,
-                axis=alt.Axis(labels=True, grid=True),
-            ),
-            x=alt.X(
-                "rating:Q",
-                title=alt.Undefined,
-                axis=alt.Axis(grid=True),
-            ),
-            tooltip=[
-                alt.Tooltip(rating_name),
-                alt.Tooltip(
-                    'ratings_with_ci:N',
-                    title="Relative winrate vs equilibrium",
-                ),
-                alt.Tooltip(
-                    "support",
-                    format=".2%",
-                    title="Probability of play at equilibrium",
-                ),
-            ],
-        ).transform_calculate(
-            ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
-        )
-    )
-
-    overlay_points_ci = (
-        alt.Chart(ratings_data).mark_errorbar(
-            color="black", ticks=True, size=0.8 * height // num_actions
-        )
-        .encode(
-            x=alt.X("ratings_lo:Q"),
-            x2=alt.X2("ratings_hi:Q"),
-            y=alt.Y(
-                f"{rating_name}:N",
-                sort=sorted_rating_actions,
-                title=None,
-                axis=alt.Axis(labels=True, grid=True),
-            ),
-            strokeWidth=alt.value(1),
-            tooltip=alt.Tooltip('ratings_with_ci:N'),
-        )
-        .transform_calculate(
-            ratings_lo="datum.rating - datum.rating_ci",
-            ratings_hi="datum.rating + datum.rating_ci",
-            ratings_with_ci=alt.datum.rating_str + " (± " + alt.datum.rating_ci_str + ")"
-        )
-        .properties(height=height)
-    )
-
-    chart = (
-        (
-            alt.layer(bars, rule, overlay_points_ci, overlay_points)
-            .resolve_scale(x="shared", y="shared", color="independent")
-            .properties(
-                width=_WIDTH,
-                height=height,
-                title=alt.TitleParams(
-                    "Game-theoretic Ratings: win probabilities against the"
-                    " equilibrium strategy",
-                    subtitle=(
-                        "An equilibrium is a mixture of current best agents and"
-                        " most discriminative roles."
-                    ),
-                ),
-            )
-        )
-    )
-
-    return chart
+def _get_color_discrete_sequence(n):
+    """Returns a sophisticated color palette."""
+    # Custom palette: Teal, Indigo, Rose, Amber, Cyan, Emerald
+    colors = ["#0d9488", "#4338ca", "#e11d48", "#d97706", "#0891b2", "#059669"]
+    if n > len(colors):
+        return px.colors.qualitative.Bold
+    return colors
 
 
 class AgentMetrics:
@@ -354,22 +142,6 @@ class GameSetEvaluator:
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: List[str] = None,
                  preserve_full_game_records: bool = False):
-        """Initializes the evaluator with a set of games and GTE tasks.
-
-        Args:
-            input_dir: The path to the directory or a list of paths to directories
-                containing game replay JSONs.
-            gte_tasks: A list of strings specifying which metrics to include in the
-                Game Theoretic Evaluation. If None, a default set of tasks is used.
-                Available options are:
-                - 'WinRate-{role}': Win rate for a specific role (e.g., 'WinRate-Doctor').
-                - 'KSR-{role}': Key Role Survival rate for a specific role.
-                - 'KSR': Overall survival rate across all roles.
-                - 'IRP': Identification Precision score.
-                - 'VSS': Voting Success Score.
-            preserve_full_game_records: If True, the full JSON for each game
-                is stored in memory. Defaults to False.
-        """
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
         else:
@@ -392,7 +164,6 @@ class GameSetEvaluator:
         self.gte_contributions_raw = None
 
         if gte_tasks is None:
-            # Default tasks for GTE
             roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
             self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
                               [f'KSR-{r}' for r in roles] +
@@ -400,99 +171,68 @@ class GameSetEvaluator:
         else:
             self.gte_tasks = gte_tasks
 
-    def _compute_elo_ratings(self, games: List) -> Dict[str, float]:
-        """Computes Elo ratings for a given sequence of games."""
+    @staticmethod
+    def _compute_elo_ratings(games: List) -> Dict[str, float]:
         elos = defaultdict(lambda: 1200.0)
-
         for game in games:
             villager_agents = []
             werewolf_agents = []
-
             for player in game.players:
                 agent_name = player.agent.display_name
                 if player.role.team == Team.VILLAGERS:
                     villager_agents.append(agent_name)
                 else:
                     werewolf_agents.append(agent_name)
-
             v_elos = [elos[a] for a in villager_agents]
             w_elos = [elos[a] for a in werewolf_agents]
-
             if v_elos and w_elos:
                 avg_v_elo = np.mean(v_elos)
                 avg_w_elo = np.mean(w_elos)
-
                 result_v = 1 if game.winner_team == Team.VILLAGERS else 0
-
                 for agent in villager_agents:
                     elos[agent] += calculate_elo_change(elos[agent], avg_w_elo, result_v)
-
                 for agent in werewolf_agents:
                     elos[agent] += calculate_elo_change(elos[agent], avg_v_elo, 1 - result_v)
-        
         return elos
 
     def _bootstrap_elo(self, num_samples=100):
-        """Estimates Elo standard error via bootstrapping."""
-        if not self.games:
-            return
-
+        # [Keep original code]
+        if not self.games: return
         rnd = np.random.default_rng(42)
         bootstrapped_elos = defaultdict(list)
-
-        # We need to know all agents to initialize lists, in case an agent isn't picked in a sample
         all_agents = list(self.metrics.keys())
-        
         for _ in range(num_samples):
             sampled_games = rnd.choice(self.games, size=len(self.games), replace=True)
             sample_elos = self._compute_elo_ratings(sampled_games)
-            
             for agent in all_agents:
-                # If agent wasn't in the sample, they stay at 1200 (or we could skip, 
-                # but sticking to 1200 might bias if they rarely play. 
-                # Better to track only if they played, but for simplicity we assume 1200).
-                # However, typically we only care about variance of active play.
-                # Let's use the calculated value or 1200 default.
                 bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
-
         for agent, values in bootstrapped_elos.items():
             if len(values) > 1:
                 self.metrics[agent].elo_std = float(np.std(values, ddof=1))
 
     def evaluate(self, gte_samples=3, elo_samples=100):
-        """Processes all games and aggregates the metrics."""
+        # [Keep original code]
         for game in self.games:
-            # --- Win Rate & Survival Metrics ---
             for player in game.players:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
                     self.metrics[agent_name].set_agent_name(agent_name)
-
                 won = 1 if player.role.team == game.winner_team else 0
                 survived = 1 if player.alive else 0
-
                 self.metrics[agent_name].wins.append(won)
                 self.metrics[agent_name].wins_by_role[player.role.name].append(won)
                 self.metrics[agent_name].survival_scores.append(survived)
                 self.metrics[agent_name].survival_by_role[player.role.name].append(survived)
-
-            # --- Voting Accuracy Metrics ---
             irp_results, vss_results = game.iterate_voting_mini_game()
             for agent_name, score in irp_results:
                 self.metrics[agent_name].irp_scores.append(score)
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
-
-        # --- Rating Updates (Point Estimates) ---
-        # 1. Elo
         final_elos = self._compute_elo_ratings(self.games)
         for agent, rating in final_elos.items():
             self.metrics[agent].elo = rating
-        
-        # 2. TrueSkill (OpenSkill)
-        # OpenSkill is order dependent too, but we just run it once sequentially here.
         if OPENSKILL_AVAILABLE and self.openskill_model:
-             for game in self.games:
+            for game in self.games:
                 villager_agents = []
                 werewolf_agents = []
                 for player in game.players:
@@ -501,34 +241,28 @@ class GameSetEvaluator:
                         villager_agents.append(agent_name)
                     else:
                         werewolf_agents.append(agent_name)
-                
                 team_v = [self.metrics[a].openskill_rating for a in villager_agents]
                 team_w = [self.metrics[a].openskill_rating for a in werewolf_agents]
-
                 teams = None
                 if game.winner_team == Team.VILLAGERS:
                     teams = [team_v, team_w]
                 elif game.winner_team == Team.WEREWOLVES:
                     teams = [team_w, team_v]
-
                 if teams:
                     new_ratings = self.openskill_model.rate(teams)
                     openskill_ratings = [rate for team in new_ratings for rate in team]
                     for rating in openskill_ratings:
                         self.metrics[rating.name].openskill_rating = rating
-
-        # --- Bootstrapping for Errors ---
         self._bootstrap_elo(num_samples=elo_samples)
         self._run_gte_evaluation(num_samples=gte_samples)
 
     def _run_gte_evaluation(self, num_samples: int):
+        # [Keep original code]
         if not POLARIX_AVAILABLE:
             print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
             return
-
         agents = sorted(list(self.metrics.keys()))
         rnd = np.random.default_rng(42)
-
         ratings, joints, marginals, contributions, self.gte_game = self._bootstrap_stats(
             rnd, self.games, agents, self.gte_tasks, num_samples=num_samples
         )
@@ -536,10 +270,8 @@ class GameSetEvaluator:
         self.gte_joint = joints
         self.gte_marginals = marginals
         self.gte_contributions_raw = contributions
-
         ratings_mean, ratings_std = self.gte_ratings
         contributions_mean, contributions_std = self.gte_contributions_raw
-
         for i, agent_name in enumerate(agents):
             self.metrics[agent_name].gte_rating = (ratings_mean[1][i], ratings_std[1][i])
             for j, task_name in enumerate(self.gte_tasks):
@@ -548,19 +280,16 @@ class GameSetEvaluator:
 
     @staticmethod
     def _bootstrap_solve(rnd, games, agents, tasks):
-        # Convert lists to sets for O(1) lookups
+        # [Keep original code]
         agent_set = set(agents)
         task_set = set(tasks)
-
         sampled_games = rnd.choice(games, size=len(games), replace=True)
         agent_scores = {agent: {task: [] for task in tasks} for agent in agents}
-
         for game in sampled_games:
             for player in game.players:
                 agent_name = player.agent.display_name
                 if agent_name in agent_set:
                     role_name = player.role.name
-                    # Win Rate & KSR
                     win_rate_task = f'WinRate-{role_name}'
                     if win_rate_task in task_set:
                         agent_scores[agent_name][win_rate_task].append(1 if player.role.team == game.winner_team else 0)
@@ -569,7 +298,6 @@ class GameSetEvaluator:
                         agent_scores[agent_name][ksr_task].append(1 if player.alive else 0)
                     if 'KSR' in task_set:
                         agent_scores[agent_name]['KSR'].append(1 if player.alive else 0)
-
             irp_results, vss_results = game.iterate_voting_mini_game()
             if 'IRP' in task_set:
                 for agent_name, score in irp_results:
@@ -579,7 +307,6 @@ class GameSetEvaluator:
                 for agent_name, score in vss_results:
                     if agent_name in agent_set:
                         agent_scores[agent_name]['VSS'].append(score)
-
         mean_matrix = np.zeros((len(agents), len(tasks)))
         stddev_matrix = np.zeros((len(agents), len(tasks)))
         for i, agent in enumerate(agents):
@@ -591,13 +318,10 @@ class GameSetEvaluator:
                         stddev_matrix[i, j] = np.std(scores, ddof=1) / np.sqrt(len(scores))
                     else:
                         stddev_matrix[i, j] = 0.0
-
-        for j in range(mean_matrix.shape[1]):  # Iterate over tasks (columns)
-            # If all agents have the same score for a task, add noise to avoid ptp=0 error
+        for j in range(mean_matrix.shape[1]):
             if np.ptp(mean_matrix[:, j]) < 1e-9:
                 mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
                 stddev_matrix[:, j] += rnd.random(stddev_matrix.shape[0]) * 1e-6
-
         game = plx.agent_vs_task_game(
             agents=agents, tasks=tasks, agent_vs_task=mean_matrix, agent_vs_task_stddev=stddev_matrix,
             task_player='metric', normalizer='winrate'
@@ -613,147 +337,47 @@ class GameSetEvaluator:
         rnds = [np.random.default_rng(s) for s in rnd.integers(1_000_000, size=num_samples)]
         solve_func = functools.partial(self._bootstrap_solve, games=games, agents=agents, tasks=tasks)
         res = list(map(solve_func, rnds))
-
         ratings, joints, marginals, contributions, games = zip(*res)
         ratings_mean = [np.mean(r, axis=0) for r in zip(*ratings)]
         ratings_std = [np.std(r, axis=0) for r in zip(*ratings)]
         joints_mean = np.mean(joints, axis=0)
         joints_std = np.std(joints, axis=0)
-
         marginals_by_dim = list(zip(*marginals))
         marginals_mean = [np.mean(m, axis=0) for m in marginals_by_dim]
         marginals_std = [np.std(m, axis=0) for m in marginals_by_dim]
-
         contributions_mean = np.mean(contributions, axis=0)
         contributions_std = np.std(contributions, axis=0)
-        return (ratings_mean, ratings_std), (joints_mean, joints_std), (marginals_mean, marginals_std), (contributions_mean, contributions_std), \
-        games[0]
-
-    def plot_gte_evaluation(self, top_k: int = 100, output_path="gte_evaluation.html"):
-        if not POLARIX_AVAILABLE or not ALTAIR_AVAILABLE:
-            print("Warning: `polarix` or `altair` library not found. Cannot plot GTE results.")
-            return None
-        if self.gte_game is None:
-            print("GTE evaluation has not been run. Please run .evaluate() first.")
-            return None
-
-        agents = sorted(list(self.metrics.keys()))
-        tasks = self.gte_tasks
-
-        ratings_mean, ratings_std = self.gte_ratings
-        # GTE returns ratings for task player, agent player 1, agent player 2. We want agent player 1.
-        ratings_ci = ratings_std[1] * 1.96
-
-        joint_avg, _ = self.gte_joint
-
-        contribution_avg, contribution_std = self.gte_contributions_raw
-        contribution_ci = contribution_std * 1.96
-
-        contribs_metadata_dict = {"agent": [], "metric": [], "contrib_ci": []}
-        for i, model in enumerate(agents):
-            for j, task in enumerate(tasks):
-                ci = contribution_ci[i, j]
-                contribs_metadata_dict["agent"].append(model)
-                contribs_metadata_dict["metric"].append(task)
-                contribs_metadata_dict["contrib_ci"].append(f"{ci:.2%}")
-
-        ratings_metadata_dict = {"agent": [], "rating_ci": []}
-        for i, model in enumerate(agents):
-            ci = ratings_ci[i]
-            ratings_metadata_dict["agent"].append(model)
-            ratings_metadata_dict["rating_ci"].append(ci)
-
-        # The game object has 'metric' and 'agent' as players.
-        # rating_player=1 is 'agent', contrib_player=0 is 'metric'.
-        rating_chart = _gte_rating_contribution_chart(
-            game=self.gte_game,
-            joint=joint_avg,
-            contributions=contribution_avg,
-            contrib_metadata=pd.DataFrame(contribs_metadata_dict),
-            rating_metadata=pd.DataFrame(ratings_metadata_dict),
-            rating_player=1,
-            contrib_player=0,
-            top_k=top_k)
-
-        # --- Chart 2: Task Importance (Marginal Probability) ---
-        # marginals[0] is for Player 0 (Metric/Task)
-        # self.gte_marginals is (marginals_mean, marginals_std)
-        # marginals_mean is [mean_p0, mean_p1], marginals_std is [std_p0, std_p1]
-        task_marginals_mean = self.gte_marginals[0][0]
-        task_marginals_std = self.gte_marginals[1][0]
-
-        task_importance_df = pd.DataFrame({
-            'metric': tasks,
-            'importance': task_marginals_mean,
-            'std': task_marginals_std
-        })
-        # 95% CI
-        task_importance_df['ci'] = task_importance_df['std'] * 1.96
-        task_importance_df['min_val'] = task_importance_df['importance'] - task_importance_df['ci']
-        task_importance_df['max_val'] = task_importance_df['importance'] + task_importance_df['ci']
-
-        base = alt.Chart(task_importance_df).encode(
-            y=alt.Y('metric:N', sort='-x', title="Task"),
-            x=alt.X('importance:Q', title="Marginal Probability (Importance)"),
-        )
-
-        bars = base.mark_bar().encode(
-            tooltip=['metric', 'importance', 'std']
-        )
-
-        error_bars = alt.Chart(task_importance_df).mark_rule(color='black').encode(
-            y=alt.Y('metric:N', sort='-x'),
-            x=alt.X('min_val:Q'),
-            x2=alt.X2('max_val:Q'),
-            tooltip=['metric', 'importance', 'std']
-        )
-
-        importance_chart = (bars + error_bars).properties(
-            title="Task Importance (Marginal Probability in Equilibrium)"
-        )
-
-        final_chart = alt.vconcat(rating_chart, importance_chart).resolve_scale(color='independent')
-
-        if output_path:
-            final_chart.save(output_path)
-        return final_chart
+        return (ratings_mean, ratings_std), (joints_mean, joints_std), (marginals_mean, marginals_std), (
+        contributions_mean, contributions_std), games[0]
 
     def print_results(self):
-        """Prints a formatted summary of the evaluation results."""
+        # [Keep original code]
         sorted_metrics = sorted(self.metrics.values(), key=lambda m: m.agent_name)
-
         for stats in sorted_metrics:
             print(f"Agent: {stats.agent_name}")
-
             win_rate, win_std = stats.get_win_rate()
             print(f"  Overall Win Rate: {win_rate:.2f} ± {win_std:.2f} ({len(stats.wins)} games)")
-
             ksr, ksr_std = stats.get_ksr()
             print(f"  Overall Survival Rate: {ksr:.2f} ± {ksr_std:.2f}")
-
             print("  Role-Specific Win Rates:")
             for role in sorted(stats.wins_by_role.keys()):
                 role_rate, role_std = stats.get_win_rate_for_role(role)
                 game_count = len(stats.wins_by_role[role])
                 print(f"    {role:<10}: {role_rate:.2f} ± {role_std:.2f} ({game_count} games)")
-
             print("  Role-Specific Survival Rates (KSR):")
             for role in sorted(stats.survival_by_role.keys()):
                 role_ksr, role_ksr_std = stats.get_ksr_for_role(role)
                 game_count = len(stats.survival_by_role[role])
                 print(f"    {role:<10}: {role_ksr:.2f} ± {role_ksr_std:.2f} ({game_count} games)")
-
             irp, irp_std = stats.get_irp()
             vss, vss_std = stats.get_vss()
             print("  Voting Accuracy (Villager Team):")
             print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std:.2f} ({len(stats.irp_scores)} votes)")
             print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std:.2f} ({len(stats.vss_scores)} votes)")
-
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f}")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
                 print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
-
             if POLARIX_AVAILABLE:
                 print("  Game Theoretic Evaluation (GTE):")
                 gte_mean, gte_std = stats.gte_rating
@@ -761,88 +385,350 @@ class GameSetEvaluator:
                 for task in self.gte_tasks:
                     contrib_mean, contrib_std = stats.gte_contributions[task]
                     print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std:.2f}")
-
             print("-" * 30)
 
     def _prepare_plot_data(self):
         plot_data = []
         for agent_name, metrics in self.metrics.items():
-            # Overall metrics
+            # 1. Overall
             win_rate, win_std = metrics.get_win_rate()
             ksr, ksr_std = metrics.get_ksr()
-            irp, irp_std = metrics.get_irp()
-            vss, vss_std = metrics.get_vss()
             plot_data.append(
                 {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'std': win_std, 'category': 'Overall'})
-            plot_data.append({'agent': agent_name, 'metric': 'Survival Rate (KSR)', 'value': ksr, 'std': ksr_std,
-                              'category': 'Overall'})
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'Survival Rate', 'value': ksr, 'std': ksr_std, 'category': 'Overall'})
+
+            # 2. Voting
+            irp, irp_std = metrics.get_irp()
+            vss, vss_std = metrics.get_vss()
             plot_data.append(
                 {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'std': irp_std, 'category': 'Voting Accuracy'})
             plot_data.append(
                 {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'std': vss_std, 'category': 'Voting Accuracy'})
 
-            # Role-specific metrics
+            # 3. Role Specific Win Rates
             for role in sorted(metrics.wins_by_role.keys()):
                 role_rate, role_std = metrics.get_win_rate_for_role(role)
-                plot_data.append(
-                    {'agent': agent_name, 'metric': f'Win Rate ({role})', 'value': role_rate, 'std': role_std,
-                     'category': 'Role-Specific Win Rate'})
+                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_rate, 'std': role_std,
+                                  'category': 'Role-Specific Win Rate'})
+
+            # 4. Role Specific Survival
             for role in sorted(metrics.survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
-                plot_data.append(
-                    {'agent': agent_name, 'metric': f'KSR ({role})', 'value': role_ksr, 'std': role_ksr_std,
-                     'category': 'Role-Specific Survival'})
+                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'std': role_ksr_std,
+                                  'category': 'Role-Specific Survival'})
 
-            # Ratings
-            plot_data.append(
-                {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': metrics.elo_std, 'category': 'Elo Rating'})
+            # 5. Ratings
+            # We group Elo and TrueSkill into a single "Ratings" category for cleaner layout
+            plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': metrics.elo_std,
+                              'category': 'Ratings'})
+
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
-                plot_data.append(
-                    {'agent': agent_name, 'metric': 'TrueSkill (mu)', 'value': metrics.openskill_rating.mu,
-                     'std': metrics.openskill_rating.sigma, 'category': 'TrueSkill Rating'})
+                plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
+                                  'std': metrics.openskill_rating.sigma, 'category': 'Ratings'})
 
         return pd.DataFrame(plot_data)
 
     def plot_metrics(self, output_path="metrics.html"):
-        if not ALTAIR_AVAILABLE:
-            print("Warning: `altair` and `pandas` not found. Cannot plot metrics.")
+        if not PLOTLY_AVAILABLE:
+            print("Warning: `plotly` not found. Cannot plot metrics.")
             return
 
         df = self._prepare_plot_data()
 
-        charts = []
-        for category in df['category'].unique():
-            chart_data = df[df['category'] == category]
+        # Define Category Order
+        category_order = [
+            'Overall',
+            'Voting Accuracy',
+            'Role-Specific Win Rate',
+            'Role-Specific Survival',
+            'Ratings'
+        ]
+        present_categories = [cat for cat in category_order if cat in df['category'].unique()]
 
-            base = alt.Chart(chart_data).encode(
-                x=alt.X('agent:N', title="Agent"),
-                y=alt.Y('value:Q', title="Score", scale=alt.Scale(zero=False)),
-                color='agent:N'
+        # Determine Grid Size
+        # We need 1 row per category. The number of columns depends on the category with the most metrics.
+        max_cols = 0
+        category_metrics_map = {}
+        for cat in present_categories:
+            metrics_in_cat = df[df['category'] == cat]['metric'].unique()
+            # Sort metrics for consistency (e.g., roles alphabetical)
+            # For Ratings, ensure Elo comes before TrueSkill
+            if cat == 'Ratings':
+                metrics_in_cat = sorted(metrics_in_cat, key=lambda x: 0 if x == 'Elo' else 1)
+            else:
+                metrics_in_cat = sorted(metrics_in_cat)
+
+            category_metrics_map[cat] = metrics_in_cat
+            max_cols = max(max_cols, len(metrics_in_cat))
+
+        # Create Subplots
+        # We use 'row_titles' to label the Categories on the left
+        fig = make_subplots(
+            rows=len(present_categories),
+            cols=max_cols,
+            row_titles=present_categories,
+            subplot_titles=[m for cat in present_categories for m in category_metrics_map[cat]] + [''] * (
+                        len(present_categories) * max_cols - sum(len(v) for v in category_metrics_map.values())),
+            # Placeholder logic for titles, handled better below
+            vertical_spacing=0.08,
+            horizontal_spacing=0.03
+        )
+
+        # Helper color cycle
+        colors = _get_color_discrete_sequence(10)
+
+        # Iterate and Plot
+        # We need to manually manage subplot titles because the flat list above is tricky with empty cells
+        # Instead, we will just set titles on the axes or use annotations if needed,
+        # but `subplot_titles` in make_subplots expects a flat list of all potential spots or just filled ones.
+        # Easier approach: Update layout title for each cell after plotting.
+
+        # Re-init figure with specific subplot titles to be accurate
+        # collecting titles row by row
+        plot_titles = []
+        for cat in present_categories:
+            metrics = category_metrics_map[cat]
+            for m in metrics:
+                plot_titles.append(m)
+            # Add blanks for empty columns in this row
+            for _ in range(max_cols - len(metrics)):
+                plot_titles.append("")
+
+        fig = make_subplots(
+            rows=len(present_categories),
+            cols=max_cols,
+            row_titles=present_categories,
+            subplot_titles=plot_titles,
+            vertical_spacing=0.08,
+            horizontal_spacing=0.04
+        )
+
+        for row_idx, cat in enumerate(present_categories):
+            metrics = category_metrics_map[cat]
+
+            for col_idx, metric in enumerate(metrics):
+                metric_data = df[(df['category'] == cat) & (df['metric'] == metric)]
+
+                # Unique color per agent for consistent identification
+                # We map agent names to the color list
+                agents = sorted(metric_data['agent'].unique())
+
+                fig.add_trace(
+                    go.Bar(
+                        name=metric,
+                        x=metric_data['agent'],
+                        y=metric_data['value'],
+                        error_y=dict(type='data', array=metric_data['std']),
+                        marker_color=metric_data['agent'].apply(lambda x: colors[agents.index(x) % len(colors)]),
+                        showlegend=False,  # No legend needed as X-axis labels Agents
+                        hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>"
+                    ),
+                    row=row_idx + 1, col=col_idx + 1
+                )
+
+                # Formatting
+                if cat == 'Ratings':
+                    fig.update_yaxes(matches=None, row=row_idx + 1, col=col_idx + 1)  # Elo and TS have diff scales
+                else:
+                    fig.update_yaxes(range=[0, 1.05], row=row_idx + 1, col=col_idx + 1)
+
+                fig.update_xaxes(tickangle=45, row=row_idx + 1, col=col_idx + 1)
+
+        fig.for_each_annotation(lambda a: a.update(
+            x=-0.06,  # Move to left margin
+            xanchor='right',  # Align right side of text to the axis
+            font=dict(size=14, color="#111827", weight="bold"),
+            yanchor='middle'
+        ) if a.text in present_categories else None)
+
+        # Layout Updates
+        fig.update_layout(
+            title_text="Agent Performance Metrics",
+            title_font_size=24,
+            height=300 * len(present_categories),  # Dynamic height
+            width=250 * max_cols if max_cols > 2 else 800,  # Dynamic width
+            font=dict(family="Inter, sans-serif"),
+            showlegend=False  # We use X-axis labels + Row/Subplot titles
+        )
+
+        _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
+        return fig
+
+    def plot_gte_evaluation(self, top_k: int = 100, output_path="gte_evaluation.html"):
+        if not POLARIX_AVAILABLE or not PLOTLY_AVAILABLE:
+            print("Warning: `polarix` or `plotly` library not found.")
+            return None
+        if self.gte_game is None:
+            print("GTE evaluation has not been run. Please run .evaluate() first.")
+            return None
+
+        # --- 1. Data Preparation ---
+        agents = sorted(list(self.metrics.keys()))
+        tasks = self.gte_tasks
+
+        # Extract Stats
+        ratings_mean = self.gte_ratings[0][1]
+        ratings_std = self.gte_ratings[1][1]
+        joint_mean = self.gte_joint[0]
+        contributions_mean = self.gte_contributions_raw[0]
+
+        # SORTING: Map agent -> Net Rating for sorting
+        agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
+        sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
+
+        # Reconstruct DataFrame for Contributions
+        game = self.gte_game
+        rating_player = 1
+        contrib_player = 0
+
+        rating_actions = game.actions[rating_player]
+        contrib_actions = game.actions[contrib_player]
+
+        joint_support = jnp.sum(
+            jnp.moveaxis(joint_mean, (rating_player, contrib_player), (0, 1)),
+            axis=tuple(range(2, len(joint_mean.shape))),
+        )
+
+        rating_actions_grid, contrib_actions_grid = np.meshgrid(
+            jnp.arange(len(rating_actions)),
+            jnp.arange(len(contrib_actions)),
+            indexing="ij",
+        )
+
+        data = pd.DataFrame.from_dict({
+            "agent": [rating_actions[i] for i in rating_actions_grid.ravel()],
+            "metric": [contrib_actions[i] for i in contrib_actions_grid.ravel()],
+            "contrib": contributions_mean.ravel(),
+            "support": joint_support.ravel(),
+        })
+
+        agent_ratings_df = pd.DataFrame({
+            "agent": agents,
+            "rating": ratings_mean,
+            "std": ratings_std
+        })
+
+        importance_df = pd.DataFrame({
+            'metric': tasks,
+            'importance': self.gte_marginals[0][0],
+            'std': self.gte_marginals[1][0]
+        }).sort_values('importance', ascending=True)
+
+        # --- 2. Dynamic Layout Calculation ---
+        n_top = len(agents) + 2
+        n_bottom = len(tasks) + 2
+        total_items = n_top + n_bottom
+
+        # Ensure neither plot gets too small (min 30%)
+        h_top = max(0.3, min(0.7, n_top / total_items))
+        h_bottom = 1.0 - h_top
+
+        # --- 3. Build Plot ---
+        fig = make_subplots(
+            rows=2, cols=1,
+            row_heights=[h_top, h_bottom],
+            vertical_spacing=0.1,
+            subplot_titles=("Win Rate Contributions & Equilibrium Ratings", "Task Importance")
+        )
+
+        # -- Trace 1: Contributions --
+        colors = _get_color_discrete_sequence(len(tasks))
+
+        for i, metric in enumerate(tasks):
+            subset = data[data['metric'] == metric]
+            fig.add_trace(
+                go.Bar(
+                    name=metric,
+                    y=subset['agent'],
+                    x=subset['contrib'],
+                    orientation='h',
+                    legendgroup='metrics',
+                    legendgrouptitle_text="Metrics",
+                    marker_color=colors[i % len(colors)],
+                    hovertemplate=f"<b>Metric: {metric}</b><br>Contrib: %{{x:.2%}}<extra></extra>"
+                ),
+                row=1, col=1
             )
 
-            bars = base.mark_bar().encode(
-                tooltip=['agent', 'metric', 'value', 'std']
-            )
+        # -- Trace 2: Net Rating (Diamonds) --
+        fig.add_trace(
+            go.Scatter(
+                name="Net Rating",
+                y=agent_ratings_df['agent'],
+                x=agent_ratings_df['rating'],
+                mode='markers',
+                marker=dict(symbol='diamond', size=12, color='black', line=dict(width=1.5, color='white')),
+                error_x=dict(type='data', array=agent_ratings_df['std'], color='black', thickness=2),
+                hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>"
+            ),
+            row=1, col=1
+        )
 
-            error_bars = base.mark_errorbar(extent='ci').encode(
-                y='value:Q',
-                yError='std:Q',
-                color=alt.value('black')
-            )
+        # -- Trace 3: Task Importance --
+        fig.add_trace(
+            go.Bar(
+                name="Importance",
+                y=importance_df['metric'],
+                x=importance_df['importance'],
+                orientation='h',
+                marker_color='#6B7280',
+                error_x=dict(type='data', array=importance_df['std'], color='black'),
+                showlegend=False,
+                hovertemplate="<b>%{y}</b><br>Importance: %{x:.2%}<extra></extra>"
+            ),
+            row=2, col=1
+        )
 
-            chart = (bars + error_bars).properties(
-                title=category
-            ).facet(
-                column=alt.Column('metric:N', title=None)
-            )
-            charts.append(chart)
+        # --- 4. Layout Formatting ---
+        fig.update_layout(
+            barmode='relative',
+            height=max(900, total_items * 35),
+            width=1300,
+            title_text="Game Theoretic Evaluation Results",
+            title_font_size=24,
+            bargap=0.15,
+            legend=dict(
+                yanchor="top", y=1,
+                xanchor="left", x=1.02,
+                orientation="v",
+                tracegroupgap=20
+            ),
+            font=dict(family="Inter, sans-serif")
+        )
 
-        if charts:
-            final_chart = alt.vconcat(*charts).resolve_scale(
-                color='shared'
-            )
-            final_chart.save(output_path)
-            print(f"Metrics chart saved to {output_path}")
+        # Y-Axis Font Sizing
+        fig.update_yaxes(
+            categoryorder='array',
+            categoryarray=sorted_agents,
+            tickfont=dict(size=14, color="#1f2937"),
+            row=1, col=1
+        )
+        fig.update_yaxes(
+            tickfont=dict(size=14, color="#1f2937"),
+            row=2, col=1
+        )
+
+        # X-Axis Font Sizing (Increased to match Y-axis)
+        fig.update_xaxes(
+            tickformat=".0%",
+            title_text="Win Rate Contribution",
+            tickfont=dict(size=14, color="#1f2937"),  # Increased font
+            title_font=dict(size=16, color="#111827"),  # Increased title font
+            row=1, col=1,
+            gridcolor='#F3F4F6'
+        )
+        fig.update_xaxes(
+            title_text="Marginal Probability",
+            tickfont=dict(size=14, color="#1f2937"),  # Increased font
+            title_font=dict(size=16, color="#111827"),  # Increased title font
+            row=2, col=1,
+            gridcolor='#F3F4F6'
+        )
+        fig.update_yaxes(gridcolor='#F3F4F6')
+
+        _save_figure(fig, output_path, width=1300, height=fig.layout.height)
+        return fig
 
 
 if __name__ == '__main__':
@@ -854,6 +740,6 @@ if __name__ == '__main__':
     evaluator.print_results()
     evaluator.plot_metrics()
     chart = evaluator.plot_gte_evaluation()
-    if chart:
-        chart.save("gte_evaluation.html")
-        print("\nGTE evaluation chart saved to gte_evaluation.html")
+    # if chart:
+    #     chart.save("gte_evaluation.html")
+    #     print("\nGTE evaluation chart saved to gte_evaluation.html")
