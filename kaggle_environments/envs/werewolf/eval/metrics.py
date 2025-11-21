@@ -61,11 +61,23 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
 
 # --- Plotting utils ---
 
-def _save_figure(fig: "go.Figure", output_path: str, width=None, height=None):
-    """Saves a Plotly figure to HTML or static image based on extension."""
+def _save_figure(fig: "go.Figure", output_path: Union[str, List[str], None], width=None, height=None):
+    """
+    Saves a Plotly figure to one or multiple files.
+    Args:
+        output_path: A single filename (str) or a list of filenames (List[str]).
+                     e.g., "plot.html" or ["plot.png", "plot.html"]
+    """
     if not output_path:
         return
 
+    # Handle multiple paths (recursion)
+    if isinstance(output_path, (list, tuple)):
+        for path in output_path:
+            _save_figure(fig, path, width, height)
+        return
+
+    # Handle single path
     ext = os.path.splitext(output_path)[1].lower()
     try:
         if ext == '.html':
@@ -80,7 +92,7 @@ def _save_figure(fig: "go.Figure", output_path: str, width=None, height=None):
             fig.write_html(output_path + ".html")
         print(f"Saved chart to {output_path}")
     except ValueError as e:
-        print(f"Error saving figure (did you install 'kaleido'?): {e}")
+        print(f"Error saving to {output_path} (did you install 'kaleido'?): {e}")
 
 
 def _get_color_discrete_sequence(n):
@@ -429,14 +441,13 @@ class GameSetEvaluator:
 
         return pd.DataFrame(plot_data)
 
-    def plot_metrics(self, output_path="metrics.html"):
+    def plot_metrics(self, output_path: Union[str, List[str]] = "metrics.html"):
         if not PLOTLY_AVAILABLE:
             print("Warning: `plotly` not found. Cannot plot metrics.")
             return
 
         df = self._prepare_plot_data()
 
-        # Define Category Order
         category_order = [
             'Overall',
             'Voting Accuracy',
@@ -446,14 +457,10 @@ class GameSetEvaluator:
         ]
         present_categories = [cat for cat in category_order if cat in df['category'].unique()]
 
-        # Determine Grid Size
-        # We need 1 row per category. The number of columns depends on the category with the most metrics.
         max_cols = 0
         category_metrics_map = {}
         for cat in present_categories:
             metrics_in_cat = df[df['category'] == cat]['metric'].unique()
-            # Sort metrics for consistency (e.g., roles alphabetical)
-            # For Ratings, ensure Elo comes before TrueSkill
             if cat == 'Ratings':
                 metrics_in_cat = sorted(metrics_in_cat, key=lambda x: 0 if x == 'Elo' else 1)
             else:
@@ -462,36 +469,11 @@ class GameSetEvaluator:
             category_metrics_map[cat] = metrics_in_cat
             max_cols = max(max_cols, len(metrics_in_cat))
 
-        # Create Subplots
-        # We use 'row_titles' to label the Categories on the left
-        fig = make_subplots(
-            rows=len(present_categories),
-            cols=max_cols,
-            row_titles=present_categories,
-            subplot_titles=[m for cat in present_categories for m in category_metrics_map[cat]] + [''] * (
-                        len(present_categories) * max_cols - sum(len(v) for v in category_metrics_map.values())),
-            # Placeholder logic for titles, handled better below
-            vertical_spacing=0.08,
-            horizontal_spacing=0.03
-        )
-
-        # Helper color cycle
-        colors = _get_color_discrete_sequence(10)
-
-        # Iterate and Plot
-        # We need to manually manage subplot titles because the flat list above is tricky with empty cells
-        # Instead, we will just set titles on the axes or use annotations if needed,
-        # but `subplot_titles` in make_subplots expects a flat list of all potential spots or just filled ones.
-        # Easier approach: Update layout title for each cell after plotting.
-
-        # Re-init figure with specific subplot titles to be accurate
-        # collecting titles row by row
         plot_titles = []
         for cat in present_categories:
             metrics = category_metrics_map[cat]
             for m in metrics:
                 plot_titles.append(m)
-            # Add blanks for empty columns in this row
             for _ in range(max_cols - len(metrics)):
                 plot_titles.append("")
 
@@ -500,18 +482,16 @@ class GameSetEvaluator:
             cols=max_cols,
             row_titles=present_categories,
             subplot_titles=plot_titles,
-            vertical_spacing=0.08,
+            vertical_spacing=0.1,
             horizontal_spacing=0.04
         )
 
+        colors = _get_color_discrete_sequence(10)
+
         for row_idx, cat in enumerate(present_categories):
             metrics = category_metrics_map[cat]
-
             for col_idx, metric in enumerate(metrics):
                 metric_data = df[(df['category'] == cat) & (df['metric'] == metric)]
-
-                # Unique color per agent for consistent identification
-                # We map agent names to the color list
                 agents = sorted(metric_data['agent'].unique())
 
                 fig.add_trace(
@@ -521,41 +501,38 @@ class GameSetEvaluator:
                         y=metric_data['value'],
                         error_y=dict(type='data', array=metric_data['std']),
                         marker_color=metric_data['agent'].apply(lambda x: colors[agents.index(x) % len(colors)]),
-                        showlegend=False,  # No legend needed as X-axis labels Agents
+                        showlegend=False,
                         hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>"
                     ),
                     row=row_idx + 1, col=col_idx + 1
                 )
 
-                # Formatting
                 if cat == 'Ratings':
-                    fig.update_yaxes(matches=None, row=row_idx + 1, col=col_idx + 1)  # Elo and TS have diff scales
+                    fig.update_yaxes(matches=None, row=row_idx + 1, col=col_idx + 1)
                 else:
                     fig.update_yaxes(range=[0, 1.05], row=row_idx + 1, col=col_idx + 1)
-
                 fig.update_xaxes(tickangle=45, row=row_idx + 1, col=col_idx + 1)
 
+        # Move Row Titles to Left
         fig.for_each_annotation(lambda a: a.update(
-            x=-0.06,  # Move to left margin
-            xanchor='right',  # Align right side of text to the axis
-            font=dict(size=14, color="#111827", weight="bold"),
-            yanchor='middle'
+            x=-0.06, xanchor='right', font=dict(size=14, color="#111827", weight="bold"), yanchor='middle'
         ) if a.text in present_categories else None)
 
-        # Layout Updates
         fig.update_layout(
             title_text="Agent Performance Metrics",
             title_font_size=24,
-            height=300 * len(present_categories),  # Dynamic height
-            width=250 * max_cols if max_cols > 2 else 800,  # Dynamic width
+            title_x=0.01,
+            height=350 * len(present_categories),
+            width=250 * max_cols if max_cols > 2 else 1000,
             font=dict(family="Inter, sans-serif"),
-            showlegend=False  # We use X-axis labels + Row/Subplot titles
+            showlegend=False,
+            margin=dict(l=120, r=50)
         )
 
         _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
         return fig
 
-    def plot_gte_evaluation(self, top_k: int = 100, output_path="gte_evaluation.html"):
+    def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
         if not POLARIX_AVAILABLE or not PLOTLY_AVAILABLE:
             print("Warning: `polarix` or `plotly` library not found.")
             return None
@@ -567,17 +544,14 @@ class GameSetEvaluator:
         agents = sorted(list(self.metrics.keys()))
         tasks = self.gte_tasks
 
-        # Extract Stats
         ratings_mean = self.gte_ratings[0][1]
         ratings_std = self.gte_ratings[1][1]
         joint_mean = self.gte_joint[0]
         contributions_mean = self.gte_contributions_raw[0]
 
-        # SORTING: Map agent -> Net Rating for sorting
         agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
         sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
 
-        # Reconstruct DataFrame for Contributions
         game = self.gte_game
         rating_player = 1
         contrib_player = 0
@@ -620,7 +594,6 @@ class GameSetEvaluator:
         n_bottom = len(tasks) + 2
         total_items = n_top + n_bottom
 
-        # Ensure neither plot gets too small (min 30%)
         h_top = max(0.3, min(0.7, n_top / total_items))
         h_bottom = 1.0 - h_top
 
@@ -632,9 +605,8 @@ class GameSetEvaluator:
             subplot_titles=("Win Rate Contributions & Equilibrium Ratings", "Task Importance")
         )
 
-        # -- Trace 1: Contributions --
+        # Contributions
         colors = _get_color_discrete_sequence(len(tasks))
-
         for i, metric in enumerate(tasks):
             subset = data[data['metric'] == metric]
             fig.add_trace(
@@ -651,7 +623,7 @@ class GameSetEvaluator:
                 row=1, col=1
             )
 
-        # -- Trace 2: Net Rating (Diamonds) --
+        # Net Rating
         fig.add_trace(
             go.Scatter(
                 name="Net Rating",
@@ -665,7 +637,7 @@ class GameSetEvaluator:
             row=1, col=1
         )
 
-        # -- Trace 3: Task Importance --
+        # Task Importance
         fig.add_trace(
             go.Bar(
                 name="Importance",
@@ -697,33 +669,24 @@ class GameSetEvaluator:
             font=dict(family="Inter, sans-serif")
         )
 
-        # Y-Axis Font Sizing
+        # Font Sizing
         fig.update_yaxes(
-            categoryorder='array',
-            categoryarray=sorted_agents,
-            tickfont=dict(size=14, color="#1f2937"),
-            row=1, col=1
+            categoryorder='array', categoryarray=sorted_agents,
+            tickfont=dict(size=14, color="#1f2937"), row=1, col=1
         )
         fig.update_yaxes(
-            tickfont=dict(size=14, color="#1f2937"),
-            row=2, col=1
+            tickfont=dict(size=14, color="#1f2937"), row=2, col=1
         )
 
-        # X-Axis Font Sizing (Increased to match Y-axis)
         fig.update_xaxes(
-            tickformat=".0%",
-            title_text="Win Rate Contribution",
-            tickfont=dict(size=14, color="#1f2937"),  # Increased font
-            title_font=dict(size=16, color="#111827"),  # Increased title font
-            row=1, col=1,
-            gridcolor='#F3F4F6'
+            tickformat=".0%", title_text="Win Rate Contribution",
+            tickfont=dict(size=14, color="#1f2937"), title_font=dict(size=16, color="#111827"),
+            row=1, col=1, gridcolor='#F3F4F6'
         )
         fig.update_xaxes(
             title_text="Marginal Probability",
-            tickfont=dict(size=14, color="#1f2937"),  # Increased font
-            title_font=dict(size=16, color="#111827"),  # Increased title font
-            row=2, col=1,
-            gridcolor='#F3F4F6'
+            tickfont=dict(size=14, color="#1f2937"), title_font=dict(size=16, color="#111827"),
+            row=2, col=1, gridcolor='#F3F4F6'
         )
         fig.update_yaxes(gridcolor='#F3F4F6')
 
@@ -738,8 +701,5 @@ if __name__ == '__main__':
     evaluator = GameSetEvaluator(SMOKE_TEST_DATA_DIR)
     evaluator.evaluate(gte_samples=2)
     evaluator.print_results()
-    evaluator.plot_metrics()
-    chart = evaluator.plot_gte_evaluation()
-    # if chart:
-    #     chart.save("gte_evaluation.html")
-    #     print("\nGTE evaluation chart saved to gte_evaluation.html")
+    evaluator.plot_metrics(["metrics.html", "metrics.png"])
+    chart = evaluator.plot_gte_evaluation(["gte.html", "gte.png"])
