@@ -546,36 +546,36 @@ class GameSetEvaluator:
         for stats in sorted_metrics:
             print(f"Agent: {stats.agent_name}")
             win_rate, win_std = stats.get_win_rate()
-            print(f"  Overall Win Rate: {win_rate:.2f} ± {win_std:.2f} ({len(stats.wins)} games)")
+            print(f"  Overall Win Rate: {win_rate:.2f} ± {win_std * 1.96:.2f} (CI95) ({len(stats.wins)} games)")
             ksr, ksr_std = stats.get_ksr()
-            print(f"  Overall Survival Rate: {ksr:.2f} ± {ksr_std:.2f}")
+            print(f"  Overall Survival Rate: {ksr:.2f} ± {ksr_std * 1.96:.2f} (CI95)")
             print("  Role-Specific Win Rates:")
             for role in sorted(stats.wins_by_role.keys()):
                 role_rate, role_std = stats.get_win_rate_for_role(role)
                 game_count = len(stats.wins_by_role[role])
-                print(f"    {role:<10}: {role_rate:.2f} ± {role_std:.2f} ({game_count} games)")
+                print(f"    {role:<10}: {role_rate:.2f} ± {role_std * 1.96:.2f} (CI95) ({game_count} games)")
             print("  Role-Specific Survival Rates (KSR):")
             for role in sorted(stats.survival_by_role.keys()):
                 role_ksr, role_ksr_std = stats.get_ksr_for_role(role)
                 game_count = len(stats.survival_by_role[role])
-                print(f"    {role:<10}: {role_ksr:.2f} ± {role_ksr_std:.2f} ({game_count} games)")
+                print(f"    {role:<10}: {role_ksr:.2f} ± {role_ksr_std * 1.96:.2f} (CI95) ({game_count} games)")
             irp, irp_std = stats.get_irp()
             vss, vss_std = stats.get_vss()
             print("  Voting Accuracy (Villager Team):")
-            print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std:.2f} ({len(stats.irp_scores)} votes)")
-            print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std:.2f} ({len(stats.vss_scores)} votes)")
+            print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std * 1.96:.2f} (CI95) ({len(stats.irp_scores)} votes)")
+            print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std * 1.96:.2f} (CI95) ({len(stats.vss_scores)} votes)")
             print("  Ratings:")
-            print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std:.2f}")
+            print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
                 print(
-                    f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std:.2f}, sigma={stats.openskill_rating.sigma:.2f}")
+                    f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std * 1.96:.2f} (CI95), sigma={stats.openskill_rating.sigma:.2f}")
             if POLARIX_AVAILABLE:
                 print("  Game Theoretic Evaluation (GTE):")
                 gte_mean, gte_std = stats.gte_rating
-                print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std:.2f}")
+                print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
                 for task in self.gte_tasks:
                     contrib_mean, contrib_std = stats.gte_contributions[task]
-                    print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std:.2f}")
+                    print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
             print("-" * 30)
 
     def _prepare_plot_data(self):
@@ -584,39 +584,40 @@ class GameSetEvaluator:
             # 1. Overall
             win_rate, win_std = metrics.get_win_rate()
             ksr, ksr_std = metrics.get_ksr()
+            # Multiply by 1.96 for 95% Confidence Interval
             plot_data.append(
-                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'std': win_std, 'category': 'Overall'})
+                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'CI95': win_std * 1.96, 'category': 'Overall'})
             plot_data.append(
-                {'agent': agent_name, 'metric': 'Survival Rate', 'value': ksr, 'std': ksr_std, 'category': 'Overall'})
+                {'agent': agent_name, 'metric': 'Survival Rate', 'value': ksr, 'CI95': ksr_std * 1.96, 'category': 'Overall'})
 
             # 2. Voting
             irp, irp_std = metrics.get_irp()
             vss, vss_std = metrics.get_vss()
             plot_data.append(
-                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'std': irp_std, 'category': 'Voting Accuracy'})
+                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'CI95': irp_std * 1.96, 'category': 'Voting Accuracy'})
             plot_data.append(
-                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'std': vss_std, 'category': 'Voting Accuracy'})
+                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'CI95': vss_std * 1.96, 'category': 'Voting Accuracy'})
 
             # 3. Role Specific Win Rates
             for role in sorted(metrics.wins_by_role.keys()):
                 role_rate, role_std = metrics.get_win_rate_for_role(role)
-                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_rate, 'std': role_std,
+                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_rate, 'CI95': role_std * 1.96,
                                   'category': 'Role-Specific Win Rate'})
 
             # 4. Role Specific Survival
             for role in sorted(metrics.survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
-                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'std': role_ksr_std,
+                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
                                   'category': 'Role-Specific Survival'})
 
             # 5. Ratings
             # We group Elo and TrueSkill into a single "Ratings" category for cleaner layout
-            plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'std': metrics.elo_std,
+            plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
                               'category': 'Ratings'})
 
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
-                                  'std': metrics.openskill_mu_std, 'category': 'Ratings'})
+                                  'CI95': metrics.openskill_mu_std * 1.96, 'category': 'Ratings'})
 
         return pd.DataFrame(plot_data)
 
@@ -678,7 +679,7 @@ class GameSetEvaluator:
                         name=metric,
                         x=metric_data['agent'],
                         y=metric_data['value'],
-                        error_y=dict(type='data', array=metric_data['std']),
+                        error_y=dict(type='data', array=metric_data['CI95']),
                         marker_color=metric_data['agent'].apply(lambda x: colors[agents.index(x) % len(colors)]),
                         showlegend=False,
                         hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>"
@@ -759,13 +760,13 @@ class GameSetEvaluator:
         agent_ratings_df = pd.DataFrame({
             "agent": agents,
             "rating": ratings_mean,
-            "std": ratings_std
+            "CI95": ratings_std * 1.96  # 95% CI
         })
 
         importance_df = pd.DataFrame({
             'metric': tasks,
             'importance': self.gte_marginals[0][0],
-            'std': self.gte_marginals[1][0]
+            'CI95': self.gte_marginals[1][0] * 1.96  # 95% CI
         }).sort_values('importance', ascending=True)
 
         # --- 2. Dynamic Layout Calculation ---
@@ -810,7 +811,7 @@ class GameSetEvaluator:
                 x=agent_ratings_df['rating'],
                 mode='markers',
                 marker=dict(symbol='diamond', size=12, color='black', line=dict(width=1.5, color='white')),
-                error_x=dict(type='data', array=agent_ratings_df['std'], color='black', thickness=2),
+                error_x=dict(type='data', array=agent_ratings_df['CI95'], color='black', thickness=2),
                 hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>"
             ),
             row=1, col=1
@@ -824,7 +825,7 @@ class GameSetEvaluator:
                 x=importance_df['importance'],
                 orientation='h',
                 marker_color='#6B7280',
-                error_x=dict(type='data', array=importance_df['std'], color='black'),
+                error_x=dict(type='data', array=importance_df['CI95'], color='black'),
                 showlegend=False,
                 hovertemplate="<b>%{y}</b><br>Importance: %{x:.2%}<extra></extra>"
             ),
