@@ -1,14 +1,13 @@
 import functools
 import os
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
-import multiprocessing
 
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+from tqdm.contrib.concurrent import thread_map
 
 try:
     import polarix as plx
@@ -110,70 +109,16 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
-# --- Lightweight classes and workers for multiprocessing ---
-
-class LightAgent:
-    __slots__ = ('display_name',)
-
-    def __init__(self, display_name):
-        self.display_name = display_name
-
-
-class LightRole:
-    __slots__ = ('team',)
-
-    def __init__(self, team):
-        self.team = team
-
-
-class LightPlayer:
-    __slots__ = ('agent', 'role')
-
-    def __init__(self, name, team):
-        self.agent = LightAgent(name)
-
-        self.role = LightRole(team)
-
-
-class LightGame:
-    __slots__ = ('players', 'winner_team')
-
-    def __init__(self, players, winner_team):
-        self.players = players
-
-        self.winner_team = winner_team
-
-
-# Globals for worker processes
-
-_worker_games = None
-
-_worker_model = None
-
-
-def _worker_init(games, model=None):
-    global _worker_games, _worker_model
-
-    _worker_games = games
-
-    _worker_model = model
-
-
-def _bootstrap_elo_worker(seed):
+def _bootstrap_elo_worker(seed, games):
     rnd = np.random.default_rng(seed)
-
-    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
-
+    sampled_games = rnd.choice(games, size=len(games), replace=True)
     return GameSetEvaluator._compute_elo_ratings(sampled_games)
 
 
-def _bootstrap_openskill_worker(seed):
+def _bootstrap_openskill_worker(seed, games, model):
     rnd = np.random.default_rng(seed)
-
-    sampled_games = rnd.choice(_worker_games, size=len(_worker_games), replace=True)
-
-    ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, _worker_model)
-
+    sampled_games = rnd.choice(games, size=len(games), replace=True)
+    ratings = GameSetEvaluator._compute_openskill_ratings(sampled_games, model)
     return {name: r.mu for name, r in ratings.items()}
 
 
@@ -337,19 +282,11 @@ class GameSetEvaluator:
     def _bootstrap_elo(self, num_samples=100):
         if not self.games: return
 
-        # Create lightweight games to save memory during multiprocessing
-        light_games = [
-            LightGame(
-                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                g.winner_team
-            ) for g in self.games
-        ]
-
         rnd_master = np.random.default_rng(42)
         seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
 
-        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init, initargs=(light_games,)) as pool:
-            results = pool.map(_bootstrap_elo_worker, seeds)
+        worker = functools.partial(_bootstrap_elo_worker, games=self.games)
+        results = thread_map(worker, seeds, max_workers=os.cpu_count(), desc="Elo Bootstrap")
 
         bootstrapped_elos = defaultdict(list)
         all_agents = list(self.metrics.keys())
@@ -365,20 +302,11 @@ class GameSetEvaluator:
         if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
             return
 
-        # Create lightweight games
-        light_games = [
-            LightGame(
-                [LightPlayer(p.agent.display_name, p.role.team) for p in g.players],
-                g.winner_team
-            ) for g in self.games
-        ]
-
         rnd_master = np.random.default_rng(42)
         seeds = rnd_master.integers(0, 2 ** 32, size=num_samples)
 
-        with multiprocessing.Pool(processes=os.cpu_count(), initializer=_worker_init,
-                                  initargs=(light_games, self.openskill_model)) as pool:
-            results = pool.map(_bootstrap_openskill_worker, seeds)
+        worker = functools.partial(_bootstrap_openskill_worker, games=self.games, model=self.openskill_model)
+        results = thread_map(worker, seeds, max_workers=os.cpu_count(), desc="OpenSkill Bootstrap")
 
         bootstrapped_mus = defaultdict(list)
         all_agents = list(self.metrics.keys())
@@ -512,14 +440,10 @@ class GameSetEvaluator:
 
         # 2. Create Partial Function
         # Note: We bind the heavy data (games) here.
-        # Multiprocessing will handle the serialization.
         solve_func = functools.partial(self._bootstrap_solve, games=games, agents=agents, tasks=tasks)
 
-        # 3. Execute in Parallel
-        # We use ProcessPoolExecutor to bypass the GIL for the heavy Python loops
-        with ProcessPoolExecutor() as executor:
-            # map preserves order, which is nice (though not strictly required for bootstrap)
-            res = list(executor.map(solve_func, rnds))
+        # 3. Execute in Parallel using threads (shared memory)
+        res = thread_map(solve_func, rnds, max_workers=os.cpu_count(), desc="GTE Bootstrap")
 
         # 4. Unpack and Aggregate (Standard NumPy work)
         ratings, joints, marginals, contributions, games = zip(*res)
