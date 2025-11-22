@@ -2,6 +2,7 @@ import functools
 import os
 from collections import defaultdict, namedtuple
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
 from concurrent.futures import ProcessPoolExecutor
 
@@ -206,7 +207,19 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     contributions = plx.joint_payoffs_contribution(
         game_plx.payoffs, res.joint, rating_player=1, contrib_player=0
     )
-    return res.ratings, res.joint, marginals, contributions, game_plx
+
+    # Convert JAX arrays to Numpy to avoid initializing JAX in the parent process via pickling
+    # which can cause deadlocks when forking subsequent worker processes.
+    ratings_np = [np.array(r) for r in res.ratings]
+    joint_np = np.array(res.joint)
+    marginals_np = [np.array(m) for m in marginals]
+    contributions_np = np.array(contributions)
+
+    # Use a SimpleNamespace to pass back only the actions, avoiding the full game object 
+    # which contains JAX arrays (payoffs).
+    game_meta = SimpleNamespace(actions=game_plx.actions)
+
+    return ratings_np, joint_np, marginals_np, contributions_np, game_meta
 
 
 def _default_elo():
