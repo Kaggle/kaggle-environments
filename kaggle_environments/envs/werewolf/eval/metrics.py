@@ -246,6 +246,11 @@ class AgentMetrics:
         self.wd_irp_scores: List[int] = []
         self.wd_vss_scores: List[int] = []
 
+        # Costs
+        self.total_costs: List[float] = []
+        self.total_tokens: List[int] = []
+        self.durations: List[int] = []  # days survived per game
+
         # For GTE
         self.gte_rating: Tuple[float, float] = (0.0, 0.0)
         self.gte_contributions: Dict[str, Tuple[float, float]] = defaultdict(_default_gte_contrib)
@@ -263,6 +268,21 @@ class AgentMetrics:
 
     def get_win_rate(self) -> Tuple[float, float]:
         return _mean_sem(self.wins)
+
+    def get_avg_cost(self) -> Tuple[float, float]:
+        return _mean_sem(self.total_costs)
+    
+    def get_avg_tokens(self) -> Tuple[float, float]:
+        return _mean_sem(self.total_tokens)
+
+    def get_avg_cost_per_turn(self) -> Tuple[float, float]:
+        costs_per_turn = []
+        for c, d in zip(self.total_costs, self.durations):
+            if d > 0:
+                costs_per_turn.append(c / d)
+            else:
+                costs_per_turn.append(0.0)
+        return _mean_sem(costs_per_turn)
 
     def get_win_rate_for_role(self, role: str) -> Tuple[float, float]:
         return _mean_sem(self.wins_by_role.get(role, []))
@@ -475,6 +495,11 @@ class GameSetEvaluator:
     def evaluate(self, gte_samples=3, elo_samples=3, openskill_samples=3):
         for game in self.games:
             villagers_won = game.winner_team == Team.VILLAGERS
+            # Capture costs if available from GameResult
+            player_costs = getattr(game, 'player_costs', {})
+            player_tokens = getattr(game, 'player_tokens', {})
+            player_durations = getattr(game, 'player_durations', {})
+
             for player in game.players:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
@@ -492,6 +517,12 @@ class GameSetEvaluator:
                 wd_ksr_score = 1 if won and survived else 0
                 self.metrics[agent_name].wd_survival_scores.append(wd_ksr_score)
                 self.metrics[agent_name].wd_survival_by_role[player.role.name].append(wd_ksr_score)
+
+                # Record costs
+                if player.id in player_costs:
+                    self.metrics[agent_name].total_costs.append(player_costs[player.id])
+                    self.metrics[agent_name].total_tokens.append(player_tokens.get(player.id, 0))
+                    self.metrics[agent_name].durations.append(player_durations.get(player.id, 0))
 
             irp_results, vss_results = game.iterate_voting_mini_game()
             for agent_name, score in irp_results:
@@ -597,6 +628,16 @@ class GameSetEvaluator:
             print(f"    WD-IRP: {wd_irp:.2f} ± {wd_irp_std * 1.96:.2f} (CI95)")
             print(f"    WD-VSS: {wd_vss:.2f} ± {wd_vss_std * 1.96:.2f} (CI95)")
 
+            # Cost Stats
+            avg_cost, cost_sem = stats.get_avg_cost()
+            avg_tokens, tokens_sem = stats.get_avg_tokens()
+            avg_cost_per_turn, cost_per_turn_sem = stats.get_avg_cost_per_turn()
+            if avg_cost > 0:
+                print(f"  Cost Metrics:")
+                print(f"    Avg Cost/Game: ${avg_cost:.4f} ± {cost_sem * 1.96:.4f}")
+                print(f"    Avg Cost/Turn: ${avg_cost_per_turn:.4f} ± {cost_per_turn_sem * 1.96:.4f}")
+                print(f"    Avg Tokens/Game: {avg_tokens:.1f} ± {tokens_sem * 1.96:.1f}")
+
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
@@ -665,6 +706,15 @@ class GameSetEvaluator:
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
                                   'CI95': metrics.openskill_mu_std * 1.96, 'category': 'Ratings'})
+            
+            # 8. Cost
+            avg_cost, cost_sem = metrics.get_avg_cost()
+            if avg_cost > 0:
+                plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Game', 'value': avg_cost, 'CI95': cost_sem * 1.96, 'category': 'Cost'})
+                
+            avg_cost_turn, cost_turn_sem = metrics.get_avg_cost_per_turn()
+            if avg_cost_turn > 0:
+                plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Turn', 'value': avg_cost_turn, 'CI95': cost_turn_sem * 1.96, 'category': 'Cost'})
 
         return pd.DataFrame(plot_data)
 
@@ -682,7 +732,8 @@ class GameSetEvaluator:
             'Role-Specific Win Rate',
             'Role-Specific KSR',
             'Win-Dependent KSR',
-            'Ratings'
+            'Ratings',
+            'Cost'
         ]
         present_categories = [cat for cat in category_order if cat in df['category'].unique()]
 
@@ -750,7 +801,8 @@ class GameSetEvaluator:
                 if cat == 'Ratings':
                     fig.update_yaxes(matches=None, row=row_idx + 1, col=col_idx + 1)
                 else:
-                    fig.update_yaxes(range=[0, 1.05], row=row_idx + 1, col=col_idx + 1)
+                    # Auto-range for cost
+                    fig.update_yaxes(range=[0, 1.05] if cat != 'Cost' else None, row=row_idx + 1, col=col_idx + 1)
                 fig.update_xaxes(tickangle=45, row=row_idx + 1, col=col_idx + 1)
 
         # Move Row Titles to Left
@@ -770,6 +822,85 @@ class GameSetEvaluator:
         )
 
         _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
+        return fig
+
+    def plot_pareto_frontier(self, output_path: Union[str, List[str]] = "pareto_frontier.html"):
+        if not PLOTLY_AVAILABLE:
+            print("Warning: `plotly` not found. Cannot plot Pareto frontier.")
+            return
+
+        # Gather data
+        data = []
+        for agent_name, metrics in self.metrics.items():
+            # Use GTE Rating (Mean) for performance
+            gte_mean, _ = metrics.gte_rating
+            avg_cost, _ = metrics.get_avg_cost()
+            
+            # We need valid cost data
+            if avg_cost <= 0:
+                continue
+            
+            data.append({
+                'agent': agent_name,
+                'gte_rating': gte_mean,
+                'cost': avg_cost
+            })
+            
+        if not data:
+            print("No cost data available for Pareto plot.")
+            return
+            
+        df = pd.DataFrame(data)
+
+        # Find Pareto Frontier
+        # A point is on the frontier if there is no other point that has HIGHER gte_rating AND LOWER cost.
+        sorted_df = df.sort_values('cost')
+        frontier_points = []
+        current_max_rating = -float('inf')
+        
+        for index, row in sorted_df.iterrows():
+            if row['gte_rating'] > current_max_rating:
+                frontier_points.append(row)
+                current_max_rating = row['gte_rating']
+                
+        frontier_df = pd.DataFrame(frontier_points)
+
+        # Plot
+        fig = go.Figure()
+        
+        # All Agents
+        fig.add_trace(go.Scatter(
+            x=df['cost'],
+            y=df['gte_rating'],
+            mode='markers+text',
+            text=df['agent'],
+            textposition="top center",
+            marker=dict(size=10, color='#6366F1'),
+            name='Agents',
+            hovertemplate="<b>%{text}</b><br>Cost: $%{x:.2f}<br>GTE Rating: %{y:.2f}<extra></extra>"
+        ))
+        
+        # Frontier Line
+        fig.add_trace(go.Scatter(
+            x=frontier_df['cost'],
+            y=frontier_df['gte_rating'],
+            mode='lines',
+            line=dict(color='#10B981', width=2, dash='dash'),
+            name='Pareto Frontier',
+            hoverinfo='skip'
+        ))
+        
+        fig.update_layout(
+            title="Cost-Performance Pareto Frontier (GTE)",
+            xaxis_title="Average Cost per Game ($)",
+            yaxis_title="GTE Overall Rating",
+            template="plotly_white",
+            font=dict(family="Inter, sans-serif"),
+            width=900,
+            height=600
+        )
+        
+        _save_figure(fig, output_path, width=900, height=600)
         return fig
 
     def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
@@ -942,4 +1073,5 @@ if __name__ == '__main__':
     evaluator.evaluate(gte_samples=2)
     evaluator.print_results()
     evaluator.plot_metrics(["metrics.html", "metrics.png"])
-    chart = evaluator.plot_gte_evaluation(["gte.html", "gte.png"])
+    evaluator.plot_gte_evaluation(["gte.html", "gte.png"])
+    evaluator.plot_pareto_frontier(["pareto.html", "pareto.png"])
