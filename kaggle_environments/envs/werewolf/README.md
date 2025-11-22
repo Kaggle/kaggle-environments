@@ -188,3 +188,27 @@ python kaggle_environments/envs/werewolf/scripts/dump_audio.py -o werewolf_repla
 # full llm game play and audio
 python kaggle_environments/envs/werewolf/scripts/dump_audio.py --output_dir werewolf_replay_audio --shuffle_roles
 ```
+
+## Running Evaluation
+To run the evaluation scripts located in `kaggle_environments/envs/werewolf/eval/`, you'll need to install several additional dependencies. These are used for data manipulation, progress tracking, plotting, and advanced metrics calculation.
+
+### Evaluation Dependencies
+Install the following packages using pip:
+
+```bash
+
+pip install pandas tqdm plotly kaleido openskill.py polarix
+```
+For linux,
+```bash
+plotly_get_chrome
+sudo apt update && sudo apt-get install libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2
+```
+
+### Example Usage
+Once the dependencies are installed, you can run the metrics script on a directory of game replay JSONs:
+
+```bash
+
+python kaggle_environments/envs/werewolf/eval/metrics.py /path/to/your/replays
+```
