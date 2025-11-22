@@ -1,10 +1,11 @@
 import functools
 import os
+import sys
 from collections import defaultdict, namedtuple
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
+from concurrent.futures import ProcessPoolExecutor
 
 import jax.numpy as jnp
 import numpy as np
@@ -24,6 +25,17 @@ try:
     OPENSKILL_AVAILABLE = True
 except ImportError:
     OPENSKILL_AVAILABLE = False
+
+# Workaround for broken google.colab import in some environments (incompatibility with IPython)
+# Plotly tries to import google.colab to detect the environment. If google.colab is installed
+# but broken (e.g. AttributeError: type object 'TermColors' has no attribute 'Green'),
+# Plotly crashes. We force it to fail with ImportError so Plotly skips it.
+try:
+    import google.colab
+except AttributeError:
+    sys.modules["google.colab"] = None
+except ImportError:
+    pass
 
 try:
     import plotly.graph_objects as go
