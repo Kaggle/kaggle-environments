@@ -624,7 +624,10 @@ class GameSetEvaluator:
             horizontal_spacing=0.04
         )
 
-        colors = _get_color_discrete_sequence(10)
+        # Create a consistent color map for all agents
+        all_agents_sorted = sorted(df['agent'].unique())
+        colors = _get_color_discrete_sequence(len(all_agents_sorted))
+        agent_color_map = {agent: colors[i % len(colors)] for i, agent in enumerate(all_agents_sorted)}
 
         for row_idx, cat in enumerate(present_categories):
             metrics = category_metrics_map[cat]
@@ -633,10 +636,8 @@ class GameSetEvaluator:
                 
                 if cat == 'Ratings':
                     # Sort agents by value for rating plots
-                    sorted_agents = metric_data.sort_values('value', ascending=True)['agent'].tolist()
-                    fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents, row=row_idx + 1, col=col_idx + 1)
-                else:
-                    sorted_agents = sorted(metric_data['agent'].unique())
+                    sorted_agents_by_value = metric_data.sort_values('value', ascending=True)['agent'].tolist()
+                    fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents_by_value, row=row_idx + 1, col=col_idx + 1)
 
                 fig.add_trace(
                     go.Bar(
@@ -644,7 +645,7 @@ class GameSetEvaluator:
                         x=metric_data['agent'],
                         y=metric_data['value'],
                         error_y=dict(type='data', array=metric_data['CI95']),
-                        marker_color=metric_data['agent'].apply(lambda x: colors[sorted_agents.index(x) % len(colors)]),
+                        marker_color=metric_data['agent'].map(agent_color_map),
                         showlegend=False,
                         hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>"
                     ),
