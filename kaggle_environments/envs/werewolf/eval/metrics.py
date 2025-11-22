@@ -624,8 +624,10 @@ class GameSetEvaluator:
             horizontal_spacing=0.04
         )
 
-        # Create a consistent color map for all agents
-        all_agents_sorted = sorted(df['agent'].unique())
+        # Create a consistent color map for all agents and a default sorting order
+        agent_gte_ratings = {name: metrics.gte_rating[0] for name, metrics in self.metrics.items()}
+        all_agents_sorted = sorted(agent_gte_ratings, key=agent_gte_ratings.get)
+
         colors = _get_color_discrete_sequence(len(all_agents_sorted))
         agent_color_map = {agent: colors[i % len(colors)] for i, agent in enumerate(all_agents_sorted)}
 
@@ -633,11 +635,13 @@ class GameSetEvaluator:
             metrics = category_metrics_map[cat]
             for col_idx, metric in enumerate(metrics):
                 metric_data = df[(df['category'] == cat) & (df['metric'] == metric)]
-                
+
+                # Default to GTE rating order, but for Ratings category, sort by the metric's value
                 if cat == 'Ratings':
-                    # Sort agents by value for rating plots
                     sorted_agents_by_value = metric_data.sort_values('value', ascending=True)['agent'].tolist()
                     fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents_by_value, row=row_idx + 1, col=col_idx + 1)
+                else:
+                    fig.update_xaxes(categoryorder='array', categoryarray=all_agents_sorted, row=row_idx + 1, col=col_idx + 1)
 
                 fig.add_trace(
                     go.Bar(
