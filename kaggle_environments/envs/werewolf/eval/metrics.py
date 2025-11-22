@@ -128,33 +128,54 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     agent_scores = {agent: {task: [] for task in tasks} for agent in agents}
 
     for game in sampled_games:
-        # 1. Collect basic stats (WinRate, KSR)
         for player in game.players:
             agent_name = player.agent.display_name
-            if agent_name in agent_set:
-                role_name = player.role.name
+            if agent_name not in agent_set:
+                continue
+            
+            role_name = player.role.name
+            won = player.role.team == game.winner_team
+            alive = 1 if player.alive else 0
 
-                win_rate_task = f'WinRate-{role_name}'
-                if win_rate_task in task_set:
-                    agent_scores[agent_name][win_rate_task].append(1 if player.role.team == game.winner_team else 0)
+            # WinRate
+            win_rate_task = f'WinRate-{role_name}'
+            if win_rate_task in task_set:
+                agent_scores[agent_name][win_rate_task].append(1 if won else 0)
 
-                ksr_task = f'KSR-{role_name}'
-                if ksr_task in task_set:
-                    agent_scores[agent_name][ksr_task].append(1 if player.alive else 0)
+            # KSR
+            if 'KSR' in task_set:
+                agent_scores[agent_name]['KSR'].append(alive)
+            ksr_task = f'KSR-{role_name}'
+            if ksr_task in task_set:
+                agent_scores[agent_name][ksr_task].append(alive)
 
-                if 'KSR' in task_set:
-                    agent_scores[agent_name]['KSR'].append(1 if player.alive else 0)
+            # WD-KSR
+            wd_ksr_score = 1 if won and alive else 0
+            if 'WD-KSR' in task_set:
+                agent_scores[agent_name]['WD-KSR'].append(wd_ksr_score)
+            wd_ksr_task = f'WD-KSR-{role_name}'
+            if wd_ksr_task in task_set:
+                agent_scores[agent_name][wd_ksr_task].append(wd_ksr_score)
 
-        # 2. Collect complex stats (IRP, VSS) requiring mini-game iteration
+        # IRP & VSS
+        villagers_won = game.winner_team == Team.VILLAGERS
         irp_results, vss_results = game.irp_results, game.vss_results
-        if 'IRP' in task_set:
-            for agent_name, score in irp_results:
-                if agent_name in agent_set:
-                    agent_scores[agent_name]['IRP'].append(score)
-        if 'VSS' in task_set:
-            for agent_name, score in vss_results:
-                if agent_name in agent_set:
-                    agent_scores[agent_name]['VSS'].append(score)
+
+        for agent_name, score in irp_results:
+            if agent_name not in agent_set:
+                continue
+            if 'IRP' in task_set:
+                agent_scores[agent_name]['IRP'].append(score)
+            if 'WD-IRP' in task_set:
+                agent_scores[agent_name]['WD-IRP'].append(score if villagers_won else 0)
+
+        for agent_name, score in vss_results:
+            if agent_name not in agent_set:
+                continue
+            if 'VSS' in task_set:
+                agent_scores[agent_name]['VSS'].append(score)
+            if 'WD-VSS' in task_set:
+                agent_scores[agent_name]['WD-VSS'].append(score if villagers_won else 0)
 
     # 3. Build Matrices
     mean_matrix = np.zeros((len(agents), len(tasks)))
@@ -207,6 +228,10 @@ class AgentMetrics:
         self.vss_scores: List[int] = []
         self.survival_scores: List[int] = []
         self.survival_by_role: Dict[str, List[int]] = defaultdict(list)
+        self.wd_survival_scores: List[int] = []
+        self.wd_survival_by_role: Dict[str, List[int]] = defaultdict(list)
+        self.wd_irp_scores: List[int] = []
+        self.wd_vss_scores: List[int] = []
 
         # For GTE
         self.gte_rating: Tuple[float, float] = (0.0, 0.0)
@@ -240,12 +265,24 @@ class AgentMetrics:
 
     def get_ksr_for_role(self, role: str) -> Tuple[float, float]:
         return _mean_sem(self.survival_by_role.get(role, []))
+    
+    def get_wd_ksr(self) -> Tuple[float, float]:
+        return _mean_sem(self.wd_survival_scores)
+
+    def get_wd_ksr_for_role(self, role: str) -> Tuple[float, float]:
+        return _mean_sem(self.wd_survival_by_role.get(role, []))
+
+    def get_wd_irp(self) -> Tuple[float, float]:
+        return _mean_sem(self.wd_irp_scores)
+
+    def get_wd_vss(self) -> Tuple[float, float]:
+        return _mean_sem(self.wd_vss_scores)
 
 
 class GameSetEvaluator:
     """Evaluates a set of game replays and calculates metrics for each agent."""
 
-    def __init__(self, input_dir: Union[str, List[str]], gte_tasks: List[str] = None,
+    def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
                  preserve_full_game_records: bool = False):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
@@ -268,13 +305,19 @@ class GameSetEvaluator:
         self.gte_marginals = None
         self.gte_contributions_raw = None
 
-        if gte_tasks is None:
-            roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
+        roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
+        if gte_tasks == "win_dependent":
+            self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
+                              [f'WD-KSR-{r}' for r in roles] +
+                              ['WD-IRP', 'WD-VSS', 'WD-KSR'])
+        elif gte_tasks == "non_win_dependent":
             self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
                               [f'KSR-{r}' for r in roles] +
                               ['IRP', 'VSS', 'KSR'])
-        else:
+        elif isinstance(gte_tasks, list):
             self.gte_tasks = gte_tasks
+        else:
+            self.gte_tasks = [gte_tasks]
 
     @staticmethod
     def _compute_elo_ratings(games: List) -> Dict[str, float]:
@@ -418,21 +461,34 @@ class GameSetEvaluator:
 
     def evaluate(self, gte_samples=3, elo_samples=3, openskill_samples=3):
         for game in self.games:
+            villagers_won = game.winner_team == Team.VILLAGERS
             for player in game.players:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
                     self.metrics[agent_name].set_agent_name(agent_name)
+                
                 won = 1 if player.role.team == game.winner_team else 0
                 survived = 1 if player.alive else 0
+                
                 self.metrics[agent_name].wins.append(won)
                 self.metrics[agent_name].wins_by_role[player.role.name].append(won)
                 self.metrics[agent_name].survival_scores.append(survived)
                 self.metrics[agent_name].survival_by_role[player.role.name].append(survived)
+
+                # WD-KSR is the joint probability of winning AND surviving
+                wd_ksr_score = 1 if won and survived else 0
+                self.metrics[agent_name].wd_survival_scores.append(wd_ksr_score)
+                self.metrics[agent_name].wd_survival_by_role[player.role.name].append(wd_ksr_score)
+
             irp_results, vss_results = game.iterate_voting_mini_game()
             for agent_name, score in irp_results:
                 self.metrics[agent_name].irp_scores.append(score)
+                # WD-IRP is the joint probability of a correct vote AND winning
+                self.metrics[agent_name].wd_irp_scores.append(score if villagers_won else 0)
             for agent_name, score in vss_results:
                 self.metrics[agent_name].vss_scores.append(score)
+                # WD-VSS is the joint probability of a correct vote AND winning
+                self.metrics[agent_name].wd_vss_scores.append(score if villagers_won else 0)
 
         # Elo
         final_elos = self._compute_elo_ratings(self.games)
@@ -506,22 +562,28 @@ class GameSetEvaluator:
             win_rate, win_std = stats.get_win_rate()
             print(f"  Overall Win Rate: {win_rate:.2f} ± {win_std * 1.96:.2f} (CI95) ({len(stats.wins)} games)")
             ksr, ksr_std = stats.get_ksr()
-            print(f"  Overall Survival Rate: {ksr:.2f} ± {ksr_std * 1.96:.2f} (CI95)")
+            print(f"  Overall Survival Rate (KSR): {ksr:.2f} ± {ksr_std * 1.96:.2f} (CI95)")
+            wd_ksr, wd_ksr_std = stats.get_wd_ksr()
+            print(f"  Win-Dependent Survival Rate (WD-KSR): {wd_ksr:.2f} ± {wd_ksr_std * 1.96:.2f} (CI95)")
+            
             print("  Role-Specific Win Rates:")
             for role in sorted(stats.wins_by_role.keys()):
                 role_rate, role_std = stats.get_win_rate_for_role(role)
                 game_count = len(stats.wins_by_role[role])
                 print(f"    {role:<10}: {role_rate:.2f} ± {role_std * 1.96:.2f} (CI95) ({game_count} games)")
-            print("  Role-Specific Survival Rates (KSR):")
-            for role in sorted(stats.survival_by_role.keys()):
-                role_ksr, role_ksr_std = stats.get_ksr_for_role(role)
-                game_count = len(stats.survival_by_role[role])
-                print(f"    {role:<10}: {role_ksr:.2f} ± {role_ksr_std * 1.96:.2f} (CI95) ({game_count} games)")
+
+            print("  Voting Accuracy (Villager Team):")
             irp, irp_std = stats.get_irp()
             vss, vss_std = stats.get_vss()
-            print("  Voting Accuracy (Villager Team):")
             print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std * 1.96:.2f} (CI95) ({len(stats.irp_scores)} votes)")
             print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std * 1.96:.2f} (CI95) ({len(stats.vss_scores)} votes)")
+            
+            print("  Win-Dependent Voting Accuracy (Villager Team):")
+            wd_irp, wd_irp_std = stats.get_wd_irp()
+            wd_vss, wd_vss_std = stats.get_wd_vss()
+            print(f"    WD-IRP: {wd_irp:.2f} ± {wd_irp_std * 1.96:.2f} (CI95)")
+            print(f"    WD-VSS: {wd_vss:.2f} ± {wd_vss_std * 1.96:.2f} (CI95)")
+
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
             if OPENSKILL_AVAILABLE and stats.openskill_rating:
@@ -542,34 +604,48 @@ class GameSetEvaluator:
             # 1. Overall
             win_rate, win_std = metrics.get_win_rate()
             ksr, ksr_std = metrics.get_ksr()
-            # Multiply by 1.96 for 95% Confidence Interval
-            plot_data.append(
-                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'CI95': win_std * 1.96, 'category': 'Overall'})
-            plot_data.append(
-                {'agent': agent_name, 'metric': 'Survival Rate', 'value': ksr, 'CI95': ksr_std * 1.96, 'category': 'Overall'})
+            plot_data.extend([
+                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'CI95': win_std * 1.96, 'category': 'Overall'},
+                {'agent': agent_name, 'metric': 'KSR', 'value': ksr, 'CI95': ksr_std * 1.96, 'category': 'Overall'}
+            ])
 
             # 2. Voting
             irp, irp_std = metrics.get_irp()
             vss, vss_std = metrics.get_vss()
-            plot_data.append(
-                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'CI95': irp_std * 1.96, 'category': 'Voting Accuracy'})
-            plot_data.append(
-                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'CI95': vss_std * 1.96, 'category': 'Voting Accuracy'})
+            plot_data.extend([
+                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'CI95': irp_std * 1.96, 'category': 'Voting Accuracy'},
+                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'CI95': vss_std * 1.96, 'category': 'Voting Accuracy'}
+            ])
 
-            # 3. Role Specific Win Rates
+            # 3. Win-Dependent Metrics
+            wd_ksr, wd_ksr_std = metrics.get_wd_ksr()
+            wd_irp, wd_irp_std = metrics.get_wd_irp()
+            wd_vss, wd_vss_std = metrics.get_wd_vss()
+            plot_data.extend([
+                {'agent': agent_name, 'metric': 'WD-KSR', 'value': wd_ksr, 'CI95': wd_ksr_std * 1.96, 'category': 'Win-Dependent Metrics'},
+                {'agent': agent_name, 'metric': 'WD-IRP', 'value': wd_irp, 'CI95': wd_irp_std * 1.96, 'category': 'Win-Dependent Metrics'},
+                {'agent': agent_name, 'metric': 'WD-VSS', 'value': wd_vss, 'CI95': wd_vss_std * 1.96, 'category': 'Win-Dependent Metrics'}
+            ])
+
+            # 4. Role Specific Win Rates
             for role in sorted(metrics.wins_by_role.keys()):
                 role_rate, role_std = metrics.get_win_rate_for_role(role)
                 plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_rate, 'CI95': role_std * 1.96,
                                   'category': 'Role-Specific Win Rate'})
 
-            # 4. Role Specific Survival
+            # 5. Role Specific Survival
             for role in sorted(metrics.survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
                 plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
-                                  'category': 'Role-Specific Survival'})
+                                  'category': 'Role-Specific KSR'})
 
-            # 5. Ratings
-            # We group Elo and TrueSkill into a single "Ratings" category for cleaner layout
+            # 6. Win-Dependent Role Specific KSR
+            for role in sorted(metrics.wd_survival_by_role.keys()):
+                role_ksr, role_ksr_std = metrics.get_wd_ksr_for_role(role)
+                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
+                                  'category': 'Win-Dependent KSR'})
+
+            # 7. Ratings
             plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
                               'category': 'Ratings'})
 
@@ -589,8 +665,10 @@ class GameSetEvaluator:
         category_order = [
             'Overall',
             'Voting Accuracy',
+            'Win-Dependent Metrics',
             'Role-Specific Win Rate',
-            'Role-Specific Survival',
+            'Role-Specific KSR',
+            'Win-Dependent KSR',
             'Ratings'
         ]
         present_categories = [cat for cat in category_order if cat in df['category'].unique()]
