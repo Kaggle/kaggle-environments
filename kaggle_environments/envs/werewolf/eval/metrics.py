@@ -1,10 +1,10 @@
 import functools
 import os
 from collections import defaultdict, namedtuple
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
-from concurrent.futures import ProcessPoolExecutor
 
 import jax.numpy as jnp
 import numpy as np
@@ -42,7 +42,14 @@ from kaggle_environments.envs.werewolf.game.consts import Team
 
 
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
-    """Helper to calculate mean and standard error of the mean, handling empty lists."""
+    """Helper to calculate mean and standard error of the mean.
+
+    Args:
+        values: A list of numerical values.
+
+    Returns:
+        A tuple (mean, sem). Returns (0.0, 0.0) if the list is empty.
+    """
     if not values:
         return 0.0, 0.0
     if len(values) < 2:
@@ -51,13 +58,16 @@ def _mean_sem(values: List[float]) -> Tuple[float, float]:
 
 
 def calculate_elo_change(p1_elo, p2_elo, result, k=32):
-    """
-    Calculates the change in Elo rating for Player 1.
-    :param p1_elo: Rating of Player 1
-    :param p2_elo: Rating of Player 2
-    :param result: 1 if Player 1 wins, 0 if Player 1 loses, 0.5 for draw
-    :param k: K-factor
-    :return: Change in rating for Player 1
+    """Calculates the change in Elo rating for Player 1.
+
+    Args:
+        p1_elo: Rating of Player 1.
+        p2_elo: Rating of Player 2.
+        result: 1 if Player 1 wins, 0 if Player 1 loses, 0.5 for draw.
+        k: K-factor.
+
+    Returns:
+        The change in rating for Player 1 (can be negative).
     """
     expected = 1 / (1 + 10 ** ((p2_elo - p1_elo) / 400))
     return k * (result - expected)
@@ -67,11 +77,13 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
 
 
 def _save_figure(fig: "go.Figure", output_path: Union[str, List[str], None], width=None, height=None):
-    """
-    Saves a Plotly figure to one or multiple files.
+    """Saves a Plotly figure to one or multiple files.
+
     Args:
+        fig: The Plotly Figure object.
         output_path: A single filename (str) or a list of filenames (List[str]).
-                     e.g., "plot.html" or ["plot.png", "plot.html"]
+        width: Width of the output image.
+        height: Height of the output image.
     """
     if not output_path:
         return
@@ -122,6 +134,21 @@ def _openskill_bootstrap_worker(games_sample, model):
 
 
 def _gte_bootstrap_worker(sampled_games, agents, tasks):
+    """Worker function for parallel GTE bootstrapping.
+
+    Args:
+        sampled_games: A list of LightGame objects.
+        agents: A list of agent names.
+        tasks: A list of task names (metrics).
+
+    Returns:
+        A tuple containing:
+        - ratings_np: List of numpy arrays of ratings.
+        - joint_np: Numpy array of the joint distribution.
+        - marginals_np: List of numpy arrays of marginal distributions.
+        - contributions_np: Numpy array of contributions.
+        - game_meta: SimpleNamespace containing game metadata (actions).
+    """
     rnd = np.random.default_rng()
 
     agent_set = set(agents)
@@ -231,7 +258,17 @@ def _default_gte_contrib():
 
 
 class AgentMetrics:
-    """Stores and calculates performance metrics for a single agent."""
+    """Stores and calculates performance metrics for a single agent.
+
+    Attributes:
+        agent_name (str): The display name of the agent.
+        wins (List[int]): List of win/loss (1/0) outcomes.
+        total_costs (List[float]): List of costs incurred per game.
+        total_tokens (List[int]): List of total tokens used per game.
+        durations (List[int]): List of days survived per game.
+        gte_rating (Tuple[float, float]): (mean, std) of GTE rating.
+        elo (float): Current Elo rating.
+    """
 
     def __init__(self, agent_name: str, openskill_model):
         self.agent_name = agent_name
@@ -267,15 +304,22 @@ class AgentMetrics:
         self.openskill_rating = self.openskill_model.rating(name=name) if self.openskill_model else None
 
     def get_win_rate(self) -> Tuple[float, float]:
+        """Returns the win rate and its standard error."""
         return _mean_sem(self.wins)
 
     def get_avg_cost(self) -> Tuple[float, float]:
+        """Returns the average cost per game and its standard error."""
         return _mean_sem(self.total_costs)
     
     def get_avg_tokens(self) -> Tuple[float, float]:
+        """Returns the average tokens per game and its standard error."""
         return _mean_sem(self.total_tokens)
 
     def get_avg_cost_per_turn(self) -> Tuple[float, float]:
+        """Returns the average cost per turn and its standard error.
+
+        Note: If duration is 0 (e.g. died immediately), cost/turn is assumed 0.0.
+        """
         costs_per_turn = []
         for c, d in zip(self.total_costs, self.durations):
             if d > 0:
@@ -288,12 +332,15 @@ class AgentMetrics:
         return _mean_sem(self.wins_by_role.get(role, []))
 
     def get_irp(self) -> Tuple[float, float]:
+        """Returns IRP (Identification Precision) mean and sem."""
         return _mean_sem(self.irp_scores)
 
     def get_vss(self) -> Tuple[float, float]:
+        """Returns VSS (Voting Success Score) mean and sem."""
         return _mean_sem(self.vss_scores)
 
     def get_ksr(self) -> Tuple[float, float]:
+        """Returns KSR (Kill Survival Rate) mean and sem."""
         return _mean_sem(self.survival_scores)
 
     def get_ksr_for_role(self, role: str) -> Tuple[float, float]:
@@ -313,7 +360,11 @@ class AgentMetrics:
 
 
 class GameSetEvaluator:
-    """Evaluates a set of game replays and calculates metrics for each agent."""
+    """Evaluates a set of game replays and calculates metrics for each agent.
+
+    This class handles the loading of games, computation of various metrics
+    (Win Rate, IRP, VSS, Elo, OpenSkill, GTE), and generation of plots.
+    """
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
                  preserve_full_game_records: bool = False):
@@ -354,6 +405,7 @@ class GameSetEvaluator:
 
     @staticmethod
     def _compute_elo_ratings(games: List) -> Dict[str, float]:
+        """Computes Elo ratings for a set of games using a team-based update."""
         elos = defaultdict(_default_elo)
         for game in games:
             villager_agents = []
@@ -378,6 +430,7 @@ class GameSetEvaluator:
 
     @staticmethod
     def _compute_openskill_ratings(games: List, model) -> Dict[str, object]:
+        """Computes OpenSkill (TrueSkill-like) ratings."""
         if not OPENSKILL_AVAILABLE or not model:
             return {}
 

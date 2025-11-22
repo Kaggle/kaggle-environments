@@ -18,7 +18,14 @@ def _load_json(file_path):
 
 
 def get_games(input_dir: str) -> List[dict]:
-    """Loads all game replay JSONs from a directory, walking subdirectories."""
+    """Loads all game replay JSONs from a directory, walking subdirectories.
+
+    Args:
+        input_dir: The root directory to search for .json replay files.
+
+    Returns:
+        A list of dictionaries, each representing a loaded game replay.
+    """
     game_files = []
     for root, _, files in os.walk(input_dir):
         for file in files:
@@ -41,7 +48,17 @@ def _load_game_result(args):
 
 def get_game_results(input_dir: str, preserve_full_record: bool = False,
                      max_workers: Optional[int] = None) -> List["GameResult"]:
-    """Loads all game replays and returns GameResult objects, in parallel."""
+    """Loads all game replays and returns GameResult objects, in parallel.
+
+    Args:
+        input_dir: The root directory to search for .json replay files.
+        preserve_full_record: If True, keeps the entire game JSON in memory
+            (useful for debugging but consumes significant RAM).
+        max_workers: The maximum number of worker processes to use.
+
+    Returns:
+        A list of GameResult objects.
+    """
     game_files = []
     for root, _, files in os.walk(input_dir):
         for file in files:
@@ -69,9 +86,32 @@ Player = namedtuple('Player', ['id', 'agent', 'role', 'alive'])
 
 
 class GameResult:
-    """A memory-efficient representation of a game's outcome."""
+    """A memory-efficient representation of a game's outcome.
+
+    This class processes a raw game replay dictionary to extract only the
+    necessary information for evaluation, such as winners, player roles,
+    voting history, and costs.
+
+    Attributes:
+        winner_team (Team): The team that won the game.
+        players (List[Player]): A list of Player namedtuples.
+        villagers (Set[int]): A set of player IDs belonging to the Villager team.
+        wolves (Set[int]): A set of player IDs belonging to the Werewolf team.
+        id_to_agent (Dict[int, str]): A mapping from player ID to agent display name.
+        player_costs (Dict[int, float]): Mapping of player ID to total USD cost.
+        player_tokens (Dict[int, int]): Mapping of player ID to total tokens used.
+        irp_results (List[Tuple[str, int]]): Voting accuracy data for IRP metric.
+        vss_results (List[Tuple[str, int]]): Voting accuracy data for VSS metric.
+        player_durations (Dict[int, int]): Mapping of player ID to days survived.
+    """
 
     def __init__(self, game_json: Dict, preserve_full_record: bool = False):
+        """Initializes the GameResult.
+
+        Args:
+            game_json: The raw dictionary of the game replay.
+            preserve_full_record: Whether to store the full `game_json` object.
+        """
         if preserve_full_record:
             self.game_json = structify(game_json)
             game_end_info = self.game_json.info.GAME_END
@@ -163,9 +203,17 @@ class GameResult:
         return out
 
     def _precompute_voting_results(self, moderator_observation, game_end_info):
-        """
-        Extracts IRP and VSS scores from the moderator observation log.
-        Also computes player durations (turns survived).
+        """Extracts IRP, VSS scores and player durations from logs.
+
+        This method processes the log once and stores the results, allowing the
+        large observation object to be garbage collected.
+
+        Args:
+            moderator_observation: The raw event log from the moderator.
+            game_end_info: The game end summary object.
+
+        Returns:
+            A tuple containing (irp_results, vss_results, player_durations).
         """
         day_vote_events = {}
         werewolf_exile_events = {}
@@ -200,27 +248,10 @@ class GameResult:
                         
                 elif data_type == "WerewolfNightEliminationElectedDataEntry":
                      # This entry implies a night elimination
-                     # We assume the JSON structure matches records.py
-                     # It usually has elected_target_player_id, but might not have day directly in data
-                     # We rely on the event's implied timing. But wait, the entry might not have 'day'.
-                     # Usually moderator observation is a list of lists of records.
-                     # We might need to check the parent event description or context?
-                     # Actually, let's check if ELIMINATION event exists which is generic.
                      pass
                 
                 # Generic check for ELIMINATION event which engine.py logs
                 if getattr(entry, 'event_name', '') == 'ELIMINATION':
-                    # engine.py: self.state.push_event(..., event_name=EventName.ELIMINATION, public=True, data=data)
-                    # data is DayExileElectedDataEntry or similar.
-                    # Actually engine.py only logs ELIMINATION for day exile.
-                    # Night elimination is logged as VOTE_RESULT visible to wolves.
-                    # But night elimination manager resolves elimination.
-                    # Wait, does engine.py log a generic elimination event?
-                    # engine.py _handle_day_voting_conclude -> EventName.ELIMINATION
-                    # engine.py _handle_night_conclude -> EventName.VOTE_RESULT (private to wolves)
-                    # BUT the elimination manager likely resolves it.
-                    # We might miss night eliminations if we only look for public events.
-                    # However, game_end_info.elimination_info usually contains who eliminated whom and when.
                     pass
 
         # Use elimination_info from game_end_info if available for accurate durations
@@ -261,15 +292,13 @@ class GameResult:
         return irp_results, vss_results, player_durations
 
     def iterate_voting_mini_game(self):
-        """
-        Returns the pre-computed voting results.
+        """Returns the pre-computed voting results.
+
         Returns:
-            (irp_results, vss_results)
-            irp_results: List[Tuple[str, int]]
-                A list of (agent_name, score) for everyday vote cast by a villager.
-                Score is 1 if they voted for a werewolf, 0 otherwise.
-            vss_results: List[Tuple[str, int]]
-                A list of (agent_name, score) for villager votes on days a werewolf was exiled.
-                Score is 1 if they voted for the exiled werewolf, 0 otherwise.
+            tuple: A tuple containing:
+                - irp_results (List[Tuple[str, int]]): (agent_name, score) for everyday vote cast by a villager.
+                  Score is 1 if they voted for a werewolf, 0 otherwise.
+                - vss_results (List[Tuple[str, int]]): (agent_name, score) for villager votes on days a werewolf was exiled.
+                  Score is 1 if they voted for the exiled werewolf, 0 otherwise.
         """
         return self.irp_results, self.vss_results
