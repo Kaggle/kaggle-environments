@@ -230,19 +230,19 @@ class VoteOrderDataEntry(DataEntry):
 class WerewolfNightEliminationElectedDataEntry(DataEntry):
     """This record the elected elimination target by werewolves."""
 
-    elected_target_player_id: PlayerID
+    elected_target_player_id: Optional[PlayerID]
 
 
 class WerewolfNightEliminationDataEntry(DataEntry):
     """This record the one eventually got eliminated by werewolves without doctor safe."""
 
-    eliminated_player_id: PlayerID
+    eliminated_player_id: Optional[PlayerID]
     eliminated_player_role_name: Optional[RoleConst] = None
     eliminated_player_team_name: Optional[Team] = None
 
 
 class DayExileElectedDataEntry(DataEntry):
-    elected_player_id: PlayerID
+    elected_player_id: Optional[PlayerID]
     elected_player_role_name: Optional[RoleConst] = None
     elected_player_team_name: Optional[Team] = None
 

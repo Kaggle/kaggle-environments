@@ -73,6 +73,20 @@ class Ballot:
         """Returns a copy of all recorded ballots."""
         return self._ballots.copy()
 
+    def get_tie_break_description(self):
+        if self._tie_selection == TieBreak.RANDOM:
+            return (
+                "Ties result in random selection amongst the top ties. "
+                "If no valid vote available (if all casted abstained votes), "
+                "will result in random elimination of one player."
+            )
+
+        elif self._tie_selection == TieBreak.NO_EXILE:
+            return "Ties result in no elimination."
+
+        else:
+            raise ValueError(f"Unsupported tie_break={self._tie_selection}.")
+
 
 @register_protocol()
 class SimultaneousMajority(VotingProtocol):
@@ -103,14 +117,7 @@ class SimultaneousMajority(VotingProtocol):
     @property
     def rule(self) -> str:
         rule = "Player with the most votes is exiled. "
-        if self._tie_break == TieBreak.RANDOM:
-            rule += (
-                "Ties result in random selection amongst the top ties. "
-                "If no valid vote available (if all casted abstained votes), "
-                "will result in random elimination of one player."
-            )
-        elif self._tie_break == TieBreak.NO_EXILE:
-            rule += "Ties result in no exile."
+        rule += self._ballot.get_tie_break_description()
         return rule
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
@@ -271,10 +278,9 @@ class SequentialVoting(VotingProtocol):
 
     @property
     def rule(self) -> str:
-        return (
-            "Players vote one by one. Player with the most votes after all have voted is exiled."
-            " Ties are broken randomly."
-        )
+        rule_txt = "Players vote one by one. Player with the most votes after all have voted is exiled. "
+        rule_txt += self._ballot.get_tie_break_description()
+        return rule_txt
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         if self._player_ids is None:
