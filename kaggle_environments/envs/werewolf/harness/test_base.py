@@ -33,3 +33,11 @@ def test_together():
     model = "together_ai/deepseek-ai/DeepSeek-R1"
     response = litellm.completion(model=model, messages=[{"role": "user", "content": "hi"}])
     print(response)
+
+
+@pytest.mark.skip("Require the key to run test.")
+def test_gemini():
+    # model = "vertex_ai/gemini-3-pro-preview"
+    model = "openrouter/google/gemini-3-pro-preview"
+    response = litellm.completion(model=model, messages=[{"role": "user", "content": "hi"}])
+    print(response)
