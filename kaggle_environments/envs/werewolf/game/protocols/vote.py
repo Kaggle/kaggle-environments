@@ -116,7 +116,7 @@ class SimultaneousMajority(VotingProtocol):
 
     @property
     def rule(self) -> str:
-        rule = "Player with the most votes is exiled. "
+        rule = "Player with the most votes is eliminated. "
         rule += self._ballot.get_tie_break_description()
         return rule
 
@@ -278,7 +278,7 @@ class SequentialVoting(VotingProtocol):
 
     @property
     def rule(self) -> str:
-        rule_txt = "Players vote one by one. Player with the most votes after all have voted is exiled. "
+        rule_txt = "Players vote one by one. Player with the most votes after all have voted is eliminated. "
         rule_txt += self._ballot.get_tie_break_description()
         return rule_txt
 
