@@ -135,5 +135,5 @@ export const getPokerStepFromUrlParams = (params: URLSearchParams, gameSteps: Re
     return gameSteps.findIndex((s) => s.currentHandIndex === Number(hand) - 1);
   }
 
-  return Number(params.get('step'));
+  return params.get('step') === null ? -1 : Number(params.get('step'));
 };

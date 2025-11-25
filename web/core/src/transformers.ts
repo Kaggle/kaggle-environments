@@ -110,7 +110,7 @@ export const getStepFromUrlParams = (params: URLSearchParams, gameName: string, 
     case 'open_spiel_repeated_poker':
       return getPokerStepFromUrlParams(params, gameSteps as RepeatedPokerStep[]);
     default:
-      return Number(params.get('step'));
+      return params.get('step') === null ? -1 : Number(params.get('step'));
   }
 };
 
