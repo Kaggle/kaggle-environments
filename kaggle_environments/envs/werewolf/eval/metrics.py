@@ -295,6 +295,10 @@ class AgentMetrics:
         self.wd_irp_scores: List[int] = []
         self.wd_vss_scores: List[int] = []
 
+        # Dominance Metrics (winning games only)
+        self.margin_of_win_scores: List[float] = []
+        self.speed_of_win_scores: List[float] = []
+
         # Costs
         self.total_costs: List[float] = []
         self.total_tokens: List[int] = []
@@ -369,6 +373,14 @@ class AgentMetrics:
 
     def get_wd_vss(self) -> Tuple[float, float]:
         return _mean_sem(self.wd_vss_scores)
+
+    def get_margin_of_win(self) -> Tuple[float, float]:
+        """Returns Margin of Win (living teammates / total teammates) mean and sem, for winning games."""
+        return _mean_sem(self.margin_of_win_scores)
+
+    def get_speed_of_win(self) -> Tuple[float, float]:
+        """Returns Speed of Win (1 / turn count) mean and sem, for winning games."""
+        return _mean_sem(self.speed_of_win_scores)
 
 
 class GameSetEvaluator:
@@ -565,6 +577,24 @@ class GameSetEvaluator:
             player_tokens = getattr(game, 'player_tokens', {})
             player_durations = getattr(game, 'player_durations', {})
 
+            # --- Calculate dominance metrics for the winning team ---
+            margin_of_win = 0.0
+            speed_of_win = 0.0
+            if game.winner_team is not None:
+                # Margin of win
+                winning_team_players = [p for p in game.players if p.role.team == game.winner_team]
+                if winning_team_players:
+                    total_team_size = len(winning_team_players)
+                    living_teammates = sum(1 for p in winning_team_players if p.alive)
+                    margin_of_win = living_teammates / total_team_size
+
+                # Speed of win
+                game_duration = 0
+                if player_durations:
+                    game_duration = max(player_durations.values())
+                if game_duration > 0:
+                    speed_of_win = 1.0 / game_duration
+
             for player in game.players:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
@@ -577,6 +607,10 @@ class GameSetEvaluator:
                 self.metrics[agent_name].wins_by_role[player.role.name].append(won)
                 self.metrics[agent_name].survival_scores.append(survived)
                 self.metrics[agent_name].survival_by_role[player.role.name].append(survived)
+
+                if won:
+                    self.metrics[agent_name].margin_of_win_scores.append(margin_of_win)
+                    self.metrics[agent_name].speed_of_win_scores.append(speed_of_win)
 
                 # WD-KSR is the joint probability of winning AND surviving
                 wd_ksr_score = 1 if won and survived else 0
@@ -693,6 +727,13 @@ class GameSetEvaluator:
             print(f"    WD-IRP: {wd_irp:.2f} ± {wd_irp_std * 1.96:.2f} (CI95)")
             print(f"    WD-VSS: {wd_vss:.2f} ± {wd_vss_std * 1.96:.2f} (CI95)")
 
+            print("  Dominance Metrics (in winning games):")
+            margin_of_win, margin_of_win_std = stats.get_margin_of_win()
+            speed_of_win, speed_of_win_std = stats.get_speed_of_win()
+            n_wins = len(stats.margin_of_win_scores)
+            print(f"    Margin of Win: {margin_of_win:.2f} ± {margin_of_win_std * 1.96:.2f} (CI95) ({n_wins} wins)")
+            print(f"    Speed of Win: {speed_of_win:.2f} ± {speed_of_win_std * 1.96:.2f} (CI95) ({n_wins} wins)")
+
             # Cost Stats
             avg_cost, cost_sem = stats.get_avg_cost()
             avg_tokens, tokens_sem = stats.get_avg_tokens()
@@ -746,25 +787,33 @@ class GameSetEvaluator:
                 {'agent': agent_name, 'metric': 'WD-VSS', 'value': wd_vss, 'CI95': wd_vss_std * 1.96, 'category': 'Win-Dependent Metrics'}
             ])
 
-            # 4. Role Specific Win Rates
+            # 4. Dominance Metrics
+            margin_of_win, margin_of_win_std = metrics.get_margin_of_win()
+            speed_of_win, speed_of_win_std = metrics.get_speed_of_win()
+            plot_data.extend([
+                {'agent': agent_name, 'metric': 'Margin of Win', 'value': margin_of_win, 'CI95': margin_of_win_std * 1.96, 'category': 'Dominance Metrics'},
+                {'agent': agent_name, 'metric': 'Speed of Win', 'value': speed_of_win, 'CI95': speed_of_win_std * 1.96, 'category': 'Dominance Metrics'}
+            ])
+
+            # 5. Role Specific Win Rates
             for role in sorted(metrics.wins_by_role.keys()):
                 role_rate, role_std = metrics.get_win_rate_for_role(role)
                 plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_rate, 'CI95': role_std * 1.96,
                                   'category': 'Role-Specific Win Rate'})
 
-            # 5. Role Specific Survival
+            # 6. Role Specific Survival
             for role in sorted(metrics.survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
                 plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
                                   'category': 'Role-Specific KSR'})
 
-            # 6. Win-Dependent Role Specific KSR
+            # 7. Win-Dependent Role Specific KSR
             for role in sorted(metrics.wd_survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_wd_ksr_for_role(role)
                 plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
                                   'category': 'Win-Dependent KSR'})
 
-            # 7. Ratings
+            # 8. Ratings
             plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
                               'category': 'Ratings'})
 
@@ -772,7 +821,7 @@ class GameSetEvaluator:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
                                   'CI95': metrics.openskill_mu_std * 1.96, 'category': 'Ratings'})
             
-            # 8. Cost
+            # 9. Cost
             avg_cost, cost_sem = metrics.get_avg_cost()
             if avg_cost > 0:
                 plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Game', 'value': avg_cost, 'CI95': cost_sem * 1.96, 'category': 'Cost'})
@@ -794,6 +843,7 @@ class GameSetEvaluator:
             'Overall',
             'Voting Accuracy',
             'Win-Dependent Metrics',
+            'Dominance Metrics',
             'Role-Specific Win Rate',
             'Role-Specific KSR',
             'Win-Dependent KSR',
