@@ -133,7 +133,7 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
-LightGame = namedtuple('LightGame', ['players', 'winner_team', 'irp_results', 'vss_results'])
+LightGame = namedtuple('LightGame', ['players', 'winner_team', 'irp_results', 'vss_results', 'player_durations'])
 
 
 # --- Worker Globals and Functions ---
@@ -168,6 +168,24 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     agent_scores = {agent: {task: [] for task in tasks} for agent in agents}
 
     for game in sampled_games:
+        # --- Calculate dominance metrics for the winning team ---
+        margin_of_win = 0.0
+        speed_of_win = 0.0
+        if game.winner_team is not None:
+            # Margin of win
+            winning_team_players = [p for p in game.players if p.role.team == game.winner_team]
+            if winning_team_players:
+                total_team_size = len(winning_team_players)
+                living_teammates = sum(1 for p in winning_team_players if p.alive)
+                margin_of_win = living_teammates / total_team_size
+
+            # Speed of win
+            game_duration = 0
+            if game.player_durations:
+                game_duration = max(game.player_durations.values()) if game.player_durations else 0
+            if game_duration > 0:
+                speed_of_win = 1.0 / game_duration
+
         for player in game.players:
             agent_name = player.agent.display_name
             if agent_name not in agent_set:
@@ -196,6 +214,12 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
             wd_ksr_task = f'WD-KSR-{role_name}'
             if wd_ksr_task in task_set:
                 agent_scores[agent_name][wd_ksr_task].append(wd_ksr_score)
+
+            if won:
+                if 'Margin of Win' in task_set:
+                    agent_scores[agent_name]['Margin of Win'].append(margin_of_win)
+                if 'Speed of Win' in task_set:
+                    agent_scores[agent_name]['Speed of Win'].append(speed_of_win)
 
         # IRP & VSS
         villagers_won = game.winner_team == Team.VILLAGERS
@@ -415,13 +439,12 @@ class GameSetEvaluator:
 
         roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
         if gte_tasks == "win_dependent":
-            self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
-                              [f'WD-KSR-{r}' for r in roles] +
-                              ['WD-IRP', 'WD-VSS', 'WD-KSR'])
+            self.gte_tasks = ['WinRate-Doctor', 'WinRate-Seer', 'WinRate-Villager', 'WinRate-Werewolf',
+                              'WD-KSR-Werewolf', 'WD-KSR-Seer', 'WD-KSR-Doctor',
+                              'Margin of Win', 'Speed of Win']
         elif gte_tasks == "non_win_dependent":
             self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
-                              [f'KSR-{r}' for r in roles] +
-                              ['IRP', 'VSS', 'KSR'])
+                              ['KSR-Werewolf', 'KSR-Seer', 'KSR-Doctor', 'Margin of Win', 'Speed of Win'])
         elif isinstance(gte_tasks, list):
             self.gte_tasks = gte_tasks
         else:
@@ -520,7 +543,7 @@ class GameSetEvaluator:
             for g in self.games:
                 # Re-create lightweight players for this specific bootstrap
                 players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
-                yield LightGame(players, g.winner_team, None, None)
+                yield LightGame(players, g.winner_team, None, None, None)
 
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
@@ -544,7 +567,7 @@ class GameSetEvaluator:
         def light_games_iter():
             for g in self.games:
                 players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
-                yield LightGame(players, g.winner_team, None, None)
+                yield LightGame(players, g.winner_team, None, None, None)
         
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
@@ -661,7 +684,8 @@ class GameSetEvaluator:
                     Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
                     for p in g.players
                 ]
-                yield LightGame(players, g.winner_team, irp_results, vss_results)
+                player_durations = getattr(g, 'player_durations', {})
+                yield LightGame(players, g.winner_team, irp_results, vss_results, player_durations)
 
         samples_iterator = self._generate_bootstrap_samples(light_gte_games_iter(), num_samples)
         
