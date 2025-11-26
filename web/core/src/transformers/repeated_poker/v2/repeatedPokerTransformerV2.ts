@@ -126,3 +126,14 @@ export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): I
 
   return interestingEvents;
 };
+
+export const getPokerStepFromUrlParams = (params: URLSearchParams, gameSteps: RepeatedPokerStep[]): number => {
+  const hand = params.get('hand');
+
+  if (hand !== null) {
+    // Assume the hand URL param is 1-indexed
+    return gameSteps.findIndex((s) => s.currentHandIndex === Number(hand) - 1);
+  }
+
+  return params.get('step') === null ? -1 : Number(params.get('step'));
+};

@@ -4,6 +4,7 @@ import { ChessStep } from './transformers/chess/chessReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import {
+  getPokerStepFromUrlParams,
   getPokerStepInterestingEvents,
   getPokerStepRenderTime,
   repeatedPokerTransformerV2,
@@ -101,6 +102,15 @@ export const getGameStepRenderTime = (
       return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
+  }
+};
+
+export const getStepFromUrlParams = (params: URLSearchParams, gameName: string, gameSteps: BaseGameStep[]): number => {
+  switch (gameName) {
+    case 'open_spiel_repeated_poker':
+      return getPokerStepFromUrlParams(params, gameSteps as RepeatedPokerStep[]);
+    default:
+      return params.get('step') === null ? -1 : Number(params.get('step'));
   }
 };
 
