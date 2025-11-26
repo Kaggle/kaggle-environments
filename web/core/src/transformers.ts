@@ -7,9 +7,10 @@ import {
   getPokerStepFromUrlParams,
   getPokerStepInterestingEvents,
   getPokerStepRenderTime,
+  processPokerFile,
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGamePlayer, BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   let i = 0;
@@ -35,7 +36,11 @@ const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
   return '';
 };
 
-export const processEpisodeData = (environment: ReplayData, gameName: string): ReplayData<BaseGameStep[]> => {
+export const processEpisodeData = (
+  environment: ReplayData,
+  gameName: string,
+  dataSlice?: EpisodeSlice
+): ReplayData<BaseGameStep[]> => {
   // Check for a marker to see if it's already been transformed.
   if (environment.isTransformed) {
     return environment;
@@ -44,7 +49,7 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
   let transformedSteps: BaseGameStep[] = [];
   switch (gameName) {
     case 'open_spiel_repeated_poker':
-      transformedSteps = repeatedPokerTransformerV2(environment);
+      transformedSteps = repeatedPokerTransformerV2(environment, dataSlice);
       break;
     case 'open_spiel_chess':
       transformedSteps = chessTransformer(environment);
@@ -118,6 +123,17 @@ export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    default:
+      return [];
+  }
+};
+
+export const getEpisodesFromFile = async (file: File, gameName: string): Promise<EpisodeSlice[]> => {
+  switch (gameName) {
+    case 'open_spiel_repeated_poker': {
+      const hands = await processPokerFile(file);
+      return hands;
+    }
     default:
       return [];
   }

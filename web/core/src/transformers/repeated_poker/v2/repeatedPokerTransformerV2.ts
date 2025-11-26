@@ -1,11 +1,11 @@
 import { defaultGetStepRenderTime } from '../../../timing';
-import { InterestingEvent, ReplayMode } from '../../../types';
+import { EpisodeSlice, InterestingEvent, ReplayMode } from '../../../types';
 import { PokerReplay, PokerReplayStepHistoryParsed } from './poker-replay-types';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from './poker-steps-types';
 
 import { createVisualStepsFromRepeatedPokerReplay } from './repeatedPokerTransformerUtils';
 
-export const repeatedPokerTransformerV2 = (environment: any) => {
+export const repeatedPokerTransformerV2 = (environment: any, requestedHand?: EpisodeSlice) => {
   const repeatedPokerReplay: PokerReplay = environment as PokerReplay;
   const repeatedPokerReplayStateHistory = environment.info.stateHistory;
   const agents = environment.info.Agents;
@@ -36,7 +36,25 @@ export const repeatedPokerTransformerV2 = (environment: any) => {
   // console.log(stateHistoryStepsWithReplaySteps.slice(0,13));
   // console.log(createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps.slice(0,13), agents));
 
-  return createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps, agents);
+  const visualSteps = createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps, agents);
+
+  if (requestedHand) {
+    const finalSteps: RepeatedPokerStep[] = [];
+
+    let i = 0;
+    while (i < visualSteps.length) {
+      if (visualSteps[i].currentHandIndex > requestedHand.start) {
+        break;
+      } else if (visualSteps[i].currentHandIndex === requestedHand.start) {
+        finalSteps.push(visualSteps[i]);
+      }
+      i++;
+    }
+
+    return finalSteps;
+  }
+
+  return visualSteps;
 };
 
 export const getPokerStepRenderTime = (
@@ -137,3 +155,37 @@ export const getPokerStepFromUrlParams = (params: URLSearchParams, gameSteps: Re
 
   return params.get('step') === null ? -1 : Number(params.get('step'));
 };
+
+export async function processPokerFile(file: File): Promise<EpisodeSlice[]> {
+  const results = [];
+
+  try {
+    const fileContent = await file.text();
+
+    const regex = /PokerStars Hand #(\d+):/g;
+    let match;
+
+    while ((match = regex.exec(fileContent)) !== null) {
+      const fullIdString = match[1];
+
+      if (fullIdString.length < 5) {
+        console.warn(`ID "${fullIdString}" is too short to be parsed.`);
+        continue;
+      }
+
+      const episodeId = parseInt(fullIdString.slice(0, -5), 10);
+      const handId = parseInt(fullIdString.slice(-5), 10);
+
+      results.push({
+        id: episodeId,
+        start: handId,
+        title: `Hand #${handId + 1}`,
+      });
+    }
+  } catch (error) {
+    console.error('Error reading file:', error);
+    throw error;
+  }
+
+  return results;
+}
