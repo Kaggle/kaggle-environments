@@ -412,6 +412,13 @@ class GameSetEvaluator:
 
     This class handles the loading of games, computation of various metrics
     (Win Rate, IRP, VSS, Elo, OpenSkill, GTE), and generation of plots.
+
+    IRP: Identification Precision. Quantifies the precision with which a player deduces the roles of other
+        participants in Werewolf.
+    VSS: Voting Success Score. Assesses the efficacy of a player's voting decisions during pivotal moments in a
+        game of Werewolf. (When a werewolf is exiled, did the player (in villager team) vote for the exiled?
+    KSR: Key Role Survival Rate. Evaluates the likelihood of key roles, such as Seer or Werewolf surviving until the
+        end of the game.
     """
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
