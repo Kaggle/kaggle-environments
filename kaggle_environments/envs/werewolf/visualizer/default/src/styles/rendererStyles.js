@@ -402,17 +402,16 @@ export const rendererCss = `
     margin-top: 6px;
 }
 
-.player-avatar-3d {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    background-color: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.4);
-    box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    margin-bottom: 4px;
-}
-
+        .player-avatar-3d {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.4);
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            margin-bottom: 4px;
+        }
 .player-text-details {
     display: flex;
     flex-direction: column;
