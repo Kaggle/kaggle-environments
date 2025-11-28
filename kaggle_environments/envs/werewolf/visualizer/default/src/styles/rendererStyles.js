@@ -475,6 +475,18 @@ export const rendererCss = `
     line-height: 1.4;
 }
 
+.capsule-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 4px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: #ffffff;
+    vertical-align: middle;
+    display: inline-block;
+}
+
 /* --- End New Unified Player UI Component --- */
 
 .left-panel:hover, .right-panel:hover {
