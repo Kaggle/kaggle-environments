@@ -1,0 +1,70 @@
+export class LightingManager {
+  constructor(scene, THREE) {
+    this.scene = scene;
+    this.THREE = THREE;
+
+    this.ambientLight = null;
+    this.rimLight = null;
+    this.hemiLight = null;
+    this.fillLight = null;
+    this.spotLight = null;
+
+    this.init();
+  }
+
+  init() {
+    // Ambient Light
+    this.ambientLight = new this.THREE.AmbientLight(0x4a4a3a, 0.5);
+    this.ambientLight.name = 'ambientLight';
+    this.scene.add(this.ambientLight);
+
+    // Rim Light
+    this.rimLight = new this.THREE.DirectionalLight(0xaa6633, 0);
+    this.rimLight.position.set(-20, 10, -30);
+    this.scene.add(this.rimLight);
+
+    // Hemisphere Light
+    this.hemiLight = new this.THREE.HemisphereLight(0x6a7a9a, 0x3a2a1a, 0.5);
+    this.scene.add(this.hemiLight);
+
+    // Fill Light
+    this.fillLight = new this.THREE.DirectionalLight(0x5a4a3a, 0.15);
+    this.fillLight.position.set(0, -1, 0);
+    this.scene.add(this.fillLight);
+
+    // Spot Light
+    this.spotLight = new this.THREE.SpotLight(0xffaa66, 0.8, 50, Math.PI / 3, 0.8, 2);
+    this.spotLight.position.set(0, 25, 0);
+    this.spotLight.castShadow = true;
+    this.spotLight.visible = false;
+    this.scene.add(this.spotLight);
+    this.scene.add(this.spotLight.target);
+  }
+
+  update(phase) {
+    if (this.rimLight) {
+      const nightColor = new this.THREE.Color(0x664422);
+      const dayColor = new this.THREE.Color(0xaa6633);
+      this.rimLight.color.copy(dayColor).lerp(nightColor, phase);
+      this.rimLight.intensity = 0.3 - phase * 0.1;
+    }
+
+    if (this.hemiLight) {
+      const nightSkyColor = new this.THREE.Color(0x2a2a4a);
+      const daySkyColor = new this.THREE.Color(0x6a7a9a);
+      const nightGroundColor = new this.THREE.Color(0x2a1a0a);
+      const dayGroundColor = new this.THREE.Color(0x3a2a1a);
+
+      this.hemiLight.color.copy(daySkyColor).lerp(nightSkyColor, phase);
+      this.hemiLight.groundColor.copy(dayGroundColor).lerp(nightGroundColor, phase);
+      this.hemiLight.intensity = 0.4 - phase * 0.1;
+    }
+
+    if (this.ambientLight) {
+      const nightColor = new this.THREE.Color(0x3a3a5a);
+      const dayColor = new this.THREE.Color(0x4a4a3a);
+      this.ambientLight.color.copy(dayColor).lerp(nightColor, phase);
+      this.ambientLight.intensity = 0.1;
+    }
+  }
+}
