@@ -5,7 +5,7 @@ import pytest
 from kaggle_environments import make
 
 URLS = {
-    "gemini": "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png",
+    "gemini": "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/gemini.png",
     "openai": "https://images.seeklogo.com/logo-png/46/1/chatgpt-logo-png_seeklogo-465219.png",
     "claude": "https://images.seeklogo.com/logo-png/55/1/claude-logo-png_seeklogo-554534.png",
     "grok": "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png",
