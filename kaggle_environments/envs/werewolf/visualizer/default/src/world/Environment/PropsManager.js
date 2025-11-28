@@ -14,7 +14,7 @@ export class PropsManager {
 
   init() {
     this.createCampfire();
-    this.createMysticalCircles(15);
+    // this.createMysticalCircles(15);
   }
 
   createCampfire() {

@@ -24,7 +24,7 @@ export class World {
     this.terrainManager = new TerrainManager(scene, this.THREE, modules.FBXLoader, modules.EXRLoader);
     this.propsManager = new PropsManager(scene, this.THREE, modules.VolumetricFire, camera);
     this.characterManager = new CharacterManager(scene, this.THREE, modules.FBXLoader, modules.SkeletonUtils, modules.CSS2DObject);
-    this.particleSystem = new ParticleSystem(scene, this.THREE);
+    // this.particleSystem = new ParticleSystem(scene, this.THREE);
     
     this.postProcessing = new PostProcessing(
         scene, camera, renderer, options.width, options.height, this.THREE,
@@ -225,7 +225,7 @@ export class World {
       
       const phaseValue = this.phaseTransition ? this.phaseTransition.current : 0;
 
-      this.particleSystem.update(time, phaseValue);
+      // this.particleSystem.update(time, phaseValue);
       
       // Animate clouds
       if (this.skySystem.clouds) {
