@@ -36,9 +36,6 @@ export class PostProcessing {
     );
     this.composer.addPass(this.bloomPass);
 
-    this.filmPass = new this.FilmPass(0.15, 0.1, 0, false);
-    this.composer.addPass(this.filmPass);
-
     const atmosphereShader = {
       uniforms: {
         'tDiffuse': { value: null },
