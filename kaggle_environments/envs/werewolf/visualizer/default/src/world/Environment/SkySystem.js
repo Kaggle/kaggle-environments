@@ -380,80 +380,70 @@ export class SkySystem {
   }
 
   updateSkySystem(phase) {
-    let dayProgress = 0;
     if (!this.sky || !this.sunLight || !this.moonLight) return;
 
-    let sunElevation, sunAzimuth, moonElevation, moonAzimuth;
     const sunDistance = 400;
     const moonDistance = 400;
+    const cycleAngle = phase * 2 * Math.PI; // 0 to 2PI
 
-    if (phase <= 0.5) {
-      dayProgress = phase * 2;
-      sunAzimuth = ((90 + dayProgress * 180) * Math.PI) / 180;
-      const maxElevation = (60 * Math.PI) / 180;
-      sunElevation = Math.sin(dayProgress * Math.PI) * maxElevation;
-      if (dayProgress > 0.1 && dayProgress < 0.9) {
-        sunElevation = Math.max(sunElevation, (5 * Math.PI) / 180);
-      }
-      moonElevation = (-10 * Math.PI) / 180;
-      moonAzimuth = (sunAzimuth + Math.PI) % (2 * Math.PI);
-    } else {
-      const nightProgress = (phase - 0.5) * 2;
-      moonAzimuth = ((90 + nightProgress * 180) * Math.PI) / 180;
-      const maxMoonElevation = (25 * Math.PI) / 180;
-      moonElevation = Math.sin(nightProgress * Math.PI) * maxMoonElevation;
-      if (nightProgress > 0.1 && nightProgress < 0.9) {
-        moonElevation = Math.max(moonElevation, (5 * Math.PI) / 180);
-      }
-      sunElevation = (-10 * Math.PI) / 180;
-      sunAzimuth = (moonAzimuth + Math.PI) % (2 * Math.PI);
-    }
+    // --- Sun Trajectory (Overhead) ---
+    // Rise East (+X), Set West (-X)
+    const sunX = sunDistance * Math.cos(cycleAngle);
+    const sunY = sunDistance * Math.sin(cycleAngle);
+    const sunZ = 0;
 
-    const sunX = sunDistance * Math.sin(sunAzimuth) * Math.cos(sunElevation);
-    const sunY = sunDistance * Math.sin(sunElevation);
-    const sunZ = sunDistance * Math.cos(sunAzimuth) * Math.cos(sunElevation);
+    // --- Moon Trajectory (Tilted Arc) ---
+    // Opposite to Sun
+    const moonAngle = cycleAngle + Math.PI;
+    const moonTilt = 0.5; // ~28 degrees tilt
+    const moonX = moonDistance * Math.cos(moonAngle);
+    const moonY = moonDistance * Math.sin(moonAngle) * Math.cos(moonTilt);
+    const moonZ = moonDistance * Math.sin(moonAngle) * Math.sin(moonTilt);
+
+    // Update Sun
     this.sunPosition.set(sunX, sunY, sunZ);
     this.sky.material.uniforms['sunPosition'].value.copy(this.sunPosition);
 
     this.sunLight.position.copy(this.sunPosition);
     this.sunLight.target.position.set(0, 0, 0);
-    const sunIntensity = Math.sin(dayProgress * Math.PI);
+    const sunIntensity = Math.max(0, Math.sin(cycleAngle));
     this.sunLight.intensity = sunIntensity * 1.2;
-    this.sunLight.visible = sunElevation > 0;
+    this.sunLight.visible = sunY > 0;
 
-    const sunColorTemp = sunElevation < (10 * Math.PI) / 180
+    const sunColorTemp = sunY > 0 && sunY < 100
       ? new this.THREE.Color(0xffaa66)
       : new this.THREE.Color(0xffffff);
     this.sunLight.color = sunColorTemp;
 
-    const moonX = moonDistance * Math.sin(moonAzimuth) * Math.cos(moonElevation);
-    const moonY = moonDistance * Math.sin(moonElevation);
-    const moonZ = moonDistance * Math.cos(moonAzimuth) * Math.cos(moonElevation);
-
+    // Update Moon
     if (this.moonMesh) {
       this.moonMesh.position.set(moonX, moonY, moonZ);
-      this.moonMesh.lookAt(0, 0, 0); // Face the center
-      this.moonMesh.visible = moonElevation > 0;
-      const moonScale = 1 + Math.max(0, (1 - Math.abs(moonElevation) / ((10 * Math.PI) / 180)) * 0.3);
+      this.moonMesh.lookAt(0, 0, 0);
+      this.moonMesh.visible = moonY > 0;
+      
+      const moonScale = 1 + Math.max(0, (1 - Math.abs(moonY) / 100) * 0.5);
       this.moonMesh.scale.setScalar(moonScale);
       
       if (this.moonSphere) {
-         // Rotate the moon sphere itself to show texture spinning
          this.moonSphere.rotation.y = phase * Math.PI * 4; 
       }
       
       if (this.moonGlow && this.moonGlow.material) {
-        this.moonGlow.material.opacity = moonElevation > 0 ? 0.3 * Math.max(0, Math.sin(moonElevation)) : 0;
+        this.moonGlow.material.opacity = moonY > 0 ? 0.3 : 0;
       }
     }
 
     this.moonLight.position.set(moonX, moonY, moonZ);
     this.moonLight.target.position.set(0, 0, 0);
-    this.moonLight.visible = moonElevation > 0;
-    this.moonLight.intensity = moonElevation > 0 ? 0.8 : 0; // Increased intensity for blood moon
+    this.moonLight.visible = moonY > 0;
+    this.moonLight.intensity = moonY > 0 ? 0.8 : 0;
 
+    // --- Atmosphere & Post-Processing (Phase Dependent) ---
     const skyUniforms = this.sky.material.uniforms;
+    let dayProgress = 0;
+
     if (phase <= 0.5) {
+      // DAY
       dayProgress = phase * 2;
       if (dayProgress < 0.1 || dayProgress > 0.9) {
         const transitionFactor = dayProgress < 0.1 ? dayProgress * 10 : (1 - dayProgress) * 10;
@@ -470,8 +460,8 @@ export class SkySystem {
         skyUniforms['mieDirectionalG'].value = 0.9;
       }
     } else {
+      // NIGHT
       const nightProgress = (phase - 0.5) * 2;
-      // Blood Moon Atmosphere
       if (nightProgress < 0.1 || nightProgress > 0.9) {
         const transitionFactor = nightProgress < 0.1 ? 1 - nightProgress * 10 : nightProgress * 10;
         skyUniforms['turbidity'].value = 0.6 + (10 - 0.6) * transitionFactor;
@@ -479,9 +469,8 @@ export class SkySystem {
         skyUniforms['mieCoefficient'].value = 0.01 - (0.01 - 0.005) * transitionFactor;
         skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
       } else {
-        // Deep red/dark atmosphere settings for blood moon
         skyUniforms['turbidity'].value = 10;
-        skyUniforms['rayleigh'].value = 2.0; // Higher rayleigh for redder sky
+        skyUniforms['rayleigh'].value = 2.0; 
         skyUniforms['mieCoefficient'].value = 0.005;
         skyUniforms['mieDirectionalG'].value = 0.8;
       }
@@ -515,11 +504,11 @@ export class SkySystem {
       let godRayIntensity = 0;
       let godRayColor = 0xffeeaa;
 
-      if (phase <= 0.5 && sunElevation > 0) {
-        if (sunElevation < (15 * Math.PI) / 180) {
+      if (phase <= 0.5 && sunY > 0) {
+        if (sunY < 100) {
           godRayIntensity = 1.0;
           godRayColor = 0xffaa66;
-        } else if (sunElevation < (30 * Math.PI) / 180) {
+        } else if (sunY < 200) {
           godRayIntensity = 0.6;
           godRayColor = 0xffddaa;
         } else {
@@ -528,13 +517,13 @@ export class SkySystem {
         }
         godRayVisible = true;
         godRayPosition = this.sunPosition.clone();
-      } else if (phase > 0.5 && moonElevation > 0) {
-        godRayIntensity = 0.8; // Stronger god rays at night
-        godRayColor = 0xff3333; // Blood red god rays
+      } else if (phase > 0.5 && moonY > 0) {
+        // Optional: Moon god rays
+        // godRayIntensity = 0.8;
+        // godRayColor = 0xff3333;
+        // godRayVisible = true;
+        // godRayPosition = this.moonMesh.position.clone();
         godRayVisible = false;
-        if (this.moonMesh) {
-            godRayPosition = this.moonMesh.position.clone();
-        }
       }
 
       this.godRayGroup.visible = godRayVisible && this.godRayIntensity > 0;
