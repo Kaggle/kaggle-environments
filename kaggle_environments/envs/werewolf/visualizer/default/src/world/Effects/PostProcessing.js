@@ -61,11 +61,24 @@ export class PostProcessing {
             void main() {
               vec4 color = texture2D(tDiffuse, vUv);
               if (phase > 0.5) {
-                color.rgb = mix(color.rgb, color.rgb * vec3(0.85, 0.9, 1.15), 0.3);
-                color.rgb = pow(color.rgb, vec3(1.05));
+                // Night Phase - Blood Moon Theme
+                // Shift towards red/purple, increase contrast
+                vec3 nightTint = vec3(1.1, 0.8, 0.9); // Reddish tint
+                color.rgb = mix(color.rgb, color.rgb * nightTint, 0.4);
+                
+                // Enhance reds specifically
+                float redBoost = color.r * 0.2;
+                color.r += redBoost;
+                
+                // Darken slightly for mood
+                color.rgb *= 0.9;
+                
+                color.rgb = pow(color.rgb, vec3(1.1)); // Contrast
               } else {
+                // Day Phase
                 color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.0, 0.95), 0.2);
               }
+              
               vec2 center = vec2(0.5, 0.5);
               float dist = distance(vUv, center);
               float vignette = 1.0 - smoothstep(0.4, 1.0, dist);

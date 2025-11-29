@@ -8,6 +8,7 @@ export class SkySystem {
     this.sunLight = null;
     this.moonLight = null;
     this.moonMesh = null;
+    this.moonSphere = null; // Actual rotating sphere inside the moonMesh group
     this.moonGlow = null;
     this.godRayGroup = null;
     this.godRays = [];
@@ -71,7 +72,7 @@ export class SkySystem {
     this.scene.add(this.sunLight.target);
 
     // Moon Light
-    this.moonLight = new this.THREE.DirectionalLight(0xff6633, 0.6);
+    this.moonLight = new this.THREE.DirectionalLight(0xff6633, 0.6); // Blood orange, slightly brighter
     this.moonLight.castShadow = true;
     this.moonLight.shadow.mapSize.width = 1024;
     this.moonLight.shadow.mapSize.height = 1024;
@@ -90,6 +91,10 @@ export class SkySystem {
     const textureLoader = new this.THREE.TextureLoader();
     const moonTexture = textureLoader.load('/static/moon_texture.jpg');
 
+    // Group to hold moon mesh and glow (handles orbit and facing)
+    this.moonMesh = new this.THREE.Group();
+
+    // Giant blood moon sphere
     const moonGeometry = new this.THREE.SphereGeometry(25, 64, 64);
     const moonMaterial = new this.THREE.MeshStandardMaterial({
       map: moonTexture,
@@ -101,10 +106,12 @@ export class SkySystem {
       metalness: 0.0,
     });
 
-    this.moonMesh = new this.THREE.Mesh(moonGeometry, moonMaterial);
-    this.moonMesh.castShadow = false;
-    this.moonMesh.receiveShadow = false;
+    this.moonSphere = new this.THREE.Mesh(moonGeometry, moonMaterial);
+    this.moonSphere.castShadow = false;
+    this.moonSphere.receiveShadow = false;
+    this.moonMesh.add(this.moonSphere);
 
+    // Red surrounding glow
     const moonGlowGeometry = new this.THREE.SphereGeometry(30, 32, 32);
     const moonGlowMaterial = new this.THREE.MeshBasicMaterial({
       color: 0xdd5522,
@@ -376,18 +383,25 @@ export class SkySystem {
 
     if (this.moonMesh) {
       this.moonMesh.position.set(moonX, moonY, moonZ);
+      this.moonMesh.lookAt(0, 0, 0); // Face the center
       this.moonMesh.visible = moonElevation > 0;
       const moonScale = 1 + Math.max(0, (1 - Math.abs(moonElevation) / ((10 * Math.PI) / 180)) * 0.3);
       this.moonMesh.scale.setScalar(moonScale);
+      
+      if (this.moonSphere) {
+         // Rotate the moon sphere itself to show texture spinning
+         this.moonSphere.rotation.y = phase * Math.PI * 4; 
+      }
+      
       if (this.moonGlow && this.moonGlow.material) {
-        this.moonGlow.material.opacity = moonElevation > 0 ? 0.15 * Math.max(0, Math.sin(moonElevation)) : 0;
+        this.moonGlow.material.opacity = moonElevation > 0 ? 0.3 * Math.max(0, Math.sin(moonElevation)) : 0;
       }
     }
 
     this.moonLight.position.set(moonX, moonY, moonZ);
     this.moonLight.target.position.set(0, 0, 0);
     this.moonLight.visible = moonElevation > 0;
-    this.moonLight.intensity = moonElevation > 0 ? 0.4 : 0;
+    this.moonLight.intensity = moonElevation > 0 ? 0.8 : 0; // Increased intensity for blood moon
 
     const skyUniforms = this.sky.material.uniforms;
     if (phase <= 0.5) {
@@ -408,6 +422,7 @@ export class SkySystem {
       }
     } else {
       const nightProgress = (phase - 0.5) * 2;
+      // Blood Moon Atmosphere
       if (nightProgress < 0.1 || nightProgress > 0.9) {
         const transitionFactor = nightProgress < 0.1 ? 1 - nightProgress * 10 : nightProgress * 10;
         skyUniforms['turbidity'].value = 0.6 + (10 - 0.6) * transitionFactor;
@@ -415,10 +430,11 @@ export class SkySystem {
         skyUniforms['mieCoefficient'].value = 0.01 - (0.01 - 0.005) * transitionFactor;
         skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
       } else {
+        // Deep red/dark atmosphere settings for blood moon
         skyUniforms['turbidity'].value = 10;
-        skyUniforms['rayleigh'].value = 0.1;
+        skyUniforms['rayleigh'].value = 2.0; // Higher rayleigh for redder sky
         skyUniforms['mieCoefficient'].value = 0.005;
-        skyUniforms['mieDirectionalG'].value = 0.7;
+        skyUniforms['mieDirectionalG'].value = 0.8;
       }
     }
 
@@ -464,10 +480,12 @@ export class SkySystem {
         godRayVisible = true;
         godRayPosition = this.sunPosition.clone();
       } else if (phase > 0.5 && moonElevation > 0) {
-        godRayIntensity = 0.4;
-        godRayColor = 0xaaccff;
+        godRayIntensity = 0.8; // Stronger god rays at night
+        godRayColor = 0xff3333; // Blood red god rays
         godRayVisible = true;
-        godRayPosition = this.moonMesh.position.clone();
+        if (this.moonMesh) {
+            godRayPosition = this.moonMesh.position.clone();
+        }
       }
 
       this.godRayGroup.visible = godRayVisible && this.godRayIntensity > 0;
