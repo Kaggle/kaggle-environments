@@ -625,6 +625,42 @@ export const rendererCss = `
     background-color: #ffffff;
 }
 
+/* Message text formatting */
+.msg-text {
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.msg-text br {
+    display: block;
+    margin-bottom: 0.5em;
+    content: "";
+}
+
+.balloon-text {
+    word-wrap: break-word;
+}
+
+.balloon-text quote {
+    display: block;
+    margin: 0;
+}
+
+/* Force Reasoning Text visibility control */
+.reasoning-text {
+    display: none !important;
+}
+.reasoning-text.visible {
+    display: block !important;
+}
+
+/* Highlight for currently playing audio */
+.now-playing {
+    background-color: rgba(255, 255, 0, 0.15) !important;
+    border-left: 4px solid #ffd700 !important;
+    transition: background-color 0.3s ease;
+}
+
 .chat-entry:hover .chat-avatar {
     border-color: rgba(116, 185, 255, 0.4);
 }
@@ -678,7 +714,7 @@ export const rendererCss = `
     border-left: 2px solid rgba(116, 185, 255, 0.3);
     line-height: 1.4;
     font-family: 'JetBrains Mono', monospace;
-    display: none;
+    display: none; /* Hidden by default */
 }
 .reasoning-text.visible {
     display: block;
