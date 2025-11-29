@@ -285,6 +285,18 @@ export const rendererCss = `
     display: none;
 }
 
+/* Enhanced Chat/Event Log */
+#chat-log {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+    margin-right: -8px;
+    min-height: 0; /* Critical for flex scrolling */
+}
+
 /* Main container: now acts as a positioning context for its children.
   Its OWN top-left corner is anchored by the CSS2DObject's 3D position.
   We will center its *content* using flex or absolute positioning.
@@ -475,16 +487,46 @@ export const rendererCss = `
     line-height: 1.4;
 }
 
+/* Enhanced Player Capsules */
+.player-capsule {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(116, 185, 255, 0.15), rgba(116, 185, 255, 0.08));
+    border: 1px solid rgba(116, 185, 255, 0.2);
+    border-radius: 16px;
+    padding: 2px 10px 2px 2px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0 2px;
+    vertical-align: middle;
+    transition: all 0.3s ease;
+}
+
+.player-capsule:hover {
+    background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1));
+    border-color: rgba(116, 185, 255, 0.3);
+}
+
 .capsule-avatar {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    margin-right: 4px;
+    margin-right: 6px;
     object-fit: cover;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background-color: #ffffff;
     vertical-align: middle;
     display: inline-block;
+}
+
+.capsule-name {
+    margin-left: 2px;
+}
+
+.capsule-display-name {
+    font-size: 0.9em;
+    color: #888;
+    margin-left: 5px;
 }
 
 /* --- End New Unified Player UI Component --- */

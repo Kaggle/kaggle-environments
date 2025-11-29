@@ -55,13 +55,10 @@ export function formatTimestamp(isoString) {
 
   export function createPlayerCapsule(player) {
     if (!player) return '';
-    let display_name_elem =
-      player.display_name && player.name !== player.display_name
-        ? `<span class="player-capsule-display-name">${player.display_name}</span>`
-        : '';
+    const nameToShow = player.display_name || player.name;
     return `<span class="player-capsule" title="${player.name}">
         <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
-        <span class="capsule-name">${player.name}</span>${display_name_elem}
+        <span class="capsule-name">${nameToShow}</span>
     </span>`;
   }
 

@@ -202,9 +202,9 @@ export function renderer(context, parent) {
   let style = parent.querySelector('style');
   if (!style) {
     style = document.createElement('style');
-    style.textContent = rendererCss;
     parent.appendChild(style);
   }
+  style.textContent = rendererCss;
 
   // --- Initialize 3D World ---
   function initThreeJs() {
