@@ -419,8 +419,12 @@ export class CharacterManager {
       glow.material.emissiveIntensity = 0.18;
     }
 
-    if (player.isAlive && mixer && animations && animations['Idle'] && !currentAction) {
-      this.playAnimation(playerName, 'Idle');
+    if (player.isAlive && mixer && animations && animations['Idle']) {
+      // Force reset to Idle if currently Talking (to stop loop) or if no action playing
+      const isTalking = currentAction && currentAction.getClip().name === 'Talking';
+      if (!currentAction || isTalking) {
+        this.playAnimation(playerName, 'Idle');
+      }
     }
   }
 
@@ -444,11 +448,17 @@ export class CharacterManager {
     const mixer = player.mixer;
     if (!mixer) return null;
 
+    // Check if already playing
+    const targetAction = mixer.clipAction(animations[animationName]);
+    if (player.currentAction === targetAction && targetAction.isRunning()) {
+        return targetAction;
+    }
+
     if (player.currentAction) {
       player.currentAction.fadeOut(options.fadeOutDuration || 0.2);
     }
 
-    const action = mixer.clipAction(animations[animationName]);
+    const action = targetAction;
     action.reset();
     action.setLoop(this.THREE.LoopRepeat);
 
