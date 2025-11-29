@@ -668,6 +668,37 @@ export const rendererCss = `
     cursor: pointer;
 }
 
+/* Enhanced Reasoning Text */
+.reasoning-text {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 2px solid rgba(116, 185, 255, 0.3);
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+}
+.reasoning-text.visible {
+    display: block;
+}
+.reasoning-toggle {
+    cursor: pointer;
+    font-size: 1rem;
+    margin-left: 5px;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+}
+.reasoning-toggle:hover {
+    opacity: 1;
+}
+.msg-entry .reasoning-toggle {
+    float: right;
+}
+
 .chat-entry.event-day .balloon {
     background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
     border-color: rgba(255, 193, 7, 0.2);
