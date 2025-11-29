@@ -5,12 +5,12 @@ import {
   playAudioFrom,
   stopAndClearAudio,
   setAudioContext
-} from './functions/audioFunctions.js';
+} from './audio/AudioController.js';
 import {
   createPlayerIdReplacer,
   updateEventLog
-} from './functions/helpers.js';
-import { updateSkyInfo } from './functions/skyControlFunctions.js';
+} from './utils/helpers.js';
+import { updateSkyInfo } from './ui/SkyControls.js';
 
 if (!window.werewolfThreeJs) {
   window.werewolfThreeJs = {

@@ -330,6 +330,55 @@ export class SkySystem {
     });
   }
 
+  updatePhase(phase, currentEventIndex) {
+    if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
+    
+    const normalizedPhase = (phase || 'DAY').toUpperCase();
+    const allEvents = window.werewolfGamePlayer.allEvents;
+    if (allEvents.length === 0) return;
+    
+    const safeCurrentIndex = Math.min(Math.max(0, currentEventIndex || 0), allEvents.length - 1);
+
+    // 1. Find the start of the current phase (search backwards)
+    let phaseStartIndex = 0;
+    for (let i = safeCurrentIndex; i >= 0; i--) {
+      const event = allEvents[i];
+      if (event.event_name === 'day_start' || event.event_name === 'night_start') {
+        phaseStartIndex = i;
+        break;
+      }
+    }
+    
+    // 2. Find the end of the current phase (search forwards)
+    let phaseEndIndex = allEvents.length - 1;
+    for (let i = safeCurrentIndex + 1; i < allEvents.length; i++) {
+      const event = allEvents[i];
+      if (event.event_name === 'day_start' || event.event_name === 'night_start') {
+        phaseEndIndex = i;
+        break;
+      }
+    }
+    
+    // 3. Calculate phase progress (0.0 to 1.0)
+    const totalPhaseEvents = phaseEndIndex - phaseStartIndex;
+    const currentPhaseEvents = safeCurrentIndex - phaseStartIndex;
+    let phaseProgress = 0;
+    if (totalPhaseEvents > 0) {
+      phaseProgress = Math.max(0, Math.min(1, currentPhaseEvents / totalPhaseEvents));
+    }
+
+    // 4. Map progress to the 0.0-1.0 time-of-day scale
+    let targetPhase;
+    if (normalizedPhase === 'NIGHT') {
+      targetPhase = 0.5 + (phaseProgress * 0.5);
+    } else {
+      targetPhase = phaseProgress * 0.5;
+    }
+
+    this.updateSkySystem(targetPhase);
+    return targetPhase;
+  }
+
   updateSkySystem(phase) {
     let dayProgress = 0;
     if (!this.sky || !this.sunLight || !this.moonLight) return;
@@ -482,7 +531,7 @@ export class SkySystem {
       } else if (phase > 0.5 && moonElevation > 0) {
         godRayIntensity = 0.8; // Stronger god rays at night
         godRayColor = 0xff3333; // Blood red god rays
-        godRayVisible = true;
+        godRayVisible = false;
         if (this.moonMesh) {
             godRayPosition = this.moonMesh.position.clone();
         }

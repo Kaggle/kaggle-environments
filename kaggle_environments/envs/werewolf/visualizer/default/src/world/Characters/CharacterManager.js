@@ -110,12 +110,6 @@ export class CharacterManager {
     const radius = 18;
     const playerHeight = 4;
 
-    const linesMaterial = new this.THREE.LineBasicMaterial({
-        color: 0x334455,
-        transparent: true,
-        opacity: 0.3,
-    });
-
     const playerLoadPromises = playerNames.map(async (name, i) => {
         const role = gameState.players[i].role || 'Villager';
         try {
@@ -137,13 +131,6 @@ export class CharacterManager {
         const x = radius * Math.sin(angle);
         const z = radius * Math.cos(angle);
         playerContainer.position.set(x, 0, z);
-
-        const lineGeometry = new this.THREE.BufferGeometry().setFromPoints([
-            new this.THREE.Vector3(0, 0.05, 0),
-            new this.THREE.Vector3(x, 0.05, z),
-        ]);
-        const line = new this.THREE.Line(lineGeometry, linesMaterial);
-        this.playerGroup.add(line);
 
         const pedestalGeometry = new this.THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
         const pedestalMaterial = new this.THREE.MeshStandardMaterial({

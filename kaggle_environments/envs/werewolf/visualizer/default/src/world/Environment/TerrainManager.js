@@ -1,9 +1,8 @@
 export class TerrainManager {
-  constructor(scene, THREE, FBXLoader, EXRLoader) {
+  constructor(scene, THREE, FBXLoader) {
     this.scene = scene;
     this.THREE = THREE;
     this.fbxLoader = new FBXLoader();
-    this.exrLoader = new EXRLoader();
     
     this.islandModel = null;
     this.townModel = null;
@@ -127,10 +126,9 @@ export class TerrainManager {
     
     const colorTexture = textureLoader.load('/static/werewolf/ground/rocky_terrain_02_diff_1k.jpg');
     const displacementTexture = textureLoader.load('/static/werewolf/ground/rocky_terrain_02_disp_1k.png');
-    const roughnessTexture = this.exrLoader.load('/static/werewolf/ground/rocky_terrain_02_rough_1k.exr');
-    const normalTexture = this.exrLoader.load('/static/werewolf/ground/rocky_terrain_02_nor_gl_1k.exr');
+    // roughness and normal maps removed due to EXRLoader issues
 
-    [colorTexture, roughnessTexture, displacementTexture, normalTexture].forEach((texture) => {
+    [colorTexture, displacementTexture].forEach((texture) => {
       texture.wrapS = this.THREE.RepeatWrapping;
       texture.wrapT = this.THREE.RepeatWrapping;
       texture.repeat.set(16, 16);
@@ -139,10 +137,9 @@ export class TerrainManager {
     const groundGeometry = new this.THREE.CircleGeometry(200, 128);
     const groundMaterial = new this.THREE.MeshStandardMaterial({
       map: colorTexture,
-      roughnessMap: roughnessTexture,
-      normalMap: normalTexture,
       displacementMap: displacementTexture,
       displacementScale: 0.5,
+      roughness: 0.8, // Default high roughness for rock
     });
 
     const ground = new this.THREE.Mesh(groundGeometry, groundMaterial);
