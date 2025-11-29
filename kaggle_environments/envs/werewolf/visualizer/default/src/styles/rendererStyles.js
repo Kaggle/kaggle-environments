@@ -604,4 +604,175 @@ export const rendererCss = `
     color: var(--text-muted);
     transition: all 0.2s ease;
 }
+
+/* Enhanced Chat Entries */
+.chat-entry {
+    display: flex;
+    margin-bottom: 20px;
+    align-items: flex-start;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.chat-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    margin-right: 12px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid rgba(116, 185, 255, 0.2);
+    transition: all 0.3s ease;
+    background-color: #ffffff;
+}
+
+.chat-entry:hover .chat-avatar {
+    border-color: rgba(116, 185, 255, 0.4);
+}
+
+.message-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Enhanced Message Bubbles */
+.balloon {
+    padding: 14px 16px;
+    border-radius: 16px 16px 16px 4px;
+    max-width: 85%;
+    word-wrap: break-word;
+    background: linear-gradient(135deg, rgba(116, 185, 255, 0.1), rgba(116, 185, 255, 0.05));
+    border: 1px solid rgba(116, 185, 255, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    line-height: 1.4;
+    font-size: 0.95rem;
+}
+
+.balloon:hover {
+    background: linear-gradient(135deg, rgba(116, 185, 255, 0.2), rgba(116, 185, 255, 0.1));
+    border-color: rgba(116, 185, 255, 0.4);
+    transform: translateX(2px);
+    cursor: pointer;
+}
+
+.chat-entry.event-day .balloon {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+    border-color: rgba(255, 193, 7, 0.2);
+    color: var(--text-primary);
+}
+
+.chat-entry.event-day .balloon:hover {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 193, 7, 0.1));
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.chat-entry.event-night .balloon {
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(108, 92, 231, 0.05));
+    border-color: rgba(108, 92, 231, 0.2);
+}
+
+
+/* Enhanced Moderator Announcements */
+.moderator-announcement {
+    margin: 16px 0;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.moderator-announcement-content {
+    padding: 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    border-left: 4px solid #2ecc71;
+    color: var(--text-primary);
+    line-height: 1.5;
+    transition: all 0.3s ease;
+}
+
+.moderator-announcement-content:hover {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.08));
+    border-color: rgba(46, 204, 113, 0.3);
+}
+
+/* Enhanced Citations */
+#chat-log cite {
+    font-style: normal;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    gap: 8px;
+}
+
+.cite-text-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Enhanced System Messages */
+.msg-entry {
+    border-left: 4px solid #f39c12;
+    padding: 16px;
+    margin: 16px 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.1), rgba(243, 156, 18, 0.05));
+    border: 1px solid rgba(243, 156, 18, 0.2);
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.msg-entry:hover {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.15), rgba(243, 156, 18, 0.08));
+    border-color: rgba(243, 156, 18, 0.3);
+}
+
+.msg-entry.event-day {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
+    border-color: rgba(255, 193, 7, 0.2);
+}
+
+.msg-entry.event-night {
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(108, 92, 231, 0.05));
+    border-color: rgba(108, 92, 231, 0.2);
+}
+
+.msg-entry.game-event {
+    border-left-color: #e74c3c;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(231, 76, 60, 0.05));
+    border-color: rgba(231, 76, 60, 0.2);
+}
+
+.msg-entry.game-win {
+    border-left-color: #2ecc71;
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+    border-color: rgba(46, 204, 113, 0.2);
+    line-height: 1.6;
+}
+
+/* Enhanced Timestamps */
+.timestamp {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(116, 185, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+}
 `;
