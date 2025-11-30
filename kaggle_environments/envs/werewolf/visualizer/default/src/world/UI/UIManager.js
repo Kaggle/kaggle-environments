@@ -5,6 +5,14 @@ export class UIManager {
     this.height = height;
     this.camera = camera;
     this.parent = parent;
+
+    // Cinematic Subtitle Container
+    this.subtitleContainer = document.createElement('div');
+    this.subtitleContainer.className = 'cinematic-subtitle-container';
+    // Ensure parent exists, otherwise fallback to body
+    (this.parent || document.body).appendChild(this.subtitleContainer);
+    
+    this.subtitleTimeout = null;
   }
 
   createPlayerUI(name, displayName, imageUrl, focusCallback) {
@@ -27,10 +35,11 @@ export class UIManager {
     nameText.textContent = displayName || name;
     textDetails.appendChild(nameText);
 
-    const playerIdText = document.createElement('div');
-    playerIdText.className = 'player-id-3d';
-    playerIdText.textContent = name;
-    textDetails.appendChild(playerIdText);
+    // Removed player ID display
+    // const playerIdText = document.createElement('div');
+    // playerIdText.className = 'player-id-3d';
+    // playerIdText.textContent = name;
+    // textDetails.appendChild(playerIdText);
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
@@ -39,30 +48,14 @@ export class UIManager {
 
     playerInfoCard.appendChild(textDetails);
 
-    const chatMessageCard = document.createElement('div');
-    chatMessageCard.className = 'chat-message-card';
-    chatMessageCard.innerHTML = `
-              <div class="bubble-message"></div>
-              <div class="bubble-reasoning"></div>
-          `;
+    // Removed legacy chatMessageCard creation
 
-    playerInfoCard.appendChild(chatMessageCard);
     container.appendChild(playerInfoCard);
 
     playerInfoCard.onclick = (e) => {
-      const playerContainer = e.target.closest('.player-ui-container');
-      if (e.target.closest('.chat-message-card') && playerContainer) {
-        const reasoningEl = playerContainer.querySelector('.bubble-reasoning');
-        if (reasoningEl && (reasoningEl.innerHTML || reasoningEl.textContent)) {
-          e.stopPropagation();
-          playerContainer.classList.toggle('show-reasoning');
-        } else {
-          e.stopPropagation();
-        }
-      } else {
-        if (focusCallback) {
-            focusCallback(name);
-        }
+      // Simplified click handler - just focus
+      if (focusCallback) {
+          focusCallback(name);
       }
     };
 
@@ -71,29 +64,47 @@ export class UIManager {
   }
 
   displayPlayerBubble(playerUI, message, reasoning, timestamp) {
-    if (!playerUI || !playerUI.element) return;
-
-    const uiElement = playerUI.element;
-    const messageEl = uiElement.querySelector('.bubble-message');
-    const reasoningEl = uiElement.querySelector('.bubble-reasoning');
-
-    if (messageEl) messageEl.innerHTML = message;
-    if (reasoningEl) {
-        reasoningEl.innerHTML = reasoning ? reasoning : '';
+    let speakerName = '';
+    if (playerUI && playerUI.element) {
+        const nameEl = playerUI.element.querySelector('.player-name-3d');
+        if (nameEl) speakerName = nameEl.textContent;
     }
 
-    if (window.werewolfGamePlayer.isReasoningMode === undefined) {
-      window.werewolfGamePlayer.isReasoningMode = false;
-    }
-    const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
+    // Redirect to cinematic subtitle
+    this.displaySubtitle(message, reasoning, speakerName);
 
-    if (isGlobalReasoningOn && reasoning) {
-      uiElement.classList.add('show-reasoning');
+    // Visual feedback on the player's UI (optional, e.g., highlight the nameplate)
+    if (playerUI && playerUI.element) {
+        playerUI.element.classList.add('chat-active');
+    }
+  }
+
+  displaySubtitle(message, reasoning, speakerName = '') {
+    // No timeout - subtitle persists until cleared manually (or replaced)
+    
+    let content = '';
+    if (speakerName) {
+        content += `<span class="subtitle-speaker">${speakerName}:</span> `;
+    }
+    content += `<div class="cinematic-subtitle-text">${message}</div>`;
+
+    if (reasoning) {
+        content += `<div class="cinematic-subtitle-reasoning">${reasoning}</div>`;
+    }
+
+    this.subtitleContainer.innerHTML = content;
+    this.subtitleContainer.classList.add('visible');
+    
+    // Sync visibility state
+    if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
+        this.subtitleContainer.classList.add('show-reasoning');
     } else {
-      uiElement.classList.remove('show-reasoning');
+        this.subtitleContainer.classList.remove('show-reasoning');
     }
+  }
 
-    uiElement.classList.add('chat-active');
+  clearSubtitle() {
+      this.subtitleContainer.classList.remove('visible');
   }
 
   updateDynamicUI(playerObjects) {

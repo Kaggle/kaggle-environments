@@ -570,7 +570,7 @@ export const rendererCss = `
     border-radius: 2px;
 }
 
-#global-reasoning-toggle {
+#global-reasoning-toggle, .reset-view-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -582,11 +582,11 @@ export const rendererCss = `
     color: var(--text-muted);
     transition: all 0.2s ease;
 }
-#global-reasoning-toggle:hover {
+#global-reasoning-toggle:hover, .reset-view-btn:hover {
     background-color: var(--hover-bg);
     color: var(--text-primary);
 }
-#global-reasoning-toggle svg {
+#global-reasoning-toggle svg, .reset-view-btn svg {
     stroke: currentColor;
     width: 20px;
     height: 20px;
@@ -841,5 +841,73 @@ export const rendererCss = `
     padding: 2px 6px;
     border-radius: 4px;
     margin-left: auto;
+}
+
+/* The chat message card (Hidden for cinematic view) */
+.chat-message-card {
+    display: none !important;
+}
+
+.cinematic-subtitle-container {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 1200px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2000;
+    
+    font-family: 'Inter', sans-serif;
+    font-size: 18px; /* Reduced from 24px */
+    font-weight: 600;
+    line-height: 1.4;
+    color: #ffffff;
+    
+    /* Cinematic text shadow for readability on any background */
+    text-shadow: 
+        0px 2px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 8px rgba(0, 0, 0, 1);
+    
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.cinematic-subtitle-container.visible {
+    opacity: 1;
+}
+
+.subtitle-speaker {
+    color: #bfbfbfff; /* Changed from Gold */
+    font-weight: 700;
+    margin-right: 8px;
+    text-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
+}
+
+.cinematic-subtitle-text {
+    display: inline-block;
+}
+
+.cinematic-subtitle-reasoning {
+    display: none; /* Hidden by default */
+    font-size: 16px; /* Slightly smaller than main text */
+    font-style: italic;
+    color: #cccccc;
+    margin-top: 8px;
+    padding-left: 12px;
+    border-left: 3px solid rgba(116, 185, 255, 0.5); /* Vertical line */
+    text-align: left; /* Align text to the bar */
+    line-height: 1.4;
+    text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Show when container has the class */
+.cinematic-subtitle-container.show-reasoning .cinematic-subtitle-reasoning {
+    display: block;
 }
 `;

@@ -621,27 +621,31 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           });
         }
 
-        // --- 2. Toggle 3D Bubble Reasoning (New Behavior) ---
-
-        // Toggle the global state
+        // --- 2. Toggle Global Reasoning State ---
         window.werewolfGamePlayer.isReasoningMode = !window.werewolfGamePlayer.isReasoningMode;
         const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
 
-        // Find all active 3D UI containers in the document
-        // We search the whole document because the 3D UI is rendered by Three.js
+        // --- 3. Toggle 3D Bubble Reasoning (Legacy) ---
         const allPlayerUIs = document.querySelectorAll('.player-ui-container.chat-active');
-
         allPlayerUIs.forEach((uiElement) => {
           const reasoningEl = uiElement.querySelector('.bubble-reasoning');
-          // Check if the reasoning element has content
           const hasReasoning = reasoningEl && (reasoningEl.innerHTML || reasoningEl.textContent);
-
           if (isGlobalReasoningOn && hasReasoning) {
             uiElement.classList.add('show-reasoning');
           } else {
             uiElement.classList.remove('show-reasoning');
           }
         });
+
+        // --- 4. Toggle Cinematic Subtitle Reasoning ---
+        const subtitleContainer = document.querySelector('.cinematic-subtitle-container');
+        if (subtitleContainer) {
+            if (isGlobalReasoningOn) {
+                subtitleContainer.classList.add('show-reasoning');
+            } else {
+                subtitleContainer.classList.remove('show-reasoning');
+            }
+        }
       });
     }
 

@@ -431,48 +431,60 @@
     opacity: 0.8;
 }
 
-/* The chat message card (initially hidden, expands to the right *of the player-info-card*) */
+/* The chat message card (Hidden for cinematic view) */
 .chat-message-card {
-    position: absolute;
-    
-    /* Position the bubble's top edge at the nameplate's vertical center */
-    top: 50%;
-    
-    /* Position the bubble's LEFT edge at the nameplate's RIGHT edge */
-    left: 100%;
-    
-    /* Adjust for perfect vertical centering and add a gap */
-    transform: translateY(-50%);
-    margin-left: 12px;
-    
-    /* Make sure the bubble is on top */
-    z-index: 10;
-
-    min-width: 180px;
-    
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    max-width: 250px;
-
-    /* Initial Hidden State */
-    opacity: 0;
-    transition: opacity 0.1s ease;
-    white-space: normal;
-
-    transition-property: opacity;
-    transition-duration: 0.2s;
-    z-index: 10;
+    display: none !important;
 }
 
-/* Active state: chat message card expands */
-.player-ui-container.chat-active .chat-message-card {
+.cinematic-subtitle-container {
+    position: absolute; /* Changed from fixed to absolute */
+    bottom: 50px; /* Adjusted from 10% to fixed pixel from bottom */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 1200px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2000;
+    
+    font-family: 'Inter', sans-serif;
+    font-size: 24px; /* Slightly smaller for better fit */
+    font-weight: 600;
+    line-height: 1.4;
+    color: #ffffff;
+    
+    /* Cinematic text shadow for readability on any background */
+    text-shadow: 
+        0px 2px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 8px rgba(0, 0, 0, 1);
+    
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.cinematic-subtitle-container.visible {
     opacity: 1;
 }
 
-.chat-message-card .bubble-message {
-    font-size: 14px;
-    line-height: 1.4;
+.subtitle-speaker {
+    color: #e0e0e0;
+    font-weight: 700;
+    margin-right: 8px;
+    text-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
+}
+
+.cinematic-subtitle-text {
+    display: inline-block;
+}
+
+.cinematic-subtitle-reasoning {
+    display: block;
+    font-size: 0.7em;
+    font-style: italic;
+    color: #cccccc;
+    margin-top: 5px;
+    text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 /* --- End New Unified Player UI Component --- */

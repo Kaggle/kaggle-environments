@@ -570,6 +570,7 @@ export function renderer(context, parent) {
       }
 
       // Action Animations
+      let subtitleShown = false;
       if (lastEvent) {
           let messageForBubble = '';
           let reasoningForBubble = lastEvent.reasoning || '';
@@ -599,6 +600,7 @@ export function renderer(context, parent) {
               if (playerObj && playerObj.playerUI) {
                   world.uiManager.displayPlayerBubble(playerObj.playerUI, formattedMessage, reasoningForBubble, lastEvent.timestamp);
                   world.characterManager.updatePlayerActive(actorName);
+                  subtitleShown = true;
               }
           }
 
@@ -610,6 +612,10 @@ export function renderer(context, parent) {
           } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
               world.characterManager.updatePlayerActive(lastEvent.actor_id);
           }
+      }
+      
+      if (!subtitleShown) {
+          world.uiManager.clearSubtitle();
       }
   }
 }
