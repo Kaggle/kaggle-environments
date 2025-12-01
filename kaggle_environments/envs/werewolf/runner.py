@@ -2,12 +2,19 @@ import logging
 import os
 import random
 import subprocess
+import sys
 import time
 from datetime import datetime
 
 from kaggle_environments import PROJECT_ROOT, make
 
 logger = logging.getLogger(__name__)
+
+
+def log_launch_command():
+    """Logs the command used to launch the script."""
+    command = " ".join(sys.argv)
+    logger.info(f"Launch command: {command}")
 
 
 class LogExecutionTime:
