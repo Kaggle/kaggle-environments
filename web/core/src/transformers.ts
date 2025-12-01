@@ -36,11 +36,7 @@ const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
   return '';
 };
 
-export const processEpisodeData = (
-  environment: ReplayData,
-  gameName: string,
-  dataSlice?: EpisodeSlice
-): ReplayData<BaseGameStep[]> => {
+export const processEpisodeData = (environment: ReplayData, gameName: string): ReplayData<BaseGameStep[]> => {
   // Check for a marker to see if it's already been transformed.
   if (environment.isTransformed) {
     return environment;
@@ -49,7 +45,7 @@ export const processEpisodeData = (
   let transformedSteps: BaseGameStep[] = [];
   switch (gameName) {
     case 'open_spiel_repeated_poker':
-      transformedSteps = repeatedPokerTransformerV2(environment, dataSlice);
+      transformedSteps = repeatedPokerTransformerV2(environment);
       break;
     case 'open_spiel_chess':
       transformedSteps = chessTransformer(environment);

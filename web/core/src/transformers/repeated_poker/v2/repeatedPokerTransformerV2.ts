@@ -5,7 +5,7 @@ import { RepeatedPokerStep, RepeatedPokerStepPlayer } from './poker-steps-types'
 
 import { createVisualStepsFromRepeatedPokerReplay } from './repeatedPokerTransformerUtils';
 
-export const repeatedPokerTransformerV2 = (environment: any, requestedHand?: EpisodeSlice) => {
+export const repeatedPokerTransformerV2 = (environment: any) => {
   const repeatedPokerReplay: PokerReplay = environment as PokerReplay;
   const repeatedPokerReplayStateHistory = environment.info.stateHistory;
   const agents = environment.info.Agents;
@@ -36,25 +36,7 @@ export const repeatedPokerTransformerV2 = (environment: any, requestedHand?: Epi
   // console.log(stateHistoryStepsWithReplaySteps.slice(0,13));
   // console.log(createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps.slice(0,13), agents));
 
-  const visualSteps = createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps, agents);
-
-  if (requestedHand) {
-    const finalSteps: RepeatedPokerStep[] = [];
-
-    let i = 0;
-    while (i < visualSteps.length) {
-      if (visualSteps[i].currentHandIndex > requestedHand.start) {
-        break;
-      } else if (visualSteps[i].currentHandIndex === requestedHand.start) {
-        finalSteps.push(visualSteps[i]);
-      }
-      i++;
-    }
-
-    return finalSteps;
-  }
-
-  return visualSteps;
+  return createVisualStepsFromRepeatedPokerReplay(stateHistoryStepsWithReplaySteps, agents);
 };
 
 export const getPokerStepRenderTime = (
