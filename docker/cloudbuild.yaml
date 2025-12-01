@@ -52,24 +52,6 @@ steps:
     waitFor: ["test-cpu-image"]
     secretEnv: ["PYPI_TOKEN"]
 
-  - id: "deploy-to-cloud-run"
-    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    waitFor: ["publish-to-pypi"]
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        if [ -f /workspace/published_new_version.flag ]; then
-          echo "✅ New version was published. Deploying update to Cloud Run."
-          gcloud run deploy kaggle-simulations-v2 \
-          --source ./docker/cloud-run-source \
-          --region us-central1 \
-          --project kaggle-comps-prod-eval
-          # This command implicitly updates traffic to 100% on the new revision
-        else
-          echo "⏩ No new version was published. Skipping Cloud Run deployment."
-        fi
-
 images:
   - "gcr.io/kaggle-images/python-simulations"
   - "gcr.io/kaggle-gpu-images/python-simulations"
