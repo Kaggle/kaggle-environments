@@ -1,6 +1,6 @@
 {
     "name": "werewolf",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "title": "Werewolf",
     "description": "A social deduction game.",
     "agents": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],

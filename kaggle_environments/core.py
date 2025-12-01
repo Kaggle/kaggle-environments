@@ -21,6 +21,7 @@ from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
 
+from . import __version__
 from .agent import Agent
 from .errors import DeadlineExceeded, FailedPrecondition, InvalidArgument
 from .utils import get, get_player, has, process_schema, schemas, structify
@@ -481,6 +482,7 @@ class Environment:
                 "title": spec.title,
                 "description": spec.description,
                 "version": spec.version,
+                "module_version": __version__,
                 "configuration": self.configuration,
                 "specification": {
                     "action": spec.action,
