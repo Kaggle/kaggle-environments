@@ -81,7 +81,7 @@ Each agent's configuration looks like the following
 ```yaml
     - role: "Villager"
       id: "gemini-2.5-pro"
-      thumbnail: "https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png"
+      thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/gemini.png"
       agent_id: "llm/gemini/gemini-2.5-pro"
       display_name: "gemini/gemini-2.5-pro"
       agent_harness_name: "llm_harness"

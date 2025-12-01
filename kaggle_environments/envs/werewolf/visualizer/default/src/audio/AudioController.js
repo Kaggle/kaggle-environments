@@ -1,3 +1,21 @@
+let context = null;
+
+export function setAudioContext(ctx) {
+  context = ctx;
+}
+
+const audioState = window.kaggleWerewolf || {
+  audioQueue: [],
+  isAudioPlaying: false,
+  isAudioEnabled: false,
+  isPaused: false,
+  lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
+  audioPlayer: new Audio(),
+  playbackRate: 1.6,
+  allEvents: null,
+  audioContextActivated: false,
+};
+
 export function loadQueueFrom(startIndex) {
   console.debug(`DEBUG: [loadQueueFrom] Loading queue from index: ${startIndex}`);
   if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) {
@@ -172,7 +190,19 @@ export function playAudioFrom(startIndex, isContinuous = true) {
 }
 
 export function playNextInQueue(isContinuous = true) {
-  const currentParent = document.getElementById(parentId);
+  if (!context) {
+      console.warn("Audio context not set.");
+      return;
+  }
+  
+  // Use a global or passed parent ID if possible, but context is safer
+  // Assuming context has parent attached? No, context is the kaggle env context
+  // We need to find the parent element. 
+  // In the original code, parentId was available in scope. 
+  // We will assume 'app' or document search, or rely on context having a reference?
+  // Actually, let's just look for #chat-log which is unique enough
+  const currentParent = document.querySelector('.werewolf-parent') || document.body;
+
   if (!currentParent) {
     console.error('Werewolf renderer parent container not found in DOM, stopping playback.');
     stopAndClearAudio();
@@ -223,7 +253,7 @@ export function playNextInQueue(isContinuous = true) {
 
       // Use a short timeout to allow the DOM to update after the step change
       setTimeout(() => {
-        const freshParent = document.getElementById(parentId);
+        const freshParent = document.querySelector('.werewolf-parent') || document.body;
         if (!freshParent) {
           console.error(`DEBUG: Parent element not found after timeout for event index ${event.allEventsIndex}.`);
           return;
@@ -251,6 +281,7 @@ export function playNextInQueue(isContinuous = true) {
     }
   }
 
+  const audioMap = window.AUDIO_MAP || {};
   let audioPath = null;
   let audioKey = null;
   if (event.audioEvent) {
@@ -295,19 +326,19 @@ export function playNextInQueue(isContinuous = true) {
       if (!audioState.isPaused && isContinuous) {
         playNextInQueue(isContinuous);
       }
-    }, context.speed);
+    }, context ? (context.speed || 1000) : 1000);
   }
 }
 
-export function stopAndClearAudio(audioState, parentId) {
-  if (audioState.isAudioPlaying) {
-    audioState.audioPlayer.pause();
-    audioState.isAudioPlaying = false;
+export function stopAndClearAudio(state = audioState, parentId) {
+  if (state.isAudioPlaying) {
+    state.audioPlayer.pause();
+    state.isAudioPlaying = false;
   }
-  audioState.audioQueue = [];
-  audioState.currentlyPlayingIndex = -1;
+  state.audioQueue = [];
+  state.currentlyPlayingIndex = -1;
 
-  const currentParent = document.getElementById(parentId);
+  const currentParent = parentId ? document.getElementById(parentId) : (document.querySelector('.werewolf-parent') || document.body);
   if (currentParent) {
     // Clear any "now-playing" highlights
     const nowPlayingElement = currentParent.querySelector('#chat-log .now-playing');

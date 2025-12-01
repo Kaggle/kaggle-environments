@@ -1,0 +1,564 @@
+/* Game Status Scoreboard */
+.game-scoreboard {
+    position: fixed;
+    top: 70px;
+    left: auto;
+    right: 20px;
+    transform: none;
+    z-index: 999;
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 12px 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    pointer-events: none;
+}
+
+.scoreboard-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 10px;
+    border-right: 1px solid rgba(116, 185, 255, 0.2);
+}
+
+.scoreboard-item:last-child {
+    border-right: none;
+}
+
+.scoreboard-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    font-weight: 500;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.scoreboard-value {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.scoreboard-value.alive {
+    color: #00b894;
+}
+
+.scoreboard-value.dead {
+    color: #e17055;
+}
+
+.scoreboard-value.werewolf {
+    color: #e17055;
+}
+
+.scoreboard-value.villager {
+    color: #74b9ff;
+}
+
+.scoreboard-action {
+    background: transparent;
+    border: none;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    color: #74b9ff;
+    font-weight: 500;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Phase Indicator */
+.phase-indicator {
+    position: fixed;
+    top: 60px;
+    left: 50px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    scale: 0.6;
+}
+
+.phase-indicator.day {
+    background: linear-gradient(135deg, rgba(255, 220, 100, 0.9), rgba(255, 180, 50, 0.9));
+    color: #2d3436;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.phase-indicator.night {
+    background: linear-gradient(135deg, rgba(30, 30, 60, 0.9), rgba(60, 60, 120, 0.9));
+    color: #f8f9fa;
+    border: 2px solid rgba(100, 100, 200, 0.5);
+}
+
+.game-scoreboard .phase-indicator {
+    position: relative; /* Override the 'fixed' positioning */
+    top: auto;
+    left: auto;
+    transform: none;
+    z-index: auto;
+    scale: 1.0;
+    
+    /* Scale it down to fit */
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    border-radius: 20px;
+    
+    /* Remove styles meant for a floating element */
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.phase-indicator .phase-icon {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 1.4rem;
+    vertical-align: middle;
+}
+
+:root {
+    --night-bg: linear-gradient(135deg, #1a1a2e, #16213e);
+    --day-bg: linear-gradient(135deg, #74b9ff, #0984e3);
+    --night-text: #f8f9fa;
+    --day-text: #2d3436;
+    --dead-filter: grayscale(100%) brightness(40%) contrast(0.8);
+    --active-border: #fdcb6e;
+    --active-glow: rgba(253, 203, 110, 0.4);
+    --werewolf-color: #e17055;
+    --villager-color: #00b894;
+    --doctor-color: #6c5ce7;
+    --seer-color: #fd79a8;
+    --panel-bg: rgba(33, 40, 54, 0.95);
+    --panel-border: rgba(116, 185, 255, 0.2);
+    --hover-bg: rgba(116, 185, 255, 0.1);
+    --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    --text-primary: #f8f9fa;
+    --text-secondary: #b2bec3;
+    --text-muted: #74b9ff;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+.werewolf-parent {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center, #0f1419 0%, #000000 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.main-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text-primary);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enhanced Panel Styling */
+.left-panel, .right-panel {
+    position: fixed;
+    top: 70px;
+    max-height: calc(100vh - 124px);
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    border-radius: 16px;
+    border: 1px solid var(--panel-border);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    pointer-events: auto;
+    box-shadow: var(--card-shadow), 0 0 40px rgba(116, 185, 255, 0.05);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.left-panel {
+    /* left: 20px; */
+    /* width: 320px; */
+    display: none; /* Hide the left panel */
+}
+
+.right-panel {
+    position: fixed;
+    top: 54px;
+    left: 20px;
+    width: 420px;
+    max-height: calc(100vh - 124px);
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px) saturate(1.5);
+    border-radius: 16px;
+    border: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    pointer-events: auto;
+    box-shadow: var(--card-shadow), 0 0 40px rgba(116, 185, 255, 0.05);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.right-panel.collapsed {
+    max-height: 65px; /* Height of just the header */
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* ENHANCED Header to act as a toggle */
+.right-panel h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    position: relative;
+    padding: 20px 20px 20px 60px; 
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Adds a visual indicator for expanding/collapsing */
+.right-panel h1::before {
+    content: ''; /* The content is now the background image */
+    position: absolute;
+    left: 20px;
+    width: 20px;
+    height: 20px;
+
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2374b9ff"><path d="M12 8l-6 6h12z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+
+    transition: transform 0.3s ease;
+}
+
+.right-panel.collapsed h1::before {
+    transform: rotate(180deg);
+}
+
+.right-panel h1 > span {
+    background: linear-gradient(135deg, #74b9ff, #0984e3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Hides the log when panel is collapsed */
+.right-panel.collapsed #chat-log {
+    display: none;
+}
+
+/* Main container: now acts as a positioning context for its children.
+  Its OWN top-left corner is anchored by the CSS2DObject's 3D position.
+  We will center its *content* using flex or absolute positioning.
+*/
+.player-ui-container {
+    position: relative; /* CRITICAL: Establishes a positioning context for absolute children */
+    display: block; /* No longer flex. Children handle their own layout */
+    width: max-content; /* Allow container to grow with content */
+    height: max-content; /* Allow container to grow with content */
+    pointer-events: none; /* Let children handle clicks */
+
+    /* CRITICAL ANCHORING FIX:
+      We want the player-info-card (nameplate) to be horizontally centered
+      on the 3D point. So, we'll position the info card *absolutely*
+      within this container, with its own transform to center itself.
+      The container itself is placed at 0,0 relative to the CSS2DObject.
+    */
+    transform: none; /* REMOVE any transforms from the container itself */
+}
+
+/* The truly FLOATING player info card (Name, ID, Role, Timestamp, Avatar)
+  This is now absolutely positioned and self-centered within the container.
+*/
+.player-info-card {
+    position: relative;
+    top: 50%; /* Position its top edge at the vertical center of the container */
+    left: 50%; /* Position its left edge at the horizontal center of the container */
+    
+    /* CRITICAL: Translate it back by 50% of its OWN width and height to truly center it.
+      This element is now fixed relative to the 3D point.
+    */
+    transform: translate(-50%, -50%);
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    
+    /* TRULY FLOATING AESTHETIC */
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    
+    color: #ffffff;
+    text-shadow: 
+        0 0 4px rgba(0,0,0,0.8),
+        0 0 8px rgba(0,0,0,0.6);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    margin: 0;
+    white-space: nowrap; /* Prevent text wrapping */
+    z-index: 5;
+
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    /* transition: border-color 0.2s ease */
+}
+
+.player-info-card:hover {
+    color: #ffcc00;
+    text-shadow: 
+        0 0 6px rgba(0,0,0,0.9), 
+        0 0 10px rgba(0,0,0,0.7),
+        0 0 12px rgba(255,204,0,0.4);
+}
+
+/* NEW: This encircles the nameplate when chat is active */
+.player-ui-container.chat-active .player-info-card {
+    /* background: rgba(10, 10, 20, 0.4); */
+    /* background: transparent; */
+    border: 1px solid #ffffff;
+    box-shadow: 0 0 2px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 4px 8px; /* Add padding so border isn't flush */
+}
+
+/* NEW: This styles the message text like a movie subtitle */
+.player-ui-container.chat-active .bubble-message {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    line-height: 1.4;
+    /* Classic subtitle shadow */
+    text-shadow: 
+        0 0 5px rgba(0,0,0,1), 
+        0 0 8px rgba(0,0,0,0.8);
+}
+
+/* NEW: Reasoning text styles */
+.player-ui-container.chat-active .bubble-reasoning {
+    display: none; /* Hide reasoning by default */
+    font-size: 14px;
+    font-weight: 400;
+    color: #bbbbbb; /* Grey text */
+    line-height: 1.4;
+    font-style: italic;
+    text-shadow: 
+        0 0 5px rgba(0,0,0,1), 
+        0 0 8px rgba(0,0,0,0.8);
+}
+
+/* NEW: Prefix for reasoning */
+.player-ui-container.chat-active .bubble-reasoning::before {
+    content: "| ";
+    margin-right: 4px;
+}
+
+/* NEW: State toggle for showing reasoning */
+.player-ui-container.chat-active.show-reasoning .bubble-reasoning {
+    display: block; /* Show reasoning */
+    margin-top: 6px;
+}
+
+.player-avatar-3d {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    margin-bottom: 4px;
+}
+
+.player-text-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.player-name-3d {
+    font-size: 14px;
+    font-weight: 700;
+}
+.player-id-3d {
+    font-size: 10px;
+    opacity: 0.9;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+.player-role-3d {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+/* The chat message card (Hidden for cinematic view) */
+.chat-message-card {
+    display: none !important;
+}
+
+.cinematic-subtitle-container {
+    position: absolute; /* Changed from fixed to absolute */
+    bottom: 50px; /* Adjusted from 10% to fixed pixel from bottom */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 1200px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2000;
+    
+    font-family: 'Inter', sans-serif;
+    font-size: 24px; /* Slightly smaller for better fit */
+    font-weight: 600;
+    line-height: 1.4;
+    color: #ffffff;
+    
+    /* Cinematic text shadow for readability on any background */
+    text-shadow: 
+        0px 2px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 4px rgba(0, 0, 0, 0.8),
+        0px 0px 8px rgba(0, 0, 0, 1);
+    
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.cinematic-subtitle-container.visible {
+    opacity: 1;
+}
+
+.subtitle-speaker {
+    color: #e0e0e0;
+    font-weight: 700;
+    margin-right: 8px;
+    text-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
+}
+
+.cinematic-subtitle-text {
+    display: inline-block;
+}
+
+.cinematic-subtitle-reasoning {
+    display: block;
+    font-size: 0.7em;
+    font-style: italic;
+    color: #cccccc;
+    margin-top: 5px;
+    text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* --- End New Unified Player UI Component --- */
+
+.left-panel:hover, .right-panel:hover {
+    border-color: rgba(116, 185, 255, 0.3);
+    box-shadow: var(--card-shadow), 0 0 60px rgba(116, 185, 255, 0.08);
+}
+
+/* Enhanced Headers */
+.right-panel h1, #player-list-area h1 {
+    margin: 0 0 20px 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    position: relative;
+    padding-bottom: 15px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.right-panel h1 > span, #player-list-area h1 > span {
+    background: linear-gradient(135deg, #74b9ff, #0984e3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.right-panel h1::after, #player-list-area h1::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #74b9ff, transparent);
+    border-radius: 2px;
+}
+
+#global-reasoning-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+}
+#global-reasoning-toggle:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-primary);
+}
+#global-reasoning-toggle svg {
+    stroke: currentColor;
+    width: 20px;
+    height: 20px;
+}
+
+#global-audio-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+}

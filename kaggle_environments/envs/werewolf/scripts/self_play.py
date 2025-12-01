@@ -131,7 +131,7 @@ def main():
         "-t",
         "--thumbnail",
         type=str,
-        default="https://logos-world.net/wp-content/uploads/2025/01/Google-Gemini-Symbol.png",
+        default="https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/gemini.png",
         help="The thumbnail image url.",
     )
     parser.add_argument("-n", "--num_games", type=int, default=1, help="Number of self-play games to run.")

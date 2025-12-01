@@ -1,5 +1,4 @@
-// --- Helper Functions ---
-  export function formatTimestamp(isoString) {
+export function formatTimestamp(isoString) {
     if (!isoString) return '';
     try {
       return new Date(isoString).toLocaleTimeString([], {
@@ -32,15 +31,8 @@
 
         return {
           capsule: createPlayerCapsule(player),
-          // IMPROVEMENT: This new regex correctly handles both internal periods in names (e.g., 'gemini-1.5-pro')
-          // and sentence-ending periods (e.g., '... says Kai.').
-          // Breakdown:
-          // 1. (^|[^\w.-])       - The prefix boundary must not be a name character. This is unchanged.
-          // 2. (PLAYER_ID)       - The player's name.
-          // 3. (\.?)             - Optionally captures a single trailing period.
-          // 4. (?![-\w])          - A negative lookahead asserts that the name is not followed by another name character (a-z, 0-9, _, -).
-          //                        This is the key part that allows a trailing period to be treated as a boundary.
-          regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})(\\.?)(?![\\w-])`, 'g'),
+          // We must double-escape backslashes in the string passed to RegExp
+          regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\\]{}]/g, '\\$&')})(\\.?)(?![\\w-])`, 'g'),
         };
       })
       .filter(Boolean);
@@ -53,7 +45,6 @@
 
       let newText = text;
       for (const replacement of sortedPlayerReplacements) {
-        // The replacement string now uses $3 to append the optionally captured period after the capsule.
         newText = newText.replace(replacement.regex, `$1${replacement.capsule}$3`);
       }
 
@@ -64,13 +55,10 @@
 
   export function createPlayerCapsule(player) {
     if (!player) return '';
-    let display_name_elem =
-      player.display_name && player.name !== player.display_name
-        ? `<span class="capsule-display-name">${player.display_name}</span>`
-        : '';
+    const nameToShow = player.display_name || player.name;
     return `<span class="player-capsule" title="${player.name}">
         <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
-        <span class="capsule-name">${player.name}</span>${display_name_elem}
+        <span class="capsule-name">${nameToShow}</span>
     </span>`;
   }
 
@@ -86,7 +74,7 @@
       const player = playerMap.get(playerId);
       if (player) {
         const capsule = createPlayerCapsule(player);
-        const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\\]{}]/g, '\\$&');
 
         // Using the same improved regex as in the factory function.
         const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})(\\.?)(?![\\w-])`, 'g');
@@ -107,7 +95,8 @@
     const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
 
     sortedPlayerIds.forEach((playerId) => {
-      const regex = new RegExp(`\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\b`, 'g');
+      // Fix: Escape closing bracket in regex literal and use double backslash for word boundary
+      const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\\b`, 'g');
       newText = newText.replace(regex, `<strong>${playerId}</strong>`);
     });
     return newText;
@@ -141,8 +130,8 @@
 
       // Add the click listener only once, when the button is created
       resetButton.onclick = () => {
-        if (threeState && threeState.demo) {
-          threeState.demo.resetCameraView();
+        if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+          window.werewolfThreeJs.demo.resetCameraView();
         }
       };
     }
@@ -174,15 +163,15 @@
       // Add the onclick handler of player's first person perspective
       // This will call the focus function on the Three.js demo instance
       li.onclick = () => {
-        if (threeState && threeState.demo) {
+        if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
           // Get the current widths of the UI panels
-          const leftPanel = parent.querySelector('.left-panel');
-          const rightPanel = parent.querySelector('.right-panel');
+          const leftPanel = container.closest('.left-panel'); // Assuming container is in left panel
+          const rightPanel = document.querySelector('.right-panel');
           const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
           const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
 
           // Pass the panel widths to the focus function
-          threeState.demo.focusOnPlayer(player.name, leftPanelWidth, rightPanelWidth);
+          window.werewolfThreeJs.demo.focusOnPlayer(player.name, leftPanelWidth, rightPanelWidth);
         }
       };
 
@@ -239,8 +228,8 @@
     }
   }
 
-  export function updateEventLog(container, gameState, playerMap) {
-    const audioState = window.kaggleWerewolf;
+export function updateEventLog(container, gameState, playerMap, onSpeak) {
+    const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
     const audioToggleDisabled = !audioState.hasAudioTracks;
     const audioToggleEnabled = audioState.isAudioEnabled && !audioToggleDisabled;
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
@@ -358,12 +347,10 @@
                         </div>
                     `;
             const balloon = li.querySelector('.balloon');
-            if (balloon) {
+            if (balloon && onSpeak) {
               balloon.onclick = (e) => {
                 e.stopPropagation();
-                // This will either play (if audio is enabled)
-                // or queue the request (if audio is disabled)
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -384,12 +371,10 @@
                         </div>
                     `;
             const seer_balloon = li.querySelector('.balloon');
-            if (seer_balloon) {
+            if (seer_balloon && onSpeak) {
               seer_balloon.onclick = (e) => {
                 e.stopPropagation();
-                // This will either play (if audio is enabled)
-                // or queue the request (if audio is disabled)
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -413,12 +398,10 @@
                         </div>
                     `;
             const seer_balloon_ = li.querySelector('.balloon');
-            if (seer_balloon_) {
+            if (seer_balloon_ && onSpeak) {
               seer_balloon_.onclick = (e) => {
                 e.stopPropagation();
-                // This will either play (if audio is enabled)
-                // or queue the request (if audio is disabled)
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -439,12 +422,10 @@
                         </div>
                     `;
             const dr_balloon = li.querySelector('.balloon');
-            if (dr_balloon) {
+            if (dr_balloon && onSpeak) {
               dr_balloon.onclick = (e) => {
                 e.stopPropagation();
-                // This will either play (if audio is enabled)
-                // or queue the request (if audio is disabled)
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -453,24 +434,16 @@
 
             let systemText = entry.text;
 
-            // This enhanced regex captures the list content (group 1) and any optional
-            // trailing punctuation like a period or comma (group 2).
-            const listRegex = /\[(.*?)\](\s*[.,?!])?/g;
+            const listRegex = /\\\[(.*?)\\\](\\s*[.,?!])?/g;
 
             systemText = systemText.replace(listRegex, (match, listContent, punctuation) => {
-              // Clean the list content as before
               const cleanedContent = listContent.replace(/'/g, '').replace(/, /g, ' ').trim();
-
-              // If punctuation was captured, return the content with a space before the punctuation
               if (punctuation) {
                 return cleanedContent + ' ' + punctuation.trim();
               }
-
-              // Otherwise, just return the cleaned content
               return cleanedContent;
             });
 
-            // NOW, run the efficient replacer on the cleaned-up string.
             const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 
             li.className = `moderator-announcement`;
@@ -478,16 +451,17 @@
                         <cite>Moderator 
                         ${timestampHtml}</cite>
                         <div class="moderator-announcement-content ${phaseClass}">
-                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}</div>
+                            <div class="msg-text">${finalSystemText.replace(/\n/g, '<br>')}
+</div>
                         </div>
                     `;
 
             const content = li.querySelector('.moderator-announcement-content');
-            if (content) {
-              content.style.cursor = 'pointer'; // Optional: make it look clickable
+            if (content && onSpeak) {
+              content.style.cursor = 'pointer';
               content.onclick = (e) => {
                 e.stopPropagation();
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -497,10 +471,12 @@
             let role_text = entry.role ? ` (${entry.role})` : '';
             li.innerHTML = `<cite>Exile ${timestampHtml}</cite><div class="msg-text">${exiledPlayerCap}${role_text} was exiled by vote.</div>`;
             li.style.cursor = 'pointer';
-            li.onclick = (e) => {
-              e.stopPropagation();
-              speak(entry.allEventsIndex);
-            };
+            if (onSpeak) {
+              li.onclick = (e) => {
+                e.stopPropagation();
+                onSpeak(entry.allEventsIndex);
+              };
+            }
             break;
           case 'elimination':
             const elimPlayerCap = createPlayerCapsule(playerMap.get(entry.name));
@@ -508,20 +484,24 @@
             let elim_role_text = entry.role ? ` Their role was a ${entry.role}.` : '';
             li.innerHTML = `<cite>Elimination ${timestampHtml}</cite><div class="msg-text">${elimPlayerCap} was eliminated.${elim_role_text}</div>`;
             li.style.cursor = 'pointer';
-            li.onclick = (e) => {
-              e.stopPropagation();
-              speak(entry.allEventsIndex);
-            };
+            if (onSpeak) {
+              li.onclick = (e) => {
+                e.stopPropagation();
+                onSpeak(entry.allEventsIndex);
+              };
+            }
             break;
           case 'save':
             const savedPlayerCap = createPlayerCapsule(playerMap.get(entry.saved_player));
             li.className = `msg-entry event-night`;
             li.innerHTML = `<cite>Doctor Save ${timestampHtml}</cite><div class="msg-text">Player ${savedPlayerCap} was attacked but saved by a Doctor!</div>`;
             li.style.cursor = 'pointer';
-            li.onclick = (e) => {
-              e.stopPropagation();
-              speak(entry.allEventsIndex);
-            };
+            if (onSpeak) {
+              li.onclick = (e) => {
+                e.stopPropagation();
+                onSpeak(entry.allEventsIndex);
+              };
+            }
             break;
           case 'vote':
             const voter = playerMap.get(entry.actor_id);
@@ -545,10 +525,10 @@
                         </div>
                     `;
             const vote_balloon = li.querySelector('.balloon');
-            if (vote_balloon) {
+            if (vote_balloon && onSpeak) {
               vote_balloon.onclick = (e) => {
                 e.stopPropagation();
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -585,10 +565,10 @@
                         </div>
                     `;
             const nvote_balloon = li.querySelector('.balloon');
-            if (nvote_balloon) {
+            if (nvote_balloon && onSpeak) {
               nvote_balloon.onclick = (e) => {
                 e.stopPropagation();
-                speak(entry.allEventsIndex);
+                onSpeak(entry.allEventsIndex);
               };
             }
             break;
@@ -605,10 +585,12 @@
                         </div>
                     `;
             li.style.cursor = 'pointer';
-            li.onclick = (e) => {
-              e.stopPropagation();
-              speak(entry.allEventsIndex);
-            };
+            if (onSpeak) {
+              li.onclick = (e) => {
+                e.stopPropagation();
+                onSpeak(entry.allEventsIndex);
+              };
+            }
             break;
         }
         if (li.innerHTML) logUl.appendChild(li);
@@ -639,27 +621,31 @@
           });
         }
 
-        // --- 2. Toggle 3D Bubble Reasoning (New Behavior) ---
-
-        // Toggle the global state
+        // --- 2. Toggle Global Reasoning State ---
         window.werewolfGamePlayer.isReasoningMode = !window.werewolfGamePlayer.isReasoningMode;
         const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
 
-        // Find all active 3D UI containers in the document
-        // We search the whole document because the 3D UI is rendered by Three.js
+        // --- 3. Toggle 3D Bubble Reasoning (Legacy) ---
         const allPlayerUIs = document.querySelectorAll('.player-ui-container.chat-active');
-
         allPlayerUIs.forEach((uiElement) => {
           const reasoningEl = uiElement.querySelector('.bubble-reasoning');
-          // Check if the reasoning element has content
           const hasReasoning = reasoningEl && (reasoningEl.innerHTML || reasoningEl.textContent);
-
           if (isGlobalReasoningOn && hasReasoning) {
             uiElement.classList.add('show-reasoning');
           } else {
             uiElement.classList.remove('show-reasoning');
           }
         });
+
+        // --- 4. Toggle Cinematic Subtitle Reasoning ---
+        const subtitleContainer = document.querySelector('.cinematic-subtitle-container');
+        if (subtitleContainer) {
+            if (isGlobalReasoningOn) {
+                subtitleContainer.classList.add('show-reasoning');
+            } else {
+                subtitleContainer.classList.remove('show-reasoning');
+            }
+        }
       });
     }
 
@@ -676,12 +662,12 @@
           // --- DISABLING ---
           audioState.isAudioEnabled = false;
           globalAudioToggle.classList.remove('enabled');
-          globalAudioToggle.innerHTML = '&#x1F507;'; // Muted icon
+          globalAudioToggle.innerHTML = '&#x1F507;'; // Muted
 
-          stopAndClearAudio(); // Stop current playback
-          audioState.isPaused = true; // Ensure it stays paused
+          // Use custom event
+          const event = new CustomEvent('audio-toggle', { detail: { enabled: false } });
+          window.dispatchEvent(event);
 
-          // Update left-panel pause button
         } else {
           // --- ENABLING ---
           audioState.isAudioEnabled = true;
@@ -694,16 +680,11 @@
               'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
             );
             audio.play().catch((e) => console.warn('Audio context activation failed:', e));
-            audioState.audioContextActivated = true; // Set new flag
+            audioState.audioContextActivated = true;
           }
 
-          // Check if there was a pending playback request (e.g., from play button)
-          if (audioState.pendingPlaybackRequest) {
-            const { startIndex, isContinuous } = audioState.pendingPlaybackRequest;
-            audioState.pendingPlaybackRequest = null;
-            // We are now enabled, so this will work.
-            playAudioFrom(startIndex, isContinuous);
-          }
+          const event = new CustomEvent('audio-toggle', { detail: { enabled: true } });
+          window.dispatchEvent(event);
         }
       });
     }
@@ -714,83 +695,11 @@
     if (speedSlider) {
       speedSlider.addEventListener('input', (e) => {
         const newRate = parseFloat(e.target.value);
-        setPlaybackRate(newRate);
+        // Use custom event for speed change
+        const event = new CustomEvent('audio-speed', { detail: { rate: newRate } });
+        window.dispatchEvent(event);
+        
         if (speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
       });
     }
-  }
-
-  export function renderPlayerList(container, gameState, actingPlayerName) {
-    container.innerHTML = '<h1>Players</h1>';
-    const listContainer = document.createElement('div');
-    listContainer.id = 'player-list-container';
-    const playerUl = document.createElement('ul');
-    playerUl.id = 'player-list';
-
-    gameState.players.forEach((player) => {
-      const li = document.createElement('li');
-      li.className = 'player-card';
-      if (!player.is_alive) li.classList.add('dead');
-      if (player.name === actingPlayerName) li.classList.add('active');
-
-      let roleDisplay = player.role;
-      if (player.role === 'Werewolf') {
-        roleDisplay = `&#x1F43A; ${player.role}`;
-      } else if (player.role === 'Doctor') {
-        roleDisplay = `&#x1FA7A; ${player.role}`;
-      } else if (player.role === 'Seer') {
-        roleDisplay = `&#x1F52E; ${player.role}`;
-      } else if (player.role === 'Villager') {
-        roleDisplay = `&#x1F9D1; ${player.role}`;
-      }
-
-      const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
-
-      li.innerHTML = `
-            <div class="avatar-container">
-                <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
-            </div>
-            <div class="player-info">
-                <div class="player-name" title="${player.name}">${player.name}</div>
-                <div class="player-role">${roleText}</div>
-            </div>
-            <div class="threat-indicator"></div>
-        `;
-      playerUl.appendChild(li);
-    });
-
-    listContainer.appendChild(playerUl);
-    container.appendChild(listContainer);
-
-    gameState.players.forEach((player, index) => {
-      const li = playerUl.children[index];
-      const indicator = li.querySelector('.threat-indicator');
-      if (!indicator) return;
-
-      if (player.is_alive) {
-        const threatLevel = gameState.playerThreatLevels.get(player.name) || 0;
-        indicator.style.backgroundColor = getThreatColor(threatLevel);
-      } else {
-        indicator.style.backgroundColor = 'transparent';
-      }
-    });
-
-    const audioControls = document.createElement('div');
-    audioControls.className = 'audio-controls';
-    audioControls.innerHTML = `
-        <label for="playback-speed">Audio Speed: <span id="speed-label">${audioState.playbackRate.toFixed(1)}</span>x</label>
-        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-            <input type="range" id="playback-speed" min="0.5" max="2.5" step="0.1" value="${audioState.playbackRate}" style="flex-grow: 1;">
-        </div>
-    `;
-    container.appendChild(audioControls);
-
-    const speedSlider = audioControls.querySelector('#playback-speed');
-    const speedLabel = audioControls.querySelector('#speed-label');
-
-    speedSlider.addEventListener('input', (e) => {
-      const newRate = parseFloat(e.target.value);
-      setPlaybackRate(newRate);
-      speedLabel.textContent = newRate.toFixed(1);
-    });
   }
