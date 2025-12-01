@@ -3,8 +3,9 @@ recursive-include kaggle_environments *.py
 recursive-include kaggle_environments *.html
 recursive-include kaggle_environments *.js
 recursive-include kaggle_environments *.ts
-global-exclude */node_modules
 recursive-include kaggle_environments *.json
 recursive-include kaggle_environments *.jsonl
 recursive-include kaggle_environments/envs/cabt *.so
 recursive-include kaggle_environments/envs/cabt *.dll
+global-exclude */node_modules
+global-exclude */visualizer
