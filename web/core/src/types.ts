@@ -37,4 +37,5 @@ export interface EpisodeSlice {
   id: number;
   start: number;
   title: string;
+  urlParamKey: string;
 }

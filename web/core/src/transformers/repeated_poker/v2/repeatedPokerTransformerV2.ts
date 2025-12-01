@@ -131,8 +131,7 @@ export const getPokerStepFromUrlParams = (params: URLSearchParams, gameSteps: Re
   const hand = params.get('hand');
 
   if (hand !== null) {
-    // Assume the hand URL param is 1-indexed
-    return gameSteps.findIndex((s) => s.currentHandIndex === Number(hand) - 1);
+    return gameSteps.findIndex((s) => s.currentHandIndex === Number(hand));
   }
 
   return params.get('step') === null ? -1 : Number(params.get('step'));
@@ -162,6 +161,7 @@ export async function processPokerFile(file: File): Promise<EpisodeSlice[]> {
         id: episodeId,
         start: handId,
         title: `Hand #${handId + 1}`,
+        urlParamKey: 'hand',
       });
     }
   } catch (error) {
