@@ -7,9 +7,10 @@ import {
   getPokerStepFromUrlParams,
   getPokerStepInterestingEvents,
   getPokerStepRenderTime,
+  processPokerFile,
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGamePlayer, BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { BaseGamePlayer, BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
   let i = 0;
@@ -118,6 +119,17 @@ export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    default:
+      return [];
+  }
+};
+
+export const getEpisodesFromFile = async (file: File, gameName: string): Promise<EpisodeSlice[]> => {
+  switch (gameName) {
+    case 'open_spiel_repeated_poker': {
+      const hands = await processPokerFile(file);
+      return hands;
+    }
     default:
       return [];
   }

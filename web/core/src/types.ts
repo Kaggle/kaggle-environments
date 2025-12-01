@@ -32,3 +32,9 @@ export interface InterestingEvent {
   step: number;
   description: string;
 }
+
+export interface EpisodeSlice {
+  id: number;
+  start: number;
+  title: string;
+}
