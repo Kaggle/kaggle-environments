@@ -1,67 +1,37 @@
-export async function loadThree() {
-  if (window.THREE) {
-    return window.THREE;
-  }
+// 1. Import THREE core
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import VolumetricFire from '../world/vendor/volumetric_fire/VolumetricFire.js';
 
-  const THREEModule = await import('https://cdn.jsdelivr.net/npm/three@0.118/build/three.module.js');
-  const THREE = THREEModule.default || THREEModule;
-  window.THREE = THREE; // Make global as some modules might expect it
-  return THREE;
+//  Handle the "Global" requirement for legacy scripts
+if (!window.THREE) {
+  window.THREE = THREE;
 }
 
-export async function loadThreeModules() {
-  // 1. Ensure THREE is loaded and assigned to window.THREE *before* anything else.
-  await loadThree();
-
-  // 2. Now import dependent modules sequentially or in parallel, 
-  // but explicitly separated from VolumetricFire if it's finicky, 
-  // though Promise.all should be fine now that window.THREE is set.
-  // Actually, let's keep VolumetricFire separate just to be safe.
-
-  const [
-    { OrbitControls },
-    { FBXLoader },
-    { SkeletonUtils },
-    { EXRLoader },
-    { CSS2DRenderer, CSS2DObject },
-    { EffectComposer },
-    { RenderPass },
-    { UnrealBloomPass },
-    { ShaderPass },
-    { FilmPass },
-    { Sky }
-  ] = await Promise.all([
-    import('https://cdn.jsdelivr.net/npm/three@0.118/examples/jsm/controls/OrbitControls.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/FBXLoader.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/utils/SkeletonUtils.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/loaders/EXRLoader.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/renderers/CSS2DRenderer.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/EffectComposer.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/RenderPass.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/UnrealBloomPass.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/ShaderPass.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/postprocessing/FilmPass.js'),
-    import('https://cdn.jsdelivr.net/npm/three@0.118.1/examples/jsm/objects/Sky.js')
-  ]);
-
-  // 3. Load VolumetricFire *after* everything else is confirmed ready.
-  // Using dynamic import with a relative path.
-  const VolumetricFireModule = await import('../../static/volumetric_fire/VolumetricFire.js');
-  const VolumetricFire = VolumetricFireModule.default || window.VolumetricFire;
-
-  return {
-    OrbitControls,
-    FBXLoader,
-    SkeletonUtils,
-    EXRLoader,
-    CSS2DRenderer,
-    CSS2DObject,
-    EffectComposer,
-    RenderPass,
-    UnrealBloomPass,
-    ShaderPass,
-    FilmPass,
-    Sky,
-    VolumetricFire
-  };
-}
+//  Export everything as a standard object
+export const ThreeModules = {
+  THREE, // Export core THREE if you need it elsewhere
+  OrbitControls,
+  FBXLoader,
+  SkeletonUtils,
+  EXRLoader,
+  CSS2DRenderer,
+  CSS2DObject,
+  EffectComposer,
+  RenderPass,
+  UnrealBloomPass,
+  ShaderPass,
+  FilmPass,
+  Sky,
+  VolumetricFire,
+};

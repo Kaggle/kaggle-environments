@@ -21,7 +21,7 @@ export class PropsManager {
     console.debug('[CAMPFIRE] Creating campfire at scene center');
 
     if (this.VolumetricFire) {
-      this.VolumetricFire.texturePath = '/static/volumetric_fire/textures/';
+      this.VolumetricFire.texturePath = `${import.meta.env.BASE_URL}static/volumetric_fire/textures/`;
     }
 
     const campfireGroup = new this.THREE.Group();
