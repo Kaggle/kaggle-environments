@@ -67,7 +67,7 @@ exclude = [
   # Do not release tests files on PyPI
   "**/*_test.py",
   "**/node_modules/",
-  "**/werewolf/visualizer/",
+  "**/visualizer/",
 ]
 
 [tool.setuptools.dynamic]
