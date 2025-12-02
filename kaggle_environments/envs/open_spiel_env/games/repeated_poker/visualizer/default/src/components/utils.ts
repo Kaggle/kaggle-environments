@@ -1,3 +1,5 @@
+import { RepeatedPokerStep } from '@kaggle-environments/core';
+
 /**
  * Defines the possible card suit strings.
  */
@@ -31,9 +33,7 @@ export interface DisplayCard {
  * @param acpcCard The card string from the ACPC data.
  * @returns An object with `rank`, `suit`, and `original` properties.
  */
-export function acpcCardToDisplay(
-  acpcCard: string | null | undefined
-): DisplayCard {
+export function acpcCardToDisplay(acpcCard: string | null | undefined): DisplayCard {
   if (!acpcCard || acpcCard.length < 2) {
     return { rank: '?', suit: '', original: acpcCard };
   }
@@ -58,4 +58,100 @@ export function acpcCardToDisplay(
   const suit = suitMap[suitChar] || '';
 
   return { rank, suit, original: acpcCard };
+}
+
+export interface PlayerStats {
+  vpip: number; // Voluntarily Put Money In Pot %
+  pfr: number; // Pre-flop Raise %
+  threeBet: number; // 3-Bet %
+  cBetOps: number; // Opportunities to C-Bet
+  cBetMade: number; // C-Bets made
+  faceCBetOps: number; // Opportunities to fold to C-Bet
+  foldToCBet: number; // Folded to C-Bet
+}
+
+// TODO - we need to validate these are correct vs. the same steps from something like Poker Tracker - but should be pretty close for now.
+export function calculateMatchStats(steps: RepeatedPokerStep[]): { p0: PlayerStats; p1: PlayerStats } {
+  const p0Stats = { vpip: 0, pfr: 0, threeBet: 0, cBetOps: 0, cBetMade: 0, faceCBetOps: 0, foldToCBet: 0 };
+  const p1Stats = { vpip: 0, pfr: 0, threeBet: 0, cBetOps: 0, cBetMade: 0, faceCBetOps: 0, foldToCBet: 0 };
+
+  // Group steps by hand
+  const hands = new Map<number, RepeatedPokerStep[]>();
+  steps.forEach((step) => {
+    if (!hands.has(step.currentHandIndex)) hands.set(step.currentHandIndex, []);
+    hands.get(step.currentHandIndex)!.push(step);
+  });
+
+  hands.forEach((handSteps) => {
+    // Pre-flop Analysis
+    const preflopSteps = handSteps.filter((s) => s.stepType === 'player-action' && s.communityCards === '');
+
+    [0, 1].forEach((playerId) => {
+      const stats = playerId === 0 ? p0Stats : p1Stats;
+      const myActions = preflopSteps.filter((s) => s.currentPlayer === playerId);
+
+      // VPIP & PFR
+      const hasVPIP = myActions.some((s) => {
+        const text = s.players[playerId].actionDisplayText?.toLowerCase() ?? '';
+        return text.includes('call') || text.includes('raise') || text.includes('bet');
+      });
+      if (hasVPIP) stats.vpip++;
+
+      const hasPFR = myActions.some((s) => s.players[playerId].actionDisplayText?.toLowerCase().includes('raise'));
+      if (hasPFR) stats.pfr++;
+
+      // 3-Bet Detection (Heuristic: Raising when pot > 4 in 1/2 game)
+      const has3Bet = myActions.some((s) => {
+        const text = s.players[playerId].actionDisplayText?.toLowerCase() ?? '';
+        return text.includes('raise') && s.pot > 4;
+      });
+      if (has3Bet) stats.threeBet++;
+    });
+
+    // C-Bet Analysis
+    let preflopAggressor = -1;
+    const reversedPreflop = [...preflopSteps].reverse();
+    const lastRaise = reversedPreflop.find((s) =>
+      s.players[s.currentPlayer].actionDisplayText?.toLowerCase().includes('raise')
+    );
+
+    if (lastRaise) preflopAggressor = lastRaise.currentPlayer;
+
+    const flopSteps = handSteps.filter((s) => s.communityCards.length === 6 && s.stepType === 'player-action');
+
+    if (preflopAggressor !== -1 && flopSteps.length > 0) {
+      const aggressorStats = preflopAggressor === 0 ? p0Stats : p1Stats;
+      const defenderStats = preflopAggressor === 0 ? p1Stats : p0Stats;
+
+      const aggressorAction = flopSteps.find((s) => s.currentPlayer === preflopAggressor);
+
+      if (aggressorAction) {
+        const text = aggressorAction.players[preflopAggressor].actionDisplayText?.toLowerCase() ?? '';
+        const prevStepIndex = handSteps.indexOf(aggressorAction) - 1;
+        const prevStep = handSteps[prevStepIndex];
+        const prevActionText =
+          prevStep.stepType === 'player-action'
+            ? (prevStep.players[prevStep.currentPlayer].actionDisplayText?.toLowerCase() ?? '')
+            : '';
+
+        // If aggressive action wasn't facing a bet/raise, it's a C-Bet op
+        if (!prevActionText.includes('bet') && !prevActionText.includes('raise')) {
+          aggressorStats.cBetOps++;
+          const cBetMade = text.includes('bet');
+          if (cBetMade) {
+            aggressorStats.cBetMade++;
+            defenderStats.faceCBetOps++;
+
+            const cBetIndex = handSteps.indexOf(aggressorAction!);
+            const nextAction = handSteps[cBetIndex + 1];
+            if (nextAction && nextAction.currentPlayer !== preflopAggressor) {
+              const defText = nextAction.players[nextAction.currentPlayer].actionDisplayText?.toLowerCase() ?? '';
+              if (defText.includes('fold')) defenderStats.foldToCBet++;
+            }
+          }
+        }
+      }
+    }
+  });
+  return { p0: p0Stats, p1: p1Stats };
 }

@@ -130,7 +130,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     //    We use nullish coalescing (??) to set defaults if state is empty.
     if (this.hmrState) {
       this.showControls = this.hmrState.controls ?? true;
-      this.showLegend = this.hmrState.legend ?? true;
+      this.showLegend = this.hmrState.legend ?? false;
       this.playing = this.hmrState.playing ?? false;
     }
 
@@ -376,7 +376,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   }
 
   private tick = () => {
-    console.log('tick called');
     if (!this.playing || !this.replay) return;
 
     if (this.step >= this.replay.steps.length - 1) {
