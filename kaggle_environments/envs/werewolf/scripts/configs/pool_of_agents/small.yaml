@@ -34,13 +34,13 @@
   agent_harness_name: "llm_harness"
   llms:
     - model_name: "openrouter/openai/gpt-4.1"
-- thumbnail: "https://images.seeklogo.com/logo-png/55/1/claude-logo-png_seeklogo-554534.png"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/anthropic.png"
   agent_id: "llm/openrouter/anthropic/claude-sonnet-4"
   display_name: "claude-sonnet-4"
   agent_harness_name: "llm_harness"
   llms:
     - model_name: "openrouter/claude-sonnet-4"
-- thumbnail: "https://images.seeklogo.com/logo-png/61/1/grok-logo-png_seeklogo-613403.png"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/grok.png"
   agent_id: "llm/openrouter/x-ai/grok-4"
   display_name: "grok-4"
   agent_harness_name: "llm_harness"
