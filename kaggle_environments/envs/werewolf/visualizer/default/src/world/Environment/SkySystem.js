@@ -89,7 +89,7 @@ export class SkySystem {
 
   createMoonMesh() {
     const textureLoader = new this.THREE.TextureLoader();
-    const moonTexture = textureLoader.load('/static/moon_texture.jpg');
+    const moonTexture = textureLoader.load(`${import.meta.env.BASE_URL}static/moon_texture.jpg`);
 
     // Group to hold moon mesh and glow (handles orbit and facing)
     this.moonMesh = new this.THREE.Group();
@@ -170,7 +170,7 @@ export class SkySystem {
         phase: Math.random() * Math.PI * 2,
         speed: 0.3 + Math.random() * 0.4,
         baseRotationZ: beam.rotation.z,
-        baseRotationX: beam.rotation.x
+        baseRotationX: beam.rotation.x,
       };
 
       this.godRays.push(beam);
@@ -326,17 +326,17 @@ export class SkySystem {
     }
 
     this.clouds.forEach((cloud) => {
-        if(cloud) cloud.visible = false;
+      if (cloud) cloud.visible = false;
     });
   }
 
   updatePhase(phase, currentEventIndex) {
     if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
-    
+
     const normalizedPhase = (phase || 'DAY').toUpperCase();
     const allEvents = window.werewolfGamePlayer.allEvents;
     if (allEvents.length === 0) return;
-    
+
     const safeCurrentIndex = Math.min(Math.max(0, currentEventIndex || 0), allEvents.length - 1);
 
     // 1. Find the start of the current phase (search backwards)
@@ -348,7 +348,7 @@ export class SkySystem {
         break;
       }
     }
-    
+
     // 2. Find the end of the current phase (search forwards)
     let phaseEndIndex = allEvents.length - 1;
     for (let i = safeCurrentIndex + 1; i < allEvents.length; i++) {
@@ -358,7 +358,7 @@ export class SkySystem {
         break;
       }
     }
-    
+
     // 3. Calculate phase progress (0.0 to 1.0)
     const totalPhaseEvents = phaseEndIndex - phaseStartIndex;
     const currentPhaseEvents = safeCurrentIndex - phaseStartIndex;
@@ -370,7 +370,7 @@ export class SkySystem {
     // 4. Map progress to the 0.0-1.0 time-of-day scale
     let targetPhase;
     if (normalizedPhase === 'NIGHT') {
-      targetPhase = 0.5 + (phaseProgress * 0.5);
+      targetPhase = 0.5 + phaseProgress * 0.5;
     } else {
       targetPhase = phaseProgress * 0.5;
     }
@@ -410,9 +410,7 @@ export class SkySystem {
     this.sunLight.intensity = sunIntensity * 1.2;
     this.sunLight.visible = sunY > 0;
 
-    const sunColorTemp = sunY > 0 && sunY < 100
-      ? new this.THREE.Color(0xffaa66)
-      : new this.THREE.Color(0xffffff);
+    const sunColorTemp = sunY > 0 && sunY < 100 ? new this.THREE.Color(0xffaa66) : new this.THREE.Color(0xffffff);
     this.sunLight.color = sunColorTemp;
 
     // Update Moon
@@ -420,14 +418,14 @@ export class SkySystem {
       this.moonMesh.position.set(moonX, moonY, moonZ);
       this.moonMesh.lookAt(0, 0, 0);
       this.moonMesh.visible = moonY > 0;
-      
+
       const moonScale = 1 + Math.max(0, (1 - Math.abs(moonY) / 100) * 0.5);
       this.moonMesh.scale.setScalar(moonScale);
-      
+
       if (this.moonSphere) {
-         this.moonSphere.rotation.y = phase * Math.PI * 4; 
+        this.moonSphere.rotation.y = phase * Math.PI * 4;
       }
-      
+
       if (this.moonGlow && this.moonGlow.material) {
         this.moonGlow.material.opacity = moonY > 0 ? 0.3 : 0;
       }
@@ -447,8 +445,14 @@ export class SkySystem {
       dayProgress = phase * 2;
       if (dayProgress < 0.1 || dayProgress > 0.9) {
         const transitionFactor = dayProgress < 0.1 ? dayProgress * 10 : (1 - dayProgress) * 10;
-        const turbidity_noon = 4.7, rayleigh_noon = 0.2, mieCoeff_noon = 0.001, mieG_noon = 0.9;
-        const turbidity_dusk = 8.0, rayleigh_dusk = 1.0, mieCoeff_dusk = 0.01, mieG_dusk = 0.95;
+        const turbidity_noon = 4.7,
+          rayleigh_noon = 0.2,
+          mieCoeff_noon = 0.001,
+          mieG_noon = 0.9;
+        const turbidity_dusk = 8.0,
+          rayleigh_dusk = 1.0,
+          mieCoeff_dusk = 0.01,
+          mieG_dusk = 0.95;
         skyUniforms['turbidity'].value = turbidity_dusk + (turbidity_noon - turbidity_dusk) * transitionFactor;
         skyUniforms['rayleigh'].value = rayleigh_dusk + (rayleigh_noon - rayleigh_dusk) * transitionFactor;
         skyUniforms['mieCoefficient'].value = mieCoeff_dusk + (mieCoeff_noon - mieCoeff_dusk) * transitionFactor;
@@ -470,7 +474,7 @@ export class SkySystem {
         skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
       } else {
         skyUniforms['turbidity'].value = 10;
-        skyUniforms['rayleigh'].value = 2.0; 
+        skyUniforms['rayleigh'].value = 2.0;
         skyUniforms['mieCoefficient'].value = 0.005;
         skyUniforms['mieDirectionalG'].value = 0.8;
       }

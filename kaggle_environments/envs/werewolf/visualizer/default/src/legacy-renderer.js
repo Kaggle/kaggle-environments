@@ -1,4 +1,4 @@
-import { loadThreeModules } from './world/ThreeLoader.js';
+import { ThreeModules } from './world/ThreeLoader.js';
 import { World } from './world/World.js';
 import { rendererCss } from './styles/rendererStyles.js';
 import {
@@ -49,6 +49,9 @@ export function renderer(context, parent) {
   const { replay, step, height = 1000, width = 1500 } = context;
   const environment = replay;
   const parentId = parent.id;
+
+  let playerNamesFor3D = [];
+  let playerThumbnailsFor3D = {};
 
   // Set audio context immediately
   setAudioContext(context);
@@ -217,21 +220,18 @@ export function renderer(context, parent) {
         return;
     }
 
-    loadThreeModules().then((modules) => {
-        threeState.world = new World({ parent, width, height }, modules);
+    try {
+        threeState.world = new World({ parent, width, height }, ThreeModules);
         threeState.initialized = true;
-        // Expose globally for backward compatibility or debugging
         window.werewolfThreeJs.demo = threeState.world; 
-        
-        // Trigger initialization of players if needed
         if (playerNamesFor3D.length > 0 && !threeState.players3DInitialized) {
             setup3DPlayers();
         }
-    }).catch(err => {
-        console.error("Failed to load Three.js modules", err);
+    } catch (err) {
+        console.error("Failed to initialize 3D world", err);
         parent.textContent = "Error loading 3D assets.";
-    });
-  }
+    }
+}
 
   initThreeJs();
 
@@ -243,10 +243,6 @@ export function renderer(context, parent) {
     }
     return;
   }
-
-  // --- State Reconstruction for this step ---
-  let playerNamesFor3D = [];
-  let playerThumbnailsFor3D = {};
 
   const player = window.werewolfGamePlayer;
   const { allEvents, displayStepToAllEventsIndex, originalSteps, eventToKaggleStep } = player;

@@ -3,7 +3,7 @@ export class TerrainManager {
     this.scene = scene;
     this.THREE = THREE;
     this.fbxLoader = new FBXLoader();
-    
+
     this.islandModel = null;
     this.townModel = null;
 
@@ -19,10 +19,16 @@ export class TerrainManager {
   loadIslandModel() {
     const textureLoader = new this.THREE.TextureLoader();
 
-    const baseTexture = textureLoader.load('/static/werewolf/island/_0930062431_texture.png');
-    const normalTexture = textureLoader.load('/static/werewolf/island/_0930062431_texture_normal.png');
-    const metallicTexture = textureLoader.load('/static/werewolf/island/_0930062431_texture_metallic.png');
-    const roughnessTexture = textureLoader.load('/static/werewolf/island/_0930062431_texture_roughness.png');
+    const baseTexture = textureLoader.load(`${import.meta.env.BASE_URL}static/werewolf/island/_0930062431_texture.png`);
+    const normalTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}static/werewolf/island/_0930062431_texture_normal.png`
+    );
+    const metallicTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}static/werewolf/island/_0930062431_texture_metallic.png`
+    );
+    const roughnessTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}static/werewolf/island/_0930062431_texture_roughness.png`
+    );
 
     [baseTexture, normalTexture, metallicTexture, roughnessTexture].forEach((texture) => {
       texture.encoding = this.THREE.sRGBEncoding;
@@ -30,7 +36,7 @@ export class TerrainManager {
     });
 
     this.fbxLoader.load(
-      '/static/werewolf/island/_0930062431_texture.fbx',
+      `${import.meta.env.BASE_URL}static/werewolf/island/_0930062431_texture.fbx`,
       (fbx) => {
         fbx.scale.setScalar(0.02);
         fbx.position.y = -19.8;
@@ -85,7 +91,7 @@ export class TerrainManager {
   }
 
   loadTownModel() {
-    const townModelPath = '/static/werewolf/town/scene_v1.fbx';
+    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/scene_v1.fbx`;
     console.debug(`[Town Loader] Attempting to load model from: ${townModelPath}`);
 
     this.fbxLoader.load(
@@ -123,9 +129,13 @@ export class TerrainManager {
   loadGround() {
     console.debug('[Ground Loader] Creating realistic rocky terrain...');
     const textureLoader = new this.THREE.TextureLoader();
-    
-    const colorTexture = textureLoader.load('/static/werewolf/ground/rocky_terrain_02_diff_1k.jpg');
-    const displacementTexture = textureLoader.load('/static/werewolf/ground/rocky_terrain_02_disp_1k.png');
+
+    const colorTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}static/werewolf/ground/rocky_terrain_02_diff_1k.jpg`
+    );
+    const displacementTexture = textureLoader.load(
+      `${import.meta.env.BASE_URL}static/werewolf/ground/rocky_terrain_02_disp_1k.png`
+    );
     // roughness and normal maps removed due to EXRLoader issues
 
     [colorTexture, displacementTexture].forEach((texture) => {

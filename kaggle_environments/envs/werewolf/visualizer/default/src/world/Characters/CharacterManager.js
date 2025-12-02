@@ -34,13 +34,13 @@ export class CharacterManager {
     }
 
     const modelPromise = new Promise((resolve, reject) => {
-      const modelPath = `/static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
+      const modelPath = `${import.meta.env.BASE_URL}static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
 
       this.fbxLoader.load(
         modelPath,
         (fbx) => {
           fbx.scale.setScalar(0.05);
-          
+
           const animations = {};
           if (fbx.animations && fbx.animations.length > 0) {
             fbx.animations.forEach((clip) => {
@@ -78,7 +78,11 @@ export class CharacterManager {
           // console.debug(`Loading merged model for ${normalizedRole}: ${((progress.loaded / progress.total) * 100).toFixed(2)}%`);
         },
         (error) => {
-          reject(new Error(`Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`));
+          reject(
+            new Error(
+              `Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`
+            )
+          );
         }
       );
     });
@@ -97,12 +101,12 @@ export class CharacterManager {
 
   async initializePlayers(gameState, playerNames, playerThumbnails, uiManager) {
     if (this.playerObjects.size > 0) {
-        // console.warn('3D players already initialized');
-        return;
+      // console.warn('3D players already initialized');
+      return;
     }
 
     while (this.playerGroup.children.length > 0) {
-        this.playerGroup.remove(this.playerGroup.children[0]);
+      this.playerGroup.remove(this.playerGroup.children[0]);
     }
     this.playerObjects.clear();
 
@@ -111,168 +115,170 @@ export class CharacterManager {
     const playerHeight = 4;
 
     const playerLoadPromises = playerNames.map(async (name, i) => {
-        const role = gameState.players[i].role || 'Villager';
-        try {
-            const fbxModel = await this.loadCharacterModel(role);
-            const animations = await this.loadCharacterAnimations(role);
-            return { name, i, role, fbxModel, animations, success: true };
-        } catch (error) {
-            console.error(`Failed to load model for ${name}:`, error);
-            return { name, i, role, fbxModel: null, animations: null, success: false };
-        }
+      const role = gameState.players[i].role || 'Villager';
+      try {
+        const fbxModel = await this.loadCharacterModel(role);
+        const animations = await this.loadCharacterAnimations(role);
+        return { name, i, role, fbxModel, animations, success: true };
+      } catch (error) {
+        console.error(`Failed to load model for ${name}:`, error);
+        return { name, i, role, fbxModel: null, animations: null, success: false };
+      }
     });
 
     const loadedPlayers = await Promise.all(playerLoadPromises);
 
     loadedPlayers.forEach(({ name, i, role, fbxModel, animations, success }) => {
-        const displayName = gameState.players[i].display_name || '';
-        const playerContainer = new this.THREE.Group();
-        const angle = (i / numPlayers) * Math.PI * 2;
-        const x = radius * Math.sin(angle);
-        const z = radius * Math.cos(angle);
-        playerContainer.position.set(x, 0, z);
+      const displayName = gameState.players[i].display_name || '';
+      const playerContainer = new this.THREE.Group();
+      const angle = (i / numPlayers) * Math.PI * 2;
+      const x = radius * Math.sin(angle);
+      const z = radius * Math.cos(angle);
+      playerContainer.position.set(x, 0, z);
 
-        const pedestalGeometry = new this.THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
-        const pedestalMaterial = new this.THREE.MeshStandardMaterial({
-            color: 0x1a1a2a,
-            roughness: 0.9,
-            metalness: 0.1,
-            emissive: 0x0a0a15,
-            emissiveIntensity: 0.1,
-        });
-        const pedestal = new this.THREE.Mesh(pedestalGeometry, pedestalMaterial);
-        pedestal.position.y = 0.2;
-        pedestal.castShadow = true;
-        pedestal.receiveShadow = true;
-        playerContainer.add(pedestal);
+      const pedestalGeometry = new this.THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
+      const pedestalMaterial = new this.THREE.MeshStandardMaterial({
+        color: 0x1a1a2a,
+        roughness: 0.9,
+        metalness: 0.1,
+        emissive: 0x0a0a15,
+        emissiveIntensity: 0.1,
+      });
+      const pedestal = new this.THREE.Mesh(pedestalGeometry, pedestalMaterial);
+      pedestal.position.y = 0.2;
+      pedestal.castShadow = true;
+      pedestal.receiveShadow = true;
+      playerContainer.add(pedestal);
 
-        let model = null;
-        let mixer = null;
-        let currentAction = null;
-        let modelHeight = playerHeight;
+      let model = null;
+      let mixer = null;
+      let currentAction = null;
+      let modelHeight = playerHeight;
 
-        if (success && fbxModel) {
-            model = this.skeletonUtils.clone(fbxModel);
-            model.position.y = 0.5;
+      if (success && fbxModel) {
+        model = this.skeletonUtils.clone(fbxModel);
+        model.position.y = 0.5;
 
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                    if (child.material) {
-                        const materials = Array.isArray(child.material) ? child.material : [child.material];
-                        materials.forEach((mat) => {
-                            if (mat) {
-                                mat.roughness = 1.0;
-                                mat.metalness = 0.0;
-                                mat.envMapIntensity = 0;
-                                mat.roughnessMap = null;
-                                mat.metalnessMap = null;
-                                mat.envMap = null;
-                                if (mat.color) mat.color.multiplyScalar(1.5);
-                                mat.transparent = false;
-                                mat.opacity = 1.0;
-                                mat.alphaTest = 0;
-                                mat.needsUpdate = true;
-                            }
-                        });
-                    }
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            if (child.material) {
+              const materials = Array.isArray(child.material) ? child.material : [child.material];
+              materials.forEach((mat) => {
+                if (mat) {
+                  mat.roughness = 1.0;
+                  mat.metalness = 0.0;
+                  mat.envMapIntensity = 0;
+                  mat.roughnessMap = null;
+                  mat.metalnessMap = null;
+                  mat.envMap = null;
+                  if (mat.color) mat.color.multiplyScalar(1.5);
+                  mat.transparent = false;
+                  mat.opacity = 1.0;
+                  mat.alphaTest = 0;
+                  mat.needsUpdate = true;
                 }
-            });
-            playerContainer.add(model);
-            mixer = new this.THREE.AnimationMixer(model);
-            if (animations && animations['Idle']) {
-                currentAction = mixer.clipAction(animations['Idle']);
-                currentAction.play();
+              });
             }
-            const box = new this.THREE.Box3().setFromObject(model);
-            const size = box.getSize(new this.THREE.Vector3());
-            modelHeight = size.y;
-        } else {
-            const fallbackGeometry = new this.THREE.BoxGeometry(1.5, 3, 1.5);
-            const fallbackColor = role === 'Werewolf' ? 0x880000 : role === 'Doctor' ? 0x008800 : role === 'Seer' ? 0x4b0082 : 0x4466ff;
-            const fallbackMaterial = new this.THREE.MeshStandardMaterial({
-                color: fallbackColor,
-                roughness: 0.5,
-                metalness: 0.3,
-                emissive: fallbackColor,
-                emissiveIntensity: 0.2,
-            });
-            const fallback = new this.THREE.Mesh(fallbackGeometry, fallbackMaterial);
-            fallback.position.y = 2;
-            fallback.castShadow = true;
-            fallback.receiveShadow = true;
-            playerContainer.add(fallback);
-            model = fallback;
-            modelHeight = 3;
+          }
+        });
+        playerContainer.add(model);
+        mixer = new this.THREE.AnimationMixer(model);
+        if (animations && animations['Idle']) {
+          currentAction = mixer.clipAction(animations['Idle']);
+          currentAction.play();
         }
-
-        const orbGeometry = new this.THREE.IcosahedronGeometry(0.25, 2);
-        const orbMaterial = new this.THREE.MeshStandardMaterial({
-            color: 0x00aa88,
-            emissive: 0x00aa88,
-            emissiveIntensity: 1,
-            transparent: true,
-            opacity: 1,
-            depthTest: false,
+        const box = new this.THREE.Box3().setFromObject(model);
+        const size = box.getSize(new this.THREE.Vector3());
+        modelHeight = size.y;
+      } else {
+        const fallbackGeometry = new this.THREE.BoxGeometry(1.5, 3, 1.5);
+        const fallbackColor =
+          role === 'Werewolf' ? 0x880000 : role === 'Doctor' ? 0x008800 : role === 'Seer' ? 0x4b0082 : 0x4466ff;
+        const fallbackMaterial = new this.THREE.MeshStandardMaterial({
+          color: fallbackColor,
+          roughness: 0.5,
+          metalness: 0.3,
+          emissive: fallbackColor,
+          emissiveIntensity: 0.2,
         });
-        const orb = new this.THREE.Mesh(orbGeometry, orbMaterial);
-        orb.position.y = modelHeight + 0.8;
-        orb.name = 'statusOrb';
-        playerContainer.add(orb);
+        const fallback = new this.THREE.Mesh(fallbackGeometry, fallbackMaterial);
+        fallback.position.y = 2;
+        fallback.castShadow = true;
+        fallback.receiveShadow = true;
+        playerContainer.add(fallback);
+        model = fallback;
+        modelHeight = 3;
+      }
 
-        const glowGeometry = new this.THREE.SphereGeometry(0.4, 12, 8);
-        const glowMaterial = new this.THREE.MeshStandardMaterial({
-            color: 0x00aa88,
-            emissive: 0x00aa88,
-            emissiveIntensity: 0.15,
-            transparent: true,
-            opacity: 0.2,
-            depthTest: false,
-        });
-        const glow = new this.THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.y = modelHeight + 0.8;
-        playerContainer.add(glow);
+      const orbGeometry = new this.THREE.IcosahedronGeometry(0.25, 2);
+      const orbMaterial = new this.THREE.MeshStandardMaterial({
+        color: 0x00aa88,
+        emissive: 0x00aa88,
+        emissiveIntensity: 1,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+      });
+      const orb = new this.THREE.Mesh(orbGeometry, orbMaterial);
+      orb.position.y = modelHeight + 0.8;
+      orb.name = 'statusOrb';
+      playerContainer.add(orb);
 
-        const orbLight = new this.THREE.PointLight(0x00aa88, 0.4, 6);
-        orbLight.position.y = modelHeight + 0.8;
-        orbLight.name = 'orbLight';
-        orbLight.castShadow = true;
-        playerContainer.add(orbLight);
+      const glowGeometry = new this.THREE.SphereGeometry(0.4, 12, 8);
+      const glowMaterial = new this.THREE.MeshStandardMaterial({
+        color: 0x00aa88,
+        emissive: 0x00aa88,
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.2,
+        depthTest: false,
+      });
+      const glow = new this.THREE.Mesh(glowGeometry, glowMaterial);
+      glow.position.y = modelHeight + 0.8;
+      playerContainer.add(glow);
 
-        const angleToCenter = Math.atan2(playerContainer.position.x, playerContainer.position.z);
-        playerContainer.rotation.y = angleToCenter + Math.PI;
+      const orbLight = new this.THREE.PointLight(0x00aa88, 0.4, 6);
+      orbLight.position.y = modelHeight + 0.8;
+      orbLight.name = 'orbLight';
+      orbLight.castShadow = true;
+      playerContainer.add(orbLight);
 
-        const thumbnailUrl = playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
-        
-        // Pass a focus callback if needed
-        const playerUI = uiManager.createPlayerUI(name, displayName, thumbnailUrl);
-        playerUI.position.set(0, modelHeight + 2.0, 0);
-        playerContainer.add(playerUI);
+      const angleToCenter = Math.atan2(playerContainer.position.x, playerContainer.position.z);
+      playerContainer.rotation.y = angleToCenter + Math.PI;
 
-        this.playerObjects.set(name, {
-            container: playerContainer,
-            model: model,
-            playerUI: playerUI,
-            mixer: mixer,
-            animations: animations,
-            currentAction: currentAction,
-            orb: orb,
-            glow: glow,
-            orbLight: orbLight,
-            pedestal: pedestal,
-            originalPosition: playerContainer.position.clone(),
-            baseAngle: angle,
-            isAlive: true,
-        });
+      const thumbnailUrl =
+        playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
 
-        this.playerGroup.add(playerContainer);
+      // Pass a focus callback if needed
+      const playerUI = uiManager.createPlayerUI(name, displayName, thumbnailUrl);
+      playerUI.position.set(0, modelHeight + 2.0, 0);
+      playerContainer.add(playerUI);
+
+      this.playerObjects.set(name, {
+        container: playerContainer,
+        model: model,
+        playerUI: playerUI,
+        mixer: mixer,
+        animations: animations,
+        currentAction: currentAction,
+        orb: orb,
+        glow: glow,
+        orbLight: orbLight,
+        pedestal: pedestal,
+        originalPosition: playerContainer.position.clone(),
+        baseAngle: angle,
+        isAlive: true,
+      });
+
+      this.playerGroup.add(playerContainer);
     });
   }
 
   // ... (rest of methods: updatePlayerActive, updatePlayerStatus, playAnimation, trigger..., update, reset)
   // I will just append the methods I defined in the previous step
-  
+
   updatePlayerActive(playerName) {
     const player = this.playerObjects.get(playerName);
     if (!player) return;
@@ -292,24 +298,24 @@ export class CharacterManager {
     const { orb, orbLight, glow, pedestal, container, mixer, animations, currentAction } = player;
 
     if (player_info && player_info.role !== 'Unknown' && player.playerUI) {
-        const roleElement = player.playerUI.element.querySelector('.player-role-3d');
-        if (roleElement) {
-            let roleDisplay = player_info.role;
-            let roleColor = '#00b894';
-            if (player_info.role === 'Werewolf') {
-                roleDisplay = `\u{1F43A} ${player_info.role}`;
-                roleColor = '#e17055';
-            } else if (player_info.role === 'Doctor') {
-                roleDisplay = `\u{1FA7A} ${player_info.role}`;
-                roleColor = '#6c5ce7';
-            } else if (player_info.role === 'Seer') {
-                roleDisplay = `\u{1F52E} ${player_info.role}`;
-                roleColor = '#fd79a8';
-            }
-            roleElement.textContent = `${roleDisplay}`;
-            roleElement.style.color = roleColor;
-            roleElement.style.fontWeight = 'bold';
+      const roleElement = player.playerUI.element.querySelector('.player-role-3d');
+      if (roleElement) {
+        let roleDisplay = player_info.role;
+        let roleColor = '#00b894';
+        if (player_info.role === 'Werewolf') {
+          roleDisplay = `\u{1F43A} ${player_info.role}`;
+          roleColor = '#e17055';
+        } else if (player_info.role === 'Doctor') {
+          roleDisplay = `\u{1FA7A} ${player_info.role}`;
+          roleColor = '#6c5ce7';
+        } else if (player_info.role === 'Seer') {
+          roleDisplay = `\u{1F52E} ${player_info.role}`;
+          roleColor = '#fd79a8';
         }
+        roleElement.textContent = `${roleDisplay}`;
+        roleElement.style.color = roleColor;
+        roleElement.style.fontWeight = 'bold';
+      }
     }
 
     // Reset to default
@@ -331,10 +337,10 @@ export class CharacterManager {
     container.scale.setScalar(1.0);
     container.position.y = 0;
     container.rotation.x = 0;
-    
+
     if (player.nameplate && player.nameplate.element) {
-        player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
-        player.nameplate.element.style.opacity = '1.0';
+      player.nameplate.element.style.transition = 'opacity 0.5s ease-in';
+      player.nameplate.element.style.opacity = '1.0';
     }
     player.isAlive = true;
 
@@ -345,8 +351,8 @@ export class CharacterManager {
         glow.visible = false;
         pedestal.material.emissive.setHex(0x050505);
         if (player.nameplate && player.nameplate.element) {
-            player.nameplate.element.style.transition = 'opacity 2s ease-out';
-            player.nameplate.element.style.opacity = '0.7';
+          player.nameplate.element.style.transition = 'opacity 2s ease-out';
+          player.nameplate.element.style.opacity = '0.7';
         }
         player.isAlive = false;
 
@@ -451,7 +457,7 @@ export class CharacterManager {
     // Check if already playing
     const targetAction = mixer.clipAction(animations[animationName]);
     if (player.currentAction === targetAction && targetAction.isRunning()) {
-        return targetAction;
+      return targetAction;
     }
 
     if (player.currentAction) {
@@ -523,86 +529,86 @@ export class CharacterManager {
 
   update(delta, time, phaseValue) {
     this.playerObjects.forEach((player) => {
-        if (player.mixer) player.mixer.update(delta);
+      if (player.mixer) player.mixer.update(delta);
 
-        if (player.isAlive) {
-            const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.2;
-            const bobOffset = Math.cos(time * 0.0015 + player.baseAngle * 2) * 0.05;
-            player.container.position.y = floatOffset + bobOffset;
+      if (player.isAlive) {
+        const floatOffset = Math.sin(time * 0.001 + player.baseAngle) * 0.2;
+        const bobOffset = Math.cos(time * 0.0015 + player.baseAngle * 2) * 0.05;
+        player.container.position.y = floatOffset + bobOffset;
 
-            if (player.orb) {
-                player.orb.rotation.y = time * 0.003;
-                player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
-                player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
-            }
-
-            if (player.glow && player.glow.visible) {
-                player.glow.rotation.y = -time * 0.002;
-                const glowScale = 1 + Math.sin(time * 0.004 + player.baseAngle) * 0.15;
-                player.glow.scale.setScalar(glowScale);
-                player.glow.material.emissiveIntensity = 0.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.1;
-            }
-
-            if (player.container.scale.x > 1.0) {
-                const pulseScale = 1.05 + Math.sin(time * 0.008) * 0.08;
-                player.container.scale.setScalar(pulseScale);
-            }
-        } else {
-            if (player.orb) {
-                player.orb.rotation.y = time * 0.0008;
-            }
+        if (player.orb) {
+          player.orb.rotation.y = time * 0.003;
+          player.orb.rotation.x = Math.sin(time * 0.002) * 0.15;
+          player.orb.rotation.z = Math.cos(time * 0.0025) * 0.1;
         }
+
+        if (player.glow && player.glow.visible) {
+          player.glow.rotation.y = -time * 0.002;
+          const glowScale = 1 + Math.sin(time * 0.004 + player.baseAngle) * 0.15;
+          player.glow.scale.setScalar(glowScale);
+          player.glow.material.emissiveIntensity = 0.3 + Math.sin(time * 0.005 + player.baseAngle) * 0.1;
+        }
+
+        if (player.container.scale.x > 1.0) {
+          const pulseScale = 1.05 + Math.sin(time * 0.008) * 0.08;
+          player.container.scale.setScalar(pulseScale);
+        }
+      } else {
+        if (player.orb) {
+          player.orb.rotation.y = time * 0.0008;
+        }
+      }
     });
 
     const now = performance.now();
     this.speakingAnimations = this.speakingAnimations.filter((anim) => {
-        const elapsedTime = now - anim.startTime;
-        if (elapsedTime >= anim.duration) {
-            if (anim.mesh.parent) anim.mesh.parent.remove(anim.mesh);
-            anim.mesh.geometry.dispose();
-            anim.mesh.material.dispose();
-            return false;
-        }
-        const progress = elapsedTime / anim.duration;
-        anim.mesh.scale.setScalar(1 + progress * 5);
-        anim.mesh.material.opacity = 0.8 * (1 - progress);
-        return true;
+      const elapsedTime = now - anim.startTime;
+      if (elapsedTime >= anim.duration) {
+        if (anim.mesh.parent) anim.mesh.parent.remove(anim.mesh);
+        anim.mesh.geometry.dispose();
+        anim.mesh.material.dispose();
+        return false;
+      }
+      const progress = elapsedTime / anim.duration;
+      anim.mesh.scale.setScalar(1 + progress * 5);
+      anim.mesh.material.opacity = 0.8 * (1 - progress);
+      return true;
     });
   }
 
   reset() {
-      this.deathAnimationCompleted.clear();
-      this.playerObjects.forEach((player, playerName) => {
-          if (player.playerUI && player.playerUI.element) {
-              player.playerUI.element.classList.remove('chat-active');
-          }
-          player.isAlive = true;
-          
-          if (player.mixer) {
-              player.mixer.stopAllAction();
-              let newAction = null;
-              if (player.animations && player.animations['Idle']) {
-                  newAction = player.mixer.clipAction(player.animations['Idle']);
-              } else if (player.animations && Object.keys(player.animations).length > 0) {
-                  const first = Object.keys(player.animations)[0];
-                  newAction = player.mixer.clipAction(player.animations[first]);
-              }
-              if (newAction) {
-                  newAction.play();
-                  player.currentAction = newAction;
-              } else {
-                  player.currentAction = null;
-              }
-          }
+    this.deathAnimationCompleted.clear();
+    this.playerObjects.forEach((player, playerName) => {
+      if (player.playerUI && player.playerUI.element) {
+        player.playerUI.element.classList.remove('chat-active');
+      }
+      player.isAlive = true;
 
-          if (player.orb) player.orb.visible = true;
-          if (player.orbLight) player.orbLight.visible = true;
-          if (player.glow) player.glow.visible = true;
-          if (player.nameplate && player.nameplate.element) {
-              player.nameplate.element.style.opacity = '1.0';
-          }
-          player.container.scale.setScalar(1.0);
-          player.container.rotation.x = 0;
-      });
+      if (player.mixer) {
+        player.mixer.stopAllAction();
+        let newAction = null;
+        if (player.animations && player.animations['Idle']) {
+          newAction = player.mixer.clipAction(player.animations['Idle']);
+        } else if (player.animations && Object.keys(player.animations).length > 0) {
+          const first = Object.keys(player.animations)[0];
+          newAction = player.mixer.clipAction(player.animations[first]);
+        }
+        if (newAction) {
+          newAction.play();
+          player.currentAction = newAction;
+        } else {
+          player.currentAction = null;
+        }
+      }
+
+      if (player.orb) player.orb.visible = true;
+      if (player.orbLight) player.orbLight.visible = true;
+      if (player.glow) player.glow.visible = true;
+      if (player.nameplate && player.nameplate.element) {
+        player.nameplate.element.style.opacity = '1.0';
+      }
+      player.container.scale.setScalar(1.0);
+      player.container.rotation.x = 0;
+    });
   }
 }
