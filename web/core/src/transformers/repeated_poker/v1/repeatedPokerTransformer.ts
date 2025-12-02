@@ -255,7 +255,7 @@ export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
     case 'game-over': {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
       if (winningPlayer) {
-        return `🎉🎉🎉  ${winningPlayer?.name} WINS 🎉🎉🎉  `;
+        return `🎉🎉🎉  ${winningPlayer?.name} wins the match! 🎉🎉🎉  `;
       } else {
         return 'MATCH IS A DRAW';
       }

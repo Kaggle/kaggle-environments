@@ -5,8 +5,21 @@ import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
-import { acpcCardToDisplay, CardSuit, suitSVGs } from './components/utils';
+import { acpcCardToDisplay, calculateMatchStats, CardSuit, PlayerStats, suitSVGs } from './components/utils';
 import cssContent from './style.css?inline';
+import {
+  Chart,
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  Title,
+  CategoryScale,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend);
 
 // Add property to global window object
 declare global {
@@ -369,7 +382,7 @@ export function renderer(options: LegacyRendererOptions): void {
     handNum: number;
     amount: number;
     winners: { name: string; thumbnail?: string }[];
-    startingStep: number;
+    stepIndex: number;
   }
 
   interface DerivedLeaderboardInfo {
@@ -382,50 +395,50 @@ export function renderer(options: LegacyRendererOptions): void {
     const playerDetails = new Map<number, { name: string; thumbnail?: string }>();
     const completedHands: CompletedHand[] = [];
 
-    // Identify unique hands up to the current step
     const relevantSteps = steps.slice(0, currentStepIndex + 1);
-    const hands = new Map<number, RepeatedPokerStep>();
 
-    // We only need the *last* step of any given hand to see its final result/rewards
-    relevantSteps.forEach((step) => {
-      hands.set(step.currentHandIndex, step);
+    // Map to store the LAST step of a hand (for results)
+    const handsEndMap = new Map<number, RepeatedPokerStep>();
+    // Map to store the FIRST array index of a hand (for navigation)
+    const handsStartMap = new Map<number, number>();
+
+    relevantSteps.forEach((step, index) => {
+      // Track start index for this hand if we haven't seen it yet
+      if (!handsStartMap.has(step.currentHandIndex)) {
+        handsStartMap.set(step.currentHandIndex, index);
+      }
+
+      // Track end step (ignoring game-over to avoid double counting totals)
+      if (step.stepType !== 'game-over') {
+        handsEndMap.set(step.currentHandIndex, step);
+      }
     });
 
-    // Iterate through finished hands to build history and totals
-    hands.forEach((lastStepOfHand, handIndex) => {
+    handsEndMap.forEach((lastStepOfHand, handIndex) => {
       const lastStepOfHandPlayers = lastStepOfHand.players as RepeatedPokerStepPlayer[];
-      // Assume a hand is "complete" if any player has a non-null reward
       const isHandComplete = lastStepOfHandPlayers.some((p) => p.reward !== null);
 
       if (isHandComplete) {
-        // Update cumulative totals for ALL players in this hand
         lastStepOfHandPlayers.forEach((p) => {
-          // Save player details for later lookups
           if (!playerDetails.has(p.id)) {
             playerDetails.set(p.id, { name: p.name, thumbnail: p.thumbnail });
           }
-
           const currentTotal = playerCumulativeRewards.get(p.id) || 0;
-          // Ensure we don't add null/undefined rewards
           playerCumulativeRewards.set(p.id, currentTotal + (p.reward || 0));
         });
 
-        // Add to hand history table
         const winners = lastStepOfHandPlayers.filter((p) => p.isWinner);
         if (winners.length > 0) {
           completedHands.push({
             handNum: handIndex + 1,
-            // In a split pot, players usually get the same reward. Taking the first one for display.
             amount: winners[0].reward || 0,
             winners: winners.map((w) => ({ name: w.name, thumbnail: w.thumbnail })),
-            // Starting step is directly after the last step of the previous hand
-            startingStep: handIndex !== 0 && hands.get(handIndex - 1) ? hands.get(handIndex - 1)!.step + 1 : 0,
+            stepIndex: handsStartMap.get(handIndex) ?? 0, // Use the captured index
           });
         }
       }
     });
 
-    // Find the current leader
     let topLeader = null;
     let maxWinnings = -Infinity;
 
@@ -516,7 +529,7 @@ export function renderer(options: LegacyRendererOptions): void {
           const row = document.createElement('div');
           row.className = 'legend-row';
           row.role = 'button';
-          row.onclick = () => setCurrentStep(hand.startingStep);
+          row.onclick = () => setCurrentStep(hand.stepIndex);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';
@@ -569,86 +582,356 @@ export function renderer(options: LegacyRendererOptions): void {
     legendBody.appendChild(table);
   }
 
+  interface GraphPoint {
+    hand: number;
+    p0Total: number;
+    p1Total: number;
+  }
+
+  function _extractGraphData(steps: RepeatedPokerStep[]): GraphPoint[] {
+    const dataPoints: GraphPoint[] = [];
+
+    // Start with 0 profit for both
+    let p0Cumulative = 0;
+    let p1Cumulative = 0;
+
+    // Push initial state
+    dataPoints.push({ hand: 0, p0Total: 0, p1Total: 0 });
+
+    const handsMap = new Map<number, RepeatedPokerStep>();
+
+    steps.forEach((step) => {
+      // Ignore the 'game-over' step.
+      // It contains the Total Cumulative Reward, which messes up our
+      // step-by-step accumulation logic.
+      if (step.stepType === 'game-over') return;
+      handsMap.set(step.currentHandIndex, step);
+    });
+
+    // Iterate through hands in order
+    const sortedHandIndices = Array.from(handsMap.keys()).sort((a, b) => a - b);
+
+    sortedHandIndices.forEach((handIndex) => {
+      const step = handsMap.get(handIndex);
+      if (!step) return;
+
+      const players = step.players as RepeatedPokerStepPlayer[];
+      // Check if rewards exist for this hand
+      const p0Reward = players.find((p) => p.id === 0)?.reward;
+      const p1Reward = players.find((p) => p.id === 1)?.reward;
+
+      // Only record data if the hand actually finished with rewards
+      if (p0Reward !== null && p0Reward !== undefined) {
+        p0Cumulative += p0Reward;
+        p1Cumulative += p1Reward || 0;
+
+        dataPoints.push({
+          hand: handIndex + 1,
+          p0Total: p0Cumulative,
+          p1Total: p1Cumulative,
+        });
+      }
+    });
+
+    return dataPoints;
+  }
+
+  function _createTabNavigation(
+    container: HTMLElement,
+    tabs: string[],
+    activeTab: string,
+    onTabClick: (tab: string) => void
+  ): void {
+    const nav = document.createElement('div');
+    nav.className = 'final-screen-tabs';
+
+    tabs.forEach((tabName) => {
+      const btn = document.createElement('button');
+      btn.textContent = tabName;
+      btn.className = `tab-button ${tabName === activeTab ? 'active' : ''}`;
+      btn.onclick = () => onTabClick(tabName);
+      nav.appendChild(btn);
+    });
+
+    container.appendChild(nav);
+  }
+
   function _renderFinalScreenUI(currentStepData: RepeatedPokerStep): void {
     if (!elements.gameLayout) return;
 
-    // Clear the standard table layout for this screen
+    // 1. Clear Layout & Set Mode
     elements.gameLayout.innerHTML = '';
+    elements.gameLayout.classList.add('final-screen-mode');
 
-    // Identify Winner
-    // Try finding explicitly marked winner, otherwise fallback to highest chip stack
-    let winner = (currentStepData.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
-    if (!winner) {
-      const sortedPlayers = [...(currentStepData.players as RepeatedPokerStepPlayer[])].sort(
-        (a, b) => b.chipStack - a.chipStack
-      );
-      winner = sortedPlayers[0];
-    }
-
-    // --- Container Styles ---
+    // 2. Main Container
     const container = document.createElement('div');
     container.className = 'final-screen-container';
 
-    // --- Winner Section ---
-    const winnerSection = document.createElement('div');
-    winnerSection.className = 'final-winner-section';
-    winnerSection.classList.add('winner-section');
-
-    if (winner) {
-      if (winner.thumbnail) {
-        const thumb = document.createElement('img');
-        thumb.src = winner.thumbnail;
-        thumb.classList.add('winner-thumbnail');
-        winnerSection.appendChild(thumb);
-      }
-
-      const winnerName = document.createElement('div');
-      winnerName.textContent = `${winner.name} Wins!`;
-      winnerName.classList.add('winner-name');
-      winnerSection.appendChild(winnerName);
-
-      const finalStack = document.createElement('div');
-      finalStack.textContent = `Final Rewards: ${winner.chipStack}`;
-      finalStack.classList.add('winner-final-rewards');
-      winnerSection.appendChild(finalStack);
+    // 3. Header / Winner Announcement
+    let winner = (currentStepData.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
+    if (!winner) {
+      const players = currentStepData.players as RepeatedPokerStepPlayer[];
+      winner = players.reduce((prev, current) => (prev.chipStack > current.chipStack ? prev : current));
     }
 
-    // --- Placeholder Feedback Box ---
-    const placeholderBox = document.createElement('div');
-    placeholderBox.className = 'final-feedback-placeholder';
-    placeholderBox.style.cssText = `
-        flex-grow: 1;
-        width: 80%;
-        max-height: 400px;
-        border: 5px dashed #64748b;
-        border-radius: 30px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: rgba(100, 116, 139, 0.1);
-        color: #94a3b8;
-        text-align: center;
-        padding: 20px;
-        transition: all 0.3s ease;
+    const header = document.createElement('div');
+    header.className = 'final-header';
+    header.innerHTML = `
+      <div class="final-title">Match Complete</div>
+      <div class="final-subtitle">Winner: <span class="winner-text">${winner?.name || 'Player'}</span> (${winner?.chipStack})</div>
     `;
+    container.appendChild(header);
 
-    const placeholderText = document.createElement('h2');
-    placeholderText.textContent = 'Statistics & Analysis Coming Soon';
-    placeholderText.style.cssText = 'margin: 0; font-size: 2.5em; color: #cbd5e1;';
+    // 4. Content Area
+    const contentArea = document.createElement('div');
+    contentArea.className = 'final-content-area';
 
-    const placeholderSubText = document.createElement('p');
-    placeholderSubText.textContent = 'What data would you like to see here? Let us know!';
-    placeholderSubText.style.cssText = 'font-size: 1.5em; margin-top: 15px;';
+    // State
+    let currentTab = 'Graph';
 
-    placeholderBox.appendChild(placeholderText);
-    placeholderBox.appendChild(placeholderSubText);
+    // 5. Render Function (Re-runs on Tab Switch)
+    const renderTabs = () => {
+      contentArea.innerHTML = '';
 
-    container.appendChild(winnerSection);
-    container.appendChild(placeholderBox);
+      // Render Nav
+      _createTabNavigation(contentArea, ['Graph', 'History', 'Stats'], currentTab, (newTab) => {
+        currentTab = newTab;
+        renderTabs();
+      });
 
+      const body = document.createElement('div');
+      body.className = 'tab-body';
+      contentArea.appendChild(body);
+
+      // --- TAB 1: GRAPH ---
+      if (currentTab === 'Graph') {
+        const canvasContainer = document.createElement('div');
+        canvasContainer.className = 'chart-container';
+        const canvas = document.createElement('canvas');
+        canvasContainer.appendChild(canvas);
+        body.appendChild(canvasContainer);
+
+        const graphData = _extractGraphData(options.steps as RepeatedPokerStep[]);
+
+        new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: graphData.map((d) => d.hand),
+            datasets: [
+              {
+                label: currentStepData.players[0].name,
+                data: graphData.map((d) => d.p0Total),
+                borderColor: '#20BEFF',
+                fill: true,
+                tension: 0.1,
+                pointRadius: 1,
+              },
+              {
+                label: currentStepData.players[1].name,
+                data: graphData.map((d) => d.p1Total),
+                borderColor: '#F0510F',
+                fill: true,
+                tension: 0.1,
+                pointRadius: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              title: { display: true, text: 'Cumulative Profit (Chips)', color: '#94a3b8' },
+              legend: { labels: { color: '#cbd5e1' } },
+            },
+            scales: {
+              x: { ticks: { color: '#64748b' }, grid: { color: '#334155' } },
+              y: { ticks: { color: '#64748b' }, grid: { color: '#334155' } },
+            },
+          },
+        });
+      }
+
+      // --- TAB 2: HISTORY ---
+      else if (currentTab === 'History') {
+        const historyContainer = document.createElement('div');
+        historyContainer.className = 'history-container';
+
+        // 1. Generate Short Names Map
+        const allNames = currentStepData.players.map((p) => p.name);
+        const nameMap = _getDistinguishingNameMap(allNames);
+        const p0Short = nameMap.get(currentStepData.players[0].name) || currentStepData.players[0].name;
+        const p1Short = nameMap.get(currentStepData.players[1].name) || currentStepData.players[1].name;
+
+        const hHeader = document.createElement('div');
+        hHeader.className = 'history-row history-header';
+        hHeader.innerHTML = `
+          <div class="h-col h-num">#</div>
+          <div class="h-col h-cards">${p0Short}</div>
+          <div class="h-col h-board">Board</div>
+          <div class="h-col h-cards">${p1Short}</div>
+          <div class="h-col h-res">Winner</div>
+        `;
+        historyContainer.appendChild(hHeader);
+
+        const { completedHands } = _deriveLeaderboardData(
+          options.steps as RepeatedPokerStep[],
+          options.steps.length - 1
+        );
+        const handsMap = new Map<number, RepeatedPokerStep>();
+        (options.steps as RepeatedPokerStep[]).forEach((s) => {
+          if (s.stepType !== 'game-over') handsMap.set(s.currentHandIndex, s);
+        });
+
+        completedHands
+          .slice()
+          .reverse()
+          .forEach((h) => {
+            const step = handsMap.get(h.handNum - 1);
+            if (!step) return;
+
+            const row = document.createElement('div');
+            row.className = 'history-row clickable-row';
+            row.onclick = () => options.setCurrentStep(h.stepIndex);
+
+            // Result Logic
+            const players = step.players as RepeatedPokerStepPlayer[];
+            const winnerIndex = players.findIndex((p) => p.isWinner);
+            const isSplit = winnerIndex === -1;
+
+            // Calculate Winner Hand String for highlights
+            // We simply check if the data exists. If it's a fold, this is likely empty, so no highlight occurs.
+            let winningHandStr = '';
+            if (!isSplit && step.bestFiveCardHands && step.bestFiveCardHands[winnerIndex]) {
+              winningHandStr = step.bestFiveCardHands[winnerIndex];
+            }
+
+            const renderCards = (cardString: string | null) => {
+              const container = document.createDocumentFragment();
+              if (cardString) {
+                const cards = cardString.match(/.{1,2}/g) || [];
+                cards.forEach((c) => {
+                  // Only highlight if card is part of the known winning hand string
+                  const isWinningCard = !isSplit && winningHandStr.includes(c);
+                  container.appendChild(createCardElement(c, false, isWinningCard));
+                });
+              }
+              return container;
+            };
+
+            // 1. #
+            const num = document.createElement('div');
+            num.className = 'h-col h-num';
+            num.textContent = String(h.handNum);
+            row.appendChild(num);
+
+            // 2. P0
+            const p0Cards = document.createElement('div');
+            p0Cards.className = 'h-col h-cards';
+            if (!isSplit && winnerIndex !== 0) p0Cards.classList.add('dimmed-player');
+            p0Cards.appendChild(renderCards((step.players[0] as RepeatedPokerStepPlayer).cards));
+            row.appendChild(p0Cards);
+
+            // 3. Board
+            const board = document.createElement('div');
+            board.className = 'h-col h-board';
+            board.appendChild(renderCards(step.communityCards));
+            row.appendChild(board);
+
+            // 4. P1
+            const p1Cards = document.createElement('div');
+            p1Cards.className = 'h-col h-cards';
+            if (!isSplit && winnerIndex !== 1) p1Cards.classList.add('dimmed-player');
+            p1Cards.appendChild(renderCards((step.players[1] as RepeatedPokerStepPlayer).cards));
+            row.appendChild(p1Cards);
+
+            // 5. Result
+            const res = document.createElement('div');
+            res.className = 'h-col h-res';
+
+            if (!isSplit) {
+              const handWinner = players[winnerIndex];
+              const winnerShortName = nameMap.get(handWinner.name) || handWinner.name;
+
+              res.innerHTML = `
+                <span class="res-name">${winnerShortName}</span>
+                <span class="res-amt">+${handWinner.reward}</span>
+            `;
+              res.classList.add(handWinner.id === 0 ? 'win-p0' : 'win-p1');
+            } else {
+              res.innerHTML = `
+                <span class="res-name">Split Pot</span>
+                <span class="res-amt">${players[0].reward}</span>
+             `;
+            }
+            row.appendChild(res);
+
+            historyContainer.appendChild(row);
+          });
+        body.appendChild(historyContainer);
+      }
+
+      // --- TAB 3: STATS ---
+      else if (currentTab === 'Stats') {
+        const stats = calculateMatchStats(options.steps as RepeatedPokerStep[]);
+        const statsContainer = document.createElement('div');
+        statsContainer.className = 'stats-container';
+
+        const createRow = (label: string, key: keyof PlayerStats, isPct = true, denKey?: keyof PlayerStats) => {
+          const row = document.createElement('div');
+          row.className = 'stat-row';
+          row.innerHTML = `<div class="stat-label">${label}</div>`;
+
+          // Helper to calc percent
+          const getVal = (pStats: PlayerStats) => {
+            if (!isPct) return String(pStats[key]);
+            const totalHands = _deriveLeaderboardData(options.steps as RepeatedPokerStep[], options.steps.length - 1)
+              .completedHands.length;
+            const den = denKey ? pStats[denKey] : totalHands;
+            return den > 0 ? `${((pStats[key] / den) * 100).toFixed(1)}%` : '0.0%';
+          };
+
+          const p0Val = document.createElement('div');
+          p0Val.className = 'stat-val p0-stat';
+          p0Val.textContent = getVal(stats.p0);
+
+          const p1Val = document.createElement('div');
+          p1Val.className = 'stat-val p1-stat';
+          p1Val.textContent = getVal(stats.p1);
+
+          // Reorder for: P0 - Label - P1
+          row.innerHTML = '';
+          row.appendChild(p0Val);
+          const lbl = document.createElement('div');
+          lbl.className = 'stat-label';
+          lbl.textContent = label;
+          row.appendChild(lbl);
+          row.appendChild(p1Val);
+
+          return row;
+        };
+
+        const sHeader = document.createElement('div');
+        sHeader.className = 'stat-row stat-header';
+        sHeader.innerHTML = `
+           <div class="stat-val p0-stat">${currentStepData.players[0].name}</div>
+           <div class="stat-label">METRIC</div>
+           <div class="stat-val p1-stat">${currentStepData.players[1].name}</div>
+        `;
+        statsContainer.appendChild(sHeader);
+        statsContainer.appendChild(createRow('VPIP', 'vpip'));
+        statsContainer.appendChild(createRow('PFR', 'pfr'));
+        statsContainer.appendChild(createRow('3-BET', 'threeBet'));
+        statsContainer.appendChild(createRow('C-BET', 'cBetMade', true, 'cBetOps'));
+        statsContainer.appendChild(createRow('FOLD TO C-BET', 'foldToCBet', true, 'faceCBetOps'));
+
+        body.appendChild(statsContainer);
+      }
+    };
+
+    renderTabs();
+    container.appendChild(contentArea);
     elements.gameLayout.appendChild(container);
-    //TODO - implement
   }
 
   function _renderPokerTableUI(currentStepData: RepeatedPokerStep): void {
@@ -698,8 +981,6 @@ export function renderer(options: LegacyRendererOptions): void {
     elements.potDisplay.textContent = `Total Pot : ${pot}`;
 
     players.forEach((basePlayerData, index) => {
-      // The JS code expects properties from 'RepeatedPokerStepPlayer'.
-      // Casting 'basePlayerData' to 'RepeatedPokerStepPlayer' to access properties.
       const playerData = basePlayerData as RepeatedPokerStepPlayer;
 
       const isWinner = playerData.actionDisplayText !== 'SPLIT POT' && playerData.isWinner;

@@ -683,46 +683,283 @@
 }
 
 /* FINAL WINNER SECTION */
-
 .final-screen-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
   width: 100%;
-  background: rgba(15, 23, 42, 0.95); /* Dark blue-gray background */
-  color: white;
-  font-family: sans-serif;
-  padding: 40px;
+  height: 100%;
+  background-color: #0f172a; /* Dark background */
+  color: #f8fafc;
+  padding: 20px;
   box-sizing: border-box;
 }
 
-.winner-section {
+.final-header {
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 20px;
   flex-shrink: 0;
 }
 
-.winner-thumbnail {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 6px solid #eab308;
-  box-shadow: 0 0 30px rgba(234, 179, 8, 0.4);
-  margin-bottom: 20px;
-  background-color: white;
-  padding: 10px;
+.final-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #cbd5e1;
 }
 
-.winner-name {
-  font-size: 3.5em;
-  color: #eab308;
+.final-subtitle {
+  font-size: 1.2rem;
+  color: #94a3b8;
+  margin-top: 5px;
+}
+
+.winner-text {
+  color: #fbbf24;
   font-weight: bold;
 }
 
-.winner-final-rewards {
-  font-size: 2em;
-  color: #9ca3af;
-  margin-top: 10px;
+/* Tabs */
+.final-content-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+.final-screen-tabs {
+  display: flex;
+  background-color: #0f172a;
+  border-bottom: 1px solid #334155;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 15px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-button:hover {
+  background-color: #1e293b;
+  color: #94a3b8;
+}
+
+.tab-button.active {
+  color: #3b82f6; /* Blue highlight */
+  border-bottom-color: #3b82f6;
+  background-color: #1e293b;
+}
+
+.tab-body {
+  flex-grow: 1;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.wip-message {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  margin-top: 50px;
+}
+
+.history-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #334155;
+  min-height: 50px;
+}
+
+/* --- Base Card Style for History --- */
+.history-row .card {
+  width: 30px;
+  height: 42px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 2px solid transparent; /* Keeps layout stable on highlight */
+  margin: 0 2px;
+  position: relative;
+  box-sizing: border-box;
+  background-color: white;
+  display: inline-block;
+}
+
+/* Adjust the rank (Top Left) */
+.history-row .card-rank {
+  font-size: 11px;
+  position: absolute;
+  left: 2px;
+  top: 0px;
+  line-height: 1.2;
+  font-weight: bold;
+}
+
+/* FIX: Absolute Centered Suit */
+.history-row .card-suit {
+  position: absolute;
+  width: 14px; /* Explicit width */
+  height: 14px; /* Explicit height */
+  bottom: 2px;
+  right: 2px;
+  display: flex; /* Flexbox to center the SVG inside this container */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Force SVG to fill the container */
+.history-row .card-suit svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- Row Interaction --- */
+.history-row.clickable-row {
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition:
+    background-color 0.15s ease,
+    border-left-color 0.15s ease;
+}
+
+.history-row.clickable-row:hover {
+  background-color: #1e293b;
+  border-left-color: #3b82f6;
+}
+
+/* --- Player Status Styles --- */
+.dimmed-player {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+}
+
+.history-row .card.card-highlighted {
+  border-color: #fbbf24;
+  border-width: 4px;
+  animation: none;
+  box-shadow: none;
+  transform: none;
+  z-index: 2;
+}
+
+.history-header {
+  background: #0f172a;
+  position: sticky;
+  top: 0;
+  font-weight: bold;
+  color: #94a3b8;
+  z-index: 10;
+}
+
+.h-col {
+  padding: 0 5px;
+}
+.h-num {
+  width: 40px;
+  color: #64748b;
+  text-align: center;
+}
+.h-cards {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+.h-board {
+  flex: 1.5;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+}
+.h-res {
+  width: 100px;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.res-name {
+  font-size: 0.8em;
+  color: #94a3b8;
+}
+
+.res-amt {
+  font-weight: bold;
+  font-size: 0.8em;
+  color: #3b82f6;
+}
+
+/* --- Stats Tab --- */
+.stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  background: #0f172a;
+  border-radius: 8px;
+}
+
+.stat-header {
+  background: transparent;
+  font-weight: bold;
+  color: #cbd5e1;
+  border-bottom: 1px solid #334155;
+  border-radius: 0;
+}
+
+.stat-label {
+  flex: 1;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.stat-val {
+  width: 80px;
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.p0-stat {
+  color: #20beff;
+}
+.p1-stat {
+  color: #f0510f;
 }
