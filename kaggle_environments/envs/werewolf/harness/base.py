@@ -424,7 +424,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
     @tenacity.retry(
         retry=tenacity.retry_if_exception(lambda e: isinstance(e, Exception)),
         stop=tenacity.stop_after_attempt(10),
-        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
+        wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=300),
         reraise=True,
     )
     def query(self, prompt):
