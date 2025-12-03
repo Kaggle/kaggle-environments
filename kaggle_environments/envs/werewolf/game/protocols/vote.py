@@ -1,5 +1,5 @@
 import random
-from collections import Counter, deque
+from collections import Counter
 from typing import Dict, List, Optional, Sequence
 
 from kaggle_environments.envs.werewolf.game.actions import Action, NoOpAction, VoteAction
@@ -13,8 +13,8 @@ from kaggle_environments.envs.werewolf.game.records import (
 )
 from kaggle_environments.envs.werewolf.game.roles import Player
 from kaggle_environments.envs.werewolf.game.states import GameState
-
 from .factory import register_protocol
+from .ordering import FirstPlayerStrategy, PivotSelector
 
 
 class TieBreak(StrEnum):
@@ -88,12 +88,6 @@ class Ballot:
             raise ValueError(f"Unsupported tie_break={self._tie_selection}.")
 
 
-class FirstToVote(StrEnum):
-    FIXED = "fixed"
-    ROTATE = "rotate"
-    RANDOM = "random"
-
-
 @register_protocol()
 class SimultaneousMajority(VotingProtocol):
     def __init__(self, tie_break=TieBreak.RANDOM):
@@ -149,8 +143,8 @@ class SimultaneousMajority(VotingProtocol):
         if not isinstance(vote_action, VoteAction):
             state.push_event(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". '
-                f"Not a VoteAction; submitted {vote_action.__class__.__name__} instead. "
-                f"Cast as abstained vote.",
+                            f"Not a VoteAction; submitted {vote_action.__class__.__name__} instead. "
+                            f"Cast as abstained vote.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=self._expected_voters,
@@ -264,8 +258,7 @@ class SequentialVoting(VotingProtocol):
         self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
         self._elected: Optional[PlayerID] = None
         self._done_tallying = False
-        self.first_to_vote = FirstToVote(first_to_vote)
-        self._current_cursor = 0  # For rotate strategy
+        self.pivot_selector = PivotSelector(first_to_vote)
         self._ballot = Ballot(tie_selection=tie_break)
 
     def reset(self) -> None:
@@ -285,12 +278,13 @@ class SequentialVoting(VotingProtocol):
     @property
     def rule(self) -> str:
         rule_txt = "Players vote one by one. Player with the most votes after all have voted is eliminated. "
-        if self.first_to_vote == FirstToVote.FIXED:
-             rule_txt += " The voting order always starts from the beginning of the player list."
-        elif self.first_to_vote == FirstToVote.ROTATE:
-             rule_txt += " The starting voter rotates to the next player in the list for each subsequent voting phase."
-        elif self.first_to_vote == FirstToVote.RANDOM:
-             rule_txt += " The starting voter is chosen randomly for each voting phase."
+        strategy = self.pivot_selector.strategy
+        if strategy == FirstPlayerStrategy.FIXED:
+            rule_txt += "The voting order always starts from the beginning of the player list."
+        elif strategy == FirstPlayerStrategy.ROTATE:
+            rule_txt += "The starting voter rotates to the next player in the list for each subsequent voting phase."
+        elif strategy == FirstPlayerStrategy.RANDOM:
+            rule_txt += "The starting voter is chosen randomly for each voting phase."
 
         rule_txt += " " + self._ballot.get_tie_break_description()
         return rule_txt
@@ -298,36 +292,14 @@ class SequentialVoting(VotingProtocol):
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
         self._ballot.reset()
         all_ids = state.all_player_ids
-        num_players = len(all_ids)
         alive_voter_ids_set = set(p.id for p in alive_voters)
-        
+
         # Determine pivot
-        pivot = 0
-        if self.first_to_vote == FirstToVote.FIXED:
-            pivot = 0
-        elif self.first_to_vote == FirstToVote.RANDOM:
-            pivot = random.randrange(num_players)
-        elif self.first_to_vote == FirstToVote.ROTATE:
-            # Find the first alive player starting from self._current_cursor
-            pivot_found = False
-            for i in range(num_players):
-                pivot_candidate_idx = (self._current_cursor + i) % num_players
-                if all_ids[pivot_candidate_idx] in alive_voter_ids_set:
-                    pivot = pivot_candidate_idx
-                    # Update cursor for NEXT time to be the one after this pivot
-                    self._current_cursor = (pivot + 1) % num_players
-                    pivot_found = True
-                    break
-            if not pivot_found:
-                 pivot = 0
+        pivot = self.pivot_selector.get_pivot(all_ids, alive_voter_ids_set)
 
         # Construct full voter queue based on all players, then filter by alive
         # This ensures consistent rotation logic regardless of deaths
-        ordered_potential_voters = []
-        for i in range(num_players):
-             idx = (pivot + i) % num_players
-             pid = all_ids[idx]
-             ordered_potential_voters.append(pid)
+        ordered_potential_voters = PivotSelector.get_ordered_ids(all_ids, pivot)
 
         # Filter for actual alive voters
         self._expected_voters = [pid for pid in ordered_potential_voters if pid in alive_voter_ids_set]
@@ -340,13 +312,12 @@ class SequentialVoting(VotingProtocol):
             data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
             state.push_event(
                 description=f"Voting starts from player {self._expected_voters[0]} "
-                f"with the following order: {self._expected_voters}",
+                            f"with the following order: {self._expected_voters}",
                 event_name=EventName.VOTE_ORDER,
                 public=False,
                 visible_to=list(alive_voter_ids_set),
                 data=data,
             )
-
 
     def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
         """
@@ -403,7 +374,7 @@ class SequentialVoting(VotingProtocol):
         if self.done():
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                f"but voting is already complete.",
+                            f"but voting is already complete.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id],
@@ -414,7 +385,7 @@ class SequentialVoting(VotingProtocol):
         if vote_action.actor_id != expected_voter_id:
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                f"but it is {expected_voter_id}'s turn.",
+                            f"but it is {expected_voter_id}'s turn.",
                 event_name=EventName.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
                 visible_to=[vote_action.actor_id, expected_voter_id],
@@ -437,7 +408,7 @@ class SequentialVoting(VotingProtocol):
                     # Invalid target chosen for VoteAction
                     state.push_event(
                         description=f"{vote_action.actor_id} attempted to vote for {vote_action.target_id} "
-                        f"(invalid target). Vote recorded as Abstain.",
+                                    f"(invalid target). Vote recorded as Abstain.",
                         event_name=EventName.ERROR,
                         public=False,
                         visible_to=[vote_action.actor_id],
@@ -478,7 +449,7 @@ class SequentialVoting(VotingProtocol):
         else:  # Player not found, not alive, or (redundantly) not their turn
             state.push_event(
                 description=f"Invalid action ({vote_action.kind}) attempt by {vote_action.actor_id} (player not found,"
-                f" not alive, or not their turn). Action not counted.",
+                            f" not alive, or not their turn). Action not counted.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id],
