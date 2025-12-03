@@ -1,4 +1,4 @@
-import { defaultGetStepRenderTime } from './timing';
+import { defaultGetStepRenderTime, generateDefaultDelayDistribution, generateEaseInDelayDistribution } from './timing';
 import { chessTransformer, getChessStepDescription, getChessStepLabel } from './transformers/chess/chessTransformer';
 import { ChessStep } from './transformers/chess/chessReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
@@ -132,5 +132,15 @@ export const getEpisodesFromFile = async (file: File, gameName: string): Promise
     }
     default:
       return [];
+  }
+};
+
+export const getTokenRenderDistribution = (chunkCount: number, gameName: string): number[] => {
+  switch (gameName) {
+    case 'open_spiel_chess':
+      return generateEaseInDelayDistribution(chunkCount);
+
+    default:
+      return generateDefaultDelayDistribution(chunkCount);
   }
 };

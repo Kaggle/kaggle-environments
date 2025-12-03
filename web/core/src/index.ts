@@ -7,5 +7,5 @@ export * from './legacy-adapter';
 export * from './types';
 
 export * from './replay-visualizer-factory';
-export { generateDelayDistribution } from './timing';
+export * from './timing';
 export * from './transformers';
