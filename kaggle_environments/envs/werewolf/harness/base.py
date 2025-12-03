@@ -423,7 +423,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception(lambda e: isinstance(e, Exception)),
-        stop=tenacity.stop_after_attempt(5),
+        stop=tenacity.stop_after_attempt(10),
         wait=tenacity.wait_random_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
@@ -435,6 +435,8 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         msg = response["choices"][0]["message"]["content"]
         self._cost_tracker.update(response)
         logger.info(f"message from {self._model_name}: {msg}")
+        if msg is None:
+            raise ValueError("Response returned None.")
         return msg
 
     def parse(self, out: str) -> dict:
