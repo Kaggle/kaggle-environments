@@ -692,7 +692,8 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background-color: #0f172a; /* Dark background */
+  background-color: #202124;
+  border-radius: 16px;
   color: #f8fafc;
   padding: 20px;
   box-sizing: border-box;
@@ -726,15 +727,11 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  background: #1e293b;
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
 .final-screen-tabs {
   display: flex;
-  background-color: #0f172a;
   border-bottom: 1px solid #334155;
 }
 
@@ -743,7 +740,8 @@
   padding: 15px;
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #e8eaed;
+  font-family: "Inter", sans-serif;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -752,14 +750,12 @@
 }
 
 .tab-button:hover {
-  background-color: #1e293b;
-  color: #94a3b8;
+  background-color: #2e3033;
 }
 
 .tab-button.active {
-  color: #3b82f6; /* Blue highlight */
-  border-bottom-color: #3b82f6;
-  background-color: #1e293b;
+  color: #20beff;
+  border-bottom-color: #20beff;
 }
 
 .tab-body {
@@ -773,13 +769,6 @@
   position: relative;
   height: 100%;
   width: 100%;
-}
-
-.wip-message {
-  text-align: center;
-  color: #64748b;
-  font-style: italic;
-  margin-top: 50px;
 }
 
 .history-container {
@@ -800,8 +789,8 @@
 
 /* --- Base Card Style for History --- */
 .history-row .card {
-  width: 30px;
-  height: 42px;
+  width: 36px;
+  height: 54px;
   font-size: 14px;
   border-radius: 4px;
   border: 2px solid transparent; /* Keeps layout stable on highlight */
@@ -814,7 +803,7 @@
 
 /* Adjust the rank (Top Left) */
 .history-row .card-rank {
-  font-size: 11px;
+  font-size: 18px;
   position: absolute;
   left: 2px;
   top: 0px;
@@ -825,8 +814,8 @@
 /* FIX: Absolute Centered Suit */
 .history-row .card-suit {
   position: absolute;
-  width: 14px; /* Explicit width */
-  height: 14px; /* Explicit height */
+  width: 20px; /* Explicit width */
+  height: 20px; /* Explicit height */
   bottom: 2px;
   right: 2px;
   display: flex; /* Flexbox to center the SVG inside this container */
@@ -851,7 +840,7 @@
 }
 
 .history-row.clickable-row:hover {
-  background-color: #1e293b;
+  background-color: #2e3033;
   border-left-color: #3b82f6;
 }
 
@@ -871,11 +860,12 @@
 }
 
 .history-header {
-  background: #0f172a;
   position: sticky;
-  top: 0;
+  /*this should be 0, but it causes a slightl gap where you can see the scrolling content*/
+  top: -2px;
   font-weight: bold;
   color: #94a3b8;
+  background-color: #202124;
   z-index: 10;
 }
 
@@ -884,7 +874,7 @@
 }
 .h-num {
   width: 40px;
-  color: #64748b;
+  color: #94a3b8;
   text-align: center;
 }
 .h-cards {
@@ -894,7 +884,7 @@
   gap: 2px;
 }
 .h-board {
-  flex: 1.5;
+  flex: 2.4;
   display: flex;
   justify-content: center;
   gap: 2px;
@@ -908,14 +898,14 @@
 }
 
 .res-name {
-  font-size: 0.8em;
+  font-size: 1.2em;
   color: #94a3b8;
 }
 
 .res-amt {
   font-weight: bold;
-  font-size: 0.8em;
-  color: #3b82f6;
+  font-size: 1.2em;
+  color: #20beff;
 }
 
 /* --- Stats Tab --- */
@@ -933,7 +923,6 @@
   align-items: center;
   justify-content: space-between;
   padding: 15px;
-  background: #0f172a;
   border-radius: 8px;
 }
 
