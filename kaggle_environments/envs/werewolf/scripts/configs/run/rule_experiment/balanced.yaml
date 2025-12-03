@@ -7,15 +7,17 @@ game_config:
     name: "RoundRobinDiscussion"
     params:
       max_rounds: 2
-      first_to_speak: "random"
+      first_to_speak: "rotate"
   day_voting_protocol:
     name: "SequentialVoting"
     params:
-      first_to_vote: "random"
+      first_to_vote: "rotate"
+      tie_break: no_elected
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
     params:
-      first_to_vote: "random"
+      first_to_vote: "rotate"
+      tie_break: no_elected
   night_elimination_reveal_level: role
   day_exile_reveal_level: role
   agents:

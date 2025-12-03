@@ -88,6 +88,12 @@ class Ballot:
             raise ValueError(f"Unsupported tie_break={self._tie_selection}.")
 
 
+class FirstToVote(StrEnum):
+    FIXED = "fixed"
+    ROTATE = "rotate"
+    RANDOM = "random"
+
+
 @register_protocol()
 class SimultaneousMajority(VotingProtocol):
     def __init__(self, tie_break=TieBreak.RANDOM):
@@ -250,7 +256,7 @@ class SequentialVoting(VotingProtocol):
     voters get a turn.
     """
 
-    def __init__(self, assign_random_first_voter: bool = True, tie_break: TieBreak = TieBreak.RANDOM):
+    def __init__(self, first_to_vote: str = "rotate", tie_break: TieBreak = TieBreak.RANDOM):
         self._potential_targets: List[PlayerID] = []
         self._voter_queue: List[PlayerID] = []  # Order of players to vote
         self._expected_voters: List[PlayerID] = []
@@ -258,8 +264,8 @@ class SequentialVoting(VotingProtocol):
         self._current_game_state: Optional[GameState] = None  # To store state from begin_voting
         self._elected: Optional[PlayerID] = None
         self._done_tallying = False
-        self._assign_random_first_voter = assign_random_first_voter
-        self._player_ids = None
+        self.first_to_vote = FirstToVote(first_to_vote)
+        self._current_cursor = 0  # For rotate strategy
         self._ballot = Ballot(tie_selection=tie_break)
 
     def reset(self) -> None:
@@ -279,25 +285,56 @@ class SequentialVoting(VotingProtocol):
     @property
     def rule(self) -> str:
         rule_txt = "Players vote one by one. Player with the most votes after all have voted is eliminated. "
-        rule_txt += self._ballot.get_tie_break_description()
+        if self.first_to_vote == FirstToVote.FIXED:
+             rule_txt += " The voting order always starts from the beginning of the player list."
+        elif self.first_to_vote == FirstToVote.ROTATE:
+             rule_txt += " The starting voter rotates to the next player in the list for each subsequent voting phase."
+        elif self.first_to_vote == FirstToVote.RANDOM:
+             rule_txt += " The starting voter is chosen randomly for each voting phase."
+
+        rule_txt += " " + self._ballot.get_tie_break_description()
         return rule_txt
 
     def begin_voting(self, state: GameState, alive_voters: Sequence[Player], potential_targets: Sequence[Player]):
-        if self._player_ids is None:
-            # initialize player_ids once.
-            self._player_ids = deque(state.all_player_ids)
-            if self._assign_random_first_voter:
-                self._player_ids.rotate(random.randrange(len(self._player_ids)))
-        alive_voter_ids = [p.id for p in alive_voters]
-        alive_voter_ids_set = set(alive_voter_ids)
         self._ballot.reset()
-        self._expected_voters = [pid for pid in self._player_ids if pid in alive_voter_ids_set]
+        all_ids = state.all_player_ids
+        num_players = len(all_ids)
+        alive_voter_ids_set = set(p.id for p in alive_voters)
+        
+        # Determine pivot
+        pivot = 0
+        if self.first_to_vote == FirstToVote.FIXED:
+            pivot = 0
+        elif self.first_to_vote == FirstToVote.RANDOM:
+            pivot = random.randrange(num_players)
+        elif self.first_to_vote == FirstToVote.ROTATE:
+            # Find the first alive player starting from self._current_cursor
+            pivot_found = False
+            for i in range(num_players):
+                pivot_candidate_idx = (self._current_cursor + i) % num_players
+                if all_ids[pivot_candidate_idx] in alive_voter_ids_set:
+                    pivot = pivot_candidate_idx
+                    # Update cursor for NEXT time to be the one after this pivot
+                    self._current_cursor = (pivot + 1) % num_players
+                    pivot_found = True
+                    break
+            if not pivot_found:
+                 pivot = 0
+
+        # Construct full voter queue based on all players, then filter by alive
+        # This ensures consistent rotation logic regardless of deaths
+        ordered_potential_voters = []
+        for i in range(num_players):
+             idx = (pivot + i) % num_players
+             pid = all_ids[idx]
+             ordered_potential_voters.append(pid)
+
+        # Filter for actual alive voters
+        self._expected_voters = [pid for pid in ordered_potential_voters if pid in alive_voter_ids_set]
         self._potential_targets = [p.id for p in potential_targets]
-        # The order of voting can be based on player ID, a random shuffle, or the order in alive_voters
-        # For simplicity, using the order from alive_voters.
         self._voter_queue = list(self._expected_voters)
         self._current_voter_index = 0
-        self._current_game_state = state  # Store the game state reference
+        self._current_game_state = state
 
         if self._expected_voters:
             data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
@@ -306,9 +343,10 @@ class SequentialVoting(VotingProtocol):
                 f"with the following order: {self._expected_voters}",
                 event_name=EventName.VOTE_ORDER,
                 public=False,
-                visible_to=alive_voter_ids,
+                visible_to=list(alive_voter_ids_set),
                 data=data,
             )
+
 
     def get_voting_prompt(self, state: GameState, player_id: PlayerID) -> str:
         """

@@ -17,7 +17,7 @@ game_config:
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
     params:
-      assign_random_first_voter: true
+      first_to_vote: "random"
   night_elimination_reveal_level: role
   day_exile_reveal_level: role
   agents:
