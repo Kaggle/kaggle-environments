@@ -84,30 +84,45 @@ export function calculateMatchStats(steps: RepeatedPokerStep[]): { p0: PlayerSta
 
   hands.forEach((handSteps) => {
     // Pre-flop Analysis
+    // We strictly look at pre-flop actions to determine PFR and 3-Bet
     const preflopSteps = handSteps.filter((s) => s.stepType === 'player-action' && s.communityCards === '');
 
+    // A 3-bet is the *second* raise in the pre-flop sequence.
+    // (Blinds = 1st bet, Open = 2nd bet/1st raise, Re-raise = 3rd bet/2nd raise)
+    let raiseCount = 0;
+    let threeBettorId: number | null = null;
+
+    preflopSteps.forEach((s) => {
+      const text = s.players[s.currentPlayer].actionDisplayText?.toLowerCase() ?? '';
+      // We look for 'raise'. Note: If your engine uses 'bet' for an open-raise, include that here too.
+      // Check for EITHER 'raise' OR 'bet' to catch the opening action
+      if (text.includes('raise') || text.includes('bet')) {
+        raiseCount++;
+        if (raiseCount === 2) {
+          threeBettorId = s.currentPlayer;
+        }
+      }
+    });
     [0, 1].forEach((playerId) => {
       const stats = playerId === 0 ? p0Stats : p1Stats;
       const myActions = preflopSteps.filter((s) => s.currentPlayer === playerId);
 
-      // VPIP & PFR
+      // VPIP
       const hasVPIP = myActions.some((s) => {
         const text = s.players[playerId].actionDisplayText?.toLowerCase() ?? '';
         return text.includes('call') || text.includes('raise') || text.includes('bet');
       });
       if (hasVPIP) stats.vpip++;
 
+      // PFR
       const hasPFR = myActions.some((s) => s.players[playerId].actionDisplayText?.toLowerCase().includes('raise'));
       if (hasPFR) stats.pfr++;
 
-      // 3-Bet Detection (Heuristic: Raising when pot > 4 in 1/2 game)
-      const has3Bet = myActions.some((s) => {
-        const text = s.players[playerId].actionDisplayText?.toLowerCase() ?? '';
-        return text.includes('raise') && s.pot > 4;
-      });
-      if (has3Bet) stats.threeBet++;
+      // 3-BET
+      if (threeBettorId === playerId) {
+        stats.threeBet++;
+      }
     });
-
     // C-Bet Analysis
     let preflopAggressor = -1;
     const reversedPreflop = [...preflopSteps].reverse();

@@ -678,7 +678,7 @@ export function renderer(options: LegacyRendererOptions): void {
     header.className = 'final-header';
     header.innerHTML = `
       <div class="final-title">Match Complete</div>
-      <div class="final-subtitle">Winner: <span class="winner-text">${winner?.name || 'Player'}</span> (${winner?.chipStack})</div>
+      <div class="final-subtitle">Winner: <span class="winner-text">${winner?.name || 'Player'}</span> (+${winner?.chipStack})</div>
     `;
     container.appendChild(header);
 
@@ -721,7 +721,9 @@ export function renderer(options: LegacyRendererOptions): void {
               {
                 label: currentStepData.players[0].name,
                 data: graphData.map((d) => d.p0Total),
+                backgroundColor: '#20BEFF',
                 borderColor: '#20BEFF',
+                pointStyle: 'circle',
                 fill: true,
                 tension: 0.1,
                 pointRadius: 1,
@@ -729,7 +731,9 @@ export function renderer(options: LegacyRendererOptions): void {
               {
                 label: currentStepData.players[1].name,
                 data: graphData.map((d) => d.p1Total),
+                backgroundColor: '#F0510F',
                 borderColor: '#F0510F',
+                pointStyle: 'circle',
                 fill: true,
                 tension: 0.1,
                 pointRadius: 1,
@@ -742,11 +746,27 @@ export function renderer(options: LegacyRendererOptions): void {
             interaction: { mode: 'index', intersect: false },
             plugins: {
               title: { display: true, text: 'Cumulative Profit (Chips)', color: '#94a3b8' },
-              legend: { labels: { color: '#cbd5e1' } },
+              legend: {
+                labels: { usePointStyle: true, color: '#cbd5e1' },
+              },
             },
             scales: {
-              x: { ticks: { color: '#64748b' }, grid: { color: '#334155' } },
-              y: { ticks: { color: '#64748b' }, grid: { color: '#334155' } },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Hand',
+                },
+                ticks: { color: '#64748b' },
+                grid: { color: '#334155' },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Chips',
+                },
+                ticks: { color: '#64748b' },
+                grid: { color: '#334155' },
+              },
             },
           },
         });
@@ -797,7 +817,7 @@ export function renderer(options: LegacyRendererOptions): void {
             // Result Logic
             const players = step.players as RepeatedPokerStepPlayer[];
             const winnerIndex = players.findIndex((p) => p.isWinner);
-            const isSplit = winnerIndex === -1;
+            const isSplit = players.filter((p) => p.isWinner).length > 1;
 
             // Calculate Winner Hand String for highlights
             // We simply check if the data exists. If it's a fold, this is likely empty, so no highlight occurs.
