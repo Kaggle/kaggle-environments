@@ -137,6 +137,10 @@
   width: 100%;
 }
 
+.player-stack-value {
+  text-align: right;
+}
+
 .player-info-area {
   color: white;
   width: auto;
