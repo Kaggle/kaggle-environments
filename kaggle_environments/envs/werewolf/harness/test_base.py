@@ -76,7 +76,7 @@ def test_agent_propagates_query_error():
         with pytest.raises(Exception, match="Network Failure"):
             agent("dummy_obs")
 
-        assert mock_completion.call_count == 5
+        assert mock_completion.call_count == 10
 
 
 def test_agent_handles_parsing_error():
