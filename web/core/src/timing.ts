@@ -4,7 +4,7 @@
  */
 import { BaseGamePlayer, BaseGameStep, ReplayMode } from './types';
 
-const TIME_PER_CHUNK = 80;
+const TIME_PER_CHUNK = 90;
 const EASING_INTENSITY = 2;
 
 /**
