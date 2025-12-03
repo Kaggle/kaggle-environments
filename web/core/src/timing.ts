@@ -88,7 +88,7 @@ export function defaultGetStepRenderTime(
   speedModifier: number,
   defaultDuration?: number
 ) {
-  const stepDuration = defaultDuration ?? 2000;
+  const stepDuration = defaultDuration ?? 2200;
   // Example: if we're at 2x speed, we want the render time to be half as long
   const multiplier = 1 / speedModifier;
 
