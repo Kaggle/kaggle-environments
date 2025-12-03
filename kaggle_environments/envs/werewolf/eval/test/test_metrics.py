@@ -12,7 +12,7 @@ DIR_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
 SMOKE_TEST_DATA_DIR = str(DIR_PATH / "data" / "w_replace")
 
 
-@pytest.mark.skip("Long running test.")
+@pytest.mark.skip("need to have local test data")
 def test_evaluator_smoke_test():
     """
     Smoke test to ensure the GameSetEvaluator runs end-to-end without errors
