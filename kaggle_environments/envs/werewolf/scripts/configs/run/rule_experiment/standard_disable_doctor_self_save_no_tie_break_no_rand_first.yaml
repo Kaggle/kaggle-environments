@@ -7,15 +7,17 @@ game_config:
     name: "RoundRobinDiscussion"
     params:
       max_rounds: 2
-      first_to_speak: "random"
+      first_to_speak: "fixed"
   day_voting_protocol:
     name: "SequentialVoting"
     params:
-      first_to_vote: "random"
+      first_to_vote: "fixed"
+      tie_break: no_elected
   werewolf_night_vote_protocol:
     name: "SequentialVoting"
     params:
-      first_to_vote: "random"
+      first_to_vote: "fixed"
+      tie_break: no_elected
   night_elimination_reveal_level: role
   day_exile_reveal_level: role
   agents:
@@ -42,7 +44,6 @@ game_config:
     - role: "Doctor"
       role_params:
         allow_self_save: false
-        allow_consecutive_saves: false
       id: "Charlie"
       thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/openai.png"
       agent_id: "llm/openrouter/openai/gpt-4o-mini"

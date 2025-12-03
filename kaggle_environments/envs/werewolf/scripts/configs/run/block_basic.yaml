@@ -85,7 +85,7 @@ game_config:
           parameters: { "max_tokens": 100000 }
     - role: "Villager"
       id: "kimi-k2"
-      thumbnail: "https://images.seeklogo.com/logo-png/61/1/kimi-logo-png_seeklogo-611650.png"
+      thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/kimi.png"
       agent_id: "llm/together_ai/moonshotai/Kimi-K2-Instruct"
       display_name: "kimi-k2"
       agent_harness_name: "llm_harness"

@@ -38,15 +38,15 @@ def deterministic_config_options():
     options = {
         "discussion_protocol": {
             "name": "RoundRobinDiscussion",
-            "params": {"max_rounds": 1, "assign_random_first_speaker": False},
+            "params": {"max_rounds": 1, "first_to_speak": "fixed"},
         },
         "day_voting_protocol": {
             "name": "SequentialVoting",
-            "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE},
+            "params": {"first_to_vote": "random", "tie_break": TieBreak.NO_EXILE},
         },
         "werewolf_night_vote_protocol": {
             "name": "SequentialVoting",
-            "params": {"assign_random_first_voter": True, "tie_break": TieBreak.NO_EXILE},
+            "params": {"first_to_vote": "random", "tie_break": TieBreak.NO_EXILE},
         },
     }
     return options

@@ -35,7 +35,7 @@ class NightEliminationManager:
                 " No one was eliminated by werewolves.",
                 event_name=EventName.MODERATOR_ANNOUNCEMENT,
                 public=False,
-                visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
+                visible_to=[player.id for player in self._state.get_players_by_team(Team.WEREWOLVES)],
             )
             self._state.push_event(
                 description="Last night, No one was eliminated.",
@@ -51,7 +51,7 @@ class NightEliminationManager:
                 f"could not be found. No one was eliminated by werewolves.",
                 event_name=EventName.ERROR,
                 public=False,
-                visible_to=self._state.get_players_by_team(Team.WEREWOLVES),
+                visible_to=[player.id for player in self._state.get_players_by_team(Team.WEREWOLVES)],
             )
             self._state.push_event(
                 description="Last night, no one was eliminated.",

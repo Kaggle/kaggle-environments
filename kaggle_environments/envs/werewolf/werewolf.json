@@ -134,10 +134,11 @@
                                 "type": "object",
                                 "properties": {
                                     "max_rounds": { "description": "Number of full rounds of discussion.", "type": "integer", "minimum": 1, "default": 1 },
-                                    "assign_random_first_speaker": {
-                                        "description":  "Wether to assign a random player as the first speaker",
-                                        "type":  "boolean",
-                                        "default":  true
+                                    "first_to_speak": {
+                                        "description":  "Strategy to determine the first speaker.",
+                                        "type":  "string",
+                                        "enum": ["fixed", "rotate", "random"],
+                                        "default":  "fixed"
                                     }
                                 },
                                 "additionalProperties": false
@@ -214,7 +215,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SequentialVoting", "params": { "assign_random_first_voter": true, "tie_break": "random" } },
+            "default": { "name": "SequentialVoting", "params": { "first_to_vote": "random", "tie_break": "random" } },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
@@ -229,7 +230,24 @@
                     "if": { "properties": { "name": { "const": "SequentialVoting" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
+                            "params": { 
+                                "type": "object", 
+                                "properties": {
+                                    "first_to_vote": {
+                                        "description": "Strategy to determine the first voter.",
+                                        "type": "string",
+                                        "enum": ["fixed", "rotate", "random"],
+                                        "default": "fixed"
+                                    },
+                                    "tie_break": {
+                                        "description": "Strategy to resolve ties.",
+                                        "type": "string",
+                                        "enum": ["random", "no_elected"],
+                                        "default": "random"
+                                    }
+                                }, 
+                                "additionalProperties": false 
+                            }
                         }
                     },
                     "else": false
@@ -253,7 +271,7 @@
                     "properties": {}
                 }
             },
-            "default": { "name": "SequentialVoting", "params": { "assign_random_first_voter": true, "tie_break": "random" } },
+            "default": { "name": "SequentialVoting", "params": { "first_to_vote": "fixed", "tie_break": "random" } },
             "oneOf": [
                 {
                     "if": { "properties": { "name": { "const": "SimultaneousMajority" } } },
@@ -268,7 +286,24 @@
                     "if": { "properties": { "name": { "const": "SequentialVoting" } } },
                     "then": {
                         "properties": {
-                            "params": { "type": "object", "properties": {}, "additionalProperties": true }
+                            "params": { 
+                                "type": "object", 
+                                "properties": {
+                                    "first_to_vote": {
+                                        "description": "Strategy to determine the first voter.",
+                                        "type": "string",
+                                        "enum": ["fixed", "rotate", "random"],
+                                        "default": "fixed"
+                                    },
+                                    "tie_break": {
+                                        "description": "Strategy to resolve ties.",
+                                        "type": "string",
+                                        "enum": ["random", "no_elected"],
+                                        "default": "random"
+                                    }
+                                }, 
+                                "additionalProperties": false 
+                            }
                         }
                     },
                     "else": false

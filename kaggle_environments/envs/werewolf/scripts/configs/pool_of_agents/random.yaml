@@ -1,0 +1,4 @@
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/kaggle.svg"
+  agent_id: "random"
+  display_name: "random"
+  agent_harness_name: "random"

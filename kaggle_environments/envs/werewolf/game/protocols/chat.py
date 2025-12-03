@@ -11,27 +11,25 @@ from kaggle_environments.envs.werewolf.game.consts import EventName, StrEnum
 from kaggle_environments.envs.werewolf.game.protocols.base import BiddingProtocol, DiscussionProtocol
 from kaggle_environments.envs.werewolf.game.records import BidResultDataEntry, DiscussionOrderDataEntry
 from kaggle_environments.envs.werewolf.game.states import GameState
-
 from .bid import SimpleBiddingProtocol
 from .factory import register_protocol
+from .ordering import FirstPlayerStrategy, PivotSelector
 
 
-@register_protocol(default_params={"max_rounds": 2, "assign_random_first_speaker": True})
+@register_protocol(default_params={"max_rounds": 2, "first_to_speak": "rotate"})
 class RoundRobinDiscussion(DiscussionProtocol):
-    def __init__(self, max_rounds: int = 1, assign_random_first_speaker: bool = True):
+    def __init__(self, max_rounds: int = 1, first_to_speak: str = "rotate"):
         """
-
         Args:
             max_rounds: rounds of discussion
-            assign_random_first_speaker: If true, the first speaker will be determined at the beginning of
-                the game randomly, while the order follow that of the player list. Otherwise, will start from the
-                0th player from player list.
+            first_to_speak: Strategy to determine the first speaker for each round.
+                - fixed: Always starts from the first player in the player list (if alive).
+                - rotate: Rotates the starting position in the player list for each round.
+                - random: Randomly selects a starting position in the player list for each round.
         """
         self.max_rounds = max_rounds
         self._queue: deque[str] = deque()
-        self._assign_random_first_speaker = assign_random_first_speaker
-        self._player_ids = None
-        self._first_player_idx = None
+        self.pivot_selector = PivotSelector(first_to_speak)
 
     def reset(self) -> None:
         self._queue = deque()
@@ -42,24 +40,40 @@ class RoundRobinDiscussion(DiscussionProtocol):
 
     @property
     def rule(self) -> str:
-        return f"Players speak in round-robin order for {self.max_rounds} round(s)."
+        base_rule = f"Players speak in round-robin order for {self.max_rounds} round(s)."
+        strategy = self.pivot_selector.strategy
+        if strategy == FirstPlayerStrategy.FIXED:
+            return f"{base_rule} The speaking order always starts from the beginning of the player list."
+        elif strategy == FirstPlayerStrategy.ROTATE:
+            return (f"{base_rule} The starting speaker rotates to the next player in the list for each subsequent day, "
+                    f"but remains the same for all rounds within that day.")
+        elif strategy == FirstPlayerStrategy.RANDOM:
+            return f"{base_rule} The starting speaker is chosen randomly for each round."
+        return base_rule
 
-    def begin(self, state):
-        if self._player_ids is None:
-            # initialize player_ids once.
-            self._player_ids = deque(state.all_player_ids)
-            if self._assign_random_first_speaker:
-                self._player_ids.rotate(random.randrange(len(self._player_ids)))
+    def begin(self, state: GameState):
+        all_ids = state.all_player_ids
+        alive_set = set(p.id for p in state.alive_players())
 
-        # Reset queue
-        player_order = [pid for pid in self._player_ids if state.is_alive(pid)]
-        self._queue = deque(player_order * self.max_rounds)
+        rounds_queue = []
+
+        # Calculate pivot once per day for all strategies
+        pivot = self.pivot_selector.get_pivot(all_ids, alive_set)
+        ordered_ids = PivotSelector.get_ordered_ids(all_ids, pivot)
+
+        for _ in range(self.max_rounds):
+            # Construct order starting from the calculated pivot
+            for pid in ordered_ids:
+                if pid in alive_set:
+                    rounds_queue.append(pid)
+
+        self._queue = deque(rounds_queue)
+
         if self.max_rounds > 0 and self._queue:
-            data = DiscussionOrderDataEntry(chat_order_of_player_ids=player_order)
+            data = DiscussionOrderDataEntry(chat_order_of_player_ids=list(self._queue))
             state.push_event(
                 description="Discussion phase begins. Players will speak in round-robin order. "
-                f"Starting from player {player_order[0]} with the following order: {player_order} "
-                f"for {self.max_rounds} round(s).",
+                            f"Full speaking order for {self.max_rounds} round(s): {list(self._queue)}",
                 event_name=EventName.DISCUSSION_ORDER,
                 public=True,
                 data=data,
@@ -421,7 +435,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
 
             state.push_event(
                 description=f"Bidding for round {self._current_round + 1} has concluded. The speaking order, "
-                f"with bid amounts in parentheses, is: {speaking_order_text}.",
+                            f"with bid amounts in parentheses, is: {speaking_order_text}.",
                 event_name=EventName.BID_RESULT,
                 public=self._bid_result_public,
                 data=data,

@@ -1,0 +1,48 @@
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/gemini.png"
+  agent_id: "llm/vertex_ai/gemini-2.5-pro"
+  display_name: "gemini-2.5-pro"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "vertex_ai/gemini-2.5-pro"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/deepseek.png"
+  agent_id: "llm/openrouter/deepseek/deepseek-chat-v3.1"
+  display_name: "deepseek-chat-v3.1"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/deepseek/deepseek-chat-v3.1"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/openai.png"
+  agent_id: "llm/openrouter/openai/gpt-5"
+  display_name: "gpt-5"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/openai/gpt-5"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/qwen.png"
+  agent_id: "llm/openrouter/qwen/qwen3-235b-a22b-2507"
+  display_name: "qwen3-235b"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/qwen/qwen3-235b-a22b-2507"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/zai.svg"
+  agent_id: "llm/openrouter/z-ai/glm-4.5"
+  display_name: "glm-4.5"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/z-ai/glm-4.5"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/openai.png"
+  agent_id: "llm/openrouter/openai/gpt-4.1"
+  display_name: "gpt-4.1"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/openai/gpt-4.1"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/anthropic.png"
+  agent_id: "llm/openrouter/anthropic/claude-sonnet-4"
+  display_name: "claude-sonnet-4"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/claude-sonnet-4"
+- thumbnail: "https://storage.googleapis.com/kaggle-static/game-arena/werewolf/thumbnails/grok.png"
+  agent_id: "llm/openrouter/x-ai/grok-4"
+  display_name: "grok-4"
+  agent_harness_name: "llm_harness"
+  llms:
+    - model_name: "openrouter/x-ai/grok-4"

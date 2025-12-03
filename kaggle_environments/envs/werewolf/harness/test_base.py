@@ -131,3 +131,11 @@ def test_agent_handles_parsing_error():
         
         assert action["action_type"] == "NoOpAction"
         assert "Fell back to NoOp after multiple parsing failures" in action["kwargs"]["reasoning"]
+
+
+@pytest.mark.skip("Require the key to run test.")
+def test_gemini():
+    # model = "vertex_ai/gemini-3-pro-preview"
+    model = "openrouter/google/gemini-3-pro-preview"
+    response = litellm.completion(model=model, messages=[{"role": "user", "content": "hi"}])
+    print(response)
