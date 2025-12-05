@@ -627,13 +627,14 @@
 }
 
 .legend-title {
-  padding: 10px;
+  height: 45px;
+  padding: 0 10px;
   font-weight: bold;
   border-bottom: 1px solid #555;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 30px;
+  flex-shrink: 0;
 }
 
 .legend-leader-info {
@@ -652,7 +653,7 @@
 
 .legend-body {
   padding: 10px;
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
   font-family: "Inter", sans-serif;
   -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
@@ -662,6 +663,7 @@
 .legend-table {
   display: table;
   width: 100%;
+  table-layout: fixed;
 }
 
 .legend-row {
@@ -676,6 +678,9 @@
   display: table-cell;
   padding: 2px 5px;
   vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .legend-cell:nth-child(1) {
