@@ -654,6 +654,8 @@
   max-height: 200px;
   overflow-y: auto;
   font-family: "Inter", sans-serif;
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
 }
 
 .legend-table {
