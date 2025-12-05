@@ -112,9 +112,15 @@ openai/anthropic/claude-sonnet-4@20250514:
 openai/anthropic/claude-sonnet-4-5@20250929:
   input_cost_per_token: 3e-6
   output_cost_per_token: 1.5e-5
+openai/anthropic/claude-opus-4-5@20251101:
+  input_cost_per_token: 5e-6
+  output_cost_per_token: 2.5e-5
 openai/deepseek-ai/deepseek-r1-0528:
   input_cost_per_token: 1.35e-6
   output_cost_per_token: 5.4e-6
+openai/deepseek-ai/deepseek-v3.1:
+  input_cost_per_token: 6e-7
+  output_cost_per_token: 1.7e-6
 openai/google/gemini-1.5-flash:
   input_cost_per_token: 7.5e-8
   output_cost_per_token: 6e-7
@@ -199,4 +205,3 @@ openai/xai/grok-4-1-fast-reasoning:
 openai/xai/grok-4-1-fast-non-reasoning:
   input_cost_per_token: 2e-7
   output_cost_per_token: 5e-7
-
