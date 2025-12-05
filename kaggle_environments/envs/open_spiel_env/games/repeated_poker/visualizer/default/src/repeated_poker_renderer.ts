@@ -324,6 +324,11 @@ export function renderer(options: LegacyRendererOptions): void {
     `;
     elements.gameLayout.appendChild(elements.legend);
 
+    const legendBlinds = document.createElement('div');
+    legendBlinds.className = 'legend-blinds';
+    legendBlinds.textContent = 'Blinds: 1/2';
+    elements.gameLayout.appendChild(legendBlinds);
+
     return true;
   } // --- State Parsing ---
 

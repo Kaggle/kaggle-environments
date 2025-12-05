@@ -109,15 +109,15 @@ export const getPokerStepInterestingEvents = (gameSteps: RepeatedPokerStep[]): I
           step: step.step,
           description: 'High Hand',
         });
-      } else if (hasLargePot) {
-        interestingEvents.push({
-          step: step.step,
-          description: 'Big Pot',
-        });
       } else if (hasShowdown) {
         interestingEvents.push({
           step: step.step,
           description: 'All-in Showdown',
+        });
+      } else if (hasLargePot) {
+        interestingEvents.push({
+          step: step.step,
+          description: 'Big Pot',
         });
       }
       lastHandIndex = step.currentHandIndex;

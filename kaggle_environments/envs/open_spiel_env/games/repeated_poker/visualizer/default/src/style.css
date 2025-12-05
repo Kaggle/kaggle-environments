@@ -596,9 +596,25 @@
 
 /* LEGEND */
 
+.legend-blinds {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 280px;
+  background-color: rgba(32, 33, 36, 0.7);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 35px;
+  color: white;
+  z-index: 100;
+  margin: 10px 0;
+  height: 35px;
+}
+
 .legend {
   position: absolute;
-  top: 20px;
+  top: 55px;
   right: 0;
   width: 280px;
   background-color: rgba(32, 33, 36, 0.7);
@@ -607,16 +623,18 @@
   z-index: 100;
   display: flex;
   flex-direction: column;
-  max-height: 212px;
+  max-height: 200px;
 }
 
 .legend-title {
-  padding: 10px;
+  height: 45px;
+  padding: 0 10px;
   font-weight: bold;
   border-bottom: 1px solid #555;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .legend-leader-info {
@@ -635,14 +653,17 @@
 
 .legend-body {
   padding: 10px;
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
   font-family: "Inter", sans-serif;
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
 }
 
 .legend-table {
   display: table;
   width: 100%;
+  table-layout: fixed;
 }
 
 .legend-row {
@@ -657,6 +678,9 @@
   display: table-cell;
   padding: 2px 5px;
   vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .legend-cell:nth-child(1) {
