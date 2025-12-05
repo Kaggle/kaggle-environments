@@ -605,15 +605,16 @@
   border-radius: 8px;
   text-align: center;
   font-size: 18px;
+  line-height: 35px;
   color: white;
   z-index: 100;
   margin: 10px 0;
-  height: 30px;
+  height: 35px;
 }
 
 .legend {
   position: absolute;
-  top: 50px;
+  top: 55px;
   right: 0;
   width: 280px;
   background-color: rgba(32, 33, 36, 0.7);
