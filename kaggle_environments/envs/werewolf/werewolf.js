@@ -3848,11 +3848,11 @@ function renderer(context) {
     playerNamesFor3D = [...allPlayerNamesList];
     playerThumbnailsFor3D = { ...playerThumbnails };
     
-    // Ensure thumbnails from config (GAME_END) are available if missing from observation
+    // Ensure thumbnails from config (GAME_END) are prioritized
     allPlayerNamesList.forEach(id => {
-        if (!playerThumbnailsFor3D[id]) {
-            const conf = agentConfigMap.get(id);
-            if (conf && conf.thumbnail) playerThumbnailsFor3D[id] = conf.thumbnail;
+        const conf = agentConfigMap.get(id);
+        if (conf && conf.thumbnail) {
+            playerThumbnailsFor3D[id] = conf.thumbnail;
         }
     });
 

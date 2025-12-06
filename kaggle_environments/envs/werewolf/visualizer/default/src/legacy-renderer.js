@@ -295,9 +295,9 @@ export function renderer(context, parent) {
   playerNamesFor3D = [...allPlayerNamesList];
   playerThumbnailsFor3D = { ...playerThumbnails };
   allPlayerNamesList.forEach(id => {
-      if (!playerThumbnailsFor3D[id]) {
-          const conf = agentConfigMap.get(id);
-          if (conf && conf.thumbnail) playerThumbnailsFor3D[id] = conf.thumbnail;
+      const conf = agentConfigMap.get(id);
+      if (conf && conf.thumbnail) {
+          playerThumbnailsFor3D[id] = conf.thumbnail;
       }
   });
 
