@@ -3815,6 +3815,24 @@ function renderer(context) {
         playerThreatLevels: new Map()
     };
 
+    // --- Agent Configuration Loading ---
+    const agentConfigMap = new Map();
+    if (environment.configuration && environment.configuration.agents) {
+      environment.configuration.agents.forEach((agent) => {
+        if (agent && agent.id) agentConfigMap.set(agent.id, agent);
+      });
+    }
+
+    // Override/Supplement with GAME_END info if available (GAME_END is ground truth)
+    if (environment.info && environment.info.GAME_END && environment.info.GAME_END.all_players) {
+        environment.info.GAME_END.all_players.forEach((p) => {
+            if (p.agent && p.agent.id) {
+                const existing = agentConfigMap.get(p.agent.id) || {};
+                agentConfigMap.set(p.agent.id, { ...existing, ...p.agent });
+            }
+        });
+    }
+
     const firstObs = originalSteps[0]?.[0]?.observation?.raw_observation;
     let allPlayerNamesList;
     let playerThumbnails = {};
@@ -3822,19 +3840,21 @@ function renderer(context) {
     if (firstObs && firstObs.all_player_ids) {
         allPlayerNamesList = firstObs.all_player_ids;
         playerThumbnails = firstObs.player_thumbnails || {};
-        playerNamesFor3D = [...allPlayerNamesList];
-        playerThumbnailsFor3D = {...playerThumbnails};
-    } else if (environment.configuration && environment.configuration.agents) {
-        // console.warn("Renderer: Initial observation missing or incomplete. Reconstructing players from configuration.");
-        allPlayerNamesList = environment.configuration.agents.map(agent => agent.id);
-        environment.configuration.agents.forEach(agent => {
-            if (agent.id && agent.thumbnail) {
-                playerThumbnails[agent.id] = agent.thumbnail;
-            }
-        });
-        playerNamesFor3D = [...allPlayerNamesList];
-        playerThumbnailsFor3D = {...playerThumbnails};
+    } else {
+        allPlayerNamesList = Array.from(agentConfigMap.keys());
     }
+
+    // Update global/outer scope variables for 3D renderer
+    playerNamesFor3D = [...allPlayerNamesList];
+    playerThumbnailsFor3D = { ...playerThumbnails };
+    
+    // Ensure thumbnails from config (GAME_END) are prioritized
+    allPlayerNamesList.forEach(id => {
+        const conf = agentConfigMap.get(id);
+        if (conf && conf.thumbnail) {
+            playerThumbnailsFor3D[id] = conf.thumbnail;
+        }
+    });
 
     if (!allPlayerNamesList || allPlayerNamesList.length === 0) {
         const tempContainer = document.createElement("div");
@@ -3843,11 +3863,20 @@ function renderer(context) {
         return;
     }
 
-    gameState.players = environment.configuration.agents.map( agent => ({
-        name: agent.id, is_alive: true, role: agent.role, team: 'Unknown',
-        status: 'Alive', thumbnail: agent.thumbnail || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${agent.id.charAt(0)}`,
-        display_name: agent.display_name
-    }));
+    gameState.players = allPlayerNamesList.map(playerId => {
+        const agent = agentConfigMap.get(playerId) || {};
+        // Prioritize agent.thumbnail (from GAME_END) over playerThumbnails (from obs)
+        const thumbnail = agent.thumbnail || playerThumbnails[playerId] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${playerId.charAt(0)}`;
+        return {
+            name: playerId, 
+            is_alive: true, 
+            role: agent.role || 'Unknown', 
+            team: 'Unknown',
+            status: 'Alive', 
+            thumbnail: thumbnail,
+            display_name: agent.display_name || playerId
+        };
+    });
     const playerMap = new Map(gameState.players.map(p => [p.name, p]));
 
     // Initialize and cache the replacer function if it doesn't exist
