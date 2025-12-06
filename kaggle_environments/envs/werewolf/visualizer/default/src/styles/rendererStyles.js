@@ -860,7 +860,7 @@ export const rendererCss = `
     z-index: 2000;
     
     font-family: 'Inter', sans-serif;
-    font-size: 18px; /* Reduced from 24px */
+    font-size: 14px; /* Reduced from 24px */
     font-weight: 600;
     line-height: 1.4;
     color: #ffffff;
@@ -892,7 +892,7 @@ export const rendererCss = `
 
 .cinematic-subtitle-reasoning {
     display: none; /* Hidden by default */
-    font-size: 16px; /* Slightly smaller than main text */
+    font-size: 12px; /* Slightly smaller than main text */
     font-style: italic;
     color: #cccccc;
     margin-top: 8px;
