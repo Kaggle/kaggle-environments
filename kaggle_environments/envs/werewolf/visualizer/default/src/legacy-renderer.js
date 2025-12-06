@@ -269,6 +269,18 @@ export function renderer(context, parent) {
     });
   }
 
+  console.info("env.info:");
+  console.dir(environment.info);
+  // Override/Supplement with GAME_END info if available (GAME_END is ground truth, since config maybe overridden)
+  if (environment.info && environment.info.GAME_END && environment.info.GAME_END.all_players) {
+    environment.info.GAME_END.all_players.forEach((p) => {
+      if (p.agent && p.agent.id) {
+        const existing = agentConfigMap.get(p.agent.id) || {};
+        agentConfigMap.set(p.agent.id, { ...existing, ...p.agent });
+      }
+    });
+  }
+
   const firstObs = originalSteps[0]?.[0]?.observation?.raw_observation;
   let allPlayerNamesList = [];
   let playerThumbnails = {};
@@ -296,7 +308,8 @@ export function renderer(context, parent) {
 
   gameState.players = allPlayerNamesList.map((playerId) => {
     const configAgent = agentConfigMap.get(playerId) || {};
-    const thumbnail = playerThumbnails[playerId] || configAgent.thumbnail || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${playerId.charAt(0)}`;
+    // Prioritize configAgent.thumbnail (from GAME_END or config) over initial observation
+    const thumbnail = configAgent.thumbnail || playerThumbnails[playerId] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${playerId.charAt(0)}`;
     return {
       name: playerId,
       is_alive: true,
