@@ -269,8 +269,6 @@ export function renderer(context, parent) {
     });
   }
 
-  console.info("env.info:");
-  console.dir(environment.info);
   // Override/Supplement with GAME_END info if available (GAME_END is ground truth, since config maybe overridden)
   if (environment.info && environment.info.GAME_END && environment.info.GAME_END.all_players) {
     environment.info.GAME_END.all_players.forEach((p) => {
