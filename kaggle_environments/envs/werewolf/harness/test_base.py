@@ -117,6 +117,7 @@ def test_agent_handles_parsing_error():
         }
         mock_model_resp = MagicMock()
         mock_model_resp.__getitem__.side_effect = lambda key: mock_response[key]
+        mock_model_resp.get.side_effect = mock_response.get
         mock_model_resp.usage = mock_response["usage"]
         mock_model_resp._hidden_params = {"response_cost": 0.001}
         mock_completion.return_value = mock_model_resp

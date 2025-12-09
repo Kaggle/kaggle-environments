@@ -432,11 +432,16 @@ class LLMWerewolfAgent(WerewolfAgentBase):
         response = completion(
             model=self._model_name, messages=[{"content": prompt, "role": "user"}], **self._decoding_kwargs
         )
-        msg = response["choices"][0]["message"]["content"]
+        msgs = []
+        for item in response.get("choices", []):
+            content = item.get("message", {}).get("content", "")
+            msgs.append(content)
+        msg = "".join(msgs)
+
         self._cost_tracker.update(response)
         logger.info(f"message from {self._model_name}: {msg}")
-        if msg is None:
-            raise ValueError("Response returned None.")
+        if msg == "":
+            raise ValueError(f"Response returned no msg. response={response}")
         return msg
 
     def parse(self, out: str) -> dict:
