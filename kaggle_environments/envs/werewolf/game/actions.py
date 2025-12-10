@@ -88,7 +88,7 @@ class Action(BaseAction):
     actor_id: PlayerID
     reasoning: Optional[str] = Field(
         default=None,
-        max_length=4096,
+        max_length=1000000,
         description="The self monologue that illustrate how you arrived at the action. "
         "It will be invisible to other players.",
     )
@@ -215,7 +215,7 @@ class EliminateProposalAction(VoteAction):
 
 @register_event(EventName.DISCUSSION)
 class ChatAction(Action):
-    message: str = Field(default="", max_length=4096)
+    message: str = Field(default="", max_length=1000000)
 
     @field_validator("message", mode="before")
     @classmethod
