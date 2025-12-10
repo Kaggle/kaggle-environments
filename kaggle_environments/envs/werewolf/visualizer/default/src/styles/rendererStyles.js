@@ -880,14 +880,14 @@ export const rendererCss = `
 }
 
 .subtitle-speaker {
-    color: #bfbfbfff; /* Changed from Gold */
+    color: #2db7f7ff; /* Changed from Gold */
     font-weight: 700;
     margin-right: 8px;
     text-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
 }
 
 .cinematic-subtitle-text {
-    display: inline-block;
+    display: inline;
 }
 
 .cinematic-subtitle-reasoning {
