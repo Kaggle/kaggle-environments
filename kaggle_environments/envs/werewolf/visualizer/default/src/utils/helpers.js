@@ -607,7 +607,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
         window.werewolfGamePlayer.isReasoningMode = false;
       }
 
-      globalToggle.addEventListener('click', (event) => {
+      globalToggle.onclick = (event) => {
         event.stopPropagation();
 
         // --- 1. Toggle 2D Log Reasoning (Original Behavior) ---
@@ -646,12 +646,12 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                 subtitleContainer.classList.remove('show-reasoning');
             }
         }
-      });
+      };
     }
 
     const globalAudioToggle = container.querySelector('#global-audio-toggle');
     if (globalAudioToggle) {
-      globalAudioToggle.addEventListener('click', (event) => {
+      globalAudioToggle.onclick = (event) => {
         event.stopPropagation();
         if (globalAudioToggle.classList.contains('disabled')) return;
 
@@ -686,20 +686,20 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           const event = new CustomEvent('audio-toggle', { detail: { enabled: true } });
           window.dispatchEvent(event);
         }
-      });
+      };
     }
 
     const speedSlider = container.querySelector('#playback-speed');
     const speedLabel = container.querySelector('#speed-label');
 
     if (speedSlider) {
-      speedSlider.addEventListener('input', (e) => {
+      speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
         // Use custom event for speed change
         const event = new CustomEvent('audio-speed', { detail: { rate: newRate } });
         window.dispatchEvent(event);
         
         if (speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
-      });
+      };
     }
   }
