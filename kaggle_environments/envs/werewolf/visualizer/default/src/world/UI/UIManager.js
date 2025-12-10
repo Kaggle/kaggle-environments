@@ -101,6 +101,24 @@ export class UIManager {
     } else {
         this.subtitleContainer.classList.remove('show-reasoning');
     }
+    
+    // Ensure we aren't in moderator mode
+    this.subtitleContainer.classList.remove('moderator-mode');
+  }
+
+  displayModeratorAnnouncement(message) {
+      let content = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
+      
+      this.subtitleContainer.innerHTML = content;
+      this.subtitleContainer.classList.add('visible');
+      this.subtitleContainer.classList.add('moderator-mode');
+
+      // Sync visibility state
+      if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
+          this.subtitleContainer.classList.add('show-reasoning');
+      } else {
+          this.subtitleContainer.classList.remove('show-reasoning');
+      }
   }
 
   clearSubtitle() {

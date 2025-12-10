@@ -63,70 +63,38 @@ export function renderer(context, parent) {
   ]);
 
   if (!window.werewolfGamePlayer) {
-    window.werewolfGamePlayer = {
-      initialized: false,
-      allEvents: [],
-      displayEvents: [],
-      eventToKaggleStep: [],
-      displayStepToAllEventsIndex: [],
-      allEventsIndexToDisplayStep: [],
-      originalSteps: environment.steps,
-      reasoningCounter: 0,
-    };
-    window.wwCurrentStep = 0;
-    const player = window.werewolfGamePlayer;
-
-    const visibleEventDataTypes = new Set([
-      'ChatDataEntry', 'DayExileVoteDataEntry', 'WerewolfNightVoteDataEntry',
-      'DoctorHealActionDataEntry', 'SeerInspectActionDataEntry', 'DayExileElectedDataEntry',
-      'WerewolfNightEliminationDataEntry', 'SeerInspectResultDataEntry', 'DoctorSaveDataEntry',
-      'GameEndResultsDataEntry', 'PhaseDividerDataEntry', 'DiscussionOrderDataEntry',
-    ]);
-
-    let allEventsIndex = 0;
-    let currentDisplayStep = 0;
-    const processedPhaseEvents = new Set();
-    (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
-      (stepEvents || []).flat().forEach((dataEntry) => {
-        const event = JSON.parse(dataEntry.json_str);
-        const dataType = dataEntry.data_type;
-        const visibleInUI = event.visible_in_ui ?? true;
-
-        if (!visibleInUI) return;
-
-        if (event.event_name === 'day_start' || event.event_name === 'night_start' || event.description?.includes('Voting phase begins')) {
-          processedPhaseEvents.clear();
-        }
-
-        let eventFingerprint = event.description;
-        if (processedPhaseEvents.has(eventFingerprint)) return;
-        processedPhaseEvents.add(eventFingerprint);
-
-        const isVisibleDataType = visibleEventDataTypes.has(dataType);
-        const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
-
-        if (!isVisibleDataType && !isVisibleEntryType) return;
-
-        event.kaggleStep = kaggleStep;
-        event.dataType = dataType;
-        player.allEvents.push(event);
-        player.eventToKaggleStep.push(kaggleStep);
-
-        if (dataType !== 'PhaseDividerDataEntry') {
-          player.displayEvents.push(event);
-          player.displayStepToAllEventsIndex.push(allEventsIndex);
-          player.allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
-          currentDisplayStep++;
-        }
-        allEventsIndex++;
-      });
-    });
-
-    const newSteps = player.displayEvents.map((event) => player.originalSteps[event.kaggleStep]);
-    context.replay.steps = newSteps;
-    environment.steps = newSteps;
-    window.postMessage({ setSteps: newSteps }, '*');
-    player.initialized = true;
+    if (environment.visualizerData) {
+        const vData = environment.visualizerData;
+        window.werewolfGamePlayer = {
+            initialized: false,
+            allEvents: vData.allEvents,
+            displayEvents: [],
+            eventToKaggleStep: vData.eventToKaggleStep,
+            displayStepToAllEventsIndex: vData.displayStepToAllEventsIndex,
+            allEventsIndexToDisplayStep: vData.allEventsIndexToDisplayStep,
+            originalSteps: vData.originalSteps,
+            reasoningCounter: 0,
+        };
+        // Reconstruct displayEvents for internal use
+        window.werewolfGamePlayer.displayEvents = vData.displayStepToAllEventsIndex.map(
+            (idx) => vData.allEvents[idx]
+        );
+        window.wwCurrentStep = 0;
+    } else {
+        console.warn("Visualizer Data not found. Ensure the transformer is processing the replay.");
+        window.werewolfGamePlayer = {
+            initialized: false,
+            allEvents: [],
+            displayEvents: [],
+            eventToKaggleStep: [],
+            displayStepToAllEventsIndex: [],
+            allEventsIndexToDisplayStep: [],
+            originalSteps: environment.steps,
+            reasoningCounter: 0,
+        };
+        window.wwCurrentStep = 0;
+    }
+    window.werewolfGamePlayer.initialized = true;
   }
 
   // --- Audio State ---
@@ -381,7 +349,7 @@ export function renderer(context, parent) {
     }
 
     // Process event types (simplified mapping)
-    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp };
+    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
     
     if (historyEvent.dataType === 'ChatDataEntry') {
         gameState.eventLog.push({ type: 'chat', ...commonProps, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, mentioned_player_ids: data.mentioned_player_ids || [] });
@@ -450,7 +418,7 @@ export function renderer(context, parent) {
   }
 
   Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
-  parent.className = 'werewolf-parent';
+  parent.classList.add('werewolf-parent');
 
   if (!mainContainer) {
     mainContainer = document.createElement('div');
@@ -599,6 +567,15 @@ export function renderer(context, parent) {
               case 'seer_inspection':
                   messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
                   break;
+              case 'system':
+                  // NEW: Display moderator announcement
+                  let announcement = lastEvent.text;
+                  if (window.werewolfGamePlayer && window.werewolfGamePlayer.playerIdReplacer) {
+                      announcement = window.werewolfGamePlayer.playerIdReplacer(announcement);
+                  }
+                  world.uiManager.displayModeratorAnnouncement(announcement);
+                  subtitleShown = true;
+                  break;
           }
 
           if (messageForBubble && actorName && playerMap.has(actorName)) {
@@ -679,24 +656,24 @@ function updateUIPanels(parent, mainContainer, gameState, currentEvent, playerMa
             `<span class="phase-icon">${phaseIcon}</span><span>${currentEvent.day}</span>`;
     }
 
-    let leftPanel = mainContainer.querySelector('.left-panel');
-    if (!leftPanel) {
-        leftPanel = document.createElement('div');
-        leftPanel.className = 'left-panel';
-        mainContainer.appendChild(leftPanel);
-    }
-    let playerListArea = leftPanel.querySelector('#player-list-area');
-    if (!playerListArea) {
-        playerListArea = document.createElement('div');
-        playerListArea.id = 'player-list-area';
-        leftPanel.appendChild(playerListArea);
-    }
-
     let rightPanel = mainContainer.querySelector('.right-panel');
     if (!rightPanel) {
         rightPanel = document.createElement('div');
         rightPanel.className = 'right-panel';
         mainContainer.appendChild(rightPanel);
+
+        // Observer to handle subtitle visibility overlap
+        // We observe rightPanel because it is visually positioned on the left (see CSS)
+        const observer = new MutationObserver(() => {
+            const isCollapsed = rightPanel.classList.contains('collapsed');
+            // If NOT collapsed (i.e. expanded), we consider the left-positioned panel "visible" enough to block subtitles
+            if (!isCollapsed) {
+                parent.classList.add('left-panel-visible');
+            } else {
+                parent.classList.remove('left-panel-visible');
+            }
+        });
+        observer.observe(rightPanel, { attributes: true, attributeFilter: ['class'] });
     }
 
     updateEventLog(rightPanel, gameState, playerMap, onSpeak);
