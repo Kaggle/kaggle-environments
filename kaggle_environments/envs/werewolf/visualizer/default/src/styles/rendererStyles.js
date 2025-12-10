@@ -910,4 +910,8 @@ export const rendererCss = `
 .cinematic-subtitle-container.show-reasoning .cinematic-subtitle-reasoning {
     display: block;
 }
+
+.werewolf-parent.left-panel-visible .cinematic-subtitle-container {
+    display: none !important;
+}
 `;

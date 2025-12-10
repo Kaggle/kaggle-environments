@@ -665,6 +665,19 @@ function updateUIPanels(parent, mainContainer, gameState, currentEvent, playerMa
         rightPanel = document.createElement('div');
         rightPanel.className = 'right-panel';
         mainContainer.appendChild(rightPanel);
+
+        // Observer to handle subtitle visibility overlap
+        // We observe rightPanel because it is visually positioned on the left (see CSS)
+        const observer = new MutationObserver(() => {
+            const isCollapsed = rightPanel.classList.contains('collapsed');
+            // If NOT collapsed (i.e. expanded), we consider the left-positioned panel "visible" enough to block subtitles
+            if (!isCollapsed) {
+                parent.classList.add('left-panel-visible');
+            } else {
+                parent.classList.remove('left-panel-visible');
+            }
+        });
+        observer.observe(rightPanel, { attributes: true, attributeFilter: ['class'] });
     }
 
     updateEventLog(rightPanel, gameState, playerMap, onSpeak);
