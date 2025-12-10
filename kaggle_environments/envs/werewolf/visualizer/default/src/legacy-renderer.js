@@ -63,70 +63,38 @@ export function renderer(context, parent) {
   ]);
 
   if (!window.werewolfGamePlayer) {
-    window.werewolfGamePlayer = {
-      initialized: false,
-      allEvents: [],
-      displayEvents: [],
-      eventToKaggleStep: [],
-      displayStepToAllEventsIndex: [],
-      allEventsIndexToDisplayStep: [],
-      originalSteps: environment.steps,
-      reasoningCounter: 0,
-    };
-    window.wwCurrentStep = 0;
-    const player = window.werewolfGamePlayer;
-
-    const visibleEventDataTypes = new Set([
-      'ChatDataEntry', 'DayExileVoteDataEntry', 'WerewolfNightVoteDataEntry',
-      'DoctorHealActionDataEntry', 'SeerInspectActionDataEntry', 'DayExileElectedDataEntry',
-      'WerewolfNightEliminationDataEntry', 'SeerInspectResultDataEntry', 'DoctorSaveDataEntry',
-      'GameEndResultsDataEntry', 'PhaseDividerDataEntry', 'DiscussionOrderDataEntry',
-    ]);
-
-    let allEventsIndex = 0;
-    let currentDisplayStep = 0;
-    const processedPhaseEvents = new Set();
-    (environment.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents, kaggleStep) => {
-      (stepEvents || []).flat().forEach((dataEntry) => {
-        const event = JSON.parse(dataEntry.json_str);
-        const dataType = dataEntry.data_type;
-        const visibleInUI = event.visible_in_ui ?? true;
-
-        if (!visibleInUI) return;
-
-        if (event.event_name === 'day_start' || event.event_name === 'night_start' || event.description?.includes('Voting phase begins')) {
-          processedPhaseEvents.clear();
-        }
-
-        let eventFingerprint = event.description;
-        if (processedPhaseEvents.has(eventFingerprint)) return;
-        processedPhaseEvents.add(eventFingerprint);
-
-        const isVisibleDataType = visibleEventDataTypes.has(dataType);
-        const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
-
-        if (!isVisibleDataType && !isVisibleEntryType) return;
-
-        event.kaggleStep = kaggleStep;
-        event.dataType = dataType;
-        player.allEvents.push(event);
-        player.eventToKaggleStep.push(kaggleStep);
-
-        if (dataType !== 'PhaseDividerDataEntry') {
-          player.displayEvents.push(event);
-          player.displayStepToAllEventsIndex.push(allEventsIndex);
-          player.allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
-          currentDisplayStep++;
-        }
-        allEventsIndex++;
-      });
-    });
-
-    const newSteps = player.displayEvents.map((event) => player.originalSteps[event.kaggleStep]);
-    context.replay.steps = newSteps;
-    environment.steps = newSteps;
-    window.postMessage({ setSteps: newSteps }, '*');
-    player.initialized = true;
+    if (environment.visualizerData) {
+        const vData = environment.visualizerData;
+        window.werewolfGamePlayer = {
+            initialized: false,
+            allEvents: vData.allEvents,
+            displayEvents: [],
+            eventToKaggleStep: vData.eventToKaggleStep,
+            displayStepToAllEventsIndex: vData.displayStepToAllEventsIndex,
+            allEventsIndexToDisplayStep: vData.allEventsIndexToDisplayStep,
+            originalSteps: vData.originalSteps,
+            reasoningCounter: 0,
+        };
+        // Reconstruct displayEvents for internal use
+        window.werewolfGamePlayer.displayEvents = vData.displayStepToAllEventsIndex.map(
+            (idx) => vData.allEvents[idx]
+        );
+        window.wwCurrentStep = 0;
+    } else {
+        console.warn("Visualizer Data not found. Ensure the transformer is processing the replay.");
+        window.werewolfGamePlayer = {
+            initialized: false,
+            allEvents: [],
+            displayEvents: [],
+            eventToKaggleStep: [],
+            displayStepToAllEventsIndex: [],
+            allEventsIndexToDisplayStep: [],
+            originalSteps: environment.steps,
+            reasoningCounter: 0,
+        };
+        window.wwCurrentStep = 0;
+    }
+    window.werewolfGamePlayer.initialized = true;
   }
 
   // --- Audio State ---
