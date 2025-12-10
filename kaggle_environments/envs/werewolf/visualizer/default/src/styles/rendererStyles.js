@@ -911,6 +911,43 @@ export const rendererCss = `
     display: block;
 }
 
+/* Moderator Mode Styling */
+.cinematic-subtitle-container.moderator-mode {
+    background: rgba(20, 20, 35, 0.75);
+    border: 1px solid rgba(116, 185, 255, 0.4);
+    border-radius: 40px 30px 50px 30px / 30px 50px 30px 40px; /* Blob shape */
+    backdrop-filter: blur(6px);
+    padding: 15px 30px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(116, 185, 255, 0.1);
+    transition: all 0.5s ease-in-out;
+    width: auto; /* Fit content more closely */
+    min-width: 300px;
+    text-align: left;
+    opacity: 0; /* Hidden by default */
+}
+
+.cinematic-subtitle-container.moderator-mode.show-reasoning {
+    opacity: 1; /* Show only when reasoning is enabled */
+}
+
+.cinematic-subtitle-container.moderator-mode .subtitle-speaker {
+    color: #74b9ff; /* Specific color for moderator */
+    display: block; /* Moderator name on top? or inline */
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.cinematic-subtitle-container.moderator-mode .cinematic-subtitle-text {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: #ffffff;
+    text-shadow: none; /* Clean text inside the blob */
+    display: block;
+    white-space: pre-wrap;
+}
+
 .werewolf-parent.left-panel-visible .cinematic-subtitle-container {
     display: none !important;
 }

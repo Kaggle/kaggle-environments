@@ -349,7 +349,7 @@ export function renderer(context, parent) {
     }
 
     // Process event types (simplified mapping)
-    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp };
+    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
     
     if (historyEvent.dataType === 'ChatDataEntry') {
         gameState.eventLog.push({ type: 'chat', ...commonProps, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, mentioned_player_ids: data.mentioned_player_ids || [] });
@@ -418,7 +418,7 @@ export function renderer(context, parent) {
   }
 
   Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
-  parent.className = 'werewolf-parent';
+  parent.classList.add('werewolf-parent');
 
   if (!mainContainer) {
     mainContainer = document.createElement('div');
@@ -567,6 +567,15 @@ export function renderer(context, parent) {
               case 'seer_inspection':
                   messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
                   break;
+              case 'system':
+                  // NEW: Display moderator announcement
+                  let announcement = lastEvent.text;
+                  if (window.werewolfGamePlayer && window.werewolfGamePlayer.playerIdReplacer) {
+                      announcement = window.werewolfGamePlayer.playerIdReplacer(announcement);
+                  }
+                  world.uiManager.displayModeratorAnnouncement(announcement);
+                  subtitleShown = true;
+                  break;
           }
 
           if (messageForBubble && actorName && playerMap.has(actorName)) {
@@ -645,19 +654,6 @@ function updateUIPanels(parent, mainContainer, gameState, currentEvent, playerMa
         phaseCapsule.innerHTML = currentEvent.event_name === 'game_end' ? 
             `<span class="phase-icon">${phaseIcon}</span>` : 
             `<span class="phase-icon">${phaseIcon}</span><span>${currentEvent.day}</span>`;
-    }
-
-    let leftPanel = mainContainer.querySelector('.left-panel');
-    if (!leftPanel) {
-        leftPanel = document.createElement('div');
-        leftPanel.className = 'left-panel';
-        mainContainer.appendChild(leftPanel);
-    }
-    let playerListArea = leftPanel.querySelector('#player-list-area');
-    if (!playerListArea) {
-        playerListArea = document.createElement('div');
-        playerListArea.id = 'player-list-area';
-        leftPanel.appendChild(playerListArea);
     }
 
     let rightPanel = mainContainer.querySelector('.right-panel');
