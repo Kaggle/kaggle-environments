@@ -24,12 +24,16 @@ export class PostProcessing {
 
   init() {
     this.composer = new this.EffectComposer(this.renderer);
+    
+    // Ensure composer matches renderer's drawing buffer size (handling pixel ratio)
+    const pixelRatio = this.renderer.getPixelRatio();
+    this.composer.setSize(this.width * pixelRatio, this.height * pixelRatio);
 
     const renderPass = new this.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
     this.bloomPass = new this.UnrealBloomPass(
-      new this.THREE.Vector2(this.width, this.height),
+      new this.THREE.Vector2(this.width, this.height), // Resolution
       0.15,
       0.4,
       0.85
@@ -104,5 +108,19 @@ export class PostProcessing {
 
   render() {
     this.composer.render();
+  }
+
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
+    
+    if (this.composer) {
+        const pixelRatio = this.renderer.getPixelRatio();
+        this.composer.setSize(width * pixelRatio, height * pixelRatio);
+    }
+    
+    if (this.bloomPass) {
+        this.bloomPass.resolution.set(width, height);
+    }
   }
 }
