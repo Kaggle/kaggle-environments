@@ -67,4 +67,15 @@ export class SceneManager {
   update() {
     this.controls.update();
   }
+
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
+
+    this.renderer.setSize(width, height);
+    this.labelRenderer.setSize(width, height);
+
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+  }
 }
