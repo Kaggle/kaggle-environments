@@ -13,7 +13,11 @@ function parseFen(fen?: string): FenState {
   }
 
   const [piecePlacement, activeColor, castling, enPassant, halfmoveClock, fullmoveNumber] = fen.split(' ');
-  const playerColor = String(activeColor).toLowerCase() === 'w' ? 'White' : 'Black';
+
+  // Within the context of the replay, the active color is the color of the player that just completed their move.
+  // This is the opposite of the active color in the fen string, which is the color of the player that is about to move.
+  // Therefore, we need to invert the "active" color.
+  const playerColor = String(activeColor).toLowerCase() === 'w' ? 'Black' : 'White';
 
   const board = [];
   const rows = piecePlacement.split('/');
