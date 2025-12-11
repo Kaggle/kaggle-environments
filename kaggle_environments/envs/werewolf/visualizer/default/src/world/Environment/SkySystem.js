@@ -257,77 +257,72 @@ export class SkySystem {
 
   createClouds() {
     this.clouds = [];
-    const cloudCount = 8;
+    const cloudCount = 50;
 
-    const createCloudTexture = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, 512, 512);
+    // 1. Generate Soft Puff Texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    grad.addColorStop(0.4, 'rgba(255, 255, 255, 0.3)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+    const texture = new this.THREE.CanvasTexture(canvas);
 
-      const drawCloudBlob = (x, y, radius, opacity) => {
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
-        gradient.addColorStop(0.4, `rgba(255, 255, 255, ${opacity * 0.7})`);
-        gradient.addColorStop(0.7, `rgba(255, 255, 255, ${opacity * 0.3})`);
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      };
-
-      drawCloudBlob(256, 256, 180, 0.9);
-      drawCloudBlob(200, 220, 140, 0.8);
-      drawCloudBlob(320, 240, 150, 0.85);
-      drawCloudBlob(240, 300, 120, 0.75);
-      drawCloudBlob(300, 200, 130, 0.7);
-      drawCloudBlob(180, 280, 90, 0.6);
-      drawCloudBlob(340, 280, 100, 0.65);
-
-      const texture = new this.THREE.CanvasTexture(canvas);
-      texture.needsUpdate = true;
-      return texture;
-    };
+    const baseMaterial = new this.THREE.SpriteMaterial({
+      map: texture,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false, // Prevents z-fighting artifacts between puffs
+    });
 
     for (let i = 0; i < cloudCount; i++) {
-      const cloudTexture = createCloudTexture();
-      const cloudGeometry = new this.THREE.PlaneGeometry(60, 40);
-      const cloudMaterial = new this.THREE.MeshBasicMaterial({
-        map: cloudTexture,
-        transparent: true,
-        opacity: 0.3,
-        side: this.THREE.DoubleSide,
-        depthWrite: false,
-        alphaTest: 0.01,
-      });
+      const cloudGroup = new this.THREE.Group();
+      const puffs = 10 + Math.floor(Math.random() * 15);
 
-      const cloud = new this.THREE.Mesh(cloudGeometry, cloudMaterial);
-      const angle = (i / cloudCount) * Math.PI * 2 + Math.random() * 0.5;
-      const radius = 200 + Math.random() * 100;
-      const height = 80 + Math.random() * 40;
+      for (let j = 0; j < puffs; j++) {
+        const sprite = new this.THREE.Sprite(baseMaterial);
+        
+        // Randomize scale for each puff
+        const scale = 20 + Math.random() * 25;
+        sprite.scale.set(scale, scale, 1);
 
-      cloud.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
-      cloud.rotation.x = -Math.PI / 2 + Math.random() * 0.2;
-      cloud.rotation.z = Math.random() * Math.PI;
-      const scale = 0.8 + Math.random() * 0.4;
-      cloud.scale.set(scale, scale, scale);
+        // Position puff within the cloud volume (flattened ellipsoid)
+        const spreadX = 35;
+        const spreadY = 10;
+        const spreadZ = 35;
+        
+        sprite.position.set(
+          (Math.random() - 0.5) * spreadX,
+          (Math.random() - 0.5) * spreadY,
+          (Math.random() - 0.5) * spreadZ
+        );
 
-      cloud.userData = {
+        cloudGroup.add(sprite);
+      }
+
+      // Position the Cloud Group in the world
+      const angle = Math.random() * Math.PI * 2;
+      const orbitRadius = 60 + Math.random() * 200; // Surrounding the rock
+      const height = -40 + Math.random() * 20; // Below town level
+
+      cloudGroup.position.set(Math.cos(angle) * orbitRadius, height, Math.sin(angle) * orbitRadius);
+
+      // Animation Data (Compatible with World.js loop)
+      cloudGroup.userData = {
         initialAngle: angle,
-        radius: radius,
+        radius: orbitRadius,
         height: height,
-        speed: 0.0001 * 1.0,
+        speed: 0.0001 + Math.random() * 0.0001
       };
 
-      this.scene.add(cloud);
-      this.clouds.push(cloud);
+      this.scene.add(cloudGroup);
+      this.clouds.push(cloudGroup);
     }
-
-    this.clouds.forEach((cloud) => {
-      if (cloud) cloud.visible = false;
-    });
   }
 
   updatePhase(phase, currentEventIndex) {
