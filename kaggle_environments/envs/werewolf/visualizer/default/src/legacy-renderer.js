@@ -120,8 +120,7 @@ export function renderer(context, parent) {
   // --- Patch Controls ---
   if (context.unstable_replayerControls && !window.werewolfControlsPatched) {
     window.werewolfControlsPatched = true;
-    const playerControls = context.unstable_replayerControls;
-    const playerInstance = playerControls._replayerInstance;
+    const playerInstance = context.unstable_replayerControls._replayerInstance;
     const originalSetStep = playerInstance.setStep.bind(playerInstance);
     const originalPlay = playerInstance.play.bind(playerInstance);
     const originalPause = playerInstance.pause.bind(playerInstance);
@@ -140,7 +139,7 @@ export function renderer(context, parent) {
     playerInstance.play = (continuing) => {
       if (audioState.isAudioEnabled) {
         originalPause();
-        playerInstance.setPlayingState(true);
+        context.setPlaying(true); // Use adapter interface
         let currentDisplayStep = context.step;
         const newStepsLength = window.werewolfGamePlayer.displayEvents.length;
         if (!continuing && !audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
@@ -149,7 +148,7 @@ export function renderer(context, parent) {
         }
         const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
         if (allEventsIndex === undefined) {
-          playerInstance.setPlayingState(false);
+          context.setPlaying(false); // Use adapter interface
           return;
         }
         playAudioFrom(allEventsIndex, true);
@@ -160,7 +159,7 @@ export function renderer(context, parent) {
 
     playerInstance.pause = () => {
       originalPause();
-      playerControls.setPlaying(false);
+      context.setPlaying(false); // Use adapter interface
       audioState.isPaused = true;
       if (audioState.isAudioPlaying) {
         audioState.audioPlayer.pause();
@@ -184,6 +183,11 @@ export function renderer(context, parent) {
         if (threeState.world && threeState.world.sceneManager.renderer.domElement && !parent.contains(threeState.world.sceneManager.renderer.domElement)) {
             parent.appendChild(threeState.world.sceneManager.renderer.domElement);
             parent.appendChild(threeState.world.sceneManager.labelRenderer.domElement);
+        }
+        
+        // Handle Resize
+        if (threeState.world && (threeState.world.options.width !== width || threeState.world.options.height !== height)) {
+            threeState.world.resize(width, height);
         }
         return;
     }
