@@ -230,8 +230,8 @@ export function playNextInQueue(isContinuous = true) {
     );
     if (audioState.audioQueue.length === 0 && !audioState.isAudioPlaying) {
       console.debug("DEBUG: [playNextInQueue] Playback finished. Setting player to 'paused' state.");
-      if (context.unstable_replayerControls) {
-        context.unstable_replayerControls._replayerInstance.pause();
+      if (context.setPlaying) {
+        context.setPlaying(false);
       }
     }
     return;
@@ -247,9 +247,9 @@ export function playNextInQueue(isContinuous = true) {
       `DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`
     );
 
-    if (displayStep !== undefined && context.unstable_replayerControls) {
+    if (displayStep !== undefined && context.setCurrentStep) {
       console.debug(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
-      context.unstable_replayerControls.setStep(displayStep);
+      context.setCurrentStep(displayStep);
 
       // Use a short timeout to allow the DOM to update after the step change
       setTimeout(() => {
