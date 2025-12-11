@@ -21,7 +21,7 @@ export class World {
 
     this.skySystem = new SkySystem(scene, this.THREE, modules.Sky);
     this.lightingManager = new LightingManager(scene, this.THREE);
-    this.terrainManager = new TerrainManager(scene, this.THREE, modules.FBXLoader);
+    this.terrainManager = new TerrainManager(scene, this.THREE, modules.FBXLoader, modules.GLTFLoader);
     this.propsManager = new PropsManager(scene, this.THREE, modules.VolumetricFire, camera);
     this.characterManager = new CharacterManager(scene, this.THREE, modules.FBXLoader, modules.SkeletonUtils, modules.CSS2DObject);
     // this.particleSystem = new ParticleSystem(scene, this.THREE);
@@ -291,5 +291,14 @@ export class World {
       this.sceneManager.labelRenderer.render(this.sceneManager.scene, this.sceneManager.camera);
     };
     loop();
+  }
+
+  resize(width, height) {
+      this.options.width = width;
+      this.options.height = height;
+      this.sceneManager.resize(width, height);
+      this.postProcessing.resize(width, height);
+      this.uiManager.width = width;
+      this.uiManager.height = height;
   }
 }

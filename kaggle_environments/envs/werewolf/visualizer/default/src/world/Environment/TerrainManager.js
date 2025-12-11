@@ -1,8 +1,9 @@
 export class TerrainManager {
-  constructor(scene, THREE, FBXLoader) {
+  constructor(scene, THREE, FBXLoader, GLTFLoader) {
     this.scene = scene;
     this.THREE = THREE;
     this.fbxLoader = new FBXLoader();
+    this.gltfLoader = new GLTFLoader();
 
     this.islandModel = null;
     this.townModel = null;
@@ -11,9 +12,9 @@ export class TerrainManager {
   }
 
   init() {
-    this.loadIslandModel();
+    // this.loadIslandModel();
     this.loadTownModel();
-    this.loadGround();
+    // this.loadGround();
   }
 
   loadIslandModel() {
@@ -91,31 +92,26 @@ export class TerrainManager {
   }
 
   loadTownModel() {
-    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/scene_v1.fbx`;
+    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/cliff_aerial_rock.glb`;
     console.debug(`[Town Loader] Attempting to load model from: ${townModelPath}`);
 
-    this.fbxLoader.load(
+    this.gltfLoader.load(
       townModelPath,
-      (fbx) => {
+      (gltf) => {
         console.debug('[Town Loader] Model loaded successfully.');
-        fbx.scale.setScalar(0.15);
-        fbx.position.set(0, 0, 0);
-        fbx.rotation.y = Math.PI / 2;
-
-        fbx.traverse((child) => {
+        const model = gltf.scene;
+        // Adjust scale/rotation as appropriate for the new model
+        model.scale.setScalar(15.0);
+        model.position.set(0, 0, 0);
+        
+        model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            child.material.normalMap = null;
-            child.material.metalnessMap = null;
-            if (child.material) {
-              child.material.roughness = 1.0;
-              child.material.metalness = 0.0;
-            }
           }
         });
-        this.scene.add(fbx);
-        this.townModel = fbx;
+        this.scene.add(model);
+        this.townModel = model;
       },
       (progress) => {
         console.debug('[Town Loader] Loading progress: ' + ((progress.loaded / progress.total) * 100).toFixed(2) + '%');
