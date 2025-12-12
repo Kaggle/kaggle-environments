@@ -1,13 +1,19 @@
 export class LightingManager {
-  constructor(scene, THREE) {
+  constructor(scene, THREE, RGBELoader, renderer) {
     this.scene = scene;
     this.THREE = THREE;
+    this.rgbeLoader = new RGBELoader();
+    this.pmremGenerator = new THREE.PMREMGenerator(renderer);
+    this.pmremGenerator.compileEquirectangularShader();
 
     this.ambientLight = null;
     this.rimLight = null;
     this.hemiLight = null;
     this.fillLight = null;
     this.spotLight = null;
+
+    this.dayEnvMap = null;
+    this.nightEnvMap = null;
 
     this.init();
   }
@@ -39,9 +45,41 @@ export class LightingManager {
     this.spotLight.visible = false;
     this.scene.add(this.spotLight);
     this.scene.add(this.spotLight.target);
+
+    this.loadHDRIs();
+  }
+
+  loadHDRIs() {
+    const dayPath = `${import.meta.env.BASE_URL}static/werewolf/hdri/greenwich_park_1k.hdr`;
+    const nightPath = `${import.meta.env.BASE_URL}static/werewolf/hdri/rogland_clear_night_1k.hdr`;
+
+    this.rgbeLoader.load(dayPath, (texture) => {
+        const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+        this.dayEnvMap = envMap;
+        texture.dispose();
+        // Set initial if day
+        if (!this.scene.environment) this.scene.environment = envMap;
+    });
+
+    this.rgbeLoader.load(nightPath, (texture) => {
+        const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+        this.nightEnvMap = envMap;
+        texture.dispose();
+    });
   }
 
   update(phase) {
+    // Switch Environment Map based on phase
+    if (phase > 0.5 && this.nightEnvMap) {
+        if (this.scene.environment !== this.nightEnvMap) {
+            this.scene.environment = this.nightEnvMap;
+        }
+    } else if (phase <= 0.5 && this.dayEnvMap) {
+        if (this.scene.environment !== this.dayEnvMap) {
+            this.scene.environment = this.dayEnvMap;
+        }
+    }
+
     if (this.rimLight) {
       const nightColor = new this.THREE.Color(0x664422);
       const dayColor = new this.THREE.Color(0xaa6633);
@@ -57,14 +95,14 @@ export class LightingManager {
 
       this.hemiLight.color.copy(daySkyColor).lerp(nightSkyColor, phase);
       this.hemiLight.groundColor.copy(dayGroundColor).lerp(nightGroundColor, phase);
-      this.hemiLight.intensity = 0.4 - phase * 0.1;
+      this.hemiLight.intensity = 0.3 - phase * 0.1;
     }
 
     if (this.ambientLight) {
       const nightColor = new this.THREE.Color(0x3a3a5a);
-      const dayColor = new this.THREE.Color(0x4a4a3a);
+      const dayColor = new this.THREE.Color(0x9a9a8a);
       this.ambientLight.color.copy(dayColor).lerp(nightColor, phase);
-      this.ambientLight.intensity = 0.1;
+      this.ambientLight.intensity = 0.4 - phase * 0.2;
     }
   }
 }
