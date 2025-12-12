@@ -252,7 +252,19 @@ export class CharacterManager {
         playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
 
       // Pass a focus callback if needed
-      const playerUI = uiManager.createPlayerUI(name, displayName, thumbnailUrl);
+      const focusCallback = (playerName) => {
+          if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
+              const leftPanel = document.querySelector('.left-panel');
+              const rightPanel = document.querySelector('.right-panel');
+              // Check visibility/dimensions
+              const leftW = (leftPanel && leftPanel.offsetParent !== null) ? leftPanel.offsetWidth : 0;
+              const rightW = (rightPanel && rightPanel.offsetParent !== null) ? rightPanel.offsetWidth : 0;
+              
+              window.werewolfThreeJs.demo.focusOnPlayer(playerName, leftW, rightW);
+          }
+      };
+
+      const playerUI = uiManager.createPlayerUI(name, displayName, thumbnailUrl, focusCallback);
       playerUI.position.set(0, modelHeight + 2.0, 0);
       playerContainer.add(playerUI);
 
