@@ -92,7 +92,7 @@ export class TerrainManager {
   }
 
   loadTownModel() {
-    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/cliff_aerial_rock.glb`;
+    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/cliff_grass_rock_blend.glb`;
     console.debug(`[Town Loader] Attempting to load model from: ${townModelPath}`);
 
     this.gltfLoader.load(
@@ -108,6 +108,16 @@ export class TerrainManager {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
+            if (child.material) {
+                // Reset material modifiers to ensure texture color shows purely
+                if (child.material.map) {
+                    child.material.map.encoding = this.THREE.sRGBEncoding;
+                }
+                child.material.color.setHex(0xffffff); // Ensure base color is white
+                child.material.metalness = 0.0;
+                child.material.roughness = 1.0;
+                child.material.emissive.setHex(0x000000);
+            }
           }
         });
         this.scene.add(model);
