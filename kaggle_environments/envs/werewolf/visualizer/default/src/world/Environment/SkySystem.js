@@ -245,59 +245,62 @@ export class SkySystem {
 
   createBirds() {
     this.birds = [];
-    const birdCount = 20;
+    const birdCount = 15; // Reduced density
 
-    // Simple V-shape Geometry
-    // 2 Triangles sharing spine
+    // Simple Body + Wings Geometry (9 vertices)
     const vertices = new Float32Array([
-        // Right Wing Triangle
-        0.5, 0, 0,   // 0: Right Wing Tip
-        0, 0, 0.3,   // 1: Front
-        0, 0, -0.2,  // 2: Back
-        
-        // Left Wing Triangle
-        0, 0, 0.3,   // 3: Front (dup)
-        -0.5, 0, 0,  // 4: Left Wing Tip
-        0, 0, -0.2   // 5: Back (dup)
+        // Body (Triangle)
+        0, 0, 0.4,      // 0: Nose
+        0.15, -0.05, -0.3, // 1: Tail Right
+        -0.15, -0.05, -0.3,// 2: Tail Left
+
+        // Right Wing
+        0.05, 0, 0.1,   // 3: Shoulder
+        1.2, 0, -0.1,   // 4: Wing Tip (ANIMATION TARGET)
+        0.05, 0, -0.2,  // 5: Back joint
+
+        // Left Wing
+        -0.05, 0, 0.1,  // 6: Shoulder
+        -1.2, 0, -0.1,  // 7: Wing Tip (ANIMATION TARGET)
+        -0.05, 0, -0.2  // 8: Back joint
     ]);
     
-    // We clone geometry for each bird to allow independent animation of vertices? 
-    // Or we use vertex shader? 
-    // CPU animation is easier for this scale. We need independent geometries.
-    
-    const material = new this.THREE.MeshBasicMaterial({
-        color: 0x111111,
+    // Use Standard material for lighting interactions
+    const material = new this.THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.9,
         side: this.THREE.DoubleSide
     });
 
     for(let i=0; i<birdCount; i++) {
         const geometry = new this.THREE.BufferGeometry();
         geometry.setAttribute('position', new this.THREE.BufferAttribute(vertices.slice(), 3));
+        geometry.computeVertexNormals(); // Needed for Standard material
         
         const bird = new this.THREE.Mesh(geometry, material);
         bird.castShadow = true;
-        bird.receiveShadow = false; // Birds don't need self-shadowing usually
+        bird.receiveShadow = false;
         
-        // Position area: x/z -80 to 80, y 30 to 60
         bird.position.set(
-            (Math.random() - 0.5) * 160,
-            40 + Math.random() * 30,
-            (Math.random() - 0.5) * 160
+            (Math.random() - 0.5) * 100,
+            35 + Math.random() * 20, // Reduced height
+            (Math.random() - 0.5) * 100
         );
         
-        // Random flight parameters
+        // Boids parameters
+        const speed = 0.2 + Math.random() * 0.1;
+        const angle = Math.random() * Math.PI * 2;
+        
         bird.userData = {
-            speed: 0.15 + Math.random() * 0.1,
-            angle: Math.random() * Math.PI * 2,
-            wingSpeed: 0.15 + Math.random() * 0.1,
+            velocity: new this.THREE.Vector3(Math.cos(angle) * speed, 0, Math.sin(angle) * speed),
+            wingSpeed: 0.03 + Math.random() * 0.03, // Reduced flapping speed
             wingPhase: Math.random() * Math.PI * 2,
-            turnSpeed: (Math.random() - 0.5) * 0.005
         };
         
-        bird.rotation.y = -bird.userData.angle;
+        bird.rotation.y = -angle;
         
-        // Scale down slightly
-        bird.scale.setScalar(2.0);
+        // Scale down to avoid looking like fake triangles
+        bird.scale.setScalar(1.0);
 
         this.scene.add(bird);
         this.birds.push(bird);
