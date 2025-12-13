@@ -26,7 +26,7 @@ export class SkySystem {
     this.createSunMoon();
     this.createMoonMesh();
     this.createGodRays();
-    this.createStars();
+    // this.createStars(); // Removed per user request
     this.createClouds();
 
     // Initial update
@@ -48,7 +48,7 @@ export class SkySystem {
     this.scene.add(this.sky);
 
     const skyUniforms = this.sky.material.uniforms;
-    skyUniforms['turbidity'].value = 4.7;
+    skyUniforms['turbidity'].value = 2.0;
     skyUniforms['rayleigh'].value = 0.2;
     skyUniforms['mieCoefficient'].value = 0.001;
     skyUniforms['mieDirectionalG'].value = 0.9;
@@ -58,8 +58,8 @@ export class SkySystem {
     // Sun Light
     this.sunLight = new this.THREE.DirectionalLight(0xffffff, 0.8);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 1024;
+    this.sunLight.shadow.mapSize.height = 1024;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 500;
     this.sunLight.shadow.camera.left = -75;
@@ -95,7 +95,7 @@ export class SkySystem {
     this.moonMesh = new this.THREE.Group();
 
     // Giant blood moon sphere
-    const moonGeometry = new this.THREE.SphereGeometry(25, 64, 64);
+    const moonGeometry = new this.THREE.SphereGeometry(80, 64, 64);
     const moonMaterial = new this.THREE.MeshStandardMaterial({
       map: moonTexture,
       emissiveMap: moonTexture,
@@ -110,17 +110,6 @@ export class SkySystem {
     this.moonSphere.castShadow = false;
     this.moonSphere.receiveShadow = false;
     this.moonMesh.add(this.moonSphere);
-
-    // Red surrounding glow
-    const moonGlowGeometry = new this.THREE.SphereGeometry(30, 32, 32);
-    const moonGlowMaterial = new this.THREE.MeshBasicMaterial({
-      color: 0xdd5522,
-      transparent: true,
-      opacity: 0.1,
-      side: this.THREE.BackSide,
-    });
-    this.moonGlow = new this.THREE.Mesh(moonGlowGeometry, moonGlowMaterial);
-    this.moonMesh.add(this.moonGlow);
 
     this.moonMesh.visible = false;
     this.scene.add(this.moonMesh);
@@ -182,82 +171,9 @@ export class SkySystem {
     this.scene.add(this.godRayGroup);
   }
 
-  createStars() {
-    const starsGeometry = new this.THREE.BufferGeometry();
-    const starCount = 2000;
-    const positions = new Float32Array(starCount * 3);
-    const colors = new Float32Array(starCount * 3);
-    const sizes = new Float32Array(starCount);
-
-    for (let i = 0; i < starCount; i++) {
-      const i3 = i * 3;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const radius = 400 + Math.random() * 100;
-
-      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i3 + 2] = radius * Math.cos(phi);
-
-      const starColor = new this.THREE.Color();
-      const colorChoice = Math.random();
-      if (colorChoice < 0.3) {
-        starColor.setHSL(0.6, 0.1, 0.9);
-      } else if (colorChoice < 0.6) {
-        starColor.setHSL(0.1, 0.1, 0.95);
-      } else {
-        starColor.setHSL(0, 0, 1);
-      }
-      colors[i3] = starColor.r;
-      colors[i3 + 1] = starColor.g;
-      colors[i3 + 2] = starColor.b;
-
-      sizes[i] = Math.random() * 2 + 0.5;
-    }
-
-    starsGeometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
-    starsGeometry.setAttribute('color', new this.THREE.BufferAttribute(colors, 3));
-    starsGeometry.setAttribute('size', new this.THREE.BufferAttribute(sizes, 1));
-
-    const starsMaterial = new this.THREE.ShaderMaterial({
-      uniforms: {
-        phase: { value: 0.0 },
-      },
-      vertexShader: `
-                attribute float size;
-                attribute vec3 color;
-                varying vec3 vColor;
-                uniform float phase;
-                void main() {
-                    vColor = color;
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    gl_PointSize = size * (300.0 / -mvPosition.z) * phase;
-                    gl_Position = projectionMatrix * mvPosition;
-                }
-            `,
-      fragmentShader: `
-                varying vec3 vColor;
-                uniform float phase;
-                void main() {
-                    float dist = distance(gl_PointCoord, vec2(0.5));
-                    if (dist > 0.5) discard;
-                    float alpha = (1.0 - dist * 2.0) * phase * 0.8;
-                    gl_FragColor = vec4(vColor, alpha);
-                }
-            `,
-      transparent: true,
-      blending: this.THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-
-    this.stars = new this.THREE.Points(starsGeometry, starsMaterial);
-    this.starsMaterial = starsMaterial;
-    this.scene.add(this.stars);
-  }
-
   createClouds() {
     this.clouds = [];
-    const cloudCount = 50;
+    const cloudCount = 5;
 
     // 1. Generate Soft Puff Texture
     const canvas = document.createElement('canvas');
@@ -282,7 +198,7 @@ export class SkySystem {
 
     for (let i = 0; i < cloudCount; i++) {
       const cloudGroup = new this.THREE.Group();
-      const puffs = 10 + Math.floor(Math.random() * 15);
+      const puffs = 5 + Math.floor(Math.random() * 8);
 
       for (let j = 0; j < puffs; j++) {
         const sprite = new this.THREE.Sprite(baseMaterial);
@@ -308,7 +224,7 @@ export class SkySystem {
       // Position the Cloud Group in the world
       const angle = Math.random() * Math.PI * 2;
       const orbitRadius = 60 + Math.random() * 200; // Surrounding the rock
-      const height = -40 + Math.random() * 20; // Below town level
+      const height = -50 + Math.random() * 20; // Below town level
 
       cloudGroup.position.set(Math.cos(angle) * orbitRadius, height, Math.sin(angle) * orbitRadius);
 
@@ -377,119 +293,159 @@ export class SkySystem {
   updateSkySystem(phase) {
     if (!this.sky || !this.sunLight || !this.moonLight) return;
 
+    // 1. Determine Day/Night (Strict Threshold)
+    const isNight = phase >= 0.5;
+
     const sunDistance = 400;
-    const moonDistance = 400;
-    const cycleAngle = phase * 2 * Math.PI; // 0 to 2PI
+    const moonDistance = 900;
 
-    // --- Sun Trajectory (Overhead) ---
-    // Rise East (+X), Set West (-X)
-    const sunX = sunDistance * Math.cos(cycleAngle);
-    const sunY = sunDistance * Math.sin(cycleAngle);
+    // 2. Define Restricted Arcs for Day Sun
+    const minElevation = Math.PI / 12; // 15 degrees
+    const maxElevation = Math.PI - Math.PI / 12; // 165 degrees
+    const angularRange = maxElevation - minElevation;
+
+    let sunAngle, moonAngle;
+    let moonX, moonY, moonZ; // Declare variables here
+
+    if (!isNight) {
+        // --- DAY PHASE (0.0 to 0.5) ---
+        const dayProgress = Math.min(1.0, Math.max(0.0, phase / 0.5));
+        sunAngle = minElevation + dayProgress * angularRange;
+        
+        // Moon is hidden (opposite side)
+        moonAngle = sunAngle + Math.PI;
+        
+        // Standard Day Moon Position (Opposite Sun)
+        const moonTilt = 0.2; 
+        const mX = moonDistance * Math.cos(moonAngle);
+        const mYBase = moonDistance * Math.sin(moonAngle);
+        moonX = mX;
+        moonY = mYBase * Math.cos(moonTilt);
+        moonZ = mYBase * Math.sin(moonTilt);
+    } else {
+        // --- NIGHT PHASE (0.5 to 1.0) ---
+        const nightProgress = Math.min(1.0, Math.max(0.0, (phase - 0.5) / 0.5));
+        
+        // Horizontal Travel (< 120 degrees)
+        const sweepRange = 100 * (Math.PI / 180);
+        const azimuth = (0.5 - nightProgress) * sweepRange; // +50 to -50
+        
+        // Base Position on horizontal circle (XZ plane)
+        const arcRadius = moonDistance;
+        let mX = arcRadius * Math.sin(azimuth);
+        let mZ = -arcRadius * Math.cos(azimuth);
+        
+        // "Sit 5 degrees above horizon"
+        const baseElevationAngle = 5 * (Math.PI / 180);
+        let mY = arcRadius * Math.sin(baseElevationAngle);
+        
+        // "5 degree tilt"
+        const tiltAngle = 5 * (Math.PI / 180);
+        
+        // Apply tilt rotation to X/Y
+        const tiltedX = mX * Math.cos(tiltAngle) - mY * Math.sin(tiltAngle);
+        const tiltedY = mX * Math.sin(tiltAngle) + mY * Math.cos(tiltAngle);
+        
+        // Assign final positions
+        moonX = tiltedX;
+        moonY = tiltedY;
+        moonZ = mZ;
+
+        // Hide Sun
+        sunAngle = -Math.PI / 2; // Below horizon
+    }
+
+    // --- Calculate Positions ---
+    // Sun
+    const sunX = sunDistance * Math.cos(sunAngle);
+    const sunY = sunDistance * Math.sin(sunAngle);
     const sunZ = 0;
-
-    // --- Moon Trajectory (Tilted Arc) ---
-    // Opposite to Sun
-    const moonAngle = cycleAngle + Math.PI;
-    const moonTilt = 0.5; // ~28 degrees tilt
-    const moonX = moonDistance * Math.cos(moonAngle);
-    const moonY = moonDistance * Math.sin(moonAngle) * Math.cos(moonTilt);
-    const moonZ = moonDistance * Math.sin(moonAngle) * Math.sin(moonTilt);
-
-    // Update Sun
+    
+    // Update Sun Object
     this.sunPosition.set(sunX, sunY, sunZ);
     this.sky.material.uniforms['sunPosition'].value.copy(this.sunPosition);
-
     this.sunLight.position.copy(this.sunPosition);
-    this.sunLight.target.position.set(0, 0, 0);
-    const sunIntensity = Math.max(0, Math.sin(cycleAngle));
-    this.sunLight.intensity = sunIntensity * 1.2;
-    this.sunLight.visible = sunY > 0;
+    
+    // Sun Intensity logic
+    this.sunLight.intensity = (!isNight) ? 0.8 : 0.0;
+    this.sunLight.visible = !isNight;
+    
+    // Sun Color logic
+    if (!isNight) {
+        // ... (Keep existing day color logic)
+        const distFromZenith = Math.abs(sunAngle - Math.PI/2);
+        const maxDist = Math.PI/2 - minElevation;
+        const normalizedHeight = 1.0 - (distFromZenith / maxDist);
+        if (normalizedHeight < 0.3) {
+            this.sunLight.color.setHex(0xffaa66);
+        } else {
+            this.sunLight.color.setHex(0xffffff);
+        }
+    }
 
-    const sunColorTemp = sunY > 0 && sunY < 100 ? new this.THREE.Color(0xffaa66) : new this.THREE.Color(0xffffff);
-    this.sunLight.color = sunColorTemp;
-
-    // Update Moon
+    // Update Moon Object
     if (this.moonMesh) {
       this.moonMesh.position.set(moonX, moonY, moonZ);
       this.moonMesh.lookAt(0, 0, 0);
-      this.moonMesh.visible = moonY > 0;
-
-      const moonScale = 1 + Math.max(0, (1 - Math.abs(moonY) / 100) * 0.5);
-      this.moonMesh.scale.setScalar(moonScale);
-
-      if (this.moonSphere) {
-        this.moonSphere.rotation.y = phase * Math.PI * 4;
-      }
-
-      if (this.moonGlow && this.moonGlow.material) {
-        this.moonGlow.material.opacity = moonY > 0 ? 0.3 : 0;
+      this.moonMesh.visible = isNight;
+      
+      // Update Moon Rotation/Color
+      if (this.moonSphere && this.moonSphere.material) {
+         // ... (Keep existing color logic)
+         if (isNight) {
+             this.moonSphere.material.color.setHex(0xff6633);
+             this.moonSphere.material.emissive.setHex(0xdd5522);
+             this.moonSphere.material.emissiveIntensity = 0.9;
+             this.moonLight.color.setHex(0xff6633);
+         } else {
+             this.moonSphere.material.color.setHex(0xffffff);
+             this.moonSphere.material.emissive.setHex(0x222222);
+             this.moonSphere.material.emissiveIntensity = 0.2;
+             this.moonLight.color.setHex(0xaaccff);
+         }
+         this.moonSphere.rotation.y = phase * Math.PI * 4;
       }
     }
 
     this.moonLight.position.set(moonX, moonY, moonZ);
-    this.moonLight.target.position.set(0, 0, 0);
-    this.moonLight.visible = moonY > 0;
-    this.moonLight.intensity = moonY > 0 ? 0.8 : 0;
+    this.moonLight.visible = isNight;
+    this.moonLight.intensity = isNight ? 0.4 : 0.0;
 
-    // --- Atmosphere & Post-Processing (Phase Dependent) ---
+
+    // --- Atmosphere & Post-Processing ---
     const skyUniforms = this.sky.material.uniforms;
-    let dayProgress = 0;
 
-    if (phase <= 0.5) {
-      // DAY
-      dayProgress = phase * 2;
-      if (dayProgress < 0.1 || dayProgress > 0.9) {
-        const transitionFactor = dayProgress < 0.1 ? dayProgress * 10 : (1 - dayProgress) * 10;
-        const turbidity_noon = 4.7,
-          rayleigh_noon = 0.2,
-          mieCoeff_noon = 0.001,
-          mieG_noon = 0.9;
-        const turbidity_dusk = 8.0,
-          rayleigh_dusk = 1.0,
-          mieCoeff_dusk = 0.01,
-          mieG_dusk = 0.95;
-        skyUniforms['turbidity'].value = turbidity_dusk + (turbidity_noon - turbidity_dusk) * transitionFactor;
-        skyUniforms['rayleigh'].value = rayleigh_dusk + (rayleigh_noon - rayleigh_dusk) * transitionFactor;
-        skyUniforms['mieCoefficient'].value = mieCoeff_dusk + (mieCoeff_noon - mieCoeff_dusk) * transitionFactor;
-        skyUniforms['mieDirectionalG'].value = mieG_dusk + (mieG_noon - mieG_dusk) * transitionFactor;
-      } else {
-        skyUniforms['turbidity'].value = 4.7;
-        skyUniforms['rayleigh'].value = 0.2;
-        skyUniforms['mieCoefficient'].value = 0.001;
-        skyUniforms['mieDirectionalG'].value = 0.9;
-      }
+    if (!isNight) {
+      // DAY ATMOSPHERE
+      const dayProgress = phase / 0.5;
+      // Simple logic: Middle of day (0.5 progress) = clearest
+      // Edges = more turbidity
+      const distFromNoon = Math.abs(dayProgress - 0.5) * 2; // 0 (noon) to 1 (edges)
+      
+      // Interpolate
+      skyUniforms['turbidity'].value = 4.7 + distFromNoon * 3.0;
+      skyUniforms['rayleigh'].value = 0.2 + distFromNoon * 0.8;
+      skyUniforms['mieCoefficient'].value = 0.001 + distFromNoon * 0.005;
+      skyUniforms['mieDirectionalG'].value = 0.9;
     } else {
-      // NIGHT
-      const nightProgress = (phase - 0.5) * 2;
-      if (nightProgress < 0.1 || nightProgress > 0.9) {
-        const transitionFactor = nightProgress < 0.1 ? 1 - nightProgress * 10 : nightProgress * 10;
-        skyUniforms['turbidity'].value = 0.6 + (10 - 0.6) * transitionFactor;
-        skyUniforms['rayleigh'].value = 1.9 - (1.9 - 0.1) * transitionFactor;
-        skyUniforms['mieCoefficient'].value = 0.01 - (0.01 - 0.005) * transitionFactor;
-        skyUniforms['mieDirectionalG'].value = 1.0 - (1.0 - 0.7) * transitionFactor;
-      } else {
-        skyUniforms['turbidity'].value = 10;
-        skyUniforms['rayleigh'].value = 2.0;
-        skyUniforms['mieCoefficient'].value = 0.005;
-        skyUniforms['mieDirectionalG'].value = 0.8;
-      }
+      // NIGHT ATMOSPHERE
+      // Dark, high turbidity to simulate night sky
+      skyUniforms['turbidity'].value = 10;
+      skyUniforms['rayleigh'].value = 2.0;
+      skyUniforms['mieCoefficient'].value = 0.005;
+      skyUniforms['mieDirectionalG'].value = 0.8;
     }
 
+    // Stars
     if (this.starsMaterial) {
-      if (phase > 0.5) {
-        const nightProgress = (phase - 0.5) * 2;
-        if (nightProgress < 0.1) {
-          this.starsMaterial.uniforms.phase.value = nightProgress * 10;
-        } else if (nightProgress > 0.9) {
-          this.starsMaterial.uniforms.phase.value = (1 - nightProgress) * 10;
-        } else {
-          this.starsMaterial.uniforms.phase.value = 1;
-        }
+      if (isNight) {
+          this.starsMaterial.uniforms.phase.value = 1.0; 
       } else {
         this.starsMaterial.uniforms.phase.value = 0;
       }
     }
 
+    // Clouds
     if (this.clouds) {
       this.clouds.forEach((cloud) => {
         if (!cloud || !cloud.material) return;
@@ -497,33 +453,31 @@ export class SkySystem {
       });
     }
 
+    // God Rays
     if (this.godRayGroup && this.godRays) {
       let godRayVisible = false;
       let godRayPosition = null;
-      let godRayIntensity = 0;
       let godRayColor = 0xffeeaa;
+      let intensityMult = 1.0;
 
-      if (phase <= 0.5 && sunY > 0) {
-        if (sunY < 100) {
-          godRayIntensity = 1.0;
-          godRayColor = 0xffaa66;
-        } else if (sunY < 200) {
-          godRayIntensity = 0.6;
-          godRayColor = 0xffddaa;
-        } else {
-          godRayIntensity = 0.3;
-          godRayColor = 0xffffff;
-        }
+      if (!isNight) {
+        // Sun God Rays
         godRayVisible = true;
         godRayPosition = this.sunPosition.clone();
-      } else if (phase > 0.5 && moonY > 0) {
-        // Optional: Moon god rays
-        // godRayIntensity = 0.8;
-        // godRayColor = 0xff3333;
-        // godRayVisible = true;
-        // godRayPosition = this.moonMesh.position.clone();
-        godRayVisible = false;
-      }
+        
+        // Color based on height
+        if (this.sunLight.color.r > 0.9 && this.sunLight.color.g < 0.8) {
+            // Orange sun
+            godRayColor = 0xffaa66;
+            intensityMult = 1.0;
+        } else {
+            // White sun
+            godRayColor = 0xffffff;
+            intensityMult = 0.4;
+        }
+      } 
+      // Disable moon rays for now or re-enable if desired
+      // else { ... }
 
       this.godRayGroup.visible = godRayVisible && this.godRayIntensity > 0;
       if (godRayVisible && godRayPosition) {
@@ -532,7 +486,7 @@ export class SkySystem {
         this.godRays.forEach((ray) => {
           if (ray.material) {
             ray.material.color.setHex(godRayColor);
-            const finalOpacity = ray.userData.originalOpacity * godRayIntensity * this.godRayIntensity;
+            const finalOpacity = ray.userData.originalOpacity * intensityMult * this.godRayIntensity;
             ray.material.opacity = finalOpacity;
           }
         });
