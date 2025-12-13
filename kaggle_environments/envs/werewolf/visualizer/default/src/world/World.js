@@ -9,6 +9,9 @@ import { PostProcessing } from './Effects/PostProcessing.js';
 import { UIManager } from './UI/UIManager.js';
 import { VoteVisuals } from './Visuals/VoteVisuals.js';
 
+const DEFAULT_CAMERA_POSITION = { x: -18.84, y: 20.27, z: 48.08 };
+const DEFAULT_CAMERA_TARGET = { x: 0, y: 8, z: 0 };
+
 export class World {
   constructor(options, modules) {
     this.options = options;
@@ -49,7 +52,7 @@ export class World {
     this.cameraAnimation = null;
 
     // Camera setup
-    camera.position.set(25, 30, 35);
+    camera.position.set(-18.84, 20.27, 48.08);
     this.sceneManager.controls.target.set(0, 8, 0);
     this.sceneManager.controls.enableDamping = true;
     this.sceneManager.controls.dampingFactor = 0.05;
@@ -57,6 +60,14 @@ export class World {
     this.sceneManager.controls.maxDistance = 80;
     this.sceneManager.controls.maxPolarAngle = Math.PI * 0.6;
     this.sceneManager.controls.update();
+
+    // Debug: Log camera position when user stops moving it
+    this.sceneManager.controls.addEventListener('end', () => {
+        const p = camera.position;
+        const t = this.sceneManager.controls.target;
+        console.log(`Camera Pos: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
+        console.log(`Target: { x: ${t.x.toFixed(2)}, y: ${t.y.toFixed(2)}, z: ${t.z.toFixed(2)} }`);
+    });
 
     this.startRenderLoop();
   }
@@ -184,19 +195,9 @@ export class World {
   }
 
   resetCameraView() {
-      if (this.characterManager.playerGroup.children.length === 0) return;
-
-      const box = new this.THREE.Box3().setFromObject(this.characterManager.playerGroup);
-      const size = box.getSize(new this.THREE.Vector3());
-      const center = box.getCenter(new this.THREE.Vector3());
-
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const fov = this.sceneManager.camera.fov * (Math.PI / 180);
-      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-      cameraZ *= 1.1;
-
-      const endPos = new this.THREE.Vector3(center.x, center.y + cameraZ / 2, center.z + cameraZ);
-      const endTarget = center;
+      // User preferred "perfect" position
+      const endPos = new this.THREE.Vector3(DEFAULT_CAMERA_POSITION.x, DEFAULT_CAMERA_POSITION.y, DEFAULT_CAMERA_POSITION.z);
+      const endTarget = new this.THREE.Vector3(DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z);
 
       this.cameraAnimation = {
           startTime: performance.now(),
@@ -263,6 +264,40 @@ export class World {
 
       if (this.skySystem.moonMesh && this.skySystem.moonMesh.visible) {
           this.skySystem.moonMesh.rotation.y = time * 0.00002;
+      }
+
+      // Animate Birds
+      if (this.skySystem.birds && phaseValue < 0.5) { // Only process if day (approx)
+          this.skySystem.birds.forEach(bird => {
+              if(!bird.visible) return;
+              
+              // Move
+              bird.userData.angle += bird.userData.turnSpeed;
+              bird.rotation.y = -bird.userData.angle;
+              
+              bird.position.x += Math.cos(bird.userData.angle) * bird.userData.speed;
+              bird.position.z += Math.sin(bird.userData.angle) * bird.userData.speed;
+              
+              // Wrap
+              const range = 90;
+              if (bird.position.x > range) bird.position.x = -range;
+              if (bird.position.x < -range) bird.position.x = range;
+              if (bird.position.z > range) bird.position.z = -range;
+              if (bird.position.z < -range) bird.position.z = range;
+              
+              // Flap Wings
+              // Right Wing Tip is index 1 (y), Left Wing Tip is index 13 (y)
+              // Vertices: [x,y,z, x,y,z, ...]
+              const positions = bird.geometry.attributes.position.array;
+              const flap = Math.sin(time * 0.01 * bird.userData.wingSpeed + bird.userData.wingPhase) * 0.5;
+              
+              // Right Wing Tip (Vertex 0) -> Index 1 (y)
+              positions[1] = flap;
+              // Left Wing Tip (Vertex 4) -> Index 13 (y)
+              positions[13] = flap;
+              
+              bird.geometry.attributes.position.needsUpdate = true;
+          });
       }
 
       // Camera Animation

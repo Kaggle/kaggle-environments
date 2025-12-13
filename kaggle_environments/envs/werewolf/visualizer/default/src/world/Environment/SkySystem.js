@@ -16,6 +16,7 @@ export class SkySystem {
     this.stars = null;
     this.starsMaterial = null;
     this.clouds = [];
+    this.birds = [];
     this.sunPosition = new THREE.Vector3();
 
     this.init();
@@ -28,6 +29,7 @@ export class SkySystem {
     this.createGodRays();
     // this.createStars(); // Removed per user request
     this.createClouds();
+    this.createBirds();
 
     // Initial update
     // Initialize with day settings - set initial sun position for visibility
@@ -241,6 +243,67 @@ export class SkySystem {
     }
   }
 
+  createBirds() {
+    this.birds = [];
+    const birdCount = 20;
+
+    // Simple V-shape Geometry
+    // 2 Triangles sharing spine
+    const vertices = new Float32Array([
+        // Right Wing Triangle
+        0.5, 0, 0,   // 0: Right Wing Tip
+        0, 0, 0.3,   // 1: Front
+        0, 0, -0.2,  // 2: Back
+        
+        // Left Wing Triangle
+        0, 0, 0.3,   // 3: Front (dup)
+        -0.5, 0, 0,  // 4: Left Wing Tip
+        0, 0, -0.2   // 5: Back (dup)
+    ]);
+    
+    // We clone geometry for each bird to allow independent animation of vertices? 
+    // Or we use vertex shader? 
+    // CPU animation is easier for this scale. We need independent geometries.
+    
+    const material = new this.THREE.MeshBasicMaterial({
+        color: 0x111111,
+        side: this.THREE.DoubleSide
+    });
+
+    for(let i=0; i<birdCount; i++) {
+        const geometry = new this.THREE.BufferGeometry();
+        geometry.setAttribute('position', new this.THREE.BufferAttribute(vertices.slice(), 3));
+        
+        const bird = new this.THREE.Mesh(geometry, material);
+        bird.castShadow = true;
+        bird.receiveShadow = false; // Birds don't need self-shadowing usually
+        
+        // Position area: x/z -80 to 80, y 30 to 60
+        bird.position.set(
+            (Math.random() - 0.5) * 160,
+            40 + Math.random() * 30,
+            (Math.random() - 0.5) * 160
+        );
+        
+        // Random flight parameters
+        bird.userData = {
+            speed: 0.15 + Math.random() * 0.1,
+            angle: Math.random() * Math.PI * 2,
+            wingSpeed: 0.15 + Math.random() * 0.1,
+            wingPhase: Math.random() * Math.PI * 2,
+            turnSpeed: (Math.random() - 0.5) * 0.005
+        };
+        
+        bird.rotation.y = -bird.userData.angle;
+        
+        // Scale down slightly
+        bird.scale.setScalar(2.0);
+
+        this.scene.add(bird);
+        this.birds.push(bird);
+    }
+  }
+
   updatePhase(phase, currentEventIndex) {
     if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
 
@@ -451,6 +514,13 @@ export class SkySystem {
         if (!cloud || !cloud.material) return;
         cloud.material.opacity = 0.3;
       });
+    }
+
+    // Birds (Day only)
+    if (this.birds) {
+        this.birds.forEach(bird => {
+            bird.visible = !isNight;
+        });
     }
 
     // God Rays
