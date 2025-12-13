@@ -255,10 +255,10 @@ export class CharacterManager {
       const focusCallback = (playerName) => {
           if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
               const leftPanel = document.querySelector('.left-panel');
-              const rightPanel = document.querySelector('.right-panel');
+              const eventPanel = document.querySelector('.event-panel');
               // Check visibility/dimensions
               const leftW = (leftPanel && leftPanel.offsetParent !== null) ? leftPanel.offsetWidth : 0;
-              const rightW = (rightPanel && rightPanel.offsetParent !== null) ? rightPanel.offsetWidth : 0;
+              const rightW = (eventPanel && eventPanel.offsetParent !== null) ? eventPanel.offsetWidth : 0;
               
               window.werewolfThreeJs.demo.focusOnPlayer(playerName, leftW, rightW);
           }

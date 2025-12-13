@@ -166,12 +166,12 @@ export function formatTimestamp(isoString) {
         if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
           // Get the current widths of the UI panels
           const leftPanel = container.closest('.left-panel'); // Assuming container is in left panel
-          const rightPanel = document.querySelector('.right-panel');
+          const eventPanel = document.querySelector('.event-panel');
           const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
-          const rightPanelWidth = rightPanel ? rightPanel.offsetWidth : 0;
+          const eventPanelWidth = eventPanel ? eventPanel.offsetWidth : 0;
 
           // Pass the panel widths to the focus function
-          window.werewolfThreeJs.demo.focusOnPlayer(player.name, leftPanelWidth, rightPanelWidth);
+          window.werewolfThreeJs.demo.focusOnPlayer(player.name, leftPanelWidth, eventPanelWidth);
         }
       };
 

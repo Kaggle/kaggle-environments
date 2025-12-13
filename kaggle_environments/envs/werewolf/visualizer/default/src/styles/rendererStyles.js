@@ -187,7 +187,7 @@ export const rendererCss = `
 }
 
 /* Enhanced Panel Styling */
-.left-panel, .right-panel {
+.left-panel, .event-panel {
     position: fixed;
     top: 70px;
     max-height: calc(100vh - 124px);
@@ -211,7 +211,7 @@ export const rendererCss = `
     display: none; /* Hide the left panel */
 }
 
-.right-panel {
+.event-panel {
     position: fixed;
     top: 54px;
     left: 20px;
@@ -230,14 +230,14 @@ export const rendererCss = `
     overflow: hidden;
 }
 
-.right-panel.collapsed {
+.event-panel.collapsed {
     max-height: 65px; /* Height of just the header */
     padding-top: 0;
     padding-bottom: 0;
 }
 
 /* ENHANCED Header to act as a toggle */
-.right-panel h1 {
+.event-panel h1 {
     margin: 0;
     font-size: 1.75rem;
     font-weight: 600;
@@ -254,7 +254,7 @@ export const rendererCss = `
 }
 
 /* Adds a visual indicator for expanding/collapsing */
-.right-panel h1::before {
+.event-panel h1::before {
     content: ''; /* The content is now the background image */
     position: absolute;
     left: 20px;
@@ -269,11 +269,11 @@ export const rendererCss = `
     transition: transform 0.3s ease;
 }
 
-.right-panel.collapsed h1::before {
+.event-panel.collapsed h1::before {
     transform: rotate(180deg);
 }
 
-.right-panel h1 > span {
+.event-panel h1 > span {
     background: linear-gradient(135deg, #74b9ff, #0984e3);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -281,7 +281,7 @@ export const rendererCss = `
 }
 
 /* Hides the log when panel is collapsed */
-.right-panel.collapsed #chat-log {
+.event-panel.collapsed #chat-log {
     display: none;
 }
 
@@ -531,13 +531,13 @@ export const rendererCss = `
 
 /* --- End New Unified Player UI Component --- */
 
-.left-panel:hover, .right-panel:hover {
+.left-panel:hover, .event-panel:hover {
     border-color: rgba(116, 185, 255, 0.3);
     box-shadow: var(--card-shadow), 0 0 60px rgba(116, 185, 255, 0.08);
 }
 
 /* Enhanced Headers */
-.right-panel h1, #player-list-area h1 {
+.event-panel h1, #player-list-area h1 {
     margin: 0 0 20px 0;
     font-size: 1.75rem;
     font-weight: 600;
@@ -551,14 +551,14 @@ export const rendererCss = `
     gap: 10px;
 }
 
-.right-panel h1 > span, #player-list-area h1 > span {
+.event-panel h1 > span, #player-list-area h1 > span {
     background: linear-gradient(135deg, #74b9ff, #0984e3);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
-.right-panel h1::after, #player-list-area h1::after {
+.event-panel h1::after, #player-list-area h1::after {
     content: '';
     position: absolute;
     bottom: 0;
