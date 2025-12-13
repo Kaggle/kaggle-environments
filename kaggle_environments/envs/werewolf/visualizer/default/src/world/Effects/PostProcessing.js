@@ -32,8 +32,10 @@ export class PostProcessing {
     const renderPass = new this.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
+    // Optimize Bloom: Use half resolution
+    const bloomResolution = new this.THREE.Vector2(this.width * 0.5, this.height * 0.5);
     this.bloomPass = new this.UnrealBloomPass(
-      new this.THREE.Vector2(this.width, this.height), // Resolution
+      bloomResolution,
       0.15,
       0.4,
       0.85
@@ -61,7 +63,8 @@ export class PostProcessing {
             
             void main() {
               vec4 color = texture2D(tDiffuse, vUv);
-              if (phase > 0.5) {
+              // Use slightly lower threshold to catch 0.5 exactly if float precision issues arise
+              if (phase > 0.49) {
                 // Night Phase - Blood Moon Theme
                 // Shift towards red/purple, increase contrast
                 vec3 nightTint = vec3(1.1, 0.8, 0.9); // Reddish tint
@@ -120,7 +123,7 @@ export class PostProcessing {
     }
     
     if (this.bloomPass) {
-        this.bloomPass.resolution.set(width, height);
+        this.bloomPass.resolution.set(width * 0.5, height * 0.5);
     }
   }
 }
