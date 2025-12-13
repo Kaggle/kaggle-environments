@@ -266,36 +266,88 @@ export class World {
           this.skySystem.moonMesh.rotation.y = time * 0.00002;
       }
 
-      // Animate Birds
-      if (this.skySystem.birds && phaseValue < 0.5) { // Only process if day (approx)
-          this.skySystem.birds.forEach(bird => {
+      // Animate Birds (Boids Swarm with No-Flight Zone)
+      if (this.skySystem.birds && phaseValue < 0.5) {
+          const birds = this.skySystem.birds;
+          const perceptionRadius = 40;
+          const separationRadius = 15;
+          const maxSpeed = 0.35;
+          const maxForce = 0.008;
+          
+          birds.forEach(bird => {
               if(!bird.visible) return;
+
+              // Boids Rules
+              let alignment = new this.THREE.Vector3();
+              let cohesion = new this.THREE.Vector3();
+              let separation = new this.THREE.Vector3();
+              let count = 0;
+
+              birds.forEach(other => {
+                  if (bird !== other) {
+                      const dist = bird.position.distanceTo(other.position);
+                      if (dist < perceptionRadius) {
+                          alignment.add(other.userData.velocity);
+                          cohesion.add(other.position);
+                          count++;
+                          
+                          if (dist < separationRadius) {
+                              const diff = new this.THREE.Vector3().subVectors(bird.position, other.position);
+                              diff.divideScalar(dist);
+                              separation.add(diff);
+                          }
+                      }
+                  }
+              });
+
+              if (count > 0) {
+                  alignment.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
+                  cohesion.divideScalar(count).sub(bird.position).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
+                  separation.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce * 1.5);
+              }
+
+              // Environmental Constraints
               
-              // Move
-              bird.userData.angle += bird.userData.turnSpeed;
-              bird.rotation.y = -bird.userData.angle;
-              
-              bird.position.x += Math.cos(bird.userData.angle) * bird.userData.speed;
-              bird.position.z += Math.sin(bird.userData.angle) * bird.userData.speed;
-              
-              // Wrap
-              const range = 90;
-              if (bird.position.x > range) bird.position.x = -range;
-              if (bird.position.x < -range) bird.position.x = range;
-              if (bird.position.z > range) bird.position.z = -range;
-              if (bird.position.z < -range) bird.position.z = range;
-              
+              // 1. No Flight Zone (Center Exclusion)
+              const distCenter = Math.sqrt(bird.position.x * bird.position.x + bird.position.z * bird.position.z);
+              if (distCenter < 50) {
+                  const pushDir = new this.THREE.Vector3(bird.position.x, 0, bird.position.z).normalize();
+                  bird.userData.velocity.add(pushDir.multiplyScalar(0.05)); // Very strong push
+              }
+
+              // 2. Outer Boundary
+              if (distCenter > 110) {
+                  const pullIn = new this.THREE.Vector3(-bird.position.x, 0, -bird.position.z).normalize();
+                  bird.userData.velocity.add(pullIn.multiplyScalar(0.005));
+              }
+
+              // 3. Height Control
+              const targetH = 45;
+              bird.userData.velocity.y += (targetH - bird.position.y) * 0.0005;
+
+              // Apply Forces
+              bird.userData.velocity.add(alignment.multiplyScalar(1.0));
+              bird.userData.velocity.add(cohesion.multiplyScalar(0.8));
+              bird.userData.velocity.add(separation.multiplyScalar(1.2));
+
+              // Limit Speed
+              bird.userData.velocity.clampLength(0.1, maxSpeed);
+
+              // Update Position
+              bird.position.add(bird.userData.velocity);
+
+              // Orientation
+              const lookTarget = bird.position.clone().add(bird.userData.velocity);
+              bird.lookAt(lookTarget);
+
               // Flap Wings
-              // Right Wing Tip is index 1 (y), Left Wing Tip is index 13 (y)
-              // Vertices: [x,y,z, x,y,z, ...]
               const positions = bird.geometry.attributes.position.array;
-              const flap = Math.sin(time * 0.01 * bird.userData.wingSpeed + bird.userData.wingPhase) * 0.5;
+              const speed = bird.userData.velocity.length();
+              const flapSpeed = bird.userData.wingSpeed * (1 + speed * 2);
+              const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.4;
               
-              // Right Wing Tip (Vertex 0) -> Index 1 (y)
-              positions[1] = flap;
-              // Left Wing Tip (Vertex 4) -> Index 13 (y)
               positions[13] = flap;
-              
+              positions[22] = flap;
               bird.geometry.attributes.position.needsUpdate = true;
           });
       }
