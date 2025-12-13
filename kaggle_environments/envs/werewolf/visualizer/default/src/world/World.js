@@ -20,7 +20,7 @@ export class World {
     const { scene, camera, renderer, labelRenderer } = this.sceneManager;
 
     this.skySystem = new SkySystem(scene, this.THREE, modules.Sky);
-    this.lightingManager = new LightingManager(scene, this.THREE);
+    this.lightingManager = new LightingManager(scene, this.THREE, modules.RGBELoader, renderer);
     this.terrainManager = new TerrainManager(scene, this.THREE, modules.FBXLoader, modules.GLTFLoader);
     this.propsManager = new PropsManager(scene, this.THREE, modules.VolumetricFire, camera);
     this.characterManager = new CharacterManager(scene, this.THREE, modules.FBXLoader, modules.SkeletonUtils, modules.CSS2DObject);
@@ -134,10 +134,10 @@ export class World {
     this.lightingManager.update(phaseValue);
     
     if (this.sceneManager.scene.fog) {
-        if (phaseValue <= 0.5) {
+        if (phaseValue < 0.5) { // Strict Day Check
             this.sceneManager.scene.fog.color.setHex(0x87ceeb);
             this.sceneManager.scene.fog.density = 0.015;
-        } else {
+        } else { // Night
             this.sceneManager.scene.fog.color.setHex(0x000000);
             this.sceneManager.scene.fog.density = 0.005;
         }
@@ -239,13 +239,9 @@ export class World {
           });
       }
 
-      // Animate stars
-      if (this.skySystem.stars && phaseValue > 0.5) {
-          const sizes = this.skySystem.stars.geometry.attributes.size.array;
-          for(let i=0; i<sizes.length; i++) {
-              sizes[i] = (Math.random() * 2 + 0.5) * (0.8 + Math.sin(time * 0.001 + i) * 0.2);
-          }
-          this.skySystem.stars.geometry.attributes.size.needsUpdate = true;
+      // Animate stars (Shader based)
+      if (this.skySystem.stars && this.skySystem.starsMaterial) {
+          this.skySystem.starsMaterial.uniforms.time.value = time;
       }
 
       // Animate god rays
