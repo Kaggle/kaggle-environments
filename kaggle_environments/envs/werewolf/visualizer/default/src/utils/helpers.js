@@ -276,7 +276,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
 
     const resetButton = container.querySelector('#reset-view-btn');
     if (resetButton) {
-      resetButton.onclick = () => {
+      resetButton.onclick = (e) => {
+        e.stopPropagation();
         if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
           window.werewolfThreeJs.demo.resetCameraView();
         }
