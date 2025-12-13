@@ -101,7 +101,7 @@ export class TerrainManager {
         console.debug('[Town Loader] Model loaded successfully.');
         const model = gltf.scene;
         // Adjust scale/rotation as appropriate for the new model
-        model.scale.setScalar(15.0);
+        model.scale.setScalar(14.0);
         model.position.set(0, 0, 0);
         
         model.traverse((child) => {
