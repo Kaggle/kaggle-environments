@@ -2,7 +2,7 @@ export const rendererCss = `
 /* Game Status Scoreboard */
 .game-scoreboard {
     position: fixed;
-    top: 70px;
+    top: 50px;
     left: auto;
     right: 20px;
     transform: none;
