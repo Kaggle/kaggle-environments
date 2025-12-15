@@ -49,7 +49,7 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player
+from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
@@ -83,6 +83,13 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
     """
     expected = 1 / (1 + 10 ** ((p2_elo - p1_elo) / 400))
     return k * (result - expected)
+
+
+def _safe_load_game_result(args):
+    try:
+        return _load_game_result(args), None
+    except Exception as e:
+        return None, e
 
 
 # --- Plotting utils ---
@@ -427,15 +434,42 @@ class GameSetEvaluator:
     """
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
-                 preserve_full_game_records: bool = False):
+                 preserve_full_game_records: bool = False, error_log_path: str = "game_loading_errors.log"):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
         else:
             input_dirs = input_dir
 
         self.games = []
+        game_files = []
         for directory in input_dirs:
-            self.games.extend(get_game_results(directory, preserve_full_record=preserve_full_game_records))
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if file.endswith('.json'):
+                        game_files.append(os.path.join(root, file))
+
+        args_list = [(f, preserve_full_game_records) for f in game_files]
+        errors = defaultdict(int)
+
+        with ProcessPoolExecutor() as executor:
+            results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
+                                desc="Loading Games")
+            for result, error in results_iter:
+                if error:
+                    error_key = f"{type(error).__name__}: {str(error)}"
+                    errors[error_key] += 1
+                elif result:
+                    self.games.append(result)
+
+        if errors:
+            print("\nErrors encountered during game loading:")
+            with open(error_log_path, "w") as f:
+                f.write("Game Loading Errors Report\n")
+                f.write("==========================\n")
+                for error_key, count in sorted(errors.items(), key=lambda x: x[1], reverse=True):
+                    print(f"  {error_key}: {count}")
+                    f.write(f"{error_key}: {count}\n")
+            print(f"Detailed error report saved to {error_log_path}")
 
         self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
 
