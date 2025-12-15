@@ -245,7 +245,7 @@ export class SkySystem {
 
   createBirds() {
     this.birds = [];
-    const birdCount = 15; // Reduced density
+    const birdCount = 20;
 
     // Simple Body + Wings Geometry (9 vertices)
     const vertices = new Float32Array([
