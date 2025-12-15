@@ -92,44 +92,167 @@ export class TerrainManager {
   }
 
   loadTownModel() {
-    const townModelPath = `${import.meta.env.BASE_URL}static/werewolf/town/cliff_grass_rock_blend.glb`;
-    console.debug(`[Town Loader] Attempting to load model from: ${townModelPath}`);
+    const cliffBase = `${import.meta.env.BASE_URL}static/werewolf/cliff/`;
+    const werewolfBase = `${import.meta.env.BASE_URL}static/werewolf/`;
+    
+    console.debug('[Town Loader] Loading cliff scene with splatmap...');
 
-    this.gltfLoader.load(
-      townModelPath,
-      (gltf) => {
-        console.debug('[Town Loader] Model loaded successfully.');
-        const model = gltf.scene;
-        // Adjust scale/rotation as appropriate for the new model
-        model.scale.setScalar(14.0);
-        model.position.set(0, 0, 0);
-        
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-                // Reset material modifiers to ensure texture color shows purely
-                if (child.material.map) {
-                    child.material.map.encoding = this.THREE.sRGBEncoding;
-                }
-                child.material.color.setHex(0xffffff); // Ensure base color is white
-                child.material.metalness = 0.0;
-                child.material.roughness = 1.0;
-                child.material.emissive.setHex(0x000000);
+    const texLoader = new this.THREE.TextureLoader();
+    
+    // Load textures for cliff
+    const splatMap = texLoader.load(cliffBase + 'cliff_splatmap.png');
+    const texBase = texLoader.load(cliffBase + 'aerial_rocks_02_diff_1k.jpg');
+    const texRed = texLoader.load(cliffBase + 'aerial_grass_rock_diff_1k.jpg');
+    const texGreen = texLoader.load(cliffBase + 'rock_boulder_dry_diff_1k.jpg');
+
+    // Configure detailed textures
+    [texBase, texRed, texGreen].forEach(t => {
+        t.wrapS = this.THREE.RepeatWrapping;
+        t.wrapT = this.THREE.RepeatWrapping;
+        t.encoding = this.THREE.sRGBEncoding;
+        t.flipY = false; // Important for GLTF models
+    });
+    
+    splatMap.encoding = this.THREE.LinearEncoding;
+    splatMap.colorSpace = THREE.NoColorSpace;
+    splatMap.flipY = false; // Match UV orientation
+
+    // Custom material with splatmap logic
+    const customMaterial = new this.THREE.MeshStandardMaterial({
+        roughness: 1.0,
+        metalness: 0.0,
+        side: this.THREE.DoubleSide,
+        color: 0xffffff, // Base color white so textures show up correctly
+        map: texBase // Triggers USE_MAP and USE_UV defines
+    });
+
+    customMaterial.onBeforeCompile = (shader) => {
+        shader.uniforms.splatMap = { value: splatMap };
+        shader.uniforms.texBase = { value: texBase };
+        shader.uniforms.texRed = { value: texRed };
+        shader.uniforms.texGreen = { value: texGreen };
+        shader.uniforms.repeat = { value: 10.0 };
+
+        shader.fragmentShader = `
+            uniform sampler2D splatMap;
+            uniform sampler2D texBase;
+            uniform sampler2D texRed;
+            uniform sampler2D texGreen;
+            uniform float repeat;
+
+            vec4 hash4( vec2 p ) {
+                return fract(sin(vec4( 1.0+dot(p,vec2(37.0,17.0)), 
+                                       2.0+dot(p,vec2(11.0,47.0)),
+                                       3.0+dot(p,vec2(41.0,29.0)),
+                                       4.0+dot(p,vec2(23.0,31.0))))*103.0);
             }
-          }
-        });
-        this.scene.add(model);
-        this.townModel = model;
-      },
-      (progress) => {
-        console.debug('[Town Loader] Loading progress: ' + ((progress.loaded / progress.total) * 100).toFixed(2) + '%');
-      },
-      (error) => {
-        console.error('[Town Loader] An error happened while loading the town model:', error);
-      }
-    );
+
+            vec4 textureNoTile( sampler2D samp, in vec2 uv )
+            {
+                vec2 p = floor( uv );
+                vec2 f = fract( uv );
+                
+                // derivatives (for correct mipmapping)
+                vec2 ddx = dFdx( uv );
+                vec2 ddy = dFdy( uv );
+                
+                // voronoi contribution
+                vec4 va = vec4( 0.0 );
+                float wt = 0.0;
+                for( int j=-1; j<=1; j++ )
+                for( int i=-1; i<=1; i++ )
+                {
+                    vec2 g = vec2( float(i), float(j) );
+                    vec4 o = hash4( p + g );
+                    vec2 r = g - f + o.xy;
+                    float d = dot(r,r);
+                    float w = exp(-5.0*d );
+                    vec4 c = textureGrad( samp, uv + o.zw, ddx, ddy );
+                    va += w*c;
+                    wt += w;
+                }
+                
+                return va/wt;
+            }
+        ` + shader.fragmentShader;
+
+        shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <map_fragment>',
+            `
+            // Sample splatmap using standard UVs
+            vec4 splat = texture2D(splatMap, vUv);
+            
+            // Sample textures with repeat using stochastic sampling
+            vec4 colBase = textureNoTile(texBase, vUv * repeat);
+            colBase = mapTexelToLinear(colBase);
+
+            vec4 colRed = textureNoTile(texRed, vUv * repeat);
+            colRed = mapTexelToLinear(colRed);
+
+            vec4 colGreen = textureNoTile(texGreen, vUv * repeat);
+            colGreen = mapTexelToLinear(colGreen);
+
+            // Mix logic:
+            // Base (Black) -> texBase
+            // Red Channel -> texRed (Moss)
+            // Green Channel -> texGreen (Rock 2) - DISABLED
+            
+            // Clean up overlapping weights
+            float wRed = splat.r; // max(0.0, splat.r - splat.g);
+            // float wGreen = max(0.0, splat.g - splat.r);
+
+            // Start with base
+            vec4 texelColor = colBase;
+            
+            // Mix in Red (Moss)
+            texelColor = mix(texelColor, colRed, wRed);
+            
+            // Mix in Green (Rock 2)
+            // texelColor = mix(texelColor, colGreen, wGreen);
+
+            diffuseColor *= texelColor;
+            `
+        );
+    };
+
+    const loadGLB = (url, isCliff) => {
+        this.gltfLoader.load(
+            url,
+            (gltf) => {
+                console.debug(`[Town Loader] Loaded ${url}`);
+                const model = gltf.scene;
+                model.scale.setScalar(14.0); 
+                model.position.set(0, 0, 0);
+
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        if (isCliff) {
+                            child.material = customMaterial;
+                        } else {
+                            // Ensure standard materials look okay
+                            if (child.material && child.material.map) {
+                                child.material.map.encoding = this.THREE.sRGBEncoding;
+                            }
+                        }
+                    }
+                });
+                
+                this.scene.add(model);
+                if (isCliff) this.townModel = model;
+            },
+            undefined,
+            (error) => {
+                console.error(`[Town Loader] Error loading ${url}:`, error);
+            }
+        );
+    };
+
+    loadGLB(cliffBase + 'cliff_mesh.glb', true);
+    loadGLB(werewolfBase + 'tower.glb', false);
+    loadGLB(werewolfBase + 'town_center.glb', false);
   }
 
   loadGround() {
