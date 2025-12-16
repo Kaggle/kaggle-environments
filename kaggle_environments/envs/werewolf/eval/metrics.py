@@ -49,7 +49,7 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player
+from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
@@ -83,6 +83,13 @@ def calculate_elo_change(p1_elo, p2_elo, result, k=32):
     """
     expected = 1 / (1 + 10 ** ((p2_elo - p1_elo) / 400))
     return k * (result - expected)
+
+
+def _safe_load_game_result(args):
+    try:
+        return _load_game_result(args), None
+    except Exception as e:
+        return None, e
 
 
 # --- Plotting utils ---
@@ -267,8 +274,12 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     )
     res = plx.solve(game_plx, plx.ce_maxent, disable_progress_bar=True)
     marginals = plx.marginals_from_joint(res.joint)
-    contributions = plx.joint_payoffs_contribution(
+    r2m_contributions = plx.joint_payoffs_contribution(
         game_plx.payoffs, res.joint, rating_player=1, contrib_player=0
+    )
+
+    m2r_contributions = plx.joint_payoffs_contribution(
+        game_plx.payoffs, res.joint, rating_player=0, contrib_player=1
     )
 
     # Convert JAX arrays to Numpy to avoid initializing JAX in the parent process via pickling
@@ -276,13 +287,14 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     ratings_np = [np.array(r) for r in res.ratings]
     joint_np = np.array(res.joint)
     marginals_np = [np.array(m) for m in marginals]
-    contributions_np = np.array(contributions)
+    r2m_contributions_np = np.array(r2m_contributions)
+    m2r_contributions_np = np.array(m2r_contributions)
 
-    # Use a SimpleNamespace to pass back only the actions, avoiding the full game object 
+    # Use a SimpleNamespace to pass back only the actions, avoiding the full game object
     # which contains JAX arrays (payoffs).
     game_meta = SimpleNamespace(actions=game_plx.actions)
 
-    return ratings_np, joint_np, marginals_np, contributions_np, game_meta
+    return ratings_np, joint_np, marginals_np, r2m_contributions_np, m2r_contributions_np, game_meta
 
 
 def _default_elo():
@@ -422,15 +434,42 @@ class GameSetEvaluator:
     """
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
-                 preserve_full_game_records: bool = False):
+                 preserve_full_game_records: bool = False, error_log_path: str = "game_loading_errors.log"):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
         else:
             input_dirs = input_dir
 
         self.games = []
+        game_files = []
         for directory in input_dirs:
-            self.games.extend(get_game_results(directory, preserve_full_record=preserve_full_game_records))
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if file.endswith('.json'):
+                        game_files.append(os.path.join(root, file))
+
+        args_list = [(f, preserve_full_game_records) for f in game_files]
+        errors = defaultdict(int)
+
+        with ProcessPoolExecutor() as executor:
+            results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
+                                desc="Loading Games")
+            for result, error in results_iter:
+                if error:
+                    error_key = f"{type(error).__name__}: {str(error)}"
+                    errors[error_key] += 1
+                elif result:
+                    self.games.append(result)
+
+        if errors:
+            print("\nErrors encountered during game loading:")
+            with open(error_log_path, "w") as f:
+                f.write("Game Loading Errors Report\n")
+                f.write("==========================\n")
+                for error_key, count in sorted(errors.items(), key=lambda x: x[1], reverse=True):
+                    print(f"  {error_key}: {count}")
+                    f.write(f"{error_key}: {count}\n")
+            print(f"Detailed error report saved to {error_log_path}")
 
         self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
 
@@ -443,6 +482,7 @@ class GameSetEvaluator:
         self.gte_ratings = None
         self.gte_marginals = None
         self.gte_contributions_raw = None
+        self.gte_metric_contributions_raw = None
 
         roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
         if gte_tasks == "win_dependent":
@@ -452,6 +492,8 @@ class GameSetEvaluator:
         elif gte_tasks == "non_win_dependent":
             self.gte_tasks = ([f'WinRate-{r}' for r in roles] +
                               ['KSR-Werewolf', 'KSR-Seer', 'KSR-Doctor', 'Margin of Win', 'Speed of Win'])
+        elif gte_tasks == 'role_win_rates':
+            self.gte_tasks = ['WinRate-Doctor', 'WinRate-Seer', 'WinRate-Villager', 'WinRate-Werewolf']
         elif isinstance(gte_tasks, list):
             self.gte_tasks = gte_tasks
         else:
@@ -700,33 +742,37 @@ class GameSetEvaluator:
         
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
-            
+
         # Unpack
-        ratings, joints, marginals, contributions, games = zip(*res)
-        self.gte_game = games[0] # Save one game instance for structure
+        ratings, joints, marginals, r2m_contributions, m2r_contributions, games = zip(*res)
+        self.gte_game = games[0]  # Save one game instance for structure
 
         ratings_mean = [np.mean(r, axis=0) for r in zip(*ratings)]
         ratings_std = [np.std(r, axis=0) for r in zip(*ratings)]
 
         joints_mean = np.mean(joints, axis=0)
-        
+
         marginals_by_dim = list(zip(*marginals))
         marginals_mean = [np.mean(m, axis=0) for m in marginals_by_dim]
         marginals_std = [np.std(m, axis=0) for m in marginals_by_dim]
 
-        contributions_mean = np.mean(contributions, axis=0)
-        contributions_std = np.std(contributions, axis=0)
-        
+        r2m_contributions_mean = np.mean(r2m_contributions, axis=0)
+        r2m_contributions_std = np.std(r2m_contributions, axis=0)
+
+        m2r_contributions_mean = np.mean(m2r_contributions, axis=0)
+        m2r_contributions_std = np.std(m2r_contributions, axis=0)
+
         self.gte_ratings = (ratings_mean, ratings_std)
         self.gte_joint = (joints_mean, None)
         self.gte_marginals = (marginals_mean, marginals_std)
-        self.gte_contributions_raw = (contributions_mean, contributions_std)
+        self.gte_contributions_raw = (r2m_contributions_mean, r2m_contributions_std)
+        self.gte_metric_contributions_raw = (m2r_contributions_mean, m2r_contributions_std)
 
         for i, agent_name in enumerate(agents):
             self.metrics[agent_name].gte_rating = (ratings_mean[1][i], ratings_std[1][i])
             for j, task_name in enumerate(self.gte_tasks):
                 self.metrics[agent_name].gte_contributions[task_name] = (
-                    contributions_mean[i, j], contributions_std[i, j])
+                    r2m_contributions_mean[i, j], r2m_contributions_std[i, j])
 
     def print_results(self):
         # [Keep original code]
@@ -787,6 +833,20 @@ class GameSetEvaluator:
                 for task in self.gte_tasks:
                     contrib_mean, contrib_std = stats.gte_contributions[task]
                     print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
+
+                print("  GTE Metric Importance (Ratings):")
+                metric_ratings_mean = self.gte_ratings[0][0]
+                metric_ratings_std = self.gte_ratings[1][0]
+
+                metric_ratings = []
+                for i, task_name in enumerate(self.gte_tasks):
+                    metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+
+                # Sort by rating descending
+                sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
+
+                for task, rating_mean, rating_std in sorted_metric_ratings:
+                    print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
             print("-" * 30)
 
     def _prepare_plot_data(self):
@@ -1063,11 +1123,17 @@ class GameSetEvaluator:
 
         ratings_mean = self.gte_ratings[0][1]
         ratings_std = self.gte_ratings[1][1]
+        metric_ratings_mean = self.gte_ratings[0][0]
+        metric_ratings_std = self.gte_ratings[1][0]
         joint_mean = self.gte_joint[0]
-        contributions_mean = self.gte_contributions_raw[0]
+        r2m_contributions_mean = self.gte_contributions_raw[0]
+        m2r_contributions_mean = self.gte_metric_contributions_raw[0]
 
         agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
         sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
+
+        metric_rating_map = {task: metric_ratings_mean[i] for i, task in enumerate(tasks)}
+        sorted_tasks = sorted(tasks, key=lambda x: metric_rating_map[x])
 
         game = self.gte_game
         rating_player = 1
@@ -1090,7 +1156,7 @@ class GameSetEvaluator:
         data = pd.DataFrame.from_dict({
             "agent": [rating_actions[i] for i in rating_actions_grid.ravel()],
             "metric": [contrib_actions[i] for i in contrib_actions_grid.ravel()],
-            "contrib": contributions_mean.ravel(),
+            "contrib": r2m_contributions_mean.ravel(),
             "support": joint_support.ravel(),
         })
 
@@ -1100,11 +1166,23 @@ class GameSetEvaluator:
             "CI95": ratings_std * 1.96  # 95% CI
         })
 
-        importance_df = pd.DataFrame({
+        metric_ratings_df = pd.DataFrame({
             'metric': tasks,
-            'importance': self.gte_marginals[0][0],
-            'CI95': self.gte_marginals[1][0] * 1.96  # 95% CI
-        }).sort_values('importance', ascending=True)
+            'rating': metric_ratings_mean,
+            'CI95': metric_ratings_std * 1.96
+        })
+
+        tasks_actions_grid, agent_actions_grid = np.meshgrid(
+            jnp.arange(len(tasks)),
+            jnp.arange(len(agents)),
+            indexing="ij",
+        )
+
+        metric_data = pd.DataFrame.from_dict({
+            "metric": [tasks[i] for i in tasks_actions_grid.ravel()],
+            "agent": [agents[i] for i in agent_actions_grid.ravel()],
+            "contrib": m2r_contributions_mean.ravel(),
+        })
 
         # --- 2. Dynamic Layout Calculation ---
         n_top = len(agents) + 2
@@ -1119,7 +1197,7 @@ class GameSetEvaluator:
             rows=2, cols=1,
             row_heights=[h_top, h_bottom],
             vertical_spacing=0.1,
-            subplot_titles=("Win Rate Contributions & Equilibrium Ratings", "Task Importance")
+            subplot_titles=("Win Rate Contributions & Equilibrium Ratings", "Metric Importance & Contributions from Agents")
         )
 
         # Contributions
@@ -1154,17 +1232,35 @@ class GameSetEvaluator:
             row=1, col=1
         )
 
-        # Task Importance
+        # Task Importance / Metric Ratings
+        colors_agents = _get_color_discrete_sequence(len(agents))
+        for i, agent in enumerate(agents):
+            subset = metric_data[metric_data['agent'] == agent]
+            fig.add_trace(
+                go.Bar(
+                    name=agent,
+                    y=subset['metric'],
+                    x=subset['contrib'],
+                    orientation='h',
+                    legendgroup='agents',
+                    legendgrouptitle_text="Agents",
+                    marker_color=colors_agents[i % len(colors_agents)],
+                    hovertemplate=f"<b>Agent: {agent}</b><br>Contrib: %{{x:.2%}}<extra></extra>"
+                ),
+                row=2, col=1
+            )
+
+        # Net Metric Rating
         fig.add_trace(
-            go.Bar(
-                name="Importance",
-                y=importance_df['metric'],
-                x=importance_df['importance'],
-                orientation='h',
-                marker_color='#6B7280',
-                error_x=dict(type='data', array=importance_df['CI95'], color='black'),
-                showlegend=False,
-                hovertemplate="<b>%{y}</b><br>Importance: %{x:.2%}<extra></extra>"
+            go.Scatter(
+                name="Net Metric Rating",
+                y=metric_ratings_df['metric'],
+                x=metric_ratings_df['rating'],
+                mode='markers',
+                marker=dict(symbol='diamond', size=12, color='black', line=dict(width=1.5, color='white')),
+                error_x=dict(type='data', array=metric_ratings_df['CI95'], color='black', thickness=2),
+                hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>",
+                showlegend=False
             ),
             row=2, col=1
         )
@@ -1192,6 +1288,7 @@ class GameSetEvaluator:
             tickfont=dict(size=14, color="#1f2937"), row=1, col=1
         )
         fig.update_yaxes(
+            categoryorder='array', categoryarray=sorted_tasks,
             tickfont=dict(size=14, color="#1f2937"), row=2, col=1
         )
 
@@ -1201,7 +1298,7 @@ class GameSetEvaluator:
             row=1, col=1, gridcolor='#F3F4F6'
         )
         fig.update_xaxes(
-            title_text="Marginal Probability",
+            tickformat=".0%", title_text="Contribution to Metric Rating",
             tickfont=dict(size=14, color="#1f2937"), title_font=dict(size=16, color="#111827"),
             row=2, col=1, gridcolor='#F3F4F6'
         )

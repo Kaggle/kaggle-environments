@@ -134,6 +134,97 @@ def test_agent_handles_parsing_error():
         assert "Fell back to NoOp after multiple parsing failures" in action["kwargs"]["reasoning"]
 
 
+def test_cost_and_token_tracking():
+    agent = LLMWerewolfAgent(model_name="test-model")
+
+    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
+         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
+         patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost, \
+         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
+
+        # Mock Observation
+        mock_obs_model = MagicMock()
+        mock_obs_model.player_id = "player_0"
+        mock_obs_model.role = "Villager"
+        mock_obs_model.detailed_phase = "DAY_CHAT_AWAIT"
+        mock_obs_model.game_state_phase = "Day"
+        mock_obs_model.day = 1
+        mock_obs_model.team = "Villagers"
+        mock_obs_model.all_player_ids = ["player_0", "player_1"]
+        mock_obs_model.alive_players = ["player_0", "player_1"]
+        mock_obs_model.revealed_players = []
+
+        mock_entry = MagicMock()
+        mock_entry.day = 1
+        mock_entry.phase = "Day"
+        mock_entry.description = "Day 1 starts"
+        mock_entry.action_field = None
+        mock_obs_model.new_player_event_views = [mock_entry]
+
+        mock_get_raw_obs.return_value = mock_obs_model
+        
+        # Setup Mocks
+        mock_cost.return_value = (0.001, 0.002)
+        
+        # Mock Response Object
+        mock_response = MagicMock()
+        usage_dict = {
+            "prompt_tokens": 150,
+            "completion_tokens": 50
+        }
+        mock_response.__getitem__.side_effect = lambda k: usage_dict if k == "usage" else MagicMock()
+        mock_response._hidden_params = {"response_cost": 0.05}
+        
+        chat_action_dict = {
+            "perceived_threat_level": "SAFE",
+            "reasoning": "Just testing.",
+            "message": "Hello world"
+        }
+        mock_choice = MagicMock()
+        mock_choice.get.return_value = {"content": f"```json\n{json.dumps(chat_action_dict)}\n```"}
+        mock_response.get.return_value = [mock_choice]
+        
+        mock_completion.return_value = mock_response
+
+        # --- Execution ---
+        action_serialized = agent("dummy_obs")
+        
+        # --- Verification ---
+        kwargs = action_serialized.get("kwargs", {})
+        
+        assert kwargs.get("cost") == 0.05
+        assert kwargs.get("prompt_tokens") == 150
+        assert kwargs.get("completion_tokens") == 50
+        
+        # Verify Tracker State
+        tracker = agent.cost_tracker
+        assert tracker.query_token_cost.total_costs_usd == 0.05
+        assert tracker.prompt_token_cost.total_tokens == 150
+        assert tracker.completion_token_cost.total_tokens == 50
+
+        # --- Second Call (Accumulation Check) ---
+        mock_response_2 = MagicMock()
+        usage_dict_2 = {
+            "prompt_tokens": 10,
+            "completion_tokens": 10
+        }
+        mock_response_2.__getitem__.side_effect = lambda k: usage_dict_2 if k == "usage" else MagicMock()
+        mock_response_2._hidden_params = {"response_cost": 0.01}
+        mock_choice_2 = MagicMock()
+        mock_choice_2.get.return_value = {"content": f"```json\n{json.dumps(chat_action_dict)}\n```"}
+        mock_response_2.get.return_value = [mock_choice_2]
+        
+        mock_completion.return_value = mock_response_2
+        
+        action_serialized_2 = agent("dummy_obs")
+        kwargs_2 = action_serialized_2.get("kwargs", {})
+        
+        # Use almost equal for float comparison
+        assert abs(kwargs_2.get("cost") - 0.01) < 1e-9
+        assert kwargs_2.get("prompt_tokens") == 10
+        assert kwargs_2.get("completion_tokens") == 10
+
+
 @pytest.mark.skip("Require the key to run test.")
 def test_gemini():
     # model = "vertex_ai/gemini-3-pro-preview"

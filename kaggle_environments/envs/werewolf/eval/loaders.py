@@ -231,6 +231,35 @@ class GameResult:
                 data_type = getattr(entry, 'data_type', None)
                 json_str = getattr(entry, 'json_str', "{}")
                 
+                # Try to extract costs from action events if not already present
+                if not self.player_costs:
+                    try:
+                        json_data = json.loads(json_str)
+                        actor_id = json_data.get('actor_id')
+                        # Check if it is an action event (data has cost/tokens)
+                        if actor_id is not None:
+                            cost = json_data.get('cost')
+                            prompt_t = json_data.get('prompt_tokens')
+                            completion_t = json_data.get('completion_tokens')
+                            
+                            # Calculate total tokens from components or fallback to legacy 'tokens'
+                            total_tokens = 0
+                            if prompt_t is not None:
+                                total_tokens += int(prompt_t)
+                            if completion_t is not None:
+                                total_tokens += int(completion_t)
+                            
+                            # If neither component was found, try legacy field
+                            if total_tokens == 0:
+                                total_tokens = int(json_data.get('tokens', 0))
+
+                            if cost is not None:
+                                self.player_costs[actor_id] = self.player_costs.get(actor_id, 0.0) + cost
+                            if total_tokens > 0:
+                                self.player_tokens[actor_id] = self.player_tokens.get(actor_id, 0) + total_tokens
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+
                 if data_type == "DayExileVoteDataEntry":
                     json_data = json.loads(json_str)
                     day = json_data["day"]
