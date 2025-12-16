@@ -101,6 +101,9 @@ class Action(BaseAction):
     error: Optional[str] = None
     raw_prompt: Optional[str] = None
     raw_completion: Optional[str] = None
+    cost: Optional[float] = Field(default=None, description="The cost of generating this action.")
+    prompt_tokens: Optional[int] = Field(default=None, description="The prompt token usage for generating this action.")
+    completion_tokens: Optional[int] = Field(default=None, description="The completion token usage for generating this action.")
 
     @field_validator("reasoning", mode="before")
     @classmethod

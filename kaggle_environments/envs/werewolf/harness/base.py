@@ -751,6 +751,10 @@ class LLMWerewolfAgent(WerewolfAgentBase):
 
         handler = self.action_registry.get(phase=current_phase, role=my_role)
 
+        start_cost = self._cost_tracker.query_token_cost.total_costs_usd
+        start_prompt = self._cost_tracker.prompt_token_cost.total_tokens
+        start_completion = self._cost_tracker.completion_token_cost.total_tokens
+
         try:
             action = handler(self, entries, obs, common_args)
         except LLMActionException as e:
@@ -767,6 +771,15 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 raw_completion=e.raw_out,  # <-- Preserved data
                 raw_prompt=e.prompt,  # <-- Preserved data
             )
+        
+        end_cost = self._cost_tracker.query_token_cost.total_costs_usd
+        end_prompt = self._cost_tracker.prompt_token_cost.total_tokens
+        end_completion = self._cost_tracker.completion_token_cost.total_tokens
+
+        action.cost = end_cost - start_cost
+        action.prompt_tokens = end_prompt - start_prompt
+        action.completion_tokens = end_completion - start_completion
+
         self.log_token_usage()
         # record self action
         self._event_logs.append(
