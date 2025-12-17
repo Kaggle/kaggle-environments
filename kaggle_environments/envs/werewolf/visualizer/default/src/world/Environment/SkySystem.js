@@ -389,11 +389,11 @@ export class SkySystem {
       const starColor = new this.THREE.Color();
       const colorChoice = Math.random();
       if (colorChoice < 0.3) {
-        starColor.setHSL(0.6, 0.1, 0.9);
+        starColor.setHSL(0.6, 0.8, 1.0); // Bright Blue-ish
       } else if (colorChoice < 0.6) {
-        starColor.setHSL(0.1, 0.1, 0.95);
+        starColor.setHSL(0.1, 0.8, 1.0); // Bright Yellow-ish
       } else {
-        starColor.setHSL(0, 0, 1);
+        starColor.setHSL(0, 0, 1.0); // Pure Bright White
       }
       colors[i3] = starColor.r;
       colors[i3 + 1] = starColor.g;
@@ -422,7 +422,7 @@ export class SkySystem {
             vColor = color;
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             float twinkle = 1.0 + sin(time * 0.003 + position.x * 0.1) * 0.3;
-            gl_PointSize = size * twinkle * (300.0 / -mvPosition.z) * phase;
+            gl_PointSize = size * twinkle * (600.0 / -mvPosition.z) * phase;
             gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -432,7 +432,7 @@ export class SkySystem {
         void main() {
             float dist = distance(gl_PointCoord, vec2(0.5));
             if (dist > 0.5) discard;
-            float alpha = (1.0 - dist * 2.0) * phase * 0.8;
+            float alpha = (1.0 - dist * 2.0) * phase * 1.0;
             gl_FragColor = vec4(vColor, alpha);
         }
       `,
