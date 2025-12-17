@@ -25,15 +25,16 @@ export class PostProcessing {
   init() {
     this.composer = new this.EffectComposer(this.renderer);
     
-    // Ensure composer matches renderer's drawing buffer size (handling pixel ratio)
-    const pixelRatio = this.renderer.getPixelRatio();
+    // Optimize: Cap internal render resolution to 1.0 to save massive memory on High-DPI screens
+    // The canvas is scaled by CSS, so it still looks okay, just internal buffers are smaller.
+    const pixelRatio = 1.0; 
     this.composer.setSize(this.width * pixelRatio, this.height * pixelRatio);
 
     const renderPass = new this.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // Optimize Bloom: Use half resolution
-    const bloomResolution = new this.THREE.Vector2(this.width * 0.5, this.height * 0.5);
+    // Optimize Bloom: Use half resolution of the ALREADY reduced composer resolution
+    const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.5, this.height * pixelRatio * 0.5);
     this.bloomPass = new this.UnrealBloomPass(
       bloomResolution,
       0.15,
@@ -118,11 +119,13 @@ export class PostProcessing {
     this.height = height;
     
     if (this.composer) {
-        const pixelRatio = this.renderer.getPixelRatio();
+        // Optimize: Keep resolution capped at 1.0
+        const pixelRatio = 1.0; 
         this.composer.setSize(width * pixelRatio, height * pixelRatio);
     }
     
     if (this.bloomPass) {
+        // Bloom resolution relative to the composer size
         this.bloomPass.resolution.set(width * 0.5, height * 0.5);
     }
   }

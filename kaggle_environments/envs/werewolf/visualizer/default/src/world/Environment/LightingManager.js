@@ -48,6 +48,9 @@ export class LightingManager {
         const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
         this.dayEnvMap = envMap;
         
+        // Optimize: Dispose raw HDRI texture immediately to free memory
+        texture.dispose();
+
         // Set initial if day
         if (!this.scene.environment) this.scene.environment = envMap;
     });
@@ -55,6 +58,9 @@ export class LightingManager {
     this.assetManager.loadHDR(nightPath).then((texture) => {
         const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
         this.nightEnvMap = envMap;
+        
+        // Optimize: Dispose raw HDRI texture immediately
+        texture.dispose();
     });
   }
 
