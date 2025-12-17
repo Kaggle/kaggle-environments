@@ -610,6 +610,9 @@ export class CharacterManager {
   reset() {
     this.deathAnimationCompleted.clear();
     this.playerObjects.forEach((player, playerName) => {
+      // Clear cached state to force visual update
+      player.lastState = null;
+
       if (player.playerUI && player.playerUI.element) {
         player.playerUI.element.classList.remove('chat-active');
       }
