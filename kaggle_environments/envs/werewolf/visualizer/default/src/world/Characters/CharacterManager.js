@@ -24,6 +24,62 @@ export class CharacterManager {
     };
 
     this.speakingAnimations = [];
+    
+    this.initSharedResources();
+  }
+
+  initSharedResources() {
+    this.shared = {
+        orbGeometry: new this.THREE.IcosahedronGeometry(0.25, 2),
+        baseOrbMaterial: new this.THREE.MeshStandardMaterial({
+            color: 0x00aa88,
+            emissive: 0x00aa88,
+            emissiveIntensity: 1,
+            transparent: true,
+            opacity: 1,
+            depthTest: false,
+        }),
+        glowGeometry: new this.THREE.SphereGeometry(0.4, 12, 8),
+        baseGlowMaterial: new this.THREE.MeshStandardMaterial({
+            color: 0x00aa88,
+            emissive: 0x00aa88,
+            emissiveIntensity: 0.15,
+            transparent: true,
+            opacity: 0.2,
+            depthTest: false,
+        }),
+        fallbackGeometry: new this.THREE.BoxGeometry(1.5, 3, 1.5),
+        baseFallbackMaterial: new this.THREE.MeshStandardMaterial({
+            roughness: 0.5,
+            metalness: 0.3,
+            emissiveIntensity: 0.2,
+        })
+    };
+  }
+
+  clearPlayers() {
+      this.playerObjects.forEach(player => {
+          // Remove UI Element from DOM
+          if (player.playerUI && player.playerUI.element && player.playerUI.element.parentNode) {
+              player.playerUI.element.parentNode.removeChild(player.playerUI.element);
+          }
+          
+          // Dispose resources
+          if (player.container) {
+              player.container.traverse(child => {
+                  if (child.isMesh) {
+                      // Dispose materials (assuming all are cloned/unique to this instance)
+                      if (child.material) {
+                          const mats = Array.isArray(child.material) ? child.material : [child.material];
+                          mats.forEach(m => m.dispose());
+                      }
+                      // Note: We do NOT dispose geometries as they are either shared (orbs) or cached (FBX)
+                  }
+              });
+              this.playerGroup.remove(player.container);
+          }
+      });
+      this.playerObjects.clear();
   }
 
   loadCharacterModel(role) {
@@ -92,47 +148,16 @@ export class CharacterManager {
 
   async initializePlayers(gameState, playerNames, playerThumbnails, uiManager) {
     if (this.playerObjects.size > 0) {
-      // console.warn('3D players already initialized');
-      return;
+        // Already initialized
+        return;
     }
-
-    while (this.playerGroup.children.length > 0) {
-      this.playerGroup.remove(this.playerGroup.children[0]);
-    }
-    this.playerObjects.clear();
+    
+    // Ensure clean slate
+    this.clearPlayers();
 
     const numPlayers = playerNames.length;
     const radius = 18;
     const playerHeight = 4;
-
-    // --- Optimization: Reuse Geometries and Base Materials ---
-    const orbGeometry = new this.THREE.IcosahedronGeometry(0.25, 2);
-    const baseOrbMaterial = new this.THREE.MeshStandardMaterial({
-      color: 0x00aa88,
-      emissive: 0x00aa88,
-      emissiveIntensity: 1,
-      transparent: true,
-      opacity: 1,
-      depthTest: false,
-    });
-
-    const glowGeometry = new this.THREE.SphereGeometry(0.4, 12, 8);
-    const baseGlowMaterial = new this.THREE.MeshStandardMaterial({
-      color: 0x00aa88,
-      emissive: 0x00aa88,
-      emissiveIntensity: 0.15,
-      transparent: true,
-      opacity: 0.2,
-      depthTest: false,
-    });
-
-    const fallbackGeometry = new this.THREE.BoxGeometry(1.5, 3, 1.5);
-    const baseFallbackMaterial = new this.THREE.MeshStandardMaterial({
-      roughness: 0.5,
-      metalness: 0.3,
-      emissiveIntensity: 0.2,
-    });
-    // ---------------------------------------------------------
 
     const playerLoadPromises = playerNames.map(async (name, i) => {
       const role = gameState.players[i].role || 'Villager';
@@ -170,6 +195,11 @@ export class CharacterManager {
             child.castShadow = true;
             child.receiveShadow = true;
             if (child.material) {
+              // Clone material to allow independent modification and disposal
+              child.material = Array.isArray(child.material) 
+                  ? child.material.map(m => m.clone()) 
+                  : child.material.clone();
+
               const materials = Array.isArray(child.material) ? child.material : [child.material];
               materials.forEach((mat) => {
                 if (mat) {
@@ -202,11 +232,11 @@ export class CharacterManager {
         const fallbackColor =
           role === 'Werewolf' ? 0x880000 : role === 'Doctor' ? 0x008800 : role === 'Seer' ? 0x4b0082 : 0x4466ff;
         
-        const fallbackMaterial = baseFallbackMaterial.clone();
+        const fallbackMaterial = this.shared.baseFallbackMaterial.clone();
         fallbackMaterial.color.setHex(fallbackColor);
         fallbackMaterial.emissive.setHex(fallbackColor);
 
-        const fallback = new this.THREE.Mesh(fallbackGeometry, fallbackMaterial);
+        const fallback = new this.THREE.Mesh(this.shared.fallbackGeometry, fallbackMaterial);
         fallback.position.y = 2;
         fallback.castShadow = true;
         fallback.receiveShadow = true;
@@ -215,14 +245,14 @@ export class CharacterManager {
         modelHeight = 3;
       }
 
-      // Reuse Geometry, Clone Material
-      const orb = new this.THREE.Mesh(orbGeometry, baseOrbMaterial.clone());
+      const orb = new this.THREE.Mesh(this.shared.orbGeometry, this.shared.baseOrbMaterial.clone());
       orb.position.y = modelHeight + 0.8;
       orb.name = 'statusOrb';
       playerContainer.add(orb);
 
-      const glow = new this.THREE.Mesh(glowGeometry, baseGlowMaterial.clone());
+      const glow = new this.THREE.Mesh(this.shared.glowGeometry, this.shared.baseGlowMaterial.clone());
       glow.position.y = modelHeight + 0.8;
+      glow.name = 'statusGlow';
       playerContainer.add(glow);
 
       const orbLight = new this.THREE.PointLight(0x00aa88, 0.4, 6);
@@ -288,6 +318,21 @@ export class CharacterManager {
   updatePlayerStatus(playerName, player_info, status, threatLevel = 0, justDied = false) {
     const player = this.playerObjects.get(playerName);
     if (!player) return;
+
+    // Optimization: Skip redundant updates if state hasn't changed and no event trigger
+    if (!justDied && player.lastState &&
+        player.lastState.status === status &&
+        player.lastState.threatLevel === threatLevel &&
+        player.lastState.role === (player_info ? player_info.role : null)) {
+        return;
+    }
+
+    // Update cache
+    player.lastState = {
+        status: status,
+        threatLevel: threatLevel,
+        role: player_info ? player_info.role : null
+    };
 
     const { orb, orbLight, glow, container, mixer, animations, currentAction } = player;
 
