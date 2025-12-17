@@ -213,7 +213,7 @@ export class SkySystem {
   }
 
   loadBirdModel() {
-      const birdPath = `${import.meta.env.BASE_URL}static/werewolf/bird.glb`;
+      const birdPath = `${import.meta.env.BASE_URL}static/werewolf/vulture.glb`;
       this.assetManager.loadGLTF(birdPath).then((gltf) => {
           this.createBirds(gltf);
       }).catch(err => {
