@@ -549,13 +549,15 @@ export function renderer(context, parent) {
               case 'vote':
               case 'night_vote':
                   messageForBubble = `Votes for <strong>${lastEvent.target}</strong>.`;
-                  world.characterManager.triggerPointingAnimation(actorName);
+                  world.characterManager.triggerPointingAnimation(actorName, lastEvent.target);
                   break;
               case 'doctor_heal_action':
                   messageForBubble = `Heals <strong>${lastEvent.target}</strong>.`;
+                  world.characterManager.triggerPointingAnimation(actorName, lastEvent.target);
                   break;
               case 'seer_inspection':
                   messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
+                  world.characterManager.triggerPointingAnimation(actorName, lastEvent.target);
                   break;
               case 'system':
                   // NEW: Display moderator announcement
