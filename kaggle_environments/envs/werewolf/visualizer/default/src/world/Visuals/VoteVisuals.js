@@ -8,6 +8,31 @@ export class VoteVisuals {
     this.activeVoteArcs = new Map();
     this.activeTargetRings = new Map();
     this.animatingTrails = [];
+
+    // Shared Resources
+    this.ringGeometry = new this.THREE.RingGeometry(2, 2.2, 32);
+    this.baseRingMaterial = new this.THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0,
+      side: this.THREE.DoubleSide,
+    });
+    this.particleMaterials = new Map();
+  }
+
+  getParticleMaterial(color) {
+    if (!this.particleMaterials.has(color)) {
+      const mat = new this.THREE.PointsMaterial({
+        color: color,
+        size: 0.3,
+        transparent: true,
+        opacity: 0.8,
+        blending: this.THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      });
+      this.particleMaterials.set(color, mat);
+    }
+    return this.particleMaterials.get(color);
   }
 
   createVoteParticleTrail(voter, target, voterName, targetName, color = 0x00ffff) {
@@ -28,14 +53,7 @@ export class VoteVisuals {
     const positions = new Float32Array(particleCount * 3);
     particleGeometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
 
-    const particleMaterial = new this.THREE.PointsMaterial({
-      color: color,
-      size: 0.3,
-      transparent: true,
-      opacity: 0.8,
-      blending: this.THREE.AdditiveBlending,
-      sizeAttenuation: true,
-    });
+    const particleMaterial = this.getParticleMaterial(color);
 
     const particles = new this.THREE.Points(particleGeometry, particleMaterial);
     this.votingArcsGroup.add(particles);
@@ -68,20 +86,13 @@ export class VoteVisuals {
     let ringData = this.activeTargetRings.get(targetName);
 
     if (voteCount > 0 && !ringData) {
-      const geometry = new this.THREE.RingGeometry(2, 2.2, 32);
-      const material = new this.THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0,
-        side: this.THREE.DoubleSide,
-      });
-      const ring = new this.THREE.Mesh(geometry, material);
+      const ring = new this.THREE.Mesh(this.ringGeometry, this.baseRingMaterial.clone());
       ring.position.copy(target.container.position);
       ring.position.y = 0.1;
       ring.rotation.x = -Math.PI / 2;
 
       this.targetRingsGroup.add(ring);
-      ringData = { ring, material, targetOpacity: 0 };
+      ringData = { ring, material: ring.material, targetOpacity: 0 };
       this.activeTargetRings.set(targetName, ringData);
     }
 
@@ -104,6 +115,7 @@ export class VoteVisuals {
     this.activeVoteArcs.forEach((trail, voterName) => {
       if (!votes.has(voterName)) {
         this.votingArcsGroup.remove(trail.particles);
+        trail.particles.geometry.dispose(); // Dispose geometry
         this.activeVoteArcs.delete(voterName);
         this.animatingTrails = this.animatingTrails.filter((t) => t !== trail);
       }
@@ -121,6 +133,7 @@ export class VoteVisuals {
       if (existingTrail) {
         if (existingTrail.target !== targetName) {
           this.votingArcsGroup.remove(existingTrail.particles);
+          existingTrail.particles.geometry.dispose(); // Dispose geometry
           this.animatingTrails = this.animatingTrails.filter((t) => t !== existingTrail);
           this.createVoteParticleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
         }
@@ -149,6 +162,7 @@ export class VoteVisuals {
         ringData.material.opacity += diff * 0.1;
       } else if (ringData.targetOpacity === 0 && ringData.material.opacity > 0) {
         this.targetRingsGroup.remove(ringData.ring);
+        ringData.material.dispose(); // Dispose material clone
         this.activeTargetRings.delete(targetName);
       }
     });

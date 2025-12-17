@@ -114,6 +114,35 @@ export class CharacterManager {
     const radius = 18;
     const playerHeight = 4;
 
+    // --- Optimization: Reuse Geometries and Base Materials ---
+    const orbGeometry = new this.THREE.IcosahedronGeometry(0.25, 2);
+    const baseOrbMaterial = new this.THREE.MeshStandardMaterial({
+      color: 0x00aa88,
+      emissive: 0x00aa88,
+      emissiveIntensity: 1,
+      transparent: true,
+      opacity: 1,
+      depthTest: false,
+    });
+
+    const glowGeometry = new this.THREE.SphereGeometry(0.4, 12, 8);
+    const baseGlowMaterial = new this.THREE.MeshStandardMaterial({
+      color: 0x00aa88,
+      emissive: 0x00aa88,
+      emissiveIntensity: 0.15,
+      transparent: true,
+      opacity: 0.2,
+      depthTest: false,
+    });
+
+    const fallbackGeometry = new this.THREE.BoxGeometry(1.5, 3, 1.5);
+    const baseFallbackMaterial = new this.THREE.MeshStandardMaterial({
+      roughness: 0.5,
+      metalness: 0.3,
+      emissiveIntensity: 0.2,
+    });
+    // ---------------------------------------------------------
+
     const playerLoadPromises = playerNames.map(async (name, i) => {
       const role = gameState.players[i].role || 'Villager';
       try {
@@ -135,20 +164,6 @@ export class CharacterManager {
       const x = radius * Math.sin(angle);
       const z = radius * Math.cos(angle);
       playerContainer.position.set(x, 0, z);
-
-      const pedestalGeometry = new this.THREE.CylinderGeometry(1.5, 1.8, 0.4, 16);
-      const pedestalMaterial = new this.THREE.MeshStandardMaterial({
-        color: 0x1a1a2a,
-        roughness: 0.9,
-        metalness: 0.1,
-        emissive: 0x0a0a15,
-        emissiveIntensity: 0.1,
-      });
-      const pedestal = new this.THREE.Mesh(pedestalGeometry, pedestalMaterial);
-      pedestal.position.y = 0.2;
-      pedestal.castShadow = true;
-      pedestal.receiveShadow = true;
-      playerContainer.add(pedestal);
 
       let model = null;
       let mixer = null;
@@ -193,16 +208,13 @@ export class CharacterManager {
         const size = box.getSize(new this.THREE.Vector3());
         modelHeight = size.y;
       } else {
-        const fallbackGeometry = new this.THREE.BoxGeometry(1.5, 3, 1.5);
         const fallbackColor =
           role === 'Werewolf' ? 0x880000 : role === 'Doctor' ? 0x008800 : role === 'Seer' ? 0x4b0082 : 0x4466ff;
-        const fallbackMaterial = new this.THREE.MeshStandardMaterial({
-          color: fallbackColor,
-          roughness: 0.5,
-          metalness: 0.3,
-          emissive: fallbackColor,
-          emissiveIntensity: 0.2,
-        });
+        
+        const fallbackMaterial = baseFallbackMaterial.clone();
+        fallbackMaterial.color.setHex(fallbackColor);
+        fallbackMaterial.emissive.setHex(fallbackColor);
+
         const fallback = new this.THREE.Mesh(fallbackGeometry, fallbackMaterial);
         fallback.position.y = 2;
         fallback.castShadow = true;
@@ -212,30 +224,13 @@ export class CharacterManager {
         modelHeight = 3;
       }
 
-      const orbGeometry = new this.THREE.IcosahedronGeometry(0.25, 2);
-      const orbMaterial = new this.THREE.MeshStandardMaterial({
-        color: 0x00aa88,
-        emissive: 0x00aa88,
-        emissiveIntensity: 1,
-        transparent: true,
-        opacity: 1,
-        depthTest: false,
-      });
-      const orb = new this.THREE.Mesh(orbGeometry, orbMaterial);
+      // Reuse Geometry, Clone Material
+      const orb = new this.THREE.Mesh(orbGeometry, baseOrbMaterial.clone());
       orb.position.y = modelHeight + 0.8;
       orb.name = 'statusOrb';
       playerContainer.add(orb);
 
-      const glowGeometry = new this.THREE.SphereGeometry(0.4, 12, 8);
-      const glowMaterial = new this.THREE.MeshStandardMaterial({
-        color: 0x00aa88,
-        emissive: 0x00aa88,
-        emissiveIntensity: 0.15,
-        transparent: true,
-        opacity: 0.2,
-        depthTest: false,
-      });
-      const glow = new this.THREE.Mesh(glowGeometry, glowMaterial);
+      const glow = new this.THREE.Mesh(glowGeometry, baseGlowMaterial.clone());
       glow.position.y = modelHeight + 0.8;
       playerContainer.add(glow);
 
@@ -251,12 +246,10 @@ export class CharacterManager {
       const thumbnailUrl =
         playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
 
-      // Pass a focus callback if needed
       const focusCallback = (playerName) => {
           if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
               const leftPanel = document.querySelector('.left-panel');
               const eventPanel = document.querySelector('.event-panel');
-              // Check visibility/dimensions
               const leftW = (leftPanel && leftPanel.offsetParent !== null) ? leftPanel.offsetWidth : 0;
               const rightW = (eventPanel && eventPanel.offsetParent !== null) ? eventPanel.offsetWidth : 0;
               
@@ -278,7 +271,6 @@ export class CharacterManager {
         orb: orb,
         glow: glow,
         orbLight: orbLight,
-        pedestal: pedestal,
         originalPosition: playerContainer.position.clone(),
         baseAngle: angle,
         isAlive: true,
@@ -294,20 +286,19 @@ export class CharacterManager {
   updatePlayerActive(playerName) {
     const player = this.playerObjects.get(playerName);
     if (!player) return;
-    const { orb, orbLight, glow, pedestal, container } = player;
+    const { orb, orbLight, glow, container } = player;
 
     orb.material.emissiveIntensity = 1;
     orbLight.intensity = 1;
     glow.material.emissiveIntensity = 0.5;
     container.scale.setScalar(1.1);
-    pedestal.material.emissiveIntensity = 0.3;
   }
 
   updatePlayerStatus(playerName, player_info, status, threatLevel = 0, justDied = false) {
     const player = this.playerObjects.get(playerName);
     if (!player) return;
 
-    const { orb, orbLight, glow, pedestal, container, mixer, animations, currentAction } = player;
+    const { orb, orbLight, glow, container, mixer, animations, currentAction } = player;
 
     if (player_info && player_info.role !== 'Unknown' && player.playerUI) {
       const roleElement = player.playerUI.element.querySelector('.player-role-3d');
@@ -344,8 +335,7 @@ export class CharacterManager {
     glow.material.emissive.setHex(0x00aa88);
     glow.material.emissiveIntensity = 0.15;
     glow.visible = true;
-    pedestal.material.emissive.setHex(0x111122);
-    pedestal.material.emissiveIntensity = 0.1;
+    
     container.scale.setScalar(1.0);
     container.position.y = 0;
     container.rotation.x = 0;
@@ -361,7 +351,6 @@ export class CharacterManager {
         orb.visible = false;
         orbLight.visible = false;
         glow.visible = false;
-        pedestal.material.emissive.setHex(0x050505);
         if (player.nameplate && player.nameplate.element) {
           player.nameplate.element.style.transition = 'opacity 2s ease-out';
           player.nameplate.element.style.opacity = '0.7';
@@ -394,24 +383,18 @@ export class CharacterManager {
         glow.material.emissive.setHex(0xaa4444);
         glow.material.emissiveIntensity = 0.2;
         glow.visible = true;
-        pedestal.material.emissive.setHex(0x440000);
-        pedestal.material.emissiveIntensity = 0.2;
         break;
       case 'doctor':
         glow.material.color.setHex(0x44aa44);
         glow.material.emissive.setHex(0x44aa44);
         glow.material.emissiveIntensity = 0.2;
         glow.visible = true;
-        pedestal.material.emissive.setHex(0x002200);
-        pedestal.material.emissiveIntensity = 0.1;
         break;
       case 'seer':
         glow.material.color.setHex(0x6644aa);
         glow.material.emissive.setHex(0x6644aa);
         glow.material.emissiveIntensity = 0.2;
         glow.visible = true;
-        pedestal.material.emissive.setHex(0x1a002a);
-        pedestal.material.emissiveIntensity = 0.1;
         break;
     }
 
