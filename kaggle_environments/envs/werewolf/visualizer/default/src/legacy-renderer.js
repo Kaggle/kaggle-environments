@@ -534,20 +534,6 @@ export function renderer(context, parent) {
       }
       world.voteVisuals.updateVoteVisuals(currentVotes, world.characterManager.playerObjects, !isVotingSession);
 
-      // Spotlight
-      if (world.lightingManager.spotLight) {
-          const nightActor = (gameState.game_state_phase === 'NIGHT' && lastEvent && lastEvent.actor_id && ['WerewolfNightVoteDataEntry', 'DoctorHealActionDataEntry', 'SeerInspectActionDataEntry'].includes(lastEvent.dataType)) ? lastEvent.actor_id : null;
-          if (nightActor) {
-              const actorPlayer = world.characterManager.playerObjects.get(nightActor);
-              if (actorPlayer) {
-                  const targetPosition = actorPlayer.container.position.clone();
-                  world.lightingManager.spotLight.target.position.copy(targetPosition);
-                  world.lightingManager.spotLight.position.set(targetPosition.x, targetPosition.y + 20, targetPosition.z + 5);
-                  world.lightingManager.spotLight.visible = true;
-              } else world.lightingManager.spotLight.visible = false;
-          } else world.lightingManager.spotLight.visible = false;
-      }
-
       // Action Animations
       let subtitleShown = false;
       if (lastEvent) {
