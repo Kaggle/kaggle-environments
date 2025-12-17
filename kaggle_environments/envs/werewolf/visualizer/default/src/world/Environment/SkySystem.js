@@ -74,8 +74,8 @@ export class SkySystem {
           const birds = this.birds;
           const perceptionRadius = 40;
           const separationRadius = 15;
-          const maxSpeed = 0.35;
-          const maxForce = 0.008;
+          const maxSpeed = 0.15;
+          const maxForce = 0.001;
           
           birds.forEach(bird => {
               if(!bird.visible) return;
@@ -162,14 +162,30 @@ export class SkySystem {
               bird.lookAt(this._tempVec1);
 
               // Flap Wings
-              const positions = bird.geometry.attributes.position.array;
-              const speed = bird.userData.velocity.length();
-              const flapSpeed = bird.userData.wingSpeed * (1 + speed * 2);
-              const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.4;
+              const flapSpeed = bird.userData.wingSpeed * (1 + bird.userData.velocity.length() * 2);
+              const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.15;
               
-              positions[13] = flap;
-              positions[22] = flap;
-              bird.geometry.attributes.position.needsUpdate = true;
+              if (bird.userData.wing1 && bird.userData.wing2) {
+                  // GLTF Node Animation
+                  // Assuming wings extend along X and rotate around Z (or local equivalent)
+                  // Adjust axis based on model orientation. Usually Z for up/down.
+                  bird.userData.wing1.rotation.z = flap;
+                  bird.userData.wing2.rotation.z = -flap;
+              } else if (bird.geometry && bird.geometry.attributes.position) {
+                  // Fallback Vertex Animation
+                  const positions = bird.geometry.attributes.position.array;
+                  // Simple hack: flap vertices 3-8 (wing1) and 9-14 (wing2)
+                  // indices: 13 (y of wing1 tip), 22 (y of wing2 tip) based on old logic
+                  if (positions.length > 22) {
+                      positions[13] = flap;
+                      positions[22] = flap; // In old logic, both went same direction relative to Y?
+                      // Wait, old logic: positions[13] = flap; positions[22] = flap;
+                      // Wing 1 tip: 1.2, 0, -0.1. Y is 0. 
+                      // Wing 2 tip: -1.2, 0, -0.1.
+                      // Setting Y to flap makes them go up/down.
+                      bird.geometry.attributes.position.needsUpdate = true;
+                  }
+              }
           });
       }
   }
@@ -181,7 +197,7 @@ export class SkySystem {
     this.createGodRays();
     // this.createStars(); // Removed per user request
     this.createClouds();
-    this.createBirds();
+    this.loadBirdModel();
 
     // Initial update
     // Initialize with day settings - set initial sun position for visibility
@@ -194,6 +210,16 @@ export class SkySystem {
     this.sky.material.uniforms['sunPosition'].value.copy(this.sunPosition);
 
     this.updateSkySystem(0.25);
+  }
+
+  loadBirdModel() {
+      const birdPath = `${import.meta.env.BASE_URL}static/werewolf/bird.glb`;
+      this.assetManager.loadGLTF(birdPath).then((gltf) => {
+          this.createBirds(gltf);
+      }).catch(err => {
+          console.error("Failed to load bird model, falling back to procedural.", err);
+          this.createBirds(null); // Fallback
+      });
   }
 
   createSkyShader() {
@@ -400,35 +426,18 @@ export class SkySystem {
     }
   }
 
-  createBirds() {
+  createBirds(gltf) {
     this.birds = [];
     const birdCount = 20;
 
-    // Simple Body + Wings Geometry (9 vertices)
-    const vertices = new Float32Array([
-        // Body (Triangle)
-        0, 0, 0.4,      // 0: Nose
-        0.15, -0.05, -0.3, // 1: Tail Right
-        -0.15, -0.05, -0.3,// 2: Tail Left
-
-        // Right Wing
-        0.05, 0, 0.1,   // 3: Shoulder
-        1.2, 0, -0.1,   // 4: Wing Tip (ANIMATION TARGET)
-        0.05, 0, -0.2,  // 5: Back joint
-
-        // Left Wing
-        -0.05, 0, 0.1,  // 6: Shoulder
-        -1.2, 0, -0.1,  // 7: Wing Tip (ANIMATION TARGET)
-        -0.05, 0, -0.2  // 8: Back joint
-    ]);
-    
-    // Use Standard material with custom Vertex Shader for distance-based scaling
-    const material = new this.THREE.MeshStandardMaterial({
+    const toonGradient = this.assetManager.getToonGradientMap();
+    const material = new this.THREE.MeshToonMaterial({
         color: 0x222222,
-        roughness: 0.9,
+        gradientMap: toonGradient,
         side: this.THREE.DoubleSide
     });
 
+    // Add distance scaling to the material
     material.onBeforeCompile = (shader) => {
         shader.vertexShader = `
             varying float vDistance;
@@ -438,52 +447,88 @@ export class SkySystem {
             '#include <project_vertex>',
             `
             vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
-            
-            // Calculate distance to camera
             float dist = length(mvPosition.xyz);
             vDistance = dist;
-
-            // Shrink to 0 if closer than 30 units, full scale at 60 units
             float scaleFactor = smoothstep(30.0, 60.0, dist);
-            
-            // Apply scaling relative to object center (0,0,0 in local space)
-            // Since 'transformed' is the vertex position, scaling it scales the mesh.
             mvPosition = modelViewMatrix * vec4( transformed * scaleFactor, 1.0 );
-
             gl_Position = projectionMatrix * mvPosition;
             `
         );
     };
 
-    for(let i=0; i<birdCount; i++) {
+    let birdFactory;
+    
+    if (gltf) {
+        const sourceScene = gltf.scene;
+        sourceScene.traverse((child) => {
+            if (child.isMesh) {
+                child.material = material;
+                child.castShadow = true;
+                child.receiveShadow = false;
+            }
+        });
+
+        birdFactory = () => {
+            const model = sourceScene.clone(true);
+            
+            // Fix orientation: Rotate model inside a container
+            // User reports beak pointing down (likely -Y axis). Rotate -90 deg on X to point it to +Z (Forward).
+            model.rotation.x = -Math.PI / 2;
+            
+            // Fix scaling: The model might be too large/small. 
+            // Previous code had `bird.scale.setScalar(0.2)` in the loop. 
+            // We can apply that to the container or model.
+            
+            const wing1 = model.getObjectByName('wing1');
+            const wing2 = model.getObjectByName('wing2');
+            
+            const container = new this.THREE.Group();
+            container.add(model);
+            
+            return { mesh: container, wing1, wing2 };
+        };
+    } else {
+        // Fallback Geometry
+        const vertices = new Float32Array([
+            0, 0, 0.4, 0.15, -0.05, -0.3, -0.15, -0.05, -0.3, 
+            0.05, 0, 0.1, 1.2, 0, -0.1, 0.05, 0, -0.2,       
+            -0.05, 0, 0.1, -1.2, 0, -0.1, -0.05, 0, -0.2     
+        ]);
         const geometry = new this.THREE.BufferGeometry();
-        geometry.setAttribute('position', new this.THREE.BufferAttribute(vertices.slice(), 3));
-        geometry.computeVertexNormals(); // Needed for Standard material
+        geometry.setAttribute('position', new this.THREE.BufferAttribute(vertices, 3));
+        geometry.computeVertexNormals();
         
-        const bird = new this.THREE.Mesh(geometry, material);
-        bird.castShadow = true;
-        bird.receiveShadow = false;
+        birdFactory = () => {
+            const bird = new this.THREE.Mesh(geometry, material);
+            bird.castShadow = true;
+            return { mesh: bird, wing1: null, wing2: null }; 
+        };
+    }
+
+    for(let i=0; i<birdCount; i++) {
+        const { mesh: bird, wing1, wing2 } = birdFactory();
         
         bird.position.set(
             (Math.random() - 0.5) * 100,
-            35 + Math.random() * 20, // Reverted height
+            35 + Math.random() * 20, 
             (Math.random() - 0.5) * 100
         );
         
-        // Boids parameters
-        const speed = 0.2 + Math.random() * 0.1;
+        const speed = 0.1 + Math.random() * 0.05;
         const angle = Math.random() * Math.PI * 2;
         
         bird.userData = {
             velocity: new this.THREE.Vector3(Math.cos(angle) * speed, 0, Math.sin(angle) * speed),
-            wingSpeed: 0.03 + Math.random() * 0.03, // Reduced flapping speed
+            wingSpeed: 0.01 + Math.random() * 0.01,
             wingPhase: Math.random() * Math.PI * 2,
+            wing1: wing1,
+            wing2: wing2
         };
         
         bird.rotation.y = -angle;
-        
-        // Scale down to avoid looking like fake triangles
-        bird.scale.setScalar(1.0);
+        // Scale the GLTF model if needed, e.g. 0.5 if it's too big
+        // For now, keep 1.0 or adjust based on visual check
+        bird.scale.setScalar(0.2); 
 
         this.scene.add(bird);
         this.birds.push(bird);
