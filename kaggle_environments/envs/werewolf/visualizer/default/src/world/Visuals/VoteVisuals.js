@@ -8,6 +8,7 @@ export class VoteVisuals {
     this.activeVoteArcs = new Map();
     this.activeTargetRings = new Map();
     this.animatingTrails = [];
+    this.particlePool = [];
 
     // Shared Resources
     this.ringGeometry = new this.THREE.RingGeometry(2, 2.2, 32);
@@ -35,6 +36,28 @@ export class VoteVisuals {
     return this.particleMaterials.get(color);
   }
 
+  getPooledParticles(color) {
+      let particles;
+      if (this.particlePool.length > 0) {
+          particles = this.particlePool.pop();
+      } else {
+          const particleCount = 50;
+          const geometry = new this.THREE.BufferGeometry();
+          const positions = new Float32Array(particleCount * 3);
+          geometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
+          particles = new this.THREE.Points(geometry, this.getParticleMaterial(color));
+      }
+      particles.material = this.getParticleMaterial(color);
+      return particles;
+  }
+
+  returnToPool(particles) {
+      if (particles.parent) {
+          particles.parent.remove(particles);
+      }
+      this.particlePool.push(particles);
+  }
+
   createVoteParticleTrail(voter, target, voterName, targetName, color = 0x00ffff) {
     if (!voter || !target) return;
 
@@ -49,13 +72,8 @@ export class VoteVisuals {
 
     const curve = new this.THREE.CatmullRomCurve3([startPos, midPos, endPos]);
     const particleCount = 50;
-    const particleGeometry = new this.THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    particleGeometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
-
-    const particleMaterial = this.getParticleMaterial(color);
-
-    const particles = new this.THREE.Points(particleGeometry, particleMaterial);
+    
+    const particles = this.getPooledParticles(color);
     this.votingArcsGroup.add(particles);
 
     const trail = {
@@ -114,8 +132,7 @@ export class VoteVisuals {
 
     this.activeVoteArcs.forEach((trail, voterName) => {
       if (!votes.has(voterName)) {
-        this.votingArcsGroup.remove(trail.particles);
-        trail.particles.geometry.dispose(); // Dispose geometry
+        this.returnToPool(trail.particles);
         this.activeVoteArcs.delete(voterName);
         this.animatingTrails = this.animatingTrails.filter((t) => t !== trail);
       }
@@ -132,8 +149,7 @@ export class VoteVisuals {
 
       if (existingTrail) {
         if (existingTrail.target !== targetName) {
-          this.votingArcsGroup.remove(existingTrail.particles);
-          existingTrail.particles.geometry.dispose(); // Dispose geometry
+          this.returnToPool(existingTrail.particles);
           this.animatingTrails = this.animatingTrails.filter((t) => t !== existingTrail);
           this.createVoteParticleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
         }
