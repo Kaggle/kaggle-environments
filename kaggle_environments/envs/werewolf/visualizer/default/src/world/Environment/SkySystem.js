@@ -69,125 +69,138 @@ export class SkySystem {
           this.moonMesh.rotation.y = time * 0.00002;
       }
 
-      // Animate Birds (Boids Swarm with No-Flight Zone)
+      // Animate Birds (Day only)
       if (this.birds && phaseValue < 0.5) {
-          const birds = this.birds;
-          const perceptionRadius = 40;
-          const separationRadius = 15;
-          const maxSpeed = 0.15;
-          const maxForce = 0.001;
-          
-          birds.forEach(bird => {
-              if(!bird.visible) return;
+          this.updateBirds(time);
+      } else if (this.birds) {
+          // Ensure hidden at night
+          this.birds.forEach(b => b.visible = false);
+      }
+  }
 
-              // Boids Rules
-              // Reset temp vectors
-              const alignment = this._tempVec1.set(0, 0, 0);
-              const cohesion = this._tempVec2.set(0, 0, 0);
-              const separation = this._tempVec3.set(0, 0, 0);
-              let count = 0;
+  updateBirds(time) {
+      const birds = this.birds;
+      const perceptionRadiusSq = 40 * 40;
+      const separationRadiusSq = 15 * 15;
+      const maxSpeed = 0.15;
+      const maxForce = 0.001;
+      
+      // Pre-allocate vector for banking calculation
+      if (!this._upVec) this._upVec = new this.THREE.Vector3(0, 1, 0);
+      if (!this._sideVec) this._sideVec = new this.THREE.Vector3();
 
-              birds.forEach(other => {
-                  if (bird !== other) {
-                      const dist = bird.position.distanceTo(other.position);
-                      if (dist < perceptionRadius) {
-                          alignment.add(other.userData.velocity);
-                          cohesion.add(other.position);
-                          count++;
+      birds.forEach(bird => {
+          bird.visible = true;
+
+          // Boids Rules
+          // Reset temp vectors
+          const alignment = this._tempVec1.set(0, 0, 0);
+          const cohesion = this._tempVec2.set(0, 0, 0);
+          const separation = this._tempVec3.set(0, 0, 0);
+          let count = 0;
+
+          birds.forEach(other => {
+              if (bird !== other) {
+                  const distSq = bird.position.distanceToSquared(other.position);
+                  if (distSq < perceptionRadiusSq) {
+                      alignment.add(other.userData.velocity);
+                      cohesion.add(other.position);
+                      count++;
+                      
+                      if (distSq < separationRadiusSq) {
+                          const dist = Math.sqrt(distSq); // Need actual dist for division
+                          // Calculate diff
+                          const diffX = bird.position.x - other.position.x;
+                          const diffY = bird.position.y - other.position.y;
+                          const diffZ = bird.position.z - other.position.z;
                           
-                          if (dist < separationRadius) {
-                              // Re-use separation vector for diff calculation temporarily is tricky without a 4th vector
-                              // So we calculate components directly to save allocations
-                              const diffX = bird.position.x - other.position.x;
-                              const diffY = bird.position.y - other.position.y;
-                              const diffZ = bird.position.z - other.position.z;
-                              
-                              // Divide by dist
-                              separation.x += diffX / dist;
-                              separation.y += diffY / dist;
-                              separation.z += diffZ / dist;
+                          // Divide by dist (weight by inverse distance)
+                          if (dist > 0.001) {
+                              const weight = 1.0 / dist;
+                              separation.x += diffX * weight;
+                              separation.y += diffY * weight;
+                              separation.z += diffZ * weight;
                           }
                       }
                   }
-              });
-
-              if (count > 0) {
-                  alignment.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
-                  cohesion.divideScalar(count).sub(bird.position).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
-                  separation.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce * 1.5);
-              }
-
-              // Environmental Constraints
-              
-              // 1. No Flight Zone (Center Exclusion)
-              const distCenter = Math.sqrt(bird.position.x * bird.position.x + bird.position.z * bird.position.z);
-              if (distCenter < 50) {
-                  // Normalize directly
-                  const invLen = 1 / distCenter;
-                  const pushX = bird.position.x * invLen;
-                  const pushZ = bird.position.z * invLen;
-                  
-                  bird.userData.velocity.x += pushX * 0.05;
-                  bird.userData.velocity.z += pushZ * 0.05;
-              }
-
-              // 2. Outer Boundary
-              if (distCenter > 110) {
-                  const invLen = 1 / distCenter;
-                  const pullX = -bird.position.x * invLen;
-                  const pullZ = -bird.position.z * invLen;
-                  
-                  bird.userData.velocity.x += pullX * 0.005;
-                  bird.userData.velocity.z += pullZ * 0.005;
-              }
-
-              // 3. Height Control
-              const targetH = 45;
-              bird.userData.velocity.y += (targetH - bird.position.y) * 0.0005;
-
-              // Apply Forces
-              bird.userData.velocity.add(alignment.multiplyScalar(1.0));
-              bird.userData.velocity.add(cohesion.multiplyScalar(0.8));
-              bird.userData.velocity.add(separation.multiplyScalar(1.2));
-
-              // Limit Speed
-              bird.userData.velocity.clampLength(0.1, maxSpeed);
-
-              // Update Position
-              bird.position.add(bird.userData.velocity);
-
-              // Orientation
-              // We need a target to look at. We can reuse tempVec1
-              this._tempVec1.copy(bird.position).add(bird.userData.velocity);
-              bird.lookAt(this._tempVec1);
-
-              // Flap Wings
-              const flapSpeed = bird.userData.wingSpeed * (1 + bird.userData.velocity.length() * 2);
-              const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.15;
-              
-              if (bird.userData.wing1 && bird.userData.wing2) {
-                  // GLTF Node Animation
-                  // Assuming wings extend along X and rotate around Z (or local equivalent)
-                  // Adjust axis based on model orientation. Usually Z for up/down.
-                  bird.userData.wing1.rotation.z = flap;
-                  bird.userData.wing2.rotation.z = -flap;
-              } else if (bird.geometry && bird.geometry.attributes.position) {
-                  // Fallback Vertex Animation
-                  const positions = bird.geometry.attributes.position.array;
-                  // Simple hack: flap vertices 3-8 (wing1) and 9-14 (wing2)
-                  // indices: 13 (y of wing1 tip), 22 (y of wing2 tip) based on old logic
-                  if (positions.length > 22) {
-                      positions[13] = flap;
-                      positions[22] = flap; // In old logic, both went same direction relative to Y?
-                      // Wait, old logic: positions[13] = flap; positions[22] = flap;
-                      // Wing 1 tip: 1.2, 0, -0.1. Y is 0. 
-                      // Wing 2 tip: -1.2, 0, -0.1.
-                      // Setting Y to flap makes them go up/down.
-                      bird.geometry.attributes.position.needsUpdate = true;
-                  }
               }
           });
-      }
+
+          // Store previous velocity for banking calculation
+          const prevVelocity = bird.userData.velocity.clone();
+
+          if (count > 0) {
+              alignment.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
+              cohesion.divideScalar(count).sub(bird.position).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
+              separation.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce * 1.5);
+          }
+
+          // Environmental Constraints
+          // 1. No Flight Zone (Center Exclusion)
+          const distCenterSq = bird.position.x * bird.position.x + bird.position.z * bird.position.z;
+          if (distCenterSq < 2500) { // 50^2
+              const distCenter = Math.sqrt(distCenterSq);
+              const invLen = 1 / distCenter;
+              bird.userData.velocity.x += bird.position.x * invLen * 0.05;
+              bird.userData.velocity.z += bird.position.z * invLen * 0.05;
+          }
+
+          // 2. Outer Boundary
+          if (distCenterSq > 12100) { // 110^2
+              const distCenter = Math.sqrt(distCenterSq);
+              const invLen = 1 / distCenter;
+              bird.userData.velocity.x -= bird.position.x * invLen * 0.005;
+              bird.userData.velocity.z -= bird.position.z * invLen * 0.005;
+          }
+
+          // 3. Height Control
+          const targetH = 45;
+          bird.userData.velocity.y += (targetH - bird.position.y) * 0.0005;
+
+          // Apply Forces
+          bird.userData.velocity.add(alignment.multiplyScalar(1.0));
+          bird.userData.velocity.add(cohesion.multiplyScalar(0.8));
+          bird.userData.velocity.add(separation.multiplyScalar(1.2));
+
+          // Limit Speed
+          bird.userData.velocity.clampLength(0.1, maxSpeed);
+
+          // Update Position
+          bird.position.add(bird.userData.velocity);
+
+          // Orientation
+          const lookTarget = this._tempVec1.copy(bird.position).add(bird.userData.velocity);
+          bird.lookAt(lookTarget);
+
+          // Banking (Visual Polish)
+          // Calculate turn acceleration (change in velocity direction)
+          // Side vector = up x forward (velocity)
+          this._sideVec.crossVectors(this._upVec, bird.userData.velocity).normalize();
+          // Project acceleration onto side vector
+          const turnAccel = bird.userData.velocity.clone().sub(prevVelocity); // Acceleration
+          const bankAmount = turnAccel.dot(this._sideVec) * -200.0; // Scale factor for visual effect
+          
+          // Smooth banking
+          bird.userData.bank = bird.userData.bank || 0;
+          bird.userData.bank += (bankAmount - bird.userData.bank) * 0.1; // Lerp
+          bird.rotateZ(bird.userData.bank);
+
+          // Flap Wings
+          const flapSpeed = bird.userData.wingSpeed * (1 + bird.userData.velocity.length() * 2);
+          const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.15;
+          
+          if (bird.userData.wing1 && bird.userData.wing2) {
+              bird.userData.wing1.rotation.z = flap;
+              bird.userData.wing2.rotation.z = -flap;
+          } else if (bird.geometry && bird.geometry.attributes.position) {
+              const positions = bird.geometry.attributes.position.array;
+              if (positions.length > 22) {
+                  positions[13] = flap;
+                  positions[22] = flap;
+                  bird.geometry.attributes.position.needsUpdate = true;
+              }
+          }
+      });
   }
 
   init() {
