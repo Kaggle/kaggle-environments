@@ -209,7 +209,8 @@ export class SkySystem {
     this.sunPosition = new this.THREE.Vector3(sunX, sunY, sunZ);
     this.sky.material.uniforms['sunPosition'].value.copy(this.sunPosition);
 
-    this.updateSkySystem(0.25);
+    // Initialize with Night settings (Start of Night = 0.5)
+    this.updateSkySystem(0.5);
   }
 
   loadBirdModel() {

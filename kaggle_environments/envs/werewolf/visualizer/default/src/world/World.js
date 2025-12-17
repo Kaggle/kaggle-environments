@@ -240,7 +240,8 @@ export class World {
         }
       }
       
-      const phaseValue = this.phaseTransition ? this.phaseTransition.current : 0;
+      // Default to Night Start (0.5) if no phase transition set yet
+      const phaseValue = this.phaseTransition ? this.phaseTransition.current : 0.5;
 
       // Animate Sky System (Clouds, Stars, God Rays, Moon, Birds)
       this.skySystem.update(time, phaseValue);
