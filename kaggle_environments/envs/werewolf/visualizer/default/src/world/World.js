@@ -55,6 +55,10 @@ export class World {
     this.phaseTransition = null;
     this.animationClock = new this.THREE.Clock();
     this.cameraAnimation = null;
+    this.lastShadowUpdate = 0;
+
+    // Shadow Optimization
+    this.sceneManager.renderer.shadowMap.autoUpdate = false;
 
     // Camera setup
     camera.position.set(-18.84, 20.27, 48.08);
@@ -220,6 +224,13 @@ export class World {
       requestAnimationFrame(loop);
       const delta = this.animationClock.getDelta();
       const time = this.animationClock.getElapsedTime() * 1000;
+      const now = performance.now();
+
+      // Shadow Optimization (5 FPS max)
+      if (now - this.lastShadowUpdate > 200) {
+          this.sceneManager.renderer.shadowMap.needsUpdate = true;
+          this.lastShadowUpdate = now;
+      }
 
       if (this.phaseTransition) {
         const diff = this.phaseTransition.target - this.phaseTransition.current;
@@ -231,135 +242,11 @@ export class World {
       
       const phaseValue = this.phaseTransition ? this.phaseTransition.current : 0;
 
-      // this.particleSystem.update(time, phaseValue);
-      
-      // Animate clouds
-      if (this.skySystem.clouds) {
-          this.skySystem.clouds.forEach(cloud => {
-              if (cloud && cloud.userData) {
-                  cloud.userData.initialAngle += cloud.userData.speed;
-                  cloud.position.x = Math.cos(cloud.userData.initialAngle) * cloud.userData.radius;
-                  cloud.position.z = Math.sin(cloud.userData.initialAngle) * cloud.userData.radius;
-                  cloud.position.y = cloud.userData.height + Math.sin(time * 0.0005) * 2;
-              }
-          });
-      }
-
-      // Animate stars (Shader based)
-      if (this.skySystem.stars && this.skySystem.starsMaterial) {
-          this.skySystem.starsMaterial.uniforms.time.value = time;
-      }
-
-      // Animate god rays
-      if (this.skySystem.godRays) {
-          this.skySystem.godRays.forEach((ray, index) => {
-              if (ray.userData) {
-                  const pulse = Math.sin(time * 0.0008 * ray.userData.speed + ray.userData.phase);
-                  if (ray.material) {
-                      const baseOpacity = ray.userData.originalOpacity * this.skySystem.godRayIntensity;
-                      ray.material.opacity = baseOpacity * (0.85 + pulse * 0.15);
-                  }
-                  ray.rotation.z = ray.userData.baseRotationZ + Math.sin(time * 0.0002 + index * 0.5) * 0.03;
-                  ray.rotation.x = ray.userData.baseRotationX + Math.cos(time * 0.00025 + index * 0.3) * 0.02;
-                  const lengthVariation = 1 + Math.sin(time * 0.0003 + ray.userData.phase) * 0.05;
-                  ray.scale.y = lengthVariation;
-              }
-          });
-      }
-
-      if (this.skySystem.moonMesh && this.skySystem.moonMesh.visible) {
-          this.skySystem.moonMesh.rotation.y = time * 0.00002;
-      }
-
-      // Animate Birds (Boids Swarm with No-Flight Zone)
-      if (this.skySystem.birds && phaseValue < 0.5) {
-          const birds = this.skySystem.birds;
-          const perceptionRadius = 40;
-          const separationRadius = 15;
-          const maxSpeed = 0.35;
-          const maxForce = 0.008;
-          
-          birds.forEach(bird => {
-              if(!bird.visible) return;
-
-              // Boids Rules
-              let alignment = new this.THREE.Vector3();
-              let cohesion = new this.THREE.Vector3();
-              let separation = new this.THREE.Vector3();
-              let count = 0;
-
-              birds.forEach(other => {
-                  if (bird !== other) {
-                      const dist = bird.position.distanceTo(other.position);
-                      if (dist < perceptionRadius) {
-                          alignment.add(other.userData.velocity);
-                          cohesion.add(other.position);
-                          count++;
-                          
-                          if (dist < separationRadius) {
-                              const diff = new this.THREE.Vector3().subVectors(bird.position, other.position);
-                              diff.divideScalar(dist);
-                              separation.add(diff);
-                          }
-                      }
-                  }
-              });
-
-              if (count > 0) {
-                  alignment.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
-                  cohesion.divideScalar(count).sub(bird.position).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce);
-                  separation.divideScalar(count).normalize().multiplyScalar(maxSpeed).sub(bird.userData.velocity).clampLength(0, maxForce * 1.5);
-              }
-
-              // Environmental Constraints
-              
-              // 1. No Flight Zone (Center Exclusion)
-              const distCenter = Math.sqrt(bird.position.x * bird.position.x + bird.position.z * bird.position.z);
-              if (distCenter < 50) {
-                  const pushDir = new this.THREE.Vector3(bird.position.x, 0, bird.position.z).normalize();
-                  bird.userData.velocity.add(pushDir.multiplyScalar(0.05)); // Very strong push
-              }
-
-              // 2. Outer Boundary
-              if (distCenter > 110) {
-                  const pullIn = new this.THREE.Vector3(-bird.position.x, 0, -bird.position.z).normalize();
-                  bird.userData.velocity.add(pullIn.multiplyScalar(0.005));
-              }
-
-              // 3. Height Control
-              const targetH = 45;
-              bird.userData.velocity.y += (targetH - bird.position.y) * 0.0005;
-
-              // Apply Forces
-              bird.userData.velocity.add(alignment.multiplyScalar(1.0));
-              bird.userData.velocity.add(cohesion.multiplyScalar(0.8));
-              bird.userData.velocity.add(separation.multiplyScalar(1.2));
-
-              // Limit Speed
-              bird.userData.velocity.clampLength(0.1, maxSpeed);
-
-              // Update Position
-              bird.position.add(bird.userData.velocity);
-
-              // Orientation
-              const lookTarget = bird.position.clone().add(bird.userData.velocity);
-              bird.lookAt(lookTarget);
-
-              // Flap Wings
-              const positions = bird.geometry.attributes.position.array;
-              const speed = bird.userData.velocity.length();
-              const flapSpeed = bird.userData.wingSpeed * (1 + speed * 2);
-              const flap = Math.sin(time * 0.01 * flapSpeed + bird.userData.wingPhase) * 0.4;
-              
-              positions[13] = flap;
-              positions[22] = flap;
-              bird.geometry.attributes.position.needsUpdate = true;
-          });
-      }
+      // Animate Sky System (Clouds, Stars, God Rays, Moon, Birds)
+      this.skySystem.update(time, phaseValue);
 
       // Camera Animation
       if (this.cameraAnimation) {
-          const now = performance.now();
           const anim = this.cameraAnimation;
           const elapsed = now - anim.startTime;
           let progress = Math.min(elapsed / anim.duration, 1.0);

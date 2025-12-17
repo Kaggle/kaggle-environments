@@ -10,7 +10,6 @@ export class LightingManager {
     this.rimLight = null;
     this.hemiLight = null;
     this.fillLight = null;
-    this.spotLight = null;
 
     this.dayEnvMap = null;
     this.nightEnvMap = null;
@@ -37,14 +36,6 @@ export class LightingManager {
     this.fillLight = new this.THREE.DirectionalLight(0x5a4a3a, 0.15);
     this.fillLight.position.set(0, -1, 0);
     this.scene.add(this.fillLight);
-
-    // Spot Light
-    this.spotLight = new this.THREE.SpotLight(0xffaa66, 0.8, 50, Math.PI / 3, 0.8, 2);
-    this.spotLight.position.set(0, 25, 0);
-    this.spotLight.castShadow = true;
-    this.spotLight.visible = false;
-    this.scene.add(this.spotLight);
-    this.scene.add(this.spotLight.target);
 
     this.loadHDRIs();
   }
