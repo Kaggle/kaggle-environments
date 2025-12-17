@@ -208,7 +208,7 @@ export class SkySystem {
     this.createSunMoon();
     this.createMoonMesh();
     this.createGodRays();
-    // this.createStars(); // Removed per user request
+    this.createStars();
     this.createClouds();
     this.loadBirdModel();
 
@@ -368,6 +368,81 @@ export class SkySystem {
     this.godRayIntensity = 1.0;
     this.godRayGroup.visible = true;
     this.scene.add(this.godRayGroup);
+  }
+
+  createStars() {
+    const starCount = 2000;
+    const positions = new Float32Array(starCount * 3);
+    const colors = new Float32Array(starCount * 3);
+    const sizes = new Float32Array(starCount);
+
+    for (let i = 0; i < starCount; i++) {
+      const i3 = i * 3;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const radius = 400 + Math.random() * 100;
+
+      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      positions[i3 + 2] = radius * Math.cos(phi);
+
+      const starColor = new this.THREE.Color();
+      const colorChoice = Math.random();
+      if (colorChoice < 0.3) {
+        starColor.setHSL(0.6, 0.1, 0.9);
+      } else if (colorChoice < 0.6) {
+        starColor.setHSL(0.1, 0.1, 0.95);
+      } else {
+        starColor.setHSL(0, 0, 1);
+      }
+      colors[i3] = starColor.r;
+      colors[i3 + 1] = starColor.g;
+      colors[i3 + 2] = starColor.b;
+
+      sizes[i] = Math.random() * 2 + 0.5;
+    }
+
+    const geometry = new this.THREE.BufferGeometry();
+    geometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new this.THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new this.THREE.BufferAttribute(sizes, 1));
+
+    this.starsMaterial = new this.THREE.ShaderMaterial({
+      uniforms: {
+        phase: { value: 0.0 },
+        time: { value: 0.0 }
+      },
+      vertexShader: `
+        attribute float size;
+        attribute vec3 color;
+        varying vec3 vColor;
+        uniform float phase;
+        uniform float time;
+        void main() {
+            vColor = color;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            float twinkle = 1.0 + sin(time * 0.003 + position.x * 0.1) * 0.3;
+            gl_PointSize = size * twinkle * (300.0 / -mvPosition.z) * phase;
+            gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        uniform float phase;
+        void main() {
+            float dist = distance(gl_PointCoord, vec2(0.5));
+            if (dist > 0.5) discard;
+            float alpha = (1.0 - dist * 2.0) * phase * 0.8;
+            gl_FragColor = vec4(vColor, alpha);
+        }
+      `,
+      transparent: true,
+      blending: this.THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    this.stars = new this.THREE.Points(geometry, this.starsMaterial);
+    this.scene.add(this.stars);
   }
 
   createClouds() {
