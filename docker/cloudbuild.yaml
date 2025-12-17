@@ -14,7 +14,7 @@ steps:
         "--cache-from",
         "gcr.io/kaggle-images/python-simulations:latest",
         "--build-arg",
-        "BASE_IMAGE=gcr.io/kaggle-images/python:latest",
+        "BASE_IMAGE=gcr.io/kaggle-images/python:v163",
         ".",
       ]
     waitFor: ["-"]
