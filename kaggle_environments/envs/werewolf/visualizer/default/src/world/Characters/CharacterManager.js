@@ -539,9 +539,27 @@ export class CharacterManager {
     });
   }
 
-  triggerPointingAnimation(playerName, duration = 1200) {
+  triggerPointingAnimation(playerName, targetName = null, duration = 1200) {
     const player = this.playerObjects.get(playerName);
     if (!player || !player.isAlive) return;
+
+    if (targetName) {
+        const target = this.playerObjects.get(targetName);
+        if (target) {
+            const dx = target.container.position.x - player.container.position.x;
+            const dz = target.container.position.z - player.container.position.z;
+            const angleToTarget = Math.atan2(dx, dz);
+            
+            player.container.rotation.y = angleToTarget;
+
+            if (player.rotationResetTimer) clearTimeout(player.rotationResetTimer);
+            
+            player.rotationResetTimer = setTimeout(() => {
+                player.container.rotation.y = player.baseAngle + Math.PI;
+                player.rotationResetTimer = null;
+            }, duration);
+        }
+    }
 
     this.playAnimation(playerName, 'Pointing', { fadeInDuration: 0.2, fadeOutDuration: 0.2 });
 
@@ -617,6 +635,12 @@ export class CharacterManager {
         player.playerUI.element.classList.remove('chat-active');
       }
       player.isAlive = true;
+
+      if (player.rotationResetTimer) {
+          clearTimeout(player.rotationResetTimer);
+          player.rotationResetTimer = null;
+      }
+      player.container.rotation.y = player.baseAngle + Math.PI;
 
       if (player.mixer) {
         player.mixer.stopAllAction();
