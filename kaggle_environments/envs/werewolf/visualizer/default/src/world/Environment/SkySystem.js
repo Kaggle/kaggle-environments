@@ -1,8 +1,9 @@
 export class SkySystem {
-  constructor(scene, THREE, Sky) {
+  constructor(scene, THREE, Sky, assetManager) {
     this.scene = scene;
     this.THREE = THREE;
     this.Sky = Sky;
+    this.assetManager = assetManager;
 
     this.sky = null;
     this.sunLight = null;
@@ -90,17 +91,12 @@ export class SkySystem {
   }
 
   createMoonMesh() {
-    const textureLoader = new this.THREE.TextureLoader();
-    const moonTexture = textureLoader.load(`${import.meta.env.BASE_URL}static/moon_texture.jpg`);
-
     // Group to hold moon mesh and glow (handles orbit and facing)
     this.moonMesh = new this.THREE.Group();
 
     // Giant blood moon sphere
     const moonGeometry = new this.THREE.SphereGeometry(80, 64, 64);
     const moonMaterial = new this.THREE.MeshStandardMaterial({
-      map: moonTexture,
-      emissiveMap: moonTexture,
       color: 0xff6633,
       emissive: 0xdd5522,
       emissiveIntensity: 0.9,
@@ -115,6 +111,16 @@ export class SkySystem {
 
     this.moonMesh.visible = false;
     this.scene.add(this.moonMesh);
+
+    // Load texture async
+    const moonTexturePath = `${import.meta.env.BASE_URL}static/moon_texture.jpg`;
+    this.assetManager.loadTexture(moonTexturePath).then((moonTexture) => {
+        if (this.moonSphere && this.moonSphere.material) {
+            this.moonSphere.material.map = moonTexture;
+            this.moonSphere.material.emissiveMap = moonTexture;
+            this.moonSphere.material.needsUpdate = true;
+        }
+    });
   }
 
   createGodRays() {

@@ -1,8 +1,8 @@
 export class LightingManager {
-  constructor(scene, THREE, RGBELoader, renderer) {
+  constructor(scene, THREE, renderer, assetManager) {
     this.scene = scene;
     this.THREE = THREE;
-    this.rgbeLoader = new RGBELoader();
+    this.assetManager = assetManager;
     this.pmremGenerator = new THREE.PMREMGenerator(renderer);
     this.pmremGenerator.compileEquirectangularShader();
 
@@ -53,18 +53,17 @@ export class LightingManager {
     const dayPath = `${import.meta.env.BASE_URL}static/werewolf/hdri/greenwich_park_1k.hdr`;
     const nightPath = `${import.meta.env.BASE_URL}static/werewolf/hdri/rogland_clear_night_1k.hdr`;
 
-    this.rgbeLoader.load(dayPath, (texture) => {
+    this.assetManager.loadHDR(dayPath).then((texture) => {
         const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
         this.dayEnvMap = envMap;
-        texture.dispose();
+        
         // Set initial if day
         if (!this.scene.environment) this.scene.environment = envMap;
     });
 
-    this.rgbeLoader.load(nightPath, (texture) => {
+    this.assetManager.loadHDR(nightPath).then((texture) => {
         const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
         this.nightEnvMap = envMap;
-        texture.dispose();
     });
   }
 
