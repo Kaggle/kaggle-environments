@@ -1,4 +1,5 @@
 import { SceneManager } from './SceneManager.js';
+import { AssetManager } from './AssetManager.js';
 import { SkySystem } from './Environment/SkySystem.js';
 import { LightingManager } from './Environment/LightingManager.js';
 import { TerrainManager } from './Environment/TerrainManager.js';
@@ -22,11 +23,15 @@ export class World {
     this.sceneManager = new SceneManager(options, this.THREE, modules.OrbitControls, modules.CSS2DRenderer);
     const { scene, camera, renderer, labelRenderer } = this.sceneManager;
 
-    this.skySystem = new SkySystem(scene, this.THREE, modules.Sky);
-    this.lightingManager = new LightingManager(scene, this.THREE, modules.RGBELoader, renderer);
-    this.terrainManager = new TerrainManager(scene, this.THREE, modules.FBXLoader, modules.GLTFLoader);
+    const loadingManager = new this.THREE.LoadingManager();
+    loadingManager.onLoad = () => console.debug('All assets loaded.');
+    this.assetManager = new AssetManager(loadingManager, modules);
+
+    this.skySystem = new SkySystem(scene, this.THREE, modules.Sky, this.assetManager);
+    this.lightingManager = new LightingManager(scene, this.THREE, renderer, this.assetManager);
+    this.terrainManager = new TerrainManager(scene, this.THREE, this.assetManager);
     this.propsManager = new PropsManager(scene, this.THREE, modules.VolumetricFire, camera);
-    this.characterManager = new CharacterManager(scene, this.THREE, modules.FBXLoader, modules.SkeletonUtils, modules.CSS2DObject);
+    this.characterManager = new CharacterManager(scene, this.THREE, modules.SkeletonUtils, modules.CSS2DObject, this.assetManager);
     // this.particleSystem = new ParticleSystem(scene, this.THREE);
     
     this.postProcessing = new PostProcessing(

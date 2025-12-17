@@ -1,10 +1,10 @@
 export class CharacterManager {
-  constructor(scene, THREE, FBXLoader, SkeletonUtils, CSS2DObject) {
+  constructor(scene, THREE, SkeletonUtils, CSS2DObject, assetManager) {
     this.scene = scene;
     this.THREE = THREE;
-    this.fbxLoader = new FBXLoader();
     this.skeletonUtils = SkeletonUtils;
     this.CSS2DObject = CSS2DObject;
+    this.assetManager = assetManager;
 
     this.playerObjects = new Map();
     this.playerGroup = new this.THREE.Group();
@@ -33,12 +33,10 @@ export class CharacterManager {
       return this.modelCache.get(normalizedRole);
     }
 
-    const modelPromise = new Promise((resolve, reject) => {
-      const modelPath = `${import.meta.env.BASE_URL}static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
+    const modelPath = `${import.meta.env.BASE_URL}static/werewolf/models/${normalizedRole}/${normalizedRole}.fbx`;
 
-      this.fbxLoader.load(
-        modelPath,
-        (fbx) => {
+    const modelPromise = this.assetManager.loadFBX(modelPath)
+        .then((fbx) => {
           fbx.scale.setScalar(0.05);
 
           const animations = {};
@@ -72,20 +70,13 @@ export class CharacterManager {
           }
 
           this.animationCache.set(normalizedRole, Promise.resolve(animations));
-          resolve(fbx);
-        },
-        (progress) => {
-          // console.debug(`Loading merged model for ${normalizedRole}: ${((progress.loaded / progress.total) * 100).toFixed(2)}%`);
-        },
-        (error) => {
-          reject(
-            new Error(
+          return fbx;
+        })
+        .catch((error) => {
+            throw new Error(
               `Failed to load merged model for role '${role}' (normalized: '${normalizedRole}'): ${error.message || error}`
-            )
-          );
-        }
-      );
-    });
+            );
+        });
 
     this.modelCache.set(normalizedRole, modelPromise);
     return modelPromise;
