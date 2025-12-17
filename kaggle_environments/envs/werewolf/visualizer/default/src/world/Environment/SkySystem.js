@@ -422,12 +422,38 @@ export class SkySystem {
         -0.05, 0, -0.2  // 8: Back joint
     ]);
     
-    // Use Standard material for lighting interactions
+    // Use Standard material with custom Vertex Shader for distance-based scaling
     const material = new this.THREE.MeshStandardMaterial({
         color: 0x222222,
         roughness: 0.9,
         side: this.THREE.DoubleSide
     });
+
+    material.onBeforeCompile = (shader) => {
+        shader.vertexShader = `
+            varying float vDistance;
+        ` + shader.vertexShader;
+
+        shader.vertexShader = shader.vertexShader.replace(
+            '#include <project_vertex>',
+            `
+            vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+            
+            // Calculate distance to camera
+            float dist = length(mvPosition.xyz);
+            vDistance = dist;
+
+            // Shrink to 0 if closer than 30 units, full scale at 60 units
+            float scaleFactor = smoothstep(30.0, 60.0, dist);
+            
+            // Apply scaling relative to object center (0,0,0 in local space)
+            // Since 'transformed' is the vertex position, scaling it scales the mesh.
+            mvPosition = modelViewMatrix * vec4( transformed * scaleFactor, 1.0 );
+
+            gl_Position = projectionMatrix * mvPosition;
+            `
+        );
+    };
 
     for(let i=0; i<birdCount; i++) {
         const geometry = new this.THREE.BufferGeometry();
@@ -440,7 +466,7 @@ export class SkySystem {
         
         bird.position.set(
             (Math.random() - 0.5) * 100,
-            35 + Math.random() * 20, // Reduced height
+            35 + Math.random() * 20, // Reverted height
             (Math.random() - 0.5) * 100
         );
         
@@ -465,6 +491,7 @@ export class SkySystem {
   }
 
   updatePhase(phase, currentEventIndex) {
+
     if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
 
     const normalizedPhase = (phase || 'DAY').toUpperCase();
