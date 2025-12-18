@@ -71,12 +71,12 @@ export class World {
     this.sceneManager.controls.update();
 
     // Debug: Log camera position when user stops moving it
-    this.sceneManager.controls.addEventListener('end', () => {
-        const p = camera.position;
-        const t = this.sceneManager.controls.target;
-        console.log(`Camera Pos: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
-        console.log(`Target: { x: ${t.x.toFixed(2)}, y: ${t.y.toFixed(2)}, z: ${t.z.toFixed(2)} }`);
-    });
+    //    this.sceneManager.controls.addEventListener('end', () => {
+    //        const p = camera.position;
+    //        const t = this.sceneManager.controls.target;
+    //        console.log(`Camera Pos: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
+    //        console.log(`Target: { x: ${t.x.toFixed(2)}, y: ${t.y.toFixed(2)}, z: ${t.z.toFixed(2)} }`);
+    //    });
 
     this.startRenderLoop();
   }
@@ -130,7 +130,7 @@ export class World {
     if (normalizedPhase === 'NIGHT') {
       targetPhase = 0.5 + phaseProgress * 0.5;
     } else {
-      targetPhase = phaseProgress * 0.5;
+      targetPhase = phaseProgress * 0.49;
     }
 
     if (!this.phaseTransition) {
