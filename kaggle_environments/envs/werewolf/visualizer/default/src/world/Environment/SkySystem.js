@@ -680,7 +680,8 @@ export class SkySystem {
     // 1. Determine Day/Night (Strict Threshold)
     const isNight = phase >= 0.5;
 
-    const sunDistance = 400;
+    // const sunDistance = 400;
+    const sunDistance = 1000;
     const moonDistance = 900;
 
     let sunX, sunY, sunZ;
