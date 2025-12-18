@@ -683,89 +683,98 @@ export class SkySystem {
     const sunDistance = 400;
     const moonDistance = 900;
 
-    // 2. Define Restricted Arcs for Day Sun
-    const minElevation = Math.PI / 12; // 15 degrees
-    const maxElevation = Math.PI - Math.PI / 12; // 165 degrees
-    const angularRange = maxElevation - minElevation;
-
-    let sunAngle, moonAngle;
-    let moonX, moonY, moonZ; // Declare variables here
+    let sunX, sunY, sunZ;
+    let moonX, moonY, moonZ;
 
     if (!isNight) {
         // --- DAY PHASE (0.0 to 0.5) ---
-        const dayProgress = Math.min(1.0, Math.max(0.0, phase / 0.5));
-        sunAngle = minElevation + dayProgress * angularRange;
+        const dayProgress = Math.max(0, Math.min(1, phase / 0.5));
         
-        // Moon is hidden (opposite side)
-        moonAngle = sunAngle + Math.PI;
+        // Sun Arc: 0 to PI (East -> Zenith -> West)
+        const theta = dayProgress * Math.PI; 
         
-        // Standard Day Moon Position (Opposite Sun)
-        const moonTilt = 0.2; 
-        const mX = moonDistance * Math.cos(moonAngle);
-        const mYBase = moonDistance * Math.sin(moonAngle);
-        moonX = mX;
-        moonY = mYBase * Math.cos(moonTilt);
-        moonZ = mYBase * Math.sin(moonTilt);
+        sunX = sunDistance * Math.cos(theta);
+        sunY = sunDistance * Math.sin(theta);
+        sunZ = 0;
+
+        // Hide Moon
+        moonX = sunDistance * Math.cos(theta + Math.PI);
+        moonY = -sunDistance;
+        moonZ = 0;
+
+        // --- ATMOSPHERE (Clear Sky Recipe) ---
+        const elevation = Math.max(0, sunY / sunDistance);
+        const elevationDeg = elevation * 90;
+        
+        const skyUniforms = this.sky.material.uniforms;
+
+        if (elevationDeg > 20) {
+            skyUniforms['turbidity'].value = 0.05;
+            skyUniforms['rayleigh'].value = 0.5;
+            skyUniforms['mieCoefficient'].value = 0.002;
+            skyUniforms['mieDirectionalG'].value = 0.99;
+        } else if (elevationDeg > 2) {
+            const t = (elevationDeg - 2) / (20 - 2); 
+            skyUniforms['turbidity'].value = this.THREE.MathUtils.lerp(15.0, 0.05, t);
+            skyUniforms['rayleigh'].value = this.THREE.MathUtils.lerp(3.0, 0.5, t);
+            skyUniforms['mieCoefficient'].value = this.THREE.MathUtils.lerp(0.05, 0.002, t);
+            skyUniforms['mieDirectionalG'].value = this.THREE.MathUtils.lerp(0.8, 0.99, t);
+        } else {
+            skyUniforms['turbidity'].value = 15.0;
+            skyUniforms['rayleigh'].value = 3.0;
+            skyUniforms['mieCoefficient'].value = 0.05;
+            skyUniforms['mieDirectionalG'].value = 0.8;
+        }
+
+        // Sun Color
+        if (elevationDeg < 5) {
+             this.sunLight.color.setHex(0xffaa00);
+             this.sunLight.intensity = 0.0; 
+        } else if (elevationDeg < 20) {
+             this.sunLight.color.setHex(0xffddaa);
+             this.sunLight.intensity = 0.6;
+        } else {
+             this.sunLight.color.setHex(0xffffff);
+             this.sunLight.intensity = 0.8;
+        }
+
     } else {
         // --- NIGHT PHASE (0.5 to 1.0) ---
-        const nightProgress = Math.min(1.0, Math.max(0.0, (phase - 0.5) / 0.5));
+        const nightProgress = Math.max(0, Math.min(1, (phase - 0.5) / 0.5));
         
-        // Horizontal Travel (< 120 degrees)
+        // Moon Position
         const sweepRange = 100 * (Math.PI / 180);
-        const azimuth = (0.5 - nightProgress) * sweepRange; // +50 to -50
+        const azimuth = (0.5 - nightProgress) * sweepRange; 
         
-        // Base Position on horizontal circle (XZ plane)
         const arcRadius = moonDistance;
-        let mX = arcRadius * Math.sin(azimuth);
-        let mZ = -arcRadius * Math.cos(azimuth);
-        
-        // "Sit 5 degrees above horizon"
-        const baseElevationAngle = 5 * (Math.PI / 180);
-        let mY = arcRadius * Math.sin(baseElevationAngle);
-        
-        // "5 degree tilt"
-        const tiltAngle = 5 * (Math.PI / 180);
-        
-        // Apply tilt rotation to X/Y
-        const tiltedX = mX * Math.cos(tiltAngle) - mY * Math.sin(tiltAngle);
-        const tiltedY = mX * Math.sin(tiltAngle) + mY * Math.cos(tiltAngle);
-        
-        // Assign final positions
-        moonX = tiltedX;
-        moonY = tiltedY;
+        const mX = arcRadius * Math.sin(azimuth);
+        const mZ = -arcRadius * Math.cos(azimuth);
+        const mY = arcRadius * Math.sin(15 * Math.PI / 180);
+
+        moonX = mX;
+        moonY = mY;
         moonZ = mZ;
 
-        // Hide Sun
-        sunAngle = -Math.PI / 2; // Below horizon
+        sunX = 0; sunY = -sunDistance; sunZ = 0;
+
+        // Night Atmosphere
+        const skyUniforms = this.sky.material.uniforms;
+        skyUniforms['turbidity'].value = 10;
+        skyUniforms['rayleigh'].value = 2.0;
+        skyUniforms['mieCoefficient'].value = 0.005;
+        skyUniforms['mieDirectionalG'].value = 0.8;
+        
+        // Star Rotation
+        if (this.stars) {
+             this.stars.rotation.y = (nightProgress - 0.5) * 0.5;
+        }
     }
 
-    // --- Calculate Positions ---
-    // Sun
-    const sunX = sunDistance * Math.cos(sunAngle);
-    const sunY = sunDistance * Math.sin(sunAngle);
-    const sunZ = 0;
-    
-    // Update Sun Object
+    // --- Apply ---
     this.sunPosition.set(sunX, sunY, sunZ);
     this.sky.material.uniforms['sunPosition'].value.copy(this.sunPosition);
     this.sunLight.position.copy(this.sunPosition);
-    
-    // Sun Intensity logic
-    this.sunLight.intensity = (!isNight) ? 0.8 : 0.0;
     this.sunLight.visible = !isNight;
-    
-    // Sun Color logic
-    if (!isNight) {
-        // ... (Keep existing day color logic)
-        const distFromZenith = Math.abs(sunAngle - Math.PI/2);
-        const maxDist = Math.PI/2 - minElevation;
-        const normalizedHeight = 1.0 - (distFromZenith / maxDist);
-        if (normalizedHeight < 0.3) {
-            this.sunLight.color.setHex(0xffaa66);
-        } else {
-            this.sunLight.color.setHex(0xffffff);
-        }
-    }
 
     // Update Moon Object
     if (this.moonMesh) {
