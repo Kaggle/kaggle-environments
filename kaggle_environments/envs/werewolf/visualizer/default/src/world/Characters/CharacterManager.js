@@ -301,8 +301,11 @@ export class CharacterManager {
     });
   }
 
-  // ... (rest of methods: updatePlayerActive, updatePlayerStatus, playAnimation, trigger..., update, reset)
-  // I will just append the methods I defined in the previous step
+  resetAnimations() {
+    this.playerObjects.forEach((player, playerName) => {
+        this.playAnimation(playerName, 'Idle');
+    });
+  }
 
   updatePlayerActive(playerName) {
     const player = this.playerObjects.get(playerName);
