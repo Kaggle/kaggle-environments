@@ -807,10 +807,12 @@ export class SkySystem {
       const distFromNoon = Math.abs(dayProgress - 0.5) * 2; // 0 (noon) to 1 (edges)
       
       // Interpolate
-      skyUniforms['turbidity'].value = 4.7 + distFromNoon * 3.0;
-      skyUniforms['rayleigh'].value = 0.2 + distFromNoon * 0.8;
+      // Minimal haze, maximum blue clarity
+      skyUniforms['turbidity'].value = 10. + distFromNoon * 5.;
+      skyUniforms['rayleigh'].value = 0.05 + distFromNoon * 0.05;
+      // skyUniforms['mieCoefficient'].value = 0.001;
       skyUniforms['mieCoefficient'].value = 0.001 + distFromNoon * 0.005;
-      skyUniforms['mieDirectionalG'].value = 0.9;
+      skyUniforms['mieDirectionalG'].value = 0.99;
     } else {
       // NIGHT ATMOSPHERE
       // Dark, high turbidity to simulate night sky
