@@ -380,7 +380,7 @@ export class SkySystem {
       const i3 = i * 3;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const radius = 400 + Math.random() * 100;
+      const radius = 2000 + Math.random() * 500;
 
       positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
       positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
@@ -399,7 +399,7 @@ export class SkySystem {
       colors[i3 + 1] = starColor.g;
       colors[i3 + 2] = starColor.b;
 
-      sizes[i] = Math.random() * 2 + 0.5;
+      sizes[i] = Math.random() * 10 + 2.5;
     }
 
     const geometry = new this.THREE.BufferGeometry();
