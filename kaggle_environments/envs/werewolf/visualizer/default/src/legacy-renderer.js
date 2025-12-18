@@ -478,6 +478,9 @@ export function renderer(context, parent) {
       if (!threeState.world) return;
       const world = threeState.world;
       
+      // Ensure we start with a clean animation state for this step
+      world.characterManager.resetAnimations();
+      
       // Hide chat bubbles
       world.characterManager.playerObjects.forEach(p => {
           if (p.playerUI && p.playerUI.element) p.playerUI.element.classList.remove('chat-active');
