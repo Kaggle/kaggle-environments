@@ -1,3 +1,5 @@
+import { FALLBACK_THUMBNAIL_IMG } from '../../utils/helpers.js';
+
 export class CharacterManager {
   constructor(scene, THREE, SkeletonUtils, CSS2DObject, assetManager) {
     this.scene = scene;
@@ -265,7 +267,7 @@ export class CharacterManager {
       playerContainer.rotation.y = angleToCenter + Math.PI;
 
       const thumbnailUrl =
-        playerThumbnails[name] || `https://via.placeholder.com/60/2c3e50/ecf0f1?text=${name.charAt(0)}`;
+        playerThumbnails[name] || FALLBACK_THUMBNAIL_IMG;
 
       const focusCallback = (playerName) => {
           if (window.werewolfThreeJs && window.werewolfThreeJs.demo) {
