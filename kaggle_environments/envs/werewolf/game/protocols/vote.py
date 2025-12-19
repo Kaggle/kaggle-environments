@@ -351,8 +351,8 @@ class SequentialVoting(VotingProtocol):
         # In sequential voting, expected_voters should contain exactly one player.
         if not expected_voters:
             # This case should ideally not be reached if `done()` is false.
-            # If it is, advancing the turn might be a safe way to prevent a stall.
-            self._current_voter_index += 1
+            # However, if it happens (e.g. initialization where ActionQueue is empty),
+            # we should NOT skip the turn. The Engine will query get_next_voters() again.
             return
 
         expected_voter_id = expected_voters[0]
