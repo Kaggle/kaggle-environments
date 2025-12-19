@@ -261,7 +261,16 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       const header = container.querySelector('h1');
       if (header) {
         header.onclick = () => {
-          container.classList.toggle('collapsed');
+          const isCollapsed = container.classList.toggle('collapsed');
+          // Also toggle parent class for subtitle visibility
+          const grandparent = container.closest('.werewolf-parent');
+          if (grandparent) {
+            if (isCollapsed) {
+              grandparent.classList.remove('left-panel-visible');
+            } else {
+              grandparent.classList.add('left-panel-visible');
+            }
+          }
         };
       }
       // Initially collapse the panel
