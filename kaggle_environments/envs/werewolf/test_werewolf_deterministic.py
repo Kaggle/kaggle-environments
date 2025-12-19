@@ -64,7 +64,7 @@ def test_game_result(deterministic_agents_config, deterministic_config_options):
 
     result = GameEndResultsDataEntry(**env.info[EnvInfoKeys.GAME_END])
 
-    assert len(env.steps) == 24
+    assert len(env.steps) == 26
     assert result.winner_team == Team.VILLAGERS
     assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
     assert result.loser_ids == ["player_0", "player_1"]
@@ -147,7 +147,7 @@ def test_round_by_round_bidding_discussion_sequential_vote(deterministic_agents_
 
     result = GameEndResultsDataEntry(**env.info[EnvInfoKeys.GAME_END])
 
-    assert len(env.steps) == 34
+    assert len(env.steps) == 36
     assert result.winner_team == Team.VILLAGERS
     assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
     assert result.loser_ids == ["player_0", "player_1"]
@@ -187,7 +187,7 @@ def test_turn_by_turn_bidding(deterministic_agents_config, deterministic_config_
 
     result = GameEndResultsDataEntry(**env.info[EnvInfoKeys.GAME_END])
 
-    assert len(env.steps) == 34
+    assert len(env.steps) == 36
     assert result.winner_team == Team.VILLAGERS
     assert result.winner_ids == ["player_2", "player_3", "player_4", "player_5", "player_6"]
     assert result.loser_ids == ["player_0", "player_1"]
