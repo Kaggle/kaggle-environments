@@ -302,7 +302,12 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
         let reasoningToggleHtml = '';
         if (entry.reasoning) {
           const reasoningId = `reasoning-${window.werewolfGamePlayer.reasoningCounter++}`;
-          reasoningHtml = `<div class="reasoning-text" id="${reasoningId}">"${entry.reasoning}"</div>`;
+          let reasoningText = entry.reasoning;
+          // Apply player ID replacement to reasoning text so that e.g. "p0" becomes "Bot (1)"
+          if (window.werewolfGamePlayer && window.werewolfGamePlayer.playerIdReplacer) {
+            reasoningText = window.werewolfGamePlayer.playerIdReplacer(reasoningText);
+          }
+          reasoningHtml = `<div class="reasoning-text" id="${reasoningId}">"${reasoningText}"</div>`;
           reasoningToggleHtml = `<span class="reasoning-toggle" title="Show/Hide Reasoning" onclick="event.stopPropagation(); document.getElementById('${reasoningId}').classList.toggle('visible')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </span>`;

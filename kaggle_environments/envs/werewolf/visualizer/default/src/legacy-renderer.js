@@ -10,6 +10,7 @@ import {
   createPlayerIdReplacer,
   updateEventLog
 } from './utils/helpers.js';
+import { disambiguateDisplayNames } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
 
 if (!window.werewolfThreeJs) {
@@ -290,6 +291,9 @@ export function renderer(context, parent) {
       display_name: configAgent.display_name || playerId,
     };
   });
+
+  disambiguateDisplayNames(gameState.players);
+
   const playerMap = new Map(gameState.players.map((p) => [p.name, p]));
 
   if (!player.playerIdReplacer) {
