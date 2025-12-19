@@ -25,6 +25,11 @@ export class UIManager {
     const img = document.createElement('img');
     img.className = 'player-avatar-3d';
     img.src = imageUrl;
+    img.onerror = function () {
+      if (window.handleThumbnailError) {
+        window.handleThumbnailError(this);
+      }
+    };
     playerInfoCard.appendChild(img);
 
     const textDetails = document.createElement('div');

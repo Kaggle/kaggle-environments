@@ -8,7 +8,8 @@ import {
 } from './audio/AudioController.js';
 import {
   createPlayerIdReplacer,
-  updateEventLog
+  updateEventLog,
+  FALLBACK_THUMBNAIL_IMG
 } from './utils/helpers.js';
 import { disambiguateDisplayNames } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
@@ -280,7 +281,7 @@ export function renderer(context, parent) {
   gameState.players = allPlayerNamesList.map((playerId) => {
     const configAgent = agentConfigMap.get(playerId) || {};
     // Prioritize configAgent.thumbnail (from GAME_END or config) over initial observation
-    const thumbnail = configAgent.thumbnail || playerThumbnails[playerId] || `https://via.placeholder.com/40/2c3e50/ecf0f1?text=${playerId.charAt(0)}`;
+    const thumbnail = configAgent.thumbnail || playerThumbnails[playerId] || FALLBACK_THUMBNAIL_IMG;
     return {
       name: playerId,
       is_alive: true,

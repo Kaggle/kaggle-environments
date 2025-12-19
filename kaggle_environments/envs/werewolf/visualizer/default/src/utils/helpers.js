@@ -12,6 +12,17 @@ export function formatTimestamp(isoString) {
     }
   }
 
+// Dark purple background (#2d1b4e) with white question mark
+export const FALLBACK_THUMBNAIL_IMG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMyZDFiNGUiLz48dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2MCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIj4/PC90ZXh0Pjwvc3ZnPg==";
+
+// Global handler for thumbnail errors
+window.handleThumbnailError = function (img) {
+  if (img && img.src !== FALLBACK_THUMBNAIL_IMG) {
+    img.onerror = null; // Prevent infinite loop
+    img.src = FALLBACK_THUMBNAIL_IMG;
+  }
+};
+
   /**
    * Creates a memoized function to replace player IDs with HTML capsules.
    * This function pre-computes and caches sorted player data for efficiency.
@@ -57,7 +68,7 @@ export function formatTimestamp(isoString) {
     if (!player) return '';
     const nameToShow = player.display_name || player.name;
     return `<span class="player-capsule" title="${player.name}">
-        <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}">
+        <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}" onerror="handleThumbnailError(this)">
         <span class="capsule-name">${nameToShow}</span>
     </span>`;
   }
@@ -203,7 +214,7 @@ export function formatTimestamp(isoString) {
 
       li.innerHTML = `
             <div class="avatar-container">
-                <img src="${player.thumbnail}" alt="${player.name}" class="avatar">
+                <img src="${player.thumbnail}" alt="${player.name}" class="avatar" onerror="handleThumbnailError(this)">
             </div>
             <div class="player-info">
                 ${player_name_element}
@@ -345,7 +356,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const messageText = window.werewolfGamePlayer.playerIdReplacer(entry.message);
             li.className = `chat-entry event-day`;
             li.innerHTML = `
-                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar">
+                        <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
                                 <span> <span>${speaker.name}</span>
@@ -376,7 +387,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const seerCap = createPlayerCapsule(playerMap.get(entry.actor_id));
             li.className = `chat-entry event-night`;
             li.innerHTML = `
-                        <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar">
+                        <img src="${seerInspector.thumbnail}" alt="${seerInspector.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>Seer Secret Inspect ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
@@ -404,7 +415,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
 
             li.className = `chat-entry ${phaseClass}`;
             li.innerHTML = `
-                        <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar">
+                        <img src="${seerResultViewer.thumbnail}" alt="${seerResultViewer.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>Seer Inspect Result ${timestampHtml}</cite>
                             <div class="balloon">
@@ -427,7 +438,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const docCap = createPlayerCapsule(playerMap.get(entry.actor_id));
             li.className = `chat-entry event-night`;
             li.innerHTML = `
-                        <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar">
+                        <img src="${doctor.thumbnail}" alt="${doctor.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>Doctor Secret Heal ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
@@ -525,7 +536,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const voteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
             li.className = `chat-entry event-day`;
             li.innerHTML = `
-                        <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar">
+                        <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
                                 <span> <span>${voter.name}</span>
@@ -553,7 +564,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const to_voterCap = createPlayerCapsule(playerMap.get(entry.actor_id));
             li.className = `chat-entry event-day`;
             li.innerHTML = `
-                        <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar">
+                        <img src="${to_voter.thumbnail}" alt="${to_voter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>${to_voter.name} ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
@@ -570,7 +581,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             const nightVoteTargetCap = createPlayerCapsule(playerMap.get(entry.target));
             li.className = `chat-entry event-night`;
             li.innerHTML = `
-                        <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar">
+                        <img src="${nightVoter.thumbnail}" alt="${nightVoter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>Werewolf Secret Vote ${reasoningToggleHtml} ${timestampHtml}</cite>
                             <div class="balloon">
