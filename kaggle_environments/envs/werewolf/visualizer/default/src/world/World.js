@@ -150,7 +150,14 @@ export class World {
         this.sceneManager.renderer.toneMappingExposure = 0.5 + (0.3 - phaseValue * 0.2);
     }
     
-    this.skySystem.updateSkySystem(phaseValue);
+    // Check if we are transitioning from Night to Day (Rewinding)
+    // Target is Day (< 0.5) but we are still in Night values (>= 0.5)
+    let isRewinding = false;
+    if (this.phaseTransition && this.phaseTransition.target < 0.5 && phaseValue >= 0.5) {
+      isRewinding = true;
+    }
+
+    this.skySystem.updateSkySystem(phaseValue, isRewinding);
     this.lightingManager.update(phaseValue);
     
     if (this.sceneManager.scene.fog) {

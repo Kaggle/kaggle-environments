@@ -293,6 +293,8 @@ export class SkySystem {
       emissiveIntensity: 0.9,
       roughness: 1.0,
       metalness: 0.0,
+      transparent: true, // Enable transparency
+      opacity: 1.0,
     });
 
     this.moonSphere = new this.THREE.Mesh(moonGeometry, moonMaterial);
@@ -674,7 +676,7 @@ export class SkySystem {
     return targetPhase;
   }
 
-  updateSkySystem(phase) {
+  updateSkySystem(phase, isRewinding = false) {
     if (!this.sky || !this.sunLight || !this.moonLight) return;
 
     // 1. Determine Day/Night (Strict Threshold)
@@ -781,20 +783,29 @@ export class SkySystem {
     if (this.moonMesh) {
       this.moonMesh.position.set(moonX, moonY, moonZ);
       this.moonMesh.lookAt(0, 0, 0);
-      this.moonMesh.visible = isNight;
+
+      // Hide moon if rewinding (transitioning from Night -> Day which causes the "backwards" effect)
+      if (isRewinding) {
+        this.moonMesh.visible = false;
+      } else {
+        this.moonMesh.visible = isNight;
+      }
       
       // Update Moon Rotation/Color
       if (this.moonSphere && this.moonSphere.material) {
          // ... (Keep existing color logic)
-         if (isNight) {
+        if (isNight && !isRewinding) {
              this.moonSphere.material.color.setHex(0xff6633);
              this.moonSphere.material.emissive.setHex(0xdd5522);
              this.moonSphere.material.emissiveIntensity = 0.9;
+          this.moonSphere.material.opacity = 1.0;
              this.moonLight.color.setHex(0xff6633);
          } else {
+          // Fade out or just hide
              this.moonSphere.material.color.setHex(0xffffff);
              this.moonSphere.material.emissive.setHex(0x222222);
              this.moonSphere.material.emissiveIntensity = 0.2;
+          this.moonSphere.material.opacity = 0.0; // Fully transparent when not active
              this.moonLight.color.setHex(0xaaccff);
          }
          this.moonSphere.rotation.y = phase * Math.PI * 4;
@@ -834,7 +845,7 @@ export class SkySystem {
 
     // Stars
     if (this.starsMaterial) {
-      if (isNight) {
+      if (isNight && !isRewinding) {
           this.starsMaterial.uniforms.phase.value = 1.0; 
       } else {
         this.starsMaterial.uniforms.phase.value = 0;
