@@ -856,27 +856,85 @@ export const rendererCss = `
     width: 80%;
     max-width: 1200px;
     text-align: center;
-    pointer-events: none;
+    pointer-events: none; /* Make sure to enable pointer events for buttons later if needed, but container wrapper might need pointer-events: none and children auto */
+    /* Update: We need pointer events for buttons! */
+    pointer-events: auto;
     z-index: 2000;
     
     font-family: 'Inter', sans-serif;
-    font-size: 14px; /* Reduced from 24px */
+    font-size: 14px;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.5;
     color: #ffffff;
     
-    /* Cinematic text shadow for readability on any background */
-    text-shadow: 
-        0px 2px 4px rgba(0, 0, 0, 0.8),
-        0px 0px 4px rgba(0, 0, 0, 0.8),
-        0px 0px 8px rgba(0, 0, 0, 1);
-    
+    display: flex; /* Use flexbox for layout */
+    align-items: center; /* Center vertically */
+    justify-content: center; /* Center horizontally */
+    gap: 10px; /* Space between text and controls */
+
+    background: rgba(0, 0, 0, 0.6); /* Slightly darker background for readability */
+    padding: 10px 20px;
+    border-radius: 8px;
+
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
 }
 
 .cinematic-subtitle-container.visible {
     opacity: 1;
+}
+
+.cinematic-subtitle-content-wrapper {
+    flex: 1;
+    max-height: 80px; /* Increased height (~4-5 lines) */
+    overflow-y: auto; /* Enable native scrolling */
+    position: relative;
+    text-align: center;
+    scroll-behavior: smooth;
+    pointer-events: auto; /* Ensure scrolling works */
+
+    /* Hide scrollbar for aesthetics but allow scroll */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.cinematic-subtitle-content-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.subtitle-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    opacity: 0; /* Hidden unless needed */
+    transition: opacity 0.2s;
+}
+
+.subtitle-controls.visible {
+    opacity: 1;
+}
+
+.subtitle-scroll-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.subtitle-scroll-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.subtitle-scroll-btn:active {
+    background: rgba(255, 255, 255, 0.6);
 }
 
 .subtitle-speaker {

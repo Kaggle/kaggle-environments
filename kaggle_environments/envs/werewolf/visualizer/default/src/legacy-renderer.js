@@ -226,6 +226,11 @@ export function renderer(context, parent) {
   const eventStep = allEventsIndex;
   const kaggleStep = eventToKaggleStep[eventStep] || 0;
 
+  // Track last update time to detect playback
+  if (window.werewolfThreeJs) {
+    window.werewolfThreeJs.lastStepUpdateTime = performance.now();
+  }
+
   let gameState = {
     players: [],
     day: 0,

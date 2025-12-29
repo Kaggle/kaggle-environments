@@ -270,6 +270,9 @@ export class World {
       this.voteVisuals.update();
       this.postProcessing.update(time, phaseValue);
 
+      // Update UI (Auto-scroll logic)
+      this.uiManager.update(delta);
+
       this.postProcessing.render();
       this.sceneManager.labelRenderer.render(this.sceneManager.scene, this.sceneManager.camera);
     };
