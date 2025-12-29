@@ -9,7 +9,8 @@ import {
 import {
   createPlayerIdReplacer,
   updateEventLog,
-  FALLBACK_THUMBNAIL_IMG
+  FALLBACK_THUMBNAIL_IMG,
+  shuffleIds
 } from './utils/helpers.js';
 import { disambiguateDisplayNames } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
@@ -262,9 +263,33 @@ export function renderer(context, parent) {
   let allPlayerNamesList = [];
   let playerThumbnails = {};
 
+  // Try to find player list from Moderator Observation (fallback if raw_observation is missing)
+  let moderatorPlayerIds = null;
+  if (environment.info && environment.info.MODERATOR_OBSERVATION && environment.info.MODERATOR_OBSERVATION[0]) {
+    const firstModStep = environment.info.MODERATOR_OBSERVATION[0];
+    for (const entry of firstModStep) {
+      if (entry.data_type === 'GameStartDataEntry') {
+        try {
+          const parsed = JSON.parse(entry.json_str);
+          if (parsed.data && parsed.data.player_ids) {
+            moderatorPlayerIds = parsed.data.player_ids;
+            break;
+          }
+        } catch (e) {
+          console.error("Error parsing GameStartDataEntry", e);
+        }
+      }
+    }
+  }
+
   if (firstObs && firstObs.all_player_ids) {
     allPlayerNamesList = firstObs.all_player_ids;
     playerThumbnails = firstObs.player_thumbnails || {};
+  } else if (moderatorPlayerIds) {
+    allPlayerNamesList = moderatorPlayerIds;
+  } else if (environment.configuration && environment.configuration.randomize_ids && environment.configuration.seed) {
+    // Deterministic fallback using the same LCG shuffle as python engine
+    allPlayerNamesList = shuffleIds(environment.configuration.agents, environment.configuration.seed);
   } else {
     allPlayerNamesList = Array.from(agentConfigMap.keys());
   }

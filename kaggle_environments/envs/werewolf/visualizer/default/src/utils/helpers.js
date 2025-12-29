@@ -718,7 +718,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
     const speedSlider = container.querySelector('#playback-speed');
     const speedLabel = container.querySelector('#speed-label');
 
-    if (speedSlider) {
+  if (speedSlider) {
       speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
         // Use custom event for speed change
@@ -729,3 +729,27 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       };
     }
   }
+
+export function getPermutation(items, seed) {
+  const m = 2147483648n; // 2^31
+  const a = 1103515245n;
+  const c = 12345n;
+  let shuffledItems = [...items];
+  let n = shuffledItems.length;
+  let currentSeed = BigInt(seed);
+
+  for (let i = n - 1; i > 0; i--) {
+    currentSeed = (a * currentSeed + c) % m;
+    // precise modulo with BigInt
+    let j = Number(currentSeed % BigInt(i + 1));
+    [shuffledItems[i], shuffledItems[j]] = [shuffledItems[j], shuffledItems[i]];
+  }
+  return shuffledItems;
+}
+
+export function shuffleIds(agentsConfig, seed) {
+  if (!agentsConfig || !seed) return [];
+  const ids = agentsConfig.map(a => a.id);
+  // seed + 123 is used in python engine
+  return getPermutation(ids, seed + 123);
+}
