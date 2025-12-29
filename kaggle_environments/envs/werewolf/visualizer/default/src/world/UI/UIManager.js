@@ -87,17 +87,58 @@ export class UIManager {
   displaySubtitle(message, reasoning, speakerName = '') {
     // No timeout - subtitle persists until cleared manually (or replaced)
     
-    let content = '';
+    // Construct HTML structure
+    let innerContent = '';
     if (speakerName) {
-        content += `<span class="subtitle-speaker">${speakerName}:</span> `;
+      innerContent += `<span class="subtitle-speaker">${speakerName}:</span> `;
     }
-    content += `<div class="cinematic-subtitle-text">${message}</div>`;
+    innerContent += `<div class="cinematic-subtitle-text">${message}</div>`;
 
     if (reasoning) {
-        content += `<div class="cinematic-subtitle-reasoning">${reasoning}</div>`;
+      innerContent += `<div class="cinematic-subtitle-reasoning">${reasoning}</div>`;
     }
 
-    this.subtitleContainer.innerHTML = content;
+    // 1. Check if we already have the wrapper, if so preserve it and just update content
+    let wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
+    if (!wrapper) {
+      // First time initialization of layout
+      this.subtitleContainer.innerHTML = `
+            <div class="cinematic-subtitle-content-wrapper"></div>
+            <div class="subtitle-controls">
+                <button class="subtitle-scroll-btn up">▲</button>
+                <button class="subtitle-scroll-btn down">▼</button>
+            </div>
+        `;
+      wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
+
+      // Setup Button Listeners
+      const upBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.up');
+      const downBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.down');
+
+      const scrollStep = 20;
+
+      if (upBtn) {
+        upBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (wrapper) wrapper.scrollTop -= scrollStep;
+        };
+      }
+
+      if (downBtn) {
+        downBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (wrapper) wrapper.scrollTop += scrollStep;
+        };
+      }
+    }
+
+    // Update Content
+    if (wrapper) {
+      wrapper.innerHTML = innerContent;
+      wrapper.scrollTop = 0; // Reset scroll on new message
+    }
+
+    // Show Container
     this.subtitleContainer.classList.add('visible');
     
     // Sync visibility state
@@ -109,14 +150,46 @@ export class UIManager {
     
     // Ensure we aren't in moderator mode
     this.subtitleContainer.classList.remove('moderator-mode');
+
+    // Show/Hide controls based on content overflow (checked in update loop or next frame)
+    // For now we set them visible if we expect overflow, but dynamic check is better.
+    // We'll rely on the update loop or just show them always if content is long?
+    // We'll check in update()
   }
 
   displayModeratorAnnouncement(message) {
-      let content = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
-      
-      this.subtitleContainer.innerHTML = content;
+    // Reuse displaySubtitle logic but add moderator class? 
+    // Or reimplement structure since moderator mode has specific styling.
+    // Let's reimplement structure for consistent scrolling.
+
+    let innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
+
+    let wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
+    if (!wrapper) {
+      this.subtitleContainer.innerHTML = `
+            <div class="cinematic-subtitle-content-wrapper"></div>
+            <div class="subtitle-controls">
+                <button class="subtitle-scroll-btn up">▲</button>
+                <button class="subtitle-scroll-btn down">▼</button>
+            </div>
+        `;
+      wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
+
+      // Setup Button Listeners (duplicated logic, should refactor if strict DRY needed but fine here)
+      const upBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.up');
+      const downBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.down');
+      const scrollStep = 20;
+      if (upBtn) upBtn.onclick = (e) => { e.stopPropagation(); if (wrapper) wrapper.scrollTop -= scrollStep; };
+      if (downBtn) downBtn.onclick = (e) => { e.stopPropagation(); if (wrapper) wrapper.scrollTop += scrollStep; };
+    }
+
+    if (wrapper) {
+      wrapper.innerHTML = innerContent;
+      wrapper.scrollTop = 0;
+    }
+
       this.subtitleContainer.classList.add('visible');
-      this.subtitleContainer.classList.add('moderator-mode');
+    this.subtitleContainer.classList.add('moderator-mode'); // Adds transparency/blur/shape
 
       // Sync visibility state
       if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
@@ -128,6 +201,41 @@ export class UIManager {
 
   clearSubtitle() {
       this.subtitleContainer.classList.remove('visible');
+  }
+
+  update(delta) {
+    if (!this.subtitleContainer.classList.contains('visible')) return;
+
+    const wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
+    const controls = this.subtitleContainer.querySelector('.subtitle-controls');
+
+    if (wrapper && controls) {
+      // Check if scrollable
+      if (wrapper.scrollHeight > wrapper.clientHeight) {
+        controls.classList.add('visible');
+
+        // Auto-Scroll Logic
+        const audioState = window.kaggleWerewolf;
+        const isAudioPlaying = audioState && audioState.isAudioEnabled && !audioState.isPaused;
+
+        // Check if steps are updating
+        const lastUpdate = (window.werewolfThreeJs && window.werewolfThreeJs.lastStepUpdateTime) || 0;
+        const isStepping = (performance.now() - lastUpdate) < 1000;
+
+        if (isAudioPlaying || isStepping) {
+          // Slow auto scroll
+          const rate = (audioState && audioState.playbackRate) || 1.0;
+          const speed = 10 * rate; // Pixels per second
+
+          // Only scroll if not at bottom?
+          if (Math.ceil(wrapper.scrollTop + wrapper.clientHeight) < wrapper.scrollHeight) {
+            wrapper.scrollTop += speed * delta;
+          }
+        }
+      } else {
+        controls.classList.remove('visible');
+      }
+    }
   }
 
   updateDynamicUI(playerObjects) {
