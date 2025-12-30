@@ -33,8 +33,8 @@ export class PostProcessing {
     const renderPass = new this.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // Optimize Bloom: Use half resolution of the ALREADY reduced composer resolution
-    const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.5, this.height * pixelRatio * 0.5);
+    // Optimize Bloom: Use quarter resolution of the ALREADY reduced composer resolution
+    const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.25, this.height * pixelRatio * 0.25);
     this.bloomPass = new this.UnrealBloomPass(
       bloomResolution,
       0.15,
@@ -141,7 +141,7 @@ export class PostProcessing {
     
     if (this.bloomPass) {
         // Bloom resolution relative to the composer size
-        this.bloomPass.resolution.set(width * 0.5, height * 0.5);
+      this.bloomPass.resolution.set(width * 0.25, height * 0.25);
     }
   }
 }
