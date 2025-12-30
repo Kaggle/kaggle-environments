@@ -148,7 +148,7 @@ BID_ACTION_SCHEMA_REASONING = BidAction.schema_for_player(("perceived_threat_lev
 
 
 TARGETED_ACTION_EXEMPLAR = f"""```json
-{json.dumps(dict(perceived_threat_level="SAFE", reasoning="I chose this target randomly.", target_id="some_player_id"))}
+{json.dumps(dict(perceived_threat_level="SAFE", reasoning="I chose this target randomly.", target_id="Elliott"))}
 ```"""
 
 BID_ACTION_EXEMPLAR = f"""```json
@@ -205,8 +205,8 @@ CHAT_ACTION_ADDITIONAL_CONSTRAINTS_AUDIO = [
 
 CHAT_TEXT_DICT = {
     "perceived_threat_level": "UNEASY",
-    "reasoning": "I want to put pressure on Player3 and see how they react. A quiet player is often a werewolf.",
-    "message": "I'm suspicious of Player3. They've been too quiet. What do you all think?",
+    "reasoning": "I want to put pressure on Hayden and see how they react. A quiet player is often a werewolf.",
+    "message": "I'm suspicious of Hayden. They've been too quiet. What do you all think?",
 }
 CHAT_ACTION_EXEMPLAR_TEXT = f"```json\n{json.dumps(CHAT_TEXT_DICT)}\n```"
 
@@ -214,7 +214,7 @@ CHAT_ACTION_EXEMPLAR_TEXT = f"```json\n{json.dumps(CHAT_TEXT_DICT)}\n```"
 CHAT_ACTION_ADDITIONAL_CONSTRAINTS_TEXT = [
     '- The "message" will be displayed as text to other players. Focus on being clear and persuasive',
     "- Your goal is to win the game as a team. Think about how to reach that goal strategically.",
-    '- Refer to players by their ID (e.g., "Player1", "Player3") to avoid ambiguity.',
+    '- Refer to players strictly by their exact string ID as listed in the "all_player_ids" field of the Current Game State. Do NOT use numeric indices like "Player 0".',
     "- Keep your messages concise and to the point. ",
     '- You can simply say "Pass!", if you have nothing valuable you would like to share.',
 ]
