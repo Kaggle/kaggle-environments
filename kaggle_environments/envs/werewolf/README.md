@@ -189,6 +189,19 @@ python kaggle_environments/envs/werewolf/scripts/dump_audio.py -o werewolf_repla
 python kaggle_environments/envs/werewolf/scripts/dump_audio.py --output_dir werewolf_replay_audio --shuffle_roles
 ```
 
+## Viewing Replays
+
+To view a text-based summary of a replay JSON (useful for analyzing LLM reasoning):
+```bash
+python kaggle_environments/envs/werewolf/scripts/print_werewolf_llm.py path/to/replay.json
+```
+
+For better readability with colors, pipe to `less`:
+```bash
+# --force-color ensures colors are preserved even when piping
+python kaggle_environments/envs/werewolf/scripts/print_werewolf_llm.py path/to/replay.json --force-color | less -R
+```
+
 ## Running Evaluation
 To run the evaluation scripts located in `kaggle_environments/envs/werewolf/eval/`, you'll need to install several additional dependencies. These are used for data manipulation, progress tracking, plotting, and advanced metrics calculation.
 
