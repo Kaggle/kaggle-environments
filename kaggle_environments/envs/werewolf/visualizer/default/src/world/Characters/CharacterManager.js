@@ -260,7 +260,7 @@ export class CharacterManager {
       const orbLight = new this.THREE.PointLight(0x00aa88, 0.4, 6);
       orbLight.position.y = modelHeight + 0.8;
       orbLight.name = 'orbLight';
-      orbLight.castShadow = true;
+      orbLight.castShadow = false;
       playerContainer.add(orbLight);
 
       const angleToCenter = Math.atan2(playerContainer.position.x, playerContainer.position.z);
