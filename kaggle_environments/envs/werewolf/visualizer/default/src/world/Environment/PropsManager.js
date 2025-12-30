@@ -30,7 +30,7 @@ export class PropsManager {
     const fireWidth = 5.0;
     const fireHeight = 7.0;
     const fireDepth = 5.0;
-    const sliceSpacing = 0.5;
+    const sliceSpacing = 1.0;
 
     if (this.VolumetricFire) {
       this.fire = new this.VolumetricFire(fireWidth, fireHeight, fireDepth, sliceSpacing, this.camera);
