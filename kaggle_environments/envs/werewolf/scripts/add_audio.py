@@ -1,9 +1,9 @@
-
 import argparse
 import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import wave
 from abc import ABC, abstractmethod
@@ -21,6 +21,62 @@ from kaggle_environments.envs.werewolf.runner import setup_logger
 
 # Initialize logger
 logger = logging.getLogger(__name__)
+
+
+class NameManager:
+    """Manages player display names and disambiguation."""
+
+    def __init__(self, replay_data: Dict):
+        self.id_to_display = {}
+        self._initialize_names(replay_data)
+
+    def _initialize_names(self, replay_data: Dict):
+        """Disambiguates display names similar to visualizer logic."""
+        agents = replay_data.get("configuration", {}).get("agents", [])
+
+        # 1. Count occurrences
+        name_counts = {}
+        for agent in agents:
+            # Fallback to ID if display_name is missing
+            name = agent.get("display_name") or agent.get("name") or agent.get("id")
+            name_counts[name] = name_counts.get(name, 0) + 1
+
+        # 2. Assign unique names
+        current_counts = {}
+        for agent in agents:
+            agent_id = agent.get("id")
+            name = agent.get("display_name") or agent.get("name") or agent.get("id")
+
+            if name_counts[name] > 1:
+                current_counts[name] = current_counts.get(name, 0) + 1
+                unique_name = f"{name} ({current_counts[name]})"
+            else:
+                unique_name = name
+
+            self.id_to_display[agent_id] = unique_name
+            logger.info(f"Mapped ID '{agent_id}' -> '{unique_name}'")
+
+    def get_name(self, agent_id: str) -> str:
+        """Returns the disambiguated display name for an agent ID."""
+        return self.id_to_display.get(agent_id, agent_id)
+
+    def replace_names(self, text: str) -> str:
+        """Replaces all occurrences of known agent IDs in text with display names."""
+        if not text:
+            return text
+
+        # Sort by length descending to prevent partial matches (though IDs are usually distinct)
+        # Using word boundaries to avoid replacing substrings
+        sorted_ids = sorted(self.id_to_display.keys(), key=len, reverse=True)
+
+        for agent_id in sorted_ids:
+            display_name = self.id_to_display[agent_id]
+            if agent_id != display_name:
+                # Use regex for whole word matching
+                pattern = r'\b' + re.escape(agent_id) + r'\b'
+                text = re.sub(pattern, display_name, text)
+
+        return text
 
 
 class AudioConfig:
@@ -64,7 +120,7 @@ class ReplayParser:
         logger.info("Extracting game data from replay...")
         unique_speaker_messages = set()
         dynamic_moderator_messages = set()
-        
+
         info = self.replay_data.get("info", {})
         moderator_log_steps = info.get("MODERATOR_OBSERVATION", [])
 
@@ -84,12 +140,12 @@ class ReplayParser:
                     continue
 
                 self._process_entry(
-                    data_type, 
-                    data, 
-                    event_name, 
-                    description, 
-                    day_count, 
-                    unique_speaker_messages, 
+                    data_type,
+                    data,
+                    event_name,
+                    description,
+                    day_count,
+                    unique_speaker_messages,
                     dynamic_moderator_messages
                 )
 
@@ -97,8 +153,8 @@ class ReplayParser:
         logger.info(f"Found {len(dynamic_moderator_messages)} dynamic moderator messages.")
         return unique_speaker_messages, dynamic_moderator_messages
 
-    def _process_entry(self, data_type, data, event_name, description, day_count, 
-                      unique_speaker_messages, dynamic_moderator_messages):
+    def _process_entry(self, data_type, data, event_name, description, day_count,
+                       unique_speaker_messages, dynamic_moderator_messages):
         """Processes a single event entry."""
         if data_type == "ChatDataEntry":
             if data.get("actor_id") and data.get("message"):
@@ -170,7 +226,7 @@ class LLMEnhancer:
         if not disabled and api_key:
             try:
                 self.client = genai.Client(api_key=api_key)
-            except Exception as e: # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to init GenAI client for LLM enhancement: {e}")
 
     def _load_prompt(self, path: str) -> str:
@@ -196,7 +252,7 @@ class LLMEnhancer:
                 with open(self.cache_path, "w", encoding="utf-8") as f:
                     json.dump(self.cache, f, indent=2, ensure_ascii=False)
                 logger.info(f"Saved LLM cache to {self.cache_path}")
-            except Exception as e: # pylint: disable=broad-exception-caught
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to save cache: {e}")
 
     def enhance(self, text: str, speaker: str) -> str:
@@ -210,7 +266,7 @@ class LLMEnhancer:
 
         logger.info(f"  - Enhancing text for {speaker}...")
         prompt = self.prompt_template.format(text=text, speaker=speaker)
-        
+
         try:
             response = self.client.models.generate_content(
                 model="gemini-2.0-flash-exp",
@@ -221,7 +277,7 @@ class LLMEnhancer:
                 self.cache[cache_key] = enhanced
                 self.cache_updated = True
                 return enhanced
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning(f"  - LLM enhancement failed: {e}")
 
         return text
@@ -306,12 +362,15 @@ class AudioManager:
         self.audio_dir = os.path.join(output_dir, config.paths.get("audio_dir_name", "audio"))
         os.makedirs(self.audio_dir, exist_ok=True)
         self.audio_map = {}
+        self.name_manager = None
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
+        self.name_manager = NameManager(replay_data)
+
         parser = ReplayParser(replay_data)
         unique_msgs, dyn_mod_msgs = parser.extract_messages()
-        
+
         messages = self._prepare_messages(unique_msgs, dyn_mod_msgs, replay_data)
         self._generate_audio_batch(messages)
         self._save_audio_map()
@@ -319,10 +378,19 @@ class AudioManager:
     def _prepare_messages(self, unique_msgs, dyn_mod_msgs, replay_data) -> List[Dict]:
         """Prepares a list of message objects for processing."""
         messages = []
-        
+
         # Helper to add
         def add(speaker, key, text, voice):
-            messages.append({"speaker": speaker, "key": key, "text": text, "voice": voice})
+            # Key remains raw for lookup compatibility
+            # Text is updated with display names for better TTS
+            tts_text = self.name_manager.replace_names(text)
+            messages.append({
+                "speaker": speaker,
+                "key": key,
+                "original_text": text,
+                "tts_text": tts_text,
+                "voice": voice
+            })
 
         # 1. Static Moderator Messages
         moderator_voice = self.config.voices["moderator"]
@@ -339,6 +407,7 @@ class AudioManager:
 
         # 2. Dynamic Moderator Messages
         for msg in dyn_mod_msgs:
+            # For dynamic messages, the key is the exact text
             add("moderator", msg, msg, moderator_voice)
 
         # 3. Player Messages
@@ -360,21 +429,26 @@ class AudioManager:
     def _generate_audio_batch(self, messages: List[Dict]):
         """Generates audio for a batch of messages."""
         logger.info(f"Processing {len(messages)} messages...")
-        
+
         for msg in messages:
-            speaker = msg["speaker"]
-            original_text = msg["text"]
+            speaker_id = msg["speaker"]
+
+            # Use display name for the speaker context in LLM enhancement
+            speaker_display_name = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
+
+            tts_text = msg["tts_text"]
             voice = msg["voice"]
             key = msg["key"]
 
-            # Enhance
-            final_text = self.enhancer.enhance(original_text, speaker)
+            # Enhance using the display-name-replaced text and speaker display name
+            final_text = self.enhancer.enhance(tts_text, speaker_display_name)
 
             # Generate Keys & Path
-            map_key = f"{speaker}:{key}"
+            # IMPORTANT: map_key uses raw speaker_id and raw key/text to match visualizer logic
+            map_key = f"{speaker_id}:{key}"
             filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
             audio_path_html = os.path.join(self.config.paths.get("audio_dir_name", "audio"), filename)
-            
+
             # Use abspath for local check, but audio_path_on_disk should be inside output_dir
             audio_path_disk = os.path.join(self.audio_dir, filename)
 
@@ -408,15 +482,15 @@ class AudioManager:
         debug_dir_name = self.config.paths.get("debug_audio_dir_name", "audio_debug")
         debug_dir = os.path.join(self.output_dir, debug_dir_name)
         os.makedirs(debug_dir, exist_ok=True)
-        
+
         filename = "debug_audio.wav"
         path = os.path.join(debug_dir, filename)
-        
+
         if not os.path.exists(path):
             content = self.tts.generate("Testing start, testing end.", "Charon")
             if content:
                 self._save_wave(path, content)
-        
+
         # Map everything to this file? (Not implemented fully in minimal functionality check)
         logger.info(f"Debug audio generated at {path}")
 
@@ -432,7 +506,7 @@ class VisualizerServer:
         audio_map_path = os.path.abspath(audio_map_path)
 
         logger.info(f"\nStarting Vite server from '{visualizer_dir}'...")
-        
+
         # Relativize for cleaner env vars
         try:
             rel_replay = os.path.relpath(replay_path, visualizer_dir)
@@ -476,16 +550,16 @@ def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory.")
-    parser.add_argument("-c", "--config_path", type=str, 
+    parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/standard.yaml"))
     parser.add_argument("--debug-audio", action="store_true", help="Generate debug audio only.")
     parser.add_argument("--serve", action="store_true", help="Start Vite server.")
     parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
-    parser.add_argument("--prompt_path", type=str, 
+    parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
     parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
-    
+
     args = parser.parse_args()
 
     # Defaults
