@@ -1,10 +1,9 @@
 import argparse
 import hashlib
-import http.server
 import json
 import logging
 import os
-import socketserver
+import subprocess
 import wave
 
 import yaml
@@ -59,7 +58,7 @@ def get_tts_audio_genai(client, text: str, voice_name: str) -> bytes | None:
 
 
 def get_tts_audio_vertex(
-    client, text: str, voice_name: str, model_name: str = "gemini-2.5-flash-preview-tts"
+        client, text: str, voice_name: str, model_name: str = "gemini-2.5-flash-preview-tts"
 ) -> bytes | None:
     """Fetches TTS audio from Vertex AI API."""
     if not text or not client:
@@ -170,13 +169,13 @@ def extract_game_data_from_json(replay_json):
 
 
 def generate_audio_files(
-    client,
-    tts_provider,
-    unique_speaker_messages,
-    dynamic_moderator_messages,
-    player_voice_map,
-    audio_config,
-    output_dir,
+        client,
+        tts_provider,
+        unique_speaker_messages,
+        dynamic_moderator_messages,
+        player_voice_map,
+        audio_config,
+        output_dir,
 ):
     """Generates and saves all required audio files, returning a map for the HTML."""
     logger.info("Extracting dialogue and generating audio files...")
@@ -223,7 +222,7 @@ def generate_audio_files(
 
 
 def generate_debug_audio_files(
-    output_dir, client, tts_provider, unique_speaker_messages, dynamic_moderator_messages, audio_config
+        output_dir, client, tts_provider, unique_speaker_messages, dynamic_moderator_messages, audio_config
 ):
     """Generates a single debug audio file and maps all events to it."""
     logger.info("Generating single debug audio for UI testing...")
@@ -274,52 +273,64 @@ def generate_debug_audio_files(
     return audio_map
 
 
-def render_html(existing_html_path, audio_map, output_file):
-    """Reads an existing HTML replay, injects the audio map, and saves it."""
-    logger.info(f"Reading existing HTML from: {existing_html_path}")
-    with open(existing_html_path, "r", encoding="utf-8") as f:
-        html_content = f.read()
-
-    logger.info("Injecting the local audio map into the HTML...")
-    audio_map_json = json.dumps(audio_map)
-    injection_script = f"<script>window.AUDIO_MAP = {audio_map_json};</script>"
-    html_content = html_content.replace("</head>", f"{injection_script}</head>")
-
+def save_audio_map(audio_map, output_dir):
+    """Saves the audio map to a JSON file."""
+    output_file = os.path.join(output_dir, "audio_map.json")
+    logger.info(f"Saving audio map to: {output_file}")
     with open(output_file, "w", encoding="utf-8") as f:
-        f.write(html_content)
-    logger.info(f"Successfully generated audio-enabled HTML at: {output_file}")
+        json.dump(audio_map, f, indent=2)
 
 
-def start_server(directory, port, filename):
-    """Starts a local HTTP server to serve the replay."""
-    logger.info(f"\nStarting local server to serve from the '{directory}' directory...")
+def start_server(visualizer_dir, replay_path, audio_map_path):
+    """Starts the Vite dev server with the custom replay and audio map."""
+    visualizer_dir = os.path.abspath(visualizer_dir)
+    replay_path = os.path.abspath(replay_path)
+    audio_map_path = os.path.abspath(audio_map_path)
 
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=directory, **kwargs)
+    logger.info(f"\nStarting Vite server from '{visualizer_dir}'...")
+    logger.info(f"Replay File: {replay_path}")
+    logger.info(f"Audio Map File: {audio_map_path}")
 
-    with socketserver.TCPServer(("", port), Handler) as httpd:
-        print(f"\nServing replay at: http://localhost:{port}/{filename}")
-        print("Open this URL in your web browser.")
-        print(f"Or you can zip the '{directory}' directory and share it.")
-        print("Press Ctrl+C to stop the server.")
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\nServer stopped.")
+    # Attempt to calculate relative paths for cleaner Vite usage
+    try:
+        rel_replay = os.path.relpath(replay_path, visualizer_dir)
+        rel_audio_map = os.path.relpath(audio_map_path, visualizer_dir)
+    except ValueError:
+        # Fallback to absolute if on different drives (mostly Windows issue)
+        rel_replay = replay_path
+        rel_audio_map = audio_map_path
+
+    env = os.environ.copy()
+
+    # Construct the command
+    # We use npx to ensure we use the local project dependencies
+    cmd = [
+        "npx", "cross-env",
+        f"VITE_REPLAY_FILE={rel_replay}",
+        f"VITE_AUDIO_MAP_FILE={rel_audio_map}",
+        "vite"
+    ]
+
+    print("\nRunning command:", " ".join(cmd))
+    print("Press Ctrl+C to stop the server.")
+
+    try:
+        subprocess.run(cmd, cwd=visualizer_dir, env=env)
+    except KeyboardInterrupt:
+        print("\nServer stopped.")
 
 
 def main():
     """Main function to add audio to a Werewolf replay."""
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument(
-        "-i", "--run_dir", type=str, required=True, help="Path to the directory of a game run generated by run.py."
+        "-i", "--input_path", type=str, required=True, help="Path to the replay JSON file."
     )
     parser.add_argument(
         "-o",
         "--output_dir",
         type=str,
-        help="Output directory for the audio-enabled replay. Defaults to 'werewolf_replay_audio' inside the run directory.",
+        help="Output directory for the audio-enabled replay. Defaults to 'werewolf_replay_audio' in the current directory.",
     )
     parser.add_argument(
         "-c",
@@ -332,7 +343,7 @@ def main():
         "--debug-audio", action="store_true", help="Generate a single debug audio file for all events for UI testing."
     )
     parser.add_argument(
-        "--serve", action="store_true", help="Start a local HTTP server to view the replay after generation."
+        "--serve", action="store_true", help="Start a local HTTP server (Vite) to view the replay after generation."
     )
     parser.add_argument(
         "--tts-provider",
@@ -344,7 +355,7 @@ def main():
     args = parser.parse_args()
 
     if not args.output_dir:
-        args.output_dir = os.path.join(args.run_dir, "werewolf_replay_audio")
+        args.output_dir = "werewolf_replay_audio"
 
     os.makedirs(args.output_dir, exist_ok=True)
     setup_logger(output_dir=args.output_dir, base_name="add_audio")
@@ -352,13 +363,11 @@ def main():
     logger.info(f"Loading audio config from: {args.config_path}")
     audio_config = load_config(args.config_path)
 
-    replay_json_path = os.path.join(args.run_dir, "werewolf_game.json")
-    logger.info(f"Loading game replay from: {replay_json_path}")
-    if not os.path.exists(replay_json_path):
-        logger.error(f"Replay file not found: {replay_json_path}")
-        logger.error("Please ensure you provide a valid run directory created by run.py.")
+    logger.info(f"Loading game replay from: {args.input_path}")
+    if not os.path.exists(args.input_path):
+        logger.error(f"Replay file not found: {args.input_path}")
         return
-    with open(replay_json_path, "r") as f:
+    with open(args.input_path, "r") as f:
         replay_data = json.load(f)
 
     game_config = replay_data["configuration"]
@@ -367,24 +376,31 @@ def main():
         agent_config["id"]: player_voices.get(agent_config["id"]) for agent_config in game_config["agents"]
     }
 
-    load_dotenv()
+    # Load .env from PROJECT_ROOT
+    from kaggle_environments import PROJECT_ROOT
+    env_path = os.path.join(PROJECT_ROOT, ".env")
+    if os.path.exists(env_path):
+        logger.info(f"Loading .env from: {env_path}")
+        load_dotenv(env_path)
+    else:
+        logger.info(f".env not found at {env_path}, relying on system environment variables.")
+
     client = None
     if args.tts_provider == "vertex_ai":
         if not os.getenv("GOOGLE_CLOUD_PROJECT"):
-            logger.error("Error: GOOGLE_CLOUD_PROJECT environment variable not found. It is required for Vertex AI.")
-            return
+            raise RuntimeError(
+                "Error: GOOGLE_CLOUD_PROJECT environment variable not found. It is required for Vertex AI.")
         try:
             client = texttospeech.TextToSpeechClient()
         except Exception as e:
             logger.error(f"Failed to initialize Vertex AI client: {e}")
             logger.error("Please ensure you have authenticated with 'gcloud auth application-default login'")
-            return
+            # return  # Allow proceeding for offline debug mode if files exist
     else:  # google_genai
         if not os.getenv("GEMINI_API_KEY"):
-            logger.error(
+            raise RuntimeError(
                 "Error: GEMINI_API_KEY environment variable not found. Audio generation with google.genai requires it."
             )
-            return
         client = genai.Client()
 
     unique_speaker_messages, dynamic_moderator_messages = extract_game_data_from_json(replay_data)
@@ -413,12 +429,12 @@ def main():
             args.output_dir,
         )
 
-    original_html_path = os.path.join(args.run_dir, "werewolf_game.html")
-    output_html_file = os.path.join(args.output_dir, paths["output_html_filename"])
-    render_html(original_html_path, audio_map, output_html_file)
+    save_audio_map(audio_map, args.output_dir)
 
     if args.serve:
-        start_server(args.output_dir, audio_config["server"]["port"], paths["output_html_filename"])
+        visualizer_dir = os.path.join(os.path.dirname(__file__), "../visualizer/default")
+        audio_map_path = os.path.join(args.output_dir, "audio_map.json")
+        start_server(visualizer_dir, args.input_path, audio_map_path)
 
 
 if __name__ == "__main__":
