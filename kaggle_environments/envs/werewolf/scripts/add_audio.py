@@ -168,17 +168,97 @@ def extract_game_data_from_json(replay_json):
     return unique_speaker_messages, dynamic_moderator_messages
 
 
+def load_prompt(prompt_path):
+    """Loads the system instruction prompt from a file."""
+    if not os.path.exists(prompt_path):
+        logger.warning(f"Prompt file not found: {prompt_path}. Using default.")
+        return "Rewrite the following text to be theatrical and expressive for TTS: '{text}'"
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+def load_cache(cache_path):
+    """Loads the LLM rewrite cache."""
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to decode cache file: {cache_path}. Starting fresh.")
+    return {}
+
+def save_cache(cache, cache_path):
+    """Saves the LLM rewrite cache."""
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.warning(f"Failed to save cache to {cache_path}: {e}")
+
+def enhance_audio_text(client, text, speaker, prompt_template, cache, cache_key):
+    """Enhances text using LLM, checking cache first."""
+    if cache_key in cache:
+        return cache[cache_key]
+
+    # Construct the prompt
+    prompt = prompt_template.format(text=text, speaker=speaker)
+    
+    enhanced_text = text # Fallback
+    try:
+        # We need a unified way to call the LLM regardless of provider if possible, 
+        # but the script uses different clients for TTS. 
+        # For LLM text generation, we likely want to use google-genai or vertex AI generative models.
+        # The existing code initializes `client` as either `texttospeech.TextToSpeechClient` (Vertex TTS) 
+        # OR `genai.Client` (Gemini).
+        # Vertex TTS client CANNOT do text generation. We need a separate GenAI client for Vertex if we are in Vertex mode.
+        
+        # NOTE: For now, I will assume we can allow a separate optional GenAI client or use the existing one if it is GenAI.
+        # If the user selected 'vertex_ai' for TTS, we might not have a GenAI client ready.
+        # I'll handle this in the main loop or here.
+        
+        pass # Placeholder for logic below
+    except Exception as e:
+        logger.warning(f"LLM enhancement failed for '{text[:20]}...': {e}")
+        return text
+
+    return text # Placeholder
+
+# Real implementation helper
+def call_llm_generation(client, provider, model_name, prompt):
+    try:
+        if provider == "google_genai":
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return response.text.strip()
+        elif provider == "vertex_ai":
+            # We need to construct a Vertex AI GenerativeModel. 
+            # This requires 'vertexai' library or using the genai client with vertex backend? 
+            # The current script uses `google.genai` for the 'google_genai' provider.
+            # For Vertex, typically one uses `vertexai.init` and `GenerativeModel`.
+            # Let's try to use `google.genai` if available, or skip if we only have TTS client.
+            logger.warning("LLM enhancement with Vertex AI client not fully implemented in this snippet without a separate GenAI client.")
+            return None
+    except Exception as e:
+        logger.error(f"Error calling LLM: {e}")
+        return None
+    return None
+
 def generate_audio_files(
-        client,
-        tts_provider,
-        unique_speaker_messages,
-        dynamic_moderator_messages,
-        player_voice_map,
-        audio_config,
-        output_dir,
+    client,
+    tts_provider,
+    unique_speaker_messages,
+    dynamic_moderator_messages,
+    player_voice_map,
+    audio_config,
+    output_dir,
+    llm_client=None, # New arg
+    prompt_template=None,
+    cache=None,
+    cache_path=None
 ):
     """Generates and saves all required audio files, returning a map for the HTML."""
-    logger.info("Extracting dialogue and generating audio files...")
+    logger.info("Extracting dialogue, enhancing text, and generating audio files...")
     audio_map = {}
     paths = audio_config["paths"]
     audio_dir = os.path.join(output_dir, paths["audio_dir_name"])
@@ -186,31 +266,80 @@ def generate_audio_files(
     static_moderator_messages = audio_config["audio"]["static_moderator_messages"]
 
     messages_to_generate = []
+    
+    # helper to prepare batch
+    def add_msg(speaker, key, text, voice):
+        messages_to_generate.append({"speaker": speaker, "key": key, "text": text, "voice": voice})
+
+    # Map internal config keys to the exact text strings the JS AudioController expects
+    key_aliases = {
+        "discussion_begins": "Discussion begins!",
+        "voting_begins": "Exile voting begins!"
+    }
+
     for key, message in static_moderator_messages.items():
-        messages_to_generate.append(("moderator", key, message, moderator_voice))
+        add_msg("moderator", key, message, moderator_voice)
+        # Also add alias if exists, pointing to SAME text/voice (so same audio hash)
+        if key in key_aliases:
+            add_msg("moderator", key_aliases[key], message, moderator_voice)
+            
     for message in dynamic_moderator_messages:
-        messages_to_generate.append(("moderator", message, message, moderator_voice))
+        add_msg("moderator", message, message, moderator_voice)
     for speaker_id, message in unique_speaker_messages:
         voice = player_voice_map.get(speaker_id)
         if voice:
-            messages_to_generate.append((speaker_id, message, message, voice))
+            add_msg(speaker_id, message, message, voice)
         else:
             logger.warning(f"  - Warning: No voice found for speaker: {speaker_id}")
 
-    for speaker, key, message, voice in messages_to_generate:
+    # Process messages (Enhance -> TTS)
+    cache_updated = False
+    
+    for msg in messages_to_generate:
+        speaker = msg["speaker"]
+        original_text = msg["text"]
+        voice = msg["voice"]
+        key = msg.get("key", original_text)
+        
+        # 1. Enhance Text
+        final_text = original_text
+        if llm_client and prompt_template and cache is not None:
+             # Cache key based on original text and speaker to avoid re-generating same line
+             cache_key = f"{speaker}:{original_text}"
+             
+             if cache_key in cache:
+                 final_text = cache[cache_key]
+             else:
+                 logger.info(f"  - Enhancing text for {speaker}...")
+                 prompt = prompt_template.format(text=original_text, speaker=speaker)
+                 enhanced = call_llm_generation(llm_client, "google_genai", "gemini-2.0-flash-exp", prompt) # Hardcoded model for now or config
+                 if enhanced:
+                     final_text = enhanced
+                     cache[cache_key] = final_text
+                     cache_updated = True
+                     # Save periodically or at end? At end is safer for perf, but risk data loss.
+                     if cache_path: save_cache(cache, cache_path) 
+                 else:
+                     logger.warning("  - LLM enhancement returned None, using original.")
+
+        # 2. Generate Audio
+        # Map key uses original text/key to ensure stable IDs even if text changes
         map_key = f"{speaker}:{key}"
         filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
         audio_path_on_disk = os.path.join(audio_dir, filename)
         audio_path_for_html = os.path.join(paths["audio_dir_name"], filename)
 
         if not os.path.exists(audio_path_on_disk):
-            logger.info(f'  - Generating audio for {speaker} ({voice}): "{message[:40]}..." ')
+            # logger.info(f'  - Generating audio for {speaker} ({voice}): "{final_text[:40]}..." ')
+            # Only log if we are actually doing work
+            print(f'Generating audio: "{final_text[:60]}..."')
+            
             audio_content = None
             if tts_provider == "vertex_ai":
                 model_name = audio_config.get("vertex_ai_model", "gemini-2.5-flash-preview-tts")
-                audio_content = get_tts_audio_vertex(client, message, voice_name=voice, model_name=model_name)
+                audio_content = get_tts_audio_vertex(client, final_text, voice_name=voice, model_name=model_name)
             else:  # google_genai
-                audio_content = get_tts_audio_genai(client, message, voice_name=voice)
+                audio_content = get_tts_audio_genai(client, final_text, voice_name=voice)
 
             if audio_content:
                 wave_file(audio_path_on_disk, audio_content)
@@ -352,10 +481,29 @@ def main():
         choices=["vertex_ai", "google_genai"],
         help="The TTS provider to use for audio synthesis.",
     )
+    parser.add_argument(
+        "--prompt_path",
+        type=str,
+        default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"),
+        help="Path to the system instruction prompt file for LLM enhancement.",
+    )
+    parser.add_argument(
+        "--cache_path",
+        type=str,
+        help="Path to the LLM rewrite cache JSON file. Defaults to 'llm_cache.json' in the output directory.",
+    )
+    parser.add_argument(
+        "--disable_llm_enhancement",
+        action="store_true",
+        help="Disable LLM-based text enhancement (theatrical rewriting).",
+    )
     args = parser.parse_args()
 
     if not args.output_dir:
         args.output_dir = "werewolf_replay_audio"
+        
+    if not args.cache_path:
+        args.cache_path = os.path.join(args.output_dir, "llm_cache.json")
 
     os.makedirs(args.output_dir, exist_ok=True)
     setup_logger(output_dir=args.output_dir, base_name="add_audio")
@@ -376,9 +524,9 @@ def main():
         agent_config["id"]: player_voices.get(agent_config["id"]) for agent_config in game_config["agents"]
     }
 
-    # Load .env from PROJECT_ROOT
+    # Load .env from REPO ROOT (PROJECT_ROOT is kaggle_environments package dir, so go one up)
     from kaggle_environments import PROJECT_ROOT
-    env_path = os.path.join(PROJECT_ROOT, ".env")
+    env_path = os.path.join(PROJECT_ROOT, os.pardir, ".env")
     if os.path.exists(env_path):
         logger.info(f"Loading .env from: {env_path}")
         load_dotenv(env_path)
@@ -386,22 +534,39 @@ def main():
         logger.info(f".env not found at {env_path}, relying on system environment variables.")
 
     client = None
+    llm_client = None
+    
+    # Initialize Clients
+    
+    # Only init LLM client if enhancement is NOT disabled
+    if not args.disable_llm_enhancement:
+        if os.getenv("GEMINI_API_KEY"):
+             try:
+                 llm_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+             except Exception as e:
+                 logger.warning(f"Failed to init GenAI client for LLM enhancement: {e}")
+
     if args.tts_provider == "vertex_ai":
         if not os.getenv("GOOGLE_CLOUD_PROJECT"):
-            raise RuntimeError(
-                "Error: GOOGLE_CLOUD_PROJECT environment variable not found. It is required for Vertex AI.")
+            raise RuntimeError("Error: GOOGLE_CLOUD_PROJECT environment variable not found. It is required for Vertex AI.")
         try:
             client = texttospeech.TextToSpeechClient()
         except Exception as e:
             logger.error(f"Failed to initialize Vertex AI client: {e}")
             logger.error("Please ensure you have authenticated with 'gcloud auth application-default login'")
-            # return  # Allow proceeding for offline debug mode if files exist
     else:  # google_genai
         if not os.getenv("GEMINI_API_KEY"):
-            raise RuntimeError(
+             raise RuntimeError(
                 "Error: GEMINI_API_KEY environment variable not found. Audio generation with google.genai requires it."
             )
-        client = genai.Client()
+        # Verify client reuse or create new? 
+        if llm_client:
+            client = llm_client
+        else:
+            client = genai.Client()
+            # If we created a client here but enhancement is disabled, we don't set llm_client
+            if not args.disable_llm_enhancement:
+                llm_client = client
 
     unique_speaker_messages, dynamic_moderator_messages = extract_game_data_from_json(replay_data)
 
@@ -410,6 +575,8 @@ def main():
     os.makedirs(audio_dir, exist_ok=True)
 
     if args.debug_audio:
+        # Debug audio doesn't use LLM enhancement in this refactor yet, or we could add it.
+        # But for brevity, I'll leave it simple.
         audio_map = generate_debug_audio_files(
             args.output_dir,
             client,
@@ -419,6 +586,13 @@ def main():
             audio_config,
         )
     else:
+        # Load resources for enhancement
+        prompt_template = load_prompt(args.prompt_path)
+        cache = load_cache(args.cache_path)
+        
+        # Decide if we pass llm_client based on flag
+        active_llm_client = llm_client if not args.disable_llm_enhancement else None
+
         audio_map = generate_audio_files(
             client,
             args.tts_provider,
@@ -427,6 +601,10 @@ def main():
             player_voice_map,
             audio_config,
             args.output_dir,
+            llm_client=active_llm_client,
+            prompt_template=prompt_template,
+            cache=cache,
+            cache_path=args.cache_path
         )
 
     save_audio_map(audio_map, args.output_dir)
