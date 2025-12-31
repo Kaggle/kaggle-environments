@@ -27,24 +27,51 @@ if (app) {
   if (import.meta.env?.DEV && import.meta.hot) {
     import.meta.hot.accept();
   }
-  createReplayVisualizer(app, adapter, {
-    transformer: (replay) => {
-      const processedReplay = processEpisodeData(replay, 'werewolf');
-      
-      const allEvents: any[] = [];
-      const newSteps: any[] = [];
-      const originalSteps = [...processedReplay.steps]; // Shallow copy of the steps array
-      const processedPhaseEvents = new Set();
-      
-      let currentDisplayStep = 0;
-      let allEventsIndex = 0;
-      
-      const displayStepToAllEventsIndex: number[] = [];
-      const allEventsIndexToDisplayStep: number[] = [];
-      const eventToKaggleStep: number[] = [];
 
-      (processedReplay.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents: any, kaggleStep: number) => {
-        (stepEvents || []).flat().forEach((dataEntry: any) => {
+  const init = async () => {
+    // Check if we need to load an external audio map (for dev-with-audio mode)
+    const audioMapFile = import.meta.env.VITE_AUDIO_MAP_FILE;
+    if (audioMapFile) {
+      try {
+        console.log(`Loading audio map from: ${audioMapFile}`);
+        const response = await fetch(audioMapFile);
+        const data = await response.json();
+
+        // Rebase audio paths relative to the map file
+        const audioMapDir = audioMapFile.substring(0, audioMapFile.lastIndexOf('/') + 1);
+        if (audioMapDir) {
+          for (const key in data) {
+            if (typeof data[key] === 'string' && !data[key].startsWith('http') && !data[key].startsWith('/')) {
+              data[key] = audioMapDir + data[key];
+            }
+          }
+        }
+
+        (window as any).AUDIO_MAP = data;
+        console.log("Audio map loaded successfully.");
+      } catch (e) {
+        console.error(`Failed to load audio map from ${audioMapFile}:`, e);
+      }
+    }
+
+    createReplayVisualizer(app, adapter, {
+      transformer: (replay) => {
+        const processedReplay = processEpisodeData(replay, 'werewolf');
+
+        const allEvents: any[] = [];
+        const newSteps: any[] = [];
+        const originalSteps = [...processedReplay.steps]; // Shallow copy of the steps array
+        const processedPhaseEvents = new Set();
+
+        let currentDisplayStep = 0;
+        let allEventsIndex = 0;
+
+        const displayStepToAllEventsIndex: number[] = [];
+        const allEventsIndexToDisplayStep: number[] = [];
+        const eventToKaggleStep: number[] = [];
+
+        (processedReplay.info?.MODERATOR_OBSERVATION || []).forEach((stepEvents: any, kaggleStep: number) => {
+          (stepEvents || []).flat().forEach((dataEntry: any) => {
             const event = JSON.parse(dataEntry.json_str);
             const dataType = dataEntry.data_type;
             const visibleInUI = event.visible_in_ui ?? true;
@@ -52,7 +79,7 @@ if (app) {
             if (!visibleInUI) return;
 
             if (event.event_name === 'day_start' || event.event_name === 'night_start' || event.description?.includes('Voting phase begins')) {
-                processedPhaseEvents.clear();
+              processedPhaseEvents.clear();
             }
 
             let eventFingerprint = event.description;
@@ -66,40 +93,43 @@ if (app) {
 
             event.kaggleStep = kaggleStep;
             event.dataType = dataType;
-            
+
             allEvents.push(event);
             eventToKaggleStep.push(kaggleStep);
 
             if (dataType !== 'PhaseDividerDataEntry') {
-                // Attach event to a CLONE of the step array
-                const stepData = originalSteps[kaggleStep];
-                // Clone the array to avoid mutating the shared original step
-                // and to allow different properties on different display steps sharing the same kaggle step
-                const stepDataClone = [...(stepData as any)]; 
-                (stepDataClone as any).visualizerEvent = event;
-                newSteps.push(stepDataClone);
-                
-                displayStepToAllEventsIndex.push(allEventsIndex);
-                allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
-                currentDisplayStep++;
+              // Attach event to a CLONE of the step array
+              const stepData = originalSteps[kaggleStep];
+              // Clone the array to avoid mutating the shared original step
+              // and to allow different properties on different display steps sharing the same kaggle step
+              const stepDataClone = [...(stepData as any)];
+              (stepDataClone as any).visualizerEvent = event;
+              newSteps.push(stepDataClone);
+
+              displayStepToAllEventsIndex.push(allEventsIndex);
+              allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
+              currentDisplayStep++;
             }
             allEventsIndex++;
+          });
         });
-      });
 
-      // Update the replay object with expanded steps
-      processedReplay.steps = newSteps;
-      
-      // Attach metadata for the renderer
-      (processedReplay as any).visualizerData = {
+        // Update the replay object with expanded steps
+        processedReplay.steps = newSteps;
+
+        // Attach metadata for the renderer
+        (processedReplay as any).visualizerData = {
           allEvents,
           displayStepToAllEventsIndex,
           allEventsIndexToDisplayStep,
           eventToKaggleStep,
           originalSteps // Pass the original unexpanded steps for state reconstruction
-      };
+        };
 
-      return processedReplay;
-    },
-  });
+        return processedReplay;
+      },
+    });
+  };
+
+  init();
 }

@@ -57,6 +57,35 @@ export function renderer(context, parent) {
   let playerThumbnailsFor3D = {};
 
   // Set audio context immediately
+  // POlyfill/Wrap setCurrentStep to handle audio-driven updates without stopping playback
+  // We MUST use direct synchronous control (unstable_replayerControls) if available,
+  // because the default postMessage approach is async and causes our isSystemMove flag
+  // to reset before the step update actually happens.
+  const originalSetCurrentStep = context.setCurrentStep;
+  context.setCurrentStep = (s) => {
+    if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = true;
+    try {
+      if (context.unstable_replayerControls) {
+        context.unstable_replayerControls.setStep(s);
+      } else if (originalSetCurrentStep) {
+        originalSetCurrentStep(s);
+      }
+    } finally {
+      if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = false;
+    }
+  };
+
+  // Override setPlaying to update the Visualizer UI state (Play/Pause button)
+  // The default implementation only posts a message which the visualizer ignores.
+  if (context.unstable_replayerControls && context.unstable_replayerControls.setPlaying) {
+    const originalSetPlaying = context.setPlaying;
+    context.setPlaying = (playing) => {
+      // Update UI
+      context.unstable_replayerControls.setPlaying(playing);
+      // Call original (postMessage) just in case
+      if (originalSetPlaying) originalSetPlaying(playing);
+    };
+  }
   setAudioContext(context);
 
   const systemEntryTypeSet = new Set([
@@ -129,8 +158,11 @@ export function renderer(context, parent) {
     const originalPause = playerInstance.pause.bind(playerInstance);
 
     playerInstance.setStep = (newStep) => {
-      stopAndClearAudio(audioState, parentId);
-      audioState.isPaused = true;
+      // Only stop audio if this is a USER interaction (not a system auto-advance)
+      if (!audioState.isSystemMove) {
+        stopAndClearAudio(audioState, parentId);
+        audioState.isPaused = true;
+      }
       const currentStep = window.wwCurrentStep || 0;
       if (newStep !== currentStep + 1) {
         resetThreeJsState();
