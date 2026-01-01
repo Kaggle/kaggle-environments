@@ -7,6 +7,7 @@ import re
 import subprocess
 import wave
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
@@ -17,6 +18,7 @@ from google.cloud import texttospeech
 from google.genai import types
 
 from kaggle_environments.envs.werewolf.game.consts import EventName
+from kaggle_environments.envs.werewolf.game.roles import shuffle_ids
 from kaggle_environments.envs.werewolf.runner import setup_logger
 
 # Initialize logger
@@ -31,20 +33,38 @@ class NameManager:
         self._initialize_names(replay_data)
 
     def _initialize_names(self, replay_data: Dict):
-        """Disambiguates display names similar to visualizer logic."""
-        agents = replay_data.get("configuration", {}).get("agents", [])
+        """Disambiguates display names matching werewolf.py logic including randomization."""
+        config = replay_data.get("configuration", {})
+        agents = deepcopy(config.get("agents", []))  # Deepcopy to avoid modifying original
+        info = replay_data.get("info", {})
 
-        # 1. Count occurrences
+        # 1. Inject Kaggle Display Names (pre-shuffle)
+        # Match logic from werewolf.py: inject_kaggle_scheduler_info
+        kaggle_agents_info = info.get("Agents")
+        if kaggle_agents_info and isinstance(kaggle_agents_info, list):
+            for agent, kaggle_agent_info in zip(agents, kaggle_agents_info):
+                display_name = kaggle_agent_info.get("Name", "")
+                if display_name:
+                    agent["display_name"] = display_name
+
+        # 2. Handle Randomization (Match roles.py logic)
+        seed = config.get("seed")
+        randomize_ids = config.get("randomize_ids", False)
+
+        if randomize_ids and seed is not None:
+            # roles.py: shuffle_ids matches agents to NEW ids
+            agents = shuffle_ids(agents, seed + 123)
+
+        # 3. Count occurrences
         name_counts = {}
         for agent in agents:
-            # Fallback to ID if display_name is missing
             name = agent.get("display_name") or agent.get("name") or agent.get("id")
             name_counts[name] = name_counts.get(name, 0) + 1
 
-        # 2. Assign unique names
+        # 4. Assign unique names and build map
         current_counts = {}
         for agent in agents:
-            agent_id = agent.get("id")
+            agent_id = agent.get("id")  # This is now the randomized ID if applicable
             name = agent.get("display_name") or agent.get("name") or agent.get("id")
 
             if name_counts[name] > 1:
@@ -106,7 +126,7 @@ class AudioConfig:
         return self.data.get("audio", {}).get("static_moderator_messages", {})
 
     def get_vertex_model(self) -> str:
-        return self.data.get("vertex_ai_model", "gemini-2.5-flash-preview-tts")
+        return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
 
 
 class ReplayParser:
@@ -114,6 +134,73 @@ class ReplayParser:
 
     def __init__(self, replay_data: Dict):
         self.replay_data = replay_data
+
+    def extract_chronological_script(self) -> List[Dict]:
+        """Extracts a chronological list of events for full context."""
+        script = []
+        info = self.replay_data.get("info", {})
+        steps = self.replay_data.get("steps", [])
+
+        # We need to interleave moderator events and player actions
+        # Moderator events are in info['MODERATOR_OBSERVATION'] (steps)
+        mod_logs = info.get("MODERATOR_OBSERVATION", [])
+
+        for step_idx, step in enumerate(steps):
+            # 1. Moderator Events for this step
+            if step_idx < len(mod_logs):
+                for data_entry in mod_logs[step_idx]:
+                    json_str = data_entry.get("json_str")
+                    try:
+                        event = json.loads(json_str)
+                        description = event.get("description", "")
+                        data = event.get("data", {})
+                        event_name = event.get("event_name", "")
+
+                        if description:
+                            # Enrich description with dynamic data if needed
+                            # For now, just use description as the "text"
+                            script.append({
+                                "type": "moderator",
+                                "text": description,
+                                "day": event.get("day")
+                            })
+                    except:
+                        pass
+
+            # 2. Player Actions in this step
+            for agent_state in step:
+                action = agent_state.get("action")
+                if action and isinstance(action, dict):
+                    kwargs = action.get("kwargs", {})
+                    raw_completion = kwargs.get("raw_completion")
+
+                    if raw_completion:
+                        # Try to parse the message
+                        try:
+                            # format_json_string logic?
+                            # Assuming structure { "thought": ..., "response": ... }
+                            if "```json" in raw_completion:
+                                raw_completion = raw_completion.split("```json")[1].split("```")[0].strip()
+                            elif "```" in raw_completion:
+                                raw_completion = raw_completion.split("```")[1].split("```")[0].strip()
+
+                            content = json.loads(raw_completion)
+                            message = content.get("response") or content.get("message")
+
+                            # Get speaker name
+                            obs = agent_state.get("observation", {})
+                            raw_obs = obs.get("raw_observation", {})
+                            speaker_id = raw_obs.get("player_id", obs.get("player_id"))
+
+                            if message and speaker_id:
+                                script.append({
+                                    "type": "player",
+                                    "speaker": speaker_id,
+                                    "text": message
+                                })
+                        except:
+                            pass
+        return script
 
     def extract_messages(self) -> Tuple[Set[Tuple[str, str]], Set[str]]:
         """Extracts unique speaker messages and dynamic moderator messages."""
@@ -255,6 +342,73 @@ class LLMEnhancer:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to save cache: {e}")
 
+    def enhance_script(self, script: List[Dict], name_manager: NameManager) -> Dict[str, str]:
+        """Enhances the full game script in one go (or chunks)."""
+        if self.disabled or not self.client:
+            return {}
+
+        # 1. Format script for LLM
+        transcript_lines = []
+        # We also need a way to map back: "Speaker:OriginalText" -> EnhancedText
+
+        for entry in script:
+            if entry["type"] == "moderator":
+                text = name_manager.replace_names(entry["text"])
+                transcript_lines.append(f"[Moderator]: {text}")
+            elif entry["type"] == "player":
+                speaker_display = name_manager.get_name(entry["speaker"])
+                # The script provided to LLM should use *Display Names*
+                text = name_manager.replace_names(entry["text"])
+                transcript_lines.append(f"[{speaker_display}]: {text}")
+
+        transcript = "\n".join(transcript_lines)
+
+        # Check cache logic could be improved, but for now assumption is unique scripts
+
+        prompt = self.prompt_template.replace("{transcript}", transcript)
+
+        logger.info(f"Sending full script ({len(script)} events) to Gemini for enhancement...")
+
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-3-flash-preview",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
+            )
+
+            if response.text:
+                try:
+                    enhanced_map = json.loads(response.text)
+                    if isinstance(enhanced_map, list):
+                        logger.warning("LLM returned a list instead of a dict. Attempting to merge if possible.")
+                        # If list of dicts, merge them? Or just empty?
+                        # If it's a list, it might be [ { "Key": "Val" }, ... ]
+                        merged = {}
+                        for item in enhanced_map:
+                            if isinstance(item, dict):
+                                merged.update(item)
+                        if merged:
+                            enhanced_map = merged
+                            logger.info(f"Merged {len(merged)} entries from list.")
+                        else:
+                            logger.warning("Could not extract map from list. Using empty map.")
+                            enhanced_map = {}
+
+                    if not isinstance(enhanced_map, dict):
+                        logger.warning(f"LLM returned unexpected type: {type(enhanced_map)}. Using empty map.")
+                        enhanced_map = {}
+
+                    logger.info(f"Received {len(enhanced_map)} enhanced entries.")
+                    return enhanced_map
+                except json.JSONDecodeError:
+                    logger.warning("Failed to decode JSON response from LLM.")
+        except Exception as e:
+            logger.warning(f"LLM enhancement failed: {e}")
+
+        return {}
+
     def enhance(self, text: str, speaker: str) -> str:
         """Enhances text if client is available and text is not cached."""
         if self.disabled or not self.client:
@@ -269,7 +423,7 @@ class LLMEnhancer:
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
+                model="gemini-3-flash-preview",
                 contents=prompt
             )
             enhanced = response.text.strip()
@@ -287,7 +441,7 @@ class TTSGenerator(ABC):
     """Abstract base class for TTS generators."""
 
     @abstractmethod
-    def generate(self, text: str, voice: str) -> Optional[bytes]:
+    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         """Generates audio for the given text."""
         pass
 
@@ -301,11 +455,31 @@ class VertexTTSGenerator(TTSGenerator):
         self.client = texttospeech.TextToSpeechClient()
         self.model_name = model_name
 
-    def generate(self, text: str, voice: str) -> Optional[bytes]:
+    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
+
+        # Vertex TTS (Standard) doesn't support 'style_prompt' natively in SynthesisInput yet
+        # unless using a specific generative endpoint which this client might not target by default.
+        # But if the user provides markup tags (e.g. SSML), we could use it.
+        # For now, we will verify if markup_tags indicates SSML.
+
+        markup_tags = kwargs.get("markup_tags")
+        is_ssml = False
+        input_text = text
+        if markup_tags:
+            # Basic check if it looks like XML/SSML
+            if "<" in markup_tags and ">" in markup_tags:
+                # Wrap text: <tag>text</tag>
+                # But we don't know the closing tag from the opening tag easily without parsing.
+                # The prompt asked for "tags to wrap the text".
+                # If LLM returns "<speak>", we assume it's full SSML?
+                # If LLM returns '(rate="fast")', it's not SSML.
+                # Let's treat it as text for now to avoid breaking standard TTS.
+                pass
+
         try:
-            synthesis_input = texttospeech.SynthesisInput(text=text)
+            synthesis_input = texttospeech.SynthesisInput(text=input_text)
             voice_params = texttospeech.VoiceSelectionParams(
                 language_code="en-US", name=voice, model_name=self.model_name
             )
@@ -329,13 +503,24 @@ class GeminiTTSGenerator(TTSGenerator):
             raise RuntimeError("GEMINI_API_KEY required for Google GenAI.")
         self.client = genai.Client(api_key=api_key)
 
-    def generate(self, text: str, voice: str) -> Optional[bytes]:
+    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
+
+        style_prompt = kwargs.get("style_prompt")
+
+        # Combine instructions and text
+        # Format based on user example: "{Style Prompt}: {Text}"
+        # text now contains inline tags if provided by LLM.
+
+        final_content = text
+        if style_prompt:
+            final_content = f"{style_prompt}: {text}"
+
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.5-flash-preview-tts",
-                contents=text,
+                model="gemini-2.5-flash-tts",
+                contents=final_content,
                 config=types.GenerateContentConfig(
                     response_modalities=["AUDIO"],
                     speech_config=types.SpeechConfig(
@@ -369,26 +554,58 @@ class AudioManager:
         self.name_manager = NameManager(replay_data)
 
         parser = ReplayParser(replay_data)
+
+        # 1. Extract Full Context Script & Enhance
+        chronological_script = parser.extract_chronological_script()
+        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager)
+
+        # 2. Extract Unique Messages for Audio Generation (as before)
         unique_msgs, dyn_mod_msgs = parser.extract_messages()
 
-        messages = self._prepare_messages(unique_msgs, dyn_mod_msgs, replay_data)
+        messages = self._prepare_messages(unique_msgs, dyn_mod_msgs, replay_data, enhanced_map)
         self._generate_audio_batch(messages)
         self._save_audio_map()
 
-    def _prepare_messages(self, unique_msgs, dyn_mod_msgs, replay_data) -> List[Dict]:
+        return messages
+
+    def _prepare_messages(self, unique_msgs, dyn_mod_msgs, replay_data, enhanced_map) -> List[Dict]:
         """Prepares a list of message objects for processing."""
         messages = []
 
         # Helper to add
-        def add(speaker, key, text, voice):
+        def add(speaker_id, key, text, voice):
             # Key remains raw for lookup compatibility
             # Text is updated with display names for better TTS
             tts_text = self.name_manager.replace_names(text)
+
+            # Lookup enhancement
+            speaker_display = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
+            signature = f"{speaker_display}: {tts_text}"
+
+            enhancement = enhanced_map.get(signature)
+            final_text = tts_text
+            style_prompt = None
+            # markup_tags = None # No longer separate
+
+            if enhancement:
+                if isinstance(enhancement, dict):
+                    # New structure: {"style_prompt": "...", "text_content": "..."}
+                    style_prompt = enhancement.get("style_prompt")
+                    # The LLM *returns* the text with tags inserted inline.
+                    # We trust the LLM to preserve the words (as instructed) and only add tags.
+                    enhanced_text = enhancement.get("text_content")
+                    if enhanced_text:
+                        final_text = enhanced_text
+                else:
+                    # Legacy fallback
+                    final_text = enhancement
+
             messages.append({
-                "speaker": speaker,
+                "speaker": speaker_id,
                 "key": key,
                 "original_text": text,
-                "tts_text": tts_text,
+                "final_text": final_text,
+                "style_prompt": style_prompt,
                 "voice": voice
             })
 
@@ -432,16 +649,13 @@ class AudioManager:
 
         for msg in messages:
             speaker_id = msg["speaker"]
-
-            # Use display name for the speaker context in LLM enhancement
-            speaker_display_name = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
-
-            tts_text = msg["tts_text"]
+            final_text = msg["final_text"]
             voice = msg["voice"]
             key = msg["key"]
 
-            # Enhance using the display-name-replaced text and speaker display name
-            final_text = self.enhancer.enhance(tts_text, speaker_display_name)
+            # Extract style/tags
+            style_prompt = msg.get("style_prompt")
+            markup_tags = msg.get("markup_tags")
 
             # Generate Keys & Path
             # IMPORTANT: map_key uses raw speaker_id and raw key/text to match visualizer logic
@@ -453,8 +667,16 @@ class AudioManager:
             audio_path_disk = os.path.join(self.audio_dir, filename)
 
             if not os.path.exists(audio_path_disk):
-                print(f'Generating audio: "{final_text[:60]}..."')
-                audio_content = self.tts.generate(final_text, voice)
+                # print(f'Generating audio: "{final_text[:60]}..."') # Reduce noise
+                logger.debug(f'Generating audio for {speaker_id}: "{final_text[:40]}..." (Style: {style_prompt})')
+
+                audio_content = self.tts.generate(
+                    final_text,
+                    voice,
+                    style_prompt=style_prompt,
+                    markup_tags=markup_tags
+                )
+
                 if audio_content:
                     self._save_wave(audio_path_disk, audio_content)
                     self.audio_map[map_key] = audio_path_html
