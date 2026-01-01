@@ -17,6 +17,19 @@ voices:
     Quinn: 'Achird'
     Casey: 'Puck'
 audio:
+  name_simplification_map:
+    "gpt-5.2-2025-12-11": "gpt-5.2"
+    "gpt-5-mini-2025-08-07": "gpt-5-mini"
+    "grok-4.1-fast-reasoning": "Grok 4.1 fast"
+    "Claude Sonnet 4.5": "Claude Sonnet 4.5"
+    "Claude Opus 4.5": "Claude Opus 4.5"
+    "Gemini 3 Pro Preview": "Gemini 3 Pro"
+    "gemini-3-flash-preview": "Gemini 3 Flash"
+  name_simplification_rules:
+    - pattern: '-\d{4}-\d{2}-\d{2}'  # Remove date suffixes like -2025-08-07
+      replacement: ''
+    - pattern: '-v\d+'               # Remove version suffixes like -v2
+      replacement: ''
   static_moderator_messages:
     night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
     day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
