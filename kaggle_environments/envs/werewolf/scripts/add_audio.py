@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 class NameManager:
     """Manages player display names and disambiguation."""
 
-    def __init__(self, replay_data: Dict):
+    def __init__(self, replay_data: Dict, simplification_rules: List[Dict] = None, simplification_map: Dict[str, str] = None):
         self.id_to_display = {}
+        self.simplification_rules = simplification_rules or []
+        self.simplification_map = simplification_map or {}
         self._initialize_names(replay_data)
 
     def _initialize_names(self, replay_data: Dict):
@@ -54,6 +56,38 @@ class NameManager:
         if randomize_ids and seed is not None:
             # roles.py: shuffle_ids matches agents to NEW ids
             agents = shuffle_ids(agents, seed + 123)
+
+        # 2.5 Apply Name Simplification (Map first, then Rules)
+        for agent in agents:
+            name = agent.get("display_name") or agent.get("name") or agent.get("id")
+            original_name = name
+            
+            # A. Explicit Map
+            if name in self.simplification_map:
+                name = self.simplification_map[name]
+            
+            # B. Regex Rules (apply if map didn't change it, OR apply on top? User said "simplify names in the map", implying map is primary)
+            # Let's apply rules AFTER map, in case map output needs cleaning? Or maybe map is final?
+            # Usually map is "exact override". If map hits, we might skip rules.
+            # But let's allow rules to run just in case, unless map changed it?
+            # Actually, if I map "A" -> "B", I probably don't want regex to change "B". 
+            # But if I map "A-v1" -> "A-v1-clean", maybe I do?
+            # Safest is: If map hit, use map value. Checks rules only if map didn't hit?
+            # OR: Apply map, THEN apply rules to the result.
+            # Let's apply map, then rules.
+            
+            if self.simplification_rules:
+                for rule in self.simplification_rules:
+                    pattern = rule.get("pattern")
+                    replacement = rule.get("replacement", "")
+                    if pattern:
+                        try:
+                            name = re.sub(pattern, replacement, name)
+                        except re.error as e:
+                            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+
+            if name != original_name:
+                agent["display_name"] = name.strip()
 
         # 3. Count occurrences
         name_counts = {}
@@ -124,6 +158,14 @@ class AudioConfig:
     @property
     def static_moderator_messages(self) -> Dict:
         return self.data.get("audio", {}).get("static_moderator_messages", {})
+
+    @property
+    def name_simplification_rules(self) -> List[Dict]:
+        return self.data.get("audio", {}).get("name_simplification_rules", [])
+
+    @property
+    def name_simplification_map(self) -> Dict[str, str]:
+        return self.data.get("audio", {}).get("name_simplification_map", {})
 
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
@@ -551,8 +593,12 @@ class AudioManager:
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
-        self.name_manager = NameManager(replay_data)
-
+        self.name_manager = NameManager(
+            replay_data, 
+            self.config.name_simplification_rules,
+            self.config.name_simplification_map
+        )
+        
         parser = ReplayParser(replay_data)
 
         # 1. Extract Full Context Script & Enhance
