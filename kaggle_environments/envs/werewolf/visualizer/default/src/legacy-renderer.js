@@ -111,7 +111,7 @@ export function renderer(context, parent) {
         window.werewolfGamePlayer.displayEvents = vData.displayStepToAllEventsIndex.map(
             (idx) => vData.allEvents[idx]
         );
-        window.wwCurrentStep = 0;
+      window.wwCurrentStep = step || 0;
     } else {
         console.warn("Visualizer Data not found. Ensure the transformer is processing the replay.");
         window.werewolfGamePlayer = {
@@ -124,7 +124,7 @@ export function renderer(context, parent) {
             originalSteps: environment.steps,
             reasoningCounter: 0,
         };
-        window.wwCurrentStep = 0;
+      window.wwCurrentStep = step || 0;
     }
     window.werewolfGamePlayer.initialized = true;
   }
@@ -175,11 +175,13 @@ export function renderer(context, parent) {
       if (audioState.isAudioEnabled) {
         originalPause();
         context.setPlaying(true); // Use adapter interface
-        let currentDisplayStep = context.step;
+        // FIX: Use window.wwCurrentStep to get the LIVE step, not context.step (which is static)
+        let currentDisplayStep = window.wwCurrentStep || 0;
         const newStepsLength = window.werewolfGamePlayer.displayEvents.length;
         if (!continuing && !audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
           currentDisplayStep = 0;
           originalSetStep(0);
+          window.wwCurrentStep = 0; // Ensure sync
         }
         const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
         if (allEventsIndex === undefined) {
