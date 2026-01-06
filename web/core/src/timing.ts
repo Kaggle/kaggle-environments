@@ -98,6 +98,11 @@ export function defaultGetStepRenderTime(
     thumbnail: '',
     isTurn: false,
   };
+
+  if (!gameStep.players) {
+    return stepDuration * multiplier;
+  }
+
   gameStep.players.forEach((player) => {
     if (player.isTurn) {
       currentPlayer = player;
@@ -113,5 +118,5 @@ export function defaultGetStepRenderTime(
     }
   }
 
-  return stepDuration * (1 / speedModifier);
+  return stepDuration * multiplier;
 }
