@@ -505,7 +505,7 @@ class GameSetEvaluator:
         if not loaded_from_cache:
             args_list = [(f, preserve_full_game_records) for f in game_files]
 
-            with ProcessPoolExecutor() as executor:
+            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4) as executor:
                 results_iter = tqdm(
                     executor.map(_safe_load_game_result, args_list), total=len(args_list), desc="Loading Games"
                 )
