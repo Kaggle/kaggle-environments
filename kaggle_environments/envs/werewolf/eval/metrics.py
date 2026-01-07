@@ -493,7 +493,7 @@ class GameSetEvaluator:
             args_list = [(f, preserve_full_game_records) for f in game_files]
             errors = defaultdict(int)
 
-            with ProcessPoolExecutor() as executor:
+            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4) as executor:
                 results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
                                     desc="Loading Games")
                 for result, error in results_iter:
