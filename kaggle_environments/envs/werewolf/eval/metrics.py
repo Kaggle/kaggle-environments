@@ -475,11 +475,14 @@ class GameSetEvaluator:
         preserve_full_game_records: bool = False,
         error_log_path: str = "game_loading_errors.log",
         cache_dir: str = ".werewolf_metrics_cache",
+        seed: int = 42,
     ):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
         else:
             input_dirs = input_dir
+        
+        self.seed = seed
 
         self.games = []
         game_files = []
@@ -670,7 +673,7 @@ class GameSetEvaluator:
         light_games_np = np.empty(len(light_games), dtype=object)
         light_games_np[:] = light_games
 
-        rnd_master = np.random.default_rng(42)
+        rnd_master = np.random.default_rng(self.seed)
 
         for _ in range(num_samples):
             sampled_array = light_games_np[rnd_master.integers(0, len(light_games), size=len(light_games))]
@@ -1541,6 +1544,7 @@ if __name__ == '__main__':
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
     parser.add_argument("--cache-dir", default=".werewolf_metrics_cache", 
                         help="Directory to store cached game results (default: .werewolf_metrics_cache).")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for bootstrapping (default: 42).")
 
     args = parser.parse_args()
 
@@ -1548,7 +1552,8 @@ if __name__ == '__main__':
         input_dir=args.input_dir,
         gte_tasks=args.gte_tasks,
         error_log_path=args.error_log,
-        cache_dir=args.cache_dir
+        cache_dir=args.cache_dir,
+        seed=args.seed
     )
 
     # Run evaluation
