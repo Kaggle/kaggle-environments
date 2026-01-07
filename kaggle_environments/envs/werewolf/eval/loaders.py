@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List, Optional
 
 import pandas as pd
+from tqdm import tqdm
 
 from kaggle_environments.envs.werewolf.game.consts import Team
 from kaggle_environments.utils import structify
@@ -172,7 +173,7 @@ def extract_csv(input_dir: str, output_path: str, log_file_path: Optional[str] =
                 game_files.append(os.path.join(root, file))
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        results = list(executor.map(_extract_csv_row, game_files))
+        results = list(tqdm(executor.map(_extract_csv_row, game_files), total=len(game_files), desc="Extracting CSV"))
 
     # Filter results
     data_points = []
