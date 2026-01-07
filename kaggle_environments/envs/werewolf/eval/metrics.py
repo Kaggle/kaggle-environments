@@ -1,26 +1,29 @@
 import argparse
 import functools
+import hashlib
 import os
+import pickle
+import subprocess
 import sys
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
 
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+import polarix as plx
+from openskill.models import PlackettLuce
+from plotly.subplots import make_subplots
 from tqdm import tqdm
 
-try:
-    import polarix as plx
-except ImportError:
-    raise ImportError("The 'polarix' library is required for metrics calculation. Please install it via pip: `pip install polarix`.")
-
-try:
-    from openskill.models import PlackettLuce
-except ImportError:
-    raise ImportError("The 'openskill' library is required for rating calculation. Please install it via pip: `pip install openskill`.")
+from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, _load_game_result
+from kaggle_environments.envs.werewolf.game.consts import Team
 
 # Workaround for broken google.colab import in some environments (incompatibility with IPython)
 # Plotly tries to import google.colab to detect the environment. If google.colab is installed
@@ -33,32 +36,16 @@ except AttributeError:
 except ImportError:
     pass
 
-try:
-    import plotly.graph_objects as go
-    import plotly.express as px
-    from plotly.subplots import make_subplots
-    import plotly.io as pio
+# Set a default sophisticated template
+pio.templates.default = "plotly_white"
 
-    # Set a default sophisticated template
-    pio.templates.default = "plotly_white"
-except ImportError:
-    raise ImportError("The 'plotly' library is required for plotting. Please install it via pip: `pip install plotly`.")
-
-from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, _load_game_result
-from kaggle_environments.envs.werewolf.game.consts import Team
-
-
-
-import hashlib
-import pickle
-import subprocess
-from pathlib import Path
 
 def _get_git_hash() -> str:
     try:
         return subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
     except Exception:
         return "unknown_git"
+
 
 def _get_input_hash(file_list: List[str]) -> str:
     """Computes a hash of the input files (modification times + size).
@@ -77,9 +64,10 @@ def _get_input_hash(file_list: List[str]) -> str:
             info = f"{path.absolute()}:{stat.st_mtime}:{stat.st_size}"
             hasher.update(info.encode('utf-8'))
         except OSError:
-            pass # Skip missing files
-            
+            pass  # Skip missing files
+
     return hasher.hexdigest()
+
 
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """Helper to calculate mean and standard error of the mean.
@@ -468,7 +456,7 @@ class GameSetEvaluator:
             input_dirs = [input_dir]
         else:
             input_dirs = input_dir
-        
+
         self.seed = seed
 
         self.games = []
@@ -482,14 +470,14 @@ class GameSetEvaluator:
         # Caching logic
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Calculate cache key
         self.git_hash = _get_git_hash()
         self.input_hash = _get_input_hash(game_files)
         # We also need to consider preserve_full_game_records in the cache key
         cache_key = f"{self.git_hash}_{self.input_hash}_{preserve_full_game_records}.pkl"
         cache_path = self.cache_dir / cache_key
-        
+
         loaded_from_cache = False
         if cache_path.exists():
             try:
@@ -514,7 +502,7 @@ class GameSetEvaluator:
                         errors[error_key] += 1
                     elif result:
                         self.games.append(result)
-            
+
             # Save to cache if successful
             if self.games:
                 try:
@@ -526,6 +514,7 @@ class GameSetEvaluator:
 
         if errors:
             print("\nErrors encountered during game loading:")
+            Path(error_log_path).parent.mkdir(parents=True, exist_ok=True)
             with open(error_log_path, "w") as f:
                 f.write("Game Loading Errors Report\n")
                 f.write("==========================\n")
@@ -534,7 +523,7 @@ class GameSetEvaluator:
                     f.write(f"{error_key}: {count}\n")
             print(f"Detailed error report saved to {error_log_path}")
 
-        self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
+        self.openskill_model = PlackettLuce()
 
         self.metrics: Dict[str, AgentMetrics] = defaultdict(
             lambda: AgentMetrics(agent_name=None, openskill_model=self.openskill_model))
@@ -590,7 +579,7 @@ class GameSetEvaluator:
     @staticmethod
     def _compute_openskill_ratings(games: List, model) -> Dict[str, object]:
         """Computes OpenSkill (TrueSkill-like) ratings."""
-        if not OPENSKILL_AVAILABLE or not model:
+        if not model:
             return {}
 
         # Initialize ratings for all agents encountered
@@ -655,7 +644,7 @@ class GameSetEvaluator:
         # Check cache
         cache_key = f"elo_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}.pkl"
         cache_path = self.cache_dir / cache_key
-        
+
         if cache_path.exists():
             try:
                 print(f"Loading cached Elo bootstrap results from {cache_path}...")
@@ -693,7 +682,7 @@ class GameSetEvaluator:
                 std = float(np.std(values, ddof=1))
                 self.metrics[agent].elo_std = std
                 agent_stds[agent] = std
-            
+
         # Save to cache
         try:
             with open(cache_path, 'wb') as f:
@@ -703,13 +692,13 @@ class GameSetEvaluator:
             print(f"Failed to save Elo cache: {e}")
 
     def _bootstrap_openskill(self, num_samples=100):
-        if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
+        if not self.games or not self.openskill_model:
             return
 
         # Check cache
         cache_key = f"openskill_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}.pkl"
         cache_path = self.cache_dir / cache_key
-        
+
         if cache_path.exists():
             try:
                 print(f"Loading cached OpenSkill bootstrap results from {cache_path}...")
@@ -752,7 +741,7 @@ class GameSetEvaluator:
                 std = float(np.std(values, ddof=1))
                 self.metrics[agent].openskill_mu_std = std
                 agent_stds[agent] = std
-        
+
         # Save to cache
         try:
             with open(cache_path, 'wb') as f:
@@ -831,7 +820,7 @@ class GameSetEvaluator:
             self.metrics[agent].elo = rating
 
         # OpenSkill
-        if OPENSKILL_AVAILABLE and self.openskill_model:
+        if self.openskill_model:
             final_openskill_ratings = self._compute_openskill_ratings(self.games, self.openskill_model)
             for agent, rating in final_openskill_ratings.items():
                 self.metrics[agent].openskill_rating = rating
@@ -841,9 +830,6 @@ class GameSetEvaluator:
         self._run_gte_evaluation(num_samples=gte_samples)
 
     def _run_gte_evaluation(self, num_samples: int):
-        if not POLARIX_AVAILABLE:
-            print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
-            return
         agents = sorted(list(self.metrics.keys()))
 
         # Check cache
@@ -852,30 +838,30 @@ class GameSetEvaluator:
             tasks_str = "_".join(sorted(self.gte_tasks))
         else:
             tasks_str = str(self.gte_tasks)
-        
+
         # Hash the tasks string to avoid long filenames
         tasks_hash = hashlib.md5(tasks_str.encode()).hexdigest()
-        
+
         cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
         cache_path = self.cache_dir / cache_key
-        
+
         if cache_path.exists():
             try:
                 print(f"Loading cached GTE bootstrap results from {cache_path}...")
                 with open(cache_path, 'rb') as f:
                     cache_data = pickle.load(f)
-                
+
                 self.gte_ratings = cache_data['gte_ratings']
                 self.gte_joint = cache_data.get('gte_joint')
                 self.gte_marginals = cache_data.get('gte_marginals')
                 self.gte_contributions_raw = cache_data.get('gte_contributions_raw')
                 self.gte_metric_contributions_raw = cache_data.get('gte_metric_contributions_raw')
-                
+
                 agent_metrics_cache = cache_data['agent_metrics']
                 for agent_name, m_cache in agent_metrics_cache.items():
                     self.metrics[agent_name].gte_rating = m_cache['gte_rating']
                     self.metrics[agent_name].gte_contributions = m_cache['gte_contributions']
-                
+
                 return
             except Exception as e:
                 print(f"Failed to load GTE cache: {e}. Recomputing...")
@@ -927,18 +913,18 @@ class GameSetEvaluator:
         for i, agent_name in enumerate(agents):
             rating_val = (ratings_mean[1][i], ratings_std[1][i])
             self.metrics[agent_name].gte_rating = rating_val
-            
+
             contrib_map = {}
             for j, task_name in enumerate(self.gte_tasks):
                 val = (r2m_contributions_mean[i, j], r2m_contributions_std[i, j])
                 self.metrics[agent_name].gte_contributions[task_name] = val
                 contrib_map[task_name] = val
-            
+
             agent_metrics_cache[agent_name] = {
                 'gte_rating': rating_val,
                 'gte_contributions': contrib_map
             }
-            
+
         # Save to cache
         try:
             cache_data = {
@@ -1006,30 +992,29 @@ class GameSetEvaluator:
 
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
-            if OPENSKILL_AVAILABLE and stats.openskill_rating:
-                print(
-                    f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std * 1.96:.2f} (CI95), sigma={stats.openskill_rating.sigma:.2f}")
-            if POLARIX_AVAILABLE:
-                print("  Game Theoretic Evaluation (GTE):")
-                gte_mean, gte_std = stats.gte_rating
-                print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
-                for task in self.gte_tasks:
-                    contrib_mean, contrib_std = stats.gte_contributions[task]
-                    print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
+            if stats.openskill_rating:
+                print(f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std * 1.96:.2f} (CI95),"
+                      f" sigma={stats.openskill_rating.sigma:.2f}")
+            print("  Game Theoretic Evaluation (GTE):")
+            gte_mean, gte_std = stats.gte_rating
+            print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
+            for task in self.gte_tasks:
+                contrib_mean, contrib_std = stats.gte_contributions[task]
+                print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
 
-                print("  GTE Metric Importance (Ratings):")
-                metric_ratings_mean = self.gte_ratings[0][0]
-                metric_ratings_std = self.gte_ratings[1][0]
+            print("  GTE Metric Importance (Ratings):")
+            metric_ratings_mean = self.gte_ratings[0][0]
+            metric_ratings_std = self.gte_ratings[1][0]
 
-                metric_ratings = []
-                for i, task_name in enumerate(self.gte_tasks):
-                    metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+            metric_ratings = []
+            for i, task_name in enumerate(self.gte_tasks):
+                metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
 
-                # Sort by rating descending
-                sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
+            # Sort by rating descending
+            sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
 
-                for task, rating_mean, rating_std in sorted_metric_ratings:
-                    print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
+            for task, rating_mean, rating_std in sorted_metric_ratings:
+                print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
             print("-" * 30)
 
     def _prepare_plot_data(self):
@@ -1102,7 +1087,7 @@ class GameSetEvaluator:
                 {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
                  'category': 'Ratings'})
 
-            if OPENSKILL_AVAILABLE and metrics.openskill_rating:
+            if metrics.openskill_rating:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
                                   'CI95': metrics.openskill_mu_std * 1.96, 'category': 'Ratings'})
 
@@ -1121,10 +1106,6 @@ class GameSetEvaluator:
         return pd.DataFrame(plot_data)
 
     def plot_metrics(self, output_path: Union[str, List[str]] = "metrics.html"):
-        if not PLOTLY_AVAILABLE:
-            print("Warning: `plotly` not found. Cannot plot metrics.")
-            return
-
         df = self._prepare_plot_data()
 
         category_order = [
@@ -1507,7 +1488,7 @@ if __name__ == '__main__':
     parser.add_argument("--error-log", default="game_loading_errors.log", help="Path to log game loading errors.")
     parser.add_argument("--gte-tasks", default="win_dependent", help="GTE tasks configuration.")
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
-    parser.add_argument("--cache-dir", default=".werewolf_metrics_cache", 
+    parser.add_argument("--cache-dir", default=".werewolf_metrics_cache",
                         help="Directory to store cached game results (default: .werewolf_metrics_cache).")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for bootstrapping (default: 42).")
 
