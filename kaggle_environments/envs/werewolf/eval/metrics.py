@@ -493,15 +493,15 @@ class GameSetEvaluator:
                         game_files.append(os.path.join(root, file))
 
         # Caching logic
-        _cache_dir = Path(cache_dir)
-        _cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Calculate cache key
-        current_git_hash = _get_git_hash()
-        input_hash = _get_input_hash(game_files)
+        self.git_hash = _get_git_hash()
+        self.input_hash = _get_input_hash(game_files)
         # We also need to consider preserve_full_game_records in the cache key
-        cache_key = f"{current_git_hash}_{input_hash}_{preserve_full_game_records}.pkl"
-        cache_path = _cache_dir / cache_key
+        cache_key = f"{self.git_hash}_{self.input_hash}_{preserve_full_game_records}.pkl"
+        cache_path = self.cache_dir / cache_key
         
         loaded_from_cache = False
         if cache_path.exists():
@@ -683,6 +683,21 @@ class GameSetEvaluator:
         if not self.games:
             return
 
+        # Check cache
+        cache_key = f"elo_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}.pkl"
+        cache_path = self.cache_dir / cache_key
+        
+        if cache_path.exists():
+            try:
+                print(f"Loading cached Elo bootstrap results from {cache_path}...")
+                with open(cache_path, 'rb') as f:
+                    agent_stds = pickle.load(f)
+                for agent, std in agent_stds.items():
+                    self.metrics[agent].elo_std = std
+                return
+            except Exception as e:
+                print(f"Failed to load Elo cache: {e}. Recomputing...")
+
         def light_games_iter():
             for g in self.games:
                 # Re-create lightweight players for this specific bootstrap
@@ -709,13 +724,39 @@ class GameSetEvaluator:
             for agent in all_agents:
                 bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
 
+        agent_stds = {}
         for agent, values in bootstrapped_elos.items():
             if len(values) > 1:
-                self.metrics[agent].elo_std = float(np.std(values, ddof=1))
+                std = float(np.std(values, ddof=1))
+                self.metrics[agent].elo_std = std
+                agent_stds[agent] = std
+            
+        # Save to cache
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(agent_stds, f)
+            print(f"Saved Elo bootstrap results to {cache_path}")
+        except Exception as e:
+            print(f"Failed to save Elo cache: {e}")
 
     def _bootstrap_openskill(self, num_samples=100):
         if not self.games or not self.openskill_model:
             return
+
+        # Check cache
+        cache_key = f"openskill_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}.pkl"
+        cache_path = self.cache_dir / cache_key
+        
+        if cache_path.exists():
+            try:
+                print(f"Loading cached OpenSkill bootstrap results from {cache_path}...")
+                with open(cache_path, 'rb') as f:
+                    agent_stds = pickle.load(f)
+                for agent, std in agent_stds.items():
+                    self.metrics[agent].openskill_mu_std = std
+                return
+            except Exception as e:
+                print(f"Failed to load OpenSkill cache: {e}. Recomputing...")
 
         def light_games_iter():
             for g in self.games:
@@ -744,9 +785,20 @@ class GameSetEvaluator:
                 else:
                     bootstrapped_mus[agent].append(default_mu)
 
+        agent_stds = {}
         for agent, values in bootstrapped_mus.items():
             if len(values) > 1:
-                self.metrics[agent].openskill_mu_std = float(np.std(values, ddof=1))
+                std = float(np.std(values, ddof=1))
+                self.metrics[agent].openskill_mu_std = std
+                agent_stds[agent] = std
+        
+        # Save to cache
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(agent_stds, f)
+            print(f"Saved OpenSkill bootstrap results to {cache_path}")
+        except Exception as e:
+            print(f"Failed to save OpenSkill cache: {e}")
 
     def evaluate(self, gte_samples=3, elo_samples=3, openskill_samples=3):
         for game in self.games:
@@ -830,6 +882,40 @@ class GameSetEvaluator:
     def _run_gte_evaluation(self, num_samples: int):
         agents = sorted(list(self.metrics.keys()))
 
+        # Check cache
+        # Tasks are part of the cache key
+        if isinstance(self.gte_tasks, list):
+            tasks_str = "_".join(sorted(self.gte_tasks))
+        else:
+            tasks_str = str(self.gte_tasks)
+        
+        # Hash the tasks string to avoid long filenames
+        tasks_hash = hashlib.md5(tasks_str.encode()).hexdigest()
+        
+        cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
+        cache_path = self.cache_dir / cache_key
+        
+        if cache_path.exists():
+            try:
+                print(f"Loading cached GTE bootstrap results from {cache_path}...")
+                with open(cache_path, 'rb') as f:
+                    cache_data = pickle.load(f)
+                
+                self.gte_ratings = cache_data['gte_ratings']
+                self.gte_joint = cache_data.get('gte_joint')
+                self.gte_marginals = cache_data.get('gte_marginals')
+                self.gte_contributions_raw = cache_data.get('gte_contributions_raw')
+                self.gte_metric_contributions_raw = cache_data.get('gte_metric_contributions_raw')
+                
+                agent_metrics_cache = cache_data['agent_metrics']
+                for agent_name, m_cache in agent_metrics_cache.items():
+                    self.metrics[agent_name].gte_rating = m_cache['gte_rating']
+                    self.metrics[agent_name].gte_contributions = m_cache['gte_contributions']
+                
+                return
+            except Exception as e:
+                print(f"Failed to load GTE cache: {e}. Recomputing...")
+
         def light_gte_games_iter():
             for g in tqdm(self.games, desc="Pre-calculating GTE data"):
                 irp_results, vss_results = g.iterate_voting_mini_game()
@@ -872,13 +958,35 @@ class GameSetEvaluator:
         self.gte_contributions_raw = (r2m_contributions_mean, r2m_contributions_std)
         self.gte_metric_contributions_raw = (m2r_contributions_mean, m2r_contributions_std)
 
+        agent_metrics_cache = {}
+
         for i, agent_name in enumerate(agents):
-            self.metrics[agent_name].gte_rating = (ratings_mean[1][i], ratings_std[1][i])
+            rating_val = (ratings_mean[1][i], ratings_std[1][i])
+            self.metrics[agent_name].gte_rating = rating_val
+            
+            contrib_map = {}
             for j, task_name in enumerate(self.gte_tasks):
-                self.metrics[agent_name].gte_contributions[task_name] = (
-                    r2m_contributions_mean[i, j],
-                    r2m_contributions_std[i, j],
-                )
+                val = (r2m_contributions_mean[i, j], r2m_contributions_std[i, j])
+                self.metrics[agent_name].gte_contributions[task_name] = val
+                contrib_map[task_name] = val
+
+            agent_metrics_cache[agent_name] = {"gte_rating": rating_val, "gte_contributions": contrib_map}
+
+        # Save to cache
+        try:
+            cache_data = {
+                "gte_ratings": self.gte_ratings,
+                "gte_joint": self.gte_joint,
+                "gte_marginals": self.gte_marginals,
+                "gte_contributions_raw": self.gte_contributions_raw,
+                "gte_metric_contributions_raw": self.gte_metric_contributions_raw,
+                "agent_metrics": agent_metrics_cache,
+            }
+            with open(cache_path, "wb") as f:
+                pickle.dump(cache_data, f)
+            print(f"Saved GTE bootstrap results to {cache_path}")
+        except Exception as e:
+            print(f"Failed to save GTE cache: {e}")
 
     def print_results(self):
         # [Keep original code]
