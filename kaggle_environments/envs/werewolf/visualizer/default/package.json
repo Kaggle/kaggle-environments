@@ -18,7 +18,7 @@
   "dependencies": {
     "@kaggle-environments/core": "workspace:*",
     "htm": "^3.1.1",
-    "preact": "^10.27.2",
+    "preact": "^10.27.3",
     "three": "~0.118.3",
     "vite-plugin-static-copy": "^3.1.4"
   }

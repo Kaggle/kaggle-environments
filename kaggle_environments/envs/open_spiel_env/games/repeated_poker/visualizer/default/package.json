@@ -19,6 +19,6 @@
     "chart.js": "^4.5.1",
     "htm": "^3.1.1",
     "json-formatter-js": "^2.5.23",
-    "preact": "^10.13.2"
+    "preact": "^10.27.3"
   }
 }
