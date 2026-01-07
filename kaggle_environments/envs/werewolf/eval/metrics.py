@@ -1,3 +1,4 @@
+import argparse
 import functools
 import os
 import sys
@@ -7,7 +8,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, Iterator, List, Tuple, Union
 
-import jax.numpy as jnp
+try:
+    import jax.numpy as jnp
+
+    JAX_AVAILABLE = True
+except ImportError:
+    JAX_AVAILABLE = False
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -1480,13 +1486,32 @@ class GameSetEvaluator:
         return fig
 
 
-if __name__ == "__main__":
-    # Example usage:
-    DIR_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
-    SMOKE_TEST_DATA_DIR = str(DIR_PATH / "test" / "data" / "w_replace")
-    evaluator = GameSetEvaluator(SMOKE_TEST_DATA_DIR)
-    evaluator.evaluate(gte_samples=2)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Evaluate Werewolf game records.")
+    parser.add_argument("input_dir", help="Directory containing .json game files.")
+    parser.add_argument("--error-log", default="game_loading_errors.log", help="Path to log game loading errors.")
+    parser.add_argument("--gte-tasks", default="win_dependent", help="GTE tasks configuration.")
+    parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
+
+    args = parser.parse_args()
+
+    evaluator = GameSetEvaluator(
+        input_dir=args.input_dir,
+        gte_tasks=args.gte_tasks,
+        error_log_path=args.error_log
+    )
+
+    # Run evaluation
+    # We use default sample counts for now, could be made configurable
+    evaluator.evaluate(gte_samples=3, elo_samples=3, openskill_samples=3)
+
+    print("\n" + "=" * 50)
+    print("EVALUATION RESULTS")
+    print("=" * 50)
     evaluator.print_results()
-    evaluator.plot_metrics(["metrics.html", "metrics.png"])
-    evaluator.plot_gte_evaluation(["gte.html", "gte.png"])
-    evaluator.plot_pareto_frontier(["pareto.html", "pareto.png"])
+
+    # Save plots
+    prefix = args.output_prefix
+    evaluator.plot_metrics([f"{prefix}metrics.html", f"{prefix}metrics.png"])
+    evaluator.plot_gte_evaluation([f"{prefix}gte.html", f"{prefix}gte.png"])
+    evaluator.plot_pareto_frontier([f"{prefix}pareto.html", f"{prefix}pareto.png"])
