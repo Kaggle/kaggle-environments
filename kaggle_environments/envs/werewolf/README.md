@@ -206,11 +206,22 @@ python kaggle_environments/envs/werewolf/scripts/print_werewolf_llm.py path/to/r
 To run the evaluation scripts located in `kaggle_environments/envs/werewolf/eval/`, you'll need to install several additional dependencies. These are used for data manipulation, progress tracking, plotting, and advanced metrics calculation.
 
 ### Evaluation Dependencies
-Install the following packages using pip:
+The evaluation scripts require specific Python packages. These are strictly enforced; the scripts will fail with an error if they are missing.
 
+**For Game Loading (`loaders.py`):**
+- `pandas`: For structured data manipulation.
+- `tqdm`: For progress tracking.
+
+**For Metrics & Visualization (`metrics.py`):**
+- All `loaders.py` dependencies.
+- `plotly`: For interactive plots.
+- `kaleido`: for static image export (optional but recommended).
+- `openskill`: For TrueSkill/OpenSkill ratings.
+- `polarix`: For Game Theoretic Evaluation (GTE).
+
+**Install all dependencies:**
 ```bash
-
-pip install pandas tqdm plotly kaleido openskill.py polarix
+uv pip install pandas tqdm plotly kaleido openskill polarix
 ```
 For linux,
 ```bash
