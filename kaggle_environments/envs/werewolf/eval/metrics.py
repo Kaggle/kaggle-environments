@@ -54,6 +54,39 @@ from kaggle_environments.envs.werewolf.eval.loaders import Agent, Player, Role, 
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
+
+import hashlib
+import pickle
+import subprocess
+from pathlib import Path
+
+def _get_git_hash() -> str:
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+    except Exception:
+        return "unknown_git"
+
+def _get_input_hash(file_list: List[str]) -> str:
+    """Computes a hash of the input files (modification times + size).
+    
+    Using just path+mtime+size is much faster than hashing content.
+    """
+    hasher = hashlib.md5()
+    # Sort to ensure deterministic order
+    for file_path in sorted(file_list):
+        path = Path(file_path)
+        try:
+            stat = path.stat()
+            # Include path, mtime, size in hash
+            # Relative path is better but absolute is safer if different machines (though cache is local)
+            # We use absolute path here since it's local cache
+            info = f"{path.absolute()}:{stat.st_mtime}:{stat.st_size}"
+            hasher.update(info.encode('utf-8'))
+        except OSError:
+            pass # Skip missing files
+            
+    return hasher.hexdigest()
+
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """Helper to calculate mean and standard error of the mean.
 
@@ -441,6 +474,7 @@ class GameSetEvaluator:
         gte_tasks: Union[str, List[str]] = "win_dependent",
         preserve_full_game_records: bool = False,
         error_log_path: str = "game_loading_errors.log",
+        cache_dir: str = ".werewolf_metrics_cache",
     ):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
@@ -455,19 +489,52 @@ class GameSetEvaluator:
                     if file.endswith(".json"):
                         game_files.append(os.path.join(root, file))
 
-        args_list = [(f, preserve_full_game_records) for f in game_files]
+        # Caching logic
+        _cache_dir = Path(cache_dir)
+        _cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Calculate cache key
+        current_git_hash = _get_git_hash()
+        input_hash = _get_input_hash(game_files)
+        # We also need to consider preserve_full_game_records in the cache key
+        cache_key = f"{current_git_hash}_{input_hash}_{preserve_full_game_records}.pkl"
+        cache_path = _cache_dir / cache_key
+        
+        loaded_from_cache = False
+        if cache_path.exists():
+            try:
+                print(f"Loading cached game results from {cache_path}...")
+                with open(cache_path, 'rb') as f:
+                    self.games = pickle.load(f)
+                loaded_from_cache = True
+                print(f"Successfully loaded {len(self.games)} games from cache.")
+            except Exception as e:
+                print(f"Failed to load cache: {e}. Reloading games...")
+
         errors = defaultdict(int)
 
-        with ProcessPoolExecutor() as executor:
-            results_iter = tqdm(
-                executor.map(_safe_load_game_result, args_list), total=len(args_list), desc="Loading Games"
-            )
-            for result, error in results_iter:
-                if error:
-                    error_key = f"{type(error).__name__}: {str(error)}"
-                    errors[error_key] += 1
-                elif result:
-                    self.games.append(result)
+        if not loaded_from_cache:
+            args_list = [(f, preserve_full_game_records) for f in game_files]
+
+            with ProcessPoolExecutor() as executor:
+                results_iter = tqdm(
+                    executor.map(_safe_load_game_result, args_list), total=len(args_list), desc="Loading Games"
+                )
+                for result, error in results_iter:
+                    if error:
+                        error_key = f"{type(error).__name__}: {str(error)}"
+                        errors[error_key] += 1
+                    elif result:
+                        self.games.append(result)
+
+            # Save to cache if successful
+            if self.games:
+                try:
+                    print(f"Saving game results to cache {cache_path}...")
+                    with open(cache_path, "wb") as f:
+                        pickle.dump(self.games, f)
+                except Exception as e:
+                    print(f"Failed to save cache: {e}")
 
         if errors:
             print("\nErrors encountered during game loading:")
@@ -479,7 +546,7 @@ class GameSetEvaluator:
                     f.write(f"{error_key}: {count}\n")
             print(f"Detailed error report saved to {error_log_path}")
 
-        self.openskill_model = PlackettLuce() if OPENSKILL_AVAILABLE else None
+        self.openskill_model = PlackettLuce()
 
         self.metrics: Dict[str, AgentMetrics] = defaultdict(
             lambda: AgentMetrics(agent_name=None, openskill_model=self.openskill_model)
@@ -549,7 +616,7 @@ class GameSetEvaluator:
     @staticmethod
     def _compute_openskill_ratings(games: List, model) -> Dict[str, object]:
         """Computes OpenSkill (TrueSkill-like) ratings."""
-        if not OPENSKILL_AVAILABLE or not model:
+        if not model:
             return {}
 
         # Initialize ratings for all agents encountered
@@ -644,7 +711,7 @@ class GameSetEvaluator:
                 self.metrics[agent].elo_std = float(np.std(values, ddof=1))
 
     def _bootstrap_openskill(self, num_samples=100):
-        if not self.games or not OPENSKILL_AVAILABLE or not self.openskill_model:
+        if not self.games or not self.openskill_model:
             return
 
         def light_games_iter():
@@ -748,7 +815,7 @@ class GameSetEvaluator:
             self.metrics[agent].elo = rating
 
         # OpenSkill
-        if OPENSKILL_AVAILABLE and self.openskill_model:
+        if self.openskill_model:
             final_openskill_ratings = self._compute_openskill_ratings(self.games, self.openskill_model)
             for agent, rating in final_openskill_ratings.items():
                 self.metrics[agent].openskill_rating = rating
@@ -758,9 +825,6 @@ class GameSetEvaluator:
         self._run_gte_evaluation(num_samples=gte_samples)
 
     def _run_gte_evaluation(self, num_samples: int):
-        if not POLARIX_AVAILABLE:
-            print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
-            return
         agents = sorted(list(self.metrics.keys()))
 
         def light_gte_games_iter():
@@ -866,31 +930,30 @@ class GameSetEvaluator:
 
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
-            if OPENSKILL_AVAILABLE and stats.openskill_rating:
+            if stats.openskill_rating:
                 print(
                     f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std * 1.96:.2f} (CI95), sigma={stats.openskill_rating.sigma:.2f}"
                 )
-            if POLARIX_AVAILABLE:
-                print("  Game Theoretic Evaluation (GTE):")
-                gte_mean, gte_std = stats.gte_rating
-                print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
-                for task in self.gte_tasks:
-                    contrib_mean, contrib_std = stats.gte_contributions[task]
-                    print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
+            print("  Game Theoretic Evaluation (GTE):")
+            gte_mean, gte_std = stats.gte_rating
+            print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
+            for task in self.gte_tasks:
+                contrib_mean, contrib_std = stats.gte_contributions[task]
+                print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
 
-                print("  GTE Metric Importance (Ratings):")
-                metric_ratings_mean = self.gte_ratings[0][0]
-                metric_ratings_std = self.gte_ratings[1][0]
+            print("  GTE Metric Importance (Ratings):")
+            metric_ratings_mean = self.gte_ratings[0][0]
+            metric_ratings_std = self.gte_ratings[1][0]
 
-                metric_ratings = []
-                for i, task_name in enumerate(self.gte_tasks):
-                    metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+            metric_ratings = []
+            for i, task_name in enumerate(self.gte_tasks):
+                metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
 
-                # Sort by rating descending
-                sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
+            # Sort by rating descending
+            sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
 
-                for task, rating_mean, rating_std in sorted_metric_ratings:
-                    print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
+            for task, rating_mean, rating_std in sorted_metric_ratings:
+                print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
             print("-" * 30)
 
     def _prepare_plot_data(self):
@@ -1036,7 +1099,7 @@ class GameSetEvaluator:
                 }
             )
 
-            if OPENSKILL_AVAILABLE and metrics.openskill_rating:
+            if metrics.openskill_rating:
                 plot_data.append(
                     {
                         "agent": agent_name,
@@ -1075,10 +1138,6 @@ class GameSetEvaluator:
         return pd.DataFrame(plot_data)
 
     def plot_metrics(self, output_path: Union[str, List[str]] = "metrics.html"):
-        if not PLOTLY_AVAILABLE:
-            print("Warning: `plotly` not found. Cannot plot metrics.")
-            return
-
         df = self._prepare_plot_data()
 
         category_order = [
@@ -1480,13 +1539,16 @@ if __name__ == '__main__':
     parser.add_argument("--error-log", default="game_loading_errors.log", help="Path to log game loading errors.")
     parser.add_argument("--gte-tasks", default="win_dependent", help="GTE tasks configuration.")
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
+    parser.add_argument("--cache-dir", default=".werewolf_metrics_cache", 
+                        help="Directory to store cached game results (default: .werewolf_metrics_cache).")
 
     args = parser.parse_args()
 
     evaluator = GameSetEvaluator(
         input_dir=args.input_dir,
         gte_tasks=args.gte_tasks,
-        error_log_path=args.error_log
+        error_log_path=args.error_log,
+        cache_dir=args.cache_dir
     )
 
     # Run evaluation
