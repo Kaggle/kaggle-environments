@@ -167,6 +167,10 @@ class AudioConfig:
     def name_simplification_map(self) -> Dict[str, str]:
         return self.data.get("audio", {}).get("name_simplification_map", {})
 
+    @property
+    def speech_intro_template(self) -> str:
+        return self.data.get("audio", {}).get("speech_intro_template", "")
+
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
 
@@ -614,12 +618,15 @@ class AudioManager:
 
         return messages
 
+
+
     def _prepare_messages(self, unique_msgs, dyn_mod_msgs, replay_data, enhanced_map) -> List[Dict]:
         """Prepares a list of message objects for processing."""
         messages = []
+        intro_template = self.config.speech_intro_template
 
         # Helper to add
-        def add(speaker_id, key, text, voice):
+        def add(speaker_id, key, text, voice, is_player=False):
             # Key remains raw for lookup compatibility
             # Text is updated with display names for better TTS
             tts_text = self.name_manager.replace_names(text)
@@ -631,20 +638,23 @@ class AudioManager:
             enhancement = enhanced_map.get(signature)
             final_text = tts_text
             style_prompt = None
-            # markup_tags = None # No longer separate
 
             if enhancement:
                 if isinstance(enhancement, dict):
-                    # New structure: {"style_prompt": "...", "text_content": "..."}
                     style_prompt = enhancement.get("style_prompt")
-                    # The LLM *returns* the text with tags inserted inline.
-                    # We trust the LLM to preserve the words (as instructed) and only add tags.
                     enhanced_text = enhancement.get("text_content")
                     if enhanced_text:
                         final_text = enhanced_text
                 else:
-                    # Legacy fallback
                     final_text = enhancement
+            
+            # Prepend intro if it's a player and template exists
+            if is_player and intro_template:
+                # We insert the intro BEFORE the final text
+                # Note: final_text might contain style tags or be pure text.
+                # If we rely on Gemini to handle tags, we can just prepend.
+                intro = intro_template.format(player=speaker_display)
+                final_text = f"{intro} {final_text}"
 
             messages.append({
                 "speaker": speaker_id,
@@ -664,14 +674,14 @@ class AudioManager:
         }
 
         for key, text in static_msgs.items():
-            add("moderator", key, text, moderator_voice)
+            add("moderator", key, text, moderator_voice, is_player=False)
             if key in key_aliases:
-                add("moderator", key_aliases[key], text, moderator_voice)
+                add("moderator", key_aliases[key], text, moderator_voice, is_player=False)
 
         # 2. Dynamic Moderator Messages
         for msg in dyn_mod_msgs:
             # For dynamic messages, the key is the exact text
-            add("moderator", msg, msg, moderator_voice)
+            add("moderator", msg, msg, moderator_voice, is_player=False)
 
         # 3. Player Messages
         game_config = replay_data.get("configuration", {})
@@ -683,7 +693,7 @@ class AudioManager:
         for speaker_id, text in unique_msgs:
             voice = player_voice_map.get(speaker_id)
             if voice:
-                add(speaker_id, text, text, voice)
+                add(speaker_id, text, text, voice, is_player=True)
             else:
                 logger.warning(f"  - Warning: No voice found for speaker: {speaker_id}")
 
