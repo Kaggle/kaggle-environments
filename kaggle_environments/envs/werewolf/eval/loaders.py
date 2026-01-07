@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List, Optional
 
@@ -9,6 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from kaggle_environments.envs.werewolf.game.consts import Team
+from kaggle_environments.envs.werewolf.game.roles import create_players_from_agents_config
 from kaggle_environments.utils import structify
 
 
@@ -48,42 +49,67 @@ def _extract_csv_row(file_path):
             return None, f"Missing GAME_END in {file_path}"
 
         winner_ids = set(game_end.get('winner_ids', []))
-        model_ids = [agent['display_name'] for agent in agents]
-        roles = [agent['role'] for agent in agents]
-        scores = [1 if agent['id'] in winner_ids else 0 for agent in agents]
+        
+        # Recreate players to handle ID shuffling (randomize_ids)
+        # This ensures we map the correct Agent (from config index) to the correct Player ID
+        config = game.get('configuration', {})
+        agents_config = config.get('agents', [])
+        
+        try:
+            players = create_players_from_agents_config(
+                agents_config,
+                randomize_roles=config.get('randomize_roles', False),
+                randomize_ids=config.get('randomize_ids', False),
+                seed=config.get('seed')
+            )
+        except Exception as e:
+            # Fallback if creation fails (e.g. valid seed missing), though unlikely for valid replays
+            return None, f"Error creating players: {e}"
+
+        model_ids = [p.agent.display_name for p in players]
+        roles = [p.role.name for p in players]
+        scores = [1 if p.id in winner_ids else 0 for p in players]
 
         # Calculate costs/tokens
-        player_costs = {agent['id']: 0.0 for agent in agents}
-        player_prompt = {agent['id']: 0 for agent in agents}
-        player_completion = {agent['id']: 0 for agent in agents}
-
-        # Helper to map index to ID
-        idx_to_id = {}
-        for i, agent in enumerate(agents):
-            idx_to_id[i] = agent['id']
+        # We need to map player IDs to their costs. 
+        # The costs logic relies on finding costs in steps for a given player ID.
+        player_costs = defaultdict(float)
+        player_prompt = defaultdict(int)
+        player_completion = defaultdict(int)
 
         # Iterate steps (similar to _compute_costs)
         steps = game.get('steps', [])
+        
+        # We need a mapping from index in step to player ID.
+        # But wait, step is list of agent-wise observations?
+        # In Kaggle Werewolf, step is list of dicts. step[i] corresponds to... Player ID? Or Agent Index?
+        # In raw obs, step[i] is for agent i (Kaggle Agent Index).
+        # But the cost is inside 'action' which is inside 'step[i]'.
+        # Is step[i] always for the SAME agent index i? Yes.
+        # But does Agent Index i correspond to the same Player ID?
+        # players[i] corresponds to Agent Index i.
+        # So players[i].id is the ID for the agent at index i.
+        
         for step in steps:
             for i, agent_idx in enumerate(step):
-                p_id = idx_to_id.get(i)
-                if not p_id: continue
-
+                if i >= len(players): continue # Should not happen
+                p_id = players[i].id
+                
                 action = agent_idx.get('action', {})
                 kwargs = action.get('kwargs', {})
-
+                
                 cost = kwargs.get('cost')
                 prompt_t = kwargs.get('prompt_tokens')
                 completion_t = kwargs.get('completion_tokens')
-
+                
                 if cost: player_costs[p_id] += float(cost)
                 if prompt_t: player_prompt[p_id] += int(prompt_t)
                 if completion_t: player_completion[p_id] += int(completion_t)
-
-        # Create lists aligned with agents
-        costs = [player_costs[agent['id']] for agent in agents]
-        prompt_tokens = [player_prompt[agent['id']] for agent in agents]
-        completion_tokens = [player_completion[agent['id']] for agent in agents]
+                
+        # Create lists aligned with players (who are aligned with Agents)
+        costs = [player_costs[p.id] for p in players]
+        prompt_tokens = [player_prompt[p.id] for p in players]
+        completion_tokens = [player_completion[p.id] for p in players]
 
         return {
             'models': model_ids,
