@@ -1221,7 +1221,7 @@ class GameSetEvaluator:
 
         # Find Pareto Frontier
         # A point is on the frontier if there is no other point that has HIGHER gte_rating AND LOWER cost.
-        sorted_df = df.sort_values("cost")
+        sorted_df = df.sort_values(by=["cost", "gte_rating"], ascending=[True, False])
         frontier_points = []
         current_max_rating = -float("inf")
 
