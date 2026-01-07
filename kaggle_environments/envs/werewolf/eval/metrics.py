@@ -1,11 +1,11 @@
+import argparse
 import functools
 import os
 import sys
 from collections import defaultdict, namedtuple
-from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
-from concurrent.futures import ProcessPoolExecutor
 
 import jax.numpy as jnp
 import numpy as np
@@ -49,7 +49,7 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-from kaggle_environments.envs.werewolf.eval.loaders import get_game_results, Agent, Role, Player, _load_game_result
+from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
@@ -197,7 +197,7 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
             agent_name = player.agent.display_name
             if agent_name not in agent_set:
                 continue
-            
+
             role_name = player.role.name
             won = player.role.team == game.winner_team
             alive = 1 if player.alive else 0
@@ -362,7 +362,7 @@ class AgentMetrics:
     def get_avg_cost(self) -> Tuple[float, float]:
         """Returns the average cost per game and its standard error."""
         return _mean_sem(self.total_costs)
-    
+
     def get_avg_tokens(self) -> Tuple[float, float]:
         """Returns the average tokens per game and its standard error."""
         return _mean_sem(self.total_tokens)
@@ -397,7 +397,7 @@ class AgentMetrics:
 
     def get_ksr_for_role(self, role: str) -> Tuple[float, float]:
         return _mean_sem(self.survival_by_role.get(role, []))
-    
+
     def get_wd_ksr(self) -> Tuple[float, float]:
         return _mean_sem(self.wd_survival_scores)
 
@@ -570,7 +570,8 @@ class GameSetEvaluator:
 
         return current_ratings
 
-    def _generate_bootstrap_samples(self, light_games_iterator: Iterator[LightGame], num_samples: int) -> Iterator[List[LightGame]]:
+    def _generate_bootstrap_samples(self, light_games_iterator: Iterator[LightGame], num_samples: int) -> Iterator[
+        List[LightGame]]:
         light_games = list(light_games_iterator)
         if not light_games:
             return
@@ -578,9 +579,9 @@ class GameSetEvaluator:
         # Create an object array and fill it to prevent numpy from unpacking the tuples
         light_games_np = np.empty(len(light_games), dtype=object)
         light_games_np[:] = light_games
-        
+
         rnd_master = np.random.default_rng(42)
-        
+
         for _ in range(num_samples):
             sampled_array = light_games_np[rnd_master.integers(0, len(light_games), size=len(light_games))]
             yield list(sampled_array)
@@ -591,13 +592,16 @@ class GameSetEvaluator:
         def light_games_iter():
             for g in self.games:
                 # Re-create lightweight players for this specific bootstrap
-                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
+                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in
+                           g.players]
                 yield LightGame(players, g.winner_team, None, None, None)
 
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-            results = list(tqdm(executor.map(GameSetEvaluator._compute_elo_ratings, samples_iterator), total=num_samples, desc="Elo Bootstrap"))
+            results = list(
+                tqdm(executor.map(GameSetEvaluator._compute_elo_ratings, samples_iterator), total=num_samples,
+                     desc="Elo Bootstrap"))
 
         bootstrapped_elos = defaultdict(list)
         all_agents = list(self.metrics.keys())
@@ -615,9 +619,10 @@ class GameSetEvaluator:
 
         def light_games_iter():
             for g in self.games:
-                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in g.players]
+                players = [Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive) for p in
+                           g.players]
                 yield LightGame(players, g.winner_team, None, None, None)
-        
+
         samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
 
         worker = functools.partial(_openskill_bootstrap_worker, model=self.openskill_model)
@@ -671,10 +676,10 @@ class GameSetEvaluator:
                 agent_name = player.agent.display_name
                 if self.metrics[agent_name].agent_name is None:
                     self.metrics[agent_name].set_agent_name(agent_name)
-                
+
                 won = 1 if player.role.team == game.winner_team else 0
                 survived = 1 if player.alive else 0
-                
+
                 self.metrics[agent_name].wins.append(won)
                 self.metrics[agent_name].wins_by_role[player.role.name].append(won)
                 self.metrics[agent_name].survival_scores.append(survived)
@@ -725,7 +730,7 @@ class GameSetEvaluator:
             print("Warning: `polarix` library not found. Skipping Game Theoretic Evaluation.")
             return
         agents = sorted(list(self.metrics.keys()))
-        
+
         def light_gte_games_iter():
             for g in tqdm(self.games, desc="Pre-calculating GTE data"):
                 irp_results, vss_results = g.iterate_voting_mini_game()
@@ -737,9 +742,9 @@ class GameSetEvaluator:
                 yield LightGame(players, g.winner_team, irp_results, vss_results, player_durations)
 
         samples_iterator = self._generate_bootstrap_samples(light_gte_games_iter(), num_samples)
-        
+
         worker_func = functools.partial(_gte_bootstrap_worker, agents=agents, tasks=self.gte_tasks)
-        
+
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
 
@@ -785,7 +790,7 @@ class GameSetEvaluator:
             print(f"  Overall Survival Rate (KSR): {ksr:.2f} ± {ksr_std * 1.96:.2f} (CI95)")
             wd_ksr, wd_ksr_std = stats.get_wd_ksr()
             print(f"  Win-Dependent Survival Rate (WD-KSR): {wd_ksr:.2f} ± {wd_ksr_std * 1.96:.2f} (CI95)")
-            
+
             print("  Role-Specific Win Rates:")
             for role in sorted(stats.wins_by_role.keys()):
                 role_rate, role_std = stats.get_win_rate_for_role(role)
@@ -795,9 +800,11 @@ class GameSetEvaluator:
             print("  Voting Accuracy (Villager Team):")
             irp, irp_std = stats.get_irp()
             vss, vss_std = stats.get_vss()
-            print(f"    IRP (Identification Precision): {irp:.2f} ± {irp_std * 1.96:.2f} (CI95) ({len(stats.irp_scores)} votes)")
-            print(f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std * 1.96:.2f} (CI95) ({len(stats.vss_scores)} votes)")
-            
+            print(
+                f"    IRP (Identification Precision): {irp:.2f} ± {irp_std * 1.96:.2f} (CI95) ({len(stats.irp_scores)} votes)")
+            print(
+                f"    VSS (Voting Success Score):     {vss:.2f} ± {vss_std * 1.96:.2f} (CI95) ({len(stats.vss_scores)} votes)")
+
             print("  Win-Dependent Voting Accuracy (Villager Team):")
             wd_irp, wd_irp_std = stats.get_wd_irp()
             wd_vss, wd_vss_std = stats.get_wd_vss()
@@ -856,7 +863,8 @@ class GameSetEvaluator:
             win_rate, win_std = metrics.get_win_rate()
             ksr, ksr_std = metrics.get_ksr()
             plot_data.extend([
-                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'CI95': win_std * 1.96, 'category': 'Overall'},
+                {'agent': agent_name, 'metric': 'Win Rate', 'value': win_rate, 'CI95': win_std * 1.96,
+                 'category': 'Overall'},
                 {'agent': agent_name, 'metric': 'KSR', 'value': ksr, 'CI95': ksr_std * 1.96, 'category': 'Overall'}
             ])
 
@@ -864,8 +872,10 @@ class GameSetEvaluator:
             irp, irp_std = metrics.get_irp()
             vss, vss_std = metrics.get_vss()
             plot_data.extend([
-                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'CI95': irp_std * 1.96, 'category': 'Voting Accuracy'},
-                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'CI95': vss_std * 1.96, 'category': 'Voting Accuracy'}
+                {'agent': agent_name, 'metric': 'IRP', 'value': irp, 'CI95': irp_std * 1.96,
+                 'category': 'Voting Accuracy'},
+                {'agent': agent_name, 'metric': 'VSS', 'value': vss, 'CI95': vss_std * 1.96,
+                 'category': 'Voting Accuracy'}
             ])
 
             # 3. Win-Dependent Metrics
@@ -873,17 +883,22 @@ class GameSetEvaluator:
             wd_irp, wd_irp_std = metrics.get_wd_irp()
             wd_vss, wd_vss_std = metrics.get_wd_vss()
             plot_data.extend([
-                {'agent': agent_name, 'metric': 'WD-KSR', 'value': wd_ksr, 'CI95': wd_ksr_std * 1.96, 'category': 'Win-Dependent Metrics'},
-                {'agent': agent_name, 'metric': 'WD-IRP', 'value': wd_irp, 'CI95': wd_irp_std * 1.96, 'category': 'Win-Dependent Metrics'},
-                {'agent': agent_name, 'metric': 'WD-VSS', 'value': wd_vss, 'CI95': wd_vss_std * 1.96, 'category': 'Win-Dependent Metrics'}
+                {'agent': agent_name, 'metric': 'WD-KSR', 'value': wd_ksr, 'CI95': wd_ksr_std * 1.96,
+                 'category': 'Win-Dependent Metrics'},
+                {'agent': agent_name, 'metric': 'WD-IRP', 'value': wd_irp, 'CI95': wd_irp_std * 1.96,
+                 'category': 'Win-Dependent Metrics'},
+                {'agent': agent_name, 'metric': 'WD-VSS', 'value': wd_vss, 'CI95': wd_vss_std * 1.96,
+                 'category': 'Win-Dependent Metrics'}
             ])
 
             # 4. Dominance Metrics
             margin_of_win, margin_of_win_std = metrics.get_margin_of_win()
             speed_of_win, speed_of_win_std = metrics.get_speed_of_win()
             plot_data.extend([
-                {'agent': agent_name, 'metric': 'Margin of Win', 'value': margin_of_win, 'CI95': margin_of_win_std * 1.96, 'category': 'Dominance Metrics'},
-                {'agent': agent_name, 'metric': 'Speed of Win', 'value': speed_of_win, 'CI95': speed_of_win_std * 1.96, 'category': 'Dominance Metrics'}
+                {'agent': agent_name, 'metric': 'Margin of Win', 'value': margin_of_win,
+                 'CI95': margin_of_win_std * 1.96, 'category': 'Dominance Metrics'},
+                {'agent': agent_name, 'metric': 'Speed of Win', 'value': speed_of_win, 'CI95': speed_of_win_std * 1.96,
+                 'category': 'Dominance Metrics'}
             ])
 
             # 5. Role Specific Win Rates
@@ -895,31 +910,37 @@ class GameSetEvaluator:
             # 6. Role Specific Survival
             for role in sorted(metrics.survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_ksr_for_role(role)
-                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
-                                  'category': 'Role-Specific KSR'})
+                plot_data.append(
+                    {'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
+                     'category': 'Role-Specific KSR'})
 
             # 7. Win-Dependent Role Specific KSR
             for role in sorted(metrics.wd_survival_by_role.keys()):
                 role_ksr, role_ksr_std = metrics.get_wd_ksr_for_role(role)
-                plot_data.append({'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
-                                  'category': 'Win-Dependent KSR'})
+                plot_data.append(
+                    {'agent': agent_name, 'metric': f'{role}', 'value': role_ksr, 'CI95': role_ksr_std * 1.96,
+                     'category': 'Win-Dependent KSR'})
 
             # 8. Ratings
-            plot_data.append({'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
-                              'category': 'Ratings'})
+            plot_data.append(
+                {'agent': agent_name, 'metric': 'Elo', 'value': metrics.elo, 'CI95': metrics.elo_std * 1.96,
+                 'category': 'Ratings'})
 
             if OPENSKILL_AVAILABLE and metrics.openskill_rating:
                 plot_data.append({'agent': agent_name, 'metric': 'TrueSkill', 'value': metrics.openskill_rating.mu,
                                   'CI95': metrics.openskill_mu_std * 1.96, 'category': 'Ratings'})
-            
+
             # 9. Cost
             avg_cost, cost_sem = metrics.get_avg_cost()
             if avg_cost > 0:
-                plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Game', 'value': avg_cost, 'CI95': cost_sem * 1.96, 'category': 'Cost'})
-                
+                plot_data.append(
+                    {'agent': agent_name, 'metric': 'Avg Cost/Game', 'value': avg_cost, 'CI95': cost_sem * 1.96,
+                     'category': 'Cost'})
+
             avg_cost_turn, cost_turn_sem = metrics.get_avg_cost_per_turn()
             if avg_cost_turn > 0:
-                plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Turn', 'value': avg_cost_turn, 'CI95': cost_turn_sem * 1.96, 'category': 'Cost'})
+                plot_data.append({'agent': agent_name, 'metric': 'Avg Cost/Turn', 'value': avg_cost_turn,
+                                  'CI95': cost_turn_sem * 1.96, 'category': 'Cost'})
 
         return pd.DataFrame(plot_data)
 
@@ -987,9 +1008,11 @@ class GameSetEvaluator:
                 # Default to GTE rating order, but for Ratings category, sort by the metric's value
                 if cat == 'Ratings':
                     sorted_agents_by_value = metric_data.sort_values('value', ascending=True)['agent'].tolist()
-                    fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents_by_value, row=row_idx + 1, col=col_idx + 1)
+                    fig.update_xaxes(categoryorder='array', categoryarray=sorted_agents_by_value, row=row_idx + 1,
+                                     col=col_idx + 1)
                 else:
-                    fig.update_xaxes(categoryorder='array', categoryarray=all_agents_sorted, row=row_idx + 1, col=col_idx + 1)
+                    fig.update_xaxes(categoryorder='array', categoryarray=all_agents_sorted, row=row_idx + 1,
+                                     col=col_idx + 1)
 
                 fig.add_trace(
                     go.Bar(
@@ -1041,21 +1064,21 @@ class GameSetEvaluator:
             # Use GTE Rating (Mean) for performance
             gte_mean, _ = metrics.gte_rating
             avg_cost, _ = metrics.get_avg_cost()
-            
+
             # We need valid cost data
             if avg_cost <= 0:
                 continue
-            
+
             data.append({
                 'agent': agent_name,
                 'gte_rating': gte_mean,
                 'cost': avg_cost
             })
-            
+
         if not data:
             print("No cost data available for Pareto plot.")
             return
-            
+
         df = pd.DataFrame(data)
 
         # Find Pareto Frontier
@@ -1063,17 +1086,17 @@ class GameSetEvaluator:
         sorted_df = df.sort_values('cost')
         frontier_points = []
         current_max_rating = -float('inf')
-        
+
         for index, row in sorted_df.iterrows():
             if row['gte_rating'] > current_max_rating:
                 frontier_points.append(row)
                 current_max_rating = row['gte_rating']
-                
+
         frontier_df = pd.DataFrame(frontier_points)
 
         # Plot
         fig = go.Figure()
-        
+
         # All Agents
         fig.add_trace(go.Scatter(
             x=df['cost'],
@@ -1085,7 +1108,7 @@ class GameSetEvaluator:
             name='Agents',
             hovertemplate="<b>%{text}</b><br>Cost: $%{x:.2f}<br>GTE Rating: %{y:.2f}<extra></extra>"
         ))
-        
+
         # Frontier Line
         fig.add_trace(go.Scatter(
             x=frontier_df['cost'],
@@ -1095,7 +1118,7 @@ class GameSetEvaluator:
             name='Pareto Frontier',
             hoverinfo='skip'
         ))
-        
+
         fig.update_layout(
             title="Cost-Performance Pareto Frontier (GTE)",
             xaxis_title="Average Cost per Game ($)",
@@ -1105,7 +1128,7 @@ class GameSetEvaluator:
             width=900,
             height=600
         )
-        
+
         _save_figure(fig, output_path, width=900, height=600)
         return fig
 
@@ -1197,7 +1220,8 @@ class GameSetEvaluator:
             rows=2, cols=1,
             row_heights=[h_top, h_bottom],
             vertical_spacing=0.1,
-            subplot_titles=("Win Rate Contributions & Equilibrium Ratings", "Metric Importance & Contributions from Agents")
+            subplot_titles=("Win Rate Contributions & Equilibrium Ratings",
+                            "Metric Importance & Contributions from Agents")
         )
 
         # Contributions
@@ -1309,12 +1333,31 @@ class GameSetEvaluator:
 
 
 if __name__ == '__main__':
-    # Example usage:
-    DIR_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
-    SMOKE_TEST_DATA_DIR = str(DIR_PATH / "test" / "data" / "w_replace")
-    evaluator = GameSetEvaluator(SMOKE_TEST_DATA_DIR)
-    evaluator.evaluate(gte_samples=2)
+    parser = argparse.ArgumentParser(description="Evaluate Werewolf game records.")
+    parser.add_argument("input_dir", help="Directory containing .json game files.")
+    parser.add_argument("--error-log", default="game_loading_errors.log", help="Path to log game loading errors.")
+    parser.add_argument("--gte-tasks", default="win_dependent", help="GTE tasks configuration.")
+    parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
+
+    args = parser.parse_args()
+
+    evaluator = GameSetEvaluator(
+        input_dir=args.input_dir,
+        gte_tasks=args.gte_tasks,
+        error_log_path=args.error_log
+    )
+
+    # Run evaluation
+    # We use default sample counts for now, could be made configurable
+    evaluator.evaluate(gte_samples=3, elo_samples=3, openskill_samples=3)
+
+    print("\n" + "=" * 50)
+    print("EVALUATION RESULTS")
+    print("=" * 50)
     evaluator.print_results()
-    evaluator.plot_metrics(["metrics.html", "metrics.png"])
-    evaluator.plot_gte_evaluation(["gte.html", "gte.png"])
-    evaluator.plot_pareto_frontier(["pareto.html", "pareto.png"])
+
+    # Save plots
+    prefix = args.output_prefix
+    evaluator.plot_metrics([f"{prefix}metrics.html", f"{prefix}metrics.png"])
+    evaluator.plot_gte_evaluation([f"{prefix}gte.html", f"{prefix}gte.png"])
+    evaluator.plot_pareto_frontier([f"{prefix}pareto.html", f"{prefix}pareto.png"])
