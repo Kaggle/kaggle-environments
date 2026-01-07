@@ -20,17 +20,13 @@ from tqdm import tqdm
 
 try:
     import polarix as plx
-
-    POLARIX_AVAILABLE = True
 except ImportError:
-    POLARIX_AVAILABLE = False
+    raise ImportError("The 'polarix' library is required for metrics calculation. Please install it via pip: `pip install polarix`.")
 
 try:
     from openskill.models import PlackettLuce
-
-    OPENSKILL_AVAILABLE = True
 except ImportError:
-    OPENSKILL_AVAILABLE = False
+    raise ImportError("The 'openskill' library is required for rating calculation. Please install it via pip: `pip install openskill`.")
 
 # Workaround for broken google.colab import in some environments (incompatibility with IPython)
 # Plotly tries to import google.colab to detect the environment. If google.colab is installed
@@ -51,9 +47,8 @@ try:
 
     # Set a default sophisticated template
     pio.templates.default = "plotly_white"
-    PLOTLY_AVAILABLE = True
 except ImportError:
-    PLOTLY_AVAILABLE = False
+    raise ImportError("The 'plotly' library is required for plotting. Please install it via pip: `pip install plotly`.")
 
 from kaggle_environments.envs.werewolf.eval.loaders import Agent, Player, Role, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
@@ -1196,10 +1191,6 @@ class GameSetEvaluator:
         return fig
 
     def plot_pareto_frontier(self, output_path: Union[str, List[str]] = "pareto_frontier.html"):
-        if not PLOTLY_AVAILABLE:
-            print("Warning: `plotly` not found. Cannot plot Pareto frontier.")
-            return
-
         # Gather data
         data = []
         for agent_name, metrics in self.metrics.items():
@@ -1275,9 +1266,6 @@ class GameSetEvaluator:
         return fig
 
     def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
-        if not POLARIX_AVAILABLE or not PLOTLY_AVAILABLE:
-            print("Warning: `polarix` or `plotly` library not found.")
-            return None
         if self.gte_game is None:
             print("GTE evaluation has not been run. Please run .evaluate() first.")
             return None
