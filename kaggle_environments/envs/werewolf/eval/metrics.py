@@ -48,6 +48,39 @@ from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, 
 from kaggle_environments.envs.werewolf.game.consts import Team
 
 
+
+import hashlib
+import pickle
+import subprocess
+from pathlib import Path
+
+def _get_git_hash() -> str:
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+    except Exception:
+        return "unknown_git"
+
+def _get_input_hash(file_list: List[str]) -> str:
+    """Computes a hash of the input files (modification times + size).
+    
+    Using just path+mtime+size is much faster than hashing content.
+    """
+    hasher = hashlib.md5()
+    # Sort to ensure deterministic order
+    for file_path in sorted(file_list):
+        path = Path(file_path)
+        try:
+            stat = path.stat()
+            # Include path, mtime, size in hash
+            # Relative path is better but absolute is safer if different machines (though cache is local)
+            # We use absolute path here since it's local cache
+            info = f"{path.absolute()}:{stat.st_mtime}:{stat.st_size}"
+            hasher.update(info.encode('utf-8'))
+        except OSError:
+            pass # Skip missing files
+            
+    return hasher.hexdigest()
+
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """Helper to calculate mean and standard error of the mean.
 
@@ -429,7 +462,8 @@ class GameSetEvaluator:
     """
 
     def __init__(self, input_dir: Union[str, List[str]], gte_tasks: Union[str, List[str]] = "win_dependent",
-                 preserve_full_game_records: bool = False, error_log_path: str = "game_loading_errors.log"):
+                 preserve_full_game_records: bool = False, error_log_path: str = "game_loading_errors.log",
+                 cache_dir: str = ".werewolf_metrics_cache"):
         if isinstance(input_dir, str):
             input_dirs = [input_dir]
         else:
@@ -443,18 +477,50 @@ class GameSetEvaluator:
                     if file.endswith('.json'):
                         game_files.append(os.path.join(root, file))
 
-        args_list = [(f, preserve_full_game_records) for f in game_files]
-        errors = defaultdict(int)
+        # Caching logic
+        _cache_dir = Path(cache_dir)
+        _cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Calculate cache key
+        current_git_hash = _get_git_hash()
+        input_hash = _get_input_hash(game_files)
+        # We also need to consider preserve_full_game_records in the cache key
+        cache_key = f"{current_git_hash}_{input_hash}_{preserve_full_game_records}.pkl"
+        cache_path = _cache_dir / cache_key
+        
+        loaded_from_cache = False
+        if cache_path.exists():
+            try:
+                print(f"Loading cached game results from {cache_path}...")
+                with open(cache_path, 'rb') as f:
+                    self.games = pickle.load(f)
+                loaded_from_cache = True
+                print(f"Successfully loaded {len(self.games)} games from cache.")
+            except Exception as e:
+                print(f"Failed to load cache: {e}. Reloading games...")
 
-        with ProcessPoolExecutor() as executor:
-            results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
-                                desc="Loading Games")
-            for result, error in results_iter:
-                if error:
-                    error_key = f"{type(error).__name__}: {str(error)}"
-                    errors[error_key] += 1
-                elif result:
-                    self.games.append(result)
+        if not loaded_from_cache:
+            args_list = [(f, preserve_full_game_records) for f in game_files]
+            errors = defaultdict(int)
+
+            with ProcessPoolExecutor() as executor:
+                results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
+                                    desc="Loading Games")
+                for result, error in results_iter:
+                    if error:
+                        error_key = f"{type(error).__name__}: {str(error)}"
+                        errors[error_key] += 1
+                    elif result:
+                        self.games.append(result)
+            
+            # Save to cache if successful
+            if self.games:
+                try:
+                    print(f"Saving game results to cache {cache_path}...")
+                    with open(cache_path, 'wb') as f:
+                        pickle.dump(self.games, f)
+                except Exception as e:
+                    print(f"Failed to save cache: {e}")
 
         if errors:
             print("\nErrors encountered during game loading:")
@@ -1326,13 +1392,16 @@ if __name__ == '__main__':
     parser.add_argument("--error-log", default="game_loading_errors.log", help="Path to log game loading errors.")
     parser.add_argument("--gte-tasks", default="win_dependent", help="GTE tasks configuration.")
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
+    parser.add_argument("--cache-dir", default=".werewolf_metrics_cache", 
+                        help="Directory to store cached game results (default: .werewolf_metrics_cache).")
 
     args = parser.parse_args()
 
     evaluator = GameSetEvaluator(
         input_dir=args.input_dir,
         gte_tasks=args.gte_tasks,
-        error_log_path=args.error_log
+        error_log_path=args.error_log,
+        cache_dir=args.cache_dir
     )
 
     # Run evaluation
