@@ -9,7 +9,7 @@ from kaggle_environments.utils import structify
 
 
 def _load_json(file_path):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         try:
             return json.load(f)
         except json.JSONDecodeError:
@@ -29,12 +29,12 @@ def get_games(input_dir: str) -> List[dict]:
     game_files = []
     for root, _, files in os.walk(input_dir):
         for file in files:
-            if file.endswith('.json'):
+            if file.endswith(".json"):
                 game_files.append(os.path.join(root, file))
 
     with ProcessPoolExecutor() as executor:
         games = list(executor.map(_load_json, game_files))
-    
+
     return [g for g in games if g is not None]
 
 
@@ -46,8 +46,9 @@ def _load_game_result(args):
     return GameResult(game_json, preserve_full_record=preserve_full_record)
 
 
-def get_game_results(input_dir: str, preserve_full_record: bool = False,
-                     max_workers: Optional[int] = None) -> List["GameResult"]:
+def get_game_results(
+    input_dir: str, preserve_full_record: bool = False, max_workers: Optional[int] = None
+) -> List["GameResult"]:
     """Loads all game replays and returns GameResult objects, in parallel.
 
     Args:
@@ -62,15 +63,14 @@ def get_game_results(input_dir: str, preserve_full_record: bool = False,
     game_files = []
     for root, _, files in os.walk(input_dir):
         for file in files:
-            if file.endswith('.json'):
+            if file.endswith(".json"):
                 game_files.append(os.path.join(root, file))
-    
+
     args = [(f, preserve_full_record) for f in game_files]
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(_load_game_result, args))
-        
-    return [r for r in results if r is not None]
 
+    return [r for r in results if r is not None]
 
 
 ROLE_TO_TEAM = {
@@ -80,9 +80,9 @@ ROLE_TO_TEAM = {
     "DOCTOR": Team.VILLAGERS,
 }
 
-Agent = namedtuple('Agent', ['display_name'])
-Role = namedtuple('Role', ['name', 'team'])
-Player = namedtuple('Player', ['id', 'agent', 'role', 'alive'])
+Agent = namedtuple("Agent", ["display_name"])
+Role = namedtuple("Role", ["name", "team"])
+Player = namedtuple("Player", ["id", "agent", "role", "alive"])
 
 
 class GameResult:
@@ -119,10 +119,10 @@ class GameResult:
         else:
             self.game_json = None
             # Extract only what's needed to avoid holding the whole dict in memory
-            info = game_json.get('info', {})
-            game_end_info_raw = info.get('GAME_END', {})
+            info = game_json.get("info", {})
+            game_end_info_raw = info.get("GAME_END", {})
             game_end_info = structify(game_end_info_raw)
-            moderator_observation = structify(info.get('MODERATOR_OBSERVATION', []))
+            moderator_observation = structify(info.get("MODERATOR_OBSERVATION", []))
 
         self.winner_team: Team = Team(game_end_info.winner_team)
         self.players = self._get_players(game_end_info)
@@ -131,43 +131,45 @@ class GameResult:
         self.villagers = {p.id for p in self.players if p.role.team == Team.VILLAGERS}
         self.wolves = {p.id for p in self.players if p.role.team == Team.WEREWOLVES}
         self.id_to_agent = {p.id: p.agent.display_name for p in self.players}
-        
+
         # Parse cost summary if available
         # The cost summary structure is expected to be found in game_end_info.cost_summary
         # Schema matches AgentCostSummary in werewolf.py
         self.player_costs = {}
         self.player_tokens = {}
-        
-        cost_summary = getattr(game_end_info, 'cost_summary', None)
-        
+
+        cost_summary = getattr(game_end_info, "cost_summary", None)
+
         if cost_summary:
             # cost_per_agent is a list of AgentCostSummary
-            cost_per_agent = getattr(cost_summary, 'cost_per_agent', []) or []
-            
+            cost_per_agent = getattr(cost_summary, "cost_per_agent", []) or []
+
             for agent_summ in cost_per_agent:
                 # AgentCostSummary has 'agent_config' (dict) and 'costs' (AgentCost)
-                
+
                 # Extract Player ID from agent_config
-                agent_config = getattr(agent_summ, 'agent_config', None)
+                agent_config = getattr(agent_summ, "agent_config", None)
                 p_id = None
                 if agent_config:
-                    p_id = getattr(agent_config, 'id', None)
+                    p_id = getattr(agent_config, "id", None)
                     if p_id is None and isinstance(agent_config, dict):
-                        p_id = agent_config.get('id')
-                
+                        p_id = agent_config.get("id")
+
                 if p_id is not None:
-                    costs = getattr(agent_summ, 'costs', None)
+                    costs = getattr(agent_summ, "costs", None)
                     if costs:
                         # AgentCost has total_cost, prompt_tokens, completion_tokens
-                        total_cost = getattr(costs, 'total_cost', 0.0)
-                        prompt_tokens = getattr(costs, 'prompt_tokens', 0)
-                        completion_tokens = getattr(costs, 'completion_tokens', 0)
-                        
+                        total_cost = getattr(costs, "total_cost", 0.0)
+                        prompt_tokens = getattr(costs, "prompt_tokens", 0)
+                        completion_tokens = getattr(costs, "completion_tokens", 0)
+
                         self.player_costs[p_id] = total_cost
                         self.player_tokens[p_id] = prompt_tokens + completion_tokens
 
         # Pre-compute voting results and discard moderator_observation
-        self.irp_results, self.vss_results, self.player_durations = self._precompute_voting_results(moderator_observation, game_end_info)
+        self.irp_results, self.vss_results, self.player_durations = self._precompute_voting_results(
+            moderator_observation, game_end_info
+        )
 
     def __repr__(self) -> str:
         player_lines = []
@@ -178,16 +180,13 @@ class GameResult:
             player_lines.append(f"  - {player.agent.display_name} ({player.role.name}, {status}){elim_info}{cost_info}")
 
         player_str = "\n".join(player_lines)
-        return (
-            f"<GameResult: {self.winner_team.value} won. {len(self.players)} players.\n"
-            f"{player_str}\n>"
-        )
+        return f"<GameResult: {self.winner_team.value} won. {len(self.players)} players.\n{player_str}\n>"
 
     def _get_players(self, game_end_info) -> List[Player]:
         out = []
-        survivors = set(getattr(game_end_info, 'survivors_until_last_round_and_role', {}).keys())
+        survivors = set(getattr(game_end_info, "survivors_until_last_round_and_role", {}).keys())
 
-        for p_info in getattr(game_end_info, 'all_players', []):
+        for p_info in getattr(game_end_info, "all_players", []):
             role_name = p_info.agent.role
             team = ROLE_TO_TEAM.get(role_name.upper())
             if team is None:
@@ -197,7 +196,7 @@ class GameResult:
                 id=p_info.id,
                 agent=Agent(display_name=p_info.agent.display_name),
                 role=Role(name=role_name, team=team),
-                alive=p_info.id in survivors
+                alive=p_info.id in survivors,
             )
             out.append(player)
         return out
@@ -217,41 +216,41 @@ class GameResult:
         """
         day_vote_events = {}
         werewolf_exile_events = {}
-        
+
         # Default duration is last_day for everyone.
-        last_day = getattr(game_end_info, 'last_day', 0)
+        last_day = getattr(game_end_info, "last_day", 0)
         player_durations = {p.id: last_day for p in self.players}
-        
+
         # Track eliminations to adjust duration
         # If a player is eliminated, their duration is the day/step of elimination.
         # We need to check for ELIMINATION events.
-        
+
         for step in moderator_observation:
             for entry in step:
-                data_type = getattr(entry, 'data_type', None)
-                json_str = getattr(entry, 'json_str', "{}")
-                
+                data_type = getattr(entry, "data_type", None)
+                json_str = getattr(entry, "json_str", "{}")
+
                 # Try to extract costs from action events if not already present
                 if not self.player_costs:
                     try:
                         json_data = json.loads(json_str)
-                        actor_id = json_data.get('actor_id')
+                        actor_id = json_data.get("actor_id")
                         # Check if it is an action event (data has cost/tokens)
                         if actor_id is not None:
-                            cost = json_data.get('cost')
-                            prompt_t = json_data.get('prompt_tokens')
-                            completion_t = json_data.get('completion_tokens')
-                            
+                            cost = json_data.get("cost")
+                            prompt_t = json_data.get("prompt_tokens")
+                            completion_t = json_data.get("completion_tokens")
+
                             # Calculate total tokens from components or fallback to legacy 'tokens'
                             total_tokens = 0
                             if prompt_t is not None:
                                 total_tokens += int(prompt_t)
                             if completion_t is not None:
                                 total_tokens += int(completion_t)
-                            
+
                             # If neither component was found, try legacy field
                             if total_tokens == 0:
-                                total_tokens = int(json_data.get('tokens', 0))
+                                total_tokens = int(json_data.get("tokens", 0))
 
                             if cost is not None:
                                 self.player_costs[actor_id] = self.player_costs.get(actor_id, 0.0) + cost
@@ -267,24 +266,24 @@ class GameResult:
                     day_vote_events[day].append(json_data["data"])
                 elif data_type == "DayExileElectedDataEntry":
                     json_data = json.loads(json_str)
-                    if json_data["data"]['elected_player_id'] in self.wolves:
+                    if json_data["data"]["elected_player_id"] in self.wolves:
                         werewolf_exile_events[json_data["day"]] = json_data["data"]
-                    
+
                     # Update duration for exiled player
-                    exiled_id = json_data["data"]['elected_player_id']
+                    exiled_id = json_data["data"]["elected_player_id"]
                     if exiled_id in player_durations:
                         player_durations[exiled_id] = json_data["day"]
-                        
+
                 elif data_type == "WerewolfNightEliminationElectedDataEntry":
-                     # This entry implies a night elimination
-                     pass
-                
+                    # This entry implies a night elimination
+                    pass
+
                 # Generic check for ELIMINATION event which engine.py logs
-                if getattr(entry, 'event_name', '') == 'ELIMINATION':
+                if getattr(entry, "event_name", "") == "ELIMINATION":
                     pass
 
         # Use elimination_info from game_end_info if available for accurate durations
-        elimination_info = getattr(game_end_info, 'elimination_info', None)
+        elimination_info = getattr(game_end_info, "elimination_info", None)
         if elimination_info:
             # elimination_info is likely a dict of player_id -> {day, reason, etc}
             # Check if it's a list or dict
@@ -294,15 +293,15 @@ class GameResult:
             elif isinstance(elimination_info, dict):
                 for p_id, info in elimination_info.items():
                     # info might be a struct or dict
-                    day = getattr(info, 'day', None) or info.get('day')
+                    day = getattr(info, "day", None) or info.get("day")
                     if day is not None and p_id in player_durations:
                         player_durations[p_id] = day
 
         irp_results = []
         for day, entries in day_vote_events.items():
             for entry in entries:
-                actor_id = entry['actor_id']
-                target_id = entry['target_id']
+                actor_id = entry["actor_id"]
+                target_id = entry["target_id"]
                 if actor_id in self.villagers:
                     agent_name = self.id_to_agent[actor_id]
                     score = 1 if target_id in self.wolves else 0
@@ -310,10 +309,10 @@ class GameResult:
 
         vss_results = []
         for day, item in werewolf_exile_events.items():
-            exiled_wolf_id = item['elected_player_id']
+            exiled_wolf_id = item["elected_player_id"]
             for entry in day_vote_events.get(day, []):
-                actor_id = entry['actor_id']
-                target_id = entry['target_id']
+                actor_id = entry["actor_id"]
+                target_id = entry["target_id"]
                 if actor_id in self.villagers:
                     agent_name = self.id_to_agent[actor_id]
                     score = 1 if target_id == exiled_wolf_id else 0

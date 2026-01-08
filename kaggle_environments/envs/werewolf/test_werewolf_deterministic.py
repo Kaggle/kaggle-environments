@@ -1,8 +1,8 @@
 import pytest
 
 from kaggle_environments import make
-from kaggle_environments.envs.werewolf.game.protocols.vote import TieBreak
 from kaggle_environments.envs.werewolf.game.consts import EnvInfoKeys, Team
+from kaggle_environments.envs.werewolf.game.protocols.vote import TieBreak
 from kaggle_environments.envs.werewolf.game.records import GameEndResultsDataEntry
 
 URLS = {

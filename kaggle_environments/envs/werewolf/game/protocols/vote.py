@@ -13,6 +13,7 @@ from kaggle_environments.envs.werewolf.game.records import (
 )
 from kaggle_environments.envs.werewolf.game.roles import Player
 from kaggle_environments.envs.werewolf.game.states import GameState
+
 from .factory import register_protocol
 from .ordering import FirstPlayerStrategy, PivotSelector
 
@@ -143,8 +144,8 @@ class SimultaneousMajority(VotingProtocol):
         if not isinstance(vote_action, VoteAction):
             state.push_event(
                 description=f'Invalid vote attempt by player "{vote_action.actor_id}". '
-                            f"Not a VoteAction; submitted {vote_action.__class__.__name__} instead. "
-                            f"Cast as abstained vote.",
+                f"Not a VoteAction; submitted {vote_action.__class__.__name__} instead. "
+                f"Cast as abstained vote.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=self._expected_voters,
@@ -312,7 +313,7 @@ class SequentialVoting(VotingProtocol):
             data = VoteOrderDataEntry(vote_order_of_player_ids=self._expected_voters)
             state.push_event(
                 description=f"Voting starts from player {self._expected_voters[0]} "
-                            f"with the following order: {self._expected_voters}",
+                f"with the following order: {self._expected_voters}",
                 event_name=EventName.VOTE_ORDER,
                 public=False,
                 visible_to=list(alive_voter_ids_set),
@@ -374,7 +375,7 @@ class SequentialVoting(VotingProtocol):
         if self.done():
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                            f"but voting is already complete.",
+                f"but voting is already complete.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id],
@@ -385,7 +386,7 @@ class SequentialVoting(VotingProtocol):
         if vote_action.actor_id != expected_voter_id:
             state.push_event(
                 description=f"Action ({vote_action.kind}) received from {vote_action.actor_id}, "
-                            f"but it is {expected_voter_id}'s turn.",
+                f"but it is {expected_voter_id}'s turn.",
                 event_name=EventName.ERROR,
                 public=False,  # Or public if strict turn enforcement is announced
                 visible_to=[vote_action.actor_id, expected_voter_id],
@@ -408,7 +409,7 @@ class SequentialVoting(VotingProtocol):
                     # Invalid target chosen for VoteAction
                     state.push_event(
                         description=f"{vote_action.actor_id} attempted to vote for {vote_action.target_id} "
-                                    f"(invalid target). Vote recorded as Abstain.",
+                        f"(invalid target). Vote recorded as Abstain.",
                         event_name=EventName.ERROR,
                         public=False,
                         visible_to=[vote_action.actor_id],
@@ -449,7 +450,7 @@ class SequentialVoting(VotingProtocol):
         else:  # Player not found, not alive, or (redundantly) not their turn
             state.push_event(
                 description=f"Invalid action ({vote_action.kind}) attempt by {vote_action.actor_id} (player not found,"
-                            f" not alive, or not their turn). Action not counted.",
+                f" not alive, or not their turn). Action not counted.",
                 event_name=EventName.ERROR,
                 public=False,
                 visible_to=[vote_action.actor_id],

@@ -25,15 +25,16 @@ def agent(observation, configuration):
         # 2. Now that the path is set, we can import our libraries.
         # pylint: disable=g-import-not-at-top
 
-        from kaggle_environments.envs.werewolf.werewolf import AgentFactoryWrapper, LLM_SYSTEM_PROMPT
         from kaggle_environments.envs.werewolf.harness.base import LLMWerewolfAgent
+        from kaggle_environments.envs.werewolf.werewolf import LLM_SYSTEM_PROMPT, AgentFactoryWrapper
 
         if "MODEL_NAME" not in os.environ:
             raise ValueError("MODEL_NAME was not specified as an environment variable. Agent cannot be configured.")
 
         if "MODEL_PROXY_KEY" not in os.environ:
-            raise ValueError("MODEL_PROXY_KEY was not specified as an environment variable. "
-                             "Model proxy cannot function correctly.")
+            raise ValueError(
+                "MODEL_PROXY_KEY was not specified as an environment variable. Model proxy cannot function correctly."
+            )
 
         if "MODEL_PROXY_URL" not in os.environ:
             raise ValueError("MODEL_PROXY_URL was not injected. Agent cannot run.")
@@ -44,8 +45,8 @@ def agent(observation, configuration):
             system_prompt=LLM_SYSTEM_PROMPT,
             litellm_model_proxy_kwargs={
                 "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
-                "api_key": os.environ["MODEL_PROXY_KEY"]
-            }
+                "api_key": os.environ["MODEL_PROXY_KEY"],
+            },
         )
 
         _SETUP_COMPLETE = True

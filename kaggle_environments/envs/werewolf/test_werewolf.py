@@ -48,7 +48,7 @@ def test_load_env(env):
 
 
 def test_randomize_role_with_seed(agents_config):
-    env = make("werewolf", debug=True, configuration={"agents": agents_config, 'randomize_roles': True, 'seed': 123})
+    env = make("werewolf", debug=True, configuration={"agents": agents_config, "randomize_roles": True, "seed": 123})
     agents = ["random"] * 7
     env.run(agents)
 
@@ -174,10 +174,7 @@ def test_html_render(env, tmp_path):
 
 
 def test_env_info_not_overwritten(agents_config):
-    initial_info = {
-        "Agents": [{"Name": "External Agent Info"}],
-        "custom_key": "custom_value"
-    }
+    initial_info = {"Agents": [{"Name": "External Agent Info"}], "custom_key": "custom_value"}
     env = make("werewolf", debug=True, configuration={"agents": agents_config}, info=initial_info)
     agents = ["random"] * 7
     env.run(agents)
