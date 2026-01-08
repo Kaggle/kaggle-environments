@@ -284,3 +284,72 @@ The following rendering modes are supported:
 out = env.render(mode="ansi")
 print(out)
 ```
+
+# Command Line
+
+```sh
+> python -m kaggle_environments.main -h
+```
+
+## List Registered Environments
+
+```sh
+> python -m kaggle_environments.main list
+```
+
+## Evaluate Episode Rewards
+
+```sh
+> python -m kaggle_environments.main evaluate --environment connectx --agents random random --episodes 10
+```
+
+## Run an Episode
+
+```sh
+> python -m kaggle_environments.main run --environment connectx --agents random /pathtomy/agent.py --debug True
+```
+
+## Load an Episode
+
+This is useful when converting an episode json output into html.
+
+```sh
+python -m kaggle_environments.main load --environment connectx --steps [...] --render '{"mode": "html"}'
+```
+
+# HTTP Server
+
+The HTTP server contains the same interface/actions as the CLI above merging both POST body and GET params.
+
+## Setup
+
+```bash
+python -m kaggle_environments.main http-server --port=8012 --host=0.0.0.0
+```
+
+### Running Agents on Separate Servers
+
+```python
+# How to run agent on a separate server.
+import requests
+import json
+
+path_to_agent1 = "/home/ajeffries/git/playground/agent1.py"
+path_to_agent2 = "/home/ajeffries/git/playground/agent2.py"
+
+agent1_url = f"http://localhost:5001?agents[]={path_to_agent1}"
+agent2_url = f"http://localhost:5002?agents[]={path_to_agent2}"
+
+body = {
+    "action": "run",
+    "environment": "connectx",
+    "agents": [agent1_url, agent2_url]
+}
+resp = requests.post(url="http://localhost:5000", data=json.dumps(body)).json()
+
+# Inflate the response replay to visualize.
+from kaggle_environments import make
+env = make("connectx", steps=resp["steps"], debug=True)
+env.render(mode="ipython")
+print(resp)
+```

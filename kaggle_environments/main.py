@@ -18,9 +18,9 @@ import traceback
 from logging.config import dictConfig
 from typing import Optional
 
-from . import errors, utils
-from .agent import Agent
-from .core import environments, evaluate, make
+from kaggle_environments import errors, utils
+from kaggle_environments.agent import Agent
+from kaggle_environments.core import environments, evaluate, make
 
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
