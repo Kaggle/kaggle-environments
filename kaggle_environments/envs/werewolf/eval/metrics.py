@@ -649,9 +649,41 @@ class GameSetEvaluator:
 
         return current_ratings
 
+    @staticmethod
+    def _compute_elo_ratings_fast(games_data: List[Tuple[Tuple[int], Tuple[int], int]], num_agents: int) -> List[float]:
+        """Computes Elo ratings using integer indices for speed."""
+        elos = [1200.0] * num_agents
+        k = 32
+
+        for v_indices, w_indices, result_v in games_data:
+            if not v_indices or not w_indices:
+                continue
+
+            # Calculate team averages
+            avg_v_elo = sum(elos[i] for i in v_indices) / len(v_indices)
+            avg_w_elo = sum(elos[i] for i in w_indices) / len(w_indices)
+
+            # Expected score for villagers
+            exponent = (avg_w_elo - avg_v_elo) / 400.0
+            if exponent > 40:
+                exponent = 40.0
+            elif exponent < -40:
+                exponent = -40.0
+            expected_v = 1.0 / (1.0 + 10.0 ** exponent)
+
+            # Change
+            change_v = k * (result_v - expected_v)
+
+            for i in v_indices:
+                elos[i] += change_v
+            for i in w_indices:
+                elos[i] -= change_v
+
+        return elos
+
     def _generate_bootstrap_samples(
-        self, light_games_iterator: Iterator[LightGame], num_samples: int
-    ) -> Iterator[List[LightGame]]:
+        self, light_games_iterator: Iterator[Union[LightGame, Tuple]], num_samples: int
+    ) -> Iterator[List[Union[LightGame, Tuple]]]:
         light_games = list(light_games_iterator)
         if not light_games:
             return
@@ -685,31 +717,42 @@ class GameSetEvaluator:
             except Exception as e:
                 print(f"Failed to load Elo cache: {e}. Recomputing...")
 
-        def light_games_iter():
-            for g in self.games:
-                # Re-create lightweight players for this specific bootstrap
-                players = [
-                    Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
-                    for p in g.players
-                ]
-                yield LightGame(players, g.winner_team, None, None, None)
+        # Pre-process data for speed
+        all_agents = sorted(list(self.metrics.keys()))
+        agent_to_idx = {name: i for i, name in enumerate(all_agents)}
+        num_agents = len(all_agents)
 
-        samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
+        fast_games = []
+        for g in self.games:
+            v_indices = []
+            w_indices = []
+            for p in g.players:
+                idx = agent_to_idx.get(p.agent.display_name)
+                if idx is not None:
+                    if p.role.team == Team.VILLAGERS:
+                        v_indices.append(idx)
+                    else:
+                        w_indices.append(idx)
+
+            result_v = 1 if g.winner_team == Team.VILLAGERS else 0
+            if v_indices and w_indices:
+                fast_games.append((tuple(v_indices), tuple(w_indices), result_v))
+
+        # We pass the full list of games to _generate_bootstrap_samples
+        samples_iterator = self._generate_bootstrap_samples(fast_games, num_samples)
+
+        worker = functools.partial(GameSetEvaluator._compute_elo_ratings_fast, num_agents=num_agents)
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             results = list(
-                tqdm(
-                    executor.map(GameSetEvaluator._compute_elo_ratings, samples_iterator),
-                    total=num_samples,
-                    desc="Elo Bootstrap",
-                )
+                tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="Elo Bootstrap")
             )
 
         bootstrapped_elos = defaultdict(list)
-        all_agents = list(self.metrics.keys())
-        for sample_elos in results:
-            for agent in all_agents:
-                bootstrapped_elos[agent].append(sample_elos.get(agent, 1200.0))
+        
+        for sample_elos_list in results:
+             for i, elo in enumerate(sample_elos_list):
+                 bootstrapped_elos[all_agents[i]].append(elo)
 
         agent_stds = {}
         for agent, values in bootstrapped_elos.items():
