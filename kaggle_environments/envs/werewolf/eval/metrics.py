@@ -10,7 +10,9 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
+from typing import Dict, List, Tuple, Union, Iterator
 import warnings
+import multiprocessing
 
 import jax.numpy as jnp
 import numpy as np
@@ -567,7 +569,7 @@ class GameSetEvaluator:
             args_list = [(f, preserve_full_game_records) for f in game_files]
             errors = defaultdict(list)
 
-            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4) as executor:
+            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4, mp_context=multiprocessing.get_context("spawn")) as executor:
                 results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
                                     desc="Loading Games")
                 # zip preserves order because executor.map preserves order
@@ -858,7 +860,7 @@ class GameSetEvaluator:
 
         worker = functools.partial(GameSetEvaluator._compute_elo_ratings_fast, num_agents=num_agents)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
             results = list(
                 tqdm(executor.map(worker, samples_iterator), total=num_samples,
                      desc="Elo Bootstrap"))
@@ -929,7 +931,7 @@ class GameSetEvaluator:
 
         worker = functools.partial(_openskill_bootstrap_worker_fast, num_agents=num_agents, model=self.openskill_model)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
             results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
@@ -1185,7 +1187,7 @@ class GameSetEvaluator:
 
         worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
             res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
 
         # Unpack
