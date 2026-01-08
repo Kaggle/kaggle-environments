@@ -1947,7 +1947,9 @@ if __name__ == '__main__':
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
     parser.add_argument("--cache-dir", default=".werewolf_metrics_cache",
                         help="Directory to store cached game results (default: .werewolf_metrics_cache).")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for bootstrapping (default: 42).")
+    parser.add_argument("--gte-samples", type=int, default=100, help="Number of bootstrap samples for GTE (default: 100).")
+    parser.add_argument("--elo-samples", type=int, default=100, help="Number of bootstrap samples for Elo (default: 100).")
+    parser.add_argument("--openskill-samples", type=int, default=100, help="Number of bootstrap samples for OpenSkill (default: 100).")
 
     args = parser.parse_args()
 
@@ -1960,8 +1962,7 @@ if __name__ == '__main__':
     )
 
     # Run evaluation
-    # We use default sample counts for now, could be made configurable
-    evaluator.evaluate(gte_samples=3, elo_samples=3, openskill_samples=3)
+    evaluator.evaluate(gte_samples=args.gte_samples, elo_samples=args.elo_samples, openskill_samples=args.openskill_samples)
 
     print("\n" + "=" * 50)
     print("EVALUATION RESULTS")
@@ -1969,7 +1970,21 @@ if __name__ == '__main__':
     evaluator.print_results()
 
     # Save plots
-    prefix = args.output_prefix
-    evaluator.plot_metrics([f"{prefix}metrics.html", f"{prefix}metrics.png"])
-    evaluator.plot_gte_evaluation([f"{prefix}gte.html", f"{prefix}gte.png"])
-    evaluator.plot_pareto_frontier([f"{prefix}pareto.html", f"{prefix}pareto.png"])
+    # Create subdirectory based on gte_tasks
+    # args.gte_tasks typically references a task set name like 'role_win_rates' or 'win_dependent'
+    task_subdir = args.gte_tasks if isinstance(args.gte_tasks, str) else "custom_tasks"
+    # Clean up task name for directory usage if needed (though typically it's safe)
+    
+    # If output_prefix ends with a slash, treat it as a directory. 
+    # Otherwise, it might be a prefix. 
+    # User said: "put it in the subdirectory in output_prefix using the gte-tasks as subdir name"
+    # So construct: output_prefix / gte_tasks / filename
+    
+    output_base_dir = Path(args.output_prefix) if args.output_prefix else Path(".")
+    output_dir = output_base_dir / task_subdir
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"\nSaving plots to {output_dir}...")
+    evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
+    evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
+    evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
