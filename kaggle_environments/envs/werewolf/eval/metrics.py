@@ -512,15 +512,18 @@ class GameSetEvaluator:
 
         if not loaded_from_cache:
             args_list = [(f, preserve_full_game_records) for f in game_files]
+            errors = defaultdict(list)
 
             with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4) as executor:
                 results_iter = tqdm(
                     executor.map(_safe_load_game_result, args_list), total=len(args_list), desc="Loading Games"
                 )
-                for result, error in results_iter:
+                # zip preserves order because executor.map preserves order
+                for (args, (result, error)) in zip(args_list, results_iter):
                     if error:
                         error_key = f"{type(error).__name__}: {str(error)}"
-                        errors[error_key] += 1
+                        file_path = args[0]
+                        errors[error_key].append(file_path)
                     elif result:
                         self.games.append(result)
 
@@ -539,9 +542,12 @@ class GameSetEvaluator:
             with open(error_log_path, "w") as f:
                 f.write("Game Loading Errors Report\n")
                 f.write("==========================\n")
-                for error_key, count in sorted(errors.items(), key=lambda x: x[1], reverse=True):
-                    print(f"  {error_key}: {count}")
-                    f.write(f"{error_key}: {count}\n")
+                for error_key, files in sorted(errors.items(), key=lambda x: len(x[1]), reverse=True):
+                    count = len(files)
+                    print(f"  {error_key}: {count} files")
+                    f.write(f"\n{error_key}: {count} files\n")
+                    for file_path in files:
+                        f.write(f"  - {file_path}\n")
             print(f"Detailed error report saved to {error_log_path}")
 
         self.openskill_model = PlackettLuce()
@@ -894,6 +900,9 @@ class GameSetEvaluator:
             print(f"Failed to save OpenSkill cache: {e}")
 
     def evaluate(self, gte_samples=3, elo_samples=3, openskill_samples=3):
+        self.gte_samples = gte_samples
+        self.elo_samples = elo_samples
+        self.openskill_samples = openskill_samples
         for game in self.games:
             villagers_won = game.winner_team == Team.VILLAGERS
             # Capture costs if available from GameResult
@@ -1439,8 +1448,9 @@ class GameSetEvaluator:
             else None
         )
 
+        title_text = f"Agent Performance Metrics<br><sup>Total Games: {len(self.games)} | Bootstrap Samples: Elo={getattr(self, 'elo_samples', 'N/A')}, OpenSkill={getattr(self, 'openskill_samples', 'N/A')}</sup>"
         fig.update_layout(
-            title_text="Agent Performance Metrics",
+            title_text=title_text,
             title_font_size=24,
             title_x=0.01,
             height=350 * len(present_categories),
@@ -1516,7 +1526,7 @@ class GameSetEvaluator:
         )
 
         fig.update_layout(
-            title="Cost-Performance Pareto Frontier (GTE)",
+            title=f"Cost-Performance Pareto Frontier (GTE)<br><sup>Total Games: {len(self.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
             xaxis_title="Average Cost per Game ($)",
             yaxis_title="GTE Overall Rating",
             template="plotly_white",
@@ -1698,7 +1708,7 @@ class GameSetEvaluator:
             barmode="relative",
             height=max(900, total_items * 35),
             width=1300,
-            title_text="Game Theoretic Evaluation Results",
+            title_text=f"Game Theoretic Evaluation Results<br><sup>Total Games: {len(self.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
             title_font_size=24,
             bargap=0.15,
             legend=dict(yanchor="top", y=1, xanchor="left", x=1.02, orientation="v", tracegroupgap=20),
