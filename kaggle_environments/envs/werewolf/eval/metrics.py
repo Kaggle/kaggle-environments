@@ -5,14 +5,12 @@ import os
 import pickle
 import subprocess
 import sys
+import warnings
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, List, Tuple, Union, Iterator
-from typing import Dict, List, Tuple, Union, Iterator
-import warnings
-import multiprocessing
 
 import jax.numpy as jnp
 import numpy as np
@@ -24,6 +22,7 @@ import polarix as plx
 from openskill.models import PlackettLuce
 from plotly.subplots import make_subplots
 from tqdm import tqdm
+from tqdm.contrib.concurrent import thread_map
 
 from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
@@ -327,42 +326,42 @@ def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
     """Fast worker using pre-computed tensor."""
     # tensor shape: (n_games, n_agents, n_tasks)
     # indices: list of game indices for this bootstrap sample
-    
+
     # Select games
     # We can use numpy indexing
     subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
-    
+
     # Calculate means and stds for solver input
     # Axis 0 is games
     # We use nanmean/nanstd to ignore games where agent didn't play or task n/a
-    
+
     # Compute mean and std
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        mean_matrix = np.nanmean(subset, axis=0) # (n_agents, n_tasks)
-        std_matrix = np.nanstd(subset, axis=0, ddof=1) # (n_agents, n_tasks)
-        
+        mean_matrix = np.nanmean(subset, axis=0)  # (n_agents, n_tasks)
+        std_matrix = np.nanstd(subset, axis=0, ddof=1)  # (n_agents, n_tasks)
+
     # Valid counts for std error
     # count non-nan
     counts = np.sum(~np.isnan(subset), axis=0)
-    
+
     # Std Error of Mean = std / sqrt(n)
     # Handle division by zero
     stddev_matrix = np.divide(std_matrix, np.sqrt(counts), out=np.zeros_like(std_matrix), where=counts > 1)
-    
+
     # Fill NaNs in mean_matrix with 0 (or handle? original code skipped)
     # Original code: average of empty list is... wait.
     # Original checks `if scores:`. If not, it implicitly leaves 0 (initialization).
     # np.nanmean returns NaN for all-NaN slice. We should replace with 0.
     mean_matrix = np.nan_to_num(mean_matrix, nan=0.0)
-    
+
     # Regularization logic matches original
     rnd = np.random.default_rng()
     for j in range(mean_matrix.shape[1]):
         if np.ptp(mean_matrix[:, j]) < 1e-9:
             mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
             stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
-            
+
     # Solve Game using Polarix
     game_plx = plx.agent_vs_task_game(
         agents=agents, tasks=tasks, agent_vs_task=mean_matrix, agent_vs_task_stddev=stddev_matrix,
@@ -376,15 +375,15 @@ def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
     m2r_contributions = plx.joint_payoffs_contribution(
         game_plx.payoffs, res.joint, rating_player=0, contrib_player=1
     )
-    
+
     ratings_np = [np.array(r) for r in res.ratings]
     joint_np = np.array(res.joint)
     marginals_np = [np.array(m) for m in marginals]
     r2m_contributions_np = np.array(r2m_contributions)
     m2r_contributions_np = np.array(m2r_contributions)
-    
+
     game_meta = SimpleNamespace(actions=game_plx.actions)
-    
+
     return ratings_np, joint_np, marginals_np, r2m_contributions_np, m2r_contributions_np, game_meta
 
 
@@ -569,7 +568,7 @@ class GameSetEvaluator:
             args_list = [(f, preserve_full_game_records) for f in game_files]
             errors = defaultdict(list)
 
-            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4, mp_context=multiprocessing.get_context("spawn")) as executor:
+            with ProcessPoolExecutor(max_workers=(os.cpu_count() or 1) * 4) as executor:
                 results_iter = tqdm(executor.map(_safe_load_game_result, args_list), total=len(args_list),
                                     desc="Loading Games")
                 # zip preserves order because executor.map preserves order
@@ -650,25 +649,27 @@ class GameSetEvaluator:
             if v_elos and w_elos:
                 avg_v_elo = np.mean(v_elos)
                 avg_w_elo = np.mean(w_elos)
-                
+
                 # Calculate expected win probability for Villagers
                 exponent = (avg_w_elo - avg_v_elo) / 400.0
-                if exponent > 40: exponent = 40.0
-                elif exponent < -40: exponent = -40.0
+                if exponent > 40:
+                    exponent = 40.0
+                elif exponent < -40:
+                    exponent = -40.0
                 expected_v = 1.0 / (1.0 + 10.0 ** exponent)
-                
+
                 result_v = 1 if game.winner_team == Team.VILLAGERS else 0
-                
+
                 # Total points to exchange (K=32)
                 # This ensures zero-sum: what V gains, W loses.
                 k = 32
                 total_delta = k * (result_v - expected_v)
-                
+
                 # Distribute points
                 # Each member gets equal share of the team's total gain/loss
                 v_change = total_delta / len(villager_agents)
                 w_change = -total_delta / len(werewolf_agents)
-                
+
                 for agent in villager_agents:
                     elos[agent] += v_change
                 for agent in werewolf_agents:
@@ -726,61 +727,64 @@ class GameSetEvaluator:
         """Computes Elo ratings using integer indices for speed."""
         elos = [1200.0] * num_agents
         k = 32
-        
+
         for v_indices, w_indices, result_v in games_data:
             if not v_indices or not w_indices:
                 continue
-            
+
             # Calculate team averages
             avg_v_elo = sum(elos[i] for i in v_indices) / len(v_indices)
             avg_w_elo = sum(elos[i] for i in w_indices) / len(w_indices)
-            
+
             # Expected score for villagers
             exponent = (avg_w_elo - avg_v_elo) / 400.0
-            if exponent > 40: exponent = 40.0
-            elif exponent < -40: exponent = -40.0
+            if exponent > 40:
+                exponent = 40.0
+            elif exponent < -40:
+                exponent = -40.0
             expected_v = 1.0 / (1.0 + 10.0 ** exponent)
-            
+
             # Total points to exchange (K=32)
             # This ensures zero-sum: what V gains, W loses.
             total_delta = k * (result_v - expected_v)
-            
+
             # Distribute points
             # Each member gets equal share of the team's total gain/loss
             v_change = total_delta / len(v_indices)
             w_change = -total_delta / len(w_indices)
-            
+
             for i in v_indices:
                 elos[i] += v_change
             for i in w_indices:
                 elos[i] += w_change
-                
+
         return elos
 
     @staticmethod
-    def _compute_openskill_ratings_fast(games_data: List[Tuple[Tuple[int], Tuple[int], int]], num_agents: int, model) -> List:
+    def _compute_openskill_ratings_fast(games_data: List[Tuple[Tuple[int], Tuple[int], int]], num_agents: int,
+                                        model) -> List:
         """Computes OpenSkill ratings using integer indices and pre-allocated ratings."""
         # Create initial ratings for all agents (unnamed)
         ratings = [model.rating() for _ in range(num_agents)]
-        
+
         for v_indices, w_indices, result_v in games_data:
             if not v_indices or not w_indices:
                 continue
-                
+
             # Construct teams from current rating state
             team_v = [ratings[i] for i in v_indices]
             team_w = [ratings[i] for i in w_indices]
-            
+
             # Prepare for rate()
             # If win, order is [winner, loser]. 
             if result_v == 1:
                 teams = [team_v, team_w]
             else:
                 teams = [team_w, team_v]
-            
+
             try:
                 new_ratings = model.rate(teams)
-                
+
                 # Unpack and update state
                 if result_v == 1:
                     new_team_v = new_ratings[0]
@@ -788,16 +792,16 @@ class GameSetEvaluator:
                 else:
                     new_team_w = new_ratings[0]
                     new_team_v = new_ratings[1]
-                    
+
                 # Assign back to master list
                 for i, r in zip(v_indices, new_team_v):
                     ratings[i] = r
                 for i, r in zip(w_indices, new_team_w):
                     ratings[i] = r
-                    
+
             except Exception:
                 pass
-                
+
         return ratings
 
     def _generate_bootstrap_samples(self, light_games_iterator: Iterator[LightGame], num_samples: int) -> Iterator[
@@ -838,7 +842,7 @@ class GameSetEvaluator:
         all_agents = sorted(list(self.metrics.keys()))
         agent_to_idx = {name: i for i, name in enumerate(all_agents)}
         num_agents = len(all_agents)
-        
+
         fast_games = []
         for g in self.games:
             v_indices = []
@@ -850,7 +854,7 @@ class GameSetEvaluator:
                         v_indices.append(idx)
                     else:
                         w_indices.append(idx)
-            
+
             result_v = 1 if g.winner_team == Team.VILLAGERS else 0
             if v_indices and w_indices:
                 fast_games.append((tuple(v_indices), tuple(w_indices), result_v))
@@ -860,16 +864,16 @@ class GameSetEvaluator:
 
         worker = functools.partial(GameSetEvaluator._compute_elo_ratings_fast, num_agents=num_agents)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             results = list(
                 tqdm(executor.map(worker, samples_iterator), total=num_samples,
                      desc="Elo Bootstrap"))
 
         bootstrapped_elos = defaultdict(list)
-        
+
         for sample_elos_list in results:
-             for i, elo in enumerate(sample_elos_list):
-                 bootstrapped_elos[all_agents[i]].append(elo)
+            for i, elo in enumerate(sample_elos_list):
+                bootstrapped_elos[all_agents[i]].append(elo)
 
         agent_stds = {}
         for agent, values in bootstrapped_elos.items():
@@ -909,7 +913,7 @@ class GameSetEvaluator:
         all_agents = sorted(list(self.metrics.keys()))
         agent_to_idx = {name: i for i, name in enumerate(all_agents)}
         num_agents = len(all_agents)
-        
+
         fast_games = []
         for g in self.games:
             v_indices = []
@@ -921,7 +925,7 @@ class GameSetEvaluator:
                         v_indices.append(idx)
                     else:
                         w_indices.append(idx)
-            
+
             result_v = 1 if g.winner_team == Team.VILLAGERS else 0
             if v_indices and w_indices:
                 fast_games.append((tuple(v_indices), tuple(w_indices), result_v))
@@ -931,16 +935,16 @@ class GameSetEvaluator:
 
         worker = functools.partial(_openskill_bootstrap_worker_fast, num_agents=num_agents, model=self.openskill_model)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
         default_mu = self.openskill_model.rating().mu
-        
+
         for sample_ratings_list in results:
-             for i, mu in enumerate(sample_ratings_list):
-                 # _openskill_bootstrap_worker_fast returns list of mus
-                 bootstrapped_mus[all_agents[i]].append(mu)
+            for i, mu in enumerate(sample_ratings_list):
+                # _openskill_bootstrap_worker_fast returns list of mus
+                bootstrapped_mus[all_agents[i]].append(mu)
 
         agent_stds = {}
         for agent, values in bootstrapped_mus.items():
@@ -1044,14 +1048,14 @@ class GameSetEvaluator:
         n_games = len(light_games)
         n_agents = len(agents)
         n_tasks = len(tasks)
-        
+
         agent_idx_map = {a: i for i, a in enumerate(agents)}
         task_idx_map = {t: i for i, t in enumerate(tasks)}
         task_set = set(tasks)
-        
+
         # Shape: (games, agents, tasks)
         tensor = np.full((n_games, n_agents, n_tasks), np.nan, dtype=np.float32)
-        
+
         for g_i, game in enumerate(tqdm(light_games, desc="Pre-calculating GTE Tensor")):
             # --- Calculate dominance metrics for the winning team ---
             margin_of_win = 0.0
@@ -1080,21 +1084,21 @@ class GameSetEvaluator:
                 role_name = player.role.name
                 won = player.role.team == game.winner_team
                 alive = 1 if player.alive else 0
-                
+
                 # Check metrics that apply to this player
-                
+
                 # WinRate
                 win_rate_task = f'WinRate-{role_name}'
                 if win_rate_task in task_idx_map:
                     tensor[g_i, a_i, task_idx_map[win_rate_task]] = 1 if won else 0
-                    
+
                 # KSR
                 if 'KSR' in task_idx_map:
-                     tensor[g_i, a_i, task_idx_map['KSR']] = alive
+                    tensor[g_i, a_i, task_idx_map['KSR']] = alive
                 ksr_task = f'KSR-{role_name}'
                 if ksr_task in task_idx_map:
                     tensor[g_i, a_i, task_idx_map[ksr_task]] = alive
-                    
+
                 # WD-KSR
                 wd_ksr_score = 1 if won and alive else 0
                 if 'WD-KSR' in task_idx_map:
@@ -1108,7 +1112,7 @@ class GameSetEvaluator:
                         tensor[g_i, a_i, task_idx_map['Margin of Win']] = margin_of_win
                     if 'Speed of Win' in task_idx_map:
                         tensor[g_i, a_i, task_idx_map['Speed of Win']] = speed_of_win
-                        
+
             # IRP & VSS
             villagers_won = game.winner_team == Team.VILLAGERS
             irp_results, vss_results = game.irp_results, game.vss_results
@@ -1120,7 +1124,7 @@ class GameSetEvaluator:
                     tensor[g_i, a_i, task_idx_map['IRP']] = score
                 if 'WD-IRP' in task_idx_map:
                     tensor[g_i, a_i, task_idx_map['WD-IRP']] = score if villagers_won else 0
-            
+
             for agent_name, score in vss_results:
                 a_i = agent_idx_map.get(agent_name)
                 if a_i is None: continue
@@ -1128,7 +1132,7 @@ class GameSetEvaluator:
                     tensor[g_i, a_i, task_idx_map['VSS']] = score
                 if 'WD-VSS' in task_idx_map:
                     tensor[g_i, a_i, task_idx_map['WD-VSS']] = score if villagers_won else 0
-                    
+
         return tensor
 
     def _run_gte_evaluation(self, num_samples: int):
@@ -1180,15 +1184,15 @@ class GameSetEvaluator:
 
         # Build tensor
         tensor = self._precompute_gte_tensor(light_gte_games, agents, self.gte_tasks)
-        
+
         # Use indices for bootstrap
         indices = list(range(len(light_gte_games)))
         samples_iterator = self._generate_bootstrap_samples(indices, num_samples)
 
         worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")) as executor:
-            res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
+        res = thread_map(worker_func, samples_iterator, max_workers=os.cpu_count(), desc="GTE Bootstrap",
+                         total=num_samples)
 
         # Unpack
         ratings, joints, marginals, r2m_contributions, m2r_contributions, games = zip(*res)
