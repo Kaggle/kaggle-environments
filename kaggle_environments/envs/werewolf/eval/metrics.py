@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, Iterator, List, Tuple, Union
+import warnings
 
 try:
     import jax.numpy as jnp
@@ -322,6 +323,71 @@ def _gte_bootstrap_worker(sampled_games, agents, tasks):
     # which contains JAX arrays (payoffs).
     game_meta = SimpleNamespace(actions=game_plx.actions)
 
+    return ratings_np, joint_np, marginals_np, r2m_contributions_np, m2r_contributions_np, game_meta
+
+
+def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
+    """Fast worker using pre-computed tensor."""
+    # tensor shape: (n_games, n_agents, n_tasks)
+    # indices: list of game indices for this bootstrap sample
+    
+    # Select games
+    # We can use numpy indexing
+    subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
+    
+    # Calculate means and stds for solver input
+    # Axis 0 is games
+    # We use nanmean/nanstd to ignore games where agent didn't play or task n/a
+    
+    # Compute mean and std
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean_matrix = np.nanmean(subset, axis=0) # (n_agents, n_tasks)
+        std_matrix = np.nanstd(subset, axis=0, ddof=1) # (n_agents, n_tasks)
+        
+    # Valid counts for std error
+    # count non-nan
+    counts = np.sum(~np.isnan(subset), axis=0)
+    
+    # Std Error of Mean = std / sqrt(n)
+    # Handle division by zero
+    stddev_matrix = np.divide(std_matrix, np.sqrt(counts), out=np.zeros_like(std_matrix), where=counts > 1)
+    
+    # Fill NaNs in mean_matrix with 0 (or handle? original code skipped)
+    # Original code: average of empty list is... wait.
+    # Original checks `if scores:`. If not, it implicitly leaves 0 (initialization).
+    # np.nanmean returns NaN for all-NaN slice. We should replace with 0.
+    mean_matrix = np.nan_to_num(mean_matrix, nan=0.0)
+    
+    # Regularization logic matches original
+    rnd = np.random.default_rng()
+    for j in range(mean_matrix.shape[1]):
+        if np.ptp(mean_matrix[:, j]) < 1e-9:
+            mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
+            stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
+            
+    # Solve Game using Polarix
+    game_plx = plx.agent_vs_task_game(
+        agents=agents, tasks=tasks, agent_vs_task=mean_matrix, agent_vs_task_stddev=stddev_matrix,
+        task_player='metric', normalizer='winrate'
+    )
+    res = plx.solve(game_plx, plx.ce_maxent, disable_progress_bar=True)
+    marginals = plx.marginals_from_joint(res.joint)
+    r2m_contributions = plx.joint_payoffs_contribution(
+        game_plx.payoffs, res.joint, rating_player=1, contrib_player=0
+    )
+    m2r_contributions = plx.joint_payoffs_contribution(
+        game_plx.payoffs, res.joint, rating_player=0, contrib_player=1
+    )
+    
+    ratings_np = [np.array(r) for r in res.ratings]
+    joint_np = np.array(res.joint)
+    marginals_np = [np.array(m) for m in marginals]
+    r2m_contributions_np = np.array(r2m_contributions)
+    m2r_contributions_np = np.array(m2r_contributions)
+    
+    game_meta = SimpleNamespace(actions=game_plx.actions)
+    
     return ratings_np, joint_np, marginals_np, r2m_contributions_np, m2r_contributions_np, game_meta
 
 
@@ -981,6 +1047,98 @@ class GameSetEvaluator:
         self._bootstrap_openskill(num_samples=openskill_samples)
         self._run_gte_evaluation(num_samples=gte_samples)
 
+    def _precompute_gte_tensor(self, light_games, agents, tasks):
+        """Pre-computes scores for all games into a tensor."""
+        n_games = len(light_games)
+        n_agents = len(agents)
+        n_tasks = len(tasks)
+        
+        agent_idx_map = {a: i for i, a in enumerate(agents)}
+        task_idx_map = {t: i for i, t in enumerate(tasks)}
+        task_set = set(tasks)
+        
+        # Shape: (games, agents, tasks)
+        tensor = np.full((n_games, n_agents, n_tasks), np.nan, dtype=np.float32)
+        
+        for g_i, game in enumerate(tqdm(light_games, desc="Pre-calculating GTE Tensor")):
+            # --- Calculate dominance metrics for the winning team ---
+            margin_of_win = 0.0
+            speed_of_win = 0.0
+            if game.winner_team is not None:
+                # Margin of win
+                winning_team_players = [p for p in game.players if p.role.team == game.winner_team]
+                if winning_team_players:
+                    total_team_size = len(winning_team_players)
+                    living_teammates = sum(1 for p in winning_team_players if p.alive)
+                    margin_of_win = living_teammates / total_team_size
+
+                # Speed of win
+                game_duration = 0
+                if game.player_durations:
+                    game_duration = max(game.player_durations.values())
+                if game_duration > 0:
+                    speed_of_win = 1.0 / game_duration
+
+            for player in game.players:
+                agent_name = player.agent.display_name
+                a_i = agent_idx_map.get(agent_name)
+                if a_i is None:
+                    continue
+
+                role_name = player.role.name
+                won = player.role.team == game.winner_team
+                alive = 1 if player.alive else 0
+                
+                # Check metrics that apply to this player
+                
+                # WinRate
+                win_rate_task = f'WinRate-{role_name}'
+                if win_rate_task in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map[win_rate_task]] = 1 if won else 0
+                    
+                # KSR
+                if 'KSR' in task_idx_map:
+                     tensor[g_i, a_i, task_idx_map['KSR']] = alive
+                ksr_task = f'KSR-{role_name}'
+                if ksr_task in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map[ksr_task]] = alive
+                    
+                # WD-KSR
+                wd_ksr_score = 1 if won and alive else 0
+                if 'WD-KSR' in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map['WD-KSR']] = wd_ksr_score
+                wd_ksr_task = f'WD-KSR-{role_name}'
+                if wd_ksr_task in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map[wd_ksr_task]] = wd_ksr_score
+
+                if won:
+                    if 'Margin of Win' in task_idx_map:
+                        tensor[g_i, a_i, task_idx_map['Margin of Win']] = margin_of_win
+                    if 'Speed of Win' in task_idx_map:
+                        tensor[g_i, a_i, task_idx_map['Speed of Win']] = speed_of_win
+                        
+            # IRP & VSS
+            villagers_won = game.winner_team == Team.VILLAGERS
+            irp_results, vss_results = game.irp_results, game.vss_results
+
+            for agent_name, score in irp_results:
+                a_i = agent_idx_map.get(agent_name)
+                if a_i is None: continue
+                if 'IRP' in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map['IRP']] = score
+                if 'WD-IRP' in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map['WD-IRP']] = score if villagers_won else 0
+            
+            for agent_name, score in vss_results:
+                a_i = agent_idx_map.get(agent_name)
+                if a_i is None: continue
+                if 'VSS' in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map['VSS']] = score
+                if 'WD-VSS' in task_idx_map:
+                    tensor[g_i, a_i, task_idx_map['WD-VSS']] = score if villagers_won else 0
+                    
+        return tensor
+
     def _run_gte_evaluation(self, num_samples: int):
         agents = sorted(list(self.metrics.keys()))
 
@@ -1018,19 +1176,24 @@ class GameSetEvaluator:
             except Exception as e:
                 print(f"Failed to load GTE cache: {e}. Recomputing...")
 
-        def light_gte_games_iter():
-            for g in tqdm(self.games, desc="Pre-calculating GTE data"):
-                irp_results, vss_results = g.iterate_voting_mini_game()
-                players = [
-                    Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
-                    for p in g.players
-                ]
-                player_durations = getattr(g, "player_durations", {})
-                yield LightGame(players, g.winner_team, irp_results, vss_results, player_durations)
+        light_gte_games = []
+        for g in tqdm(self.games, desc="Preparing GTE data"):
+            irp_results, vss_results = g.iterate_voting_mini_game()
+            players = [
+                Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
+                for p in g.players
+            ]
+            player_durations = getattr(g, "player_durations", {})
+            light_gte_games.append(LightGame(players, g.winner_team, irp_results, vss_results, player_durations))
 
-        samples_iterator = self._generate_bootstrap_samples(light_gte_games_iter(), num_samples)
+        # Build tensor
+        tensor = self._precompute_gte_tensor(light_gte_games, agents, self.gte_tasks)
+        
+        # Use indices for bootstrap
+        indices = list(range(len(light_gte_games)))
+        samples_iterator = self._generate_bootstrap_samples(indices, num_samples)
 
-        worker_func = functools.partial(_gte_bootstrap_worker, agents=agents, tasks=self.gte_tasks)
+        worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             res = list(tqdm(executor.map(worker_func, samples_iterator), total=num_samples, desc="GTE Bootstrap"))
