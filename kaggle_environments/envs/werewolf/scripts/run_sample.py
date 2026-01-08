@@ -6,9 +6,9 @@ import os
 import random
 import shutil
 
+import tenacity
 import yaml
 from tqdm import tqdm
-import tenacity
 
 from kaggle_environments.envs.werewolf.runner import (
     append_timestamp_to_dir,
@@ -62,7 +62,7 @@ def parse_arguments():
         "-p",
         "--agent_pool_configs",
         type=str,
-        nargs='+',
+        nargs="+",
         required=True,
         help="List of paths to YAML files containing agent pools.",
     )
@@ -76,9 +76,7 @@ def parse_arguments():
     parser.add_argument(
         "-o", "--output_dir", type=str, default="experiment/sample_game", help="Output directory for logs and replays."
     )
-    parser.add_argument(
-        "-n", "--num_games", type=int, default=1, help="Number of games to run."
-    )
+    parser.add_argument("-n", "--num_games", type=int, default=1, help="Number of games to run.")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode.")
     parser.add_argument(
         "-a", "--append_timestamp_to_dir", action="store_true", help="Append a timestamp to the output directory."
@@ -103,9 +101,7 @@ def parse_arguments():
         action="store_true",
         help="If provided, shuffle the roles from the base config for each game.",
     )
-    parser.add_argument(
-        "--num_processes", type=int, default=None, help="Number of processes for parallel execution."
-    )
+    parser.add_argument("--num_processes", type=int, default=None, help="Number of processes for parallel execution.")
     return parser.parse_args()
 
 
@@ -119,7 +115,7 @@ def setup_environment(args):
 
     # Save configs
     config_dump_dir = os.path.join(run_output_dir, "configs")
-    base_config_path = os.path.join(config_dump_dir, 'base_config.yaml')
+    base_config_path = os.path.join(config_dump_dir, "base_config.yaml")
     agents_pool_dir = os.path.join(config_dump_dir, "pool_of_agents")
     os.makedirs(agents_pool_dir, exist_ok=True)
     for config_path in args.agent_pool_configs:
@@ -150,8 +146,7 @@ def generate_game_tasks(args, run_output_dir, agent_pool, game_config_template):
         logger.info("Sampling agents with replacement.")
 
     role_configs = [
-        {"role": agent["role"], "role_params": agent.get("role_params")}
-        for agent in original_agents_config
+        {"role": agent["role"], "role_params": agent.get("role_params")} for agent in original_agents_config
     ]
 
     game_tasks = []
@@ -171,12 +166,12 @@ def generate_game_tasks(args, run_output_dir, agent_pool, game_config_template):
         for j, original_agent in enumerate(original_agents_config):
             sampled_spec = sampled_agent_specs[j]
             role_config = role_configs[j]
-            role_params = role_config.get('role_params') or {}
+            role_params = role_config.get("role_params") or {}
             new_agent = {
                 **sampled_spec,
-                'role': role_config['role'],
-                'id': original_agent['id'],
-                'role_params': role_params,
+                "role": role_config["role"],
+                "id": original_agent["id"],
+                "role_params": role_params,
             }
             new_agents_config.append(new_agent)
 
@@ -186,7 +181,7 @@ def generate_game_tasks(args, run_output_dir, agent_pool, game_config_template):
             for agent, player_id in zip(new_agents_config, player_ids):
                 agent["id"] = player_id
 
-        final_game_config = {**game_config_template, 'agents': new_agents_config}
+        final_game_config = {**game_config_template, "agents": new_agents_config}
         game_tasks.append((game_dir, final_game_config, args.use_random_agents, args.debug))
 
     return game_tasks

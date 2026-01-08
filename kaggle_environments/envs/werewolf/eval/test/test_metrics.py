@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from kaggle_environments.envs.werewolf.eval.metrics import GameSetEvaluator, POLARIX_AVAILABLE
+from kaggle_environments.envs.werewolf.eval.metrics import POLARIX_AVAILABLE, GameSetEvaluator
 
 # Use an absolute path to the test data, making the test runnable from any directory
 DIR_PATH = Path(os.path.dirname(os.path.abspath(__file__)))
