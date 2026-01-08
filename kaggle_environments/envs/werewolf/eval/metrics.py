@@ -173,6 +173,13 @@ def _openskill_bootstrap_worker(games_sample, model):
     return {name: r.mu for name, r in ratings.items()}
 
 
+def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
+    if model is None:
+        return []
+    ratings = GameSetEvaluator._compute_openskill_ratings_fast(games_data, num_agents, model)
+    return [r.mu for r in ratings]
+
+
 def _gte_bootstrap_worker(sampled_games, agents, tasks):
     """Worker function for parallel GTE bootstrapping.
 
@@ -682,6 +689,51 @@ class GameSetEvaluator:
 
         return elos
 
+    @staticmethod
+    def _compute_openskill_ratings_fast(
+        games_data: List[Tuple[Tuple[int], Tuple[int], int]], num_agents: int, model
+    ) -> List:
+        """Computes OpenSkill ratings using integer indices and pre-allocated ratings."""
+        # Create initial ratings for all agents (unnamed)
+        ratings = [model.rating() for _ in range(num_agents)]
+
+        for v_indices, w_indices, result_v in games_data:
+            if not v_indices or not w_indices:
+                continue
+
+            # Construct teams from current rating state
+            team_v = [ratings[i] for i in v_indices]
+            team_w = [ratings[i] for i in w_indices]
+
+            # Prepare for rate()
+            # If win, order is [winner, loser].
+            if result_v == 1:
+                teams = [team_v, team_w]
+            else:
+                teams = [team_w, team_v]
+
+            try:
+                new_ratings = model.rate(teams)
+
+                # Unpack and update state
+                if result_v == 1:
+                    new_team_v = new_ratings[0]
+                    new_team_w = new_ratings[1]
+                else:
+                    new_team_w = new_ratings[0]
+                    new_team_v = new_ratings[1]
+
+                # Assign back to master list
+                for i, r in zip(v_indices, new_team_v):
+                    ratings[i] = r
+                for i, r in zip(w_indices, new_team_w):
+                    ratings[i] = r
+
+            except Exception:
+                pass
+
+        return ratings
+
     def _generate_bootstrap_samples(
         self, light_games_iterator: Iterator[Union[LightGame, Tuple]], num_samples: int
     ) -> Iterator[List[Union[LightGame, Tuple]]]:
@@ -789,32 +841,42 @@ class GameSetEvaluator:
             except Exception as e:
                 print(f"Failed to load OpenSkill cache: {e}. Recomputing...")
 
-        def light_games_iter():
-            for g in self.games:
-                players = [
-                    Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
-                    for p in g.players
-                ]
-                yield LightGame(players, g.winner_team, None, None, None)
+        # Pre-process data for speed
+        all_agents = sorted(list(self.metrics.keys()))
+        agent_to_idx = {name: i for i, name in enumerate(all_agents)}
+        num_agents = len(all_agents)
 
-        samples_iterator = self._generate_bootstrap_samples(light_games_iter(), num_samples)
+        fast_games = []
+        for g in self.games:
+            v_indices = []
+            w_indices = []
+            for p in g.players:
+                idx = agent_to_idx.get(p.agent.display_name)
+                if idx is not None:
+                    if p.role.team == Team.VILLAGERS:
+                        v_indices.append(idx)
+                    else:
+                        w_indices.append(idx)
 
-        worker = functools.partial(_openskill_bootstrap_worker, model=self.openskill_model)
+            result_v = 1 if g.winner_team == Team.VILLAGERS else 0
+            if v_indices and w_indices:
+                fast_games.append((tuple(v_indices), tuple(w_indices), result_v))
+
+        # We pass the full list of games to _generate_bootstrap_samples
+        samples_iterator = self._generate_bootstrap_samples(fast_games, num_samples)
+
+        worker = functools.partial(_openskill_bootstrap_worker_fast, num_agents=num_agents, model=self.openskill_model)
 
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
             results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
-        all_agents = list(self.metrics.keys())
-
         default_mu = self.openskill_model.rating().mu
-
-        for sample_ratings in results:
-            for agent in all_agents:
-                if agent in sample_ratings:
-                    bootstrapped_mus[agent].append(sample_ratings[agent])
-                else:
-                    bootstrapped_mus[agent].append(default_mu)
+        
+        for sample_ratings_list in results:
+             for i, mu in enumerate(sample_ratings_list):
+                 # _openskill_bootstrap_worker_fast returns list of mus
+                 bootstrapped_mus[all_agents[i]].append(mu)
 
         agent_stds = {}
         for agent, values in bootstrapped_mus.items():
