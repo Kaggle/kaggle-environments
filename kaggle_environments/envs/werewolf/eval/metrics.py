@@ -490,6 +490,7 @@ class GameSetEvaluator:
         cache_path = self.cache_dir / cache_key
 
         loaded_from_cache = False
+        errors = {}
         if cache_path.exists():
             try:
                 print(f"Loading cached game results from {cache_path}...")
