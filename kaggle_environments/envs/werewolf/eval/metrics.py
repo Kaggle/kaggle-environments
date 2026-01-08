@@ -676,11 +676,29 @@ class GameSetEvaluator:
             if v_elos and w_elos:
                 avg_v_elo = np.mean(v_elos)
                 avg_w_elo = np.mean(w_elos)
+                
+                # Calculate expected win probability for Villagers
+                exponent = (avg_w_elo - avg_v_elo) / 400.0
+                if exponent > 40: exponent = 40.0
+                elif exponent < -40: exponent = -40.0
+                expected_v = 1.0 / (1.0 + 10.0 ** exponent)
+                
                 result_v = 1 if game.winner_team == Team.VILLAGERS else 0
+                
+                # Total points to exchange (K=32)
+                # This ensures zero-sum: what V gains, W loses.
+                k = 32
+                total_delta = k * (result_v - expected_v)
+                
+                # Distribute points
+                # Each member gets equal share of the team's total gain/loss
+                v_change = total_delta / len(villager_agents)
+                w_change = -total_delta / len(werewolf_agents)
+                
                 for agent in villager_agents:
-                    elos[agent] += calculate_elo_change(elos[agent], avg_w_elo, result_v)
+                    elos[agent] += v_change
                 for agent in werewolf_agents:
-                    elos[agent] += calculate_elo_change(elos[agent], avg_v_elo, 1 - result_v)
+                    elos[agent] += w_change
         return elos
 
     @staticmethod
@@ -751,14 +769,18 @@ class GameSetEvaluator:
                 exponent = -40.0
             expected_v = 1.0 / (1.0 + 10.0 ** exponent)
 
-            # Change
-            change_v = k * (result_v - expected_v)
+            # Total points to exchange (K=32)
+            # This ensures zero-sum: what V gains, W loses.
+            total_delta = k * (result_v - expected_v)
 
+            # Distribute points
+            # Each member gets equal share of the team's total gain/loss
+            v_change = total_delta / len(v_indices)
+            w_change = -total_delta / len(w_indices)
             for i in v_indices:
-                elos[i] += change_v
+                elos[i] += v_change
             for i in w_indices:
-                elos[i] -= change_v
-
+                elos[i] += w_change
         return elos
 
     @staticmethod
