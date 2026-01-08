@@ -31,7 +31,6 @@ from .api import (
     list_episodes_for_submission,
 )
 from .core import evaluate, make, register
-from .main import http_request
 from . import errors
 from . import utils
 
@@ -41,7 +40,6 @@ __all__ = [
     "environments",
     "errors",
     "evaluate",
-    "http_request",
     "make",
     "register",
     "utils",
@@ -53,7 +51,7 @@ __all__ = [
 ]
 
 _script_dir = os.path.dirname(os.path.realpath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join('..', _script_dir))
+PROJECT_ROOT = os.path.abspath(os.path.join("..", _script_dir))
 
 # Register Environments.
 
