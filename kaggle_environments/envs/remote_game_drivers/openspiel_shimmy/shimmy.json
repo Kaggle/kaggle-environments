@@ -1,0 +1,56 @@
+{
+    "name": "openspiel_shimmy",
+    "title": "OpenSpiel via Shimmy",
+    "description": "OpenSpiel games wrapped via Shimmy for PettingZoo AEC API. Supports many classic board games, card games, and abstract games.",
+    "version": "1.0.0",
+    "agents": [
+        2
+    ],
+    "configuration": {
+        "game_name": {
+            "description": "Name of the OpenSpiel game to play (e.g., 'tic_tac_toe', 'connect_four', 'chess')",
+            "type": "string",
+            "default": "tic_tac_toe"
+        },
+        "actTimeout": {
+            "description": "Seconds allowed for each agent action",
+            "type": "number",
+            "default": 60,
+            "minimum": 1
+        },
+        "runTimeout": {
+            "description": "Maximum seconds for the entire episode",
+            "type": "number",
+            "default": 3600,
+            "minimum": 1
+        }
+    },
+    "reward": {
+        "description": "Game-specific reward. Typically: negative = lost, 0 = draw, positive = won",
+        "type": "number",
+        "default": 0
+    },
+    "observation": {
+        "game_state": {
+            "description": "Game-specific observation from OpenSpiel/Shimmy",
+            "type": "object",
+            "shared": false
+        },
+        "remainingOverageTime": {
+            "description": "Remaining overage time for the agent",
+            "type": "number",
+            "default": 60
+        }
+    },
+    "action": {
+        "description": "Game-specific action (typically an integer index)",
+        "type": "integer",
+        "default": 0
+    },
+    "status": {
+        "defaults": [
+            "ACTIVE",
+            "INACTIVE"
+        ]
+    }
+}
