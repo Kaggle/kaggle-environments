@@ -1947,6 +1947,7 @@ if __name__ == '__main__':
     parser.add_argument("--output-prefix", default="", help="Prefix for output files (plots).")
     parser.add_argument("--cache-dir", default=".werewolf_metrics_cache",
                         help="Directory to store cached game results (default: .werewolf_metrics_cache).")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for bootstrapping (default: 42).")
     parser.add_argument("--gte-samples", type=int, default=100, help="Number of bootstrap samples for GTE (default: 100).")
     parser.add_argument("--elo-samples", type=int, default=100, help="Number of bootstrap samples for Elo (default: 100).")
     parser.add_argument("--openskill-samples", type=int, default=100, help="Number of bootstrap samples for OpenSkill (default: 100).")
