@@ -108,7 +108,7 @@ class ProtoAgent:
         }
 
         # Serialize to proto bytes using relay
-        proto_bytes = relay._serialize(game_data).SerializeToString()
+        proto_bytes = relay.serialize_to_bytes(game_data)
 
         # Calculate timeout like UrlAgent does
         timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 1
@@ -123,11 +123,7 @@ class ProtoAgent:
             response.raise_for_status()
 
             # Deserialize the proto response
-            from kaggle_evaluation.core import kaggle_evaluation_pb2
-
-            response_payload = kaggle_evaluation_pb2.Payload()
-            response_payload.ParseFromString(response.content)
-            result = relay._deserialize(response_payload)
+            result = relay.deserialize_from_bytes(response.content)
 
             if result is None:
                 return None
