@@ -13,8 +13,18 @@
 # limitations under the License.
 
 """
-Utilities for proto-based relay communication in kaggle_environments.
-This module provides helper functions to work with kaggle_evaluation relay.
+Utilities for proto-based serialization in kaggle_environments.
+
+This module provides helper functions to serialize/deserialize data using
+kaggle_evaluation.core.relay proto format. The serialized bytes can be
+sent over HTTP (or any transport) and deserialized on the other end.
+
+Supported types:
+- Primitives: str, int, float, bool, None
+- Collections: list, tuple, dict (with str keys)
+- Scientific: pandas.DataFrame, polars.DataFrame, numpy.ndarray
+- Data Models: Pydantic BaseModel, dataclasses, Enums
+- Binary: io.BytesIO
 
 The kaggle_evaluation package must be importable. You can either:
 1. Install it via pip: pip install kaggle_evaluation
@@ -24,7 +34,7 @@ The kaggle_evaluation package must be importable. You can either:
 
 import os
 import sys
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 # Allow configuring the path via environment variable
 _KAGGLE_EVALUATION_PATH = os.environ.get("KAGGLE_EVALUATION_PATH")
@@ -33,10 +43,12 @@ if _KAGGLE_EVALUATION_PATH and _KAGGLE_EVALUATION_PATH not in sys.path:
 
 try:
     import kaggle_evaluation.core.relay as relay
+    from kaggle_evaluation.core import kaggle_evaluation_pb2
 
     RELAY_AVAILABLE = True
 except ImportError:
     relay = None
+    kaggle_evaluation_pb2 = None
     RELAY_AVAILABLE = False
 
 
@@ -49,87 +61,77 @@ def _require_relay():
         )
 
 
-def create_proto_server(
-    *endpoint_listeners: Callable,
-    port: Optional[int] = None,
-    ports: Optional[list[int]] = None,
-) -> tuple:
-    """Create a gRPC server for proto-based communication.
+def serialize_to_bytes(data: Any) -> bytes:
+    """Serialize Python data to proto bytes for HTTP transport.
+
+    This is the primary function for serializing data to send over HTTP.
+    The bytes can be sent as the body of an HTTP POST request with
+    Content-Type: application/x-protobuf.
 
     Args:
-        *endpoint_listeners: Functions that handle specific endpoints.
-            Each function's __name__ becomes the endpoint name.
-        port: Optional specific port to bind to
-        ports: Optional list of ports to try
+        data: Python data to serialize (dict, list, DataFrame, etc.)
 
     Returns:
-        tuple: (server, port) where server is the gRPC server and port is the bound port
+        bytes: Serialized proto bytes ready for HTTP transport
 
     Example:
-        def process_turn(game_data):
-            return {'action': 0}
-
-        server, port = create_proto_server(process_turn, port=50051)
-        server.start()
+        game_data = {'observation': obs, 'configuration': config}
+        proto_bytes = serialize_to_bytes(game_data)
+        response = requests.post(url, data=proto_bytes,
+                                 headers={'Content-Type': 'application/x-protobuf'})
     """
     _require_relay()
-    return relay.define_server(*endpoint_listeners, port=port, ports=ports)
+    payload = relay._serialize(data)
+    return payload.SerializeToString()
 
 
-def create_proto_client(
-    channel_address: str = "localhost",
-    port: Optional[int] = None,
-    ports: Optional[list[int]] = None,
-    timeout_seconds: Optional[float] = None,
-) -> "relay.Client":
-    """Create a gRPC client for proto-based communication.
+def deserialize_from_bytes(proto_bytes: bytes) -> Any:
+    """Deserialize proto bytes back to Python data.
+
+    This is the primary function for deserializing data received over HTTP.
+    Use this to parse the body of an HTTP response with proto content.
 
     Args:
-        channel_address: Address of the server (default: 'localhost')
-        port: Optional specific port to connect to
-        ports: Optional list of ports to try
-        timeout_seconds: Optional timeout for requests
+        proto_bytes: Serialized proto bytes (from HTTP response body)
 
     Returns:
-        relay.Client: Client instance for making proto-based requests
+        Python data (dict, list, DataFrame, etc.)
 
     Example:
-        client = create_proto_client(port=50051)
-        result = client.send('process_turn', {'observation': obs})
-        client.close()
+        response = requests.post(url, data=request_bytes, ...)
+        result = deserialize_from_bytes(response.content)
+        action = result.get('action')
     """
     _require_relay()
-    client = relay.Client(channel_address=channel_address, port=port, ports=ports)
-    if timeout_seconds is not None:
-        client.endpoint_deadline_seconds = timeout_seconds
-    return client
+    payload = kaggle_evaluation_pb2.Payload()
+    payload.ParseFromString(proto_bytes)
+    return relay._deserialize(payload)
 
 
 def serialize_payload(data: Any) -> Any:
-    """Serialize data to proto Payload format.
+    """Serialize data to proto Payload message object.
 
-    Supported types:
-    - Primitives: str, int, float, bool, None
-    - Collections: list, tuple, dict (with str keys)
-    - Scientific: pandas.DataFrame, polars.DataFrame, numpy.ndarray
-    - Data Models: Pydantic BaseModel, dataclasses, Enums
-    - Binary: io.BytesIO
+    Lower-level function that returns the Payload proto message
+    rather than bytes. Use serialize_to_bytes() for HTTP transport.
 
     Args:
         data: Python data to serialize
 
     Returns:
-        Payload: Proto message
+        Payload: Proto message object
     """
     _require_relay()
     return relay._serialize(data)
 
 
 def deserialize_payload(payload: Any) -> Any:
-    """Deserialize proto Payload to Python data.
+    """Deserialize proto Payload message object to Python data.
+
+    Lower-level function that takes a Payload proto message.
+    Use deserialize_from_bytes() for HTTP transport.
 
     Args:
-        payload: Proto Payload message
+        payload: Proto Payload message object
 
     Returns:
         Python data (primitives, dicts, lists, dataframes, etc.)
@@ -153,29 +155,3 @@ def set_allowed_modules(modules: Optional[list[str]]) -> None:
     """
     _require_relay()
     relay.set_allowed_modules(modules)
-
-
-def get_default_ports() -> list[int]:
-    """Get the default list of gRPC ports used by relay.
-
-    Returns:
-        list[int]: Default ports that relay tries to bind to
-    """
-    _require_relay()
-    return relay.GRPC_PORTS
-
-
-def get_available_port(ports: Optional[list[int]] = None) -> int:
-    """Find an available port from the given list or defaults.
-
-    Args:
-        ports: Optional list of ports to check. Uses defaults if None.
-
-    Returns:
-        int: First available port
-
-    Raises:
-        ValueError: If no ports are available
-    """
-    _require_relay()
-    return relay._get_available_port(ports)

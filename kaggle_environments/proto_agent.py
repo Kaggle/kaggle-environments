@@ -13,8 +13,12 @@
 # limitations under the License.
 
 """
-Proto-based agent implementation using kaggle_evaluation relay.py for networking.
-This bypasses the traditional kaggle_environments request-based networking system.
+Proto-based agent implementation using HTTP requests with proto byte serialization.
+
+This agent uses the existing HTTP request system (like UrlAgent) but serializes
+data using kaggle_evaluation.core.relay proto serialization instead of JSON.
+This provides richer type support (DataFrames, numpy arrays, etc.) while
+maintaining compatibility with the existing networking infrastructure.
 
 The kaggle_evaluation package must be importable. You can either:
 1. Install it via pip: pip install kaggle_evaluation
@@ -24,6 +28,9 @@ The kaggle_evaluation package must be importable. You can either:
 
 import os
 import sys
+
+import requests
+from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded
 
@@ -48,34 +55,28 @@ class ProtoAgentError(Exception):
 
 
 class ProtoAgent:
-    """Agent that communicates via protobuf using kaggle_evaluation relay.
+    """Agent that communicates via HTTP using proto byte serialization.
 
-    This agent uses the relay.Client for proto-based serialization/deserialization
-    instead of the traditional HTTP requests library used by UrlAgent.
+    This agent uses the existing HTTP request infrastructure (like UrlAgent)
+    but serializes/deserializes data using kaggle_evaluation.core.relay
+    proto serialization instead of JSON. This provides support for rich
+    Python types like DataFrames, numpy arrays, Pydantic models, etc.
 
-    Supports context manager protocol for automatic cleanup:
-        with ProtoAgent(port=50051) as agent:
-            action = agent(observation, configuration)
+    The server endpoint should accept POST requests with:
+    - Content-Type: application/x-protobuf
+    - Body: serialized proto bytes from relay._serialize()
+
+    And return:
+    - Content-Type: application/x-protobuf
+    - Body: serialized proto bytes that deserialize to {'action': ...}
     """
 
-    def __init__(
-        self,
-        channel_address="localhost",
-        port=None,
-        ports=None,
-        environment_name=None,
-        timeout_seconds=None,
-        endpoint_name="process_turn",
-    ):
+    def __init__(self, url, environment_name=None):
         """Initialize a proto-based agent.
 
         Args:
-            channel_address: Address of the server (default: 'localhost')
-            port: Optional specific port to connect to
-            ports: Optional list of ports to try
+            url: HTTP URL of the inference server endpoint
             environment_name: Name of the environment (for compatibility)
-            timeout_seconds: Optional timeout for requests (uses relay default if None)
-            endpoint_name: Name of the endpoint to call (default: 'process_turn')
         """
         if not RELAY_AVAILABLE:
             raise ImportError(
@@ -83,35 +84,8 @@ class ProtoAgent:
                 "Install kaggle_evaluation or set KAGGLE_EVALUATION_PATH environment variable."
             )
 
-        self.channel_address = channel_address
-        self.port = port
-        self.ports = ports
+        self.url = url
         self.environment_name = environment_name
-        self.timeout_seconds = timeout_seconds
-        self.endpoint_name = endpoint_name
-        self._client = None
-
-    @property
-    def client(self):
-        """Lazy initialization of the relay client."""
-        if self._client is None:
-            self._client = relay.Client(
-                channel_address=self.channel_address,
-                port=self.port,
-                ports=self.ports,
-            )
-            if self.timeout_seconds is not None:
-                self._client.endpoint_deadline_seconds = self.timeout_seconds
-        return self._client
-
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - ensures cleanup."""
-        self.close()
-        return False
 
     def __call__(self, observation, configuration):
         """Execute an action given observation and configuration.
@@ -123,37 +97,62 @@ class ProtoAgent:
         Returns:
             Action to take in the environment, or DeadlineExceeded/None on error
         """
+        # Prepare the game data - same structure as UrlAgent but will be proto-serialized
         game_data = {
-            "action_space": getattr(observation, "action_space", None),
-            "observation": observation,
+            "action": "act",
             "configuration": configuration,
+            "environment": self.environment_name,
+            "state": {
+                "observation": observation,
+            },
         }
 
+        # Serialize to proto bytes using relay
+        proto_bytes = relay._serialize(game_data).SerializeToString()
+
+        # Calculate timeout like UrlAgent does
+        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 1
+
         try:
-            result = self.client.send(self.endpoint_name, game_data)
+            response = requests.post(
+                url=self.url,
+                data=proto_bytes,
+                headers={"Content-Type": "application/x-protobuf"},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+
+            # Deserialize the proto response
+            from kaggle_evaluation.core import kaggle_evaluation_pb2
+
+            response_payload = kaggle_evaluation_pb2.Payload()
+            response_payload.ParseFromString(response.content)
+            result = relay._deserialize(response_payload)
 
             if result is None:
                 return None
 
+            # Handle action extraction like UrlAgent
             if isinstance(result, dict) and "action" in result:
-                return result["action"]
+                action = result["action"]
+                if action == "DeadlineExceeded":
+                    return DeadlineExceeded()
+                elif isinstance(action, str) and action.startswith("BaseException::"):
+                    parts = action.split("::", 1)
+                    return BaseException(parts[1])
+                return action
 
             return result
 
-        except relay.GRPCDeadlineError:
+        except Timeout:
+            print(f"Proto agent request timed out after {timeout} seconds")
             return DeadlineExceeded()
-        except relay.ServerDiedError as e:
-            print(f"Proto agent server died: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"Proto agent request error: {e}")
             return DeadlineExceeded()
         except Exception as e:
             print(f"Proto agent error ({type(e).__name__}): {e}")
             return None
-
-    def close(self):
-        """Close the client connection."""
-        if self._client is not None:
-            self._client.close()
-            self._client = None
 
 
 def is_proto_agent_spec(raw):
@@ -174,28 +173,40 @@ def build_proto_agent(raw, environment_name):
     """Build a ProtoAgent from a specification.
 
     Args:
-        raw: Agent specification dict with proto configuration
+        raw: Agent specification dict with proto configuration.
+            Expected format:
+            {
+                'type': 'proto',
+                'url': 'http://localhost:8080/agent'  # Required: HTTP endpoint URL
+            }
+            OR
+            {
+                'type': 'proto',
+                'proto_config': {
+                    'url': 'http://localhost:8080/agent'  # Required: HTTP endpoint URL
+                }
+            }
         environment_name: Name of the environment
 
     Returns:
         tuple: (ProtoAgent instance, is_parallelizable=True)
 
     Raises:
-        ValueError: If the specification is invalid
+        ValueError: If the specification is invalid or missing URL
     """
     if not isinstance(raw, dict):
         raise ValueError(f"Proto agent specification must be a dict, got {type(raw).__name__}")
 
-    proto_config = raw.get("proto_config", {})
+    # Support both direct 'url' key and nested 'proto_config.url'
+    url = raw.get("url")
+    if url is None:
+        proto_config = raw.get("proto_config", {})
+        url = proto_config.get("url")
 
-    agent = ProtoAgent(
-        channel_address=proto_config.get("channel_address", "localhost"),
-        port=proto_config.get("port"),
-        ports=proto_config.get("ports"),
-        environment_name=environment_name,
-        timeout_seconds=proto_config.get("timeout_seconds"),
-        endpoint_name=proto_config.get("endpoint_name", "process_turn"),
-    )
+    if url is None:
+        raise ValueError("Proto agent specification must include 'url' or 'proto_config.url'")
 
-    # Proto agents can be parallelized since they communicate over gRPC
+    agent = ProtoAgent(url=url, environment_name=environment_name)
+
+    # Proto agents can be parallelized since they communicate over HTTP
     return agent, True
