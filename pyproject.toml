@@ -9,7 +9,7 @@ dependencies = [
     "accelerate",
     "bitsandbytes",
     "Flask >= 1.1.2",
-    "gymnasium == 1.2.0",
+    "gymnasium >= 1.2",
     "gymnax==0.0.8",
     "jax",
     "jsonschema >= 3.0.1",
@@ -18,7 +18,7 @@ dependencies = [
     "open_spiel >= 1.6.8",
     "pettingzoo == 1.24.0",
     "pokerkit==0.6.3",
-    "pydantic >= 2.11.4",
+    "pydantic >= 2.11",
     "pygame",
     "pyjson5",
     "termcolor",
@@ -29,7 +29,7 @@ dependencies = [
     "tenacity",
     "google-auth >= 2.35.0"
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 [dependency-groups]
 dev = [

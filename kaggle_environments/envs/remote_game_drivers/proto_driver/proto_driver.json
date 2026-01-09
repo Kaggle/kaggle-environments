@@ -1,0 +1,21 @@
+{
+    "name": "proto_driver",
+    "title": "Proto Driver",
+    "description": "Remote game driver environment using proto-based networking",
+    "version": "1.0.0",
+    "agents": [
+        2,
+        4
+    ],
+    "configuration": {
+        "episodeSteps": 1000,
+        "actTimeout": 60,
+        "runTimeout": 3600,
+        "remainingOverageTime": 60
+    },
+    "observation": {},
+    "action": {},
+    "reward": {
+        "type": "number"
+    }
+}
