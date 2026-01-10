@@ -17,13 +17,16 @@ services:
     container_name: kaggle-env-test-runner
     working_dir: /usr/src/app/kaggle_environments
     command: >
-      python -m pytest tests/integration/test_envs.py -v -s
+      python -m pytest tests/integration -v -s
       --tb=short
-      -x
     volumes:
       - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
     environment:
       - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_HOST=orchestrator
+    networks:
+      - kaggle-net
 
   # Orchestrator container - runs the simulation environment
   orchestrator:
@@ -33,7 +36,9 @@ services:
     ports:
       - "8080:8080"
       - "8000:8000"
-    command: kaggle-environments
+    command: kaggle-environments http-server --port 8080 --host 0.0.0.0 --debug True
+    volumes:
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -50,15 +55,13 @@ services:
       - PYTHONUNBUFFERED=1
       - ORCHESTRATOR_URL=http://orchestrator:8080
       - AGENT_ID=1
+      - AGENT_PORT=8081
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
     networks:
       - kaggle-net
-    command: >
-      python -c "
-      import time
-      print('Agent 1 ready, waiting for orchestrator...')
-      time.sleep(5)
-      print('Agent 1 connected')
-      "
+    command: python tests/integration/test_multicontainer.py --serve
 
   agent-2:
     image: python-simulations-cpu
@@ -70,15 +73,13 @@ services:
       - PYTHONUNBUFFERED=1
       - ORCHESTRATOR_URL=http://orchestrator:8080
       - AGENT_ID=2
+      - AGENT_PORT=8081
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
     networks:
       - kaggle-net
-    command: >
-      python -c "
-      import time
-      print('Agent 2 ready, waiting for orchestrator...')
-      time.sleep(5)
-      print('Agent 2 connected')
-      "
+    command: python tests/integration/test_multicontainer.py --serve
 
 networks:
   kaggle-net:

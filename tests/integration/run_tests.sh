@@ -4,18 +4,33 @@
 # This script runs integration tests inside the Docker container.
 # The container must be built first using: docker/build_cpu.sh
 #
-# Usage:
-#   ./run_tests.sh              # Run all integration tests
-#   ./run_tests.sh -k "rps"     # Run only RPS tests
-#   ./run_tests.sh --verbose    # Run with verbose output
+# Usage (from anywhere in the repo):
+#   ./tests/integration/run_tests.sh              # Run all integration tests
+#   ./tests/integration/run_tests.sh -k "rps"     # Run only RPS tests
+#   ./tests/integration/run_tests.sh --verbose    # Run with verbose output
 
 set -e
 
+# Determine the repository root by finding the directory containing docker/build_cpu.sh
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Try to find repo root by looking for docker/build_cpu.sh
+if [[ -f "$SCRIPT_DIR/../../docker/build_cpu.sh" ]]; then
+    # Called from tests/integration/
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+elif [[ -f "$SCRIPT_DIR/docker/build_cpu.sh" ]]; then
+    # Called from repo root
+    REPO_ROOT="$SCRIPT_DIR"
+elif [[ -f "docker/build_cpu.sh" ]]; then
+    # Called from repo root with relative path
+    REPO_ROOT="$(pwd)"
+else
+    echo "Error: Cannot find repository root (looking for docker/build_cpu.sh)"
+    exit 1
+fi
 
 # Default pytest arguments
-PYTEST_ARGS="-v -s --tb=short"
+PYTEST_ARGS="--tb=short"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do

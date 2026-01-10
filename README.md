@@ -23,6 +23,35 @@ env.run([my_agent, "random"])
 env.render(mode="ipython")
 ```
 
+# Development
+
+## Integration Tests
+
+To run the integration tests locally:
+
+1. **Build the Docker image:**
+   ```bash
+   ./docker/build_cpu.sh
+   ```
+
+2. **Run all tests:**
+   ```bash
+   sh ./tests/integration/run_tests.sh
+   ```
+
+3. **Run multi-container tests (Orchestrator + Agents):**
+   ```bash
+   cd tests/integration
+   # Start the orchestrator and agent services
+   docker compose up -d orchestrator agent-1 agent-2
+   
+   # Run the tests with the MULTICONTAINER_TEST environment variable
+   docker compose run -e MULTICONTAINER_TEST=1 test-runner
+   
+   # Cleanup
+   docker compose down
+   ```
+
 # Overview
 
 Kaggle Environments was created to evaluate episodes. While other libraries have set interface precedents (such as Open.ai Gym), the emphasis of this library focuses on:
