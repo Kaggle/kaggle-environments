@@ -1,0 +1,85 @@
+# Docker Compose configuration for integration tests
+# Supports both single-container and multi-container test modes
+#
+# Usage:
+#   Single container (all-in-one):
+#     docker-compose run --rm test-runner
+#
+#   Multi-container (orchestrator + agents):
+#     docker-compose up orchestrator agent-1 agent-2
+#
+version: "3.8"
+
+services:
+  # Single container test runner - runs all tests in one container
+  test-runner:
+    image: python-simulations-cpu
+    container_name: kaggle-env-test-runner
+    working_dir: /usr/src/app/kaggle_environments
+    command: >
+      python -m pytest tests/integration/test_envs.py -v -s
+      --tb=short
+      -x
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Orchestrator container - runs the simulation environment
+  orchestrator:
+    image: python-simulations-cpu
+    container_name: kaggle-env-orchestrator
+    working_dir: /usr/src/app/kaggle_environments
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+    command: kaggle-environments
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - kaggle-net
+
+  # Agent containers - can be scaled for multi-agent games
+  agent-1:
+    image: python-simulations-cpu
+    container_name: kaggle-env-agent-1
+    working_dir: /usr/src/app/kaggle_environments
+    depends_on:
+      - orchestrator
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - AGENT_ID=1
+    networks:
+      - kaggle-net
+    command: >
+      python -c "
+      import time
+      print('Agent 1 ready, waiting for orchestrator...')
+      time.sleep(5)
+      print('Agent 1 connected')
+      "
+
+  agent-2:
+    image: python-simulations-cpu
+    container_name: kaggle-env-agent-2
+    working_dir: /usr/src/app/kaggle_environments
+    depends_on:
+      - orchestrator
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - AGENT_ID=2
+    networks:
+      - kaggle-net
+    command: >
+      python -c "
+      import time
+      print('Agent 2 ready, waiting for orchestrator...')
+      time.sleep(5)
+      print('Agent 2 connected')
+      "
+
+networks:
+  kaggle-net:
+    driver: bridge
