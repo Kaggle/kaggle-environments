@@ -30,7 +30,7 @@ from .api import (
     list_episodes_for_team,
     list_episodes_for_submission,
 )
-from .core import evaluate, make, register
+from .core import evaluate, make, register, environments
 from . import errors
 from . import utils
 

@@ -64,6 +64,7 @@ echo ""
 # Run tests in Docker container
 docker run --rm \
     -v "$REPO_ROOT/tests:/usr/src/app/kaggle_environments/tests:ro" \
+    -v "$REPO_ROOT/kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro" \
     -e PYTHONUNBUFFERED=1 \
     --workdir /usr/src/app/kaggle_environments \
     python-simulations-cpu \
