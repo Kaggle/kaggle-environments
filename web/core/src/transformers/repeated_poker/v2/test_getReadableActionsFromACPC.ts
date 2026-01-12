@@ -57,12 +57,12 @@ const testCases: TestCase[] = [
   {
     name: "preflop raise-call sequence",
     bettingString: "r5c",
-    expected: ["Raise to 5", "Call 3"],
+    expected: ["Raise 5", "Call 3"],
   },
   {
     name: "multi-street action with fold",
     bettingString: "r5c/cr11f",
-    expected: ["Raise to 5", "Call 3", "Check", "Bet 6", "Fold"],
+    expected: ["Raise 5", "Call 3", "Check", "Bet 6", "Fold"],
   },
   {
     name: "check-check through two streets",
@@ -77,7 +77,7 @@ const testCases: TestCase[] = [
   {
     name: "multi-raise same street",
     bettingString: "r5r11",
-    expected: ["Raise to 5", "Raise to 11"],
+    expected: ["Raise 5", "Raise 11"],
   },
   {
     name: "invalid raise target throws",
@@ -92,7 +92,7 @@ const testCases: TestCase[] = [
   {
     name: "full hand example",
     bettingString: "r5c/cc/r11c/r122r200c",
-    expected: ["Raise to 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise to 189", "Call 78"],
+    expected: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"],
   },
 ];
 

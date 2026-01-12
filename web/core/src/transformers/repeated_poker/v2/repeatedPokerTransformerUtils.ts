@@ -57,7 +57,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
 
   // Example:
   // Input: "r5c/cc/r11c/r122r200c"
-  // Output: ["Raise to 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise to 189", "Call 78"]
+  // Output: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"]
   streets.forEach((streetAction, streetIndex) => {
     const trimmedAction = streetAction.trim();
     if (streetIndex > 0) {
@@ -89,7 +89,7 @@ export function getReadableActionsFromACPC(acpcState: string): string[] {
         const roundBaseline = streetBaselines[actingPlayer];
         const roundTotal = Math.max(targetTotal - roundBaseline, 0);
         const hasOutstandingBet = currentMax > highestBaseline;
-        const verb = hasOutstandingBet ? 'Raise to' : 'Bet';
+        const verb = hasOutstandingBet ? 'Raise' : 'Bet';
 
         if (!Number.isFinite(targetTotal)) {
           throw new Error(`Invalid raise amount '${amount}' parsed from betting string '${bettingString}'.`);
