@@ -90,7 +90,7 @@ if (playerActionStep) {
   const actingPlayerDisplay = playerActionStep.players[1].actionDisplayText;
   const nonActingPlayerDisplay = playerActionStep.players[0].actionDisplayText;
 
-  const expectedActingPlayerDisplay = 'Raise to 5';
+  const expectedActingPlayerDisplay = 'Raise 5';
   const expectedNonActingPlayerDisplay = '3 to call';
 
   if (
