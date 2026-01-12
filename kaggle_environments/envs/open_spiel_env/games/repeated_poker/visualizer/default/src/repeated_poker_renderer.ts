@@ -1095,7 +1095,7 @@ export function renderer(options: LegacyRendererOptions): void {
 
         const stackValueEl = playerInfoArea.querySelector('.player-stack-value') as HTMLElement;
         if (stackValueEl) {
-          stackValueEl.textContent = `Stack Size: ${playerData.chipStack}`;
+          stackValueEl.textContent = `Chips: ${playerData.chipStack}`;
         }
 
         const betDisplay = playerInfoArea.querySelector('.bet-display') as HTMLElement;
