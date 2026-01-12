@@ -12,9 +12,9 @@ import sys
 from typing import Any, Callable
 
 import numpy as np
-import pokerkit
-from open_spiel.python.games import pokerkit_wrapper
+import pokerkit  # noqa: F401
 import pyspiel
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import core, utils
 
@@ -203,7 +203,11 @@ def _get_preset_hands(configuration: dict[str, Any]) -> list[list[int]]:
         return []
     if configuration.get("useOpenings"):
         raise ValueError("Cannot set both useOpenings and presetHands.")
-    if configuration.get("loadPresetHands") and "presetHands" in configuration and not configuration.get("_presetHandsLoaded"):
+    if (
+        configuration.get("loadPresetHands")
+        and "presetHands" in configuration
+        and not configuration.get("_presetHandsLoaded")
+    ):
         raise ValueError("Cannot set both loadPresetHands and presetHands.")
     if configuration.get("initialActions"):
         raise ValueError("Cannot set both initialActions and presetHands.")
@@ -281,15 +285,11 @@ def _get_preset_chance_action(
     if hand_idx > current_hand_index:
         preset_state["current_hand_index"] = hand_idx
     if hand_idx >= len(hands):
-        raise ValueError(
-            f"Ran out of presetHands entries while attempting to start hand {hand_idx}."
-        )
+        raise ValueError(f"Ran out of presetHands entries while attempting to start hand {hand_idx}.")
     hand_actions = hands[hand_idx]
     action_pos = next_index[hand_idx]
     if action_pos >= len(hand_actions):
-        raise ValueError(
-            f"presetHands[{hand_idx}] does not contain enough chance actions for the hand."
-        )
+        raise ValueError(f"presetHands[{hand_idx}] does not contain enough chance actions for the hand.")
     next_action = hand_actions[action_pos]
     if next_action not in outcomes:
         raise ValueError(
@@ -322,13 +322,10 @@ def interpreter(
         # TODO(jhtschultz): Consolidate these competition-specific config fields
         if env.configuration.get("setNumHands", None):
             if "repeated_poker" not in game_string:
-                raise ValueError(
-                    "setNumHands only supported for repeated_poker,"
-                    f" not {game_string}"
-                )
+                raise ValueError(f"setNumHands only supported for repeated_poker, not {game_string}")
             game_string = re.sub(
-                r'(max_num_hands=)\d+',
-                f'max_num_hands={env.configuration.get("setNumHands")}',
+                r"(max_num_hands=)\d+",
+                f"max_num_hands={env.configuration.get('setNumHands')}",
                 game_string,
             )
         env.os_game = pyspiel.load_game(game_string)
@@ -458,7 +455,7 @@ def interpreter(
         elif os_state.current_player() == player_id:
             status = "ACTIVE"
             if not os_state.legal_actions(player_id):
-                raise ValueError(f"Active agent {i} has no legal actions in state {os_state}.")
+                raise ValueError(f"Active agent {player_id} has no legal actions in state {os_state}.")
         else:
             status = "INACTIVE"
         assert status is not None
@@ -485,7 +482,7 @@ def interpreter(
             "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
         }
         if "imageConfig" in env.configuration:
-          obs_update_dict["imageConfig"] = env.configuration["imageConfig"]
+            obs_update_dict["imageConfig"] = env.configuration["imageConfig"]
 
         # Apply updates
         for k, v in obs_update_dict.items():

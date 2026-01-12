@@ -43,7 +43,7 @@ def test_rotate():
     protocol.begin(state)
 
     # Rotate:
-    # R1: pivot 0 -> p0, p1, p2, p3. 
+    # R1: pivot 0 -> p0, p1, p2, p3.
     # R2: pivot 0 -> p0, p1, p2, p3.
     # Cursor updates once for the day: 0 -> 1
     expected = ["p0", "p1", "p2", "p3", "p0", "p1", "p2", "p3"]
@@ -51,7 +51,7 @@ def test_rotate():
     assert protocol.pivot_selector._current_cursor == 1
 
     # Next day (call begin again)
-    # R3: pivot 1 -> p1, p2, p3, p0. 
+    # R3: pivot 1 -> p1, p2, p3, p0.
     # R4: pivot 1 -> p1, p2, p3, p0.
     # Cursor updates once for the day: 1 -> 2
     protocol.reset()

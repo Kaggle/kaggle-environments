@@ -23,17 +23,15 @@ except PackageNotFoundError:
     # Package is not installed. This is a fallback for development mode.
     __version__ = "dev"
 
+from . import errors, utils
 from .agent import Agent
 from .api import (
     get_episode_replay,
     list_episodes,
-    list_episodes_for_team,
     list_episodes_for_submission,
+    list_episodes_for_team,
 )
-from .core import evaluate, make, register, environments
-from . import errors
-from . import utils
-
+from .core import environments, evaluate, make, register
 
 __all__ = [
     "Agent",

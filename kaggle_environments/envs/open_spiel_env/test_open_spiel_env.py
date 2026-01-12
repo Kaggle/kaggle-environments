@@ -1,11 +1,10 @@
 import json
 import pathlib
 
-import pokerkit
-from open_spiel.python.games import pokerkit_wrapper
+import pokerkit  # noqa: F401
 import pyspiel
-
 from absl.testing import absltest
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import make
 
@@ -20,6 +19,7 @@ TEST_REPEATED_POKER_GAME_STRING = open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STR
 def _register_fast_repeated_poker_env() -> None:
     open_spiel_env._register_game_envs([TEST_REPEATED_POKER_GAME_STRING])
 
+
 # Expected that not all pyspiel registered games can be registered as Kaggle
 # envs (e.g. does not yet support simultaneous move games), but should register
 # at least this many
@@ -32,7 +32,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(len(envs) > _REGISTERED_GAMES_THRESHOLD)
 
     def test_tic_tac_toe_agent_playthrough(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.run(["random", "random"])
         json = env.toJSON()
@@ -40,7 +39,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
 
     def test_tic_tac_toe_manual_playthrough(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
@@ -53,7 +51,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.toJSON()["rewards"], [1, -1])
 
     def test_invalid_action(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         for i in range(5):  # Try repeatedly applying an illegal action
@@ -77,7 +74,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         )
 
     def test_serialized_game_and_state(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
@@ -88,7 +84,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(state.history(), [0])
 
     def test_agent_error(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         # Setup step
@@ -199,7 +194,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue("imageConfig" in env.state[0]["observation"])
 
     def test_default_repeated_poker(self):
-        env = make('open_spiel_repeated_poker')
+        env = make("open_spiel_repeated_poker")
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         # Default repeated_poker now includes hand odds calculations which take
@@ -212,8 +207,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(len(env.os_state.acpc_hand_histories()), 2)
         state_dict = json.loads(str(env.os_state))
         self.assertTrue("current_universal_poker_json" in state_dict)
-        current_hand_dict = json.loads(
-            state_dict["current_universal_poker_json"])
+        current_hand_dict = json.loads(state_dict["current_universal_poker_json"])
         self.assertTrue("odds" in current_hand_dict)
         self.assertEqual(len(current_hand_dict["odds"]), 4)
 
@@ -233,10 +227,8 @@ class OpenSpielEnvTest(absltest.TestCase):
             "reset_stacks=True,"
             "rotate_dealer=True)"
         )
-        envs = open_spiel_env._register_game_envs(
-            [pokerkit_game_str]
-        )
-        env = make(envs['open_spiel_python_repeated_pokerkit'])
+        envs = open_spiel_env._register_game_envs([pokerkit_game_str])
+        env = make(envs["open_spiel_python_repeated_pokerkit"])
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         for i in range(20):
@@ -248,7 +240,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
 
     def test_default_repeated_pokerkit_loads(self):
-        env = make('open_spiel_python_repeated_pokerkit')
+        env = make("open_spiel_python_repeated_pokerkit")
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         for i in range(100):
@@ -265,7 +257,7 @@ class OpenSpielEnvTest(absltest.TestCase):
             "setNumHands": num_hands,
         }
         env = make(
-            'open_spiel_repeated_poker',
+            "open_spiel_repeated_poker",
             config,
             debug=True,
         )
@@ -393,6 +385,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         env.reset()
         with self.assertRaisesRegex(ValueError, "loadPresetHands"):
             env.step([{"submission": -1}, {"submission": -1}])
+
 
 if __name__ == "__main__":
     absltest.main()

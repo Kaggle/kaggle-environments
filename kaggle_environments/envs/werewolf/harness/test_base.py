@@ -1,6 +1,6 @@
 import json
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import litellm
 import pytest
@@ -43,10 +43,11 @@ def test_agent_propagates_query_error():
     agent = LLMWerewolfAgent(model_name="fake-model")
     LLMWerewolfAgent.query.retry.sleep = lambda x: None
 
-    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
-         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
-         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
-
+    with (
+        patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs,
+        patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion,
+        patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"),
+    ):
         # Mock Observation
         mock_obs_model = MagicMock()
         mock_obs_model.player_id = "player_0"
@@ -83,11 +84,12 @@ def test_agent_handles_parsing_error():
     # Setup
     agent = LLMWerewolfAgent(model_name="fake-model")
 
-    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
-         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
-         patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost, \
-         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
-
+    with (
+        patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs,
+        patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion,
+        patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost,
+        patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"),
+    ):
         # Mock Observation (same as above)
         mock_obs_model = MagicMock()
         mock_obs_model.player_id = "player_0"
@@ -113,7 +115,7 @@ def test_agent_handles_parsing_error():
         # Mock completion to return invalid JSON
         mock_response = {
             "choices": [{"message": {"content": "Invalid JSON"}}],
-            "usage": {"completion_tokens": 10, "prompt_tokens": 10}
+            "usage": {"completion_tokens": 10, "prompt_tokens": 10},
         }
         mock_model_resp = MagicMock()
         mock_model_resp.__getitem__.side_effect = lambda key: mock_response[key]
@@ -129,7 +131,7 @@ def test_agent_handles_parsing_error():
         # However, the serialize() method on BaseAction might exclude some fields or rename them.
         # Let's check the keys first.
         print(f"Action keys: {action.keys()}")
-        
+
         assert action["action_type"] == "NoOpAction"
         assert "Fell back to NoOp after multiple parsing failures" in action["kwargs"]["reasoning"]
 
@@ -137,11 +139,12 @@ def test_agent_handles_parsing_error():
 def test_cost_and_token_tracking():
     agent = LLMWerewolfAgent(model_name="test-model")
 
-    with patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs, \
-         patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion, \
-         patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost, \
-         patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"):
-
+    with (
+        patch("kaggle_environments.envs.werewolf.harness.base.get_raw_observation") as mock_get_raw_obs,
+        patch("kaggle_environments.envs.werewolf.harness.base.completion") as mock_completion,
+        patch("kaggle_environments.envs.werewolf.harness.base.cost_per_token") as mock_cost,
+        patch("kaggle_environments.envs.werewolf.harness.base.LLMWerewolfAgent.log_token_usage"),
+    ):
         # Mock Observation
         mock_obs_model = MagicMock()
         mock_obs_model.player_id = "player_0"
@@ -162,40 +165,33 @@ def test_cost_and_token_tracking():
         mock_obs_model.new_player_event_views = [mock_entry]
 
         mock_get_raw_obs.return_value = mock_obs_model
-        
+
         # Setup Mocks
         mock_cost.return_value = (0.001, 0.002)
-        
+
         # Mock Response Object
         mock_response = MagicMock()
-        usage_dict = {
-            "prompt_tokens": 150,
-            "completion_tokens": 50
-        }
+        usage_dict = {"prompt_tokens": 150, "completion_tokens": 50}
         mock_response.__getitem__.side_effect = lambda k: usage_dict if k == "usage" else MagicMock()
         mock_response._hidden_params = {"response_cost": 0.05}
-        
-        chat_action_dict = {
-            "perceived_threat_level": "SAFE",
-            "reasoning": "Just testing.",
-            "message": "Hello world"
-        }
+
+        chat_action_dict = {"perceived_threat_level": "SAFE", "reasoning": "Just testing.", "message": "Hello world"}
         mock_choice = MagicMock()
         mock_choice.get.return_value = {"content": f"```json\n{json.dumps(chat_action_dict)}\n```"}
         mock_response.get.return_value = [mock_choice]
-        
+
         mock_completion.return_value = mock_response
 
         # --- Execution ---
         action_serialized = agent("dummy_obs")
-        
+
         # --- Verification ---
         kwargs = action_serialized.get("kwargs", {})
-        
+
         assert kwargs.get("cost") == 0.05
         assert kwargs.get("prompt_tokens") == 150
         assert kwargs.get("completion_tokens") == 50
-        
+
         # Verify Tracker State
         tracker = agent.cost_tracker
         assert tracker.query_token_cost.total_costs_usd == 0.05
@@ -204,21 +200,18 @@ def test_cost_and_token_tracking():
 
         # --- Second Call (Accumulation Check) ---
         mock_response_2 = MagicMock()
-        usage_dict_2 = {
-            "prompt_tokens": 10,
-            "completion_tokens": 10
-        }
+        usage_dict_2 = {"prompt_tokens": 10, "completion_tokens": 10}
         mock_response_2.__getitem__.side_effect = lambda k: usage_dict_2 if k == "usage" else MagicMock()
         mock_response_2._hidden_params = {"response_cost": 0.01}
         mock_choice_2 = MagicMock()
         mock_choice_2.get.return_value = {"content": f"```json\n{json.dumps(chat_action_dict)}\n```"}
         mock_response_2.get.return_value = [mock_choice_2]
-        
+
         mock_completion.return_value = mock_response_2
-        
+
         action_serialized_2 = agent("dummy_obs")
         kwargs_2 = action_serialized_2.get("kwargs", {})
-        
+
         # Use almost equal for float comparison
         assert abs(kwargs_2.get("cost") - 0.01) < 1e-9
         assert kwargs_2.get("prompt_tokens") == 10
