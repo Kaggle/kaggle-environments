@@ -6,12 +6,33 @@ These tests are designed to be run inside the Docker container built with docker
 """
 
 import json
+import pathlib
 from typing import Any, Dict, List
 
 import pytest
 
 import kaggle_environments
 from kaggle_environments import evaluate, make
+
+
+class TestPackageConfig:
+    """Tests for package configuration and environment."""
+
+    def test_using_local_package(self):
+        """Verify that we are using the local package, not the one installed via PyPi."""
+
+        location = kaggle_environments.__file__
+        test_script = pathlib.Path(__file__).resolve()
+        import_path = pathlib.Path(location).resolve()
+
+        test_project_base_dir = test_script.parent.parent.parent
+        import_project_base_dir = import_path.parent.parent
+
+        assert test_project_base_dir == import_project_base_dir, (
+            f"Import path should share the same project root with test script.\n"
+            f"Test: {test_project_base_dir}\n"
+            f"Import: {import_project_base_dir}"
+        )
 
 
 # Environment configurations: env_name -> (num_agents, agent_name, config_overrides, skip_reason)
