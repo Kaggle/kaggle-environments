@@ -1135,11 +1135,11 @@ export function renderer(options: LegacyRendererOptions): void {
         if (playerOddsElement && winOdds && winOdds[winOddsIndex] != undefined) {
           const winOddsStringForPlayer = `WIN: ${winOdds[winOddsIndex].toLocaleString(undefined, {
             style: 'percent',
-            minimumFractionDigits: 2,
+            minimumFractionDigits: 1,
           })}`;
           const tieOddsStringForPlayer = `TIE: ${winOdds[winOddsIndex + 1].toLocaleString(undefined, {
             style: 'percent',
-            minimumFractionDigits: 2,
+            minimumFractionDigits: 1,
           })}`;
 
           const oddsString = `${winOddsStringForPlayer} · ${tieOddsStringForPlayer}`;
