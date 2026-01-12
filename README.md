@@ -27,17 +27,11 @@ env.render(mode="ipython")
 
 ## Integration Tests
 
-To run the integration tests locally:
+To run the  tests locally use `./run_tests.sh`. By default this will run tests using uv and may have false positives if a required dependency is only provided by the full Docker image. In this case you can call `./run_tests.sh --docker`.
 
-1. **Build the Docker image:**
-   ```bash
-   ./docker/build_cpu.sh
-   ```
+## Multi-container Tests
 
-2. **Run all tests:**
-   ```bash
-   sh ./tests/integration/run_tests.sh
-   ```
+These are probably not necessary in most circumstances, but more fully emulate the real simulations setup.
 
 3. **Run multi-container tests (Orchestrator + Agents):**
    ```bash

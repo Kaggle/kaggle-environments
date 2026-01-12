@@ -10,7 +10,6 @@ For simpler single-container tests, see test_envs.py.
 import json
 import os
 import time
-from typing import Any, Dict
 
 import pytest
 import requests
@@ -40,7 +39,9 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
         time.sleep(1)
     return False
 
+
 # ... (RemoteAgent class remains the same) ...
+
 
 @pytest.mark.skipif(
     not os.environ.get("MULTICONTAINER_TEST"), reason="Multi-container tests require MULTICONTAINER_TEST=1"
@@ -80,8 +81,8 @@ class TestMultiContainerEpisodes:
             "action": "run",
             "environment": "rps",
             "agents": [
-                f"http://agent-1:8081",
-                f"http://agent-2:8081",
+                "http://agent-1:8081",
+                "http://agent-2:8081",
             ],
             "configuration": {"episodeSteps": 10},
         }
@@ -93,10 +94,10 @@ class TestMultiContainerEpisodes:
         )
 
         assert response.status_code == 200
-        # The response is the HTML/JSON output depending on render mode. 
+        # The response is the HTML/JSON output depending on render mode.
         # Default is JSON in main.py but main.py might return rendered JSON string.
         # Let's check if we can parse it.
-        
+
         try:
             data = response.json()
         except json.JSONDecodeError:
@@ -109,7 +110,6 @@ class TestMultiContainerEpisodes:
         assert len(last_step) == 2
         assert "reward" in last_step[0]
         assert "reward" in last_step[1]
-
 
 
 # Standalone agent server for multi-container mode
@@ -140,7 +140,7 @@ def run_agent_server():
     }
 
     agent_fn = agents.get(agent_type, random_agent)
-    agent = RemoteAgent(agent_fn, agent_id)
+    agent = RemoteAgent(agent_fn, agent_id)  # noqa
     agent.serve(port=agent_port)
 
 

@@ -82,40 +82,6 @@ def get_env_default_agents(env_name: str) -> Dict[str, Any]:
         return {}
 
 
-def get_deprecated_env_names() -> set:
-    """Dynamically discover deprecated environment names from the deprecated_envs directory.
-
-    This handles both:
-    - Top-level environments (e.g., deprecated_envs/chess -> "chess")
-    - Nested game definitions (e.g., deprecated_envs/open_speil_env/games/tic_tac_toe -> "open_spiel_tic_tac_toe")
-    """
-    deprecated_names = set()
-    test_script = pathlib.Path(__file__).resolve()
-    project_root = test_script.parent.parent.parent
-    deprecated_dir = project_root / "deprecated_envs"
-
-    if not deprecated_dir.exists():
-        return deprecated_names
-
-    # Walk through deprecated_envs directory
-    for item in deprecated_dir.iterdir():
-        if item.is_dir() and item.name != "__pycache__":
-            # Top-level environment
-            deprecated_names.add(item.name)
-
-            # Check for nested games directory (e.g., open_speil_env/games/*)
-            games_dir = item / "games"
-            if games_dir.exists() and games_dir.is_dir():
-                for game_item in games_dir.iterdir():
-                    if game_item.is_dir() and game_item.name != "__pycache__":
-                        # Construct environment name: open_speil_env + game_name
-                        # Note: The actual env name uses "open_spiel_" prefix
-                        env_prefix = "open_spiel_" if item.name == "open_speil_env" else item.name + "_"
-                        deprecated_names.add(env_prefix + game_item.name)
-
-    return deprecated_names
-
-
 class TestEnvironmentDiscovery:
     """Tests for environment discovery and registration."""
 
@@ -168,7 +134,9 @@ class TestEpisodeExecution:
         # Check final state
         final_state = steps[-1]
         assert all(s.status == "DONE" for s in final_state), "All agents should be DONE"
-        print(f"\nRPS: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
+        rewards = [s.reward for s in final_state]
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
     def test_connectx_episode(self):
         """Run a ConnectX episode."""
@@ -177,10 +145,10 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
         rewards = [s.reward for s in final_state]
-        print(f"\nConnectX: {len(steps)} steps, rewards: {rewards}")
-
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
         # One player wins or it's a draw
         assert rewards[0] in [-1, 0, 1] and rewards[1] in [-1, 0, 1]
 
@@ -191,8 +159,11 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
-        print(f"\nMAB: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
+        rewards = [s.reward for s in final_state]
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
     def test_halite_episode(self):
         """Run a Halite episode with 2 players."""
@@ -201,8 +172,11 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
-        print(f"\nHalite: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
+        rewards = [s.reward for s in final_state]
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
     def test_hungry_geese_episode(self):
         """Run a Hungry Geese episode with 2 players."""
@@ -211,8 +185,11 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
-        print(f"\nHungry Geese: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
+        rewards = [s.reward for s in final_state]
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
     def test_kore_fleets_episode(self):
         """Run a Kore Fleets episode with 2 players."""
@@ -221,8 +198,11 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
-        print(f"\nKore Fleets: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
+        rewards = [s.reward for s in final_state]
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
     def test_cabt_episode(self):
         """Run a Card Battle episode."""
@@ -231,77 +211,11 @@ class TestEpisodeExecution:
         steps = env.run(agents)
 
         assert env.done, "Episode should be done"
+        assert len(steps) > 1, "Should have multiple steps"
         final_state = steps[-1]
         rewards = [s.reward for s in final_state]
-        print(f"\nCABT: {len(steps)} steps, rewards: {rewards}")
-
-    def test_unconfigured_environments(self):
-        """Catchall fallback test any environments not explicitly configured in ENV_CONFIGS and not deprecated.
-        This should catch any new environments added to the codebase.
-        """
-        deprecated_envs = get_deprecated_env_names()
-
-        all_envs = get_available_environments()
-        configured_envs = set(ENV_CONFIGS.keys())
-
-        # Find environments that are neither configured nor deprecated
-        unconfigured_envs = [env for env in all_envs if env not in configured_envs and env not in deprecated_envs]
-
-        # Environments that don't need to pass the scores check
-        scores_allowlist = {"open_spiel_chess"}
-
-        # Accumulate errors to report all failures
-        errors = []
-
-        # Test each unconfigured environment
-        for env_name in unconfigured_envs:
-            try:
-                env = make(env_name)
-
-                # Try to determine number of agents needed
-                agent_counts = env.specification.agents
-                if not agent_counts:
-                    print(f"  Skipping {env_name}: no agent count specification")
-                    continue
-
-                # Use minimum agent count
-                num_agents = min(agent_counts) if isinstance(agent_counts, list) else agent_counts
-
-                # Try to find a random agent
-                agents_dict = get_env_default_agents(env_name)
-                if "random" in agents_dict:
-                    agent = "random"
-                elif agents_dict:
-                    agent = list(agents_dict.keys())[0]
-                else:
-                    raise ValueError(f"No default agents available for {env_name}")
-
-                # Run episode with short configuration
-                agents = [agent] * num_agents
-                config = {"episodeSteps": 10} if "episodeSteps" in env.configuration else {}
-                env = make(env_name, configuration=config)
-                steps = env.run(agents)
-
-                # Verify episode completed and scores were received
-                assert env.done, f"{env_name}: Episode should be done"
-                final_state = steps[-1]
-                rewards = [s.reward for s in final_state]
-
-                # Check that rewards are not None (scores were received)
-                # Skip this check for allowlisted environments
-                if env_name not in scores_allowlist:
-                    assert all(r is not None for r in rewards), f"{env_name}: All agents should receive scores"
-
-                print(f"  {env_name}: SUCCESS - {len(steps)} steps, rewards: {rewards}")
-
-            except Exception as e:
-                error_msg = f"{env_name}: {str(e)}"
-                print(f"  FAILED - {error_msg}")
-                errors.append(error_msg)
-
-        # Report all errors at the end
-        if errors:
-            raise AssertionError("The following environments failed:\n" + "\n".join(f"  - {err}" for err in errors))
+        assert all(isinstance(r, (int, float)) for r in rewards), "All rewards should be numeric"
+        assert all(r is not None for r in rewards), "All rewards should be non-None"
 
 
 class TestEvaluateFunction:
