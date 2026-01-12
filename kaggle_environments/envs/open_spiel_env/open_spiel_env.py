@@ -12,7 +12,9 @@ import sys
 from typing import Any, Callable
 
 import numpy as np
+import pokerkit  # noqa: F401
 import pyspiel
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import core, utils
 
@@ -453,7 +455,7 @@ def interpreter(
         elif os_state.current_player() == player_id:
             status = "ACTIVE"
             if not os_state.legal_actions(player_id):
-                raise ValueError(f"Active agent {i} has no legal actions in state {os_state}.")
+                raise ValueError(f"Active agent {player_id} has no legal actions in state {os_state}.")
         else:
             status = "INACTIVE"
         assert status is not None
