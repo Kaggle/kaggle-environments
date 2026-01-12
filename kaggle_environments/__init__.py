@@ -32,14 +32,15 @@ from .api import (
     list_episodes_for_team,
 )
 from .core import evaluate, make, register
-from .main import http_request
+from . import errors
+from . import utils
+
 
 __all__ = [
     "Agent",
     "environments",
     "errors",
     "evaluate",
-    "http_request",
     "make",
     "register",
     "utils",
