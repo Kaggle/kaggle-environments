@@ -124,9 +124,7 @@ def generate_hands(
         raise ValueError(
             f"cards_per_hand must be in [1, deck_size]; got cards_per_hand={cards_per_hand}, deck_size={deck_size}."
         )
-    return [
-        rng.sample(range(deck_size), cards_per_hand) for _ in range(num_hands)
-    ]
+    return [rng.sample(range(deck_size), cards_per_hand) for _ in range(num_hands)]
 
 
 def generate_presets(
@@ -158,9 +156,7 @@ def generate_presets(
 def main() -> None:
     args = parse_args()
     if args.output.exists() and not args.force:
-        raise FileExistsError(
-            f"{args.output} already exists. Pass --force to overwrite."
-        )
+        raise FileExistsError(f"{args.output} already exists. Pass --force to overwrite.")
 
     if not args.skip_verify:
         confirm_chance_action_range(args.deck_size)
@@ -176,9 +172,7 @@ def main() -> None:
         ):
             outfile.write(json.dumps(preset))
             outfile.write("\n")
-    LOGGER.info(
-        "Wrote %d preset hand group(s) to %s", args.num_presets, args.output.resolve()
-    )
+    LOGGER.info("Wrote %d preset hand group(s) to %s", args.num_presets, args.output.resolve())
 
 
 if __name__ == "__main__":

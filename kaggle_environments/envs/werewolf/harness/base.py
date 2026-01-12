@@ -6,7 +6,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 import litellm
 import pyjson5
@@ -771,7 +771,7 @@ class LLMWerewolfAgent(WerewolfAgentBase):
                 raw_completion=e.raw_out,  # <-- Preserved data
                 raw_prompt=e.prompt,  # <-- Preserved data
             )
-        
+
         end_cost = self._cost_tracker.query_token_cost.total_costs_usd
         end_prompt = self._cost_tracker.prompt_token_cost.total_tokens
         end_completion = self._cost_tracker.completion_token_cost.total_tokens

@@ -11,6 +11,7 @@ from kaggle_environments.envs.werewolf.game.consts import EventName, StrEnum
 from kaggle_environments.envs.werewolf.game.protocols.base import BiddingProtocol, DiscussionProtocol
 from kaggle_environments.envs.werewolf.game.records import BidResultDataEntry, DiscussionOrderDataEntry
 from kaggle_environments.envs.werewolf.game.states import GameState
+
 from .bid import SimpleBiddingProtocol
 from .factory import register_protocol
 from .ordering import FirstPlayerStrategy, PivotSelector
@@ -45,8 +46,10 @@ class RoundRobinDiscussion(DiscussionProtocol):
         if strategy == FirstPlayerStrategy.FIXED:
             return f"{base_rule} The speaking order always starts from the beginning of the player list."
         elif strategy == FirstPlayerStrategy.ROTATE:
-            return (f"{base_rule} The starting speaker rotates to the next player in the list for each subsequent day, "
-                    f"but remains the same for all rounds within that day.")
+            return (
+                f"{base_rule} The starting speaker rotates to the next player in the list for each subsequent day, "
+                f"but remains the same for all rounds within that day."
+            )
         elif strategy == FirstPlayerStrategy.RANDOM:
             return f"{base_rule} The starting speaker is chosen randomly for each round."
         return base_rule
@@ -73,7 +76,7 @@ class RoundRobinDiscussion(DiscussionProtocol):
             data = DiscussionOrderDataEntry(chat_order_of_player_ids=list(self._queue))
             state.push_event(
                 description="Discussion phase begins. Players will speak in round-robin order. "
-                            f"Full speaking order for {self.max_rounds} round(s): {list(self._queue)}",
+                f"Full speaking order for {self.max_rounds} round(s): {list(self._queue)}",
                 event_name=EventName.DISCUSSION_ORDER,
                 public=True,
                 data=data,
@@ -294,7 +297,7 @@ class TurnByTurnBiddingDiscussion(BiddingDiscussion):
                         overview_text = ", ".join([f"{k}: {v}" for k, v in self.bidding.bids.items()])
                         state.push_event(
                             description=f"Player {self._speaker} won the bid and will speak next.\n"
-                                        f"Bid overview - {overview_text}.",
+                            f"Bid overview - {overview_text}.",
                             event_name=EventName.BID_RESULT,
                             public=self._bid_result_public,
                             data=data,
@@ -435,7 +438,7 @@ class RoundByRoundBiddingDiscussion(BiddingDiscussion):
 
             state.push_event(
                 description=f"Bidding for round {self._current_round + 1} has concluded. The speaking order, "
-                            f"with bid amounts in parentheses, is: {speaking_order_text}.",
+                f"with bid amounts in parentheses, is: {speaking_order_text}.",
                 event_name=EventName.BID_RESULT,
                 public=self._bid_result_public,
                 data=data,
