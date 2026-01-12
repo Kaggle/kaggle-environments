@@ -1,8 +1,10 @@
 import json
 import pathlib
 
+import pokerkit  # noqa: F401
 import pyspiel
 from absl.testing import absltest
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import make
 
@@ -30,7 +32,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(len(envs) > _REGISTERED_GAMES_THRESHOLD)
 
     def test_tic_tac_toe_agent_playthrough(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.run(["random", "random"])
         json = env.toJSON()
@@ -38,7 +39,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
 
     def test_tic_tac_toe_manual_playthrough(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
@@ -51,7 +51,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.toJSON()["rewards"], [1, -1])
 
     def test_invalid_action(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         for i in range(5):  # Try repeatedly applying an illegal action
@@ -75,7 +74,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         )
 
     def test_serialized_game_and_state(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
@@ -86,7 +84,6 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(state.history(), [0])
 
     def test_agent_error(self):
-        envs = open_spiel_env._register_game_envs(["tic_tac_toe"])
         env = make("open_spiel_tic_tac_toe", debug=True)
         env.reset()
         # Setup step
