@@ -184,7 +184,7 @@ def interpreter(state, env):
         food_candidates = set(range(columns * rows)).difference(heads)
         # Ensure we only place as many food as there are open squares
         min_food = min(min_food, len(food_candidates))
-        shared_observation["food"] = sample(food_candidates, min_food)
+        shared_observation["food"] = sample(list(food_candidates), min_food)
         return state
 
     geese = shared_observation.geese
@@ -261,7 +261,7 @@ def interpreter(state, env):
         available_positions = set(range(rows * columns)).difference(collisions).difference(food)
         # Ensure we don't sample more food than available positions.
         needed_food = min(needed_food, len(available_positions))
-        food.extend(sample(available_positions, needed_food))
+        food.extend(sample(list(available_positions), needed_food))
 
     # Set rewards after deleting all geese to ensure that geese don't receive a reward on the turn they perish.
     for index, agent in enumerate(state):
