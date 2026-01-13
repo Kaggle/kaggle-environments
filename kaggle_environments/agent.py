@@ -43,17 +43,15 @@ def get_last_callable(raw: str, fallback: Callable | None = None, path: str | No
     sys.stdout = buffer
 
     try:
-        code_object = compile(raw, path or "<string>", "exec")
+        code_object = compile(raw, path, "exec")
         env = {}
 
         # append exec_dir so that way python agents can import other files
-        exec_dir = os.path.dirname(path) if path else ""
-        if exec_dir:
-            sys.path.append(exec_dir)
+        exec_dir = os.path.dirname(path)
+        sys.path.append(exec_dir)
 
         exec(code_object, env)
-        if exec_dir:
-            sys.path.pop()
+        sys.path.pop()
         sys.stdout = orig_out
         output = buffer.getvalue()
         if output:
