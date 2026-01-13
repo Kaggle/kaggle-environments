@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.25.8"
+version = "1.26.0"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
@@ -35,6 +35,7 @@ requires-python = ">=3.11"
 dev = [
     "flit",
     "ipython",
+    "pre-commit",
     "python-dotenv",
     "pytest",
     "PyYAML",

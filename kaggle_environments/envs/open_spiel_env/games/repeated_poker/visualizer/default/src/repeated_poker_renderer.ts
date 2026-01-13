@@ -1095,7 +1095,7 @@ export function renderer(options: LegacyRendererOptions): void {
 
         const stackValueEl = playerInfoArea.querySelector('.player-stack-value') as HTMLElement;
         if (stackValueEl) {
-          stackValueEl.textContent = `Stack Size: ${playerData.chipStack}`;
+          stackValueEl.textContent = `Chips: ${playerData.chipStack}`;
         }
 
         const betDisplay = playerInfoArea.querySelector('.bet-display') as HTMLElement;
@@ -1135,11 +1135,11 @@ export function renderer(options: LegacyRendererOptions): void {
         if (playerOddsElement && winOdds && winOdds[winOddsIndex] != undefined) {
           const winOddsStringForPlayer = `WIN: ${winOdds[winOddsIndex].toLocaleString(undefined, {
             style: 'percent',
-            minimumFractionDigits: 2,
+            minimumFractionDigits: 1,
           })}`;
           const tieOddsStringForPlayer = `TIE: ${winOdds[winOddsIndex + 1].toLocaleString(undefined, {
             style: 'percent',
-            minimumFractionDigits: 2,
+            minimumFractionDigits: 1,
           })}`;
 
           const oddsString = `${winOddsStringForPlayer} · ${tieOddsStringForPlayer}`;

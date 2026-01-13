@@ -1,28 +1,28 @@
-import { createVisualStepsFromRepeatedPokerReplay } from "./repeatedPokerTransformerUtils.js";
+import { createVisualStepsFromRepeatedPokerReplay } from './repeatedPokerTransformerUtils.js';
 import {
   PokerReplayInfoAgent,
   PokerReplayStepHistoryParsed,
   PokerReplayUniversalPokerJson,
-} from "./poker-replay-types.js";
+} from './poker-replay-types.js';
 
 const agents: PokerReplayInfoAgent[] = [
-  { Name: "Agent 0", ThumbnailUrl: "" },
-  { Name: "Agent 1", ThumbnailUrl: "" },
+  { Name: 'Agent 0', ThumbnailUrl: '' },
+  { Name: 'Agent 1', ThumbnailUrl: '' },
 ];
 
 const createUniversalState = (
   overrides: Partial<PokerReplayUniversalPokerJson> = {}
 ): PokerReplayUniversalPokerJson => ({
-  acpc_state: "STATE:0::AsKs|QhJh\nSpent: [P0: 2  P1: 1  ]",
-  best_five_card_hands: ["", ""],
-  best_hand_rank_types: ["", ""],
-  betting_history: "",
+  acpc_state: 'STATE:0::AsKs|QhJh\nSpent: [P0: 2  P1: 1  ]',
+  best_five_card_hands: ['', ''],
+  best_hand_rank_types: ['', ''],
+  betting_history: '',
   blinds: [1, 2],
-  board_cards: "",
+  board_cards: '',
   current_player: 1,
   odds: [0.5, 0.5],
   player_contributions: [2, 1],
-  player_hands: ["AsKs", "QhJh"],
+  player_hands: ['AsKs', 'QhJh'],
   pot_size: 3,
   starting_stacks: [200, 200],
   ...overrides,
@@ -41,7 +41,7 @@ const beforeActionStep: PokerReplayStepHistoryParsed = {
   step: {
     action: {
       submission: 0,
-      actionString: "move=r5",
+      actionString: 'move=r5',
     },
     info: {},
     observation: {
@@ -49,19 +49,19 @@ const beforeActionStep: PokerReplayStepHistoryParsed = {
       isTerminal: false,
       legalActionStrings: [],
       legalActions: [],
-      observationString: "",
+      observationString: '',
       playerId: 1,
       remainingOverageTime: 0,
-      serializedGameAndState: "",
+      serializedGameAndState: '',
     },
     reward: null,
-    status: "NORMAL",
+    status: 'NORMAL',
   },
   stepIndex: 0,
 };
 
 const afterActionOverrides: Partial<PokerReplayUniversalPokerJson> = {
-  acpc_state: "STATE:0:r5:AsKs|QhJh\nSpent: [P0: 2  P1: 5  ]",
+  acpc_state: 'STATE:0:r5:AsKs|QhJh\nSpent: [P0: 2  P1: 5  ]',
   current_player: 0,
   player_contributions: [2, 5],
   pot_size: 7,
@@ -80,24 +80,29 @@ const afterActionStep: PokerReplayStepHistoryParsed = {
 };
 
 const visualSteps = createVisualStepsFromRepeatedPokerReplay([beforeActionStep, afterActionStep], agents);
-const playerActionStep = visualSteps.find((step) => step.stepType === "player-action");
+const playerActionStep = visualSteps.find((step) => step.stepType === 'player-action');
 
 if (!playerActionStep) {
-  console.error("❌ player action step not generated");
+  console.error('❌ player action step not generated');
 }
 
 if (playerActionStep) {
   const actingPlayerDisplay = playerActionStep.players[1].actionDisplayText;
   const nonActingPlayerDisplay = playerActionStep.players[0].actionDisplayText;
 
-  const expected = "Raise to 5";
+  const expectedActingPlayerDisplay = 'Raise 5';
+  const expectedNonActingPlayerDisplay = '3 to call';
 
-  if (actingPlayerDisplay === expected && nonActingPlayerDisplay === "") {
-    console.log("✅ player action step uses readable ACPC action");
+  if (
+    actingPlayerDisplay === expectedActingPlayerDisplay &&
+    nonActingPlayerDisplay === expectedNonActingPlayerDisplay
+  ) {
+    console.log('✅ player action step uses readable ACPC action');
   } else {
-    console.error("❌ readable ACPC action mismatch");
-    console.error(`   expected: ${expected}`);
+    console.error('❌ readable ACPC action mismatch');
+    console.error(`   expected acting player: ${expectedActingPlayerDisplay}`);
+    console.error(`   expected non-acting player: ${expectedNonActingPlayerDisplay}`);
     console.error(`   received acting player: ${actingPlayerDisplay}`);
-    console.error(`   received other player: ${nonActingPlayerDisplay}`);
+    console.error(`   received non-acting player: ${nonActingPlayerDisplay}`);
   }
 }

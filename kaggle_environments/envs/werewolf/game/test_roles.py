@@ -2,13 +2,13 @@ import pytest
 
 from kaggle_environments.envs.werewolf.game.consts import RoleConst
 from kaggle_environments.envs.werewolf.game.roles import (
-    create_players_from_agents_config,
-    get_permutation,
-    Player,
-    Werewolf,
     Doctor,
+    Player,
     Seer,
     Villager,
+    Werewolf,
+    create_players_from_agents_config,
+    get_permutation,
 )
 
 
@@ -51,7 +51,9 @@ def test_create_players_from_agents_config_basic(sample_agents_config):
 
 def test_create_players_with_duplicate_ids_raises_error(sample_agents_config):
     """Tests that a ValueError is raised when duplicate agent IDs are provided."""
-    invalid_config = sample_agents_config + [{"id": "Player1", "agent_id": "random", "role": "Villager", "role_params": {}}]
+    invalid_config = sample_agents_config + [
+        {"id": "Player1", "agent_id": "random", "role": "Villager", "role_params": {}}
+    ]
     with pytest.raises(ValueError, match="Duplicate agent ids found: Player1"):
         create_players_from_agents_config(invalid_config)
 
@@ -68,7 +70,7 @@ def test_get_permutation_is_deterministic():
 
     assert permutation1_run1 == permutation1_run2
     assert permutation1_run1 != permutation2
-    assert sorted(permutation1_run1) == sorted(items) # Ensure it's still a permutation
+    assert sorted(permutation1_run1) == sorted(items)  # Ensure it's still a permutation
 
 
 def test_create_players_with_role_shuffling(sample_agents_config):
@@ -97,10 +99,10 @@ def test_create_players_no_shuffling_without_flag(sample_agents_config):
     """Tests that roles are not shuffled if randomize_roles is False, even with a seed."""
     seed = 42
     players = create_players_from_agents_config(sample_agents_config, randomize_roles=False, seed=seed)
-    
+
     original_roles = [agent["role"] for agent in sample_agents_config]
     assigned_roles = [p.role.name for p in players]
-    
+
     assert original_roles == assigned_roles
 
 
@@ -110,12 +112,12 @@ def test_shuffle_ids_and_roles_are_uncorrelated(sample_agents_config):
     uncorrelated and deterministic.
     """
     seed = 44
-    
+
     # --- First run ---
     players1 = create_players_from_agents_config(
         sample_agents_config, randomize_roles=True, randomize_ids=True, seed=seed
     )
-    
+
     # --- Second run with same seed ---
     players2 = create_players_from_agents_config(
         sample_agents_config, randomize_roles=True, randomize_ids=True, seed=seed
@@ -129,14 +131,14 @@ def test_shuffle_ids_and_roles_are_uncorrelated(sample_agents_config):
     # 2. Check that shuffling happened and is uncorrelated
     original_ids = [agent["id"] for agent in sample_agents_config]
     shuffled_ids = list(player1_map.keys())
-    
+
     original_roles = [agent["role"] for agent in sample_agents_config]
     shuffled_roles = list(player1_map.values())
 
     # Assert that both lists were actually shuffled
     assert original_ids != shuffled_ids
     assert original_roles != shuffled_roles
-    
+
     # Assert that the original pairings are broken
     # e.g., Player1 is no longer guaranteed to be a Werewolf
     original_map = {agent["id"]: agent["role"] for agent in sample_agents_config}
@@ -144,10 +146,5 @@ def test_shuffle_ids_and_roles_are_uncorrelated(sample_agents_config):
 
     # 3. Check a specific known outcome for the given seed to prevent regression
     # Based on seed=44 for roles and seed=44+123=167 for ids
-    expected_map_seed42 = {
-        'Player3': 'Villager',
-        'Player2': 'Werewolf',
-        'Player1': 'Doctor',
-        'Player4': 'Seer'
-    }
+    expected_map_seed42 = {"Player3": "Villager", "Player2": "Werewolf", "Player1": "Doctor", "Player4": "Seer"}
     assert player1_map == expected_map_seed42
