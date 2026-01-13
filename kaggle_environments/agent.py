@@ -107,7 +107,7 @@ def build_agent(raw, builtin_agents, environment_name):
     Returns the agent and whether the agent is parallelizable.
     """
     if is_proto_agent_spec(raw):
-        return build_proto_agent(raw, environment_name)
+        return build_proto_agent(raw, environment_name), True
 
     if raw in builtin_agents:
         agent = builtin_agents[raw]
