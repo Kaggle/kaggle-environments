@@ -17,7 +17,7 @@ import sys
 from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
-from typing import *
+from typing import Any, Callable, DefaultDict, Dict, List, NewType, Optional, Tuple, Union
 
 import kaggle_environments.helpers
 from kaggle_environments.helpers import Direction, Point, group_by
@@ -747,7 +747,7 @@ class Board:
         # Process actions and store the results in the fleets and shipyards lists for collision checking
         for player in board.players.values():
             for shipyard in player.shipyards:
-                if shipyard.next_action == None:
+                if shipyard.next_action is None:
                     pass
                 elif shipyard.next_action.num_ships == 0:
                     pass

@@ -1,6 +1,6 @@
 from enum import Enum
 from functools import wraps
-from typing import *
+from typing import Callable, Dict, List
 
 
 class Action(Enum):
