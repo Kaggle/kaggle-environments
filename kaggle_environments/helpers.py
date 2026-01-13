@@ -99,7 +99,7 @@ class Direction(Enum):
     SOUTH = auto()
     WEST = auto()
 
-    def to_point(self) -> Point:
+    def to_point(self) -> Point | None:
         """
         This returns the position offset associated with a particular action
         NORTH -> (0, 1)
@@ -122,7 +122,7 @@ class Direction(Enum):
     def __str__(self) -> str:
         return self.name
 
-    def to_index(self) -> int:
+    def to_index(self) -> int | None:
         return (
             0
             if self == Direction.NORTH
@@ -135,7 +135,7 @@ class Direction(Enum):
             else None
         )
 
-    def to_char(self) -> str:
+    def to_char(self) -> str | None:
         return (
             "N"
             if self == Direction.NORTH
@@ -148,7 +148,7 @@ class Direction(Enum):
             else None
         )
 
-    def opposite(self) -> "Direction":
+    def opposite(self) -> "Direction" | None:
         return (
             Direction.SOUTH
             if self == Direction.NORTH
@@ -161,7 +161,7 @@ class Direction(Enum):
             else None
         )
 
-    def rotate_left(self) -> "Direction":
+    def rotate_left(self) -> "Direction" | None:
         return (
             Direction.WEST
             if self == Direction.NORTH
@@ -174,7 +174,7 @@ class Direction(Enum):
             else None
         )
 
-    def rotate_right(self) -> "Direction":
+    def rotate_right(self) -> "Direction" | None:
         return (
             Direction.EAST
             if self == Direction.NORTH
