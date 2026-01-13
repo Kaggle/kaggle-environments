@@ -122,7 +122,7 @@ def structify(o: Any) -> Any:
 
 
 # File Utilities.
-def read_file(path: str, fallback: str | None = None) -> str:
+def read_file(path: str | Path, fallback: str | None = None) -> str:
     try:
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
@@ -132,7 +132,7 @@ def read_file(path: str, fallback: str | None = None) -> str:
         raise NotFound(f"{path} not found")
 
 
-def get_file_json(path: str, fallback: Any | None = None) -> Any:
+def get_file_json(path: str | Path, fallback: Any | None = None) -> Any:
     try:
         with open(path, "r") as json_file:
             return json.load(json_file)
@@ -196,6 +196,7 @@ def process_schema(schema: Any, data: Any, use_default: bool = True) -> tuple[st
 
 # Player utilities
 def get_player(window_kaggle: dict[str, Any], renderer: tuple[str, str] | str) -> str:
+    # TODO: resolve type alert here. Renderer is clearly not a string, but gets .strip() called.
     if renderer[0] == "html_path":
         key = "/*window.kaggle*/"
         value = f"""

@@ -117,6 +117,8 @@ def action_act(args: Any) -> dict[str, Any]:
     is_first_run = cached_agent is None or cached_agent.raw != raw
     if is_first_run:
         cached_agent = Agent(raw, env)
+
+    assert cached_agent is not None
     observation = utils.get(args.state, dict, {}, ["observation"])
     action, log = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
