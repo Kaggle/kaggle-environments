@@ -148,6 +148,59 @@ class Direction(Enum):
             else None
         )
 
+    def opposite(self) -> "Direction":
+        return (
+            Direction.SOUTH
+            if self == Direction.NORTH
+            else Direction.WEST
+            if self == Direction.EAST
+            else Direction.NORTH
+            if self == Direction.SOUTH
+            else Direction.EAST
+            if self == Direction.WEST
+            else None
+        )
+
+    def rotate_left(self) -> "Direction":
+        return (
+            Direction.WEST
+            if self == Direction.NORTH
+            else Direction.NORTH
+            if self == Direction.EAST
+            else Direction.EAST
+            if self == Direction.SOUTH
+            else Direction.SOUTH
+            if self == Direction.WEST
+            else None
+        )
+
+    def rotate_right(self) -> "Direction":
+        return (
+            Direction.EAST
+            if self == Direction.NORTH
+            else Direction.SOUTH
+            if self == Direction.EAST
+            else Direction.WEST
+            if self == Direction.SOUTH
+            else Direction.NORTH
+            if self == Direction.WEST
+            else None
+        )
+
+    @staticmethod
+    def from_str(str_dir: str):
+        return (
+            Direction.NORTH
+            if str_dir == "NORTH"
+            else Direction.EAST
+            if str_dir == "EAST"
+            else Direction.SOUTH
+            if str_dir == "SOUTH"
+            else Direction.WEST
+            if str_dir == "WEST"
+            else None
+        )
+
     @staticmethod
     def from_char(str_char: str):
         return (
