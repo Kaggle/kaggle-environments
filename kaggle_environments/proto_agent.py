@@ -29,6 +29,7 @@ The kaggle_evaluation package must be importable. You can either:
 import os
 import sys
 
+import kaggle_evaluation.core.relay as relay
 import requests
 from requests.exceptions import Timeout
 
@@ -38,14 +39,6 @@ from .errors import DeadlineExceeded
 _KAGGLE_EVALUATION_PATH = os.environ.get("KAGGLE_EVALUATION_PATH")
 if _KAGGLE_EVALUATION_PATH and _KAGGLE_EVALUATION_PATH not in sys.path:
     sys.path.insert(0, _KAGGLE_EVALUATION_PATH)
-
-try:
-    import kaggle_evaluation.core.relay as relay
-
-    RELAY_AVAILABLE = True
-except ImportError:
-    relay = None
-    RELAY_AVAILABLE = False
 
 
 class ProtoAgentError(Exception):
@@ -78,12 +71,6 @@ class ProtoAgent:
             url: HTTP URL of the inference server endpoint
             environment_name: Name of the environment (for compatibility)
         """
-        if not RELAY_AVAILABLE:
-            raise ImportError(
-                "kaggle_evaluation.core.relay is not available. "
-                "Install kaggle_evaluation or set KAGGLE_EVALUATION_PATH environment variable."
-            )
-
         self.url = url
         self.environment_name = environment_name
 

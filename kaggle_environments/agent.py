@@ -25,6 +25,7 @@ import requests
 from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded, InvalidArgument
+from .proto_agent import build_proto_agent, is_proto_agent_spec
 from .utils import read_file, structify
 
 
@@ -105,14 +106,8 @@ def build_agent(raw, builtin_agents, environment_name):
     """
     Returns the agent and whether the agent is parallelizable.
     """
-    # Check for proto agent specification first (dict with proto config)
-    try:
-        from .proto_agent import build_proto_agent, is_proto_agent_spec
-
-        if is_proto_agent_spec(raw):
-            return build_proto_agent(raw, environment_name)
-    except ImportError:
-        pass
+    if is_proto_agent_spec(raw):
+        return build_proto_agent(raw, environment_name)
 
     if raw in builtin_agents:
         agent = builtin_agents[raw]
