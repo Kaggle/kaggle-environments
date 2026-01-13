@@ -28,8 +28,8 @@ class Point(tuple):
     def map(self, f: Callable[[int], int]) -> "Point":
         return Point(f(self[0]), f(self[1]))
 
-    def map2(self, other: tuple[int, int] | "Point", f: Callable[[int, int], int]) -> "Point":
-        return Point(f(self[0], other[0]), f(self[1], other[1]))
+    def map2(self, other: tuple[int, int] | "Point" | object, f: Callable[[int, int], int]) -> "Point":
+        return Point(f(self[0], other[0]), f(self[1], other[1]))  # type: ignore[index]
 
     def translate(self, offset: "Point", size: int) -> "Point":
         """Translates the current point by offset and wraps it around a board of width and height size"""
@@ -62,12 +62,16 @@ class Point(tuple):
     def __abs__(self) -> "Point":
         return self.map(operator.abs)
 
-    def __add__(self, other: tuple[int, int] | "Point") -> "Point":
-        return self.map2(other, operator.add)
+    def __add__(self, other: object) -> "Point":  # type: ignore[override]
+        if isinstance(other, (tuple, Point)) and len(other) >= 2:
+            return self.map2(other, operator.add)
+        return NotImplemented
 
-    def __eq__(self, other: tuple[int, int] | "Point") -> bool:
+    def __eq__(self, other: object) -> bool:
         try:
-            return self[0] == other[0] and self[1] == other[1]
+            if isinstance(other, (tuple, Point)) and len(other) == 2:
+                return self[0] == other[0] and self[1] == other[1]
+            return False
         except (TypeError, IndexError):
             return False
 
@@ -80,8 +84,10 @@ class Point(tuple):
     def __mod__(self, mod: int) -> "Point":
         return self.map(lambda x: x % mod)
 
-    def __mul__(self, factor: int) -> "Point":
-        return self.map(lambda x: x * factor)
+    def __mul__(self, factor: object) -> "Point":  # type: ignore[override]
+        if isinstance(factor, int):
+            return self.map(lambda x: x * factor)
+        return NotImplemented
 
     def __neg__(self) -> "Point":
         return self.map(operator.neg)
@@ -89,8 +95,10 @@ class Point(tuple):
     def __str__(self) -> str:
         return f"({self.x}, {self.y})"
 
-    def __sub__(self, other: tuple[int, int] | "Point") -> "Point":
-        return self.map2(other, operator.sub)
+    def __sub__(self, other: tuple[int, int] | "Point" | object) -> "Point":
+        if isinstance(other, (tuple, Point)) and len(other) >= 2:
+            return self.map2(other, operator.sub)
+        return NotImplemented
 
 
 class Direction(Enum):

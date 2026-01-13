@@ -117,7 +117,7 @@ def make(
     if logs is None:
         logs = []
 
-    if has(environment, str) and has(environments, dict, path=[environment]):
+    if isinstance(environment, str) and environment in environments:
         return Environment(
             **environments[environment],
             configuration=configuration,
@@ -127,7 +127,7 @@ def make(
             debug=debug,
             state=state,
         )
-    elif callable(environment):
+    elif callable(environment) and not isinstance(environment, (str, type)):
         return Environment(
             interpreter=environment,
             configuration=configuration,
@@ -137,9 +137,10 @@ def make(
             debug=debug,
             state=state,
         )
-    elif has(environment, path=["interpreter"], is_callable=True):
+    elif isinstance(environment, dict) and has(environment, path=["interpreter"], is_callable=True):
+        env_dict: dict[str, Any] = environment  # type: ignore[assignment]
         return Environment(
-            **environment, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state
+            **env_dict, configuration=configuration, info=info, steps=steps, logs=logs, debug=debug, state=state
         )
     raise InvalidArgument("Unknown Environment Specification")
 
@@ -246,10 +247,8 @@ class Environment:
         if not actions or len(actions) != len(self.state):
             raise InvalidArgument(f"{len(self.state)} actions required.")
 
-        action_state = [0] * len(self.state)
+        action_state: list[dict[str, Any]] = [{**self.state[index], "action": None} for index in range(len(self.state))]
         for index, action in enumerate(actions):
-            action_state[index] = {**self.state[index], "action": None}
-
             if isinstance(action, DeadlineExceeded):
                 self.debug_print(f"Timeout: {str(action)}")
                 action_state[index]["status"] = "TIMEOUT"
@@ -352,7 +351,11 @@ class Environment:
         mode = get(kwargs, str, "human", path=["mode"])
         if mode == "ansi" or mode == "human":
             args = [self.state, self]
-            out = self.renderer(*args[: self.renderer.__code__.co_argcount])
+            arg_count = getattr(self.renderer, "__code__", None)
+            if arg_count:
+                out = self.renderer(*args[: arg_count.co_argcount])
+            else:
+                out = self.renderer(*args)
             if mode == "ansi":
                 return out
         elif mode == "html" or mode == "ipython":
@@ -367,9 +370,12 @@ class Environment:
                 **kwargs,
             }
             args = [self]
-            player_html = get_player(
-                window_kaggle, self.html_renderer(*args[: self.html_renderer.__code__.co_argcount])
-            )
+            arg_count = getattr(self.html_renderer, "__code__", None)
+            if arg_count:
+                renderer_result = self.html_renderer(*args[: arg_count.co_argcount])
+            else:
+                renderer_result = self.html_renderer(*args)
+            player_html = get_player(window_kaggle, renderer_result)
             if mode == "html":
                 return player_html
 
@@ -446,6 +452,7 @@ class Environment:
             raise InvalidArgument("One agent must be marked 'None' to train.")
 
         def advance():
+            assert runner is not None, "Runner must be initialized before calling advance()"
             while not self.done and self.state[position].status == "INACTIVE":
                 actions, logs = runner.act()
                 self.step(actions, logs)
@@ -458,6 +465,7 @@ class Environment:
             return self.__get_shared_state(position).observation
 
         def step(action):
+            assert runner is not None, "Runner must be initialized before calling step()"
             actions, logs = runner.act(action)
             self.step(actions, logs)
             advance()
@@ -594,7 +602,11 @@ class Environment:
 
     def __loop_through_interpreter(self, state: list[Any], logs: list[dict[str, Any]]) -> list[Any]:
         args = [structify(state), self, logs]
-        new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
+        arg_count = getattr(self.interpreter, "__code__", None)
+        if arg_count:
+            new_state = structify(self.interpreter(*args[: arg_count.co_argcount]))
+        else:
+            new_state = structify(self.interpreter(*args))
         new_state[0].observation.step = 0 if self.done else len(self.steps)
 
         for index, agent in enumerate(new_state):

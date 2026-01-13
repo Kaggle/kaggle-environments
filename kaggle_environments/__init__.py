@@ -31,7 +31,7 @@ from .api import (
     list_episodes_for_submission,
     list_episodes_for_team,
 )
-from .core import evaluate, make, register
+from .core import environments, evaluate, make, register
 
 __all__ = [
     "Agent",

@@ -10,8 +10,6 @@ This image is hosted at `gcr.io/kaggle-images/python-simulations`
   - `./run.sh list`
   - `./run.sh run --environment connectx --agent random random`
   - `./run.sh http-server`
-- `./test.sh` will run the unit test suite in docker with pytest.
-  - `./test.sh -k "halite"`
 
 ## Example for how to render a replay into a local html file
 

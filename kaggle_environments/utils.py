@@ -196,17 +196,18 @@ def process_schema(schema: Any, data: Any, use_default: bool = True) -> tuple[st
 
 # Player utilities
 def get_player(window_kaggle: dict[str, Any], renderer: tuple[str, str] | str) -> str:
-    # TODO: resolve type alert here. Renderer is clearly not a string, but gets .strip() called.
-    if renderer[0] == "html_path":
+    if isinstance(renderer, tuple) and renderer[0] == "html_path":
         key = "/*window.kaggle*/"
         value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
         """
         return read_file(renderer[1]).replace(key, value)
 
+    # renderer is a string at this point
+    renderer_str = renderer if isinstance(renderer, str) else str(renderer)
     key = "/*window.kaggle*/"
     value = f"""
 window.kaggle = {json.dumps(window_kaggle, indent=2)};\n\n
-window.kaggle.renderer = {renderer.strip()};\n\n
+window.kaggle.renderer = {renderer_str.strip()};\n\n
     """
     return read_file(Path.joinpath(root_path, "static", "player.html")).replace(key, value)
