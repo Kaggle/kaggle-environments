@@ -1,7 +1,7 @@
 import operator
 import random
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Generic, Iterable, List, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Generic, Iterable, Type, TypeVar
 
 
 class Point(tuple):
@@ -18,24 +18,24 @@ class Point(tuple):
         return super(Point, cls).__new__(cls, tuple((x, y)))
 
     @property
-    def x(self):
+    def x(self) -> int:
         return self[0]
 
     @property
-    def y(self):
+    def y(self) -> int:
         return self[1]
 
     def map(self, f: Callable[[int], int]) -> "Point":
         return Point(f(self[0]), f(self[1]))
 
-    def map2(self, other: Union[Tuple[int, int], "Point"], f: Callable[[int, int], int]) -> "Point":
+    def map2(self, other: tuple[int, int] | "Point", f: Callable[[int, int], int]) -> "Point":
         return Point(f(self[0], other[0]), f(self[1], other[1]))
 
-    def translate(self, offset: "Point", size: int):
+    def translate(self, offset: "Point", size: int) -> "Point":
         """Translates the current point by offset and wraps it around a board of width and height size"""
         return (self + offset) % size
 
-    def distance_to(self, other: "Point", size: int):
+    def distance_to(self, other: "Point", size: int) -> float:
         """Computes total distance (manhattan) to travel to other Point"""
         abs_x = abs(self.x - other.x)
         dist_x = abs_x if abs_x < size / 2 else size - abs_x
@@ -43,7 +43,7 @@ class Point(tuple):
         dist_y = abs_y if abs_y < size / 2 else size - abs_y
         return dist_x + dist_y
 
-    def to_index(self, size: int):
+    def to_index(self, size: int) -> int:
         """
         Converts a 2d position in the form (x, y) to an index in the observation.halite list.
         See staticmethod from_index for the inverse.
@@ -62,10 +62,10 @@ class Point(tuple):
     def __abs__(self) -> "Point":
         return self.map(operator.abs)
 
-    def __add__(self, other: Union[Tuple[int, int], "Point"]) -> "Point":
+    def __add__(self, other: tuple[int, int] | "Point") -> "Point":
         return self.map2(other, operator.add)
 
-    def __eq__(self, other: Union[Tuple[int, int], "Point"]) -> bool:
+    def __eq__(self, other: tuple[int, int] | "Point") -> bool:
         try:
             return self[0] == other[0] and self[1] == other[1]
         except (TypeError, IndexError):
@@ -86,10 +86,10 @@ class Point(tuple):
     def __neg__(self) -> "Point":
         return self.map(operator.neg)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"({self.x}, {self.y})"
 
-    def __sub__(self, other: Union[Tuple[int, int], "Point"]) -> "Point":
+    def __sub__(self, other: tuple[int, int] | "Point") -> "Point":
         return self.map2(other, operator.sub)
 
 
@@ -188,7 +188,7 @@ class Direction(Enum):
         )
 
     @staticmethod
-    def from_str(str_dir: str):
+    def from_str(str_dir: str) -> "Direction" | None:
         return (
             Direction.NORTH
             if str_dir == "NORTH"
@@ -202,7 +202,7 @@ class Direction(Enum):
         )
 
     @staticmethod
-    def from_char(str_char: str):
+    def from_char(str_char: str) -> "Direction" | None:
         return (
             Direction.NORTH
             if str_char == "N"
@@ -216,7 +216,7 @@ class Direction(Enum):
         )
 
     @staticmethod
-    def from_index(idx: int):
+    def from_index(idx: int) -> "Direction" | None:
         return (
             Direction.NORTH
             if idx == 0
@@ -242,7 +242,7 @@ class Direction(Enum):
             return Direction.WEST
 
     @staticmethod
-    def list_directions() -> List["Direction"]:
+    def list_directions() -> list["Direction"]:
         return [
             Direction.NORTH,
             Direction.EAST,
@@ -255,7 +255,7 @@ TItem = TypeVar("TItem")
 THash = TypeVar("THash")
 
 
-def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict[THash, List[TItem]]:
+def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> dict[THash, list[TItem]]:
     results = {}
     for item in items:
         key = selector(item)
@@ -265,7 +265,7 @@ def group_by(items: Iterable[TItem], selector: Callable[[TItem], THash]) -> Dict
     return results
 
 
-def histogram(items: Iterable[TItem]) -> Dict[TItem, int]:
+def histogram(items: Iterable[TItem]) -> dict[TItem, int]:
     """Accepts a list of hashable items and returns a dictionary where the keys are items and the values are counts of each item in the list."""
     results = {}
     for item in items:
@@ -282,7 +282,7 @@ def with_print(item: TItem) -> TItem:
     return item
 
 
-class Observation(Dict[str, any]):
+class Observation(dict[str, Any]):
     """
     Observation provides access to per-step parameters in the environment.
     """
@@ -293,12 +293,12 @@ class Observation(Dict[str, any]):
         return self["step"]
 
     @property
-    def remaining_overage_time(self) -> int:
+    def remaining_overage_time(self) -> float:
         """Total remaining banked time (seconds) that can be used in excess of per-step actTimeouts -- agent is disqualified with TIMEOUT status when this drops below 0."""
         return self["remainingOverageTime"]
 
 
-class Configuration(Dict[str, any]):
+class Configuration(dict[str, Any]):
     """
     Configuration provides access to tunable parameters in the environment.
     """
@@ -334,7 +334,7 @@ class AgentStatus(Enum):
     ERROR = 5
 
 
-class AgentState(Generic[TObservation, TAction], Dict[str, any]):
+class AgentState(Generic[TObservation, TAction], dict[str, Any]):
     @property
     def observation(self) -> TObservation:
         return self["observation"]
@@ -344,7 +344,7 @@ class AgentState(Generic[TObservation, TAction], Dict[str, any]):
         return self["action"]
 
     @property
-    def reward(self) -> int:
+    def reward(self) -> float | None:
         return self["reward"]
 
     @property
@@ -357,21 +357,21 @@ class AgentState(Generic[TObservation, TAction], Dict[str, any]):
 
 class Environment(Generic[TConfiguration, TObservation, TAction]):
     @property
-    def specification(self) -> Dict[str, Any]:
+    def specification(self) -> dict[str, Any]:
         raise NotImplementedError()
 
     def interpret(
-        self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]
-    ) -> List[AgentState[TObservation, TAction]]:
+        self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]
+    ) -> list[AgentState[TObservation, TAction]]:
         raise NotImplementedError()
 
-    def render_html(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
+    def render_html(self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]) -> str:
         raise NotImplementedError()
 
-    def render_text(self, configuration: TConfiguration, state: List[AgentState[TObservation, TAction]]) -> str:
+    def render_text(self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]) -> str:
         raise NotImplementedError()
 
     @property
-    def builtin_agents(self) -> Dict[str, Agent]:
+    def builtin_agents(self) -> dict[str, Agent]:
         """Override this property to provide default agents that can be referenced by name in this environment, e.g. `{"random": my_random_agent}`"""
         return {}

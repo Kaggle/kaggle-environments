@@ -15,6 +15,7 @@
 import json
 from copy import deepcopy
 from pathlib import Path
+from typing import Any, Type
 
 import jsonschema
 
@@ -26,7 +27,14 @@ envs_path = Path.joinpath(root_path, "envs")
 
 
 # Primitive Utilities.
-def get(o, classinfo=None, default=None, path=None, is_callable=None, fallback=None):
+def get(
+    o: Any,
+    classinfo: Type | None = None,
+    default: Any = None,
+    path: list[str] | None = None,
+    is_callable: bool | None = None,
+    fallback: Any = None,
+) -> Any:
     if path is None:
         path = []
     if o is None and default is not None:
@@ -42,7 +50,13 @@ def get(o, classinfo=None, default=None, path=None, is_callable=None, fallback=N
         return fallback
 
 
-def has(o, classinfo=None, default=None, path=None, is_callable=None):
+def has(
+    o: Any,
+    classinfo: Type | None = None,
+    default: Any = None,
+    path: list[str] | None = None,
+    is_callable: bool | None = None,
+) -> bool:
     if path is None:
         path = []
     try:
@@ -56,7 +70,7 @@ def has(o, classinfo=None, default=None, path=None, is_callable=None):
         if not is_callable and callable(cur):
             raise ValueError("Is callable")
         return True
-    except:
+    except Exception:
         if default is not None and o is not None and len(path) > 0:
             cur = o
             for p in path[:-1]:
@@ -67,7 +81,13 @@ def has(o, classinfo=None, default=None, path=None, is_callable=None):
         return False
 
 
-def call(o, default=None, path=None, args=None, kwargs=None):
+def call(
+    o: Any,
+    default: Any = None,
+    path: list[str] | None = None,
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
+) -> Any:
     if path is None:
         path = []
     if args is None:
@@ -82,18 +102,18 @@ def call(o, default=None, path=None, args=None, kwargs=None):
 
 
 class Struct(dict):
-    def __init__(self, **entries):
+    def __init__(self, **entries: Any) -> None:
         entries = {k: v for k, v in entries.items() if k != "items"}
         dict.__init__(self, entries)
         self.__dict__.update(entries)
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: Any) -> None:
         self.__dict__[attr] = value
         self[attr] = value
 
 
 # Added benefit of cloning lists and dicts.
-def structify(o):
+def structify(o: Any) -> Any:
     if isinstance(o, list):
         return [structify(o[i]) for i in range(len(o))]
     elif isinstance(o, dict):
@@ -102,21 +122,21 @@ def structify(o):
 
 
 # File Utilities.
-def read_file(path, fallback=None):
+def read_file(path: str, fallback: str | None = None) -> str:
     try:
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
-    except:
+    except Exception:
         if fallback is not None:
             return fallback
         raise NotFound(f"{path} not found")
 
 
-def get_file_json(path, fallback=None):
+def get_file_json(path: str, fallback: Any | None = None) -> Any:
     try:
         with open(path, "r") as json_file:
             return json.load(json_file)
-    except:
+    except Exception:
         if fallback is not None:
             return fallback
         raise InvalidArgument(f"{path} does not contain valid JSON")
@@ -126,7 +146,7 @@ def get_file_json(path, fallback=None):
 schemas = structify(get_file_json(Path.joinpath(root_path, "schemas.json")))
 
 
-def default_schema(schema, data):
+def default_schema(schema: Any, data: Any) -> Any:
     default = get(schema, path=["default"])
     if default is None and data is None:
         return
@@ -163,7 +183,7 @@ def default_schema(schema, data):
     return data if data is not None else default
 
 
-def process_schema(schema, data, use_default=True):
+def process_schema(schema: Any, data: Any, use_default: bool = True) -> tuple[str | None, Any]:
     error = None
     if use_default is True:
         data = default_schema(schema, deepcopy(data))
@@ -175,7 +195,7 @@ def process_schema(schema, data, use_default=True):
 
 
 # Player utilities
-def get_player(window_kaggle, renderer):
+def get_player(window_kaggle: dict[str, Any], renderer: tuple[str, str] | str) -> str:
     if renderer[0] == "html_path":
         key = "/*window.kaggle*/"
         value = f"""

@@ -20,6 +20,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from multiprocessing import Pool
 from time import perf_counter
+from typing import Any, Callable
 
 from . import __version__
 from .agent import Agent
@@ -27,13 +28,13 @@ from .errors import DeadlineExceeded, FailedPrecondition, InvalidArgument
 from .utils import get, get_player, has, process_schema, schemas, structify
 
 # Registered Environments.
-environments = {}
+environments: dict[str, dict[str, Any]] = {}
 
 # Registered Interactive Sessions.
-interactives = {}
+interactives: dict[str, tuple[Any, Any]] = {}
 
 
-def register(name, environment):
+def register(name: str, environment: dict[str, Any]) -> None:
     """
     Register an environment by name.  An environment contains the following:
      * specification - JSON Schema representing the environment.
@@ -45,7 +46,15 @@ def register(name, environment):
     environments[name] = environment
 
 
-def evaluate(environment, agents=None, configuration=None, steps=None, num_episodes=1, debug=False, state=None):
+def evaluate(
+    environment: str | "Environment",
+    agents: list[Any] | None = None,
+    configuration: dict[str, Any] | None = None,
+    steps: list[Any] | None = None,
+    num_episodes: int = 1,
+    debug: bool = False,
+    state: Any | None = None,
+) -> list[list[float | None]]:
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
 
@@ -76,7 +85,15 @@ def evaluate(environment, agents=None, configuration=None, steps=None, num_episo
     return rewards
 
 
-def make(environment, configuration=None, info=None, steps=None, logs=None, debug=False, state=None):
+def make(
+    environment: str | "Environment" | Callable,
+    configuration: dict[str, Any] | None = None,
+    info: dict[str, Any] | None = None,
+    steps: list[Any] | None = None,
+    logs: list[Any] | None = None,
+    debug: bool = False,
+    state: Any | None = None,
+) -> "Environment":
     """
     Creates an instance of an Environment.
 
@@ -127,7 +144,7 @@ def make(environment, configuration=None, info=None, steps=None, logs=None, debu
     raise InvalidArgument("Unknown Environment Specification")
 
 
-def act_agent(args):
+def act_agent(args: tuple[Any | None, dict[str, Any], Any, Any]) -> tuple[Any, dict[str, Any]]:
     agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
         return None, {}
@@ -140,18 +157,18 @@ def act_agent(args):
 class Environment:
     def __init__(
         self,
-        specification=None,
-        configuration=None,
-        info=None,
-        steps=None,
-        logs=None,
-        agents=None,
-        interpreter=None,
-        renderer=None,
-        html_renderer=None,
-        debug=False,
-        state=None,
-    ):
+        specification: dict[str, Any] | None = None,
+        configuration: dict[str, Any] | None = None,
+        info: dict[str, Any] | None = None,
+        steps: list[Any] | None = None,
+        logs: list[Any] | None = None,
+        agents: dict[str, Callable] | None = None,
+        interpreter: Callable | None = None,
+        renderer: Callable | None = None,
+        html_renderer: Callable | None = None,
+        debug: bool = False,
+        state: Any | None = None,
+    ) -> None:
         if specification is None:
             specification = {}
         if configuration is None:
@@ -210,7 +227,7 @@ class Environment:
         else:
             self.reset()
 
-    def step(self, actions, logs=None):
+    def step(self, actions: list[Any], logs: list[dict[str, Any]] | None = None) -> list[Any]:
         """
         Execute the environment interpreter using the current state and a list of actions.
 
@@ -261,7 +278,7 @@ class Environment:
 
         return self.state
 
-    def run(self, agents):
+    def run(self, agents: list[Any]) -> list[list[Any]]:
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -290,7 +307,7 @@ class Environment:
 
         return self.steps
 
-    def reset(self, num_agents=None):
+    def reset(self, num_agents: int | None = None) -> list[Any]:
         """
         Resets the environment state to the initial step.
 
@@ -320,7 +337,7 @@ class Environment:
                 self.state[i].status = statuses[i]
         return self.state
 
-    def render(self, **kwargs):
+    def render(self, **kwargs: Any) -> str | None:
         """
         Renders a visual representation of the current state of the environment.
 
@@ -368,7 +385,7 @@ class Environment:
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents=None, **kwargs):
+    def play(self, agents: list[Any] | None = None, **kwargs: Any) -> None:
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -386,7 +403,7 @@ class Environment:
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents=None):
+    def train(self, agents: list[Any] | None = None) -> Any:
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -455,21 +472,21 @@ class Environment:
         return structify({"step": step, "reset": reset})
 
     @property
-    def name(self):
+    def name(self) -> str:
         """str: The name from the specification."""
         return get(self.specification, str, "", ["name"])
 
     @property
-    def version(self):
+    def version(self) -> str:
         """str: The version from the specification."""
         return get(self.specification, str, "", ["version"])
 
     @property
-    def done(self):
+    def done(self) -> bool:
         """bool: If any agents have an ACTIVE status."""
         return all(s.status != "ACTIVE" for s in self.state)
 
-    def toJSON(self):
+    def toJSON(self) -> dict[str, Any]:
         """
         Returns:
             dict: Specifcation and current state of the Environment instance.
@@ -500,7 +517,7 @@ class Environment:
             }
         )
 
-    def clone(self):
+    def clone(self) -> "Environment":
         """
         Returns:
             Environment: A copy of the current environment.
@@ -517,7 +534,7 @@ class Environment:
         )
 
     @property
-    def __state_schema(self):
+    def __state_schema(self) -> Any:
         if not hasattr(self, "__state_schema_value"):
             spec = self.specification
             self.__state_schema_value = {
@@ -538,7 +555,7 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state=None):
+    def __set_state(self, state: list[Any] | None = None) -> list[Any]:
         if state is None:
             state = []
 
@@ -549,7 +566,7 @@ class Environment:
         self.steps = [self.state]
         return self.state
 
-    def __get_state(self, position, state):
+    def __get_state(self, position: int, state: Any) -> Any:
         key = f"__state_schema_{position}"
         if not hasattr(self, key):
             # Update a property default value based on position in defaults.
@@ -575,7 +592,7 @@ class Environment:
             raise InvalidArgument(f"Default state generation failed for #{position}: " + err)
         return data
 
-    def __loop_through_interpreter(self, state, logs):
+    def __loop_through_interpreter(self, state: list[Any], logs: list[dict[str, Any]]) -> list[Any]:
         args = [structify(state), self, logs]
         new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
         new_state[0].observation.step = 0 if self.done else len(self.steps)
@@ -592,7 +609,7 @@ class Environment:
                 agent.reward = None
         return new_state
 
-    def __run_interpreter_prod(self, state, logs):
+    def __run_interpreter_prod(self, state: list[Any], logs: list[dict[str, Any]]) -> list[Any]:
         out = None
         err = None
         try:
@@ -633,14 +650,14 @@ class Environment:
                     err = err[:-1]
                 self.debug_print(err)
 
-    def __run_interpreter(self, state, logs):
+    def __run_interpreter(self, state: list[Any], logs: list[dict[str, Any]]) -> list[Any]:
         # Append any environmental logs to any agent logs we collected.
         if self.debug:
             return self.__loop_through_interpreter(state, logs)
         else:
             return self.__run_interpreter_prod(state, logs)
 
-    def __process_specification(self, spec):
+    def __process_specification(self, spec: dict[str, Any]) -> tuple[str | None, Any]:
         if has(spec, path=["reward"]):
             reward = spec["reward"]
             reward_type = get(reward, str, "number", ["type"])
@@ -674,7 +691,7 @@ class Environment:
 
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents):
+    def __agent_runner(self, agents: list[Agent | None]) -> Any:
         # Generate the agents.
         agents = [Agent(agent, self) if agent is not None else None for agent in agents]
 
@@ -706,7 +723,7 @@ class Environment:
 
         return structify({"act": act})
 
-    def __get_shared_state(self, position):
+    def __get_shared_state(self, position: int) -> Any:
         # Note: state and schema are required to be in sync (apart from shared ones).
         def update_props(shared_state, state, schema_props):
             for k, prop in schema_props.items():
@@ -722,6 +739,6 @@ class Environment:
 
         return update_props(self.state[0], copy.deepcopy(self.state[position]), self.__state_schema.properties)
 
-    def debug_print(self, message):
+    def debug_print(self, message: str) -> None:
         if self.debug:
             print(message)
