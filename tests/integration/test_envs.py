@@ -7,6 +7,7 @@ These tests are designed to be run inside the Docker container built with docker
 
 import json
 import pathlib
+import subprocess
 from typing import Any, Dict, List
 
 import pytest
@@ -89,7 +90,6 @@ class TestEnvironmentDiscovery:
         """Verify that environments are registered."""
         envs = get_available_environments()
         assert len(envs) > 0, "No environments registered"
-        print(f"\nRegistered environments: {envs}")
 
     def test_core_environments_present(self):
         """Verify core environments are available."""
@@ -108,7 +108,6 @@ class TestEnvironmentCreation:
         env = make(env_name)
         assert env is not None
         assert env.name == env_name
-        print(f"\n{env_name}: agents={env.specification.agents}, version={env.version}")
 
     @pytest.mark.parametrize("env_name", ["rps", "connectx", "halite", "hungry_geese", "kore_fleets", "mab", "cabt"])
     def test_environment_has_agents(self, env_name: str):
@@ -116,7 +115,6 @@ class TestEnvironmentCreation:
         _ = make(env_name)  # Verify env can be created
         agents = get_env_default_agents(env_name)
         assert len(agents) > 0, f"No agents registered for {env_name}"
-        print(f"\n{env_name} agents: {list(agents.keys())}")
 
 
 class TestEpisodeExecution:
@@ -226,34 +224,21 @@ class TestEvaluateFunction:
         rewards = evaluate("rps", ["rock", "paper"], configuration={"episodeSteps": 10})
         assert len(rewards) == 1  # One episode
         assert len(rewards[0]) == 2  # Two agents
-        print(f"\nRPS evaluate rewards: {rewards}")
 
     def test_evaluate_connectx(self):
         """Test evaluate function with ConnectX."""
         rewards = evaluate("connectx", ["random", "random"])
         assert len(rewards) == 1
         assert len(rewards[0]) == 2
-        print(f"\nConnectX evaluate rewards: {rewards}")
 
     def test_evaluate_multiple_episodes(self):
         """Test running multiple episodes."""
         rewards = evaluate("rps", ["rock", "paper"], configuration={"episodeSteps": 10}, num_episodes=3)
         assert len(rewards) == 3
-        print(f"\nRPS 3 episodes rewards: {rewards}")
 
 
 class TestOpenSpielEnvironments:
     """Tests for OpenSpiel-wrapped environments."""
-
-    def _get_open_spiel_envs(self) -> List[str]:
-        """Get list of registered OpenSpiel environments."""
-        return [name for name in get_available_environments() if name.startswith("open_spiel_")]
-
-    def test_open_spiel_envs_registered(self):
-        """Check that OpenSpiel environments are registered."""
-        os_envs = self._get_open_spiel_envs()
-        print(f"\nOpenSpiel environments: {os_envs}")
-        # May be empty if OpenSpiel not installed
 
     @pytest.mark.parametrize(
         "env_name",
@@ -276,11 +261,8 @@ class TestOpenSpielEnvironments:
         """Run an OpenSpiel environment episode."""
         env = make(env_name)
         agents = ["random", "random"]
-        steps = env.run(agents)
-
+        env.run(agents)
         assert env.done, "Episode should be done"
-        final_state = steps[-1]
-        print(f"\n{env_name}: {len(steps)} steps, rewards: {[s.reward for s in final_state]}")
 
 
 class TestEnvironmentRendering:
@@ -293,7 +275,6 @@ class TestEnvironmentRendering:
         output = env.render(mode="ansi")
         assert output is not None
         assert len(output) > 0
-        print(f"\nRPS ANSI render:\n{output[:500]}...")
 
     def test_connectx_render_ansi(self):
         """Test ConnectX ANSI rendering."""
@@ -301,7 +282,6 @@ class TestEnvironmentRendering:
         env.run(["random", "random"])
         output = env.render(mode="ansi")
         assert output is not None
-        print(f"\nConnectX ANSI render:\n{output}")
 
     def test_render_json(self):
         """Test JSON rendering."""
@@ -347,6 +327,37 @@ class TestAgentTypes:
         while not done and steps < 10:
             obs, reward, done, info = trainer.step(0)  # Always rock
             steps += 1
+
+
+class TestCLI:
+    """Tests for the command-line interface."""
+
+    def test_cli_evaluate(self):
+        """Test CLI evaluate command."""
+        result = subprocess.run(
+            [
+                "python",
+                "-m",
+                "kaggle_environments.main",
+                "evaluate",
+                "--environment",
+                "connectx",
+                "--agents",
+                "random",
+                "random",
+                "--episodes",
+                "3",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        assert result.returncode == 0, f"CLI command failed with: {result.stderr}"
+        assert len(result.stdout) > 0, "CLI should produce output"
+
+        # Output should contain episode results
+        assert "[[" in result.stdout, "Output should contain reward arrays"
 
 
 if __name__ == "__main__":

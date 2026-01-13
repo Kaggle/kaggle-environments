@@ -23,7 +23,7 @@ env.run([my_agent, "random"])
 env.render(mode="ipython")
 ```
 
-# Testing
+# Testing Python
 
 To run the  tests locally use `./run_tests.sh`. 
 - By default this will run tests using uv. This may cause false positives if a required dependency is only provided by the full Docker image.
