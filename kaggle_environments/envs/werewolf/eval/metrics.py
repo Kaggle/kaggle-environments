@@ -10,9 +10,7 @@ from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Dict, Iterator, List, Tuple, Union
-import warnings
-import multiprocessing
+from typing import Dict, Iterator, List, Optional, Tuple, Union
 
 try:
     import jax.numpy as jnp
@@ -77,6 +75,30 @@ def _get_input_hash(file_list: List[str]) -> str:
     return hasher.hexdigest()
 
 
+def _compute_mean_sem(data: np.ndarray, axis: Optional[int] = None) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Unified logic for computing mean and SEM, handling edge cases consistently.
+
+    Supports both scalar inputs (axis=None) and vectorized inputs (axis=0 for bootstrapping).
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        mean = np.nanmean(data, axis=axis)
+        std = np.nanstd(data, axis=axis, ddof=1)
+        if axis is None:
+            count = np.sum(~np.isnan(data))
+        else:
+            count = np.sum(~np.isnan(data), axis=axis)
+
+        # SEM is 0 if count < 2
+        sem = np.divide(std, np.sqrt(count), out=np.zeros_like(std), where=count > 1)
+        # Mean is 0 if no values
+        mean = np.nan_to_num(mean, nan=0.0)
+
+    if axis is None:
+        return float(mean), float(sem)
+    return mean, sem
+
+
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """Helper to calculate mean and standard error of the mean.
 
@@ -88,25 +110,7 @@ def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """
     if not values:
         return 0.0, 0.0
-    if len(values) < 2:
-        return float(np.mean(values)), 0.0
-    return float(np.mean(values)), float(np.std(values, ddof=1) / np.sqrt(len(values)))
-
-
-def calculate_elo_change(p1_elo, p2_elo, result, k=32):
-    """Calculates the change in Elo rating for Player 1.
-
-    Args:
-        p1_elo: Rating of Player 1.
-        p2_elo: Rating of Player 2.
-        result: 1 if Player 1 wins, 0 if Player 1 loses, 0.5 for draw.
-        k: K-factor.
-
-    Returns:
-        The change in rating for Player 1 (can be negative).
-    """
-    expected = 1 / (1 + 10 ** ((p2_elo - p1_elo) / 400))
-    return k * (result - expected)
+    return _compute_mean_sem(np.asarray(values))
 
 
 def _safe_load_game_result(args):
@@ -169,164 +173,11 @@ LightGame = namedtuple("LightGame", ["players", "winner_team", "irp_results", "v
 
 # --- Worker Globals and Functions ---
 
-
-def _openskill_bootstrap_worker(games_sample, model):
-    if model is None:
-        return {}
-    ratings = GameSetEvaluator._compute_openskill_ratings(games_sample, model)
-    return {name: r.mu for name, r in ratings.items()}
-
-
 def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
     if model is None:
         return []
     ratings = GameSetEvaluator._compute_openskill_ratings_fast(games_data, num_agents, model)
     return [r.mu for r in ratings]
-
-
-def _gte_bootstrap_worker(sampled_games, agents, tasks):
-    """Worker function for parallel GTE bootstrapping.
-
-    Args:
-        sampled_games: A list of LightGame objects.
-        agents: A list of agent names.
-        tasks: A list of task names (metrics).
-
-    Returns:
-        A tuple containing:
-        - ratings_np: List of numpy arrays of ratings.
-        - joint_np: Numpy array of the joint distribution.
-        - marginals_np: List of numpy arrays of marginal distributions.
-        - contributions_np: Numpy array of contributions.
-        - game_meta: SimpleNamespace containing game metadata (actions).
-    """
-    rnd = np.random.default_rng()
-
-    agent_set = set(agents)
-    task_set = set(tasks)
-    agent_scores = {agent: {task: [] for task in tasks} for agent in agents}
-
-    for game in sampled_games:
-        # --- Calculate dominance metrics for the winning team ---
-        margin_of_win = 0.0
-        speed_of_win = 0.0
-        if game.winner_team is not None:
-            # Margin of win
-            winning_team_players = [p for p in game.players if p.role.team == game.winner_team]
-            if winning_team_players:
-                total_team_size = len(winning_team_players)
-                living_teammates = sum(1 for p in winning_team_players if p.alive)
-                margin_of_win = living_teammates / total_team_size
-
-            # Speed of win
-            game_duration = 0
-            if game.player_durations:
-                game_duration = max(game.player_durations.values()) if game.player_durations else 0
-            if game_duration > 0:
-                speed_of_win = 1.0 / game_duration
-
-        for player in game.players:
-            agent_name = player.agent.display_name
-            if agent_name not in agent_set:
-                continue
-
-            role_name = player.role.name
-            won = player.role.team == game.winner_team
-            alive = 1 if player.alive else 0
-
-            # WinRate
-            win_rate_task = f"WinRate-{role_name}"
-            if win_rate_task in task_set:
-                agent_scores[agent_name][win_rate_task].append(1 if won else 0)
-
-            # KSR
-            if "KSR" in task_set:
-                agent_scores[agent_name]["KSR"].append(alive)
-            ksr_task = f"KSR-{role_name}"
-            if ksr_task in task_set:
-                agent_scores[agent_name][ksr_task].append(alive)
-
-            # WD-KSR
-            wd_ksr_score = 1 if won and alive else 0
-            if "WD-KSR" in task_set:
-                agent_scores[agent_name]["WD-KSR"].append(wd_ksr_score)
-            wd_ksr_task = f"WD-KSR-{role_name}"
-            if wd_ksr_task in task_set:
-                agent_scores[agent_name][wd_ksr_task].append(wd_ksr_score)
-
-            if won:
-                if "Margin of Win" in task_set:
-                    agent_scores[agent_name]["Margin of Win"].append(margin_of_win)
-                if "Speed of Win" in task_set:
-                    agent_scores[agent_name]["Speed of Win"].append(speed_of_win)
-
-        # IRP & VSS
-        villagers_won = game.winner_team == Team.VILLAGERS
-        irp_results, vss_results = game.irp_results, game.vss_results
-
-        for agent_name, score in irp_results:
-            if agent_name not in agent_set:
-                continue
-            if "IRP" in task_set:
-                agent_scores[agent_name]["IRP"].append(score)
-            if "WD-IRP" in task_set:
-                agent_scores[agent_name]["WD-IRP"].append(score if villagers_won else 0)
-
-        for agent_name, score in vss_results:
-            if agent_name not in agent_set:
-                continue
-            if "VSS" in task_set:
-                agent_scores[agent_name]["VSS"].append(score)
-            if "WD-VSS" in task_set:
-                agent_scores[agent_name]["WD-VSS"].append(score if villagers_won else 0)
-
-    # 3. Build Matrices
-    mean_matrix = np.zeros((len(agents), len(tasks)))
-    stddev_matrix = np.zeros((len(agents), len(tasks)))
-    for i, agent in enumerate(agents):
-        for j, task in enumerate(tasks):
-            scores = agent_scores[agent][task]
-            if scores:
-                mean_matrix[i, j] = np.mean(scores)
-                if len(scores) > 1:
-                    stddev_matrix[i, j] = np.std(scores, ddof=1) / np.sqrt(len(scores))
-                else:
-                    stddev_matrix[i, j] = 0.0
-
-    # Regularization for degenerate cases
-    for j in range(mean_matrix.shape[1]):
-        if np.ptp(mean_matrix[:, j]) < 1e-9:
-            mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
-            stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
-
-    # 4. Solve Game
-    game_plx = plx.agent_vs_task_game(
-        agents=agents,
-        tasks=tasks,
-        agent_vs_task=mean_matrix,
-        agent_vs_task_stddev=stddev_matrix,
-        task_player="metric",
-        normalizer="winrate",
-    )
-    res = plx.solve(game_plx, plx.ce_maxent, disable_progress_bar=True)
-    marginals = plx.marginals_from_joint(res.joint)
-    r2m_contributions = plx.joint_payoffs_contribution(game_plx.payoffs, res.joint, rating_player=1, contrib_player=0)
-
-    m2r_contributions = plx.joint_payoffs_contribution(game_plx.payoffs, res.joint, rating_player=0, contrib_player=1)
-
-    # Convert JAX arrays to Numpy to avoid initializing JAX in the parent process via pickling
-    # which can cause deadlocks when forking subsequent worker processes.
-    ratings_np = [np.array(r) for r in res.ratings]
-    joint_np = np.array(res.joint)
-    marginals_np = [np.array(m) for m in marginals]
-    r2m_contributions_np = np.array(r2m_contributions)
-    m2r_contributions_np = np.array(m2r_contributions)
-
-    # Use a SimpleNamespace to pass back only the actions, avoiding the full game object
-    # which contains JAX arrays (payoffs).
-    game_meta = SimpleNamespace(actions=game_plx.actions)
-
-    return ratings_np, joint_np, marginals_np, r2m_contributions_np, m2r_contributions_np, game_meta
 
 
 def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
@@ -338,29 +189,8 @@ def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
     # We can use numpy indexing
     subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
 
-    # Calculate means and stds for solver input
-    # Axis 0 is games
-    # We use nanmean/nanstd to ignore games where agent didn't play or task n/a
-
-    # Compute mean and std
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        mean_matrix = np.nanmean(subset, axis=0)  # (n_agents, n_tasks)
-        std_matrix = np.nanstd(subset, axis=0, ddof=1)  # (n_agents, n_tasks)
-
-    # Valid counts for std error
-    # count non-nan
-    counts = np.sum(~np.isnan(subset), axis=0)
-
-    # Std Error of Mean = std / sqrt(n)
-    # Handle division by zero
-    stddev_matrix = np.divide(std_matrix, np.sqrt(counts), out=np.zeros_like(std_matrix), where=counts > 1)
-
-    # Fill NaNs in mean_matrix with 0 (or handle? original code skipped)
-    # Original code: average of empty list is... wait.
-    # Original checks `if scores:`. If not, it implicitly leaves 0 (initialization).
-    # np.nanmean returns NaN for all-NaN slice. We should replace with 0.
-    mean_matrix = np.nan_to_num(mean_matrix, nan=0.0)
+    # Calculate means and SEMs using the unified code path
+    mean_matrix, stddev_matrix = _compute_mean_sem(subset, axis=0)
 
     # Regularization logic matches original
     rnd = np.random.default_rng()
@@ -998,7 +828,8 @@ class GameSetEvaluator:
         self.gte_samples = gte_samples
         self.elo_samples = elo_samples
         self.openskill_samples = openskill_samples
-        for game in self.games:
+        light_gte_games = []
+        for game in tqdm(self.games, desc="Evaluating Games"):
             villagers_won = game.winner_team == Team.VILLAGERS
             # Capture costs if available from GameResult
             player_costs = getattr(game, "player_costs", {})
@@ -1061,6 +892,13 @@ class GameSetEvaluator:
                 # WD-VSS is the joint probability of a correct vote AND winning
                 self.metrics[agent_name].wd_vss_scores.append(score if villagers_won else 0)
 
+            # Prepare GTE light game object using the already extracted data
+            players_light = [
+                Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
+                for p in game.players
+            ]
+            light_gte_games.append(LightGame(players_light, game.winner_team, irp_results, vss_results, player_durations))
+
         # Elo
         final_elos = self._compute_elo_ratings(self.games)
         for agent, rating in final_elos.items():
@@ -1074,7 +912,7 @@ class GameSetEvaluator:
 
         self._bootstrap_elo(num_samples=elo_samples)
         self._bootstrap_openskill(num_samples=openskill_samples)
-        self._run_gte_evaluation(num_samples=gte_samples)
+        self._run_gte_evaluation(num_samples=gte_samples, light_gte_games=light_gte_games)
 
     def _precompute_gte_tensor(self, light_games, agents, tasks):
         """Pre-computes scores for all games into a tensor."""
@@ -1168,7 +1006,7 @@ class GameSetEvaluator:
 
         return tensor
 
-    def _run_gte_evaluation(self, num_samples: int):
+    def _run_gte_evaluation(self, num_samples: int, light_gte_games: List[LightGame] = None):
         agents = sorted(list(self.metrics.keys()))
 
         # Check cache
