@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import operator
 import random
 from enum import Enum, auto
