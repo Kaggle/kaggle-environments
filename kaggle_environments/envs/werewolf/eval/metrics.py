@@ -1056,6 +1056,27 @@ class GameSetEvaluator:
         # Build tensor
         tensor = self._precompute_gte_tensor(light_gte_games, agents, self.gte_tasks)
 
+        # Print Input Metrics Summary for transparency
+        mean_mtrx, sem_mtrx = _compute_mean_sem(tensor, axis=0)
+        print("\nGTE Input Metrics Summary (Mean ± SEM):")
+        header = f"{'Agent':<20}"
+        for task in self.gte_tasks:
+            header += f" | {task:<25}"
+        print(header)
+        print("-" * len(header))
+        for i, agent in enumerate(agents):
+            agent_display = agent if agent else f"Agent_{i}"
+            row = f"{agent_display:<20}"
+            for j, task in enumerate(self.gte_tasks):
+                val = mean_mtrx[i, j]
+                err = sem_mtrx[i, j]
+                if np.isnan(val):
+                    row += f" | {'N/A':<25}"
+                else:
+                    row += f" | {val:.4f} ± {err:.4f}"
+            print(row)
+        print("-" * len(header))
+
         # Use indices for bootstrap
         indices = list(range(len(light_gte_games)))
         samples_iterator = self._generate_bootstrap_samples(indices, num_samples)
@@ -1078,6 +1099,25 @@ class GameSetEvaluator:
         marginals_mean = [np.mean(m, axis=0) for m in marginals_by_dim]
         marginals_std = [np.std(m, axis=0) for m in marginals_by_dim]
 
+        # Print GTE Results Summary (Nash Equilibrium Win Rates)
+        print("\nGTE Bootstrap Results (Nash Equilibrium Win Rate ± StdDev):")
+        header = f"{'Agent':<20} | {'GTE Win Rate':<25}"
+        print(header)
+        print("-" * len(header))
+        # ratings_mean[1] is the Nash win rate (index 1 is the player dimension in this case?)
+        # Actually it depends on how many players. In Werewolf it's usually 2 perspectives.
+        # But let's look at how gte_rating is stored below.
+        # rating_val = (ratings_mean[1][i], ratings_std[1][i])
+        for i, agent in enumerate(agents):
+            agent_display = agent if agent else f"Agent_{i}"
+            if len(ratings_mean) > 1:
+                val = ratings_mean[1][i]
+                err = ratings_std[1][i]
+                print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
+            else:
+                print(f"{agent_display:<20} | GTE analysis failed (insufficient dimensions)")
+        print("-" * len(header))
+
         r2m_contributions_mean = np.mean(r2m_contributions, axis=0)
         r2m_contributions_std = np.std(r2m_contributions, axis=0)
 
@@ -1093,12 +1133,18 @@ class GameSetEvaluator:
         agent_metrics_cache = {}
 
         for i, agent_name in enumerate(agents):
-            rating_val = (ratings_mean[1][i], ratings_std[1][i])
+            if len(ratings_mean) > 1:
+                rating_val = (ratings_mean[1][i], ratings_std[1][i])
+            else:
+                rating_val = (0.0, 0.0)
             self.metrics[agent_name].gte_rating = rating_val
 
             contrib_map = {}
             for j, task_name in enumerate(self.gte_tasks):
-                val = (r2m_contributions_mean[i, j], r2m_contributions_std[i, j])
+                if r2m_contributions_mean.shape[0] > i:
+                    val = (r2m_contributions_mean[i, j], r2m_contributions_std[i, j])
+                else:
+                    val = (0.0, 0.0)
                 self.metrics[agent_name].gte_contributions[task_name] = val
                 contrib_map[task_name] = val
 
