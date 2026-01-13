@@ -46,11 +46,16 @@ except ImportError:
 # Set a default sophisticated template
 pio.templates.default = "plotly_white"
 
+_cached_git_hash = None
 def _get_git_hash() -> str:
+    global _cached_git_hash
+    if _cached_git_hash is not None:
+        return _cached_git_hash
     try:
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
+        _cached_git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
     except Exception:
-        return "unknown_git"
+        _cached_git_hash = "unknown_git"
+    return _cached_git_hash
 
 
 def _get_input_hash(file_list: List[str]) -> str:
@@ -75,28 +80,39 @@ def _get_input_hash(file_list: List[str]) -> str:
     return hasher.hexdigest()
 
 
-def _compute_mean_sem(data: np.ndarray, axis: Optional[int] = None) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray]]:
-    """Unified logic for computing mean and SEM, handling edge cases consistently.
+def _compute_mean_std_sem(data: np.ndarray, axis: Optional[int] = None) -> Tuple[Union[float, np.ndarray], Union[float, np.ndarray], Union[float, np.ndarray]]:
+    """Unified logic for computing mean, StdDev and SEM, handling edge cases consistently.
 
-    Supports both scalar inputs (axis=None) and vectorized inputs (axis=0 for bootstrapping).
+    Optimized for speed by avoiding slow nanmean/nanstd and using masks directly.
+    Supports both scalar inputs (axis=None) and vectorized inputs (axis=0 or 1 for bootstrapping).
+    Returns (mean, stddev, sem).
     """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        mean = np.nanmean(data, axis=axis)
-        std = np.nanstd(data, axis=axis, ddof=1)
-        if axis is None:
-            count = np.sum(~np.isnan(data))
-        else:
-            count = np.sum(~np.isnan(data), axis=axis)
-
-        # SEM is 0 if count < 2
-        sem = np.divide(std, np.sqrt(count), out=np.zeros_like(std), where=count > 1)
-        # Mean is 0 if no values
-        mean = np.nan_to_num(mean, nan=0.0)
+    mask = ~np.isnan(data)
+    count = np.sum(mask, axis=axis)
+    
+    # Fill NaNs with 0 for summation
+    clean_data = np.where(mask, data, 0.0)
+    
+    data_sum = np.sum(clean_data, axis=axis)
+    mean = np.divide(data_sum, count, out=np.zeros_like(data_sum, dtype=np.float64), where=count > 0)
+    
+    # Variance: E[X^2] - (E[X])^2
+    data_sq_sum = np.sum(clean_data**2, axis=axis)
+    mean_sq = np.divide(data_sq_sum, count, out=np.zeros_like(data_sum, dtype=np.float64), where=count > 0)
+    
+    # Use max(0, var) to avoid tiny negative numbers due to precision
+    var = np.maximum(0.0, mean_sq - mean**2)
+    
+    # Bessel's correction for sample variance: var * (n / (n-1))
+    sample_var = np.divide(var * count, count - 1, out=np.zeros_like(var), where=count > 1)
+    std = np.sqrt(sample_var)
+    
+    # SEM is std / sqrt(n)
+    sem = np.divide(std, np.sqrt(count), out=np.zeros_like(std), where=count > 1)
 
     if axis is None:
-        return float(mean), float(sem)
-    return mean, sem
+        return float(mean), float(std), float(sem)
+    return mean, std, sem
 
 
 def _mean_sem(values: List[float]) -> Tuple[float, float]:
@@ -110,7 +126,8 @@ def _mean_sem(values: List[float]) -> Tuple[float, float]:
     """
     if not values:
         return 0.0, 0.0
-    return _compute_mean_sem(np.asarray(values))
+    mean, std, sem = _compute_mean_std_sem(np.asarray(values))
+    return mean, sem
 
 
 def _safe_load_game_result(args):
@@ -180,17 +197,9 @@ def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
     return [r.mu for r in ratings]
 
 
-def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
-    """Fast worker using pre-computed tensor."""
-    # tensor shape: (n_games, n_agents, n_tasks)
-    # indices: list of game indices for this bootstrap sample
-
-    # Select games
-    # We can use numpy indexing
-    subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
-
-    # Calculate means and SEMs using the unified code path
-    mean_matrix, stddev_matrix = _compute_mean_sem(subset, axis=0)
+def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
+    """Fast worker using pre-computed matrices."""
+    mean_matrix, stddev_matrix = matrix_tuple
 
     # Regularization logic matches original
     rnd = np.random.default_rng()
@@ -683,7 +692,7 @@ class GameSetEvaluator:
             yield list(sampled_array)
 
     def _bootstrap_elo(self, num_samples=100):
-        if not self.games:
+        if not self.games or num_samples <= 0:
             return
 
         # Check cache
@@ -754,7 +763,7 @@ class GameSetEvaluator:
             print(f"Failed to save Elo cache: {e}")
 
     def _bootstrap_openskill(self, num_samples=100):
-        if not self.games or not self.openskill_model:
+        if not self.games or not self.openskill_model or num_samples <= 0:
             return
 
         # Check cache
@@ -892,12 +901,9 @@ class GameSetEvaluator:
                 # WD-VSS is the joint probability of a correct vote AND winning
                 self.metrics[agent_name].wd_vss_scores.append(score if villagers_won else 0)
 
-            # Prepare GTE light game object using the already extracted data
-            players_light = [
-                Player(p.id, Agent(p.agent.display_name), Role(p.role.name, p.role.team), p.alive)
-                for p in game.players
-            ]
-            light_gte_games.append(LightGame(players_light, game.winner_team, irp_results, vss_results, player_durations))
+            # Prepare GTE light game object using the already extracted data (only if needed)
+            if gte_samples > 0:
+                light_gte_games.append(LightGame(game.players, game.winner_team, irp_results, vss_results, player_durations))
 
         # Elo
         final_elos = self._compute_elo_ratings(self.games)
@@ -910,9 +916,12 @@ class GameSetEvaluator:
             for agent, rating in final_openskill_ratings.items():
                 self.metrics[agent].openskill_rating = rating
 
-        self._bootstrap_elo(num_samples=elo_samples)
-        self._bootstrap_openskill(num_samples=openskill_samples)
-        self._run_gte_evaluation(num_samples=gte_samples, light_gte_games=light_gte_games)
+        if elo_samples > 0:
+            self._bootstrap_elo(num_samples=elo_samples)
+        if openskill_samples > 0:
+            self._bootstrap_openskill(num_samples=openskill_samples)
+        if gte_samples > 0:
+            self._run_gte_evaluation(num_samples=gte_samples, light_gte_games=light_gte_games)
 
     def _precompute_gte_tensor(self, light_games, agents, tasks):
         """Pre-computes scores for all games into a tensor."""
@@ -927,7 +936,7 @@ class GameSetEvaluator:
         # Shape: (games, agents, tasks)
         tensor = np.full((n_games, n_agents, n_tasks), np.nan, dtype=np.float32)
 
-        for g_i, game in enumerate(tqdm(light_games, desc="Pre-calculating GTE Tensor")):
+        for g_i, game in enumerate(light_games):
             # --- Calculate dominance metrics for the winning team ---
             margin_of_win = 0.0
             speed_of_win = 0.0
@@ -1057,8 +1066,8 @@ class GameSetEvaluator:
         tensor = self._precompute_gte_tensor(light_gte_games, agents, self.gte_tasks)
 
         # Print Input Metrics Summary for transparency
-        mean_mtrx, sem_mtrx = _compute_mean_sem(tensor, axis=0)
-        print("\nGTE Input Metrics Summary (Mean ± SEM):")
+        mean_mtrx, std_mtrx, sem_mtrx = _compute_mean_std_sem(tensor, axis=0)
+        print("\nGTE Input Metrics Summary (Mean ± StdDev):")
         header = f"{'Agent':<20}"
         for task in self.gte_tasks:
             header += f" | {task:<25}"
@@ -1069,7 +1078,7 @@ class GameSetEvaluator:
             row = f"{agent_display:<20}"
             for j, task in enumerate(self.gte_tasks):
                 val = mean_mtrx[i, j]
-                err = sem_mtrx[i, j]
+                err = std_mtrx[i, j]
                 if np.isnan(val):
                     row += f" | {'N/A':<25}"
                 else:
@@ -1078,12 +1087,28 @@ class GameSetEvaluator:
         print("-" * len(header))
 
         # Use indices for bootstrap
-        indices = list(range(len(light_gte_games)))
-        samples_iterator = self._generate_bootstrap_samples(indices, num_samples)
+        n_games_total = len(light_gte_games)
+        rnd_master = np.random.default_rng(self.seed)
+        
+        # Generate all bootstrap indices at once: (num_samples, n_games_total)
+        # We sample WITH replacement
+        bootstrap_indices = rnd_master.integers(0, n_games_total, size=(num_samples, n_games_total))
+        
+        # Vectorize Matrix Calculation
+        # tensor shape: (n_games, agents, tasks)
+        # sample_tensor shape: (num_samples, n_games, agents, tasks)
+        sample_tensor = tensor[bootstrap_indices]
+        
+        # Compute all means and stds in one go (axis=1 is the 'games' dimension in the 4D tensor)
+        all_means, all_stds, all_sems = _compute_mean_std_sem(sample_tensor, axis=1)
+        
+        # Worker function now only takes precomputed matrices
+        worker_func = functools.partial(_gte_bootstrap_worker_fast, agents=agents, tasks=self.gte_tasks)
+        
+        # Prepare data for map
+        matrices_iterator = zip(all_means, all_stds)
 
-        worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
-
-        res = thread_map(worker_func, samples_iterator, max_workers=os.cpu_count(), desc="GTE Bootstrap",
+        res = thread_map(worker_func, matrices_iterator, max_workers=os.cpu_count(), desc="GTE Bootstrap",
                          total=num_samples)
 
         # Unpack
