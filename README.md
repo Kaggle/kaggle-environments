@@ -23,28 +23,12 @@ env.run([my_agent, "random"])
 env.render(mode="ipython")
 ```
 
-# Development
+# Testing
 
-## Integration Tests
-
-To run the  tests locally use `./run_tests.sh`. By default this will run tests using uv and may have false positives if a required dependency is only provided by the full Docker image. In this case you can call `./run_tests.sh --docker`.
-
-## Multi-container Tests
-
-These are probably not necessary in most circumstances, but more fully emulate the real simulations setup.
-
-3. **Run multi-container tests (Orchestrator + Agents):**
-   ```bash
-   cd tests/integration
-   # Start the orchestrator and agent services
-   docker compose up -d orchestrator agent-1 agent-2
-   
-   # Run the tests with the MULTICONTAINER_TEST environment variable
-   docker compose run -e MULTICONTAINER_TEST=1 test-runner
-   
-   # Cleanup
-   docker compose down
-   ```
+To run the  tests locally use `./run_tests.sh`. 
+- By default this will run tests using uv. This may cause false positives if a required dependency is only provided by the full Docker image.
+- To run all tests in a single container using the full Docker image call `./run_tests.sh --docker`.
+- To run multi-container tests (orchestrator + agents) call `./run_tests.sh --multicontainer`.
 
 # Overview
 
