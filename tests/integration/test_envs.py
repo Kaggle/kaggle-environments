@@ -25,6 +25,7 @@ class TestPackageConfig:
         """
 
         location = kaggle_environments.__file__
+        assert location is not None, "kaggle_environments.__file__ should not be None"
         test_script = pathlib.Path(__file__).resolve()
         import_path = pathlib.Path(location).resolve()
 

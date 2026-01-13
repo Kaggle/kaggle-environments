@@ -140,8 +140,8 @@ def run_agent_server():
     }
 
     agent_fn = agents.get(agent_type, random_agent)
-    agent = RemoteAgent(agent_fn, agent_id)  # noqa
-    agent.serve(port=agent_port)
+    agent = RemoteAgent(agent_fn, agent_id)  # noqa  # type: ignore[name-defined]
+    agent.serve(port=agent_port)  # type: ignore[attr-defined]
 
 
 if __name__ == "__main__":
