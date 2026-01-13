@@ -1,8 +1,7 @@
 """
 Integration tests for kaggle-environments.
 
-Runs a single episode of each registered environment using random agents.
-These tests are designed to be run inside the Docker container built with docker/build_cpu.sh.
+Most tests run a single episode of the registered environment using random agents.
 """
 
 import json
