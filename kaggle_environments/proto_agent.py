@@ -28,6 +28,7 @@ The kaggle_evaluation package must be importable. You can either:
 
 import os
 import sys
+from typing import Any
 
 import kaggle_evaluation.core.relay as relay
 import requests
@@ -39,12 +40,6 @@ from .errors import DeadlineExceeded
 _KAGGLE_EVALUATION_PATH = os.environ.get("KAGGLE_EVALUATION_PATH")
 if _KAGGLE_EVALUATION_PATH and _KAGGLE_EVALUATION_PATH not in sys.path:
     sys.path.insert(0, _KAGGLE_EVALUATION_PATH)
-
-
-class ProtoAgentError(Exception):
-    """Exception raised for proto agent communication errors."""
-
-    pass
 
 
 class ProtoAgent:
@@ -64,7 +59,7 @@ class ProtoAgent:
     - Body: serialized proto bytes that deserialize to {'action': ...}
     """
 
-    def __init__(self, url, environment_name=None):
+    def __init__(self, url: str, environment_name: str | None = None) -> None:
         """Initialize a proto-based agent.
 
         Args:
@@ -74,7 +69,7 @@ class ProtoAgent:
         self.url = url
         self.environment_name = environment_name
 
-    def __call__(self, observation, configuration):
+    def __call__(self, observation: Any, configuration: Any) -> Any:
         """Execute an action given observation and configuration.
 
         Args:
@@ -138,7 +133,7 @@ class ProtoAgent:
             return None
 
 
-def is_proto_agent_spec(raw):
+def is_proto_agent_spec(raw: Any) -> bool:
     """Check if the raw agent specification is for a proto agent.
 
     Args:
@@ -152,7 +147,7 @@ def is_proto_agent_spec(raw):
     return False
 
 
-def build_proto_agent(raw, environment_name):
+def build_proto_agent(raw: Any, environment_name: str) -> tuple[ProtoAgent, bool]:
     """Build a ProtoAgent from a specification.
 
     Args:
