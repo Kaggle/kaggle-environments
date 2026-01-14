@@ -197,20 +197,18 @@ def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
     return [r.mu for r in ratings]
 
 
-def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
-    """Fast worker using pre-computed tensor."""
-    # indices: list of game indices for this bootstrap sample
-    subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
-
-    # Calculate means and StdDevs using the unified code path
-    mean_matrix, stddev_matrix, sem_matrix = _compute_mean_std_sem(subset, axis=0)
+def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
+    """Fast worker using pre-computed matrices."""
+    mean_matrix, stddev_matrix = matrix_tuple
 
     # Regularization logic matches original
-    rnd = np.random.default_rng()
-    for j in range(mean_matrix.shape[1]):
-        if np.ptp(mean_matrix[:, j]) < 1e-9:
-            mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
-            stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
+    if mean_matrix.size > 0:
+        rnd = np.random.default_rng()
+        for j in range(mean_matrix.shape[1]):
+            # ptp fails on empty arrays, but we checked size > 0
+            if np.ptp(mean_matrix[:, j]) < 1e-9:
+                mean_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
+                stddev_matrix[:, j] += rnd.random(mean_matrix.shape[0]) * 1e-6
 
     # Solve Game using Polarix
     game_plx = plx.agent_vs_task_game(
@@ -1092,16 +1090,63 @@ class GameSetEvaluator:
 
         # Use indices for bootstrap
         n_games_total = len(light_gte_games)
+        n_agents = len(agents)
+        n_tasks = len(self.gte_tasks)
         rnd_master = np.random.default_rng(self.seed)
+
+        # Chunked Vectorized Matrix Calculation
+        # We calculate means and stds in chunks to avoid memory explosion (4D tensor)
+        # while still benefiting from vectorized NumPy speed.
+        all_means = []
+        all_stds = []
+
+        # Target ~1GB per chunk (4 bytes per float32)
+        chunk_size = max(1, int(2.5e8 / (n_games_total * n_agents * n_tasks + 1)))
+        chunk_size = min(chunk_size, num_samples)
+
+        num_chunks = (num_samples + chunk_size - 1) // chunk_size
+        print(f"Calculating GTE matrices in {num_chunks} vectorized chunks (chunk_size={chunk_size})...")
+
+        for c in tqdm(range(num_chunks), desc="Vectorizing Math"):
+            start_s = c * chunk_size
+            end_s = min((c + 1) * chunk_size, num_samples)
+            current_chunk_size = end_s - start_s
+
+            # Generate indices for this chunk: (chunk_size, n_games_total)
+            chunk_indices = rnd_master.integers(0, n_games_total, size=(current_chunk_size, n_games_total))
+
+            # Sample the tensor: (chunk_size, n_games_total, n_agents, n_tasks)
+            # This is the memory-intensive part, but limited by chunk_size
+            sample_tensor = tensor[chunk_indices]
+
+            # Compute means and stds for the whole chunk at once
+            # Axis 1 is 'games_total'
+            means, stds, sems = _compute_mean_std_sem(sample_tensor, axis=1) # (chunk_size, n_agents, n_tasks)
+            all_means.append(means)
+            all_stds.append(stds)
+
+        all_means = np.concatenate(all_means, axis=0)
+        all_stds = np.concatenate(all_stds, axis=0)
+
+        # Solver Pass: Reverted to thread_map per user request (was process_map)
+        # We perform a "warm-up" call in the main thread for the first sample to avoid JAX/XLA deadlocks
+        # which can occur when multiple threads attempt to compile the same graph simultaneously.
+        print("\nWarming up GTE solver...")
+        worker_func = functools.partial(_gte_bootstrap_worker_fast, agents=agents, tasks=self.gte_tasks)
         
-        # Generate all bootstrap indices as a list of arrays to iterate over
-        # We sample WITH replacement
-        samples_indices = [rnd_master.integers(0, n_games_total, size=n_games_total) for _ in range(num_samples)]
+        # Execute first sample in main thread
+        first_sample_results = worker_func((all_means[0], all_stds[0]))
         
-        worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
+        # Execute remaining samples in thread_map
+        matrices_iterator = zip(all_means[1:], all_stds[1:])
+        num_remaining = num_samples - 1
         
-        res = thread_map(worker_func, samples_indices, max_workers=os.cpu_count(), desc="GTE Bootstrap",
-                         total=num_samples)
+        if num_remaining > 0:
+            res_remaining = thread_map(worker_func, matrices_iterator, max_workers=os.cpu_count(), 
+                                       desc="GTE Bootstrap (Solver)", total=num_remaining)
+            res = [first_sample_results] + res_remaining
+        else:
+            res = [first_sample_results]
 
         # Unpack
         ratings, joints, marginals, r2m_contributions, m2r_contributions, games = zip(*res)
