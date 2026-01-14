@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations  # Enables forward references type annotations.
+
 import copy
 import json
 import traceback
@@ -48,12 +50,12 @@ def register(name: str, environment: dict[str, Any]) -> None:
 
 def evaluate(
     environment: str | "Environment",
-    agents: list[Any] | None = None,
+    agents: list[str | Callable | Agent] | None = None,
     configuration: dict[str, Any] | None = None,
-    steps: list[Any] | None = None,
+    steps: list[list[dict[str, Any]]] | None = None,
     num_episodes: int = 1,
     debug: bool = False,
-    state: Any | None = None,
+    state: list[dict[str, Any]] | None = None,
 ) -> list[list[float | None]]:
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
@@ -89,10 +91,10 @@ def make(
     environment: str | "Environment" | Callable,
     configuration: dict[str, Any] | None = None,
     info: dict[str, Any] | None = None,
-    steps: list[Any] | None = None,
-    logs: list[Any] | None = None,
+    steps: list[list[dict[str, Any]]] | None = None,
+    logs: list[list[dict[str, Any]]] | None = None,
     debug: bool = False,
-    state: Any | None = None,
+    state: list[dict[str, Any]] | None = None,
 ) -> "Environment":
     """
     Creates an instance of an Environment.
@@ -144,7 +146,7 @@ def make(
     raise InvalidArgument("Unknown Environment Specification")
 
 
-def act_agent(args: tuple[Any | None, dict[str, Any], Any, Any]) -> tuple[Any, dict[str, Any]]:
+def act_agent(args: tuple[Agent | None, dict[str, Any], dict[str, Any], Any]) -> tuple[Any, dict[str, Any]]:
     agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
         return None, {}
@@ -160,8 +162,8 @@ class Environment:
         specification: dict[str, Any] | None = None,
         configuration: dict[str, Any] | None = None,
         info: dict[str, Any] | None = None,
-        steps: list[Any] | None = None,
-        logs: list[Any] | None = None,
+        steps: list[list[dict[str, Any]]] | None = None,
+        logs: list[list[dict[str, Any]]] | None = None,
         agents: dict[str, Callable] | None = None,
         interpreter: Callable | None = None,
         renderer: Callable | None = None,
@@ -278,7 +280,7 @@ class Environment:
 
         return self.state
 
-    def run(self, agents: list[Any]) -> list[list[Any]]:
+    def run(self, agents: list[str | Callable | Agent]) -> list[list[Any]]:
         """
         Steps until the environment is "done" or the runTimeout was reached.
 
@@ -307,7 +309,7 @@ class Environment:
 
         return self.steps
 
-    def reset(self, num_agents: int | None = None) -> list[Any]:
+    def reset(self, num_agents: int | None = None) -> list[str | Callable | Agent]:
         """
         Resets the environment state to the initial step.
 
@@ -385,7 +387,7 @@ class Environment:
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents: list[Any] | None = None, **kwargs: Any) -> None:
+    def play(self, agents: list[str | Callable | Agent] | None = None, **kwargs: Any) -> None:
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -403,7 +405,7 @@ class Environment:
         interactives[env.id] = (env, trainer)
         env.render(mode="ipython", interactive=True, **kwargs)
 
-    def train(self, agents: list[Any] | None = None) -> Any:
+    def train(self, agents: list[str | Callable | Agent] | None = None) -> Any:
         """
         Setup a lightweight training environment for a single agent.
         Note: This is designed to be a lightweight starting point which can
@@ -555,7 +557,7 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state: list[Any] | None = None) -> list[Any]:
+    def __set_state(self, state: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
         if state is None:
             state = []
 
@@ -566,7 +568,7 @@ class Environment:
         self.steps = [self.state]
         return self.state
 
-    def __get_state(self, position: int, state: Any) -> Any:
+    def __get_state(self, position: int, state: dict[str, Any]) -> dict[str, Any]:
         key = f"__state_schema_{position}"
         if not hasattr(self, key):
             # Update a property default value based on position in defaults.
@@ -592,7 +594,9 @@ class Environment:
             raise InvalidArgument(f"Default state generation failed for #{position}: " + err)
         return data
 
-    def __loop_through_interpreter(self, state: list[Any], logs: list[dict[str, Any]]) -> list[Any]:
+    def __loop_through_interpreter(
+        self, state: list[dict[str, Any]], logs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         args = [structify(state), self, logs]
         new_state = structify(self.interpreter(*args[: self.interpreter.__code__.co_argcount]))
         new_state[0].observation.step = 0 if self.done else len(self.steps)

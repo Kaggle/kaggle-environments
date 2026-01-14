@@ -43,15 +43,20 @@ def get_last_callable(raw: str, fallback: Callable | None = None, path: str | No
     sys.stdout = buffer
 
     try:
-        code_object = compile(raw, path, "exec")
+        path_str = path if path is not None else "<string>"
+        code_object = compile(raw, path_str, "exec")
         env = {}
 
         # append exec_dir so that way python agents can import other files
-        exec_dir = os.path.dirname(path)
-        sys.path.append(exec_dir)
+        if path is not None:
+            exec_dir = os.path.dirname(path)
+            sys.path.append(exec_dir)
+        else:
+            exec_dir = None
 
         exec(code_object, env)
-        sys.path.pop()
+        if exec_dir is not None:
+            sys.path.pop()
         sys.stdout = orig_out
         output = buffer.getvalue()
         if output:
@@ -102,16 +107,18 @@ class UrlAgent:
             return None
 
 
-def build_agent(raw: Any, builtin_agents: Dict[str, Callable], environment_name: str) -> Tuple[Callable, bool]:
+def build_agent(
+    raw: str | Callable | Any, builtin_agents: Dict[str, Callable], environment_name: str
+) -> Tuple[Callable, bool]:
     """
     Returns the agent and whether the agent is parallelizable.
     """
-    if raw in builtin_agents:
+    if isinstance(raw, str) and raw in builtin_agents:
         agent = builtin_agents[raw]
         # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
         #  Kaggle environment should allow more scalable agent initialization and proper agent interface design.
-        if hasattr(agent, "reset"):
-            agent.reset()
+        if hasattr(agent, "reset") and callable(getattr(agent, "reset", None)):
+            agent.reset()  # type: ignore[attr-defined]
         return builtin_agents[raw], False
 
     # Already callable.
@@ -142,14 +149,15 @@ def build_agent(raw: Any, builtin_agents: Dict[str, Callable], environment_name:
             agent = get_last_callable(raw_agent, path=raw) or raw_agent
         configuration["__raw_path__"] = raw
         args = [observation, configuration]
-        args = args[: agent.__code__.co_argcount]
+        if hasattr(agent, "__code__") and hasattr(agent.__code__, "co_argcount"):
+            args = args[: agent.__code__.co_argcount]
         return agent(*args) if callable(agent) else agent
 
     return callable_agent, False
 
 
 class Agent:
-    def __init__(self, raw: Any, environment: Any) -> None:
+    def __init__(self, raw: str | Callable | Any, environment: Any) -> None:
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
         self.debug = environment.debug
@@ -160,7 +168,7 @@ class Agent:
     def act(self, observation: Any) -> Tuple[Any, Dict[str, Any]]:
         args = [structify(observation), structify(self.configuration)]
 
-        if hasattr(self.agent, "__code__"):
+        if hasattr(self.agent, "__code__") and hasattr(self.agent.__code__, "co_argcount"):
             args = args[: self.agent.__code__.co_argcount]
 
         # Start the timer.
