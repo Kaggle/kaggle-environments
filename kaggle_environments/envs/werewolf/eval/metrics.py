@@ -1441,7 +1441,54 @@ class GameSetEvaluator:
                     }
                 )
 
+            # 10. GTE Ratings & Contributions
+            gte_mean, gte_std = metrics.gte_rating
+            if gte_mean > 0:
+                plot_data.append({
+                    'agent': agent_name, 'metric': 'GTE Rating', 'value': gte_mean,
+                    'CI95': gte_std * 1.96, 'category': 'Ratings'
+                })
+
+            for task in self.gte_tasks:
+                contrib_mean, contrib_std = metrics.gte_contributions[task]
+                plot_data.append({
+                    'agent': agent_name, 'metric': f'GTE Contrib: {task}', 'value': contrib_mean,
+                    'CI95': contrib_std * 1.96, 'category': 'GTE Contributions'
+                })
+
+        # 11. GTE Metric Importance (System Level)
+        if self.gte_ratings and len(self.gte_ratings[0]) > 0:
+            metric_ratings_mean = self.gte_ratings[0][0]
+            metric_ratings_std = self.gte_ratings[1][0]
+            for i, task_name in enumerate(self.gte_tasks):
+                if i < len(metric_ratings_mean):
+                    plot_data.append({
+                        'agent': 'System', 'metric': f'Importance: {task_name}', 'value': metric_ratings_mean[i],
+                        'CI95': metric_ratings_std[i] * 1.96, 'category': 'GTE Metric Importance'
+                    })
+
         return pd.DataFrame(plot_data)
+
+    def export_to_csv(self, output_path: str):
+        """Exports detailed results to a CSV file."""
+        df = self._prepare_plot_data()
+        if df.empty:
+            print("No data to export to CSV.")
+            return
+
+        # Add extra columns for clarity
+        df['SEM'] = df['CI95'] / 1.96
+        df['CI95_Lower'] = df['value'] - df['CI95']
+        df['CI95_Upper'] = df['value'] + df['CI95']
+
+        # Rename 'value' to 'Mean' to be more descriptive in CSV
+        df = df.rename(columns={'value': 'Mean'})
+
+        # Sort for better readability: Category, then Agent, then Metric
+        df = df.sort_values(by=['category', 'agent', 'metric'])
+
+        df.to_csv(output_path, index=False)
+        print(f"Exported detailed results to {output_path}")
 
     def plot_metrics(self, output_path: Union[str, List[str]] = "metrics.html"):
         df = self._prepare_plot_data()
@@ -1890,3 +1937,4 @@ if __name__ == '__main__':
     evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
     evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
     evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
+    evaluator.export_to_csv(str(output_dir / "metrics.csv"))
