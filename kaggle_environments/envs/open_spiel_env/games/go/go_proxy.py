@@ -1,5 +1,7 @@
 """Change Go state and action string representations."""
 
+from __future__ import annotations
+
 import json
 from typing import Any
 
@@ -21,7 +23,7 @@ class GoState(proxy.State):
         else:
             raise ValueError(f"Invalid player: {player}")
 
-    def _board_string_to_dict(self, board_string: str) -> dict:
+    def _board_string_to_dict(self, board_string: str) -> list[list[dict[str, Any]]] | dict[str, Any]:
         lines = board_string.strip().splitlines()
         if len(lines) < 3:
             raise ValueError("Input string is too short to be a valid board.")

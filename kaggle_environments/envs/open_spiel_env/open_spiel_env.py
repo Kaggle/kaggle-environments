@@ -1,5 +1,7 @@
 """Kaggle environment wrapper for OpenSpiel games."""
 
+from __future__ import annotations
+
 import copy
 import importlib
 import json
@@ -182,9 +184,11 @@ def _get_initial_actions(
     seed = configuration.get("seed", None)
     if seed is None:
         raise ValueError("Must provide seed if useOpenings is True.")
+    game_name = configuration.get("openSpielGameName")
+    assert game_name is not None, "openSpielGameName must be provided"
     openings_path = pathlib.Path(
         GAMES_DIR,
-        configuration.get("openSpielGameName"),
+        game_name,
         "openings.jsonl",
     )
     if not openings_path.is_file():
@@ -233,9 +237,11 @@ def _get_image_config(configuration: dict[str, Any]) -> dict[str, Any]:
     seed = configuration.get("seed", None)
     if seed is None:
         raise ValueError("Must provide seed if useImage is True.")
+    game_name = configuration.get("openSpielGameName")
+    assert game_name is not None, "openSpielGameName must be provided"
     image_config_path = pathlib.Path(
         GAMES_DIR,
-        configuration.get("openSpielGameName"),
+        game_name,
         "image_config.jsonl",
     )
     if not image_config_path.is_file():
@@ -252,9 +258,11 @@ def _load_preset_hands_from_file(configuration: dict[str, Any]) -> list[list[int
     seed = configuration.get("seed", None)
     if seed is None:
         raise ValueError("Must provide seed if loadPresetHands is True.")
+    game_name = configuration.get("openSpielGameName")
+    assert game_name is not None, "openSpielGameName must be provided"
     preset_path = pathlib.Path(
         GAMES_DIR,
-        configuration.get("openSpielGameName"),
+        game_name,
         "preset_hands.jsonl",
     )
     if not preset_path.is_file():

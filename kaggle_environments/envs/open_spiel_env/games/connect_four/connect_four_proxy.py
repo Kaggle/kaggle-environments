@@ -1,5 +1,7 @@
 """Change Connect Four state and action string representations."""
 
+from __future__ import annotations
+
 import json
 from typing import Any
 

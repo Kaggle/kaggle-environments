@@ -7,6 +7,8 @@ additional functionality, or payload to the State/Game object.
 WARNING: Serialization of proxy games and states is not supported.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 import pyspiel

@@ -1,4 +1,6 @@
-"""Test for proxied Connect Four game."""
+"""Tests for Connect Four proxy."""
+
+from __future__ import annotations
 
 import json
 

@@ -1,5 +1,7 @@
 """Proxy tests."""
 
+from __future__ import annotations
+
 import pyspiel
 from absl.testing import absltest, parameterized
 

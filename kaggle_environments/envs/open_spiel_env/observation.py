@@ -51,6 +51,8 @@ c. String, hopefully human-readable (primarily for debugging purposes)
 For usage examples, see `observation_test.py`.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pyspiel
 

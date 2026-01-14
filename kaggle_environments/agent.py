@@ -107,11 +107,13 @@ class UrlAgent:
             return None
 
 
-def build_agent(raw: Any, builtin_agents: Dict[str, Callable], environment_name: str) -> Tuple[Callable, bool]:
+def build_agent(
+    raw: str | Callable | Any, builtin_agents: Dict[str, Callable], environment_name: str
+) -> Tuple[Callable, bool]:
     """
     Returns the agent and whether the agent is parallelizable.
     """
-    if raw in builtin_agents:
+    if isinstance(raw, str) and raw in builtin_agents:
         agent = builtin_agents[raw]
         # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
         #  Kaggle environment should allow more scalable agent initialization and proper agent interface design.
@@ -155,7 +157,7 @@ def build_agent(raw: Any, builtin_agents: Dict[str, Callable], environment_name:
 
 
 class Agent:
-    def __init__(self, raw: Any, environment: Any) -> None:
+    def __init__(self, raw: str | Callable | Any, environment: Any) -> None:
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
         self.debug = environment.debug

@@ -50,12 +50,12 @@ def register(name: str, environment: dict[str, Any]) -> None:
 
 def evaluate(
     environment: str | "Environment",
-    agents: list[Any] | None = None,
+    agents: list[str | Callable | Agent] | None = None,
     configuration: dict[str, Any] | None = None,
-    steps: list[Any] | None = None,
+    steps: list[list[dict[str, Any]]] | None = None,
     num_episodes: int = 1,
     debug: bool = False,
-    state: Any | None = None,
+    state: list[dict[str, Any]] | None = None,
 ) -> list[list[float | None]]:
     """
     Evaluate and return the rewards of one or more episodes (environment and agents combo).
@@ -91,10 +91,10 @@ def make(
     environment: str | "Environment" | Callable,
     configuration: dict[str, Any] | None = None,
     info: dict[str, Any] | None = None,
-    steps: list[Any] | None = None,
-    logs: list[Any] | None = None,
+    steps: list[list[dict[str, Any]]] | None = None,
+    logs: list[list[dict[str, Any]]] | None = None,
     debug: bool = False,
-    state: Any | None = None,
+    state: list[dict[str, Any]] | None = None,
 ) -> "Environment":
     """
     Creates an instance of an Environment.
@@ -147,7 +147,7 @@ def make(
     raise InvalidArgument("Unknown Environment Specification")
 
 
-def act_agent(args: tuple[Any | None, dict[str, Any], Any, Any]) -> tuple[Any, dict[str, Any]]:
+def act_agent(args: tuple[Agent | None, dict[str, Any], dict[str, Any], Any]) -> tuple[Any, dict[str, Any]]:
     agent, state, configuration, none_action = args
     if state["status"] != "ACTIVE":
         return None, {}
@@ -163,14 +163,14 @@ class Environment:
         specification: dict[str, Any] | None = None,
         configuration: dict[str, Any] | None = None,
         info: dict[str, Any] | None = None,
-        steps: list[Any] | None = None,
-        logs: list[Any] | None = None,
+        steps: list[list[dict[str, Any]]] | None = None,
+        logs: list[list[dict[str, Any]]] | None = None,
         agents: dict[str, Callable] | None = None,
         interpreter: Callable | None = None,
         renderer: Callable | None = None,
         html_renderer: Callable | None = None,
         debug: bool = False,
-        state: Any | None = None,
+        state: list[dict[str, Any]] | None = None,
     ) -> None:
         if specification is None:
             specification = {}
@@ -393,7 +393,7 @@ class Environment:
         else:
             raise InvalidArgument("Available render modes: human, ansi, html, ipython")
 
-    def play(self, agents: list[Any] | None = None, **kwargs: Any) -> None:
+    def play(self, agents: list[str | Callable | Agent] | None = None, **kwargs: Any) -> None:
         """
         Renders a visual representation of the environment and allows interactive action selection.
 
@@ -565,7 +565,7 @@ class Environment:
             }
         return structify(self.__state_schema_value)
 
-    def __set_state(self, state: list[Any] | None = None) -> list[Any]:
+    def __set_state(self, state: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
         if state is None:
             state = []
 
@@ -576,7 +576,7 @@ class Environment:
         self.steps = [self.state]
         return self.state
 
-    def __get_state(self, position: int, state: Any) -> Any:
+    def __get_state(self, position: int, state: dict[str, Any]) -> dict[str, Any]:
         key = f"__state_schema_{position}"
         if not hasattr(self, key):
             # Update a property default value based on position in defaults.
