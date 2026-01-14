@@ -197,9 +197,13 @@ def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
     return [r.mu for r in ratings]
 
 
-def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
-    """Fast worker using pre-computed matrices."""
-    mean_matrix, stddev_matrix = matrix_tuple
+def _gte_bootstrap_worker_fast(indices, tensor, agents, tasks):
+    """Fast worker using pre-computed tensor."""
+    # indices: list of game indices for this bootstrap sample
+    subset = tensor[indices]  # (n_sample_games, n_agents, n_tasks)
+
+    # Calculate means and StdDevs using the unified code path
+    mean_matrix, stddev_matrix, sem_matrix = _compute_mean_std_sem(subset, axis=0)
 
     # Regularization logic matches original
     rnd = np.random.default_rng()
@@ -1090,25 +1094,13 @@ class GameSetEvaluator:
         n_games_total = len(light_gte_games)
         rnd_master = np.random.default_rng(self.seed)
         
-        # Generate all bootstrap indices at once: (num_samples, n_games_total)
+        # Generate all bootstrap indices as a list of arrays to iterate over
         # We sample WITH replacement
-        bootstrap_indices = rnd_master.integers(0, n_games_total, size=(num_samples, n_games_total))
+        samples_indices = [rnd_master.integers(0, n_games_total, size=n_games_total) for _ in range(num_samples)]
         
-        # Vectorize Matrix Calculation
-        # tensor shape: (n_games, agents, tasks)
-        # sample_tensor shape: (num_samples, n_games, agents, tasks)
-        sample_tensor = tensor[bootstrap_indices]
+        worker_func = functools.partial(_gte_bootstrap_worker_fast, tensor=tensor, agents=agents, tasks=self.gte_tasks)
         
-        # Compute all means and stds in one go (axis=1 is the 'games' dimension in the 4D tensor)
-        all_means, all_stds, all_sems = _compute_mean_std_sem(sample_tensor, axis=1)
-        
-        # Worker function now only takes precomputed matrices
-        worker_func = functools.partial(_gte_bootstrap_worker_fast, agents=agents, tasks=self.gte_tasks)
-        
-        # Prepare data for map
-        matrices_iterator = zip(all_means, all_stds)
-
-        res = thread_map(worker_func, matrices_iterator, max_workers=os.cpu_count(), desc="GTE Bootstrap",
+        res = thread_map(worker_func, samples_indices, max_workers=os.cpu_count(), desc="GTE Bootstrap",
                          total=num_samples)
 
         # Unpack
