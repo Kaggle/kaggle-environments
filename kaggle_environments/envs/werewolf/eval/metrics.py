@@ -6,6 +6,7 @@ import pickle
 import subprocess
 import sys
 import warnings
+import multiprocessing as mp
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -1128,25 +1129,20 @@ class GameSetEvaluator:
         all_means = np.concatenate(all_means, axis=0)
         all_stds = np.concatenate(all_stds, axis=0)
 
-        # Solver Pass: Reverted to thread_map per user request (was process_map)
-        # We perform a "warm-up" call in the main thread for the first sample to avoid JAX/XLA deadlocks
-        # which can occur when multiple threads attempt to compile the same graph simultaneously.
-        print("\nWarming up GTE solver...")
+        # Solver Pass: Using spawn multiprocessing to bypass GIL and avoid JAX deadlocks.
+        # Minimal data (small mean/std matrices) is passed to workers.
+        print("\nStarting GTE solver with spawn multiprocessing...")
         worker_func = functools.partial(_gte_bootstrap_worker_fast, agents=agents, tasks=self.gte_tasks)
+        matrices_iterator = list(zip(all_means, all_stds))
         
-        # Execute first sample in main thread
-        first_sample_results = worker_func((all_means[0], all_stds[0]))
-        
-        # Execute remaining samples in thread_map
-        matrices_iterator = zip(all_means[1:], all_stds[1:])
-        num_remaining = num_samples - 1
-        
-        if num_remaining > 0:
-            res_remaining = thread_map(worker_func, matrices_iterator, max_workers=os.cpu_count(), 
-                                       desc="GTE Bootstrap (Solver)", total=num_remaining)
-            res = [first_sample_results] + res_remaining
-        else:
-            res = [first_sample_results]
+        # Use spawn context to avoid inheriting JAX/XLA state/locks from parent process
+        ctx = mp.get_context("spawn")
+        with ctx.Pool(processes=os.cpu_count()) as pool:
+            res = list(tqdm(
+                pool.imap(worker_func, matrices_iterator), 
+                total=num_samples, 
+                desc="GTE Bootstrap (Solver)"
+            ))
 
         # Unpack
         ratings, joints, marginals, r2m_contributions, m2r_contributions, games = zip(*res)
