@@ -1,7 +1,7 @@
 import operator
 import random
 from enum import Enum, auto
-from typing import Any, Callable, Generic, Iterable, Type, TypeVar
+from typing import Any, Callable, Dict, Iterable, Type, TypeVar
 
 
 class Point(tuple):
@@ -276,13 +276,7 @@ def histogram(items: Iterable[TItem]) -> dict[TItem, int]:
     return results
 
 
-def with_print(item: TItem) -> TItem:
-    """Prints an item and returns it -- useful for debug printing in lambdas and chained functions."""
-    print(item)
-    return item
-
-
-class Observation(dict[str, Any]):
+class Observation(Dict[str, any]):
     """
     Observation provides access to per-step parameters in the environment.
     """
@@ -317,61 +311,3 @@ class Configuration(dict[str, Any]):
     def run_timeout(self) -> float:
         """Maximum runtime (seconds) of an episode (not necessarily DONE)."""
         return self["runTimeout"]
-
-
-TConfiguration = TypeVar("TConfiguration", bound=Configuration)
-TObservation = TypeVar("TObservation", bound=Observation)
-TAction = TypeVar("TAction")
-Agent = Callable[[TObservation, TConfiguration], TAction]
-
-
-class AgentStatus(Enum):
-    UNKNOWN = 0
-    ACTIVE = 1
-    INACTIVE = 2
-    DONE = 3
-    INVALID = 4
-    ERROR = 5
-
-
-class AgentState(Generic[TObservation, TAction], dict[str, Any]):
-    @property
-    def observation(self) -> TObservation:
-        return self["observation"]
-
-    @property
-    def action(self) -> TAction:
-        return self["action"]
-
-    @property
-    def reward(self) -> float | None:
-        return self["reward"]
-
-    @property
-    def status(self) -> AgentStatus:
-        status = self["status"]
-        if status in AgentStatus.__members__:
-            return AgentStatus[status]
-        return AgentStatus.UNKNOWN
-
-
-class Environment(Generic[TConfiguration, TObservation, TAction]):
-    @property
-    def specification(self) -> dict[str, Any]:
-        raise NotImplementedError()
-
-    def interpret(
-        self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]
-    ) -> list[AgentState[TObservation, TAction]]:
-        raise NotImplementedError()
-
-    def render_html(self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplementedError()
-
-    def render_text(self, configuration: TConfiguration, state: list[AgentState[TObservation, TAction]]) -> str:
-        raise NotImplementedError()
-
-    @property
-    def builtin_agents(self) -> dict[str, Agent]:
-        """Override this property to provide default agents that can be referenced by name in this environment, e.g. `{"random": my_random_agent}`"""
-        return {}
