@@ -16,7 +16,7 @@ import argparse
 import json
 import traceback
 from logging.config import dictConfig
-from typing import Optional
+from typing import Any
 
 from kaggle_environments import errors, utils
 from kaggle_environments.agent import Agent
@@ -80,7 +80,7 @@ parser.add_argument(
 )
 
 
-def render(args, env):
+def render(args: Any, env: Any) -> Any:
     mode = args.display if args.display is not None else utils.get(args.render, str, "json", path=["mode"])
 
     if mode == "human" or mode == "ansi" or mode == "txt":
@@ -95,18 +95,18 @@ def render(args, env):
     return result
 
 
-def action_list(args):
+def action_list(args: Any) -> str:
     return json.dumps([*environments])
 
 
-def action_evaluate(args):
+def action_evaluate(args: Any) -> str:
     return json.dumps(evaluate(args.environment, args.agents, args.configuration, args.steps, args.episodes))
 
 
-cached_agent = None
+cached_agent: Any | None = None
 
 
-def action_act(args):
+def action_act(args: Any) -> dict[str, Any]:
     global cached_agent
     if len(args.agents) != 1:
         return {"error": "One agent must be provided."}
@@ -117,6 +117,8 @@ def action_act(args):
     is_first_run = cached_agent is None or cached_agent.raw != raw
     if is_first_run:
         cached_agent = Agent(raw, env)
+
+    assert cached_agent is not None
     observation = utils.get(args.state, dict, {}, ["observation"])
     action, log = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
@@ -133,7 +135,7 @@ def action_act(args):
     return {"action": action}
 
 
-def action_step(args):
+def action_step(args: Any) -> Any:
     env = {"logs": args.logs}
     try:
         env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
@@ -147,7 +149,7 @@ def action_step(args):
     return render(args, env)
 
 
-def action_run(args):
+def action_run(args: Any) -> Any:
     # Create a fake env so we can make the real env in our try body
     env = utils.structify({"logs": args.logs})
     try:
@@ -160,7 +162,7 @@ def action_run(args):
     return render(args, env)
 
 
-def action_load(args):
+def action_load(args: Any) -> Any:
     if args.log_path is not None:
         with open(args.log_path, mode="r") as log_file:
             args.logs = json.load(log_file)
@@ -176,11 +178,11 @@ def action_load(args):
     return render(args, env)
 
 
-disposed = True
+disposed: bool = True
 
 
 # This method is only called at the end of an episode to write the final array brace in the logs file and dispose the cached agent to force reinitialization
-def action_dispose(args):
+def action_dispose(args: Any) -> str:
     global cached_agent, disposed
     if disposed:
         return "Already disposed"
@@ -193,7 +195,7 @@ def action_dispose(args):
     return "Successfully disposed"
 
 
-def parse_args(args):
+def parse_args(args: Any) -> Any:
     return utils.structify(
         {
             "action": utils.get(args, str, "list", ["action"]),
@@ -217,7 +219,7 @@ def parse_args(args):
     )
 
 
-def action_handler(args):
+def action_handler(args: Any) -> str | dict[str, Any]:
     try:
         if args.action == "list":
             return action_list(args)
@@ -245,10 +247,10 @@ def action_handler(args):
         return {"error": str(e), "trace": traceback.format_exc()}
 
 
-log_path: Optional[str] = None
+log_path: str | None = None
 
 
-def action_http(args):
+def action_http(args: Any) -> None:
     from flask import Flask, request
 
     if args.log_path is not None:
@@ -276,7 +278,7 @@ def action_http(args):
     app.run(args.host, args.port, debug=args.debug, use_reloader=args.debug)
 
 
-def http_request(request):
+def http_request(request: Any) -> tuple[str | dict[str, Any], int, dict[str, str]]:
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
@@ -321,10 +323,11 @@ def http_request(request):
     return resp, 200, headers
 
 
-def main():
+def main() -> int | None:
     args = parse_args(vars(parser.parse_args()))
     if args.action == "http-server":
         action_http(args)
+        return None
     else:
         result = action_handler(args)
         if args.out_path is None:

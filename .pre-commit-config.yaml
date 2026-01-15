@@ -5,7 +5,7 @@ repos:
     rev: v0.14.5
     hooks:
       # Run the linter with auto-fix
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       # Run the formatter
       - id: ruff-format

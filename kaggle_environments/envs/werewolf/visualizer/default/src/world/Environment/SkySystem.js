@@ -251,9 +251,9 @@ export class SkySystem {
   createSunMoon() {
     // Sun Light
     this.sunLight = new this.THREE.DirectionalLight(0xffffff, 0.8);
-    this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.castShadow = false;
+    this.sunLight.shadow.mapSize.width = 512;
+    this.sunLight.shadow.mapSize.height = 512;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 500;
     this.sunLight.shadow.camera.left = -75;
@@ -267,9 +267,9 @@ export class SkySystem {
 
     // Moon Light
     this.moonLight = new this.THREE.DirectionalLight(0xff6633, 0.6); // Blood orange, slightly brighter
-    this.moonLight.castShadow = true;
-    this.moonLight.shadow.mapSize.width = 1024;
-    this.moonLight.shadow.mapSize.height = 1024;
+    this.moonLight.castShadow = false;
+    this.moonLight.shadow.mapSize.width = 512;
+    this.moonLight.shadow.mapSize.height = 512;
     this.moonLight.shadow.camera.near = 0.5;
     this.moonLight.shadow.camera.far = 500;
     this.moonLight.shadow.camera.left = -100;
