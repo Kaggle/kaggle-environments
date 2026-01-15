@@ -1,6 +1,5 @@
 import { ThreeModules } from './world/ThreeLoader.js';
 import { World } from './world/World.js';
-import { rendererCss } from './styles/rendererStyles.js';
 import {
   playAudioFrom,
   stopAndClearAudio,
@@ -206,12 +205,6 @@ export function renderer(context, parent) {
 
   // --- UI Setup ---
   let mainContainer = parent.querySelector('.main-container');
-  let style = parent.querySelector('style');
-  if (!style) {
-    style = document.createElement('style');
-    style.textContent = rendererCss;
-    parent.appendChild(style);
-  }
 
   // --- Initialize 3D World ---
   function initThreeJs() {

@@ -1,14 +1,6 @@
 import { GameAdapter } from './adapter';
 import { BaseGameStep, ReplayData } from './types';
-import cssString from './style.css?raw';
-
-// Inject CSS for a library bundle/build
-(() => {
-  if (typeof document === 'undefined') return; // Guard for non-browser environments
-  const style = document.createElement('style');
-  style.textContent = cssString;
-  document.head.appendChild(style);
-})();
+import './style.css';
 
 export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private container: HTMLElement;
