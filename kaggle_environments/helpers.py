@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import operator
 import random
 from enum import Enum, auto
@@ -28,7 +30,7 @@ class Point(tuple):
     def map(self, f: Callable[[int], int]) -> "Point":
         return Point(f(self[0]), f(self[1]))
 
-    def map2(self, other: tuple[int, int] | "Point", f: Callable[[int, int], int]) -> "Point":
+    def map2(self, other: tuple[int, int] | Point, f: Callable[[int, int], int]) -> Point:
         return Point(f(self[0], other[0]), f(self[1], other[1]))
 
     def translate(self, offset: "Point", size: int) -> "Point":
@@ -62,10 +64,10 @@ class Point(tuple):
     def __abs__(self) -> "Point":
         return self.map(operator.abs)
 
-    def __add__(self, other: tuple[int, int] | "Point") -> "Point":
+    def __add__(self, other: tuple[int, int] | Point) -> Point:
         return self.map2(other, operator.add)
 
-    def __eq__(self, other: tuple[int, int] | "Point") -> bool:
+    def __eq__(self, other: tuple[int, int] | Point) -> bool:
         try:
             return self[0] == other[0] and self[1] == other[1]
         except (TypeError, IndexError):
@@ -89,7 +91,7 @@ class Point(tuple):
     def __str__(self) -> str:
         return f"({self.x}, {self.y})"
 
-    def __sub__(self, other: tuple[int, int] | "Point") -> "Point":
+    def __sub__(self, other: tuple[int, int] | Point) -> Point:
         return self.map2(other, operator.sub)
 
 
