@@ -1,6 +1,12 @@
 import { defaultGetStepRenderTime, generateDefaultDelayDistribution, generateEaseInDelayDistribution } from './timing';
 import { chessTransformer, getChessStepDescription, getChessStepLabel } from './transformers/chess/chessTransformer';
 import { ChessStep } from './transformers/chess/chessReplayTypes';
+import {
+  connectFourTransformer,
+  getConnectFourStepDescription,
+  getConnectFourStepLabel,
+} from './transformers/connect_four/connectFourTransformer';
+import { ConnectFourStep } from './transformers/connect_four/connectFourReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import {
@@ -10,30 +16,16 @@ import {
   processPokerFile,
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
-import { BaseGamePlayer, BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
-  let i = 0;
-  while (i < gameStep.players.length) {
-    const player: BaseGamePlayer = gameStep.players[i];
-    if (player.isTurn) {
-      return player.actionDisplayText ?? '';
-    }
-    i++;
-  }
-  return '';
+  const activePlayer = gameStep.players.find((player) => player.isTurn);
+  return activePlayer?.actionDisplayText ?? '';
 };
 
 const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
-  let i = 0;
-  while (i < gameStep.players.length) {
-    const player: BaseGamePlayer = gameStep.players[i];
-    if (player.isTurn) {
-      return player.thoughts ?? '';
-    }
-    i++;
-  }
-  return '';
+  const activePlayer = gameStep.players.find((player) => player.isTurn);
+  return activePlayer?.thoughts ?? '';
 };
 
 export const processEpisodeData = (environment: ReplayData, gameName: string): ReplayData<BaseGameStep[]> => {
@@ -49,6 +41,9 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
       break;
     case 'open_spiel_chess':
       transformedSteps = chessTransformer(environment);
+      break;
+    case 'open_spiel_connect_four':
+      transformedSteps = connectFourTransformer(environment);
       break;
     default:
       // If no transformer, return the original environment
@@ -71,6 +66,8 @@ export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): stri
       return getPokerStepLabel(gameStep as RepeatedPokerStep);
     case 'open_spiel_chess':
       return getChessStepLabel(gameStep as ChessStep);
+    case 'open_spiel_connect_four':
+      return getConnectFourStepLabel(gameStep as ConnectFourStep);
     default:
       return defaultGetGameStepLabel(gameStep);
   }
@@ -86,6 +83,8 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
       return getPokerStepDescription(gameStep as RepeatedPokerStep);
     case 'open_spiel_chess':
       return getChessStepDescription(gameStep as ChessStep);
+    case 'open_spiel_connect_four':
+      return getConnectFourStepDescription(gameStep as ConnectFourStep);
     default:
       return defaultGetGameStepDescription(gameStep);
   }

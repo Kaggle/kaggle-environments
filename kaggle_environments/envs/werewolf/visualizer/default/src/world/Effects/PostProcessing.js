@@ -33,8 +33,8 @@ export class PostProcessing {
     const renderPass = new this.RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // Optimize Bloom: Use half resolution of the ALREADY reduced composer resolution
-    const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.5, this.height * pixelRatio * 0.5);
+    // Optimize Bloom: Use quarter resolution of the ALREADY reduced composer resolution
+    const bloomResolution = new this.THREE.Vector2(this.width * pixelRatio * 0.25, this.height * pixelRatio * 0.25);
     this.bloomPass = new this.UnrealBloomPass(
       bloomResolution,
       0.15,
@@ -46,8 +46,9 @@ export class PostProcessing {
     const atmosphereShader = {
       uniforms: {
         'tDiffuse': { value: null },
-        'time': { value: 0.0 },
-        'phase': { value: 0.0 },
+        'uTint': { value: new this.THREE.Vector3(1, 1, 1) },
+        'uContrast': { value: 1.0 },
+        'uVignetteBase': { value: 0.7 },
       },
       vertexShader: `
             varying vec2 vUv;
@@ -58,36 +59,31 @@ export class PostProcessing {
           `,
       fragmentShader: `
             uniform sampler2D tDiffuse;
-            uniform float time;
-            uniform float phase;
+            uniform vec3 uTint;
+            uniform float uContrast;
+            uniform float uVignetteBase;
             varying vec2 vUv;
             
             void main() {
               vec4 color = texture2D(tDiffuse, vUv);
-              // Use slightly lower threshold to catch 0.5 exactly if float precision issues arise
-              if (phase > 0.49) {
-                // Night Phase - Blood Moon Theme
-                // Shift towards red/purple, increase contrast
-                vec3 nightTint = vec3(1.1, 0.8, 0.9); // Reddish tint
-                color.rgb = mix(color.rgb, color.rgb * nightTint, 0.4);
-                
-                // Enhance reds specifically
-                float redBoost = color.r * 0.2;
-                color.r += redBoost;
-                
-                // Darken slightly for mood
-                color.rgb *= 0.9;
-                
-                color.rgb = pow(color.rgb, vec3(1.1)); // Contrast
-              } else {
-                // Day Phase
-                color.rgb = mix(color.rgb, color.rgb * vec3(1.05, 1.0, 0.95), 0.2);
-              }
-              
-              vec2 center = vec2(0.5, 0.5);
-              float dist = distance(vUv, center);
-              float vignette = 1.0 - smoothstep(0.4, 1.0, dist);
-              color.rgb *= mix(0.7, 1.0, vignette);
+
+              // 1. Tint
+              color.rgb *= uTint;
+
+              // 2. Contrast (Approximate with simple power)
+              // optimization: only apply if uContrast != 1.0? No, branching is bad.
+              // Just do it, usage is low.
+              color.rgb = pow(color.rgb, vec3(uContrast));
+
+              // 3. Vignette (Squared distance for speed)
+              vec2 d = vUv - 0.5;
+              float distSq = dot(d, d); // 0 at center, 0.5 at corners (0.707^2)
+              // Smoothstep equivalent: smoothstep(0.4^2, 1.0^2, distSq) ~ range 0.16 to 1.0
+              // actually dist is 0 to 0.707. 0.4 radius is 0.16 sq.
+
+              float vignette = 1.0 - smoothstep(0.16, 0.5, distSq);
+              color.rgb *= mix(uVignetteBase, 1.0, vignette);
+
               gl_FragColor = color;
             }
           `,
@@ -105,8 +101,27 @@ export class PostProcessing {
     }
 
     if (this.atmospherePass) {
-        this.atmospherePass.uniforms.time.value = time * 0.001;
-        this.atmospherePass.uniforms.phase.value = phaseValue;
+      // Calculate visuals on CPU to save GPU cycles
+      const uTint = this.atmospherePass.uniforms.uTint.value;
+      const uniforms = this.atmospherePass.uniforms;
+
+      if (phaseValue > 0.49) {
+        // Night Phase
+        // Target: slightly red/purple, dark
+        // Tint: mix(white, nightTint, 0.4) * 0.9 from original shader
+        // NightTint was (1.1, 0.8, 0.9)
+        // Enhanced Red was +0.2 * r -- handled by just boosting R in tint?
+        // Let's approximate the final composite tint:
+        uTint.set(1.15, 0.85, 0.95); // Night Tint
+        uniforms.uContrast.value = 1.1;
+        uniforms.uVignetteBase.value = 0.7; // Dark borders
+      } else {
+        // Day Phase
+        // Target: mix(original, warm, 0.2)
+        uTint.set(1.02, 1.0, 0.98); // Subtle Warmth
+        uniforms.uContrast.value = 1.0;
+        uniforms.uVignetteBase.value = 0.85; // Lighter borders
+      }
     }
   }
 
@@ -126,7 +141,7 @@ export class PostProcessing {
     
     if (this.bloomPass) {
         // Bloom resolution relative to the composer size
-        this.bloomPass.resolution.set(width * 0.5, height * 0.5);
+      this.bloomPass.resolution.set(width * 0.25, height * 0.25);
     }
   }
 }

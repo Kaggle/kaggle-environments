@@ -30,7 +30,7 @@ export class PropsManager {
     const fireWidth = 5.0;
     const fireHeight = 7.0;
     const fireDepth = 5.0;
-    const sliceSpacing = 0.5;
+    const sliceSpacing = 1.0;
 
     if (this.VolumetricFire) {
       this.fire = new this.VolumetricFire(fireWidth, fireHeight, fireDepth, sliceSpacing, this.camera);
@@ -43,7 +43,7 @@ export class PropsManager {
 
     const fireLight = new this.THREE.PointLight(0xff6633, 2.5, 25);
     fireLight.position.set(0, 1.5, 0);
-    fireLight.castShadow = true;
+    fireLight.castShadow = false;
     fireLight.shadow.mapSize.width = 512;
     fireLight.shadow.mapSize.height = 512;
     campfireGroup.add(fireLight);

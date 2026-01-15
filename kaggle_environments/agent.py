@@ -19,6 +19,7 @@ import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from time import perf_counter
+from typing import Any, Callable, Dict, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -28,7 +29,7 @@ from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
 
 
-def is_url(url):
+def is_url(url: str) -> bool:
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
@@ -36,21 +37,26 @@ def is_url(url):
         return False
 
 
-def get_last_callable(raw, fallback=None, path=None):
+def get_last_callable(raw: str, fallback: Callable | None = None, path: str | None = None) -> Callable:
     orig_out = sys.stdout
     buffer = StringIO()
     sys.stdout = buffer
 
     try:
-        code_object = compile(raw, path, "exec")
+        path_str = path if path is not None else "<string>"
+        code_object = compile(raw, path_str, "exec")
         env = {}
 
         # append exec_dir so that way python agents can import other files
-        exec_dir = os.path.dirname(path)
-        sys.path.append(exec_dir)
+        if path is not None:
+            exec_dir = os.path.dirname(path)
+            sys.path.append(exec_dir)
+        else:
+            exec_dir = None
 
         exec(code_object, env)
-        sys.path.pop()
+        if exec_dir is not None:
+            sys.path.pop()
         sys.stdout = orig_out
         output = buffer.getvalue()
         if output:
@@ -67,11 +73,11 @@ def get_last_callable(raw, fallback=None, path=None):
 
 
 class UrlAgent:
-    def __init__(self, raw, environment_name):
+    def __init__(self, raw: str, environment_name: str) -> None:
         self.raw = raw
         self.environment_name = environment_name
 
-    def __call__(self, observation, configuration):
+    def __call__(self, observation: Any, configuration: Any) -> Any:
         data = {
             "action": "act",
             "configuration": configuration,
@@ -101,16 +107,18 @@ class UrlAgent:
             return None
 
 
-def build_agent(raw, builtin_agents, environment_name):
+def build_agent(
+    raw: str | Callable | Any, builtin_agents: Dict[str, Callable], environment_name: str
+) -> Tuple[Callable, bool]:
     """
     Returns the agent and whether the agent is parallelizable.
     """
-    if raw in builtin_agents:
+    if isinstance(raw, str) and raw in builtin_agents:
         agent = builtin_agents[raw]
         # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
         #  Kaggle environment should allow more scalable agent initialization and proper agent interface design.
-        if hasattr(agent, "reset"):
-            agent.reset()
+        if hasattr(agent, "reset") and callable(getattr(agent, "reset", None)):
+            agent.reset()  # type: ignore[attr-defined]
         return builtin_agents[raw], False
 
     # Already callable.
@@ -135,20 +143,21 @@ def build_agent(raw, builtin_agents, environment_name):
     # Attempt to execute the last callable or just return the string.
     agent = None
 
-    def callable_agent(observation, configuration):
+    def callable_agent(observation: Any, configuration: Any) -> Any:
         nonlocal agent
         if agent is None:
             agent = get_last_callable(raw_agent, path=raw) or raw_agent
         configuration["__raw_path__"] = raw
         args = [observation, configuration]
-        args = args[: agent.__code__.co_argcount]
+        if hasattr(agent, "__code__") and hasattr(agent.__code__, "co_argcount"):
+            args = args[: agent.__code__.co_argcount]
         return agent(*args) if callable(agent) else agent
 
     return callable_agent, False
 
 
 class Agent:
-    def __init__(self, raw, environment):
+    def __init__(self, raw: str | Callable | Any, environment: Any) -> None:
         self.builtin_agents = environment.agents
         self.configuration = environment.configuration
         self.debug = environment.debug
@@ -156,10 +165,10 @@ class Agent:
         self.raw = raw
         self.agent, self.is_parallelizable = build_agent(self.raw, self.builtin_agents, self.environment_name)
 
-    def act(self, observation):
+    def act(self, observation: Any) -> Tuple[Any, Dict[str, Any]]:
         args = [structify(observation), structify(self.configuration)]
 
-        if hasattr(self.agent, "__code__"):
+        if hasattr(self.agent, "__code__") and hasattr(self.agent.__code__, "co_argcount"):
             args = args[: self.agent.__code__.co_argcount]
 
         # Start the timer.

@@ -1,12 +1,14 @@
-import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
-import { renderer } from './renderer.js';
+import { createReplayVisualizer, PreactAdapter, processEpisodeData } from '@kaggle-environments/core';
+import { Renderer } from './renderer';
+import './style.css';
 
 const app = document.getElementById('app');
 if (!app) {
   throw new Error('Could not find app element');
 }
 
-const adapter = new LegacyAdapter(renderer as any);
+// TODO - fix this any when we figure out a global format
+const adapter = new PreactAdapter(Renderer as any);
 if (app) {
   // Set up an HMR boundary for development
   if (import.meta.env?.DEV && import.meta.hot) {
