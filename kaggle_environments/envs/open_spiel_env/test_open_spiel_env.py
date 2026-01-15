@@ -12,12 +12,8 @@ from . import open_spiel_env
 
 TEST_REPEATED_POKER_GAME_STRING = open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STRING.replace(
     "calcOddsNumSims=1000000",
-    "calcOddsNumSims=0",
+    "calcOddsNumSims=1",
 )
-
-
-def _register_fast_repeated_poker_env() -> None:
-    open_spiel_env._register_game_envs([TEST_REPEATED_POKER_GAME_STRING])
 
 
 # Expected that not all pyspiel registered games can be registered as Kaggle
@@ -194,7 +190,7 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue("imageConfig" in env.state[0]["observation"])
 
     def test_default_repeated_poker(self):
-        env = make("open_spiel_repeated_poker")
+        env = make("open_spiel_repeated_poker", {"openSpielGameString": TEST_REPEATED_POKER_GAME_STRING})
         env.reset()
         env.step([{"submission": -1}, {"submission": -1}])  # Initial setup step.
         # Default repeated_poker now includes hand odds calculations which take
@@ -254,6 +250,7 @@ class OpenSpielEnvTest(absltest.TestCase):
     def test_poker_set_num_hands(self):
         num_hands = 2
         config = {
+            "openSpielGameString": TEST_REPEATED_POKER_GAME_STRING,
             "setNumHands": num_hands,
         }
         env = make(
@@ -272,10 +269,9 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(env.toJSON()["rewards"], [0.0, 0.0])
 
     def test_repeated_poker_preset_hands_replay(self):
-        _register_fast_repeated_poker_env()
         base_env = make(
             "open_spiel_repeated_poker",
-            {"setNumHands": 2},
+            {"openSpielGameString": TEST_REPEATED_POKER_GAME_STRING, "setNumHands": 2},
             debug=True,
         )
         base_env.reset()
@@ -300,7 +296,11 @@ class OpenSpielEnvTest(absltest.TestCase):
             preset_hands[0].append(preset_hands[0][-1])
         preset_env = make(
             "open_spiel_repeated_poker",
-            {"setNumHands": 2, "presetHands": [hand[:] for hand in preset_hands]},
+            {
+                "openSpielGameString": TEST_REPEATED_POKER_GAME_STRING,
+                "setNumHands": 2,
+                "presetHands": [hand[:] for hand in preset_hands],
+            },
             debug=True,
         )
         preset_env.reset()
@@ -325,10 +325,9 @@ class OpenSpielEnvTest(absltest.TestCase):
         )
 
     def test_repeated_poker_preset_hands_runs_out(self):
-        _register_fast_repeated_poker_env()
         env = make(
             "open_spiel_repeated_poker",
-            {"presetHands": [[0]]},
+            {"openSpielGameString": TEST_REPEATED_POKER_GAME_STRING, "presetHands": [[0]]},
             debug=True,
         )
         env.reset()
@@ -336,10 +335,13 @@ class OpenSpielEnvTest(absltest.TestCase):
             env.step([{"submission": -1}, {"submission": -1}])
 
     def test_repeated_poker_preset_hands_conflicts_with_use_openings(self):
-        _register_fast_repeated_poker_env()
         env = make(
             "open_spiel_repeated_poker",
-            {"presetHands": [[0, 1, 2, 3, 4, 5, 6, 7, 8]], "useOpenings": True},
+            {
+                "openSpielGameString": TEST_REPEATED_POKER_GAME_STRING,
+                "presetHands": [[0, 1, 2, 3, 4, 5, 6, 7, 8]],
+                "useOpenings": True,
+            },
             debug=True,
         )
         env.reset()
@@ -347,10 +349,9 @@ class OpenSpielEnvTest(absltest.TestCase):
             env.step([{"submission": -1}, {"submission": -1}])
 
     def test_repeated_poker_load_preset_hands_loads_file(self):
-        _register_fast_repeated_poker_env()
         env = make(
             "open_spiel_repeated_poker",
-            {"loadPresetHands": True, "seed": 0},
+            {"openSpielGameString": TEST_REPEATED_POKER_GAME_STRING, "loadPresetHands": True, "seed": 0},
             debug=True,
         )
         env.reset()
@@ -361,10 +362,9 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertTrue(all(len(hand) == 9 for hand in preset_hands))
 
     def test_repeated_poker_load_preset_hands_requires_seed(self):
-        _register_fast_repeated_poker_env()
         env = make(
             "open_spiel_repeated_poker",
-            {"loadPresetHands": True},
+            {"openSpielGameString": TEST_REPEATED_POKER_GAME_STRING, "loadPresetHands": True},
             debug=True,
         )
         env.reset()
@@ -372,10 +372,10 @@ class OpenSpielEnvTest(absltest.TestCase):
             env.step([{"submission": -1}, {"submission": -1}])
 
     def test_repeated_poker_load_preset_hands_conflicts_with_manual(self):
-        _register_fast_repeated_poker_env()
         env = make(
             "open_spiel_repeated_poker",
             {
+                "openSpielGameString": TEST_REPEATED_POKER_GAME_STRING,
                 "loadPresetHands": True,
                 "seed": 0,
                 "presetHands": [[0, 1, 2, 3, 4, 5, 6, 7, 8]],

@@ -45,14 +45,14 @@ const fs = `
       smoothstep( 0.0, 1.0, fracArg )
     );
   }
-  const int octives = 4;
+  const int octives = 2;
   const float lacunarity = 2.0;
   const float gain = 0.5;
   float turbulence( vec3 pos ) {
     float sum  = 0.0;
     float freq = 1.0;
     float amp  = 1.0;
-    for ( int i = 0; i < 4; i++ ) {
+    for ( int i = 0; i < 2; i++ ) {
       sum += abs( mnoise( pos * freq ) ) * amp;
       freq *= lacunarity;
       amp *= gain;
@@ -146,6 +146,7 @@ const initMaterial = (function () {
       side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
       transparent: true,
+      depthWrite: false,
     });
 
     return material;
@@ -219,6 +220,7 @@ export default class VolumetricFire {
     const material = initMaterial();
 
     this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.frustumCulled = false;
     this.mesh.updateMatrixWorld();
   }
 

@@ -16,6 +16,11 @@ const audioState = window.kaggleWerewolf || {
   audioContextActivated: false,
 };
 
+// Ensure it is globally available as legacy renderer expects it
+if (!window.kaggleWerewolf) {
+  window.kaggleWerewolf = audioState;
+}
+
 export function loadQueueFrom(startIndex) {
   console.debug(`DEBUG: [loadQueueFrom] Loading queue from index: ${startIndex}`);
   if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) {
