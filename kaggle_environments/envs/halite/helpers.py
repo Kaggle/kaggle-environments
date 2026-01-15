@@ -16,7 +16,7 @@ import sys
 from copy import deepcopy
 from enum import Enum, auto
 from functools import wraps
-from typing import *
+from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
 import kaggle_environments.helpers
 from kaggle_environments.helpers import Point, group_by

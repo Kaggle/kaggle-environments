@@ -16,7 +16,7 @@ import json
 from enum import Enum, auto
 from os import path
 from random import choice, sample
-from typing import *
+from typing import List, Tuple
 
 import kaggle_environments.helpers
 from kaggle_environments.helpers import histogram

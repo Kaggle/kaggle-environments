@@ -1,4 +1,4 @@
-from kaggle_environments.helpers import *
+from kaggle_environments.helpers import Configuration, Observation
 
 
 class Observation(Observation):
