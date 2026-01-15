@@ -14,6 +14,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 # Load the Error Codes
 status_path = Path.joinpath(Path(__file__).parent, "status_codes.json")
@@ -25,7 +26,7 @@ for status in codes:
 
 
 class CanonicalError(Exception):
-    def __init__(self, error="", status="UNKNOWN"):
+    def __init__(self, error: str = "", status: str = "UNKNOWN") -> None:
         super().__init__(error)
         if status not in codes:
             status = "UNKNOWN"
@@ -35,85 +36,85 @@ class CanonicalError(Exception):
         self.code = codes[status]["code"]
         self.http_status = codes[status]["status"]
 
-    def toJSON(self):
+    def toJSON(self) -> dict[str, Any]:
         return {"code": self.code, "message": self.message, "status": self.status}
 
 
 class Cancelled(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "CANCELLED")
 
 
 class Unknown(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "UNKNOWN")
 
 
 class InvalidArgument(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "INVALID_ARGUMENT")
 
 
 class DeadlineExceeded(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "DEADLINE_EXCEEDED")
 
 
 class NotFound(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "NOT_FOUND")
 
 
 class AlreadyExists(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "ALREADY_EXISTS")
 
 
 class PermissionDenied(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "PERMISSION_DENIED")
 
 
 class Unauthenticated(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "UNAUTHENTICATED")
 
 
 class ResourceExhausted(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "RESOURCE_EXHAUSTED")
 
 
 class FailedPrecondition(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "FAILED_PRECONDITION")
 
 
 class Aborted(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "ABORTED")
 
 
 class OutOfRange(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "OUT_OF_RANGE")
 
 
 class Unimplemented(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "UNIMPLEMENTED")
 
 
 class Internal(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "INTERNAL")
 
 
 class Unavailable(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "UNAVAILABLE")
 
 
 class DataLoss(CanonicalError):
-    def __init__(self, error=""):
+    def __init__(self, error: str = "") -> None:
         super().__init__(error, "DATA_LOSS")

@@ -32,9 +32,6 @@ from .api import (
     list_episodes_for_team,
 )
 from .core import evaluate, make, register
-from . import errors
-from . import utils
-
 
 __all__ = [
     "Agent",
