@@ -6,7 +6,7 @@ import pickle
 import subprocess
 import sys
 import warnings
-import multiprocessing as mp
+import multiprocessing
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -739,7 +739,9 @@ class GameSetEvaluator:
 
         worker = functools.partial(GameSetEvaluator._compute_elo_ratings_fast, num_agents=num_agents)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(
+            max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")
+        ) as executor:
             results = list(
                 tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="Elo Bootstrap")
             )
@@ -810,7 +812,9 @@ class GameSetEvaluator:
 
         worker = functools.partial(_openskill_bootstrap_worker_fast, num_agents=num_agents, model=self.openskill_model)
 
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor(
+            max_workers=os.cpu_count(), mp_context=multiprocessing.get_context("spawn")
+        ) as executor:
             results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
@@ -1136,7 +1140,7 @@ class GameSetEvaluator:
         matrices_iterator = list(zip(all_means, all_stds))
         
         # Use spawn context to avoid inheriting JAX/XLA state/locks from parent process
-        ctx = mp.get_context("spawn")
+        ctx = multiprocessing.get_context("spawn")
         with ctx.Pool(processes=os.cpu_count()) as pool:
             res = list(tqdm(
                 pool.imap(worker_func, matrices_iterator), 
