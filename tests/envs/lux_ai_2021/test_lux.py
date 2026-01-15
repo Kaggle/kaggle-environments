@@ -1,6 +1,5 @@
 from kaggle_environments import make
-
-from .agents import js_simple_agent, random_agent, simple_agent
+from kaggle_environments.envs.lux_ai_2021.agents import js_simple_agent, random_agent, simple_agent
 
 
 def test_lux_completes():

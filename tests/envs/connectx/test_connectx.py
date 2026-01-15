@@ -19,7 +19,7 @@ env = None
 
 def before_each(state=None, configuration=None):
     global env
-    steps = [] if state == None else [state]
+    steps = [] if state is None else [state]
     env = make("connectx", steps=steps, configuration=configuration, debug=False)
 
 

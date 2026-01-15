@@ -1,6 +1,5 @@
 from kaggle_environments import make
-
-from .helpers import Board, Direction, Fleet, Point, ShipyardAction, board_agent
+from kaggle_environments.envs.kore_fleets.helpers import Board, Direction, Fleet, Point, ShipyardAction, board_agent
 
 
 def test_shipyard_action_class_serialization():

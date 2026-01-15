@@ -13,4 +13,5 @@ def test_load_games():
     input_dir = DIR_PATH / "data" / "w_replace"
     games = loaders.get_games(input_dir)
 
-    game = loaders.GameResult(games[0])
+    # Just check that we can create the object.
+    game = loaders.GameResult(games[0])  # noqa F841
