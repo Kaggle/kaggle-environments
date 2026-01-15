@@ -7,8 +7,7 @@ from absl.testing import absltest
 from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import make
-
-from . import open_spiel_env
+from kaggle_environments.envs.open_spiel_env import open_spiel_env
 
 TEST_REPEATED_POKER_GAME_STRING = open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STRING.replace(
     "calcOddsNumSims=1000000",
