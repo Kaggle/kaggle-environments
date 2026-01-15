@@ -1,12 +1,11 @@
 import argparse
 import functools
 import hashlib
+import multiprocessing
 import os
 import pickle
 import subprocess
 import sys
-import warnings
-import multiprocessing
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -28,7 +27,6 @@ import polarix as plx
 from openskill.models import PlackettLuce
 from plotly.subplots import make_subplots
 from tqdm import tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from kaggle_environments.envs.werewolf.eval.loaders import Agent, Role, Player, _load_game_result
 from kaggle_environments.envs.werewolf.game.consts import Team
