@@ -1,0 +1,86 @@
+# Docker Compose configuration for integration tests
+# Supports both single-container and multi-container test modes
+#
+# Usage:
+#   Single container (all-in-one):
+#     docker-compose run --rm test-runner
+#
+#   Multi-container (orchestrator + agents):
+#     docker-compose up orchestrator agent-1 agent-2
+#
+version: "3.8"
+
+services:
+  # Single container test runner - runs all tests in one container
+  test-runner:
+    image: python-simulations-cpu
+    container_name: kaggle-env-test-runner
+    working_dir: /usr/src/app/kaggle_environments
+    command: >
+      python -m pytest tests/integration -v -s
+      --tb=short
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_HOST=orchestrator
+    networks:
+      - kaggle-net
+
+  # Orchestrator container - runs the simulation environment
+  orchestrator:
+    image: python-simulations-cpu
+    container_name: kaggle-env-orchestrator
+    working_dir: /usr/src/app/kaggle_environments
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+    command: kaggle-environments http-server --port 8080 --host 0.0.0.0 --debug True
+    volumes:
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - kaggle-net
+
+  # Agent containers - can be scaled for multi-agent games
+  agent-1:
+    image: python-simulations-cpu
+    container_name: kaggle-env-agent-1
+    working_dir: /usr/src/app/kaggle_environments
+    depends_on:
+      - orchestrator
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - AGENT_ID=1
+      - AGENT_PORT=8081
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
+    networks:
+      - kaggle-net
+    command: python tests/integration/test_multicontainer.py --serve
+
+  agent-2:
+    image: python-simulations-cpu
+    container_name: kaggle-env-agent-2
+    working_dir: /usr/src/app/kaggle_environments
+    depends_on:
+      - orchestrator
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ORCHESTRATOR_URL=http://orchestrator:8080
+      - AGENT_ID=2
+      - AGENT_PORT=8081
+    volumes:
+      - ../../tests:/usr/src/app/kaggle_environments/tests:ro
+      - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
+    networks:
+      - kaggle-net
+    command: python tests/integration/test_multicontainer.py --serve
+
+networks:
+  kaggle-net:
+    driver: bridge
