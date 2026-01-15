@@ -6,7 +6,6 @@ import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, calculateMatchStats, CardSuit, PlayerStats, suitSVGs } from './components/utils';
-import cssContent from './style.css?inline';
 import {
   Chart,
   LineController,
@@ -20,13 +19,6 @@ import {
 } from 'chart.js';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, Title, CategoryScale, Tooltip, Legend);
-
-// Add property to global window object
-declare global {
-  interface Window {
-    __poker_styles_injected?: boolean;
-  }
-}
 
 /**
  * Interface for the cached DOM elements
@@ -77,33 +69,6 @@ export function renderer(options: LegacyRendererOptions): void {
     stepCounter: null,
     legend: null,
   };
-
-  function _injectStyles(passedOptions: Partial<LegacyRendererOptions>): void {
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    const styleId = 'data-poker-renderer-styles';
-    const parentForStyles =
-      passedOptions && passedOptions.parent ? passedOptions.parent.ownerDocument.head : document.head;
-
-    if (!parentForStyles) {
-      return;
-    }
-
-    // Find the existing style tag
-    let style = parentForStyles.querySelector(`style[${styleId}]`);
-
-    // If it doesn't exist, create it and append it
-    if (!style) {
-      style = document.createElement('style');
-      style.setAttribute(styleId, 'true');
-      parentForStyles.appendChild(style);
-    }
-
-    // 3. ALWAYS update the textContent
-    style.textContent = cssContent;
-  }
 
   function createCardElement(
     cardStr: string | null,
@@ -1177,8 +1142,6 @@ export function renderer(options: LegacyRendererOptions): void {
     console.error('Renderer: Parent element not provided.');
     return;
   }
-
-  _injectStyles(options);
 
   if (!_ensurePokerTableElements(parent)) {
     console.error('Renderer: Failed to ensure poker table elements.');

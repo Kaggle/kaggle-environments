@@ -182,6 +182,9 @@ export const Renderer: FunctionComponent<RendererProps> = ({ replay, step, agent
     const prevBoard = getBoardFromStep(prevStepData, config);
 
     const draw = (frame: number) => {
+      // Reset canvas size before measuring to allow shrinking
+      canvas.width = 0;
+      canvas.height = 0;
       const { width, height } = canvas.getBoundingClientRect();
       canvas.width = width;
       canvas.height = height;

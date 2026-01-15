@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import checker from 'vite-plugin-checker';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 export default defineConfig({
   base: './',
@@ -12,9 +13,16 @@ export default defineConfig({
     port: 5173,
     cors: true,
   },
+  preview: {
+    host: '0.0.0.0',
+    port: 5173,
+    cors: true,
+  },
   plugins: [
     tsconfigPaths(),
     checker({ typescript: true }),
+    // Inject CSS into JS bundle in production builds (matches dev behavior)
+    cssInjectedByJsPlugin(),
     {
       name: 'custom-header-plugin',
       configureServer(server) {

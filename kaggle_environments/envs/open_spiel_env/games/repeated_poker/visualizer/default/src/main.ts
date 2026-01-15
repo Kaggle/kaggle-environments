@@ -1,5 +1,6 @@
 import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
 import { renderer } from './repeated_poker_renderer';
+import './style.css';
 
 const app = document.getElementById('app');
 if (app) {
