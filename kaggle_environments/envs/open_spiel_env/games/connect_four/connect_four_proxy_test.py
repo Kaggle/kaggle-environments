@@ -14,7 +14,7 @@ NUM_COLS = 7
 class ConnectFourTest(parameterized.TestCase):
     def test_game_is_registered(self):
         game = pyspiel.load_game("connect_four_proxy")
-        self.assertIsInstance(game, connect_four.ConnectFourGame)
+        self.assertEqual(game.get_type().short_name, "connect_four_proxy")
 
     def test_random_sim(self):
         game = connect_four.ConnectFourGame()
