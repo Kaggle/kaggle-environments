@@ -264,13 +264,29 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       needsRender = true;
     }
 
+    // Handle external play/pause control
+    // IMPORTANT: Use setPlayingState instead of play()/pause() to avoid starting
+    // the internal tick loop. External controllers manage their own step advancement.
+    if (typeof event.data.playing === 'boolean') {
+      this.setPlayingState(event.data.playing);
+    }
+
     // If any data was updated and we have a replay object, call setData.
+    // Skip tick if external controller is managing playback. We detect this by:
+    // - Internal controls are hidden (showControls === false), OR
+    // - External controller is explicitly setting play state
+    // This preserves auto-play behavior for games using internal controls only.
     if (needsRender && this.replay) {
-      this.setData(this.replay, this.agents);
+      const isExternallyControlled = !this.showControls || typeof event.data.playing === 'boolean';
+      this.setData(this.replay, this.agents, { skipTick: isExternallyControlled });
     }
   };
 
-  private setData(replay: ReplayData<TSteps>, agents: any[] = [], options: { skipRender?: boolean } = {}) {
+  private setData(
+    replay: ReplayData<TSteps>,
+    agents: any[] = [],
+    options: { skipRender?: boolean; skipTick?: boolean } = {}
+  ) {
     // Apply the transformer if one is provided
     const transformedReplay = this.transformer ? this.transformer(replay) : replay;
 
@@ -299,7 +315,10 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     // Only render/tick if not told to skip (e.g., during HMR restore)
     if (!options.skipRender && this.replay) {
       this.adapter.render(this.step, this.replay, this.agents, this);
-      this.tick();
+      // Only start tick loop if not externally controlled
+      if (!options.skipTick) {
+        this.tick();
+      }
     }
   }
 

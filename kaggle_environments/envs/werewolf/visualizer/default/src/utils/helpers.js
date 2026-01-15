@@ -1,3 +1,9 @@
+// Import shared utilities from core package
+import { createNameReplacer, createPlayerCapsule } from '@kaggle-environments/core';
+
+// Re-export core utilities for use by visualizer components
+export { createNameReplacer, createPlayerCapsule };
+
 export function formatTimestamp(isoString) {
     if (!isoString) return '';
     try {
@@ -25,92 +31,12 @@ window.handleThumbnailError = function (img) {
 
   /**
    * Creates a memoized function to replace player IDs with HTML capsules.
-   * This function pre-computes and caches sorted player data for efficiency.
+   * Convenience wrapper around createNameReplacer with 'html' format.
    * @param {Map<string, object>} playerMap - A map from player ID to player object.
    * @returns {function(string): string} A function that takes text and returns it with player IDs replaced.
    */
   export function createPlayerIdReplacer(playerMap) {
-    // Cache for already processed text strings (memoization)
-    const textCache = new Map();
-
-    // --- Pre-computation Cache ---
-    const sortedPlayerReplacements = [...playerMap.keys()]
-      .sort((a, b) => b.length - a.length) // Sort by length to match longest names first
-      .map((playerId) => {
-        const player = playerMap.get(playerId);
-        if (!player) return null;
-
-        return {
-          capsule: createPlayerCapsule(player),
-          // We must double-escape backslashes in the string passed to RegExp
-          regex: new RegExp(`(^|[^\\w.-])(${playerId.replace(/[-\/\\^$*+?.()|[\\]{}]/g, '\\$&')})(\\.?)(?![\\w-])`, 'g'),
-        };
-      })
-      .filter(Boolean);
-
-    return function (text) {
-      if (!text) return '';
-      if (textCache.has(text)) {
-        return textCache.get(text);
-      }
-
-      let newText = text;
-      for (const replacement of sortedPlayerReplacements) {
-        newText = newText.replace(replacement.regex, `$1${replacement.capsule}$3`);
-      }
-
-      textCache.set(text, newText);
-      return newText;
-    };
-  }
-
-  export function createPlayerCapsule(player) {
-    if (!player) return '';
-    const nameToShow = player.display_name || player.name;
-    return `<span class="player-capsule" title="${player.name}">
-        <img src="${player.thumbnail}" class="capsule-avatar" alt="${player.name}" onerror="handleThumbnailError(this)">
-        <span class="capsule-name">${nameToShow}</span>
-    </span>`;
-  }
-
-  export function replacePlayerIdsWithCapsules(text, playerIds, playerMap) {
-    if (!text) return '';
-    if (!playerIds || playerIds.length === 0) {
-      return text;
-    }
-    let newText = text;
-    const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
-
-    sortedPlayerIds.forEach((playerId) => {
-      const player = playerMap.get(playerId);
-      if (player) {
-        const capsule = createPlayerCapsule(player);
-        const escapedPlayerId = playerId.replace(/[-\/\\^$*+?.()|[\\]{}]/g, '\\$&');
-
-        // Using the same improved regex as in the factory function.
-        const regex = new RegExp(`(^|[^\\w.-])(${escapedPlayerId})(\\.?)(?![\\w-])`, 'g');
-
-        // The replacement correctly places the captured prefix ($1) and optional period ($3) around the capsule.
-        newText = newText.replace(regex, `$1${capsule}$3`);
-      }
-    });
-    return newText;
-  }
-
-  export function replacePlayerIdsWithBold(text, playerIds) {
-    if (!text) return '';
-    if (!playerIds || playerIds.length === 0) {
-      return text;
-    }
-    let newText = text;
-    const sortedPlayerIds = [...playerIds].sort((a, b) => b.length - a.length);
-
-    sortedPlayerIds.forEach((playerId) => {
-      // Fix: Escape closing bracket in regex literal and use double backslash for word boundary
-      const regex = new RegExp(`\\b${playerId.replace(/[-\/\\^$*+?.()|[\\]{}/g, '\\$&')}\\b`, 'g');
-      newText = newText.replace(regex, `<strong>${playerId}</strong>`);
-    });
-    return newText;
+    return createNameReplacer(playerMap, 'html');
   }
 
   export function getThreatColor(threatLevel) {

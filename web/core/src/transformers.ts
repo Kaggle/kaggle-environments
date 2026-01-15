@@ -7,6 +7,16 @@ import {
   getConnectFourStepLabel,
 } from './transformers/connect_four/connectFourTransformer';
 import { ConnectFourStep } from './transformers/connect_four/connectFourReplayTypes';
+import {
+  werewolfTransformer,
+  getWerewolfStepLabel,
+  getWerewolfStepDescription,
+} from './transformers/werewolf/werewolfTransformer';
+
+// Re-export utility functions for external use
+export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './transformers/werewolf/nameReplacer';
+export type { PlayerConfig, OutputFormat } from './transformers/werewolf/nameReplacer';
+import { WerewolfStep } from './transformers/werewolf/werewolfReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
 import { RepeatedPokerStep } from './transformers/repeated_poker/v2/poker-steps-types';
 import {
@@ -45,6 +55,9 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
     case 'open_spiel_connect_four':
       transformedSteps = connectFourTransformer(environment);
       break;
+    case 'werewolf':
+      // Werewolf transformer modifies environment in place and adds visualizerData
+      return werewolfTransformer(environment) as any;
     default:
       // If no transformer, return the original environment
       return environment;
@@ -68,6 +81,8 @@ export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): stri
       return getChessStepLabel(gameStep as ChessStep);
     case 'open_spiel_connect_four':
       return getConnectFourStepLabel(gameStep as ConnectFourStep);
+    case 'werewolf':
+      return getWerewolfStepLabel(gameStep as unknown as WerewolfStep);
     default:
       return defaultGetGameStepLabel(gameStep);
   }
@@ -85,6 +100,8 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
       return getChessStepDescription(gameStep as ChessStep);
     case 'open_spiel_connect_four':
       return getConnectFourStepDescription(gameStep as ConnectFourStep);
+    case 'werewolf':
+      return getWerewolfStepDescription(gameStep as unknown as WerewolfStep);
     default:
       return defaultGetGameStepDescription(gameStep);
   }

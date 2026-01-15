@@ -19,6 +19,7 @@ if (!window.werewolfThreeJs) {
     initialized: false,
     world: null,
     players3DInitialized: false,
+    resizeObserver: null,
   };
 }
 const threeState = window.werewolfThreeJs;
@@ -93,7 +94,13 @@ export function renderer(context, parent) {
     'bid_result', 'day_start', 'night_start',
   ]);
 
-  if (!window.werewolfGamePlayer) {
+  // Initialize or update werewolfGamePlayer when visualizerData is available
+  // We check if allEvents length differs to detect when a new replay is loaded
+  const shouldInitPlayer = !window.werewolfGamePlayer ||
+    (environment.visualizerData &&
+     window.werewolfGamePlayer.allEvents?.length !== environment.visualizerData.allEvents?.length);
+
+  if (shouldInitPlayer) {
     if (environment.visualizerData) {
         const vData = environment.visualizerData;
         window.werewolfGamePlayer = {
@@ -149,9 +156,13 @@ export function renderer(context, parent) {
   }
 
   // --- Patch Controls ---
-  if (context.unstable_replayerControls && !window.werewolfControlsPatched) {
-    window.werewolfControlsPatched = true;
-    const playerInstance = context.unstable_replayerControls._replayerInstance;
+  // Track which instance we patched to handle HMR correctly
+  const playerInstance = context.unstable_replayerControls?._replayerInstance;
+  const shouldPatchControls = playerInstance &&
+    window.werewolfPatchedInstance !== playerInstance;
+
+  if (shouldPatchControls) {
+    window.werewolfPatchedInstance = playerInstance;
     const originalSetStep = playerInstance.setStep.bind(playerInstance);
     const originalPlay = playerInstance.play.bind(playerInstance);
     const originalPause = playerInstance.pause.bind(playerInstance);
@@ -208,26 +219,47 @@ export function renderer(context, parent) {
 
   // --- Initialize 3D World ---
   function initThreeJs() {
+    // Get actual dimensions from the parent element for responsive sizing
+    const rect = parent.getBoundingClientRect();
+    const actualWidth = rect.width || width;
+    const actualHeight = rect.height || height;
+
     if (threeState.initialized) {
         // Re-attach canvas if needed (e.g. if parent changed)
         if (threeState.world && threeState.world.sceneManager.renderer.domElement && !parent.contains(threeState.world.sceneManager.renderer.domElement)) {
             parent.appendChild(threeState.world.sceneManager.renderer.domElement);
             parent.appendChild(threeState.world.sceneManager.labelRenderer.domElement);
         }
-        
-        // Handle Resize
-        if (threeState.world && (threeState.world.options.width !== width || threeState.world.options.height !== height)) {
-            threeState.world.resize(width, height);
+
+        // Handle Resize - use actual parent dimensions
+        if (threeState.world && (threeState.world.options.width !== actualWidth || threeState.world.options.height !== actualHeight)) {
+            threeState.world.resize(actualWidth, actualHeight);
         }
         return;
     }
 
     try {
-        threeState.world = new World({ parent, width, height }, ThreeModules);
+        threeState.world = new World({ parent, width: actualWidth, height: actualHeight }, ThreeModules);
         threeState.initialized = true;
-        window.werewolfThreeJs.demo = threeState.world; 
+        window.werewolfThreeJs.demo = threeState.world;
         if (playerNamesFor3D.length > 0 && !threeState.players3DInitialized) {
             setup3DPlayers();
+        }
+
+        // Set up ResizeObserver to handle window/container resize
+        if (!threeState.resizeObserver) {
+            threeState.resizeObserver = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    if (threeState.world && entry.contentRect) {
+                        const newWidth = entry.contentRect.width;
+                        const newHeight = entry.contentRect.height;
+                        if (newWidth > 0 && newHeight > 0) {
+                            threeState.world.resize(newWidth, newHeight);
+                        }
+                    }
+                }
+            });
+            threeState.resizeObserver.observe(parent);
         }
     } catch (err) {
         console.error("Failed to initialize 3D world", err);
@@ -483,7 +515,8 @@ export function renderer(context, parent) {
     }
   }
 
-  Object.assign(parent.style, { width: `${width}px`, height: `${height}px` });
+  // Use CSS-based sizing for responsive behavior instead of fixed pixel dimensions
+  // The .werewolf-parent class uses width: 100%; height: 100%; which works with flexbox
   parent.classList.add('werewolf-parent');
 
   if (!mainContainer) {
