@@ -5,7 +5,7 @@ import json
 import pyspiel
 from absl.testing import absltest, parameterized
 
-from . import connect_four_proxy as connect_four
+from kaggle_environments.envs.open_spiel_env.games.connect_four import connect_four_proxy as connect_four
 
 NUM_ROWS = 6
 NUM_COLS = 7
