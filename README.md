@@ -25,10 +25,12 @@ env.render(mode="ipython")
 
 # Testing Python
 
-To run the  tests locally use `./run_tests.sh`. 
+To run the tests locally use `./run_tests.sh`. 
 - By default this will run tests using uv. This may cause false positives if a required dependency is only provided by the full Docker image.
 - To run all tests in a single container using the full Docker image call `./run_tests.sh --docker`.
 - To run multi-container tests (orchestrator + agents) call `./run_tests.sh --multicontainer`.
+
+If you only want to run a single test script, it may be most convenient to use `uv sync ; uv run pytest <test_file>`.
 
 # Overview
 
