@@ -3,7 +3,7 @@
 import pyspiel
 from absl.testing import absltest, parameterized
 
-from . import proxy
+from kaggle_environments.envs.open_spiel_env import proxy
 
 
 def make_game() -> proxy.Game:
