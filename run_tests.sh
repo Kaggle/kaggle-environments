@@ -109,7 +109,7 @@ elif [ "$USE_DOCKER" = true ]; then
         -e PYTHONUNBUFFERED=1 \
         --workdir /usr/src/app/kaggle_environments \
         python-simulations-cpu \
-        python -m pytest tests/integration/test_envs.py $PYTEST_ARGS
+        python -m pytest tests/ kaggle_environments/ $PYTEST_ARGS
 else
     echo "=============================================="
     echo "Kaggle Environments Tests (Local)"
