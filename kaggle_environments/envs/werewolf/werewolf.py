@@ -615,12 +615,6 @@ def renderer(state, env):
     return "\n\n".join(lines)
 
 
-def html_renderer():
-    js_path = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
-    with open(js_path, encoding="utf-8") as buff:
-        return buff.read()
-
-
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
 with open(jsonpath) as handle:
     specification = json.load(handle)

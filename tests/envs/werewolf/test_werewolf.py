@@ -136,7 +136,6 @@ def test_turn_by_turn_bidding_discussion(agents_config):
     )
     agents = ["random"] * 7
     env.run(agents)
-    env.render(mode="html")
 
 
 @pytest.mark.skip("Slow test, meant for manual testing.")
@@ -161,16 +160,6 @@ def test_default_env():
     env = make("werewolf", debug=True)
     agents = ["random"] * 7
     env.run(agents)
-
-
-def test_html_render(env, tmp_path):
-    agents = ["random"] * 7
-    env.run(agents)
-    content = env.render(mode="html")
-    replay_file = tmp_path / "game_replay.html"
-    with open(replay_file, "w") as handle:
-        handle.write(content)
-    assert replay_file.exists()
 
 
 def test_env_info_not_overwritten(agents_config):
