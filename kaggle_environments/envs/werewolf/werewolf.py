@@ -615,6 +615,10 @@ def renderer(state, env):
     return "\n\n".join(lines)
 
 
+def html_renderer():
+    pass
+
+
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
 with open(jsonpath) as handle:
     specification = json.load(handle)
