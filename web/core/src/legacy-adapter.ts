@@ -60,10 +60,18 @@ export class LegacyAdapter<TSteps = BaseGameStep[]> implements GameAdapter<TStep
     // a better long-term solution here
     const unstable_replayerControls = replayerInstance
       ? {
-          setStep: (newStep: number) => replayerInstance.setStep(newStep),
+          setStep: (newStep: number) => {
+            replayerInstance.setStep(newStep);
+            // Also notify parent frame of step change
+            window.parent.postMessage({ step: newStep }, '*');
+          },
           play: (continuing?: boolean) => replayerInstance.play(continuing),
           pause: () => replayerInstance.pause(),
-          setPlaying: (playing: boolean) => replayerInstance.setPlayingState(playing),
+          setPlaying: (playing: boolean) => {
+            replayerInstance.setPlayingState(playing);
+            // Also notify parent frame of playing state change
+            window.parent.postMessage({ playing }, '*');
+          },
           // Expose current step and playing state for renderer to read
           step: replayerInstance.step,
           playing: replayerInstance.playing,

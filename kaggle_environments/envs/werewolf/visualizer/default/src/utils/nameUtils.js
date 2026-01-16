@@ -1,25 +1,17 @@
+import { disambiguateDisplayNames as disambiguateMap } from '@kaggle-environments/core';
+
 /**
  * Disambiguates display names by appending a counter to duplicates.
- * @param {Array<object>} players - List of player objects.
+ * Wrapper around core function that accepts an array (for visualizer compatibility).
+ * @param {Array<object>} players - List of player objects with name/display_name properties.
  */
 export function disambiguateDisplayNames(players) {
-    const nameCounts = new Map();
-    
-    // First pass: count all display names
-    players.forEach(p => {
-        const name = p.display_name || p.name;
-        nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+    // Convert array to map format expected by core function
+    const playerMap = new Map();
+    players.forEach((p, i) => {
+        playerMap.set(p.name || `player_${i}`, p);
     });
 
-    const currentCounts = new Map();
-
-    // Second pass: append suffix if count > 1
-    players.forEach(p => {
-        const name = p.display_name || p.name;
-        if (nameCounts.get(name) > 1) {
-            const count = (currentCounts.get(name) || 0) + 1;
-            currentCounts.set(name, count);
-            p.display_name = `${name} (${count})`;
-        }
-    });
+    // Use core function - changes are applied in-place to the player objects
+    disambiguateMap(playerMap);
 }

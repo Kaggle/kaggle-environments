@@ -40,11 +40,14 @@ export class UIManager {
     nameText.textContent = displayName || name;
     textDetails.appendChild(nameText);
 
-    // Removed player ID display
-    // const playerIdText = document.createElement('div');
-    // playerIdText.className = 'player-id-3d';
-    // playerIdText.textContent = name;
-    // textDetails.appendChild(playerIdText);
+    // Show character name (e.g., Alex) as subtitle when different from display name
+    // This helps viewers associate character names in reasoning with model names
+    if (displayName && name && displayName !== name) {
+      const characterNameText = document.createElement('div');
+      characterNameText.className = 'player-character-name-3d';
+      characterNameText.textContent = name;
+      textDetails.appendChild(characterNameText);
+    }
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';

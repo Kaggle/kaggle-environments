@@ -6,6 +6,12 @@ export type {
   ConnectFourStep,
   ConnectFourBoardState,
 } from './transformers/connect_four/connectFourReplayTypes';
+export type {
+  WerewolfEvent,
+  WerewolfStep,
+  WerewolfVisualizerData,
+  WerewolfProcessedReplay,
+} from './transformers/werewolf/werewolfReplayTypes';
 export * from './adapter';
 export * from './preact-adapter';
 export * from './legacy-adapter';
