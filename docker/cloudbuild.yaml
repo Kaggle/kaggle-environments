@@ -43,7 +43,7 @@ steps:
     name: "gcr.io/kaggle-images/python-simulations"
     waitFor: ["build-cpu-image"]
     entrypoint: "pytest"
-    args: ["kaggle_environments"]
+    args: ["/workspace/tests", "kaggle_environments"]
 
   - id: "publish-to-pypi"
     name: "python:3.11-slim"
