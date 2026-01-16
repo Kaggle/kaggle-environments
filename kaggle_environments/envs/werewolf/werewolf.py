@@ -616,6 +616,7 @@ def renderer(state, env):
 
 
 def html_renderer():
+    # TODO: fully remove the need for this empty function in a future cleanup pass.
     pass
 
 
