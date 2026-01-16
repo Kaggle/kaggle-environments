@@ -616,9 +616,8 @@ def renderer(state, env):
 
 
 def html_renderer():
-    js_path = path.abspath(path.join(path.dirname(__file__), "werewolf.js"))
-    with open(js_path, encoding="utf-8") as buff:
-        return buff.read()
+    # TODO: fully remove the need for this empty function in a future cleanup pass.
+    pass
 
 
 jsonpath = path.abspath(path.join(path.dirname(__file__), "werewolf.json"))
