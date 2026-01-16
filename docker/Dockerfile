@@ -16,7 +16,6 @@ WORKDIR /usr/src/app/kaggle_environments
 COPY ./pyproject.toml ./pyproject.toml
 COPY ./MANIFEST.in ./MANIFEST.in
 COPY ./kaggle_environments ./kaggle_environments
-COPY ./tests ./tests
 
 # Now that the source code is present, run the installation.
 # This layer is now correctly cached and will only rebuild if the source or pyproject.toml changes.
