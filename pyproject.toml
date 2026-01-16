@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.26.2"
+version = "1.26.3"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
@@ -14,7 +14,7 @@ dependencies = [
     "jax",
     "jsonschema >= 3.0.1",
     "litellm",
-    "numpy >= 2.2.6",
+    "numpy >= 2.0",
     "open_spiel >= 1.6.8",
     "pettingzoo == 1.24.0",
     "pokerkit==0.6.3",
