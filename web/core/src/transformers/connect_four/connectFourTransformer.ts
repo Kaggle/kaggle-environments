@@ -1,9 +1,4 @@
-import {
-  ConnectFourReplay,
-  ConnectFourPlayer,
-  ConnectFourStep,
-  ConnectFourBoardState,
-} from './connectFourReplayTypes';
+import { ConnectFourReplay, ConnectFourPlayer, ConnectFourStep, ConnectFourBoardState } from './connectFourReplayTypes';
 
 function parseBoardState(stateHistoryEntry?: string): ConnectFourBoardState {
   if (!stateHistoryEntry || typeof stateHistoryEntry !== 'string') {
@@ -34,7 +29,7 @@ function parseBoardState(stateHistoryEntry?: string): ConnectFourBoardState {
 }
 
 export function getConnectFourStepLabel(step: ConnectFourStep) {
-  if (step.isTerminal) {
+  if (step.step === 0 || step.isTerminal) {
     return '';
   }
 
@@ -44,6 +39,8 @@ export function getConnectFourStepLabel(step: ConnectFourStep) {
 export function getConnectFourStepDescription(step: ConnectFourStep) {
   if (step.isTerminal) {
     return step.winner ?? '';
+  } else if (step.step === 0) {
+    return 'Game Begins';
   }
 
   return step.players.find((player) => player.isTurn)?.thoughts ?? '';
@@ -74,20 +71,9 @@ export const connectFourTransformer = (environment: any) => {
   const connectFourSteps: ConnectFourStep[] = [];
 
   // Add initial step with empty board
-  // Ensure we always have 2 players even if TeamNames is missing
-  const initialPlayers: ConnectFourPlayer[] = [0, 1].map((index) => ({
-    id: index,
-    name: agents[index] || `Player ${index + 1}`,
-    thumbnail: '',
-    isTurn: false,
-    actionDisplayText: '',
-    thoughts: '',
-    reward: null,
-  }));
-
   connectFourSteps.push({
     step: 0,
-    players: initialPlayers,
+    players: [],
     boardState: parseBoardState(stateHistory[0]), // Initial empty board
     isTerminal: false,
     winner: null,
@@ -99,9 +85,7 @@ export const connectFourTransformer = (environment: any) => {
 
   connectFourReplay.steps.forEach((step) => {
     // Check if this step contains an actual move (submission !== -1)
-    const hasMove = step.some(
-      (player) => player.action?.submission !== undefined && player.action?.submission !== -1
-    );
+    const hasMove = step.some((player) => player.action?.submission !== undefined && player.action?.submission !== -1);
 
     // Skip setup steps that don't have any actual moves
     if (!hasMove) {
@@ -127,16 +111,22 @@ export const connectFourTransformer = (environment: any) => {
     // This ensures the board reflects the state AFTER this step's action
     const boardState = parseBoardState(stateHistory[moveCount]);
 
-    // Check if this is a terminal step
-    const isTerminal = step.some((player) => player.status === 'DONE');
-
     connectFourSteps.push({
       step: moveCount, // 1-indexed since step 0 is initial board
       players: stepPlayers,
       boardState,
-      isTerminal,
-      winner: isTerminal ? deriveWinnerFromRewards(stepPlayers, agents) : null,
+      isTerminal: false,
+      winner: null,
     });
+  });
+
+  // Artificially insert a step at the end to emphasize the win state
+  connectFourSteps.push({
+    step: moveCount,
+    players: [],
+    boardState: connectFourSteps[moveCount].boardState,
+    isTerminal: true,
+    winner: deriveWinnerFromRewards(connectFourSteps[moveCount].players, agents),
   });
 
   return connectFourSteps;
