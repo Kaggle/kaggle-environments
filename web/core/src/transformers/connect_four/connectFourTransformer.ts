@@ -121,15 +121,13 @@ export const connectFourTransformer = (environment: any) => {
   });
 
   // Artificially insert a step at the end to emphasize the win state
-  if (moveCount > 1) {
-    connectFourSteps.push({
-      step: moveCount,
-      players: [],
-      boardState: connectFourSteps[moveCount].boardState,
-      isTerminal: true,
-      winner: deriveWinnerFromRewards(connectFourSteps[moveCount].players, agents),
-    });
-  }
+  connectFourSteps.push({
+    step: moveCount,
+    players: [],
+    boardState: connectFourSteps[moveCount].boardState,
+    isTerminal: true,
+    winner: deriveWinnerFromRewards(connectFourSteps[moveCount].players, agents),
+  });
 
   return connectFourSteps;
 };
