@@ -6,20 +6,28 @@ Uses remote_game_drivers with HTTPClient for protobuf-based agent communication.
 import json
 import os
 
-from kaggle_evaluation.core.relay import HTTPClient
-from remote_game_drivers.shimmy_remote_driver.game_driver import ShimmyGameDriver
+from shimmy.openspiel_compatibility import OpenSpielCompatibilityV0
 
-# Global driver instance (initialized on first interpreter call)
-_driver: ShimmyGameDriver | None = None
-_agent_clients: dict[int, HTTPClient] = {}
+# Global environment instance (initialized on first interpreter call)
+_env: OpenSpielCompatibilityV0 | None = None
 
 
 def random_agent(obs: dict, config: dict) -> int:
-    """Simple random agent for testing."""
+    """Random agent that uses action masking to only select legal moves."""
     import random
 
-    valid_actions = [i for i, cell in enumerate(obs["board"]) if cell == "."]
-    return random.choice(valid_actions) if valid_actions else 0
+    # Get action mask from the global environment
+    if _env is None:
+        return 0
+
+    current_agent = _env.agent_selection
+    action_mask = _env.infos.get(current_agent, {}).get("action_mask", [])
+
+    # Find legal actions (where mask is 1)
+    legal_actions = [i for i, legal in enumerate(action_mask) if legal]
+
+    # Return random legal action
+    return random.choice(legal_actions) if legal_actions else 0
 
 
 agents = {"random": random_agent}
@@ -29,46 +37,45 @@ def interpreter(state, env):
     """
     Main game loop interpreter for Shimmy Tic-Tac-Toe.
 
-    This bridges kaggle-environments state management with remote_game_drivers.
-    Agent communication uses HTTPClient with protobuf serialization.
+    Uses Shimmy's OpenSpielCompatibilityV0 directly for turn-by-turn play.
+    This matches kaggle-environments' interpreter pattern.
     """
-    global _driver, _agent_clients
+    global _env
 
-    # Initialize driver on first call
-    if _driver is None:
-        _driver = ShimmyGameDriver(agent_ids=[0, 1], game_name="openspiel.tic_tac_toe")
-        _driver.start_new_game(game_name="openspiel.tic_tac_toe")
+    # Initialize Shimmy environment on first call
+    if _env is None:
+        import pyspiel
 
-        # Initialize HTTP clients for each agent
-        # Agent URLs should be passed via env.configuration.agent_urls
-        # Format: ['http://agent0:8080', 'http://agent1:8080']
-        agent_urls = getattr(env.configuration, "agent_urls", None)
-        if agent_urls:
-            for i, url in enumerate(agent_urls):
-                _agent_clients[i] = HTTPClient(base_url=url)
+        game = pyspiel.load_game("tic_tac_toe")
+        _env = OpenSpielCompatibilityV0(env=game)
+        _env.reset()
 
     # Game is done
     if env.done:
         return state
 
-    # Determine active/inactive agents
-    active = state[0] if state[0].status == "ACTIVE" else state[1]
-    inactive = state[0] if state[0].status == "INACTIVE" else state[1]
+    # Get current player from PettingZoo AEC API
+    current_os_agent = _env.agent_selection  # "player_0" or "player_1"
 
+    # Map OpenSpiel agent to kaggle-environments index (0 or 1)
+    current_kaggle_id = int(current_os_agent.split("_")[1])
+
+    # Determine active/inactive agents based on current player
+    active = state[current_kaggle_id]
+    inactive = state[1 - current_kaggle_id]
+
+    # Check if both agents are in valid state
     if active.status != "ACTIVE" or inactive.status != "INACTIVE":
-        active.status = "DONE" if active.status == "ACTIVE" else active.status
-        inactive.status = "DONE" if inactive.status == "INACTIVE" else inactive.status
         return state
 
-    # Get current player from driver
-    current_player = _driver.get_current_player()
-
-    # Get observation from driver
-    obs_dict = _driver.get_observation(current_player)
+    # Get observation for current player
+    obs_array = _env.observe(current_os_agent)
 
     # Update kaggle-environments observation
-    active.observation.board = obs_dict.get("observation", {}).get("board", [])
-    active.observation.mark = current_player
+    # OpenSpiel observation is a numpy array: [0, 0, 1, 2, 0, ...]
+    # 0=empty, 1=player 0's mark, 2=player 1's mark
+    active.observation.board = obs_array.tolist() if hasattr(obs_array, "tolist") else list(obs_array)
+    active.observation.mark = current_kaggle_id
 
     # Get action from agent
     action = active.action
@@ -81,9 +88,9 @@ def interpreter(state, env):
         active.reward = -1
         return state
 
-    # Step the driver with the action
+    # Step the environment with the action
     try:
-        _driver.step({current_player: action})
+        _env.step(action)
     except Exception as e:
         active.status = f"Invalid move: {e}"
         inactive.status = "DONE"
@@ -92,15 +99,15 @@ def interpreter(state, env):
         return state
 
     # Check if game is done
-    if _driver.episode_complete:
-        rewards = _driver.get_rewards()
-        state[0].reward = rewards.get(0, 0)
-        state[1].reward = rewards.get(1, 0)
-        state[0].status = "DONE"
-        state[1].status = "DONE"
+    if all(_env.terminations.values()) or all(_env.truncations.values()):
+        # Game complete - assign rewards
+        for os_agent, reward in _env.rewards.items():
+            idx = int(os_agent.split("_")[1])
+            state[idx].reward = reward
+            state[idx].status = "DONE"
         return state
 
-    # Swap active/inactive
+    # Swap active/inactive for next turn
     active.status = "INACTIVE"
     inactive.status = "ACTIVE"
 
@@ -114,9 +121,14 @@ def renderer(state, env):
         return "Game not started"
 
     def format_cell(c):
-        if c == ".":
+        # OpenSpiel format: 0=empty, 1=player 0, 2=player 1
+        if c == 0:
             return " "
-        return c
+        elif c == 1:
+            return "X"
+        elif c == 2:
+            return "O"
+        return str(c)
 
     lines = []
     lines.append("  0 | 1 | 2")

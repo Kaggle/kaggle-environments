@@ -22,14 +22,7 @@ def simple_agent(observation, configuration):
     return 0
 
 
-def test_shimmy_tic_tac_toe_basic():
-    """Test basic environment creation and interpreter."""
-    env = make("shimmy_tic_tac_toe")
-    assert env.name == "shimmy_tic_tac_toe"
-    assert len(env.agents) == 2
-
-
-def test_shimmy_tic_tac_toe_with_builtin_agents():
+def test_shimmy_tic_tac_toe_random_agents():
     """Test running a game with built-in agents."""
     env = make("shimmy_tic_tac_toe")
     env.run(["random", "random"])

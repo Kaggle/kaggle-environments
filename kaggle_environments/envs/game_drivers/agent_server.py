@@ -13,9 +13,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-import kaggle_evaluation.core.generated.kaggle_evaluation_pb2 as kaggle_evaluation_proto
 from flask import Flask, Response, request
-from kaggle_evaluation.core.relay import _deserialize, _serialize
 
 
 def load_agent_function(agent_path: str):
@@ -43,6 +41,10 @@ def load_agent_function(agent_path: str):
 
 def create_agent_server(agent_function, port: int = 8080):
     """Create Flask server that wraps agent function with protobuf serialization."""
+    # Import kaggle_evaluation dependencies lazily
+    import kaggle_evaluation.core.generated.kaggle_evaluation_pb2 as kaggle_evaluation_proto
+    from kaggle_evaluation.core.relay import _deserialize, _serialize
+
     app = Flask(__name__)
 
     @app.route("/<endpoint>", methods=["POST"])
