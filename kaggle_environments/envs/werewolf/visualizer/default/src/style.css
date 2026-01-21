@@ -106,6 +106,10 @@ html, body, #app {
     backdrop-filter: blur(10px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     scale: 0.6;
+    display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
 }
 
 .phase-indicator.day {
@@ -140,7 +144,7 @@ html, body, #app {
 
 .phase-indicator .phase-icon {
     display: inline-block;
-    margin-right: 8px;
+    margin-right: 0;
     font-size: 1.4rem;
     vertical-align: middle;
 }
@@ -743,7 +747,7 @@ html, body, #app {
         left: 10px !important;
         width: 420px !important;
         max-width: calc(100vw - 20px) !important;
-        max-height: calc(100vh - 160px) !important;
+        max-height: calc(100vh - 200px) !important;
         background: #1a1a2e !important;
         z-index: 1000 !important;
         border-radius: 12px !important;
