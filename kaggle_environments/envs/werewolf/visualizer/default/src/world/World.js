@@ -10,7 +10,7 @@ import { PostProcessing } from './Effects/PostProcessing.js';
 import { UIManager } from './UI/UIManager.js';
 import { VoteVisuals } from './Visuals/VoteVisuals.js';
 
-const DEFAULT_CAMERA_POSITION = { x: -18.84, y: 20.27, z: 48.08 };
+const DEFAULT_CAMERA_POSITION = { x: -15.0, y: 18.0, z: 38.5 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 8, z: 0 };
 
 export class World {
@@ -61,7 +61,7 @@ export class World {
     this.sceneManager.renderer.shadowMap.autoUpdate = false;
 
     // Camera setup
-    camera.position.set(-18.84, 20.27, 48.08);
+    camera.position.set(DEFAULT_CAMERA_POSITION.x, DEFAULT_CAMERA_POSITION.y, DEFAULT_CAMERA_POSITION.z);
     this.sceneManager.controls.target.set(0, 8, 0);
     this.sceneManager.controls.enableDamping = true;
     this.sceneManager.controls.dampingFactor = 0.05;
