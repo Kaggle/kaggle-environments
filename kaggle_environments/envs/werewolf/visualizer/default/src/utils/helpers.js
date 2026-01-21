@@ -131,12 +131,8 @@ window.handleThumbnailError = function (img) {
       const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
       // Update content
-      let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`;
-      if (player.display_name && player.display_name !== player.name) {
-        player_name_element = `<div class="player-name" title="${player.name}">
-                ${player.name}<span class="display-name">${player.display_name}</span>
-            </div>`;
-      }
+      const name_to_display = player.display_name || player.name;
+      const player_name_element = `<div class="player-name" title="${player.name}">${name_to_display}</div>`;
 
       li.innerHTML = `
             <div class="avatar-container">
@@ -285,9 +281,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${speaker.name}</span>
-                                    ${speaker.display_name && speaker.name !== speaker.display_name ? `<span class="display-name">${speaker.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${speaker.display_name || speaker.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
@@ -465,9 +460,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${voter.name}</span>
-                                    ${voter.display_name && voter.name !== voter.display_name ? `<span class="display-name">${voter.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${voter.display_name || voter.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
