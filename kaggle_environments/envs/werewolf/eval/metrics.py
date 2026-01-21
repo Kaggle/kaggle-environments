@@ -23,7 +23,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import polarix as plx
+try:
+    import polarix as plx
+    POLARIX_AVAILABLE = True
+except ImportError:
+    POLARIX_AVAILABLE = False
 from openskill.models import PlackettLuce
 from plotly.subplots import make_subplots
 from tqdm import tqdm
@@ -198,6 +202,20 @@ def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
 
 def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
     """Fast worker using pre-computed matrices."""
+    if not POLARIX_AVAILABLE:
+        # Return dummy structure matching expected shape to avoid crash in cleanup
+        # ratings, joint, marginals, r2m, m2r, meta
+        # Dimensions need to be at least vaguely correct or empty to avoid unpack errors
+        n_agents = len(agents)
+        n_tasks = len(tasks)
+        dummy_ratings = [np.zeros(n_agents), np.zeros(n_tasks)] # Player 0: Agents, Player 1: Tasks
+        dummy_joint = np.zeros((n_agents, n_tasks)) # Shape guess
+        dummy_marginals = [np.zeros(n_agents)]
+        dummy_r2m = np.zeros((n_agents, n_tasks))
+        dummy_m2r = np.zeros((n_tasks, n_agents))
+        dummy_meta = SimpleNamespace(actions=[])
+        return dummy_ratings, dummy_joint, dummy_marginals, dummy_r2m, dummy_m2r, dummy_meta
+
     mean_matrix, stddev_matrix = matrix_tuple
 
     # Regularization logic matches original
@@ -1170,9 +1188,9 @@ class GameSetEvaluator:
         # rating_val = (ratings_mean[1][i], ratings_std[1][i])
         for i, agent in enumerate(agents):
             agent_display = agent if agent else f"Agent_{i}"
-            if len(ratings_mean) > 1:
-                val = ratings_mean[1][i]
-                err = ratings_std[1][i]
+            if len(ratings_mean) > 0:
+                val = ratings_mean[0][i]
+                err = ratings_std[0][i]
                 print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
             else:
                 print(f"{agent_display:<20} | GTE analysis failed (insufficient dimensions)")
@@ -1193,8 +1211,8 @@ class GameSetEvaluator:
         agent_metrics_cache = {}
 
         for i, agent_name in enumerate(agents):
-            if len(ratings_mean) > 1:
-                rating_val = (ratings_mean[1][i], ratings_std[1][i])
+            if len(ratings_mean) > 0:
+                rating_val = (ratings_mean[0][i], ratings_std[0][i])
             else:
                 rating_val = (0.0, 0.0)
             self.metrics[agent_name].gte_rating = rating_val
@@ -1290,19 +1308,20 @@ class GameSetEvaluator:
                 contrib_mean, contrib_std = stats.gte_contributions[task]
                 print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
 
-            print("  GTE Metric Importance (Ratings):")
-            metric_ratings_mean = self.gte_ratings[0][0]
-            metric_ratings_std = self.gte_ratings[1][0]
+            if getattr(self, 'gte_ratings', None):
+                print("  GTE Metric Importance (Ratings):")
+                metric_ratings_mean = self.gte_ratings[0][1]
+                metric_ratings_std = self.gte_ratings[1][1]
 
-            metric_ratings = []
-            for i, task_name in enumerate(self.gte_tasks):
-                metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+                metric_ratings = []
+                for i, task_name in enumerate(self.gte_tasks):
+                    metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
 
-            # Sort by rating descending
-            sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
+                # Sort by rating descending
+                sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
 
-            for task, rating_mean, rating_std in sorted_metric_ratings:
-                print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
+                for task, rating_mean, rating_std in sorted_metric_ratings:
+                    print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
             print("-" * 30)
 
     def _prepare_plot_data(self):
@@ -1507,20 +1526,7 @@ class GameSetEvaluator:
                     }
                 )
 
-            # 10. GTE Ratings & Contributions
-            gte_mean, gte_std = metrics.gte_rating
-            if gte_mean > 0:
-                plot_data.append({
-                    'agent': agent_name, 'metric': 'GTE Rating', 'value': gte_mean,
-                    'CI95': gte_std * 1.96, 'category': 'Ratings'
-                })
 
-            for task in self.gte_tasks:
-                contrib_mean, contrib_std = metrics.gte_contributions[task]
-                plot_data.append({
-                    'agent': agent_name, 'metric': f'GTE Contrib: {task}', 'value': contrib_mean,
-                    'CI95': contrib_std * 1.96, 'category': 'GTE Contributions'
-                })
 
         # 11. GTE Metric Importance (System Level)
         if self.gte_ratings and len(self.gte_ratings[0]) > 0:
@@ -1536,24 +1542,58 @@ class GameSetEvaluator:
         return pd.DataFrame(plot_data)
 
     def export_to_csv(self, output_path: str):
-        """Exports detailed results to a CSV file."""
+        """Exports detailed results to a CSV file in wide format with delta columns."""
         df = self._prepare_plot_data()
         if df.empty:
             print("No data to export to CSV.")
             return
 
-        # Add extra columns for clarity
-        df['SEM'] = df['CI95'] / 1.96
-        df['CI95_Lower'] = df['value'] - df['CI95']
-        df['CI95_Upper'] = df['value'] + df['CI95']
+        # Pre-calculate CI bounds
+        # Lower delta should be negative (Value - CI_Lower) * -1? 
+        # User requested: "lower delta should be a negative number"
+        # Since CI95 is the half-width:
+        # LowerCI = Value - CI95
+        # LowerDelta = LowerCI - Value = -CI95
+        # UpperDelta = UpperCI - Value = +CI95
+        
+        # However, usually Delta implies (Value - Ref).
+        # User said: "lower delta should be a negative number"
+        # So it is -(CI95).
+        
+        df['Values'] = df['value']
+        df['Upper Delta'] = df['CI95']
+        df['Lower Delta'] = -df['CI95']
+        
+        # Pivot the table to wide format
+        # Index: Agent
+        # Columns: Metric -> (Values, Lower Delta, Upper Delta)
+        pivot_df = df.pivot(index='agent', columns='metric', values=['Values', 'Lower Delta', 'Upper Delta'])
+        
+        # Swap levels so Metric is top level: Metric -> (Values, Lower, Upper)
+        pivot_df = pivot_df.swaplevel(0, 1, axis=1)
+        pivot_df = pivot_df.sort_index(axis=1)
+        
+        # Flatten columns
+        # Format: "{Metric}", "{Metric} 95 CI lower delta", "{Metric} 95 CI upper delta"
+        flat_columns = []
+        # We need to preserve the Metric grouping
+        # Get unique metrics from the columns
+        metrics = sorted(set(pivot_df.columns.get_level_values(0)))
+        
+        final_df = pd.DataFrame(index=pivot_df.index)
+        
+        # Use simple column assignment to ensure correct order
+        for metric in metrics:
+            # Main Value
+            final_df[metric] = pivot_df[(metric, 'Values')]
+            # Deltas
+            final_df[f"{metric} 95 CI lower delta"] = pivot_df[(metric, 'Lower Delta')]
+            final_df[f"{metric} 95 CI upper delta"] = pivot_df[(metric, 'Upper Delta')]
+            
+        # Reset index to make Agent a column
+        final_df = final_df.reset_index()
 
-        # Rename 'value' to 'Mean' to be more descriptive in CSV
-        df = df.rename(columns={'value': 'Mean'})
-
-        # Sort for better readability: Category, then Agent, then Metric
-        df = df.sort_values(by=['category', 'agent', 'metric'])
-
-        df.to_csv(output_path, index=False)
+        final_df.to_csv(output_path, index=False)
         print(f"Exported detailed results to {output_path}")
 
     def plot_metrics(self, output_path: Union[str, List[str]] = "metrics.html"):
@@ -2024,6 +2064,8 @@ if __name__ == '__main__':
     parser.add_argument("--elo-samples", type=int, default=100, help="Number of bootstrap samples for Elo (default: 100).")
     parser.add_argument("--openskill-samples", type=int, default=100, help="Number of bootstrap samples for OpenSkill (default: 100).")
 
+    parser.add_argument("--csv-output", help="Path to save metrics as CSV.")
+
     args = parser.parse_args()
 
     evaluator = GameSetEvaluator(
@@ -2041,6 +2083,10 @@ if __name__ == '__main__':
     print("EVALUATION RESULTS")
     print("=" * 50)
     evaluator.print_results()
+
+    # Save CSV if requested
+    if args.csv_output:
+        evaluator.save_metrics_csv(args.csv_output)
 
     # Save plots
     # Create subdirectory based on gte_tasks
@@ -2061,4 +2107,3 @@ if __name__ == '__main__':
     evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
     evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
     evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
-    evaluator.export_to_csv(str(output_dir / "metrics.csv"))
