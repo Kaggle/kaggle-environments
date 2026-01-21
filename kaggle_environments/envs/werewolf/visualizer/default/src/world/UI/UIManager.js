@@ -40,14 +40,8 @@ export class UIManager {
     nameText.textContent = displayName || name;
     textDetails.appendChild(nameText);
 
-    // Show character name (e.g., Alex) as subtitle when different from display name
-    // This helps viewers associate character names in reasoning with model names
-    if (displayName && name && displayName !== name) {
-      const characterNameText = document.createElement('div');
-      characterNameText.className = 'player-character-name-3d';
-      characterNameText.textContent = name;
-      textDetails.appendChild(characterNameText);
-    }
+    // Display name is used for the main label.
+    // Technical ID (name) is hidden from viewer as requested.
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
