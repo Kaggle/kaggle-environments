@@ -82,3 +82,12 @@ for name in listdir(utils.envs_path):
     except Exception as e:
         if "football" not in name:
             print("Loading environment %s failed: %s" % (name, e))
+
+# Register game driver environments (Shimmy, PettingZoo, Gymnasium)
+try:
+    from .envs.game_drivers import GAME_DRIVER_ENVS
+
+    for env_name, env_dict in GAME_DRIVER_ENVS.items():
+        register(env_name, env_dict)
+except Exception as e:
+    print("Loading game driver environments failed: %s" % e)
