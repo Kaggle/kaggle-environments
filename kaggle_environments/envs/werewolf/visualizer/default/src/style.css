@@ -701,8 +701,10 @@ html, body, #app {
         gap: 8px !important;
         width: max-content !important;
         max-width: calc(100vw - 20px) !important;
-        background: #0f1419 !important;
-        border: 1px solid var(--panel-border) !important;
+        background: transparent !important;
+            backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
         border-radius: 8px !important;
         pointer-events: auto !important;
         z-index: 1001 !important;
