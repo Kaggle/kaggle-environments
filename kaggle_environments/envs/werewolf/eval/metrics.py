@@ -210,7 +210,7 @@ def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
         n_tasks = len(tasks)
         dummy_ratings = [np.zeros(n_agents), np.zeros(n_tasks)] # Player 0: Agents, Player 1: Tasks
         dummy_joint = np.zeros((n_agents, n_tasks)) # Shape guess
-        dummy_marginals = [np.zeros(n_agents)]
+        dummy_marginals = [np.zeros(n_agents), np.zeros(n_tasks)]
         dummy_r2m = np.zeros((n_agents, n_tasks))
         dummy_m2r = np.zeros((n_tasks, n_agents))
         dummy_meta = SimpleNamespace(actions=[])
@@ -1071,6 +1071,11 @@ class GameSetEvaluator:
                     self.metrics[agent_name].gte_rating = m_cache['gte_rating']
                     self.metrics[agent_name].gte_contributions = m_cache['gte_contributions']
 
+                # Reconstruct gte_game structure for plotting if not in cache (or even if it is, for safety)
+                # It just needs actions [agents, tasks]
+                agents = sorted(list(self.metrics.keys()))
+                self.gte_game = SimpleNamespace(actions=[agents, self.gte_tasks])
+
                 return
             except Exception as e:
                 print(f"Failed to load GTE cache: {e}. Recomputing...")
@@ -1478,7 +1483,7 @@ class GameSetEvaluator:
                     }
                 )
 
-            if POLARIX_AVAILABLE:
+
                 gte_mean, gte_std = metrics.gte_rating
                 plot_data.append(
                     {
@@ -1793,19 +1798,14 @@ class GameSetEvaluator:
         agents = sorted(list(self.metrics.keys()))
         tasks = self.gte_tasks
 
-        ratings_mean = self.gte_ratings[0][1]
-        ratings_std = self.gte_ratings[1][1]
-        metric_ratings_mean = self.gte_ratings[0][0]
-        metric_ratings_std = self.gte_ratings[1][0]
+        ratings_mean = self.gte_ratings[0][0]
+        ratings_std = self.gte_ratings[1][0]
+        
         joint_mean = self.gte_joint[0]
         r2m_contributions_mean = self.gte_contributions_raw[0]
-        m2r_contributions_mean = self.gte_metric_contributions_raw[0]
 
         agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
         sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
-
-        metric_rating_map = {task: metric_ratings_mean[i] for i, task in enumerate(tasks)}
-        sorted_tasks = sorted(tasks, key=lambda x: metric_rating_map[x])
 
         game = self.gte_game
         rating_player = 1
@@ -1842,43 +1842,12 @@ class GameSetEvaluator:
             }
         )
 
-        metric_ratings_df = pd.DataFrame(
-            {"metric": tasks, "rating": metric_ratings_mean, "CI95": metric_ratings_std * 1.96}
-        )
-
-        tasks_actions_grid, agent_actions_grid = np.meshgrid(
-            jnp.arange(len(tasks)),
-            jnp.arange(len(agents)),
-            indexing="ij",
-        )
-
-        metric_data = pd.DataFrame.from_dict(
-            {
-                "metric": [tasks[i] for i in tasks_actions_grid.ravel()],
-                "agent": [agents[i] for i in agent_actions_grid.ravel()],
-                "contrib": m2r_contributions_mean.ravel(),
-            }
-        )
-
         # --- 2. Dynamic Layout Calculation ---
-        n_top = len(agents) + 2
-        n_bottom = len(tasks) + 2
-        total_items = n_top + n_bottom
-
-        h_top = max(0.3, min(0.7, n_top / total_items))
-        h_bottom = 1.0 - h_top
-
+        n_items = len(agents) + 2
+        
         # --- 3. Build Plot ---
-        fig = make_subplots(
-            rows=2,
-            cols=1,
-            row_heights=[h_top, h_bottom],
-            vertical_spacing=0.1,
-            subplot_titles=(
-                "Win Rate Contributions & Equilibrium Ratings",
-                "Metric Importance & Contributions from Agents",
-            ),
-        )
+        # Single plot for Agents
+        fig = go.Figure()
 
         # Contributions
         colors = _get_color_discrete_sequence(len(tasks))
@@ -1894,9 +1863,7 @@ class GameSetEvaluator:
                     legendgrouptitle_text="Metrics",
                     marker_color=colors[i % len(colors)],
                     hovertemplate=f"<b>Metric: {metric}</b><br>Contrib: %{{x:.2%}}<extra></extra>",
-                ),
-                row=1,
-                col=1,
+                ) # No row/col needed for single figure
             )
 
         # Net Rating
@@ -1909,52 +1876,17 @@ class GameSetEvaluator:
                 marker=dict(symbol="diamond", size=12, color="black", line=dict(width=1.5, color="white")),
                 error_x=dict(type="data", array=agent_ratings_df["CI95"], color="black", thickness=2),
                 hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>",
-            ),
-            row=1,
-            col=1,
-        )
-
-        # Task Importance / Metric Ratings
-        colors_agents = _get_color_discrete_sequence(len(agents))
-        for i, agent in enumerate(agents):
-            subset = metric_data[metric_data["agent"] == agent]
-            fig.add_trace(
-                go.Bar(
-                    name=agent,
-                    y=subset["metric"],
-                    x=subset["contrib"],
-                    orientation="h",
-                    legendgroup="agents",
-                    legendgrouptitle_text="Agents",
-                    marker_color=colors_agents[i % len(colors_agents)],
-                    hovertemplate=f"<b>Agent: {agent}</b><br>Contrib: %{{x:.2%}}<extra></extra>",
-                ),
-                row=2,
-                col=1,
             )
-
-        # Net Metric Rating
-        fig.add_trace(
-            go.Scatter(
-                name="Net Metric Rating",
-                y=metric_ratings_df["metric"],
-                x=metric_ratings_df["rating"],
-                mode="markers",
-                marker=dict(symbol="diamond", size=12, color="black", line=dict(width=1.5, color="white")),
-                error_x=dict(type="data", array=metric_ratings_df["CI95"], color="black", thickness=2),
-                hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>",
-                showlegend=False,
-            ),
-            row=2,
-            col=1,
         )
+
+
 
         # --- 4. Layout Formatting ---
         fig.update_layout(
             barmode="relative",
-            height=max(900, total_items * 35),
+            height=max(600, n_items * 40),
             width=1300,
-            title_text=f"Game Theoretic Evaluation Results<br><sup>Total Games: {len(self.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
+            title_text=f"Game Theoretic Evaluation: Agent Ratings<br><sup>Total Games: {len(self.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
             title_font_size=24,
             bargap=0.15,
             legend=dict(yanchor="top", y=1, xanchor="left", x=1.02, orientation="v", tracegroupgap=20),
@@ -1962,34 +1894,114 @@ class GameSetEvaluator:
         )
 
         # Font Sizing
-        fig.update_yaxes(
-            categoryorder="array", categoryarray=sorted_agents, tickfont=dict(size=14, color="#1f2937"), row=1, col=1
-        )
-        fig.update_yaxes(
-            categoryorder="array", categoryarray=sorted_tasks, tickfont=dict(size=14, color="#1f2937"), row=2, col=1
-        )
-
+        fig.update_yaxes(categoryorder="array", categoryarray=sorted_agents, tickfont=dict(size=14, color="#1f2937"))
+        
         fig.update_xaxes(
             tickformat=".0%",
-            title_text="Win Rate Contribution",
+            title_text="Win Rate Contribution (and Net Rating)",
             tickfont=dict(size=14, color="#1f2937"),
             title_font=dict(size=16, color="#111827"),
-            row=1,
-            col=1,
-            gridcolor="#F3F4F6",
-        )
-        fig.update_xaxes(
-            tickformat=".0%",
-            title_text="Contribution to Metric Rating",
-            tickfont=dict(size=14, color="#1f2937"),
-            title_font=dict(size=16, color="#111827"),
-            row=2,
-            col=1,
             gridcolor="#F3F4F6",
         )
         fig.update_yaxes(gridcolor="#F3F4F6")
 
         _save_figure(fig, output_path, width=1300, height=fig.layout.height)
+        return fig
+
+    def plot_gte_metrics_analysis(self, output_path: Union[str, List[str]] = "gte_metrics.html"):
+        """Plots GTE Metric analysis: Weights (Marginals) and Ratings (Payoffs)."""
+        if not hasattr(self, "gte_game") or self.gte_game is None:
+            print("GTE evaluation not run or failed. Skipping metric analysis plot.")
+            return None
+
+        # Unpack Data
+        # Marginals (Weights)
+        metric_weights_mean = self.gte_marginals[0][1]
+        metric_weights_std = self.gte_marginals[1][1]
+        
+        # Ratings (Values)
+        metric_ratings_mean = self.gte_ratings[0][0] # Index 0 for values if using agent_vs_task?
+        # WAIT. In the fix I made earlier:
+        # metric_ratings_mean = self.gte_ratings[0][1]
+        # Let's verify _gte_bootstrap_worker_fast logic.
+        # res.ratings is [agent_ratings, task_ratings].
+        # So yes, index 1 is tasks.
+        metric_ratings_mean = self.gte_ratings[0][1]
+        metric_ratings_std = self.gte_ratings[1][1]
+
+        tasks = self.gte_tasks
+        
+        # Create DataFrames
+        weights_df = pd.DataFrame({
+            "metric": tasks,
+            "weight": metric_weights_mean,
+            "CI95": metric_weights_std * 1.96
+        })
+        
+        ratings_df = pd.DataFrame({
+            "metric": tasks,
+            "rating": metric_ratings_mean,
+            "CI95": metric_ratings_std * 1.96
+        })
+
+        # Sort by Weight for consistency? Or Rating?
+        # User might want to see most important metrics first.
+        weights_df = weights_df.sort_values("weight", ascending=True)
+        sorted_tasks = weights_df["metric"].tolist()
+        
+        # --- Build Plot ---
+        fig = make_subplots(
+            rows=2, cols=1,
+            row_heights=[0.5, 0.5],
+            vertical_spacing=0.15,
+            subplot_titles=("Metric Importance (Marginal Probability / Weight)", "Metric Ratings (Nash Value)")
+        )
+
+        # 1. Weights (Marginals)
+        fig.add_trace(
+            go.Bar(
+                name="Metric Weight",
+                y=weights_df["metric"],
+                x=weights_df["weight"],
+                orientation="h",
+                marker_color="#3b82f6", # Blue
+                error_x=dict(type="data", array=weights_df["CI95"], color="black", thickness=1.5),
+                hovertemplate="<b>%{y}</b><br>Weight: %{x:.4f} ± %{error_x.array:.4f}<extra></extra>"
+            ),
+            row=1, col=1
+        )
+
+        # 2. Ratings (Values)
+        # Align with sorted tasks from weights
+        ratings_df = ratings_df.set_index("metric").reindex(sorted_tasks).reset_index()
+        
+        fig.add_trace(
+            go.Scatter(
+                name="Metric Rating",
+                y=ratings_df["metric"],
+                x=ratings_df["rating"],
+                mode="markers",
+                marker=dict(symbol="diamond", size=10, color="#ef4444", line=dict(width=1, color="white")),
+                error_x=dict(type="data", array=ratings_df["CI95"], color="black", thickness=1.5),
+                hovertemplate="<b>%{y}</b><br>Rating: %{x:.2f} ± %{error_x.array:.2f}<extra></extra>"
+            ),
+            row=2, col=1
+        )
+
+        # Layout
+        fig.update_layout(
+            height=max(800, len(tasks) * 50),
+            width=1000,
+            title_text="GTE Metric Analysis",
+            showlegend=False,
+            font=dict(family="Inter, sans-serif"),
+        )
+        
+        fig.update_yaxes(categoryorder="array", categoryarray=sorted_tasks, tickfont=dict(size=12))
+        fig.update_xaxes(title_text="Marginal Probability", row=1, col=1, gridcolor="#F3F4F6")
+        fig.update_xaxes(title_text="Nash Value (Rating)", row=2, col=1, gridcolor="#F3F4F6")
+
+        _save_figure(fig, output_path, width=1000, height=fig.layout.height)
         return fig
 
     def save_metrics_csv(self, output_path: str = "metrics.csv"):
@@ -2106,4 +2118,5 @@ if __name__ == '__main__':
     print(f"\nSaving plots to {output_dir}...")
     evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
     evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
+    evaluator.plot_gte_metrics_analysis([str(output_dir / "gte_metrics.html"), str(output_dir / "gte_metrics.png")])
     evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
