@@ -690,6 +690,79 @@ html, body, #app {
     }
 }
 
+/* Responsive Layout */
+@media (max-width: 1100px) {
+    .game-scoreboard {
+        top: 60px !important;
+        left: 10px !important;
+        right: auto !important;
+        transform: none !important;
+        padding: 5px 12px !important;
+        gap: 8px !important;
+        width: max-content !important;
+        max-width: calc(100vw - 20px) !important;
+        background: #0f1419 !important;
+        border: 1px solid var(--panel-border) !important;
+        border-radius: 8px !important;
+        pointer-events: auto !important;
+        z-index: 1001 !important;
+    }
+
+    .phase-indicator.day {
+        background: linear-gradient(135deg, #ffdc64, #ffb432) !important;
+        color: #000 !important;
+        opacity: 1 !important;
+    }
+
+    .phase-indicator.night {
+        background: linear-gradient(135deg, #1e1e3c, #3c3c78) !important;
+        color: #fff !important;
+        opacity: 1 !important;
+    }
+
+    .scoreboard-item {
+        padding: 0 5px !important;
+        border-right: 1px solid rgba(116, 185, 255, 0.2) !important;
+    }
+
+    .scoreboard-label {
+        font-size: 0.65rem !important;
+        text-shadow: none !important;
+    }
+
+    .scoreboard-value {
+        font-size: 0.85rem !important;
+        text-shadow: none !important;
+    }
+
+    .event-panel {
+        top: 140px !important;
+        /* Below scoreboard and replayer UI */
+        left: 10px !important;
+        width: 420px !important;
+        max-width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 160px) !important;
+        background: #1a1a2e !important;
+        z-index: 1000 !important;
+        border-radius: 12px !important;
+    }
+
+    .event-panel.collapsed {
+        max-height: 50px !important;
+    }
+
+    .event-panel h1 {
+        padding: 8px 15px 8px 40px !important;
+        font-size: 1.1rem !important;
+        justify-content: flex-start !important;
+    }
+
+    .event-panel h1::before {
+        left: 12px !important;
+        width: 16px !important;
+        height: 16px !important;
+    }
+}
 /* Enhanced Message Bubbles */
 .balloon {
     padding: 14px 16px;
