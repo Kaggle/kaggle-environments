@@ -11,7 +11,7 @@ const audioState = window.kaggleWerewolf || {
   isPaused: false,
   lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
   audioPlayer: new Audio(),
-  playbackRate: 1.6,
+  playbackRate: 1,
   allEvents: null,
   audioContextActivated: false,
 };

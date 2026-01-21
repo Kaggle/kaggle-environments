@@ -647,12 +647,31 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
   if (speedSlider) {
       speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
-        // Use custom event for speed change
-        const event = new CustomEvent('audio-speed', { detail: { rate: newRate } });
-        window.dispatchEvent(event);
-        
+        // Use custom event for speed change (legacy audio-speed)
+        const audioEvent = new CustomEvent('audio-speed', { detail: { rate: newRate } });
+        window.dispatchEvent(audioEvent);
+
+        // Also notify the ReplayVisualizer so it can sync with parent
+        const replayerEvent = new CustomEvent('replayer-speed', { detail: { rate: newRate, fromReplayer: false } });
+        window.dispatchEvent(replayerEvent);
+
         if (speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
       };
+
+      // Listen for speed changes from ReplayVisualizer and sync the slider
+      window.addEventListener('replayer-speed', (e) => {
+        if (e.detail.fromReplayer && speedSlider) {
+          const newRate = e.detail.rate;
+          // Only update if different to avoid loops
+          if (parseFloat(speedSlider.value) !== newRate) {
+            speedSlider.value = newRate.toString();
+            if (speedLabel) speedLabel.textContent = newRate.toFixed(1) + 'x';
+            // Also update the audioState
+            const audioEvent = new CustomEvent('audio-speed', { detail: { rate: newRate } });
+            window.dispatchEvent(audioEvent);
+          }
+        }
+      });
     }
   }
 
