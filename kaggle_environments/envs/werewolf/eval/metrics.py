@@ -1899,11 +1899,11 @@ class GameSetEvaluator:
             return None
 
         # --- 1. Data Preparation ---
-        # Use agents from the GTE game structure if available, as self.metrics.keys() might remain polluted or different
-        # self.gte_game.actions[0] should contain the agents list used for calculation
+        # Use agents from the GTE game structure if available
+        # If rating_player=1 (Agents), we should look at actions[1]
         game = self.gte_game
-        if game and getattr(game, 'actions', None) and len(game.actions) > 0:
-             agents = game.actions[0]
+        if game and getattr(game, 'actions', None) and len(game.actions) > 1:
+             agents = game.actions[1]
         else:
              print("Warning: GTE Game structure missing agent list. Falling back to metrics keys (risky).")
              agents = sorted(list(self.metrics.keys()))
@@ -2039,18 +2039,19 @@ class GameSetEvaluator:
             print("    !!! WARNING: Cannot plot GTE metrics analysis: Metadata actions missing or incomplete.")
             return None
             
-        agents = self.gte_game.actions[0]
-        tasks = self.gte_game.actions[1]
+        # Tasks are Player 0
+        agents = self.gte_game.actions[1]
+        tasks = self.gte_game.actions[0]
         
         # Unpack Data
-        # Marginals (Weights)
+        # Marginals (Weights) - Player 0
         try:
-            metric_weights_mean = self.gte_marginals[0][1]
-            metric_weights_std = self.gte_marginals[1][1]
+            metric_weights_mean = self.gte_marginals[0][0]
+            metric_weights_std = self.gte_marginals[1][0]
             
-            # Ratings (Values)
-            metric_ratings_mean = self.gte_ratings[0][1]
-            metric_ratings_std = self.gte_ratings[1][1]
+            # Ratings (Values) - Player 0
+            metric_ratings_mean = self.gte_ratings[0][0]
+            metric_ratings_std = self.gte_ratings[1][0]
         except (IndexError, TypeError) as e:
             print(f"    !!! WARNING: GTE results structure mismatch in plot: {e}")
             return None
