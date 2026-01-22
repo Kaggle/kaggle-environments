@@ -2252,7 +2252,7 @@ class GameSetEvaluator:
         # 1. Global Stats
         total_games = len(self.games)
         villager_wins = sum(1 for g in self.games if g.winner_team == Team.VILLAGERS)
-        werewolf_wins = sum(1 for g in self.games if g.winner_team == Team.WEREWOLF)
+        werewolf_wins = sum(1 for g in self.games if g.winner_team == Team.WEREWOLVES)
         
         avg_duration = 0
         durations = []
