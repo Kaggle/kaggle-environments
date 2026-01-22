@@ -1244,6 +1244,15 @@ class GameSetEvaluator:
         ratings, joints, marginals, r2m_contributions, m2r_contributions, games = zip(*res)
         self.gte_game = games[0]  # Save one game instance for structure
 
+        # --- CRITICAL FIX: Update agents list to match what the solver actually used ---
+        # If the solver filtered out agents (e.g. all NaNs), we must update our local 'agents' list
+        # to match the returned ratings dimensions.
+        if self.gte_game and getattr(self.gte_game, 'actions', None) and len(self.gte_game.actions) > 0:
+            solver_agents = self.gte_game.actions[0]
+            if len(solver_agents) != len(agents):
+                print(f"!!! Solver dropped {len(agents) - len(solver_agents)} agents (insufficient data). Syncing agent list...")
+                agents = solver_agents
+
         ratings_mean = [np.mean(r, axis=0) for r in zip(*ratings)]
         ratings_std = [np.std(r, axis=0) for r in zip(*ratings)]
 
