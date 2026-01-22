@@ -412,6 +412,33 @@ class GameSetEvaluator:
                     if file.endswith(".json"):
                         game_files.append(os.path.join(root, file))
 
+        # Setup GTE Tasks (moved up for cache key)
+        roles = ["Doctor", "Seer", "Villager", "Werewolf"] # Hardcoded common roles if games aren't loaded yet? 
+        # Actually we can't fully know roles if games aren't loaded, but 'gte_tasks' logic usually uses strings.
+        # If 'gte_tasks' == 'non_win_dependent', it relies on 'roles'.
+        # But 'roles' was derived from games: roles = sorted(list(set(p.role.name for g in self.games...)))
+        # This creates a dependency: Load Games -> Know Roles -> Define Tasks
+        # But Cache Key needs Tasks -> Load Games (from cache).
+        # Catch-22 if we depend on dynamic roles from games.
+        
+        # However, usually roles are standard.
+        # Let's defer strict Role dependency or default it?
+        # The default 'win_dependent' uses hardcoded strings.
+        
+        # If gte_tasks is 'non_win_dependent', it needs roles.
+        # The previous code derived roles from self.games AFTER loading.
+        # If loading from cache, self.games is populated.
+        # If NOT loading from cache, self.games is empty initially.
+        
+        # We can calculate 'tasks_hash' based on the 'gte_tasks' ARGUMENT string/list initially.
+        # If it's a string like "win_dependent", that string is enough for the key?
+        # YES. Because if "win_dependent" maps to a specific list, that mapping is static code (unless code changes, which git_hash covers... mostly).
+        # But if we change the mapping in code without commit, git_hash misses it.
+        # But we can't expand "non_win_dependent" without games if it depends on games.
+        
+        # Compromise: Add str(gte_tasks) to cache key.
+        # This covers the switch between "win_dependent" and "role_win_rates".
+        
         # Caching logic
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -419,8 +446,14 @@ class GameSetEvaluator:
         # Calculate cache key
         self.git_hash = _get_git_hash()
         self.input_hash = _get_input_hash(game_files)
-        # We also need to consider preserve_full_game_records in the cache key
-        cache_key = f"{self.git_hash}_{self.input_hash}_{preserve_full_game_records}.pkl"
+        # We also need to consider preserve_full_game_records and gte_tasks in the cache key
+        cache_key = f"{self.git_hash}_{self.input_hash}_{preserve_full_game_records}_{str(gte_tasks)}.pkl"
+        # Sanitize cache_key (it might be too long or contain bad chars if gte_tasks is a long list)
+        if len(cache_key) > 255 or "[" in cache_key:
+             # Use hash for the tail if too long/complex
+             tasks_hash = hashlib.md5(str(gte_tasks).encode()).hexdigest()
+             cache_key = f"{self.git_hash}_{self.input_hash}_{preserve_full_game_records}_{tasks_hash}.pkl"
+            
         cache_path = self.cache_dir / cache_key
 
         loaded_from_cache = False
@@ -432,6 +465,10 @@ class GameSetEvaluator:
                     self.games = pickle.load(f)
                 loaded_from_cache = True
                 print(f"Successfully loaded {len(self.games)} games from cache.")
+                
+                # Reconstruct gte_game structure for plotting if not in cache (or even if it is, for safety)
+                # It just needs actions [agents, tasks]
+                # Note: self.metrics isn't populated yet, doing it later.
             except Exception as e:
                 print(f"Failed to load cache: {e}. Reloading games...")
 
@@ -493,7 +530,9 @@ class GameSetEvaluator:
         self.gte_contributions_raw = None
         self.gte_metric_contributions_raw = None
 
-        roles = sorted(list(set(p.role.name for g in self.games for p in g.players)))
+        # Determine roles for task generation (fallback to defaults if no games loaded yet? No, we have games now)
+        roles = sorted(list(set(p.role.name for g in self.games for p in g.players))) if self.games else ["Doctor", "Seer", "Villager", "Werewolf"]
+        
         if gte_tasks == "win_dependent":
             self.gte_tasks = [
                 "WinRate-Doctor",
