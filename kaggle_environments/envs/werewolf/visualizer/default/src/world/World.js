@@ -70,8 +70,8 @@ export class World {
     this.sceneManager.controls.enableDamping = true;
     this.sceneManager.controls.dampingFactor = 0.05;
     this.sceneManager.controls.minDistance = 20;
-    this.sceneManager.controls.maxDistance = 150;
-    this.sceneManager.controls.maxPolarAngle = Math.PI * 0.6;
+    this.sceneManager.controls.maxDistance = 100;
+    this.sceneManager.controls.maxPolarAngle = Math.PI * 0.52;
     this.sceneManager.controls.update();
 
     // Debug: Log camera position when user stops moving it
