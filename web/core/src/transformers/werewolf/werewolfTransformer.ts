@@ -1,5 +1,6 @@
 import { WerewolfEvent, WerewolfPlayer, WerewolfProcessedReplay, WerewolfStep } from './werewolfReplayTypes';
 import { createNameReplacer, disambiguateDisplayNames } from './nameReplacer';
+import { BaseGameStep, ReplayMode } from '../../types';
 
 // Re-export for external use
 export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './nameReplacer';
@@ -308,4 +309,36 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   };
 
   return processedReplay as WerewolfProcessedReplay;
+};
+
+// Custom constants for Werewolf playback speed
+const WEREWOLF_STEP_DURATION = 1000;
+const WEREWOLF_TIME_PER_CHUNK = 150; // 150ms per text chunk (reading speed)
+
+export const getWerewolfStepRenderTime = (
+  gameStep: BaseGameStep,
+  replayMode: ReplayMode,
+  speedModifier: number
+): number => {
+  // Example: if we're at 2x speed, we want the render time to be half as long
+  const multiplier = 1 / speedModifier;
+
+  let currentPlayer = gameStep.players?.find(p => p.isTurn) || {
+    id: -1,
+    name: 'System',
+    thumbnail: '',
+    isTurn: false,
+    thoughts: '',
+  };
+
+  // If we should be streaming reasoning, we want the total render time to
+  // account for how long it takes each token to be displayed
+  if (replayMode !== 'condensed') {
+    if (currentPlayer.thoughts) {
+      const chunks = currentPlayer.thoughts.split(' ');
+      return chunks.length * WEREWOLF_TIME_PER_CHUNK * multiplier;
+    }
+  }
+
+  return WEREWOLF_STEP_DURATION * multiplier;
 };
