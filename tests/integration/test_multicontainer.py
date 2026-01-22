@@ -138,6 +138,12 @@ class TestMultiContainerEpisodes:
         """
         assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
 
+        # Load agents on agent containers first
+        # The agent path is relative to the container's working directory
+        agent_path = "tests/envs/remote_game_drivers/test_agent.py"
+        for host in ["agent-1", "agent-2"]:
+            assert load_agent_on_server(host, 8081, agent_path, "shimmy_tic_tac_toe"), f"Failed to load agent on {host}"
+
         # Request to start an episode with HTTP URL agents
         # The shimmy_tic_tac_toe interpreter will create ProtobufAgent instances
         request_data = {

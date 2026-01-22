@@ -33,14 +33,26 @@ def calculate_request_timeout(observation: Any, configuration: Any, buffer_secon
     """Calculate timeout for remote agent requests.
 
     Args:
-        observation: Environment observation with remainingOverageTime
-        configuration: Environment configuration with actTimeout
+        observation: Environment observation (may have remainingOverageTime)
+        configuration: Environment configuration (may have actTimeout)
         buffer_seconds: Additional buffer time to add (default 1.0)
 
     Returns:
         Timeout in seconds
     """
-    return float(observation.remainingOverageTime) + float(configuration.actTimeout) + buffer_seconds
+    # Get remainingOverageTime from observation (dict or object)
+    if isinstance(observation, dict):
+        remaining = observation.get("remainingOverageTime", 60)
+    else:
+        remaining = getattr(observation, "remainingOverageTime", 60)
+
+    # Get actTimeout from configuration (dict or object)
+    if isinstance(configuration, dict):
+        act_timeout = configuration.get("actTimeout", 5)
+    else:
+        act_timeout = getattr(configuration, "actTimeout", 5)
+
+    return float(remaining) + float(act_timeout) + buffer_seconds
 
 
 @runtime_checkable

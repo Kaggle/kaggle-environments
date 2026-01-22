@@ -54,6 +54,9 @@ PROJECT_ROOT = os.path.abspath(os.path.join("..", _script_dir))
 # Register Environments.
 
 for name in listdir(utils.envs_path):
+    # Skip game_drivers - it's handled separately below
+    if name == "game_drivers":
+        continue
     try:
         env = import_module(f".envs.{name}.{name}", __name__)
         if name == "open_spiel_env":
