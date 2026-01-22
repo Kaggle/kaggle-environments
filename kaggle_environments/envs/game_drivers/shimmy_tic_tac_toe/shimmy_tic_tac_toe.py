@@ -19,9 +19,8 @@ from remote_game_drivers.core.base_classes import KaggleAgentId
 from remote_game_drivers.shimmy_remote_driver.game_driver import OpenSpielGameDriver
 from remote_game_drivers.shimmy_remote_driver.remote_agent import RandomAgent, RemoteAgent
 
-# Global state
-_game_complete: bool = False
-_results: dict[KaggleAgentId, float | int] = {}
+# Per-environment state tracking (keyed by env id to avoid test pollution)
+_env_state: dict[int, dict] = {}
 
 
 def random_agent(obs: dict, config: dict) -> int:
@@ -63,32 +62,49 @@ class KaggleCallableAgent(RemoteAgent):
         return result["action"]
 
 
+def _is_http_url(s: Any) -> bool:
+    """Check if a string is an HTTP/HTTPS URL."""
+    if not isinstance(s, str):
+        return False
+    return s.startswith("http://") or s.startswith("https://")
+
+
 def _get_agent_instances(env) -> list[RemoteAgent]:
     """Get RemoteAgent instances for the agents passed to env.run().
 
     Supports:
     - "random" -> RandomAgent()
+    - HTTP URL string -> ProtobufAgent wrapped as KaggleCallableAgent
     - Callable -> KaggleCallableAgent wrapper
     - ProtobufAgent -> KaggleCallableAgent wrapper (it's already callable)
+
+    Raises:
+        ValueError: If no agents were provided or an unsupported agent type is encountered.
     """
+    from kaggle_environments.envs.game_drivers.protobuf_agent import ProtobufAgent
+
     # Check if agent info was stored on env.info
     agent_specs = env.info.get("_agent_specs", [])
 
     if not agent_specs:
-        # Fallback: use RandomAgent for all players
-        num_agents = len(env.state)
-        return [RandomAgent() for _ in range(num_agents)]
+        raise ValueError("No agents provided. Agents must be passed to env.run() for game driver environments.")
 
     agent_instances = []
-    for spec in agent_specs:
+    for i, spec in enumerate(agent_specs):
         if spec == "random":
             agent_instances.append(RandomAgent())
+        elif _is_http_url(spec):
+            # HTTP URL string - create ProtobufAgent and wrap it
+            protobuf_agent = ProtobufAgent(spec)
+            agent_instances.append(KaggleCallableAgent(protobuf_agent, dict(env.configuration)))
         elif callable(spec):
             # Wrap callable agent (including ProtobufAgent)
             agent_instances.append(KaggleCallableAgent(spec, dict(env.configuration)))
         else:
-            # Unknown agent type - use random as fallback
-            agent_instances.append(RandomAgent())
+            raise ValueError(
+                f"Unsupported agent type for agent {i}: {type(spec).__name__}. "
+                f"Expected 'random', HTTP URL string, or callable."
+            )
 
     return agent_instances
 
@@ -117,9 +133,8 @@ def _run_game_with_driver(agent_instances: list, episode_steps: int | None = Non
             "agent_ids": list(agent_ids),
             "game_config": {},
         }
-        # Pass episode steps limit if provided
-        if episode_steps is not None:
-            driver_config["game_config"]["max_steps"] = episode_steps
+        # Note: episodeSteps is not currently used for OpenSpiel games
+        # OpenSpiel games have their own termination conditions
 
         driver = OpenSpielGameDriver(driver_config=driver_config, relay_clients=relay_clients)
         results = driver.run_game(game_name="tic_tac_toe")
@@ -142,10 +157,23 @@ def interpreter(state, env):
 
     Supports custom agents passed to env.run() via env.info["_agent_specs"].
     """
-    global _game_complete, _results
+    global _env_state
+
+    # Use env id to track state per environment instance (avoids test pollution)
+    env_id = id(env)
+    if env_id not in _env_state:
+        _env_state[env_id] = {"complete": False, "results": {}}
+
+    env_data = _env_state[env_id]
 
     # If game already complete, just return final state
-    if _game_complete:
+    if env_data["complete"]:
+        return state
+
+    # Check if agents have been set (happens in env.run(), not env.reset())
+    # If not set yet, this is just the initial state setup - return unchanged
+    agent_specs = env.info.get("_agent_specs", [])
+    if not agent_specs:
         return state
 
     # Get agent instances based on what was passed to env.run()
@@ -155,11 +183,12 @@ def interpreter(state, env):
     episode_steps = getattr(env.configuration, "episodeSteps", None)
 
     try:
-        _results = _run_game_with_driver(agent_instances, episode_steps)
-        _game_complete = True
+        results = _run_game_with_driver(agent_instances, episode_steps)
+        env_data["complete"] = True
+        env_data["results"] = results
 
         # Map results to kaggle-environments state
-        for agent_id, reward in _results.items():
+        for agent_id, reward in results.items():
             # agent_id is like "agent_0", "agent_1"
             idx = int(str(agent_id).split("_")[1])
             state[idx].reward = reward
@@ -171,7 +200,7 @@ def interpreter(state, env):
         for i in range(len(state)):
             state[i].status = f"ERROR: {e}"
             state[i].reward = 0
-        _game_complete = True
+        env_data["complete"] = True
         return state
 
 
