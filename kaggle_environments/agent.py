@@ -19,7 +19,7 @@ import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from time import perf_counter
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Protocol, Tuple, runtime_checkable
 from urllib.parse import urlparse
 
 import requests
@@ -27,6 +27,21 @@ from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
+
+
+@runtime_checkable
+class RemoteAgentProtocol(Protocol):
+    """Protocol for remote agents (URL-based or protobuf-based).
+
+    Remote agents communicate with external servers to get actions.
+    They must be callable with (observation, configuration) -> action.
+    """
+
+    raw: str  # Original URL/spec
+
+    def __call__(self, observation: Any, configuration: Any) -> Any:
+        """Get action from remote agent."""
+        ...
 
 
 def is_url(url: str) -> bool:

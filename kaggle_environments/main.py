@@ -278,19 +278,26 @@ def action_http(args: Any) -> None:
     app.run(args.host, args.port, debug=args.debug, use_reloader=args.debug)
 
 
-def http_request(request: Any) -> tuple[str | dict[str, Any], int, dict[str, str]]:
+def http_request(request: Any) -> tuple[str | dict[str, Any] | bytes, int, dict[str, str]]:
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for an 3600s
         headers = {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "GET, POST",
             "Access-Control-Allow-Headers": "Content-Type",
             "Access-Control-Max-Age": "3600",
         }
 
         return "", 204, headers
+
+    # Check if this is a protobuf request
+    content_type = request.headers.get("Content-Type", "")
+    is_protobuf = "application/x-protobuf" in content_type
+
+    if is_protobuf:
+        return http_request_protobuf(request)
 
     headers = {"Access-Control-Allow-Origin": "*"}
     params = request.args.to_dict()
@@ -321,6 +328,85 @@ def http_request(request: Any) -> tuple[str | dict[str, Any], int, dict[str, str
 
     resp = action_handler(args)
     return resp, 200, headers
+
+
+def http_request_protobuf(request: Any) -> tuple[bytes, int, dict[str, str]]:
+    """Handle protobuf-encoded requests from ProtobufAgent/HTTPClient.
+
+    This enables the same http-server to support both UrlAgent (JSON) and
+    ProtobufAgent (protobuf) clients.
+    """
+    from flask import Response
+
+    try:
+        import kaggle_evaluation.core.generated.kaggle_evaluation_pb2 as kaggle_evaluation_proto
+        from kaggle_evaluation.core.relay import _deserialize, _serialize
+    except ImportError as e:
+        # Return error if kaggle_evaluation is not available
+        return json.dumps({"error": f"Protobuf support requires kaggle_evaluation: {e}"}), 500, {}
+
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/x-protobuf",
+    }
+
+    try:
+        # Parse protobuf request
+        request_proto = kaggle_evaluation_proto.KaggleEvaluationRequest()
+        request_proto.ParseFromString(request.data)
+
+        # Deserialize arguments
+        args_list = [_deserialize(arg) for arg in request_proto.args]
+        kwargs = {key: _deserialize(value) for key, value in request_proto.kwargs.items()}
+
+        # The endpoint name tells us what action to take
+        endpoint = request_proto.name
+
+        if endpoint == "process_turn":
+            # This is an agent action request
+            # args are (observation, configuration)
+            if len(args_list) >= 2:
+                observation, _configuration = args_list[0], args_list[1]
+            else:
+                observation = args_list[0] if args_list else kwargs.get("observation", {})
+                _configuration = kwargs.get("configuration", {})
+
+            # Get the cached agent and call it directly (bypass Agent.act to avoid structify)
+            global cached_agent
+            if cached_agent is None:
+                result = {"error": "No agent loaded. Use 'act' action first to load an agent."}
+            else:
+                # Call the underlying agent function directly with plain dict
+                # This avoids structify and other Agent.act overhead
+                try:
+                    action = cached_agent.agent(observation, cached_agent.configuration)
+                    if isinstance(action, errors.DeadlineExceeded):
+                        action = "DeadlineExceeded"
+                    elif isinstance(action, BaseException):
+                        action = "BaseException::" + str(action)
+                    result = {"action": action}
+                except Exception as e:
+                    result = {"error": str(e)}
+        else:
+            result = {"error": f"Unknown protobuf endpoint: {endpoint}"}
+
+        # Serialize response
+        response_proto = kaggle_evaluation_proto.KaggleEvaluationResponse(payload=_serialize(result))
+
+        return Response(
+            response_proto.SerializeToString(), status=200, headers=headers, mimetype="application/x-protobuf"
+        )
+
+    except Exception as e:
+        # Return error as protobuf
+        try:
+            error_proto = kaggle_evaluation_proto.KaggleEvaluationResponse(payload=_serialize({"error": str(e)}))
+            return Response(
+                error_proto.SerializeToString(), status=500, headers=headers, mimetype="application/x-protobuf"
+            )
+        except Exception:
+            # Fallback to JSON error if protobuf serialization fails
+            return json.dumps({"error": str(e)}), 500, headers
 
 
 def main() -> int | None:

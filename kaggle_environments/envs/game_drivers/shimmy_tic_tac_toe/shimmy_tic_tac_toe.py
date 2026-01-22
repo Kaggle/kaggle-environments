@@ -76,7 +76,6 @@ def _get_agent_instances(env) -> list[RemoteAgent]:
     - "random" -> RandomAgent()
     - HTTP URL string -> ProtobufAgent wrapped as KaggleCallableAgent
     - Callable -> KaggleCallableAgent wrapper
-    - ProtobufAgent -> KaggleCallableAgent wrapper (it's already callable)
 
     Raises:
         ValueError: If no agents were provided or an unsupported agent type is encountered.
@@ -94,11 +93,11 @@ def _get_agent_instances(env) -> list[RemoteAgent]:
         if spec == "random":
             agent_instances.append(RandomAgent())
         elif _is_http_url(spec):
-            # HTTP URL string - create ProtobufAgent and wrap it
-            protobuf_agent = ProtobufAgent(spec)
+            # HTTP URL string - create ProtobufAgent (uses protobuf, posts to /)
+            protobuf_agent = ProtobufAgent(spec, environment_name="shimmy_tic_tac_toe")
             agent_instances.append(KaggleCallableAgent(protobuf_agent, dict(env.configuration)))
         elif callable(spec):
-            # Wrap callable agent (including ProtobufAgent)
+            # Wrap callable agent
             agent_instances.append(KaggleCallableAgent(spec, dict(env.configuration)))
         else:
             raise ValueError(
