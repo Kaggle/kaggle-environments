@@ -12,11 +12,10 @@
         "runTimeout": 1200
     },
     "reward": {
-        "description": "Lost:-1, Won:1, Draw:0",
-        "enum": [
-            -1,
-            0,
-            1
+        "description": "Game reward from OpenSpiel (varies by game)",
+        "type": [
+            "number",
+            "null"
         ],
         "default": 0
     },
@@ -26,9 +25,38 @@
             "type": "array",
             "shared": true,
             "items": {
-                "type": "string"
+                "type": "integer"
             },
-            "default": []
+            "default": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ]
+        },
+        "legalActions": {
+            "description": "List of legal action indices (0-8)",
+            "type": "array",
+            "shared": true,
+            "items": {
+                "type": "integer"
+            },
+            "default": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+            ]
         },
         "mark": {
             "defaults": [
