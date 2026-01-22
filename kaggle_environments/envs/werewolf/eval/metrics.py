@@ -1334,10 +1334,9 @@ class GameSetEvaluator:
             print(f"Failed to save GTE cache: {e}")
 
     def print_results(self):
-        # [Keep original code]
-        sorted_metrics = sorted(self.metrics.values(), key=lambda m: m.agent_name)
-        for stats in sorted_metrics:
-            print(f"Agent: {stats.agent_name}")
+        sorted_items = sorted(self.metrics.items(), key=lambda item: item[0])
+        for agent_name, stats in sorted_items:
+            print(f"Agent: {agent_name}")
             win_rate, win_std = stats.get_win_rate()
             print(f"  Overall Win Rate: {win_rate:.2f} ± {win_std * 1.96:.2f} (CI95) ({len(stats.wins)} games)")
             ksr, ksr_std = stats.get_ksr()
@@ -2347,9 +2346,6 @@ if __name__ == '__main__':
     # Run evaluation
     evaluator.evaluate(gte_samples=args.gte_samples, elo_samples=args.elo_samples, openskill_samples=args.openskill_samples)
 
-    print("\n" + "=" * 50)
-    print("EVALUATION RESULTS")
-    print("=" * 50)
     print("\n" + "=" * 50)
     print("EVALUATION RESULTS")
     print("=" * 50)
