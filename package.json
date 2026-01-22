@@ -10,6 +10,8 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "pnpm": "^9.0.0",
     "postcss-styled-syntax": "^0.7.1",
     "prettier": "^3.6.2",
