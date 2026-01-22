@@ -1,5 +1,5 @@
-import * as React from "react";
+import { FunctionComponent } from "preact";
 
-export const ReasoningLogs: React.FC = () => {
+export const ReasoningLogs: FunctionComponent = () => {
   return <div>Hello world!</div>;
 };

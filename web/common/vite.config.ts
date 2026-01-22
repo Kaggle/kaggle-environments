@@ -5,6 +5,13 @@ import dts from 'vite-plugin-dts';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [dts()],
+  resolve: {
+    alias: {
+      react: 'preact/compat',
+      'react-dom': 'preact/compat',
+      'react/jsx-runtime': 'preact/jsx-runtime',
+    },
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
@@ -14,10 +21,10 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       external: [
-        'react',
-        'react-dom',
-        'react/jsx-runtime',
-        'react-router',
+        'preact',
+        'preact/compat',
+        'preact/jsx-runtime',
+        'preact/hooks',
         'styled-components',
         '@mui/material',
         '@mui/material/useMediaQuery',
@@ -26,10 +33,10 @@ export default defineConfig({
       ],
       output: {
         globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM',
-          'react/jsx-runtime': 'jsxRuntime',
-          'react-router': 'ReactRouter',
+          preact: 'preact',
+          'preact/compat': 'preactCompat',
+          'preact/jsx-runtime': 'preactJsxRuntime',
+          'preact/hooks': 'preactHooks',
           'styled-components': 'styled',
           '@mui/material': 'MaterialUI',
           '@mui/material/useMediaQuery': 'useMediaQuery',
