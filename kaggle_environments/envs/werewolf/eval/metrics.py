@@ -1267,20 +1267,20 @@ class GameSetEvaluator:
         header = f"{'Agent':<20} | {'GTE Win Rate':<25}"
         print(header)
         print("-" * len(header))
-        # ratings_mean[1] is the Nash win rate (index 1 is the player dimension in this case?)
+                # ratings_mean[1] is the Nash win rate (index 1 is the player dimension in this case?)
         # Actually it depends on how many players. In Werewolf it's usually 2 perspectives.
         # But let's look at how gte_rating is stored below.
         # rating_val = (ratings_mean[1][i], ratings_std[1][i])
         for i, agent in enumerate(agents):
             agent_display = agent if agent else f"Agent_{i}"
-            if len(ratings_mean) > 0:
+            if len(ratings_mean) > 1:
                 # Safety check for index out of bounds
-                if i < len(ratings_mean[0]):
-                    val = ratings_mean[0][i]
-                    err = ratings_std[0][i]
+                if i < len(ratings_mean[1]):
+                    val = ratings_mean[1][i]
+                    err = ratings_std[1][i]
                     print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
                 else:
-                    print(f"{agent_display:<20} | Error: Index {i} out of bounds for ratings size {len(ratings_mean[0])}")
+                    print(f"{agent_display:<20} | Error: Index {i} out of bounds for ratings size {len(ratings_mean[1])}")
             else:
                 print(f"{agent_display:<20} | GTE analysis failed (insufficient dimensions)")
         print("-" * len(header))
@@ -1300,8 +1300,8 @@ class GameSetEvaluator:
         agent_metrics_cache = {}
 
         for i, agent_name in enumerate(agents):
-            if len(ratings_mean) > 0:
-                rating_val = (ratings_mean[0][i], ratings_std[0][i])
+            if len(ratings_mean) > 1:
+                rating_val = (ratings_mean[1][i], ratings_std[1][i])
             else:
                 rating_val = (0.0, 0.0)
             self.metrics[agent_name].gte_rating = rating_val
@@ -1911,8 +1911,8 @@ class GameSetEvaluator:
 
         tasks = self.gte_tasks
 
-        ratings_mean = self.gte_ratings[0][0]
-        ratings_std = self.gte_ratings[1][0]
+        ratings_mean = self.gte_ratings[0][1]
+        ratings_std = self.gte_ratings[1][1]
         
         joint_mean = self.gte_joint[0]
         r2m_contributions_mean = self.gte_contributions_raw[0]
@@ -1921,8 +1921,8 @@ class GameSetEvaluator:
         sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
 
         game = self.gte_game
-        rating_player = 0  # Agents
-        contrib_player = 1 # Metrics
+        rating_player = 1  # Agents
+        contrib_player = 0 # Metrics
 
         if not game or not getattr(game, 'actions', None) or len(game.actions) <= rating_player:
             print(f"    !!! WARNING: Cannot plot GTE evaluation: Metadata actions missing or incomplete.")
@@ -2144,6 +2144,62 @@ class GameSetEvaluator:
         df["lower_delta"] = -df["CI95"]
         df["upper_delta"] = df["CI95"]
 
+        # Disambiguate Role-Specific metrics
+        def disambiguate_metric(row):
+            cat = row["category"]
+            met = row["metric"]
+            if cat == "Role-Specific Win Rate":
+                return f"WinRate {met}"
+            elif cat == "Role-Specific KSR":
+                return f"KSR {met}"
+            elif cat == "Win-Dependent KSR":
+                return f"WD-KSR {met}"
+            return met
+        
+        if "category" in df.columns:
+            df["metric"] = df.apply(disambiguate_metric, axis=1)
+
+        # Pivot
+        # Use pivot_table to handle potential duplicates (though unlikely with disambiguation)
+        pivot_df = df.pivot_table(index="agent", columns="metric", values=["value", "lower_delta", "upper_delta"], aggfunc="mean")
+        
+        final_df = pd.DataFrame(index=pivot_df.index)
+        
+        # Determine column order
+        present_metrics = sorted(df["metric"].unique())
+        priority_order = ["GTE Rating", "Elo", "OpenSkill"]
+        
+        sorted_metrics = []
+        for pm in priority_order:
+            if pm in present_metrics:
+                sorted_metrics.append(pm)
+                present_metrics.remove(pm)
+        sorted_metrics.extend(present_metrics)
+        
+        for metric in sorted_metrics:
+            if ("value", metric) in pivot_df.columns:
+                final_df[metric] = pivot_df[("value", metric)]
+            if ("lower_delta", metric) in pivot_df.columns:
+                final_df[f"{metric} 95 CI lower delta"] = pivot_df[("lower_delta", metric)]
+            if ("upper_delta", metric) in pivot_df.columns:
+                final_df[f"{metric} 95 CI upper delta"] = pivot_df[("upper_delta", metric)]
+                
+        print(f"Saving wide-format metrics to {output_path}")
+        final_df.to_csv(output_path)
+
+    def save_metrics_csv(self, output_path: str = "metrics.csv"):
+        """Saves the metrics to a CSV file in a wide format with deltas.
+
+        Format: Index=Agent, Columns=Metric, {Metric} 95 CI lower delta, {Metric} 95 CI upper delta
+        """
+        df = self._prepare_plot_data()
+        
+        # Calculate deltas (Mean - Lower, Upper - Mean). 
+        # In _prepare_plot_data, CI95 is symmetric (1.96 * std).
+        # User wants lower_delta to be negative (e.g. -0.05) and upper_delta to be positive (e.g. +0.05)
+        df["lower_delta"] = -df["CI95"]
+        df["upper_delta"] = df["CI95"]
+
         # Rename metrics if needed (already handled "OpenSkill" in _prepare_plot_data)
         
         # Disambiguate Role-Specific metrics
@@ -2190,6 +2246,78 @@ class GameSetEvaluator:
         final_df.to_csv(output_path)
 
 
+    def save_metrics_json(self, output_path: str = "metrics.json"):
+        """Saves global stats and agent metrics to a JSON file."""
+        import json
+        
+        # 1. Global Stats
+        total_games = len(self.games)
+        villager_wins = sum(1 for g in self.games if g.winner_team == Team.VILLAGERS)
+        werewolf_wins = sum(1 for g in self.games if g.winner_team == Team.WEREWOLF)
+        
+        avg_duration = 0
+        durations = []
+        for g in self.games:
+            if getattr(g, "player_durations", None):
+                durations.append(max(g.player_durations.values()))
+        if durations:
+            avg_duration = sum(durations) / len(durations)
+
+        global_stats = {
+            "total_games": total_games,
+            "villager_wins": villager_wins,
+            "villager_win_rate": villager_wins / total_games if total_games > 0 else 0,
+            "werewolf_wins": werewolf_wins,
+            "werewolf_win_rate": werewolf_wins / total_games if total_games > 0 else 0,
+            "avg_game_duration": avg_duration
+        }
+
+        # 2. Agent Metrics serialization
+        agents_data = {}
+        for agent_name, stats in self.metrics.items():
+            win_rate, win_std = stats.get_win_rate()
+            ksr, ksr_std = stats.get_ksr()
+            wd_ksr, wd_ksr_std = stats.get_wd_ksr()
+            
+            # Role data
+            roles_data = {}
+            for role in stats.wins_by_role.keys():
+                r_wr, r_wr_std = stats.get_win_rate_for_role(role)
+                r_ksr, r_ksr_std = stats.get_ksr_for_role(role)
+                roles_data[role] = {
+                    "win_rate": r_wr, "win_rate_ci95": r_wr_std * 1.96,
+                    "ksr": r_ksr, "ksr_ci95": r_ksr_std * 1.96,
+                    "games": len(stats.wins_by_role[role])
+                }
+
+            gte_mean, gte_std = getattr(stats, 'gte_rating', (0.0, 0.0))
+            gte_attribs = {}
+            for t, val in stats.gte_contributions.items():
+                gte_attribs[t] = {"mean": val[0], "ci95": val[1] * 1.96}
+
+            agent_dict = {
+                "win_rate": win_rate, "win_rate_ci95": win_std * 1.96,
+                "ksr": ksr, "ksr_ci95": ksr_std * 1.96,
+                "wd_ksr": wd_ksr, "wd_ksr_ci95": wd_ksr_std * 1.96,
+                "elo": stats.elo,
+                "openskill_mu": stats.openskill_rating.mu if stats.openskill_rating else None,
+                "gte_rating": gte_mean, "gte_rating_ci95": gte_std * 1.96,
+                "gte_contributions": gte_attribs,
+                "roles": roles_data,
+                "total_games": len(stats.wins)
+            }
+            agents_data[agent_name] = agent_dict
+
+        output_data = {
+            "global_stats": global_stats,
+            "agents": agents_data
+        }
+
+        with open(output_path, "w") as f:
+            json.dump(output_data, f, indent=2)
+        print(f"Saved JSON metrics to {output_path}")
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate Werewolf game records.")
     parser.add_argument("input_dir", help="Directory containing .json game files.")
@@ -2202,8 +2330,9 @@ if __name__ == '__main__':
     parser.add_argument("--gte-samples", type=int, default=100, help="Number of bootstrap samples for GTE (default: 100).")
     parser.add_argument("--elo-samples", type=int, default=100, help="Number of bootstrap samples for Elo (default: 100).")
     parser.add_argument("--openskill-samples", type=int, default=100, help="Number of bootstrap samples for OpenSkill (default: 100).")
-
-    parser.add_argument("--csv-output", help="Path to save metrics as CSV.")
+    
+    parser.add_argument("--csv-output", help="Path to save metrics as CSV (default: <output_prefix>/<gte_tasks>/metrics.csv).")
+    parser.add_argument("--json-output", help="Path to save metrics as JSON (default: <output_prefix>/<gte_tasks>/metrics.json).")
 
     args = parser.parse_args()
 
@@ -2221,27 +2350,26 @@ if __name__ == '__main__':
     print("\n" + "=" * 50)
     print("EVALUATION RESULTS")
     print("=" * 50)
+    print("\n" + "=" * 50)
+    print("EVALUATION RESULTS")
+    print("=" * 50)
     evaluator.print_results()
 
-    # Save CSV if requested
-    if args.csv_output:
-        evaluator.save_metrics_csv(args.csv_output)
-
-    # Save plots
-    # Create subdirectory based on gte_tasks
-    # args.gte_tasks typically references a task set name like 'role_win_rates' or 'win_dependent'
+    # Determine output directory
     task_subdir = args.gte_tasks if isinstance(args.gte_tasks, str) else "custom_tasks"
-    # Clean up task name for directory usage if needed (though typically it's safe)
-    
-    # If output_prefix ends with a slash, treat it as a directory. 
-    # Otherwise, it might be a prefix. 
-    # User said: "put it in the subdirectory in output_prefix using the gte-tasks as subdir name"
-    # So construct: output_prefix / gte_tasks / filename
-    
     output_base_dir = Path(args.output_prefix) if args.output_prefix else Path(".")
     output_dir = output_base_dir / task_subdir
     os.makedirs(output_dir, exist_ok=True)
 
+    # Save CSV (default to metrics.csv in output_dir)
+    csv_path = args.csv_output if args.csv_output else str(output_dir / "metrics.csv")
+    evaluator.save_metrics_csv(csv_path)
+
+    # Save JSON (default to metrics.json in output_dir)
+    json_path = args.json_output if args.json_output else str(output_dir / "metrics.json")
+    evaluator.save_metrics_json(json_path)
+
+    # Save plots
     print(f"\nSaving plots to {output_dir}...")
     evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
     evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
