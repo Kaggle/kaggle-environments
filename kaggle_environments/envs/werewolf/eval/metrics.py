@@ -1105,7 +1105,8 @@ class GameSetEvaluator:
         # Hash the tasks string to avoid long filenames
         tasks_hash = hashlib.md5(tasks_str.encode()).hexdigest()
 
-        cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
+        # Added version "v1.2" to force invalidation of old caches with bad indexing
+        cache_key = f"gte_v1.2_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
         cache_path = self.cache_dir / cache_key
 
         if cache_path.exists():
@@ -1120,8 +1121,9 @@ class GameSetEvaluator:
                 # self.gte_ratings should be (ratings_mean, ratings_std)
                 # ratings_mean should be [mean_agent_ratings, mean_task_ratings]
                 try:
-                    agent_ratings_mean = self.gte_ratings[0][0]
-                    task_ratings_mean = self.gte_ratings[0][1]
+                    # Player 0 = Tasks, Player 1 = Agents
+                    agent_ratings_mean = self.gte_ratings[0][1]
+                    task_ratings_mean = self.gte_ratings[0][0]
                     print(f"[GTE Cache Load] Agents in config: {len(agents)}, Agents in cache: {len(agent_ratings_mean)}")
                     print(f"[GTE Cache Load] Tasks in config: {len(self.gte_tasks)}, Tasks in cache: {len(task_ratings_mean)}")
                     
@@ -1143,9 +1145,9 @@ class GameSetEvaluator:
                     self.metrics[agent_name].gte_contributions = m_cache['gte_contributions']
 
                 # Reconstruct gte_game structure for plotting if not in cache (or even if it is, for safety)
-                # It just needs actions [agents, tasks]
+                # It just needs actions [tasks, agents] (Player 0=Tasks, Player 1=Agents)
                 agents = sorted(list(self.metrics.keys()))
-                self.gte_game = SimpleNamespace(actions=[agents, self.gte_tasks])
+                self.gte_game = SimpleNamespace(actions=[self.gte_tasks, agents])
 
                 return
             except Exception as e:
@@ -1247,10 +1249,12 @@ class GameSetEvaluator:
         # --- CRITICAL FIX: Update agents list to match what the solver actually used ---
         # If the solver filtered out agents (e.g. all NaNs), we must update our local 'agents' list
         # to match the returned ratings dimensions.
-        if self.gte_game and getattr(self.gte_game, 'actions', None) and len(self.gte_game.actions) > 0:
-            solver_agents = self.gte_game.actions[0]
+        if self.gte_game and getattr(self.gte_game, 'actions', None) and len(self.gte_game.actions) > 1:
+            # Player 0 = Tasks, Player 1 = Agents
+            solver_agents = self.gte_game.actions[1]
             if len(solver_agents) != len(agents):
                 print(f"!!! Solver dropped {len(agents) - len(solver_agents)} agents (insufficient data). Syncing agent list...")
+                print(f"    Original: {len(agents)} -> Solver: {len(solver_agents)}")
                 agents = solver_agents
 
         ratings_mean = [np.mean(r, axis=0) for r in zip(*ratings)]
@@ -1303,7 +1307,12 @@ class GameSetEvaluator:
             if len(ratings_mean) > 1:
                 rating_val = (ratings_mean[1][i], ratings_std[1][i])
             else:
+                print(f"!!! WARNING: GTE ratings_mean len <= 1 ({len(ratings_mean)}). Defaulting {agent_name} to 0.0")
                 rating_val = (0.0, 0.0)
+            
+            # Debug first few
+            if i < 3:
+                print(f"[GTE Assign] Agent {agent_name} -> {rating_val[0]:.4f}")
             self.metrics[agent_name].gte_rating = rating_val
 
             contrib_map = {}
@@ -1963,7 +1972,6 @@ class GameSetEvaluator:
             }
         )
 
-        # --- 2. Dynamic Layout Calculation ---
         n_items = len(agents) + 2
         
         # --- 3. Build Plot ---
@@ -1984,7 +1992,7 @@ class GameSetEvaluator:
                     legendgrouptitle_text="Metrics",
                     marker_color=colors[i % len(colors)],
                     hovertemplate=f"<b>Metric: {metric}</b><br>Contrib: %{{x:.2%}}<extra></extra>",
-                ) # No row/col needed for single figure
+                )
             )
 
         # Net Rating
@@ -1999,8 +2007,6 @@ class GameSetEvaluator:
                 hovertemplate="<b>%{y}</b><br>Net Rating: %{x:.2%}<br>Std: %{error_x.array:.4f}<extra></extra>",
             )
         )
-
-
 
         # --- 4. Layout Formatting ---
         fig.update_layout(
