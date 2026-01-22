@@ -236,8 +236,13 @@ def html_renderer():
     return "<div>Shimmy Tic-Tac-Toe</div>"
 
 
-# Load specification
+# Load generic shimmy game specification and customize for tic-tac-toe
 dirpath = os.path.dirname(__file__)
-jsonpath = os.path.abspath(os.path.join(dirpath, "shimmy_tic_tac_toe.json"))
-with open(jsonpath) as f:
+generic_jsonpath = os.path.abspath(os.path.join(dirpath, "..", "shimmy_game.json"))
+with open(generic_jsonpath) as f:
     specification = json.load(f)
+
+# Override with tic-tac-toe specific values
+specification["name"] = "shimmy_tic_tac_toe"
+specification["title"] = "Shimmy Tic-Tac-Toe"
+specification["description"] = "Tic-Tac-Toe via OpenSpiel through Shimmy remote game driver"
