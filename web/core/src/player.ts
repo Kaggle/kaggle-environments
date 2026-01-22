@@ -1,5 +1,6 @@
 import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData } from './types';
+import { BaseGameStep, ReplayData, ReplayMode } from './types';
+import { getGameStepRenderTime } from './transformers';
 import './style.css';
 
 export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -9,7 +10,9 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private agents: any[] = [];
   private step = 0;
   private playing = false;
-  private speed = 500; // ms per step
+  private speedModifier = 1;
+  private replayMode: ReplayMode = 'condensed';
+  private externallyControlled = false;
   private mounted = false;
   private showControls = true;
   private showLegend = false;
@@ -26,6 +29,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private nextButton: HTMLButtonElement;
   private stepSlider: HTMLInputElement;
   private stepCounter: HTMLSpanElement;
+  private speedSelector: HTMLSelectElement;
 
   constructor(
     container: HTMLElement,
@@ -73,11 +77,24 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     this.stepCounter = document.createElement('span');
     this.stepCounter.className = 'step-counter';
 
+    // Speed selector dropdown
+    this.speedSelector = document.createElement('select');
+    this.speedSelector.className = 'speed-selector';
+    const speeds = [0.5, 0.75, 1, 1.5, 2];
+    speeds.forEach((speed) => {
+      const option = document.createElement('option');
+      option.value = speed.toString();
+      option.textContent = `${speed}x`;
+      if (speed === 1) option.selected = true;
+      this.speedSelector.appendChild(option);
+    });
+
     this.controls.appendChild(this.playPauseButton);
     this.controls.appendChild(this.prevButton);
     this.controls.appendChild(this.stepSlider);
     this.controls.appendChild(this.nextButton);
     this.controls.appendChild(this.stepCounter);
+    this.controls.appendChild(this.speedSelector);
 
     // Wire up event listeners ONCE
     this.playPauseButton.addEventListener('click', () => (this.playing ? this.pause() : this.play()));
@@ -87,6 +104,16 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       this.pause();
       this.setStep(parseInt((e.target as HTMLInputElement).value, 10));
     });
+    this.speedSelector.addEventListener('change', (e) => {
+      const newSpeed = parseFloat((e.target as HTMLSelectElement).value);
+      this.setSpeed(newSpeed);
+    });
+
+    // Listen for speed changes from game-specific renderers
+    window.addEventListener('replayer-speed', this.handleReplayerSpeed);
+
+    // Keyboard navigation
+    window.addEventListener('keydown', this.handleKeyDown);
 
     this.loadData();
   }
@@ -115,6 +142,13 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       case 'next':
         return `<path d="M7 18l8.5-6L7 6v12zM15 6v12h2V6h-2z" />`;
     }
+  }
+
+  /**
+   * Notify the parent frame of state changes for synchronization.
+   */
+  private notifyParent(state: { step?: number; playing?: boolean; speed?: number }) {
+    window.parent.postMessage(state, '*');
   }
 
   private loadData() {
@@ -183,6 +217,34 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     window.addEventListener('message', this.handleMessage);
   }
 
+  private handleKeyDown = (event: KeyboardEvent) => {
+    // Ignore if focus is on an input element (e.g., the slider)
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        event.preventDefault();
+        this.setStep(this.step - 1);
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        this.setStep(this.step + 1);
+        break;
+      case ' ':
+      case 'Enter':
+        event.preventDefault();
+        if (this.playing) {
+          this.pause();
+        } else {
+          this.play();
+        }
+        break;
+    }
+  };
+
   private handleMessage = (event: MessageEvent) => {
     if (!event.data) return;
 
@@ -196,8 +258,21 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     if (typeof event.data.controls === 'boolean') {
       this.showControls = event.data.controls;
+      // When controls are hidden, we're externally controlled
+      this.externallyControlled = !event.data.controls;
       updateHMRState('controls', this.showControls); // Save to HMR
       this.renderControls();
+    }
+
+    // Handle speed changes from parent
+    if (typeof event.data.speed === 'number') {
+      this.setSpeed(event.data.speed, true); // fromExternal=true to avoid echo
+    }
+
+    // Handle replayMode changes from parent
+    if (event.data.replayMode) {
+      this.replayMode = event.data.replayMode;
+      updateHMRState('replayMode', this.replayMode);
     }
 
     if (typeof event.data.legend === 'boolean') {
@@ -257,7 +332,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       updateHMRState('replay', this.replay); // Save to HMR
     }
 
-    // Update the current step
+    // Update the current step (from external source, so don't notify back)
     if (typeof event.data.step === 'number') {
       this.step = event.data.step;
       updateHMRState('step', this.step); // Save to HMR
@@ -272,13 +347,16 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
 
     // If any data was updated and we have a replay object, call setData.
-    // Skip tick if external controller is managing playback. We detect this by:
+    // Skip tick if:
     // - Internal controls are hidden (showControls === false), OR
-    // - External controller is explicitly setting play state
-    // This preserves auto-play behavior for games using internal controls only.
+    // - External controller is explicitly setting play state, OR
+    // - This is just a step update (not initial data) - tick is already running if playing
+    // This preserves auto-play behavior for games using internal controls only,
+    // while preventing multiple tick loops from starting on step echoes.
     if (needsRender && this.replay) {
+      const isStepOnlyUpdate = typeof event.data.step === 'number' && !event.data.environment && !event.data.replay;
       const isExternallyControlled = !this.showControls || typeof event.data.playing === 'boolean';
-      this.setData(this.replay, this.agents, { skipTick: isExternallyControlled });
+      this.setData(this.replay, this.agents, { skipTick: isExternallyControlled || isStepOnlyUpdate });
     }
   };
 
@@ -322,7 +400,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
   }
 
-  private setStep(step: number) {
+  private setStep(step: number, notify = true) {
     if (!this.replay) return;
     this.step = Math.max(0, Math.min(this.replay.steps.length - 1, step));
 
@@ -334,6 +412,9 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     this.adapter.render(this.step, this.replay, this.agents, this);
     this.renderControls();
+    if (notify) {
+      this.notifyParent({ step: this.step });
+    }
   }
 
   public setAgents(agents: any[]) {
@@ -354,14 +435,22 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
     // --- End HMR Logic ---
 
+    // When externally controlled, just notify parent - don't reset step or start tick
+    if (this.externallyControlled) {
+      this.renderControls();
+      this.notifyParent({ playing: true });
+      return;
+    }
+
     if (this.replay && this.step === this.replay.steps.length - 1) {
       this.setStep(0);
     }
     this.tick();
     this.renderControls();
+    this.notifyParent({ playing: true });
   }
 
-  private pause() {
+  private pause(notify = true) {
     if (!this.playing) return;
     this.playing = false;
 
@@ -372,6 +461,9 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     // --- End HMR Logic ---
 
     this.renderControls();
+    if (notify) {
+      this.notifyParent({ playing: false });
+    }
   }
 
   /**
@@ -386,7 +478,46 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     this.renderControls();
   }
 
+  /**
+   * Sets the playback speed modifier and notifies parent/game-specific renderers.
+   * @param speed The speed multiplier (e.g., 0.5, 1, 1.5, 2)
+   * @param fromExternal If true, skip notifying parent (to avoid echo loops)
+   */
+  private setSpeed(speed: number, fromExternal = false) {
+    if (this.speedModifier === speed) return;
+    this.speedModifier = speed;
+
+    // Update the speed selector UI
+    this.speedSelector.value = speed.toString();
+
+    // Dispatch event for game-specific renderers (werewolf, etc.)
+    window.dispatchEvent(new CustomEvent('replayer-speed', { detail: { rate: speed, fromReplayer: true } }));
+
+    // Notify parent if this change originated from our UI
+    if (!fromExternal) {
+      this.notifyParent({ speed });
+    }
+  }
+
+  /**
+   * Handles speed changes from game-specific renderers.
+   */
+  private handleReplayerSpeed = (event: Event) => {
+    const customEvent = event as CustomEvent<{ rate: number; fromReplayer?: boolean }>;
+    // Avoid infinite loop: only process if not from us
+    if (customEvent.detail.fromReplayer) return;
+
+    const newSpeed = customEvent.detail.rate;
+    if (this.speedModifier !== newSpeed) {
+      this.speedModifier = newSpeed;
+      this.speedSelector.value = newSpeed.toString();
+      this.notifyParent({ speed: newSpeed });
+    }
+  };
+
   private tick = () => {
+    // When externally controlled, parent drives all timing - don't run our own loop
+    if (this.externallyControlled) return;
     if (!this.playing || !this.replay) return;
 
     if (this.step >= this.replay.steps.length - 1) {
@@ -395,10 +526,15 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       return;
     }
 
+    // Calculate dynamic step duration based on content
+    const currentStep = this.replay.steps[this.step];
+    const gameName = this.replay.name ?? '';
+    const stepDuration = getGameStepRenderTime(currentStep, gameName, this.replayMode, this.speedModifier);
+
     setTimeout(() => {
       this.setStep(this.step + 1);
       this.tick();
-    }, this.speed);
+    }, stepDuration);
   };
 
   private renderControls() {
@@ -512,11 +648,14 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   public cleanup() {
     // 1. Stop any running loops (setTimeout)
     //    This is critical to prevent old ticks from running.
-    this.pause();
+    //    Skip notification since we're being destroyed.
+    this.pause(false);
 
     // 2. Remove global event listeners
     //    This is the most common source of HMR-related memory leaks.
     window.removeEventListener('message', this.handleMessage);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('replayer-speed', this.handleReplayerSpeed);
 
     // 3. Tell the adapter to unmount
     //    This allows your renderer (Preact) to clean up its DOM nodes.

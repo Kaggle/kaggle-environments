@@ -179,3 +179,28 @@ body,
   min-width: 80px;
   text-align: center;
 }
+
+.speed-selector {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: 8px;
+  outline: none;
+}
+
+.speed-selector:hover {
+  border-color: var(--accent-color);
+}
+
+.speed-selector:focus {
+  border-color: var(--accent-color);
+}
+
+.speed-selector option {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+}

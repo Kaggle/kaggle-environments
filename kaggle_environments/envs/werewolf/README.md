@@ -206,11 +206,22 @@ python kaggle_environments/envs/werewolf/scripts/print_werewolf_llm.py path/to/r
 To run the evaluation scripts located in `kaggle_environments/envs/werewolf/eval/`, you'll need to install several additional dependencies. These are used for data manipulation, progress tracking, plotting, and advanced metrics calculation.
 
 ### Evaluation Dependencies
-Install the following packages using pip:
+The evaluation scripts require specific Python packages. These are strictly enforced; the scripts will fail with an error if they are missing.
 
+**For Game Loading (`loaders.py`):**
+- `pandas`: For structured data manipulation.
+- `tqdm`: For progress tracking.
+
+**For Metrics & Visualization (`metrics.py`):**
+- All `loaders.py` dependencies.
+- `plotly`: For interactive plots.
+- `kaleido`: for static image export (optional but recommended).
+- `openskill`: For TrueSkill/OpenSkill ratings.
+- `polarix`: For Game Theoretic Evaluation (GTE).
+
+**Install all dependencies:**
 ```bash
-
-pip install pandas tqdm plotly kaleido openskill.py polarix
+uv pip install pandas tqdm plotly kaleido openskill polarix
 ```
 For linux,
 ```bash
@@ -218,10 +229,54 @@ plotly_get_chrome
 sudo apt update && sudo apt-get install libnss3 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2
 ```
 
-### Example Usage
-Once the dependencies are installed, you can run the metrics script on a directory of game replay JSONs:
+### Scripts Overview
 
+#### 1. Game Record Extraction (`loaders.py`)
+Extracts game data from massive amounts of JSON replay files into a structured CSV format. This script is designed to be memory-efficient, using parallel processing to handle thousands of replays without consuming excessive RAM.
+
+**Key Features:**
+- **Memory Efficient:** Processes games in parallel workers and extracts only necessary fields.
+- **Cost Analysis:** Extracts token usage (prompt/completion) and API costs per agent.
+- **Robustness:** Handles shuffled player IDs and logs errors to a separate file.
+- **Progress Tracking:** Displays a progress bar during extraction.
+
+**Usage:**
 ```bash
+python kaggle_environments/envs/werewolf/eval/loaders.py <input_dir> <output_path> [options]
+```
 
-python kaggle_environments/envs/werewolf/eval/metrics.py /path/to/your/replays
+**Options:**
+- `input_dir`: Directory containing `.json` replay files (recursive search).
+- `output_path`: Path to save the extracted CSV file.
+- `--log-file`: (Optional) Path to save error logs for failed extractions.
+- `--max-workers`: (Optional) Number of parallel worker processes.
+
+**Example:**
+```bash
+python kaggle_environments/envs/werewolf/eval/loaders.py ./werewolf_run ./results.csv --log-file extraction_errors.log
+```
+
+#### 2. Metrics & Evaluation (`metrics.py`)
+Calculates comprehensive performance metrics for agents, including Win Rates, OpenSkill ratings, and Game Theoretic Evaluation (GTE) scores. It also generates visualization plots for the Pareto Frontier of performance vs. cost.
+
+**Key Features:**
+- **Game Theoretic Evaluation (GTE):** Computes Nash equilibrium-based ratings using `polarix`.
+- **Pareto Frontier:** Visualizes the trade-off between Agent Cost ($) and Performance (GTE Rating).
+- **Metric Breakdown:** Analyzes Win Rate, Survival Rate (KSR), and specialized Werewolf metrics (IRP, VSS).
+- **Error Handling:** Configurable error logging for game loading issues.
+
+**Usage:**
+```bash
+python kaggle_environments/envs/werewolf/eval/metrics.py <input_dir> [options]
+```
+
+**Options:**
+- `input_dir`: Directory containing `.json` replay files.
+- `--error-log`: (Optional) Path to log game loading errors (default: `game_loading_errors.log`).
+- `--gte-tasks`: (Optional) Comma-separated list of tasks for GTE (default: `win_dependent`).
+- `--output-prefix`: (Optional) Prefix for generated plot files (e.g., `experiment_1_`).
+
+**Example:**
+```bash
+python kaggle_environments/envs/werewolf/eval/metrics.py ./werewolf_run --output-prefix my_experiment_
 ```

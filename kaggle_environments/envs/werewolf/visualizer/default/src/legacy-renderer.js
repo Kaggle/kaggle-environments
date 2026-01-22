@@ -48,6 +48,20 @@ window.addEventListener('audio-speed', (e) => {
     }
 });
 
+// Listen for speed changes from the ReplayVisualizer (parent controls)
+window.addEventListener('replayer-speed', (e) => {
+    // Skip if this event originated from the ReplayVisualizer itself
+    if (e.detail.fromReplayer) {
+        const audioState = window.kaggleWerewolf;
+        if (audioState) {
+            audioState.playbackRate = e.detail.rate;
+            if (audioState.isAudioPlaying && audioState.audioPlayer) {
+                audioState.audioPlayer.playbackRate = e.detail.rate;
+            }
+        }
+    }
+});
+
 export function renderer(context, parent) {
   const { replay, step, height = 1000, width = 1500 } = context;
   const environment = replay;
@@ -145,7 +159,7 @@ export function renderer(context, parent) {
       isPaused: false,
       lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
       audioPlayer: new Audio(),
-      playbackRate: 1.6,
+      playbackRate: 1,
       allEvents: null,
       audioContextActivated: false,
     };
