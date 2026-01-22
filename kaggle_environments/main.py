@@ -335,15 +335,23 @@ def http_request_protobuf(request: Any) -> tuple[bytes, int, dict[str, str]]:
 
     This enables the same http-server to support both UrlAgent (JSON) and
     ProtobufAgent (protobuf) clients.
+
+    Uses proto_utils to handle protobuf version mismatches by recompiling
+    protos at runtime if needed (all containers use the same Docker image).
     """
     from flask import Response
 
     try:
-        import kaggle_evaluation.core.generated.kaggle_evaluation_pb2 as kaggle_evaluation_proto
-        from kaggle_evaluation.core.relay import _deserialize, _serialize
-    except ImportError as e:
-        # Return error if kaggle_evaluation is not available
-        return json.dumps({"error": f"Protobuf support requires kaggle_evaluation: {e}"}), 500, {}
+        from kaggle_environments.envs.game_drivers.proto_utils import (
+            get_proto_module,
+            get_relay_functions,
+        )
+
+        kaggle_evaluation_proto = get_proto_module()
+        _serialize, _deserialize = get_relay_functions()
+    except Exception as e:
+        # Return error if proto loading/compilation fails
+        return json.dumps({"error": f"Protobuf support failed: {e}"}), 500, {}
 
     headers = {
         "Access-Control-Allow-Origin": "*",
