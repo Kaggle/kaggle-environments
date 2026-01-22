@@ -40,6 +40,26 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
     return False
 
 
+def load_agent_on_server(host: str, port: int, agent_path: str, environment: str) -> bool:
+    """Load an agent on a remote http-server via JSON 'act' action.
+
+    This must be called before using ProtobufAgent to communicate with the server.
+    """
+    url = f"http://{host}:{port}"
+    data = {
+        "action": "act",
+        "environment": environment,
+        "agents": [agent_path],
+        "state": {"observation": {"board": [0] * 9, "remainingOverageTime": 60}},
+        "configuration": {"actTimeout": 5},
+    }
+    try:
+        response = requests.post(url, json=data, timeout=10)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
 # ... (RemoteAgent class remains the same) ...
 
 
@@ -110,6 +130,48 @@ class TestMultiContainerEpisodes:
         assert len(last_step) == 2
         assert "reward" in last_step[0]
         assert "reward" in last_step[1]
+
+    def test_shimmy_tic_tac_toe_multicontainer(self):
+        """Run Shimmy Tic-Tac-Toe with agents in separate containers.
+
+        This tests the protobuf-based agent communication via ProtobufAgent.
+        """
+        assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
+
+        # Request to start an episode with HTTP URL agents
+        # The shimmy_tic_tac_toe interpreter will create ProtobufAgent instances
+        request_data = {
+            "action": "run",
+            "environment": "shimmy_tic_tac_toe",
+            "agents": [
+                "http://agent-1:8081",
+                "http://agent-2:8081",
+            ],
+        }
+
+        response = requests.post(
+            f"{ORCHESTRATOR_URL}/",
+            json=request_data,
+            timeout=60,
+        )
+
+        assert response.status_code == 200
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            pytest.fail(f"Failed to decode JSON response: {response.text}")
+
+        # Check for rewards in the last step
+        assert "steps" in data
+        assert len(data["steps"]) > 0
+        last_step = data["steps"][-1]
+        assert len(last_step) == 2
+        # Rewards should be numeric (OpenSpiel uses different reward scales)
+        assert "reward" in last_step[0]
+        assert "reward" in last_step[1]
+        assert isinstance(last_step[0]["reward"], (int, float))
+        assert isinstance(last_step[1]["reward"], (int, float))
 
 
 # Standalone agent server for multi-container mode

@@ -34,12 +34,20 @@ def _install_wheel_if_needed():
 
     wheel_path = wheel_files[0]
 
-    # Install the wheel using uv pip
-    subprocess.check_call(
-        ["uv", "pip", "install", "--quiet", str(wheel_path)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    # Install the wheel using uv pip, falling back to pip if uv is not available
+    try:
+        subprocess.check_call(
+            ["uv", "pip", "install", "--quiet", str(wheel_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fall back to regular pip
+        subprocess.check_call(
+            ["pip", "install", "--quiet", str(wheel_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 # Install wheel at module import time if needed

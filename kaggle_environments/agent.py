@@ -29,6 +29,20 @@ from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
 
 
+def calculate_request_timeout(observation: Any, configuration: Any, buffer_seconds: float = 1.0) -> float:
+    """Calculate timeout for remote agent requests.
+
+    Args:
+        observation: Environment observation with remainingOverageTime
+        configuration: Environment configuration with actTimeout
+        buffer_seconds: Additional buffer time to add (default 1.0)
+
+    Returns:
+        Timeout in seconds
+    """
+    return float(observation.remainingOverageTime) + float(configuration.actTimeout) + buffer_seconds
+
+
 @runtime_checkable
 class RemoteAgentProtocol(Protocol):
     """Protocol for remote agents (URL-based or protobuf-based).
@@ -101,7 +115,7 @@ class UrlAgent:
                 "observation": observation,
             },
         }
-        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 1
+        timeout = calculate_request_timeout(observation, configuration)
         try:
             response = requests.post(url=self.raw, data=json.dumps(data), timeout=timeout)
             response.raise_for_status()
@@ -128,6 +142,15 @@ def build_agent(
     """
     Returns the agent and whether the agent is parallelizable.
     """
+    # Check for proto agent specification (dict with type='proto' or proto_config)
+    from kaggle_environments.envs.game_drivers.protobuf_agent import (
+        build_proto_agent,
+        is_proto_agent_spec,
+    )
+
+    if is_proto_agent_spec(raw):
+        return build_proto_agent(raw, environment_name)
+
     if isinstance(raw, str) and raw in builtin_agents:
         agent = builtin_agents[raw]
         # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.
