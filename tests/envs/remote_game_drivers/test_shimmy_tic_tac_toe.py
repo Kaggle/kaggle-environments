@@ -49,6 +49,24 @@ def test_shimmy_tic_tac_toe_random_agents():
     assert all(isinstance(r, (int, float)) for r in rewards)
 
 
+def test_shimmy_tic_tac_toe_callable_agents():
+    """Test running a game with custom callable agents."""
+    env = make("shimmy_tic_tac_toe")
+
+    # Run with custom callable agents (simple_agent picks random empty cell)
+    env.run([simple_agent, simple_agent])
+
+    # Check that game completed
+    assert env.done
+
+    # Check that rewards were assigned
+    final_state = env.steps[-1]
+    rewards = [agent.reward for agent in final_state]
+
+    # Rewards should be numeric
+    assert all(isinstance(r, (int, float)) for r in rewards)
+
+
 def test_agent_server_wrapper():
     """Test that agent_server.py can wrap a simple agent function."""
     app = create_agent_server(simple_agent, port=8081)

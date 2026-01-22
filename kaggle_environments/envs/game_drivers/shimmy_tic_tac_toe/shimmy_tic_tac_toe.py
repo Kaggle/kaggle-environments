@@ -7,15 +7,17 @@ Architecture:
 - The interpreter runs the ENTIRE game on first call using driver.run_game()
 - Subsequent interpreter calls just return the final state
 - Agents are wrapped as relay servers/clients for the driver
+- Supports built-in agents ("random"), callable agents, and ProtobufAgent instances
 """
 
 import json
 import os
+from typing import Any
 
 import kaggle_evaluation.core.relay as relay
 from remote_game_drivers.core.base_classes import KaggleAgentId
 from remote_game_drivers.shimmy_remote_driver.game_driver import OpenSpielGameDriver
-from remote_game_drivers.shimmy_remote_driver.remote_agent import RandomAgent
+from remote_game_drivers.shimmy_remote_driver.remote_agent import RandomAgent, RemoteAgent
 
 # Global state
 _game_complete: bool = False
@@ -30,7 +32,68 @@ def random_agent(obs: dict, config: dict) -> int:
 agents = {"random": random_agent}
 
 
-def _run_game_with_driver(agent_instances: list) -> dict[KaggleAgentId, float | int]:
+class KaggleCallableAgent(RemoteAgent):
+    """Wraps a kaggle-environments callable agent as a RemoteAgent.
+
+    This allows standard kaggle-environments agents (functions with signature
+    (observation, configuration) -> action) to work with the game driver.
+    """
+
+    def __init__(self, callable_agent: Any, configuration: dict | None = None):
+        self.callable_agent = callable_agent
+        self.configuration = configuration or {}
+
+    def process_turn(self, action_space: Any, observation: Any, info: dict | None = None) -> dict[str, Any]:
+        """Entry point called by relay. Adapts to kaggle-environments signature."""
+        # Build observation dict in kaggle-environments format
+        obs_dict = {
+            "board": observation.tolist() if hasattr(observation, "tolist") else list(observation),
+        }
+        # Add action mask as legalActions if available
+        if info and "action_mask" in info:
+            obs_dict["legalActions"] = [i for i, legal in enumerate(info["action_mask"]) if legal]
+
+        # Call the kaggle-environments agent
+        action = self.callable_agent(obs_dict, self.configuration)
+        return {"action": action}
+
+    def choose_action(self, action_space: Any, observation: Any, info: dict | None = None) -> Any:
+        """Not used directly - process_turn handles everything."""
+        result = self.process_turn(action_space, observation, info)
+        return result["action"]
+
+
+def _get_agent_instances(env) -> list[RemoteAgent]:
+    """Get RemoteAgent instances for the agents passed to env.run().
+
+    Supports:
+    - "random" -> RandomAgent()
+    - Callable -> KaggleCallableAgent wrapper
+    - ProtobufAgent -> KaggleCallableAgent wrapper (it's already callable)
+    """
+    # Check if agent info was stored on env.info
+    agent_specs = env.info.get("_agent_specs", [])
+
+    if not agent_specs:
+        # Fallback: use RandomAgent for all players
+        num_agents = len(env.state)
+        return [RandomAgent() for _ in range(num_agents)]
+
+    agent_instances = []
+    for spec in agent_specs:
+        if spec == "random":
+            agent_instances.append(RandomAgent())
+        elif callable(spec):
+            # Wrap callable agent (including ProtobufAgent)
+            agent_instances.append(KaggleCallableAgent(spec, dict(env.configuration)))
+        else:
+            # Unknown agent type - use random as fallback
+            agent_instances.append(RandomAgent())
+
+    return agent_instances
+
+
+def _run_game_with_driver(agent_instances: list, episode_steps: int | None = None) -> dict[KaggleAgentId, float | int]:
     """Run the game using OpenSpielGameDriver with relay-based agents.
 
     This follows the same pattern as test_utils.run_local_game() in Hearth.
@@ -50,7 +113,14 @@ def _run_game_with_driver(agent_instances: list) -> dict[KaggleAgentId, float | 
         relay_clients[agent_id] = relay.Client(port=port)
 
     try:
-        driver_config = {"agent_ids": list(agent_ids)}
+        driver_config = {
+            "agent_ids": list(agent_ids),
+            "game_config": {},
+        }
+        # Pass episode steps limit if provided
+        if episode_steps is not None:
+            driver_config["game_config"]["max_steps"] = episode_steps
+
         driver = OpenSpielGameDriver(driver_config=driver_config, relay_clients=relay_clients)
         results = driver.run_game(game_name="tic_tac_toe")
 
@@ -69,6 +139,8 @@ def interpreter(state, env):
 
     On first call, runs the entire game via the driver.
     Returns final results mapped to kaggle-environments state format.
+
+    Supports custom agents passed to env.run() via env.info["_agent_specs"].
     """
     global _game_complete, _results
 
@@ -76,12 +148,14 @@ def interpreter(state, env):
     if _game_complete:
         return state
 
-    # Run the entire game using the driver
-    # Use RandomAgent instances for both players
-    agent_instances = [RandomAgent(), RandomAgent()]
+    # Get agent instances based on what was passed to env.run()
+    agent_instances = _get_agent_instances(env)
+
+    # Get episode steps limit from configuration
+    episode_steps = getattr(env.configuration, "episodeSteps", None)
 
     try:
-        _results = _run_game_with_driver(agent_instances)
+        _results = _run_game_with_driver(agent_instances, episode_steps)
         _game_complete = True
 
         # Map results to kaggle-environments state
