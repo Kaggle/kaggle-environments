@@ -169,6 +169,12 @@ def _create_interpreter(game_name: str, environment_name: str):
 
         env_data = _env_state[env_id]
 
+        # Detect new episode: if step is 0 and we were previously complete, reset
+        current_step = state[0].observation.step if state else 0
+        if current_step == 0 and env_data["complete"]:
+            env_data["complete"] = False
+            env_data["results"] = {}
+
         if env_data["complete"]:
             return state
 

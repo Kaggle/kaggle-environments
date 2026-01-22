@@ -107,3 +107,25 @@ def test_dynamic_shimmy_missing_game_name():
 
     with pytest.raises(ValueError, match="No game_name specified"):
         env.run(["random", "random"])
+
+
+# Multi-episode tests
+@pytest.mark.parametrize("game_name", ["shimmy_tic_tac_toe", "shimmy_connect_four"])
+def test_shimmy_game_multi_episode(game_name: str):
+    """Test running multiple episodes with the same environment instance.
+
+    This verifies that game drivers correctly reset state between episodes,
+    allowing multiple games to be played in sequence.
+    """
+    from kaggle_environments import evaluate
+
+    num_episodes = 3
+    rewards = evaluate(game_name, ["random", "random"], num_episodes=num_episodes)
+
+    assert len(rewards) == num_episodes, f"Expected {num_episodes} episodes, got {len(rewards)}"
+
+    for i, episode_rewards in enumerate(rewards):
+        assert len(episode_rewards) == 2, f"Episode {i}: Expected 2 agent rewards"
+        assert all(isinstance(r, (int, float)) for r in episode_rewards), (
+            f"Episode {i}: Rewards should be numeric, got {episode_rewards}"
+        )

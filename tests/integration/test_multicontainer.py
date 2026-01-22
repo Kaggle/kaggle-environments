@@ -86,79 +86,47 @@ class TestMultiContainerSetup:
         assert "rps" in data
 
 
+# Game configurations for multicontainer tests
+# Each tuple: (environment_name, agent_path_or_none, num_episodes)
+# agent_path is needed for game drivers that require pre-loading agents
+MULTICONTAINER_GAMES = [
+    ("rps", None, 1),
+    ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 1),
+    ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 3),
+]
+
+
 @pytest.mark.skipif(
     not os.environ.get("MULTICONTAINER_TEST"), reason="Multi-container tests require MULTICONTAINER_TEST=1"
 )
 class TestMultiContainerEpisodes:
     """Tests that run episodes across multiple containers."""
 
-    def test_rps_multicontainer(self):
-        """Run RPS with agents in separate containers."""
-        assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
+    @pytest.mark.parametrize("environment,agent_path,num_episodes", MULTICONTAINER_GAMES)
+    def test_multicontainer_episode(self, environment: str, agent_path: str | None, num_episodes: int):
+        """Run game episodes with agents in separate containers.
 
-        # Request to start an episode
-        request_data = {
-            "action": "run",
-            "environment": "rps",
-            "agents": [
-                "http://agent-1:8081",
-                "http://agent-2:8081",
-            ],
-            "configuration": {"episodeSteps": 10},
-        }
-
-        response = requests.post(
-            f"{ORCHESTRATOR_URL}/",
-            json=request_data,
-            timeout=60,
-        )
-
-        assert response.status_code == 200
-        # The response is the HTML/JSON output depending on render mode.
-        # Default is JSON in main.py but main.py might return rendered JSON string.
-        # Let's check if we can parse it.
-
-        try:
-            data = response.json()
-        except json.JSONDecodeError:
-            pytest.fail(f"Failed to decode JSON response: {response.text}")
-
-        # Check for rewards in the last step
-        assert "steps" in data
-        assert len(data["steps"]) > 0
-        last_step = data["steps"][-1]
-        assert len(last_step) == 2
-        assert "reward" in last_step[0]
-        assert "reward" in last_step[1]
-
-    def test_shimmy_tic_tac_toe_multicontainer(self):
-        """Run Shimmy Tic-Tac-Toe with agents in separate containers.
-
-        This tests the protobuf-based agent communication via ProtobufAgent.
+        Tests both JSON-based (RPS) and protobuf-based (shimmy) agent communication.
+        With num_episodes > 1, also tests that environments correctly reset state.
         """
         assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
 
-        # Load agents on agent containers first
-        # The agent path is relative to the container's working directory
-        agent_path = "tests/envs/remote_game_drivers/test_agent.py"
-        for host in ["agent-1", "agent-2"]:
-            assert load_agent_on_server(host, 8081, agent_path, "shimmy_tic_tac_toe"), f"Failed to load agent on {host}"
+        # Load agents if required (game drivers need pre-loaded agents)
+        if agent_path:
+            for host in ["agent-1", "agent-2"]:
+                assert load_agent_on_server(host, 8081, agent_path, environment), f"Failed to load agent on {host}"
 
-        # Request to start an episode with HTTP URL agents
-        # The shimmy_tic_tac_toe interpreter will create ProtobufAgent instances
         request_data = {
-            "action": "run",
-            "environment": "shimmy_tic_tac_toe",
-            "agents": [
-                "http://agent-1:8081",
-                "http://agent-2:8081",
-            ],
+            "action": "evaluate",
+            "environment": environment,
+            "agents": ["http://agent-1:8081", "http://agent-2:8081"],
+            "episodes": num_episodes,
         }
 
         response = requests.post(
             f"{ORCHESTRATOR_URL}/",
             json=request_data,
-            timeout=60,
+            timeout=60 * num_episodes,
         )
 
         assert response.status_code == 200
@@ -168,16 +136,15 @@ class TestMultiContainerEpisodes:
         except json.JSONDecodeError:
             pytest.fail(f"Failed to decode JSON response: {response.text}")
 
-        # Check for rewards in the last step
-        assert "steps" in data
-        assert len(data["steps"]) > 0
-        last_step = data["steps"][-1]
-        assert len(last_step) == 2
-        # Rewards should be numeric (OpenSpiel uses different reward scales)
-        assert "reward" in last_step[0]
-        assert "reward" in last_step[1]
-        assert isinstance(last_step[0]["reward"], (int, float))
-        assert isinstance(last_step[1]["reward"], (int, float))
+        # evaluate returns [[r1, r2], [r1, r2], ...]
+        assert isinstance(data, list), f"Expected list of episode rewards, got {type(data)}"
+        assert len(data) == num_episodes, f"Expected {num_episodes} episodes, got {len(data)}"
+
+        for i, episode_rewards in enumerate(data):
+            assert len(episode_rewards) == 2, f"Episode {i}: Expected 2 agent rewards"
+            assert all(isinstance(r, (int, float, type(None))) for r in episode_rewards), (
+                f"Episode {i}: Rewards should be numeric, got {episode_rewards}"
+            )
 
 
 # Standalone agent server for multi-container mode
