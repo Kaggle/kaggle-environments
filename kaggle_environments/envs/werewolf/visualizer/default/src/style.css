@@ -603,6 +603,13 @@ html, body, #app {
     height: 20px;
 }
 
+#global-reasoning-toggle.enabled {
+    color: var(--text-muted);
+}
+
+#global-reasoning-toggle {
+    color: var(--text-secondary);
+}
 #global-audio-toggle {
     background: none;
     border: none;
@@ -616,6 +623,29 @@ html, body, #app {
     transition: all 0.2s ease;
 }
 
+/* Individual Reasoning Toggle */
+.reasoning-toggle {
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.reasoning-toggle.enabled {
+    color: var(--text-muted);
+}
+
+.reasoning-toggle svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
 /* Enhanced Chat Entries */
 .chat-entry {
     display: flex;
