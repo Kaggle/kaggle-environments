@@ -10,7 +10,7 @@ import { PostProcessing } from './Effects/PostProcessing.js';
 import { UIManager } from './UI/UIManager.js';
 import { VoteVisuals } from './Visuals/VoteVisuals.js';
 
-const DEFAULT_CAMERA_POSITION = { x: -12.75, y: 15.3, z: 32.75 };
+const DEFAULT_CAMERA_POSITION = { x: -19.26, y: 20.41, z: 42.90 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 8, z: 0 };
 
 export class World {
