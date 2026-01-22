@@ -59,16 +59,5 @@
             "type": "number",
             "default": 60
         }
-    },
-    "action": {
-        "description": "Action index (game-specific)",
-        "type": "integer",
-        "minimum": 0
-    },
-    "status": {
-        "defaults": [
-            "ACTIVE",
-            "INACTIVE"
-        ]
     }
 }
