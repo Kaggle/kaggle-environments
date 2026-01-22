@@ -1105,11 +1105,14 @@ class GameSetEvaluator:
                 # self.gte_ratings should be (ratings_mean, ratings_std)
                 # ratings_mean should be [mean_agent_ratings, mean_task_ratings]
                 try:
+                    agent_ratings_mean = self.gte_ratings[0][0]
                     task_ratings_mean = self.gte_ratings[0][1]
+                    print(f"[GTE Cache Load] Agents in config: {len(agents)}, Agents in cache: {len(agent_ratings_mean)}")
                     print(f"[GTE Cache Load] Tasks in config: {len(self.gte_tasks)}, Tasks in cache: {len(task_ratings_mean)}")
-                    if len(task_ratings_mean) != len(self.gte_tasks):
-                        print(f"!!! GTE Cache Size Mismatch: Config={len(self.gte_tasks)} vs Cache={len(task_ratings_mean)}. Recomputing...")
-                        raise ValueError(f"Cache size mismatch: {len(task_ratings_mean)} != {len(self.gte_tasks)}")
+                    
+                    if len(agent_ratings_mean) != len(agents) or len(task_ratings_mean) != len(self.gte_tasks):
+                        print(f"!!! GTE Cache Size Mismatch: Agents({len(agents)} vs {len(agent_ratings_mean)}) or Tasks({len(self.gte_tasks)} vs {len(task_ratings_mean)}). Recomputing...")
+                        raise ValueError("Cache size mismatch")
                 except (IndexError, TypeError) as e:
                     print(f"!!! GTE Cache structure mismatch: {e}. Recomputing...")
                     raise ValueError("Cache structure mismatch")
@@ -1882,8 +1885,8 @@ class GameSetEvaluator:
         sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
 
         game = self.gte_game
-        rating_player = 1
-        contrib_player = 0
+        rating_player = 0  # Agents
+        contrib_player = 1 # Metrics
 
         if not game or not getattr(game, 'actions', None) or len(game.actions) <= rating_player:
             print(f"    !!! WARNING: Cannot plot GTE evaluation: Metadata actions missing or incomplete.")
@@ -1911,6 +1914,11 @@ class GameSetEvaluator:
                 "support": joint_support.ravel(),
             }
         )
+
+        # Validate parallel array lengths before DataFrame creation
+        if len(agents) != len(ratings_mean):
+            print(f"    !!! ERROR: Mismatched GTE rating lengths: Agents={len(agents)}, Ratings={len(ratings_mean)}. Skipping plot.")
+            return None
 
         agent_ratings_df = pd.DataFrame(
             {
