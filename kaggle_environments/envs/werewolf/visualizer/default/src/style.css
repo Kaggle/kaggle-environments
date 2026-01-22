@@ -9,7 +9,7 @@ html, body, #app {
 /* Game Status Scoreboard */
 .game-scoreboard {
     position: fixed;
-    top: 50px;
+    top: 20px;
     left: auto;
     right: 20px;
     transform: none;
@@ -19,12 +19,15 @@ html, body, #app {
     border: none;
     border-radius: 0;
     box-shadow: none;
-    padding: 12px 20px;
+    padding: 0 20px;
     display: flex;
     gap: 20px;
     align-items: center;
+    height: 50px;
+        /* Match event panel header height */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .scoreboard-item {
@@ -91,23 +94,21 @@ html, body, #app {
 
 /* Phase Indicator */
 .phase-indicator {
-    position: fixed;
-    top: 60px;
-    left: 50px;
-    transform: translateX(-50%);
+    position: relative;
     z-index: 1000;
-    padding: 12px 24px;
+    padding: 8px 16px;
+        /* Slightly more compact */
     border-radius: 30px;
-    font-size: 1.2rem;
+    font-size: 1rem;
+        /* Matched to scoreboard value */
     font-weight: 600;
     letter-spacing: 0.05em;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     backdrop-filter: blur(10px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    scale: 0.6;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     display: flex;
-        align-items: center;
+    align-items: center;
         justify-content: center;
         gap: 8px;
 }
@@ -200,8 +201,8 @@ html, body, #app {
 /* Enhanced Panel Styling */
 .left-panel, .event-panel {
     position: fixed;
-    top: 70px;
-    max-height: calc(100vh - 124px);
+    top: 20px;
+        max-height: calc(100vh - 140px);
     background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     border-radius: 16px;
@@ -224,10 +225,10 @@ html, body, #app {
 
 .event-panel {
     position: fixed;
-    top: 54px;
+    top: 20px;
     left: 20px;
     width: 420px;
-    max-height: calc(100vh - 124px);
+    max-height: calc(100vh - 140px);
     background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     border-radius: 16px;
@@ -242,7 +243,8 @@ html, body, #app {
 }
 
 .event-panel.collapsed {
-    max-height: 65px; /* Height of just the header */
+    max-height: 50px;
+        /* Height of just the header */
     padding-top: 0;
     padding-bottom: 0;
 }
@@ -250,27 +252,31 @@ html, body, #app {
 /* ENHANCED Header to act as a toggle */
 .event-panel h1 {
     margin: 0;
-    font-size: 1.75rem;
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--text-primary);
     position: relative;
-    padding: 20px 20px 20px 60px;
+    padding: 0 14px 0 40px;
+        /* Zero top/bottom, rely on height + center alignment */
     flex-shrink: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
     cursor: pointer;
     user-select: none;
+    height: 50px;
+        box-sizing: border-box;
+        line-height: 1;
 }
 
 /* Adds a visual indicator for expanding/collapsing */
 .event-panel h1::before {
     content: ''; /* The content is now the background image */
     position: absolute;
-    left: 20px;
-    width: 20px;
-    height: 20px;
+    left: 14px;
+        width: 16px;
+        height: 16px;
 
     background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2374b9ff"><path d="M12 8l-6 6h12z"/></svg>');
     background-repeat: no-repeat;
@@ -548,18 +554,20 @@ html, body, #app {
 }
 
 /* Enhanced Headers */
-.event-panel h1, #player-list-area h1 {
-    margin: 0 0 20px 0;
-    font-size: 1.75rem;
+.event-panel h1,
+#player-list-area h1 {
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--text-primary);
     position: relative;
-    padding-bottom: 15px;
     flex-shrink: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+        height: 50px;
+        line-height: 1;
+        box-sizing: border-box;
 }
 
 .event-panel h1 > span, #player-list-area h1 > span {
@@ -579,6 +587,13 @@ html, body, #app {
     height: 3px;
     background: linear-gradient(90deg, transparent, #74b9ff, transparent);
     border-radius: 2px;
+    opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+    
+    .event-panel.collapsed h1::after {
+        opacity: 0;
+        /* Hide indicator when collapsed */
 }
 
 #global-reasoning-toggle, .reset-view-btn {
@@ -592,6 +607,9 @@ html, body, #app {
     justify-content: center;
     color: var(--text-muted);
     transition: all 0.2s ease;
+    height: 32px;
+        /* Fixed height for consistent centering */
+        width: 32px;
 }
 #global-reasoning-toggle:hover, .reset-view-btn:hover {
     background-color: var(--hover-bg);
@@ -603,6 +621,55 @@ html, body, #app {
     height: 20px;
 }
 
+#header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    height: 100%;
+}
+
+.audio-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 4px;
+    height: 32px;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    border-radius: 50%;
+}
+
+.audio-toggle-btn:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.audio-toggle-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+#speed-label {
+    font-size: 12px;
+    min-width: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+#playback-speed {
+    cursor: pointer;
+    accent-color: var(--accent-blue);
+    margin: 0;
+    vertical-align: middle;
+}
 #global-reasoning-toggle.enabled {
     color: var(--text-muted);
 }
@@ -788,9 +855,13 @@ html, body, #app {
     }
 
     .event-panel h1 {
-        padding: 8px 15px 8px 40px !important;
+        padding: 0 15px 0 40px !important;
         font-size: 1.1rem !important;
         justify-content: flex-start !important;
+        height: 50px !important;
+            line-height: 1 !important;
+            align-items: center !important;
+            display: flex !important;
     }
 
     .event-panel h1::before {
