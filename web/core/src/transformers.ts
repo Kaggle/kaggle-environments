@@ -11,6 +11,7 @@ import {
   werewolfTransformer,
   getWerewolfStepLabel,
   getWerewolfStepDescription,
+  getWerewolfStepRenderTime,
 } from './transformers/werewolf/werewolfTransformer';
 
 // Re-export utility functions for external use
@@ -107,6 +108,7 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
   }
 };
 
+
 export const getGameStepRenderTime = (
   gameStep: BaseGameStep,
   gameName: string,
@@ -117,6 +119,8 @@ export const getGameStepRenderTime = (
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
+    case 'werewolf':
+      return getWerewolfStepRenderTime(gameStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
   }
@@ -154,6 +158,7 @@ export const getEpisodesFromFile = async (file: File, gameName: string): Promise
 export const getTokenRenderDistribution = (chunkCount: number, gameName: string): number[] => {
   switch (gameName) {
     case 'open_spiel_chess':
+    case 'werewolf':
       return generateEaseInDelayDistribution(chunkCount);
 
     default:
