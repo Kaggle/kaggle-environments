@@ -1105,8 +1105,7 @@ class GameSetEvaluator:
         # Hash the tasks string to avoid long filenames
         tasks_hash = hashlib.md5(tasks_str.encode()).hexdigest()
 
-        # Added version "v1.2" to force invalidation of old caches with bad indexing
-        cache_key = f"gte_v1.2_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
+        cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
         cache_path = self.cache_dir / cache_key
 
         if cache_path.exists():
@@ -1282,7 +1281,7 @@ class GameSetEvaluator:
                 if i < len(ratings_mean[1]):
                     val = ratings_mean[1][i]
                     err = ratings_std[1][i]
-                    print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
+                    print(f"{agent_display:<20} | {val:.8f} ± {err:.8f}")
                 else:
                     print(f"{agent_display:<20} | Error: Index {i} out of bounds for ratings size {len(ratings_mean[1])}")
             else:
@@ -1310,9 +1309,6 @@ class GameSetEvaluator:
                 print(f"!!! WARNING: GTE ratings_mean len <= 1 ({len(ratings_mean)}). Defaulting {agent_name} to 0.0")
                 rating_val = (0.0, 0.0)
             
-            # Debug first few
-            if i < 3:
-                print(f"[GTE Assign] Agent {agent_name} -> {rating_val[0]:.4f}")
             self.metrics[agent_name].gte_rating = rating_val
 
             contrib_map = {}
