@@ -103,6 +103,9 @@ export class UIManager {
             <div class="cinematic-subtitle-content-wrapper"></div>
             <div class="subtitle-controls">
                 <button class="subtitle-scroll-btn up">▲</button>
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
                 <button class="subtitle-scroll-btn down">▼</button>
             </div>
         `;
@@ -133,6 +136,7 @@ export class UIManager {
     if (wrapper) {
       wrapper.innerHTML = innerContent;
       wrapper.scrollTop = 0; // Reset scroll on new message
+      this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
     // Show Container
@@ -167,6 +171,9 @@ export class UIManager {
             <div class="cinematic-subtitle-content-wrapper"></div>
             <div class="subtitle-controls">
                 <button class="subtitle-scroll-btn up">▲</button>
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
                 <button class="subtitle-scroll-btn down">▼</button>
             </div>
         `;
@@ -183,6 +190,7 @@ export class UIManager {
     if (wrapper) {
       wrapper.innerHTML = innerContent;
       wrapper.scrollTop = 0;
+      this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
       this.subtitleContainer.classList.add('visible');
@@ -219,7 +227,9 @@ export class UIManager {
         const lastUpdate = (window.werewolfThreeJs && window.werewolfThreeJs.lastStepUpdateTime) || 0;
         const isStepping = (performance.now() - lastUpdate) < 1000;
 
-        if (isAudioPlaying || isStepping) {
+        const timeSinceMessage = performance.now() - (this.lastMessageTime || 0);
+
+        if (timeSinceMessage > 1500 && (isAudioPlaying || isStepping)) {
           // Slow auto scroll
           const rate = (audioState && audioState.playbackRate) || 1.0;
           const speed = 10 * rate; // Pixels per second
@@ -228,6 +238,20 @@ export class UIManager {
           if (Math.ceil(wrapper.scrollTop + wrapper.clientHeight) < wrapper.scrollHeight) {
             wrapper.scrollTop += speed * delta;
           }
+        }
+
+        // Update Scroll Thumb Position/Size
+        const track = this.subtitleContainer.querySelector('.scroll-track');
+        const thumb = this.subtitleContainer.querySelector('.scroll-thumb');
+        if (track && thumb) {
+          const trackHeight = track.clientHeight;
+          const thumbHeight = 6; // Fixed dot size
+          const maxScroll = wrapper.scrollHeight - wrapper.clientHeight;
+          const scrollRatio = maxScroll > 0 ? wrapper.scrollTop / maxScroll : 0;
+          const thumbMaxTop = trackHeight - thumbHeight;
+          const thumbTop = scrollRatio * thumbMaxTop;
+
+          thumb.style.top = `${thumbTop}px`;
         }
       } else {
         controls.classList.remove('visible');

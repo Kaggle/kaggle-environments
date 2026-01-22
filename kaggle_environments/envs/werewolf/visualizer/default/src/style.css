@@ -989,8 +989,11 @@ html, body, #app {
     gap: 10px; /* Space between text and controls */
 
     background: rgba(0, 0, 0, 0.6); /* Slightly darker background for readability */
-    padding: 10px 20px;
+    padding: 10px 14px 10px 20px;
+        /* Reduced right padding to bring arrows closer to edge */
     border-radius: 8px;
+    gap: 6px;
+        /* Reduced gap between text and scroller */
 
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
@@ -1008,6 +1011,8 @@ html, body, #app {
     text-align: center;
     scroll-behavior: smooth;
     pointer-events: auto; /* Ensure scrolling works */
+    padding-right: 25px;
+        /* Add space for absolute scroller overlay */
 
     /* Hide scrollbar for aesthetics but allow scroll */
     scrollbar-width: none;
@@ -1019,11 +1024,23 @@ html, body, #app {
 }
 
 .subtitle-controls {
+    position: absolute;
+        right: 6px;
+        /* Align with container right padding */
+        top: 10px;
+        /* Match container top padding */
+        bottom: 10px;
+        /* Match container bottom padding */
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    opacity: 0; /* Hidden unless needed */
+    justify-content: space-between;
+        align-items: center;
+        width: 20px;
+        opacity: 0;
+        /* Hidden unless needed */
     transition: opacity 0.2s;
+    pointer-events: auto;
+        z-index: 5;
 }
 
 .subtitle-controls.visible {
@@ -1031,26 +1048,59 @@ html, body, #app {
 }
 
 .subtitle-scroll-btn {
-    background: rgba(255, 255, 255, 0.2);
+    background: transparent;
     border: none;
-    color: white;
+    color: var(--text-muted);
+        /* Blueish */
     cursor: pointer;
     border-radius: 4px;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+        height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    transition: background 0.2s;
+    font-size: 10px;
+        /* Smaller arrows */
+        transition: color 0.2s, transform 0.1s;
+        padding: 0;
+        flex-shrink: 0;
 }
 
 .subtitle-scroll-btn:hover {
-    background: rgba(255, 255, 255, 0.4);
+    color: var(--text-primary);
+        transform: scale(1.1);
 }
 
 .subtitle-scroll-btn:active {
-    background: rgba(255, 255, 255, 0.6);
+    transform: scale(0.95);
+    }
+    
+    .scroll-track {
+        flex-grow: 1;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 1px;
+        position: relative;
+        margin: 4px 0;
+        /* Space between arrows and track */
+    }
+    
+    .scroll-thumb {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        /* Circular dot */
+        background: var(--text-muted);
+        border-radius: 50%;
+        /* Perfect circle */
+        transition: background 0.2s;
+        pointer-events: none;
+    }
+    
+    .scroll-thumb:hover {
+        background: var(--text-primary);
 }
 
 .subtitle-speaker {
