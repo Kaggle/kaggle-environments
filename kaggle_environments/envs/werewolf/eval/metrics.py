@@ -1100,6 +1100,20 @@ class GameSetEvaluator:
                     cache_data = pickle.load(f)
 
                 self.gte_ratings = cache_data['gte_ratings']
+                
+                # Robust validation against current tasks to prevent stale cache crashes
+                # self.gte_ratings should be (ratings_mean, ratings_std)
+                # ratings_mean should be [mean_agent_ratings, mean_task_ratings]
+                try:
+                    task_ratings_mean = self.gte_ratings[0][1]
+                    print(f"[GTE Cache Load] Tasks in config: {len(self.gte_tasks)}, Tasks in cache: {len(task_ratings_mean)}")
+                    if len(task_ratings_mean) != len(self.gte_tasks):
+                        print(f"!!! GTE Cache Size Mismatch: Config={len(self.gte_tasks)} vs Cache={len(task_ratings_mean)}. Recomputing...")
+                        raise ValueError(f"Cache size mismatch: {len(task_ratings_mean)} != {len(self.gte_tasks)}")
+                except (IndexError, TypeError) as e:
+                    print(f"!!! GTE Cache structure mismatch: {e}. Recomputing...")
+                    raise ValueError("Cache structure mismatch")
+
                 self.gte_joint = cache_data.get('gte_joint')
                 self.gte_marginals = cache_data.get('gte_marginals')
                 self.gte_contributions_raw = cache_data.get('gte_contributions_raw')
@@ -1346,27 +1360,48 @@ class GameSetEvaluator:
                     f"    TrueSkill: mu={stats.openskill_rating.mu:.2f} ± {stats.openskill_mu_std * 1.96:.2f} (CI95), sigma={stats.openskill_rating.sigma:.2f}"
                 )
             print("  Game Theoretic Evaluation (GTE):")
-            gte_mean, gte_std = stats.gte_rating
+            gte_mean, gte_std = getattr(stats, 'gte_rating', (0.0, 0.0))
             print(f"    Overall GTE Rating: {gte_mean:.2f} ± {gte_std * 1.96:.2f} (CI95)")
+            
+            # Print individual task contributions with safety
             for task in self.gte_tasks:
-                contrib_mean, contrib_std = stats.gte_contributions[task]
+                contrib = stats.gte_contributions.get(task, (0.0, 0.0))
+                contrib_mean, contrib_std = contrib
                 print(f"    - {task:<30} Contribution: {contrib_mean:.2f} ± {contrib_std * 1.96:.2f} (CI95)")
+            print("-" * 30)
 
-            if getattr(self, 'gte_ratings', None):
-                print("  GTE Metric Importance (Ratings):")
+        # Global GTE Metric Importance (moved OUTSIDE agent loop)
+        if getattr(self, 'gte_ratings', None):
+            print("\n  GTE Metric Importance (Ratings):")
+            try:
                 metric_ratings_mean = self.gte_ratings[0][1]
                 metric_ratings_std = self.gte_ratings[1][1]
 
+                if len(metric_ratings_mean) != len(self.gte_tasks):
+                    print(f"    !!! WARNING: Mismatch in GTE task ratings size! Expected {len(self.gte_tasks)}, got {len(metric_ratings_mean)}")
+                    # Truncate or pad to avoid crash, though it indicates a deeper issue
+                    limit = min(len(metric_ratings_mean), len(self.gte_tasks))
+                else:
+                    limit = len(self.gte_tasks)
+
                 metric_ratings = []
-                for i, task_name in enumerate(self.gte_tasks):
-                    metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+                for i in range(limit):
+                    try:
+                        task_name = self.gte_tasks[i]
+                        metric_ratings.append((task_name, metric_ratings_mean[i], metric_ratings_std[i]))
+                    except IndexError as e:
+                        # This should be caught by the 'limit' check but added for absolute safety
+                        print(f"    !!! DIAGNOSTIC ERROR: IndexError at index {i}. Tasks({len(self.gte_tasks)}), Mean({len(metric_ratings_mean)}), Std({len(metric_ratings_std)})")
+                        break
 
                 # Sort by rating descending
                 sorted_metric_ratings = sorted(metric_ratings, key=lambda x: x[1], reverse=True)
 
                 for task, rating_mean, rating_std in sorted_metric_ratings:
                     print(f"    - {task:<30} Rating: {rating_mean:.2f} ± {rating_std * 1.96:.2f} (CI95)")
-            print("-" * 30)
+            except Exception as e:
+                print(f"    !!! ERROR printing GTE Metric Importance: {e}")
+        print("=" * 50)
 
     def _prepare_plot_data(self):
         plot_data = []
@@ -1758,7 +1793,7 @@ class GameSetEvaluator:
         data = []
         for agent_name, metrics in self.metrics.items():
             # Use GTE Rating (Mean) for performance
-            gte_mean, _ = metrics.gte_rating
+            gte_mean, _ = getattr(metrics, 'gte_rating', (0.0, 0.0))
             avg_cost, _ = metrics.get_avg_cost()
 
             # We need valid cost data
@@ -1850,6 +1885,10 @@ class GameSetEvaluator:
         rating_player = 1
         contrib_player = 0
 
+        if not game or not getattr(game, 'actions', None) or len(game.actions) <= rating_player:
+            print(f"    !!! WARNING: Cannot plot GTE evaluation: Metadata actions missing or incomplete.")
+            return None
+        
         rating_actions = game.actions[rating_player]
         contrib_actions = game.actions[contrib_player]
 
@@ -1953,20 +1992,25 @@ class GameSetEvaluator:
             print("GTE evaluation not run or failed. Skipping metric analysis plot.")
             return None
 
+        if not self.gte_game or not getattr(self.gte_game, 'actions', None) or len(self.gte_game.actions) < 2:
+            print("    !!! WARNING: Cannot plot GTE metrics analysis: Metadata actions missing or incomplete.")
+            return None
+            
+        agents = self.gte_game.actions[0]
+        tasks = self.gte_game.actions[1]
+        
         # Unpack Data
         # Marginals (Weights)
-        metric_weights_mean = self.gte_marginals[0][1]
-        metric_weights_std = self.gte_marginals[1][1]
-        
-        # Ratings (Values)
-        metric_ratings_mean = self.gte_ratings[0][0] # Index 0 for values if using agent_vs_task?
-        # WAIT. In the fix I made earlier:
-        # metric_ratings_mean = self.gte_ratings[0][1]
-        # Let's verify _gte_bootstrap_worker_fast logic.
-        # res.ratings is [agent_ratings, task_ratings].
-        # So yes, index 1 is tasks.
-        metric_ratings_mean = self.gte_ratings[0][1]
-        metric_ratings_std = self.gte_ratings[1][1]
+        try:
+            metric_weights_mean = self.gte_marginals[0][1]
+            metric_weights_std = self.gte_marginals[1][1]
+            
+            # Ratings (Values)
+            metric_ratings_mean = self.gte_ratings[0][1]
+            metric_ratings_std = self.gte_ratings[1][1]
+        except (IndexError, TypeError) as e:
+            print(f"    !!! WARNING: GTE results structure mismatch in plot: {e}")
+            return None
 
         tasks = self.gte_tasks
         
