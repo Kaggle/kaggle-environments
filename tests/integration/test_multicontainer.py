@@ -1,5 +1,5 @@
 """
-Multi-container integration tests for kaggle-environments.
+Multi-container integration tests for kaggle-environments. See docker-compose.yml for setup.
 
 These tests demonstrate running the orchestrator and agents in separate containers,
 communicating via HTTP. This is the ideal setup for production-like testing.
@@ -115,33 +115,35 @@ class TestMultiContainerEpisodes:
 # Standalone agent server for multi-container mode
 def run_agent_server():
     """
-    Run a standalone agent server.
+    Run a standalone agent server using main.py http-server.
 
-    Usage:
-        AGENT_TYPE=random AGENT_PORT=8081 python test_multicontainer.py --serve
+    In production, run this in a separate Docker container:
+        python -m kaggle_environments.main http-server --port=8081 --host=0.0.0.0
+
+    The orchestrator will then load agents via JSON 'act' requests before
+    running games. Both JSON (UrlAgent) and protobuf (ProtobufAgent) protocols
+    are supported.
+
+    This function provides a simple wrapper for local testing:
+        AGENT_PORT=8081 python test_multicontainer.py --serve
     """
-    import random
+    from kaggle_environments.main import action_http
+    from kaggle_environments.utils import structify
 
-    agent_type = os.environ.get("AGENT_TYPE", "random")
     agent_port = int(os.environ.get("AGENT_PORT", "8081"))
-    agent_id = os.environ.get("AGENT_ID", "1")
 
-    def random_agent(obs, config):
-        """Simple random agent for RPS."""
-        return random.randint(0, 2)
+    print(f"Starting agent server on port {agent_port}")
+    print("Note: Agent must be loaded via 'act' request before use")
 
-    def rock_agent(obs, config):
-        """Always plays rock."""
-        return 0
-
-    agents = {
-        "random": random_agent,
-        "rock": rock_agent,
-    }
-
-    agent_fn = agents.get(agent_type, random_agent)
-    agent = RemoteAgent(agent_fn, agent_id)  # noqa
-    agent.serve(port=agent_port)
+    args = structify(
+        {
+            "host": "0.0.0.0",
+            "port": agent_port,
+            "debug": False,
+            "log_path": None,
+        }
+    )
+    action_http(args)
 
 
 if __name__ == "__main__":
