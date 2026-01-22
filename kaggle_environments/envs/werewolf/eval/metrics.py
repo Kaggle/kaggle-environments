@@ -1078,7 +1078,22 @@ class GameSetEvaluator:
         return tensor
 
     def _run_gte_evaluation(self, num_samples: int, light_gte_games: List[LightGame] = None):
-        agents = sorted(list(self.metrics.keys()))
+        # Filter agents to only those who actually played in the loaded games
+        # This prevents "phantom" agents (from defaultdict pollution) from breaking GTE
+        active_agents = set()
+        for g in self.games:
+            for p in g.players:
+                active_agents.add(p.agent.display_name)
+        
+        all_metrics_agents = sorted(list(self.metrics.keys()))
+        agents = [a for a in all_metrics_agents if a in active_agents]
+        
+        if len(agents) < len(all_metrics_agents):
+             print(f"Filtered {len(all_metrics_agents) - len(agents)} phantom agents from GTE (No games played).")
+        
+        if not agents:
+            print("No active agents found in games. Skipping GTE.")
+            return
 
         # Check cache
         # Tasks are part of the cache key
@@ -1250,9 +1265,13 @@ class GameSetEvaluator:
         for i, agent in enumerate(agents):
             agent_display = agent if agent else f"Agent_{i}"
             if len(ratings_mean) > 0:
-                val = ratings_mean[0][i]
-                err = ratings_std[0][i]
-                print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
+                # Safety check for index out of bounds
+                if i < len(ratings_mean[0]):
+                    val = ratings_mean[0][i]
+                    err = ratings_std[0][i]
+                    print(f"{agent_display:<20} | {val:.4f} ± {err:.4f}")
+                else:
+                    print(f"{agent_display:<20} | Error: Index {i} out of bounds for ratings size {len(ratings_mean[0])}")
             else:
                 print(f"{agent_display:<20} | GTE analysis failed (insufficient dimensions)")
         print("-" * len(header))
@@ -1872,7 +1891,15 @@ class GameSetEvaluator:
             return None
 
         # --- 1. Data Preparation ---
-        agents = sorted(list(self.metrics.keys()))
+        # Use agents from the GTE game structure if available, as self.metrics.keys() might remain polluted or different
+        # self.gte_game.actions[0] should contain the agents list used for calculation
+        game = self.gte_game
+        if game and getattr(game, 'actions', None) and len(game.actions) > 0:
+             agents = game.actions[0]
+        else:
+             print("Warning: GTE Game structure missing agent list. Falling back to metrics keys (risky).")
+             agents = sorted(list(self.metrics.keys()))
+
         tasks = self.gte_tasks
 
         ratings_mean = self.gte_ratings[0][0]
