@@ -298,32 +298,81 @@ export function playNextInQueue(isContinuous = true) {
   }
 
   if (audioPath) {
-    console.debug(
-      `DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`
-    );
-    console.debug(`DEBUG: [playNextInQueue] Playing audio: ${audioPath}`);
-    audioState.audioPlayer.src = audioPath;
-    audioState.audioPlayer.playbackRate = audioState.playbackRate;
-    audioState.audioPlayer.onended = () => {
-      console.debug(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
-      audioState.isAudioPlaying = false;
-      if (!audioState.isPaused && isContinuous) {
-        console.debug('DEBUG: [onended] Calling playNextInQueue recursively.');
-        playNextInQueue(isContinuous);
-      } else {
-        console.debug('DEBUG: [onended] Loop stopped. isPaused or !isContinuous.');
+    const originalPath = audioPath;
+    const playAttempts = [];
+
+    // 1. Try Local Path (if EpisodeId exists)
+    if (audioState.episodeId) {
+      // originalPath usually includes "audio/" prefix (e.g. "audio/hash.wav")
+      // We append this directly to the episode-specific local base path.
+      // Final result: "/audio/{episodeId}/audio/{hash}.wav"
+      const localPath = `/audio/${audioState.episodeId}/${originalPath}`;
+      playAttempts.push(localPath);
+    }
+
+    // 2. Fallback to Original Path
+    playAttempts.push(originalPath);
+
+    /**
+     * Recursive function to try playing paths in order.
+     * @param {number} index - Current attempt index.
+     */
+    const tryPlayAudio = (index) => {
+      if (index >= playAttempts.length) {
+        console.error(`DEBUG: [tryPlayAudio] All attempts failed for key: "${audioKey}"`);
+        audioState.isAudioPlaying = false;
+        if (!audioState.isPaused && isContinuous) {
+          playNextInQueue(isContinuous);
+        }
+        return;
       }
+
+      const currentPath = playAttempts[index];
+      console.debug(`DEBUG: [tryPlayAudio] Attempt ${index + 1}/${playAttempts.length}: ${currentPath}`);
+
+      audioState.audioPlayer.src = currentPath;
+      audioState.audioPlayer.playbackRate = audioState.playbackRate;
+
+      // Reset handlers for this attempt
+      audioState.audioPlayer.onended = () => {
+        console.debug(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
+        audioState.isAudioPlaying = false;
+        if (!audioState.isPaused && isContinuous) {
+          console.debug('DEBUG: [onended] Calling playNextInQueue recursively.');
+          playNextInQueue(isContinuous);
+        } else {
+          console.debug('DEBUG: [onended] Loop stopped. isPaused or !isContinuous.');
+        }
+      };
+
+      audioState.audioPlayer.onerror = (e) => {
+        console.warn(`DEBUG: [onerror] Failed to play: ${currentPath}. Trying next...`, e);
+        tryPlayAudio(index + 1);
+      };
+
+      audioState.audioPlayer.play().catch((e) => {
+        console.warn(`DEBUG: [play.catch] Audio play rejected: ${currentPath}. Trying next...`, e);
+        // Often play() rejects if src is invalid or user interaction blocked, 
+        // but if it's a 404, onerror usually fires too. 
+        // To avoid double-calling, we might want to check audioState.isAudioPlaying?
+        // But simpler: just let onerror handle loading errors. 
+        // However, if play() fails due to interaction validation, we might want to stop?
+        // For 404s, play() usually returns a promise that stays pending until loaded? 
+        // actually for 404, the browser fires error event on the element.
+        // We'll let onerror handle logic to proceed, BUT if play() throws synchronously (e.g. NotAllowedError),
+        // we might not get an onerror.
+        if (e.name === 'NotAllowedError') {
+          console.error("Autoplay blocked. User interaction required.");
+          audioState.isAudioPlaying = false;
+          // Don't retry other paths if it's an interaction issue
+        }
+        // If it's not an interaction error, we might want to ensure we switch.
+        // But usually onerror covers network/format errors.
+      });
     };
-    audioState.audioPlayer.onerror = () => {
-      console.error(`DEBUG: [onerror] Audio failed to play for key: "${audioKey}"`);
-      audioState.isAudioPlaying = false;
-      playNextInQueue(isContinuous);
-    };
-    audioState.audioPlayer.play().catch((e) => {
-      console.error(`DEBUG: [play.catch] Audio failed to play:`, e);
-      audioState.isAudioPlaying = false;
-      playNextInQueue(isContinuous);
-    });
+
+    // Start with the first attempt
+    tryPlayAudio(0);
   } else {
     console.warn(`DEBUG: [playNextInQueue] No audio for event index: ${event.allEventsIndex}. Using setTimeout.`);
     setTimeout(() => {

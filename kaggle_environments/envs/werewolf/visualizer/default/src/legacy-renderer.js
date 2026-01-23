@@ -67,6 +67,10 @@ export function renderer(context, parent) {
   const environment = replay;
   const parentId = parent.id;
 
+  if (window.kaggleWerewolf && replay && replay.info) {
+    window.kaggleWerewolf.episodeId = replay.info.EpisodeId;
+  }
+
   let playerNamesFor3D = [];
   let playerThumbnailsFor3D = {};
 
