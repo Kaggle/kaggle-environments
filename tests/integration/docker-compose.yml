@@ -8,8 +8,6 @@
 #   Multi-container (orchestrator + agents):
 #     docker-compose up orchestrator agent-1 agent-2
 #
-version: "3.8"
-
 services:
   # Single container test runner - runs all tests in one container
   test-runner:
