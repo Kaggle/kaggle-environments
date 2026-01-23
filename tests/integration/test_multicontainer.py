@@ -39,7 +39,7 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
     while time.time() - start_time < timeout:
         if is_orchestrator_available():
             return True
-        time.sleep(1)
+        time.sleep(0.1)
     return False
 
 
@@ -59,33 +59,8 @@ def wait_for_agent_servers(hosts: list[str], port: int, timeout: int = 30) -> bo
     while time.time() - start_time < timeout:
         if all(is_agent_server_available(host, port) for host in hosts):
             return True
-        time.sleep(1)
+        time.sleep(0.1)
     return False
-
-
-def load_agent_on_server(host: str, port: int, agent_path: str, environment: str) -> bool:
-    """Load an agent on a remote http-server via JSON 'act' action.
-
-    This pre-loads and caches the agent on the remote server. Must be called
-    before UrlAgent can communicate with the server, since UrlAgent doesn't
-    include an agent path in its requests.
-    """
-    url = f"http://{host}:{port}"
-    data = {
-        "action": "act",
-        "environment": environment,
-        "agents": [agent_path],
-        "state": {"observation": {"board": [0] * 9, "remainingOverageTime": 60}},
-        "configuration": {"actTimeout": 5},
-    }
-    try:
-        response = requests.post(url, json=data, timeout=10)
-        return response.status_code == 200
-    except requests.exceptions.RequestException:
-        return False
-
-
-# ... (RemoteAgent class remains the same) ...
 
 
 @pytest.mark.skipif(
@@ -143,10 +118,6 @@ class TestMultiContainerEpisodes:
         assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
         assert wait_for_agent_servers(["agent-1", "agent-2"], 8081, timeout=10), "Agent servers not available"
 
-        # Pre-load agents on remote servers (required before UrlAgent can use them)
-        for host in ["agent-1", "agent-2"]:
-            assert load_agent_on_server(host, 8081, agent_path, environment), f"Failed to load agent on {host}"
-
         request_data = {
             "action": "evaluate",
             "environment": environment,
@@ -178,44 +149,5 @@ class TestMultiContainerEpisodes:
             )
 
 
-# Standalone agent server for multi-container mode
-def run_agent_server():
-    """
-    Run a standalone agent server using main.py http-server.
-
-    In production, run this in a separate Docker container:
-        python -m kaggle_environments.main http-server --port=8081 --host=0.0.0.0
-
-    The orchestrator will then load agents via JSON 'act' requests before
-    running games. Both JSON (UrlAgent) and protobuf (ProtobufAgent) protocols
-    are supported.
-
-    This function provides a simple wrapper for local testing:
-        AGENT_PORT=8081 python test_multicontainer.py --serve
-    """
-    from kaggle_environments.main import action_http
-    from kaggle_environments.utils import structify
-
-    agent_port = int(os.environ.get("AGENT_PORT", "8081"))
-
-    print(f"Starting agent server on port {agent_port}")
-    print("Note: Agent must be loaded via 'act' request before use")
-
-    args = structify(
-        {
-            "host": "0.0.0.0",
-            "port": agent_port,
-            "debug": False,
-            "log_path": None,
-        }
-    )
-    action_http(args)
-
-
 if __name__ == "__main__":
-    import sys
-
-    if "--serve" in sys.argv:
-        run_agent_server()
-    else:
-        pytest.main([__file__, "-v", "-s"])
+    pytest.main([__file__, "-v", "-s"])

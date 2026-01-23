@@ -87,14 +87,20 @@ In production, Kaggle runs games across multiple containers:
 └─────────────────────────┘      └─────────────────────────┘
 ```
 
-### Step-by-Step Flow
+### Step-by-Step Flow in Production
 
 1. **Agent containers start** with `http-server` command (no agent loaded yet):
    ```bash
    kaggle-environments http-server --host 0.0.0.0 --port 8081
    ```
 
-2. **Agents are pre-loaded** via an initial `act` request that includes the agent path:
+2. **Orchestrator starts** with agent HTTP URLs provided by the backend:
+   ```bash
+   kaggle-environments run --environment my_game \
+     --agents http://agent-1:8081 http://agent-2:8081 ...
+   ```
+
+3. **Agents are pre-loaded** via an initial `act` request that includes the agent path:
    ```json
    {
      "action": "act",
@@ -109,11 +115,6 @@ In production, Kaggle runs games across multiple containers:
    - Caches it in the global `cached_agent` variable
    - Returns an action (which may be discarded)
 
-3. **Orchestrator starts** with agent HTTP URLs:
-   ```bash
-   kaggle-environments run --environment my_game \
-     --agents http://agent-1:8081 http://agent-2:8081 ...
-   ```
 
 4. **Game runs**: `UrlAgent` sends `act` requests to each agent container.
    These requests do NOT include an agent path - they rely on the cached agent:
