@@ -126,8 +126,8 @@ class NameManager:
         for agent_id in sorted_ids:
             display_name = self.id_to_display[agent_id]
             if agent_id != display_name:
-                # Use regex for whole word matching
-                pattern = r'\b' + re.escape(agent_id) + r'\b'
+                # Use regex for whole word matching, optionally consuming "Player" prefix
+                pattern = r'\b(?:Player\s*)?' + re.escape(agent_id) + r'\b'
                 text = re.sub(pattern, display_name, text)
 
         return text
