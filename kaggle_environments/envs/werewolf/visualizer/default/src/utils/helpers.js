@@ -162,7 +162,7 @@ window.handleThumbnailError = function (img) {
   }
 
 export function updateEventLog(container, gameState, playerMap, onSpeak) {
-    const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
+  const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.6 };
     const audioToggleDisabled = !audioState.hasAudioTracks;
     const audioToggleEnabled = audioState.isAudioEnabled && !audioToggleDisabled;
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
