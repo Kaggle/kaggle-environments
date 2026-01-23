@@ -81,6 +81,11 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": "PLACEHOLDER_GAME_SHORT_NAME",
     },
     "openSpielGameParameters": {"description": "Game parameters for Open Spiel game.", "type": "object", "default": {}},
+    "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation",
+    },
     "useOpenings": {
         "description": "Whether to start from a position in an opening book.",
         "type": "boolean",
@@ -502,8 +507,14 @@ def interpreter(
                 else "unknown"
             )
 
+        # Get observation string based on game's observation type
+        if env.configuration.get("observationType") == "information_state":
+            obs_string = os_state.information_state_string(player_id)
+        else:
+            obs_string = os_state.observation_string(player_id)
+
         obs_update_dict = {
-            "observationString": os_state.observation_string(player_id),
+            "observationString": obs_string,
             "currentPlayer": os_state.current_player(),
             "playerId": player_id,
             "isTerminal": os_state.is_terminal(),
@@ -642,8 +653,12 @@ def _build_env(game_string: str) -> dict[str, Any]:
         game = pyspiel.load_game(short_name + "_proxy", game.get_parameters())
 
     game_type = game.get_type()
-    if not game_type.provides_observation_string:
-        raise ValueError(f"No observation string for game: {game_string}")
+    if game_type.provides_observation_string:
+        observation_type = "observation"
+    elif game_type.provides_information_state_string:
+        observation_type = "information_state"
+    else:
+        raise ValueError(f"No observation or information state string for game: {game_string}")
 
     env_spec = copy.deepcopy(ENV_SPEC_TEMPLATE)
     env_spec["name"] = f"open_spiel_{short_name}"
@@ -655,6 +670,7 @@ def _build_env(game_string: str) -> dict[str, Any]:
     env_config["openSpielGameString"]["default"] = str(game)
     env_config["openSpielGameName"]["default"] = short_name
     env_config["openSpielGameParameters"]["default"] = game.get_parameters()
+    env_config["observationType"]["default"] = observation_type
 
     env_obs = env_spec["observation"]
     env_obs["properties"]["openSpielGameString"]["default"] = str(game)
@@ -746,10 +762,15 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 )
 
 GAMES_LIST = [
+    "backgammon",
+    "checkers",
     "chess",
     "connect_four",
     "gin_rummy",
     "go(board_size=9)",
+    "hearts",
+    "hex",
+    "othello",
     "tic_tac_toe",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,
