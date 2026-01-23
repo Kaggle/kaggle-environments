@@ -1,9 +1,60 @@
+# Unified CI/CD pipeline for kaggle-environments
+# Builds Docker images, runs tests, and publishes to PyPI, NPM, and GCS
+#
+# Triggered on push to master branch
+
 steps:
-  # Step 1: Install dependencies, sync versions, and build all static assets.
-  # This runs our 'build-ci' script which builds all visualizers and
-  # collects the artifacts into a single './build' directory.
-  - name: "gcr.io/cloud-builders/npm"
-    id: "build-all-visualizers"
+  # Step 1 & 2: Build CPU and GPU Docker images in parallel
+  - id: "build-cpu-image"
+    name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "--file",
+        "docker/Dockerfile",
+        "--target",
+        "cpu",
+        "--tag",
+        "gcr.io/kaggle-images/python-simulations",
+        "--cache-from",
+        "gcr.io/kaggle-images/python-simulations:latest",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/kaggle-images/python:v163",
+        ".",
+      ]
+    waitFor: ["-"]
+
+  - id: "build-gpu-image"
+    name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "--file",
+        "docker/Dockerfile",
+        "--target",
+        "gpu",
+        "--tag",
+        "gcr.io/kaggle-gpu-images/python-simulations",
+        "--cache-from",
+        "gcr.io/kaggle-gpu-images/python-simulations:latest",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/kaggle-gpu-images/python:latest",
+        ".",
+      ]
+    waitFor: ["-"]
+
+  # Step 3: Run tests in the CPU image
+  - id: "run-tests"
+    name: "gcr.io/kaggle-images/python-simulations"
+    entrypoint: "python"
+    args: ["-m", "pytest", "tests/", "kaggle_environments/", "--tb=short"]
+    waitFor: ["build-cpu-image"]
+
+  # Step 4: Build all visualizers (runs in parallel with tests after CPU image is ready)
+  - id: "build-all-visualizers"
+    name: "gcr.io/cloud-builders/npm"
     entrypoint: "bash"
     args:
       - "-c"
@@ -14,22 +65,27 @@ steps:
         pnpm install
         node web/scripts/sync-version.js
         pnpm build-ci
+    waitFor: ["build-cpu-image"]
 
-  # Step 2: Publish the core package to NPM.
-  # This runs after the build to ensure the package is up-to-date.
-  - name: "gcr.io/cloud-builders/npm"
-    id: "publish-to-npm"
+  # Step 5: Publish to PyPI (after tests pass)
+  - id: "publish-to-pypi"
+    name: "python:3.11-slim"
+    entrypoint: "bash"
+    args: ["docker/cicd-publish-to-pypi.sh"]
+    waitFor: ["run-tests"]
+    secretEnv: ["PYPI_TOKEN"]
+
+  # Step 6: Publish to NPM (after visualizers built)
+  - id: "publish-to-npm"
+    name: "gcr.io/cloud-builders/npm"
     entrypoint: "bash"
     args: ["web/scripts/publish-core.sh"]
     waitFor: ["build-all-visualizers"]
     secretEnv: ["NPM_TOKEN"]
 
-  # Step 3: Deploy the collected artifacts to Google Cloud Storage.
-  # 'rsync -d' syncs the directory and deletes any files in the destination
-  # that are not in the source, We probably want to change this to keep versions
-  # once we figure out a decent versioning scheme.
-  - name: "gcr.io/cloud-builders/gcloud"
-    id: "deploy-to-gcs"
+  # Step 7: Deploy visualizers to GCS (after visualizers built, independent of NPM publish)
+  - id: "deploy-to-gcs"
+    name: "gcr.io/cloud-builders/gcloud"
     entrypoint: "gsutil"
     args:
       - "-m"
@@ -38,14 +94,34 @@ steps:
       - "-r"
       - "./build"
       - "gs://$_BUCKET_NAME/episode-visualizers"
-    waitFor: ["publish-to-npm"]
+    waitFor: ["build-all-visualizers"]
+
+# Push Docker images to GCR
+images:
+  - "gcr.io/kaggle-images/python-simulations"
+  - "gcr.io/kaggle-gpu-images/python-simulations"
 
 substitutions:
   _BUCKET_NAME: "kaggle-static"
 
 availableSecrets:
   secretManager:
+    - versionName: projects/kaggle-cicd/secrets/pypi-token/versions/latest
+      env: "PYPI_TOKEN"
     - versionName: projects/kaggle-cicd/secrets/npm-token-kaggle-environments/versions/latest
       env: "NPM_TOKEN"
 
-tags: ["kaggle-environments", "visualizer-deployment", "npm-publish"]
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+
+timeout: "3600s"
+
+tags:
+  [
+    "kaggle-environments",
+    "docker-build",
+    "pypi-publish",
+    "npm-publish",
+    "visualizer-deployment",
+  ]
