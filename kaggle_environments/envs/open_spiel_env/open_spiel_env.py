@@ -94,6 +94,14 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "type": "boolean",
         "default": False,
     },
+    "includeLegalActions": {
+        "description": (
+            "If true, include legalActions and legalActionStrings in observations. "
+            "Defaults to false since these can be derived from serializedGameAndState."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
     "seed": {
         "description": "Integer currently only used for selecting starting position.",
         "type": "number",
@@ -127,12 +135,12 @@ OBSERVATION_SPEC_TEMPLATE = {
         "openSpielGameName": {"description": "Short name of the OpenSpiel game.", "type": "string"},
         "observationString": {"description": "String representation of state.", "type": "string"},
         "legalActions": {
-            "description": "List of OpenSpiel legal action integers.",
+            "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
             "type": "array",
             "items": {"type": "integer"},
         },
         "legalActionStrings": {
-            "description": "List of OpenSpiel legal actions strings.",
+            "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
             "type": "array",
             "items": {"type": "string"},
         },
@@ -331,8 +339,7 @@ def interpreter(
         env.os_game = pyspiel.load_game(game_string)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
-    if "stateHistory" not in env.info:
-        env.info["stateHistory"] = [str(env.os_state)]
+    if "actionHistory" not in env.info:
         env.info["actionHistory"] = []
         env.info["moveDurations"] = []
         initial_actions, metadata = _get_initial_actions(env.configuration)
@@ -350,7 +357,6 @@ def interpreter(
             for action in initial_actions:
                 env.os_state.apply_action(action)
                 env.info["actionHistory"].append(str(action))
-                env.info["stateHistory"].append(str(env.os_state))
         if preset_hands:
             env.info["presetHands"] = copy.deepcopy(preset_hands)
             env.info["presetHandsState"] = {
@@ -389,7 +395,6 @@ def interpreter(
                 os_state.apply_action(action_submitted)
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
-                env.info["stateHistory"].append(str(os_state))
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -422,7 +427,6 @@ def interpreter(
             chance_action = np.random.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
-        env.info["stateHistory"].append(str(os_state))
 
     # --- Update agent states ---
     agent_error = any(kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"] for player_id in range(num_players))
@@ -474,13 +478,16 @@ def interpreter(
 
         obs_update_dict = {
             "observationString": os_state.observation_string(player_id),
-            "legalActions": os_state.legal_actions(player_id),
-            "legalActionStrings": [os_state.action_to_string(action) for action in os_state.legal_actions(player_id)],
             "currentPlayer": os_state.current_player(),
             "playerId": player_id,
             "isTerminal": os_state.is_terminal(),
             "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
         }
+        if env.configuration.get("includeLegalActions", False):
+            obs_update_dict["legalActions"] = os_state.legal_actions(player_id)
+            obs_update_dict["legalActionStrings"] = [
+                os_state.action_to_string(action) for action in os_state.legal_actions(player_id)
+            ]
         if "imageConfig" in env.configuration:
             obs_update_dict["imageConfig"] = env.configuration["imageConfig"]
 
