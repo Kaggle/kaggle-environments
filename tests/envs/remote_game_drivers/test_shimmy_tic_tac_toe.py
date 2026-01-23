@@ -75,13 +75,12 @@ def start_http_server(port: int, max_wait: float = 5.0) -> threading.Thread:
 
 
 def load_agent_on_server(port: int, agent_path: str, environment: str = "shimmy_tic_tac_toe") -> None:
-    """Load an agent on the http-server via JSON 'act' action."""
+    """Load an agent on the http-server via JSON 'initialize_agents' action."""
     url = f"http://127.0.0.1:{port}"
     data = {
-        "action": "act",
+        "action": "initialize_agents",
         "environment": environment,
         "agents": [str(agent_path)],
-        "state": {"observation": {"board": [0] * 9, "remainingOverageTime": 60}},
         "configuration": {"actTimeout": 5},
     }
     response = requests.post(url, json=data, timeout=10)

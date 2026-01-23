@@ -301,7 +301,9 @@ class Environment:
         # This allows interpreters to know what agents were passed to run()
         self.info["_agent_specs"] = agents
 
-        runner = self.__agent_runner(agents)
+        # Initialize agents explicitly before running
+        initialized_agents = self.initialize_agents(agents)
+        runner = self.__agent_runner(initialized_agents)
         start = perf_counter()
         while not self.done and perf_counter() - start < self.configuration.runTimeout:
             actions, logs = runner.act()
@@ -459,7 +461,8 @@ class Environment:
         def reset():
             nonlocal runner
             self.reset(len(agents))
-            runner = self.__agent_runner(agents)
+            initialized_agents = self.initialize_agents(agents)
+            runner = self.__agent_runner(initialized_agents)
             advance()
             return self.__get_shared_state(position).observation
 
@@ -699,20 +702,31 @@ class Environment:
 
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents: list[str | Callable | Agent | None]) -> Any:
+    def initialize_agents(self, agent_specs: list[str | Callable | Agent | None]) -> list[Agent | None]:
+        """Initialize agents from specifications.
+
+        This explicitly converts agent specifications into Agent objects.
+        Separates initialization from execution for clearer code flow.
+
+        Args:
+            agent_specs: List of agent specifications (strings, callables, or Agent objects).
+                Strings can be file paths, HTTP URLs, or built-in agent names.
+
+        Returns:
+            List of initialized Agent objects (or None for inactive positions).
+        """
+        return [Agent(spec, self) if spec is not None else None for spec in agent_specs]
+
+    def __agent_runner(self, agents: list[Agent | None]) -> Any:
         """Create an agent runner that can compute actions for all agents.
 
         Args:
-            agents: List of agent specifications (strings, callables, or Agent objects).
-                The strings can be file paths, HTTP URLs, or Docker container IDs.
-                For HTTP URLs, creates UrlAgent which sends requests to remote servers.
-                See docs/agents.md for multi-container deployment details.
+            agents: List of initialized Agent objects (or None for inactive positions).
+                Agents must be pre-initialized via initialize_agents().
 
         Returns:
             Object with act() method that returns (actions, logs) for all agents.
         """
-        # Wrap each agent spec in an Agent object (handles URL resolution, file loading, etc.)
-        agents = [Agent(agent, self) if agent is not None else None for agent in agents]
 
         def act(none_action=None):
             if len(agents) != len(self.state):
