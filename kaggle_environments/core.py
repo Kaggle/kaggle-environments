@@ -699,7 +699,7 @@ class Environment:
 
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents: list[Agent | None]) -> Any:
+    def __agent_runner(self, agents: list[str | Callable | Agent | None]) -> Any:
         # Generate the agents.
         agents = [Agent(agent, self) if agent is not None else None for agent in agents]
 

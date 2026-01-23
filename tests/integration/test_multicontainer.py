@@ -1,8 +1,11 @@
 """
 Multi-container integration tests for kaggle-environments. See docker-compose.yml for setup.
 
-These tests demonstrate running the orchestrator and agents in separate containers,
-communicating via HTTP. This is the ideal setup for production-like testing.
+These tests emulate how the C# backend runs agent containers:
+1. Agent containers start with: kaggle-environments http-server --host 0.0.0.0 --port <AgentPort>
+2. Agents are pre-loaded on each container via an initial 'act' request with the agent path
+3. The orchestrator runs with: kaggle-environments run --agents <http://agent-1:port> <http://agent-2:port>
+4. UrlAgent sends 'act' requests to the agent containers, which use the cached/pre-loaded agent
 
 For simpler single-container tests, see test_envs.py.
 """
@@ -40,10 +43,32 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
     return False
 
 
+def is_agent_server_available(host: str, port: int) -> bool:
+    """Check if an agent http-server is running and accessible."""
+    url = f"http://{host}:{port}"
+    try:
+        response = requests.get(url, params={"action": "list"}, timeout=2)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
+def wait_for_agent_servers(hosts: list[str], port: int, timeout: int = 30) -> bool:
+    """Wait for all agent servers to become available."""
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if all(is_agent_server_available(host, port) for host in hosts):
+            return True
+        time.sleep(1)
+    return False
+
+
 def load_agent_on_server(host: str, port: int, agent_path: str, environment: str) -> bool:
     """Load an agent on a remote http-server via JSON 'act' action.
 
-    This must be called before using ProtobufAgent to communicate with the server.
+    This pre-loads and caches the agent on the remote server. Must be called
+    before UrlAgent can communicate with the server, since UrlAgent doesn't
+    include an agent path in its requests.
     """
     url = f"http://{host}:{port}"
     data = {
@@ -87,10 +112,10 @@ class TestMultiContainerSetup:
 
 
 # Game configurations for multicontainer tests
-# Each tuple: (environment_name, agent_path_or_none, num_episodes)
-# agent_path is needed for game drivers that require pre-loading agents
+# Each tuple: (environment_name, agent_path, num_episodes)
+# agent_path is the script to pre-load on the remote http-server
 MULTICONTAINER_GAMES = [
-    ("rps", None, 1),
+    ("rps", "reaction", 1),  # Built-in agent for RPS
     ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 1),
     ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 3),
 ]
@@ -103,18 +128,24 @@ class TestMultiContainerEpisodes:
     """Tests that run episodes across multiple containers."""
 
     @pytest.mark.parametrize("environment,agent_path,num_episodes", MULTICONTAINER_GAMES)
-    def test_multicontainer_episode(self, environment: str, agent_path: str | None, num_episodes: int):
+    def test_multicontainer_episode(self, environment: str, agent_path: str, num_episodes: int):
         """Run game episodes with agents in separate containers.
+
+        This test emulates the production flow:
+        1. Agent containers are already running http-server (started by docker-compose)
+        2. Pre-load agents on each container via 'act' request with agent path
+        3. Orchestrator sends 'evaluate' request with agent HTTP URLs
+        4. UrlAgent sends 'act' requests, remote servers use cached agents
 
         Tests both JSON-based (RPS) and protobuf-based (shimmy) agent communication.
         With num_episodes > 1, also tests that environments correctly reset state.
         """
         assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
+        assert wait_for_agent_servers(["agent-1", "agent-2"], 8081, timeout=10), "Agent servers not available"
 
-        # Load agents if required (game drivers need pre-loaded agents)
-        if agent_path:
-            for host in ["agent-1", "agent-2"]:
-                assert load_agent_on_server(host, 8081, agent_path, environment), f"Failed to load agent on {host}"
+        # Pre-load agents on remote servers (required before UrlAgent can use them)
+        for host in ["agent-1", "agent-2"]:
+            assert load_agent_on_server(host, 8081, agent_path, environment), f"Failed to load agent on {host}"
 
         request_data = {
             "action": "evaluate",
