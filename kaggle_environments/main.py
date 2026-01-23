@@ -25,8 +25,8 @@ from kaggle_environments.core import environments, evaluate, make
 parser = argparse.ArgumentParser(description="Kaggle Simulations")
 parser.add_argument(
     "action",
-    choices=["list", "evaluate", "run", "step", "load", "act", "dispose", "http-server"],
-    help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Start http server.",
+    choices=["list", "evaluate", "run", "step", "load", "act", "initialize_agents", "dispose", "http-server"],
+    help="List environments. Evaluate many episodes. Run a single episode. Step the environment. Load the environment. Initialize agents. Start http server.",
 )
 parser.add_argument("--environment", type=str, help="Environment to run against.")
 parser.add_argument("--debug", type=bool, help="Print debug statements.")
@@ -110,16 +110,39 @@ def action_evaluate(args: Any) -> str:
 cached_agent: Agent | None = None
 
 
+def action_initialize_agents(args: Any) -> dict[str, Any]:
+    """Handle 'initialize_agents' requests - explicitly initialize and cache an agent.
+
+    This is called before any 'act' requests to pre-load the agent.
+    In multi-container mode, this separates agent initialization from action computation.
+
+    Args:
+        args.agents: List with one agent path/spec (required)
+        args.environment: Environment name
+        args.configuration: Environment configuration
+        args.info: Environment info
+
+    Returns:
+        {"status": "initialized"} or {"error": <message>}
+    """
+    global cached_agent
+    if len(args.agents) != 1:
+        return {"error": "One agent must be provided."}
+    raw = args.agents[0]
+
+    env = make(args.environment, args.configuration, args.info, debug=args.debug)
+    cached_agent = Agent(raw, env)
+
+    return {"status": "initialized", "agent": raw}
+
+
 def action_act(args: Any) -> dict[str, Any]:
     """Handle 'act' requests - compute an action using the cached agent.
 
     In multi-container mode, this is called by UrlAgent from the orchestrator.
-    The first request must include agents=[path] to load the agent.
-    Subsequent requests reuse the cached agent (agents field can be same path or omitted
-    if the agent was pre-loaded).
+    The agent must be initialized first via initialize_agents action.
 
     Args:
-        args.agents: List with one agent path/spec (required on first call)
         args.environment: Environment name
         args.state: Contains observation for the agent
         args.configuration: Environment configuration
@@ -128,18 +151,9 @@ def action_act(args: Any) -> dict[str, Any]:
         {"action": <agent_action>} or {"error": <message>}
     """
     global cached_agent
-    if len(args.agents) != 1:
-        return {"error": "One agent must be provided."}
-    raw = args.agents[0]
+    if cached_agent is None:
+        return {"error": "No agent initialized. Call initialize_agents first."}
 
-    env = make(args.environment, args.configuration, args.info, state=args.state, debug=args.debug)
-
-    # Cache the agent on first run, or if a different agent path is provided
-    is_first_run = cached_agent is None or cached_agent.raw != raw
-    if is_first_run:
-        cached_agent = Agent(raw, env)
-
-    assert cached_agent is not None
     observation = utils.get(args.state, dict, {}, ["observation"])
     action, log = cached_agent.act(observation)
     if isinstance(action, errors.DeadlineExceeded):
@@ -149,7 +163,7 @@ def action_act(args: Any) -> dict[str, Any]:
 
     if args.log_path is not None:
         with open(args.log_path, mode="a") as log_file:
-            if not is_first_run:
+            if len(utils.get(args, list, [], ["logs"])) > 0:
                 log_file.write(",\n ")
             json.dump([log], log_file)
 
@@ -160,7 +174,8 @@ def action_step(args: Any) -> Any:
     env = {"logs": args.logs}
     try:
         env = make(args.environment, args.configuration, args.info, args.steps, args.logs, args.debug)
-        runner = env.__agent_runner(args.agents)
+        initialized_agents = env.initialize_agents(args.agents)
+        runner = env.__agent_runner(initialized_agents)
         env.step(runner.act())
     finally:
         if args.log_path is not None:
@@ -246,6 +261,8 @@ def action_handler(args: Any) -> str | dict[str, Any]:
             return action_list(args)
         if args.action == "http-server":
             return {"error": "Already running a http server."}
+        if args.action == "initialize_agents":
+            return action_initialize_agents(args)
         if args.action == "act":
             return action_act(args)
         if args.action == "dispose":
