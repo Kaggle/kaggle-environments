@@ -6,8 +6,6 @@ authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
 ]
 dependencies = [
-    "accelerate",
-    "bitsandbytes",
     "Flask >= 1.1.2",
     "gymnasium == 1.2.0",
     "gymnax==0.0.8",
@@ -24,7 +22,6 @@ dependencies = [
     "termcolor",
     "requests >= 2.25.1",
     "shimmy >= 1.2.1",
-    "stable-baselines3 == 2.7.0",
     "transformers >= 4.33.1",
     "tenacity",
     "google-auth >= 2.35.0"
