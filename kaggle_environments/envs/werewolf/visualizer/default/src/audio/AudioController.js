@@ -4,6 +4,8 @@ export function setAudioContext(ctx) {
   context = ctx;
 }
 
+const AUDIO_SPEED_MULTIPLIER = 1.6;
+
 const audioState = window.kaggleWerewolf || {
   audioQueue: [],
   isAudioPlaying: false,
@@ -11,7 +13,7 @@ const audioState = window.kaggleWerewolf || {
   isPaused: false,
   lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
   audioPlayer: new Audio(),
-  playbackRate: 1.6,
+  playbackRate: 1.0,
   allEvents: null,
   audioContextActivated: false,
 };
@@ -331,7 +333,7 @@ export function playNextInQueue(isContinuous = true) {
       console.debug(`DEBUG: [tryPlayAudio] Attempt ${index + 1}/${playAttempts.length}: ${currentPath}`);
 
       audioState.audioPlayer.src = currentPath;
-      audioState.audioPlayer.playbackRate = audioState.playbackRate;
+      audioState.audioPlayer.playbackRate = audioState.playbackRate * AUDIO_SPEED_MULTIPLIER;
 
       // Reset handlers for this attempt
       audioState.audioPlayer.onended = () => {
