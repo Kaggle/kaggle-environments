@@ -46,7 +46,7 @@ else
   export FLIT_USERNAME=__token__
   export FLIT_PASSWORD=$PYPI_TOKEN
 
-  flit publish
+  flit publish --no-vcs
   
   # It takes a bit for the package to show up on PyPI. Make sure it's visible through Pip before proceeding.
   # --- RETRY LOGIC START ---
