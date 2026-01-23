@@ -103,10 +103,30 @@ def action_evaluate(args: Any) -> str:
     return json.dumps(evaluate(args.environment, args.agents, args.configuration, args.steps, args.episodes))
 
 
-cached_agent: Any | None = None
+# Global cached agent for http-server mode.
+# In multi-container deployments, the agent is loaded once via an initial 'act'
+# request with agents=[path], then reused for subsequent requests from UrlAgent.
+# See docs/agents.md for the full workflow.
+cached_agent: Agent | None = None
 
 
 def action_act(args: Any) -> dict[str, Any]:
+    """Handle 'act' requests - compute an action using the cached agent.
+
+    In multi-container mode, this is called by UrlAgent from the orchestrator.
+    The first request must include agents=[path] to load the agent.
+    Subsequent requests reuse the cached agent (agents field can be same path or omitted
+    if the agent was pre-loaded).
+
+    Args:
+        args.agents: List with one agent path/spec (required on first call)
+        args.environment: Environment name
+        args.state: Contains observation for the agent
+        args.configuration: Environment configuration
+
+    Returns:
+        {"action": <agent_action>} or {"error": <message>}
+    """
     global cached_agent
     if len(args.agents) != 1:
         return {"error": "One agent must be provided."}
@@ -114,6 +134,7 @@ def action_act(args: Any) -> dict[str, Any]:
 
     env = make(args.environment, args.configuration, args.info, state=args.state, debug=args.debug)
 
+    # Cache the agent on first run, or if a different agent path is provided
     is_first_run = cached_agent is None or cached_agent.raw != raw
     if is_first_run:
         cached_agent = Agent(raw, env)
