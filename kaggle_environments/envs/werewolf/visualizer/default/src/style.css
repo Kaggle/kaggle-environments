@@ -364,6 +364,11 @@ html, body, #app {
         0 0 4px rgba(0,0,0,0.8),
         0 0 8px rgba(0,0,0,0.6);
     pointer-events: auto;
+/* Prevent selection */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     cursor: pointer;
     transition: all 0.2s ease;
     padding: 0;
@@ -384,7 +389,6 @@ html, body, #app {
         0 0 10px rgba(0,0,0,0.7),
         0 0 12px rgba(255,204,0,0.4);
 }
-
 /* NEW: This encircles the nameplate when chat is active */
 .player-ui-container.chat-active .player-info-card {
     /* background: rgba(10, 10, 20, 0.4); */
@@ -441,6 +445,10 @@ html, body, #app {
             border: 1px solid rgba(255,255,255,0.4);
             box-shadow: 0 0 5px rgba(0,0,0,0.5);
             margin-bottom: 4px;
+/* Prevent image dragging/selection */
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
         }
 .player-text-details {
     display: flex;
