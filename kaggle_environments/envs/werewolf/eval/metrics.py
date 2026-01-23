@@ -12,22 +12,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Dict, Iterator, List, Optional, Tuple, Union
 
-try:
-    import jax.numpy as jnp
-
-    JAX_AVAILABLE = True
-except ImportError:
-    JAX_AVAILABLE = False
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-try:
-    import polarix as plx
-    POLARIX_AVAILABLE = True
-except ImportError:
-    POLARIX_AVAILABLE = False
+import polarix as plx
 from openskill.models import PlackettLuce
 from plotly.subplots import make_subplots
 from tqdm import tqdm
@@ -202,20 +193,6 @@ def _openskill_bootstrap_worker_fast(games_data, num_agents, model):
 
 def _gte_bootstrap_worker_fast(matrix_tuple, agents, tasks):
     """Fast worker using pre-computed matrices."""
-    if not POLARIX_AVAILABLE:
-        # Return dummy structure matching expected shape to avoid crash in cleanup
-        # ratings, joint, marginals, r2m, m2r, meta
-        # Dimensions need to be at least vaguely correct or empty to avoid unpack errors
-        n_agents = len(agents)
-        n_tasks = len(tasks)
-        dummy_ratings = [np.zeros(n_agents), np.zeros(n_tasks)] # Player 0: Agents, Player 1: Tasks
-        dummy_joint = np.zeros((n_agents, n_tasks)) # Shape guess
-        dummy_marginals = [np.zeros(n_agents), np.zeros(n_tasks)]
-        dummy_r2m = np.zeros((n_agents, n_tasks))
-        dummy_m2r = np.zeros((n_tasks, n_agents))
-        dummy_meta = SimpleNamespace(actions=[])
-        return dummy_ratings, dummy_joint, dummy_marginals, dummy_r2m, dummy_m2r, dummy_meta
-
     mean_matrix, stddev_matrix = matrix_tuple
 
     # Regularization logic matches original
