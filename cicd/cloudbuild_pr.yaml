@@ -54,6 +54,7 @@ steps:
 options:
   pool:
     name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+  logging: CLOUD_LOGGING_ONLY
 
 timeout: "1800s"
 
