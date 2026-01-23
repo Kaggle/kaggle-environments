@@ -650,6 +650,10 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
     const speedLabel = container.querySelector('#speed-label');
 
   if (speedSlider) {
+    speedSlider.onclick = (e) => {
+      e.stopPropagation();
+    };
+
       speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
         // Use custom event for speed change (legacy audio-speed)
