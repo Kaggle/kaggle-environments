@@ -270,6 +270,8 @@ class AgentMetrics:
         # Costs
         self.total_costs: List[float] = []
         self.total_tokens: List[int] = []
+        self.total_prompt_tokens: List[int] = []
+        self.total_completion_tokens: List[int] = []
         self.durations: List[int] = []  # days survived per game
 
         # For GTE
@@ -311,6 +313,26 @@ class AgentMetrics:
             else:
                 costs_per_turn.append(0.0)
         return _mean_sem(costs_per_turn)
+
+    def get_avg_output_tokens_per_turn(self) -> Tuple[float, float]:
+        """Returns the average output tokens per turn and its standard error."""
+        tokens_per_turn = []
+        for c, d in zip(self.total_completion_tokens, self.durations):
+            if d > 0:
+                tokens_per_turn.append(c / d)
+            else:
+                tokens_per_turn.append(0.0)
+        return _mean_sem(tokens_per_turn)
+
+    def get_avg_input_tokens_per_turn(self) -> Tuple[float, float]:
+        """Returns the average input tokens per turn and its standard error."""
+        tokens_per_turn = []
+        for c, d in zip(self.total_prompt_tokens, self.durations):
+            if d > 0:
+                tokens_per_turn.append(c / d)
+            else:
+                tokens_per_turn.append(0.0)
+        return _mean_sem(tokens_per_turn)
 
     def get_win_rate_for_role(self, role: str) -> Tuple[float, float]:
         return _mean_sem(self.wins_by_role.get(role, []))
@@ -882,6 +904,8 @@ class GameSetEvaluator:
             # Capture costs if available from GameResult
             player_costs = getattr(game, "player_costs", {})
             player_tokens = getattr(game, "player_tokens", {})
+            player_prompt_tokens = getattr(game, "player_prompt_tokens", {})
+            player_completion_tokens = getattr(game, "player_completion_tokens", {})
             player_durations = getattr(game, "player_durations", {})
 
             # --- Calculate dominance metrics for the winning team ---
@@ -928,6 +952,8 @@ class GameSetEvaluator:
                 if player.id in player_costs:
                     self.metrics[agent_name].total_costs.append(player_costs[player.id])
                     self.metrics[agent_name].total_tokens.append(player_tokens.get(player.id, 0))
+                    self.metrics[agent_name].total_prompt_tokens.append(player_prompt_tokens.get(player.id, 0))
+                    self.metrics[agent_name].total_completion_tokens.append(player_completion_tokens.get(player.id, 0))
                     self.metrics[agent_name].durations.append(player_durations.get(player.id, 0))
 
             irp_results, vss_results = game.iterate_voting_mini_game()
@@ -1359,11 +1385,15 @@ class GameSetEvaluator:
             avg_cost, cost_sem = stats.get_avg_cost()
             avg_tokens, tokens_sem = stats.get_avg_tokens()
             avg_cost_per_turn, cost_per_turn_sem = stats.get_avg_cost_per_turn()
+            avg_input_tokens_per_turn, input_tokens_per_turn_sem = stats.get_avg_input_tokens_per_turn()
+            avg_output_tokens_per_turn, output_tokens_per_turn_sem = stats.get_avg_output_tokens_per_turn()
             if avg_cost > 0:
                 print("  Cost Metrics:")
                 print(f"    Avg Cost/Game: ${avg_cost:.4f} ± {cost_sem * 1.96:.4f}")
                 print(f"    Avg Cost/Turn: ${avg_cost_per_turn:.4f} ± {cost_per_turn_sem * 1.96:.4f}")
                 print(f"    Avg Tokens/Game: {avg_tokens:.1f} ± {tokens_sem * 1.96:.1f}")
+                print(f"    Avg Input Tokens/Turn: {avg_input_tokens_per_turn:.1f} ± {input_tokens_per_turn_sem * 1.96:.1f}")
+                print(f"    Avg Output Tokens/Turn: {avg_output_tokens_per_turn:.1f} ± {output_tokens_per_turn_sem * 1.96:.1f}")
 
             print("  Ratings:")
             print(f"    Elo: {stats.elo:.2f} ± {stats.elo_std * 1.96:.2f} (CI95)")
@@ -1547,7 +1577,35 @@ class GameSetEvaluator:
                     }
                 )
 
-            # 8. Ratings
+            # 8. Cost Metrics (New)
+            avg_cost_per_turn, cost_per_turn_sem = metrics.get_avg_cost_per_turn()
+            avg_input_tokens_per_turn, input_tokens_per_turn_sem = metrics.get_avg_input_tokens_per_turn()
+            avg_output_tokens_per_turn, output_tokens_per_turn_sem = metrics.get_avg_output_tokens_per_turn()
+            plot_data.extend([
+                {
+                    "agent": agent_name,
+                    "metric": "Avg Cost/Turn",
+                    "value": avg_cost_per_turn,
+                    "CI95": cost_per_turn_sem * 1.96,
+                    "category": "Cost Metrics",
+                },
+                {
+                    "agent": agent_name,
+                    "metric": "Avg Input Tokens/Turn",
+                    "value": avg_input_tokens_per_turn,
+                    "CI95": input_tokens_per_turn_sem * 1.96,
+                    "category": "Cost Metrics",
+                },
+                {
+                    "agent": agent_name,
+                    "metric": "Avg Output Tokens/Turn",
+                    "value": avg_output_tokens_per_turn,
+                    "CI95": output_tokens_per_turn_sem * 1.96,
+                    "category": "Cost Metrics",
+                }
+            ])
+
+            # 9. Ratings
             plot_data.append(
                 {
                     "agent": agent_name,
