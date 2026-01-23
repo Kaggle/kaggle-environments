@@ -20,7 +20,8 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@kaggle-environments/core": ["core/src/index.ts"]
+      "@kaggle-environments/core": ["core/src/index.ts"],
+      "@kaggle-environments/common": ["common/src/index.ts"]
     }
   }
 }
