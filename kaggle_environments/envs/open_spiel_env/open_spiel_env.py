@@ -9,6 +9,7 @@ import pathlib
 import random
 import re
 import sys
+import warnings
 from typing import Any, Callable
 
 import numpy as np
@@ -327,16 +328,41 @@ def interpreter(
     # --- Get and maybe initialize game and state on the env object ---
     if not hasattr(env, "os_game"):
         game_string = env.configuration.get("openSpielGameString")
-        # TODO(jhtschultz): Consolidate these competition-specific config fields
+        game_name = env.configuration.get("openSpielGameName")
+
+        # Load base game from string to get its parameters
+        base_game = pyspiel.load_game(game_string)
+        base_params = base_game.get_parameters()
+
+        # Find user-provided params by comparing config to spec defaults
+        config_params = env.configuration.get("openSpielGameParameters", {})
+        default_params = env.specification.configuration.openSpielGameParameters.get("default", {})
+        user_params = {k: v for k, v in config_params.items() if config_params.get(k) != default_params.get(k)}
+
+        # Deprecated: use openSpielGameParameters.max_num_hands instead
         if env.configuration.get("setNumHands", None):
-            if "repeated_poker" not in game_string:
-                raise ValueError(f"setNumHands only supported for repeated_poker, not {game_string}")
-            game_string = re.sub(
-                r"(max_num_hands=)\d+",
-                f"max_num_hands={env.configuration.get('setNumHands')}",
-                game_string,
+            warnings.warn(
+                "setNumHands is deprecated. Use openSpielGameParameters={'max_num_hands': N} instead.",
+                DeprecationWarning,
+                stacklevel=2,
             )
-        env.os_game = pyspiel.load_game(game_string)
+            if "repeated_poker" not in game_name:
+                raise ValueError(f"setNumHands only supported for repeated_poker, not {game_name}")
+            user_params["max_num_hands"] = env.configuration.get("setNumHands")
+
+        # Merge: base params from string, then user params override
+        merged_params = {**base_params, **user_params}
+
+        # Load the game with merged parameters
+        env.os_game = pyspiel.load_game(game_name, merged_params)
+
+        # Check if a proxy exists for this game and use it instead
+        proxy_path = GAMES_DIR / game_name / f"{game_name}_proxy.py"
+        if proxy_path.is_file():
+            env.os_game = pyspiel.load_game(game_name + "_proxy", env.os_game.get_parameters())
+
+        # Store the resolved game string (after merging parameters)
+        env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
     if "actionHistory" not in env.info:
