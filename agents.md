@@ -53,7 +53,7 @@ class UrlAgent:
 
 ## Multi-Container Deployment Workflow
 
-In production, Kaggle runs games across multiple containers:
+In production, Kaggle runs games across multiple containers.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -142,11 +142,7 @@ This design allows:
 
 ### Local Testing (Single Process)
 
-Agents are file paths or callables, loaded directly:
-```python
-env = make("rps")
-env.run(["path/to/agent1.py", "path/to/agent2.py"])
-```
+`uv run pytest /tests` is sufficient for most local testing.
 
 ### Multi-Container Testing
 
@@ -154,6 +150,8 @@ See `tests/integration/test_multicontainer.py` for the test setup that emulates 
 1. Docker containers run `http-server` for each agent
 2. Test pre-loads agents via `load_agent_on_server()`
 3. Test sends `evaluate` request to orchestrator with agent URLs
+
+Always use `./run_tests.sh --multicontainer` to run tests in multi-container mode.
 
 ## Key Files
 
