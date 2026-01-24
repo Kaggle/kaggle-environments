@@ -1,6 +1,6 @@
 [project]
 name = "kaggle-environments"
-version = "1.26.8"
+version = "1.26.11"
 description = "Kaggle Environments"
 authors = [
     {name = "Kaggle", email = "support@kaggle.com"},
@@ -67,6 +67,8 @@ exclude = [
   "**/*_test.py",
   "**/node_modules/",
   "**/visualizer/",
+  ".pnpm-store/",
+  "web/core/.npmrc",
 ]
 
 [tool.setuptools.dynamic]
