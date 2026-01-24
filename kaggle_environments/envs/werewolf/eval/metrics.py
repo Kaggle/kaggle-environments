@@ -2344,6 +2344,10 @@ class GameSetEvaluator:
                     "games": len(stats.wins_by_role[role])
                 }
 
+            avg_cost_per_turn, cost_per_turn_sem = stats.get_avg_cost_per_turn()
+            avg_input_tokens_per_turn, input_tokens_per_turn_sem = stats.get_avg_input_tokens_per_turn()
+            avg_output_tokens_per_turn, output_tokens_per_turn_sem = stats.get_avg_output_tokens_per_turn()
+
             gte_mean, gte_std = getattr(stats, 'gte_rating', (0.0, 0.0))
             gte_attribs = {}
             for t, val in stats.gte_contributions.items():
@@ -2353,6 +2357,9 @@ class GameSetEvaluator:
                 "win_rate": win_rate, "win_rate_ci95": win_std * 1.96,
                 "ksr": ksr, "ksr_ci95": ksr_std * 1.96,
                 "wd_ksr": wd_ksr, "wd_ksr_ci95": wd_ksr_std * 1.96,
+                "avg_cost_per_turn": avg_cost_per_turn, "avg_cost_per_turn_ci95": cost_per_turn_sem * 1.96,
+                "avg_input_tokens_per_turn": avg_input_tokens_per_turn, "avg_input_tokens_per_turn_ci95": input_tokens_per_turn_sem * 1.96,
+                "avg_output_tokens_per_turn": avg_output_tokens_per_turn, "avg_output_tokens_per_turn_ci95": output_tokens_per_turn_sem * 1.96,
                 "elo": stats.elo,
                 "openskill_mu": stats.openskill_rating.mu if stats.openskill_rating else None,
                 "gte_rating": gte_mean, "gte_rating_ci95": gte_std * 1.96,
