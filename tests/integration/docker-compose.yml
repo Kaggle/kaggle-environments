@@ -36,7 +36,7 @@ services:
     ports:
       - "8080:8080"
       - "8000:8000"
-    command: kaggle-environments http-server --port 8080 --host 0.0.0.0 --debug True
+    command: python -m kaggle_environments.main http-server --port 8080 --host 0.0.0.0
     volumes:
       - ../../kaggle_environments:/usr/src/app/kaggle_environments/kaggle_environments:ro
     environment:

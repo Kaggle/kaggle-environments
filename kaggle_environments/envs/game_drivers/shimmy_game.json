@@ -1,0 +1,63 @@
+{
+    "name": "shimmy_game",
+    "title": "Shimmy Game",
+    "description": "Game environment via OpenSpiel through Shimmy remote game driver",
+    "version": "1.0.0",
+    "agents": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+    ],
+    "configuration": {
+        "episodeSteps": {
+            "description": "Maximum number of steps the environment can run",
+            "type": "integer",
+            "minimum": 1,
+            "default": 100
+        },
+        "actTimeout": {
+            "description": "Seconds allowed per agent action",
+            "type": "number",
+            "minimum": 1,
+            "default": 60
+        },
+        "runTimeout": {
+            "description": "Total seconds allowed for the episode",
+            "type": "number",
+            "minimum": 1,
+            "default": 1200
+        }
+    },
+    "reward": {
+        "description": "Game reward from OpenSpiel (varies by game)",
+        "type": [
+            "number",
+            "null"
+        ],
+        "default": 0
+    },
+    "observation": {
+        "remainingOverageTime": {
+            "description": "Remaining overage time in seconds",
+            "type": "number",
+            "default": 60
+        }
+    }
+}

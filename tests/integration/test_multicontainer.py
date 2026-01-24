@@ -1,5 +1,5 @@
 """
-Multi-container integration tests for kaggle-environments.
+Multi-container integration tests for kaggle-environments. See docker-compose.yml for setup.
 
 These tests demonstrate running the orchestrator and agents in separate containers,
 communicating via HTTP. This is the ideal setup for production-like testing.
@@ -40,6 +40,26 @@ def wait_for_orchestrator(timeout: int = 30) -> bool:
     return False
 
 
+def load_agent_on_server(host: str, port: int, agent_path: str, environment: str) -> bool:
+    """Load an agent on a remote http-server via JSON 'act' action.
+
+    This must be called before using ProtobufAgent to communicate with the server.
+    """
+    url = f"http://{host}:{port}"
+    data = {
+        "action": "act",
+        "environment": environment,
+        "agents": [agent_path],
+        "state": {"observation": {"board": [0] * 9, "remainingOverageTime": 60}},
+        "configuration": {"actTimeout": 5},
+    }
+    try:
+        response = requests.post(url, json=data, timeout=10)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
 # ... (RemoteAgent class remains the same) ...
 
 
@@ -66,82 +86,99 @@ class TestMultiContainerSetup:
         assert "rps" in data
 
 
+# Game configurations for multicontainer tests
+# Each tuple: (environment_name, agent_path_or_none, num_episodes)
+# agent_path is needed for game drivers that require pre-loading agents
+MULTICONTAINER_GAMES = [
+    ("rps", None, 1),
+    ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 1),
+    ("shimmy_tic_tac_toe", "tests/envs/remote_game_drivers/test_agent.py", 3),
+]
+
+
 @pytest.mark.skipif(
     not os.environ.get("MULTICONTAINER_TEST"), reason="Multi-container tests require MULTICONTAINER_TEST=1"
 )
 class TestMultiContainerEpisodes:
     """Tests that run episodes across multiple containers."""
 
-    def test_rps_multicontainer(self):
-        """Run RPS with agents in separate containers."""
+    @pytest.mark.parametrize("environment,agent_path,num_episodes", MULTICONTAINER_GAMES)
+    def test_multicontainer_episode(self, environment: str, agent_path: str | None, num_episodes: int):
+        """Run game episodes with agents in separate containers.
+
+        Tests both JSON-based (RPS) and protobuf-based (shimmy) agent communication.
+        With num_episodes > 1, also tests that environments correctly reset state.
+        """
         assert wait_for_orchestrator(timeout=10), "Orchestrator not available"
 
-        # Request to start an episode
+        # Load agents if required (game drivers need pre-loaded agents)
+        if agent_path:
+            for host in ["agent-1", "agent-2"]:
+                assert load_agent_on_server(host, 8081, agent_path, environment), f"Failed to load agent on {host}"
+
         request_data = {
-            "action": "run",
-            "environment": "rps",
-            "agents": [
-                "http://agent-1:8081",
-                "http://agent-2:8081",
-            ],
-            "configuration": {"episodeSteps": 10},
+            "action": "evaluate",
+            "environment": environment,
+            "agents": ["http://agent-1:8081", "http://agent-2:8081"],
+            "episodes": num_episodes,
         }
 
         response = requests.post(
             f"{ORCHESTRATOR_URL}/",
             json=request_data,
-            timeout=60,
+            timeout=60 * num_episodes,
         )
 
         assert response.status_code == 200
-        # The response is the HTML/JSON output depending on render mode.
-        # Default is JSON in main.py but main.py might return rendered JSON string.
-        # Let's check if we can parse it.
 
         try:
             data = response.json()
         except json.JSONDecodeError:
             pytest.fail(f"Failed to decode JSON response: {response.text}")
 
-        # Check for rewards in the last step
-        assert "steps" in data
-        assert len(data["steps"]) > 0
-        last_step = data["steps"][-1]
-        assert len(last_step) == 2
-        assert "reward" in last_step[0]
-        assert "reward" in last_step[1]
+        # evaluate returns [[r1, r2], [r1, r2], ...]
+        assert isinstance(data, list), f"Expected list of episode rewards, got {type(data)}"
+        assert len(data) == num_episodes, f"Expected {num_episodes} episodes, got {len(data)}"
+
+        for i, episode_rewards in enumerate(data):
+            assert len(episode_rewards) == 2, f"Episode {i}: Expected 2 agent rewards"
+            assert all(isinstance(r, (int, float, type(None))) for r in episode_rewards), (
+                f"Episode {i}: Rewards should be numeric, got {episode_rewards}"
+            )
 
 
 # Standalone agent server for multi-container mode
 def run_agent_server():
     """
-    Run a standalone agent server.
+    Run a standalone agent server using main.py http-server.
 
-    Usage:
-        AGENT_TYPE=random AGENT_PORT=8081 python test_multicontainer.py --serve
+    In production, run this in a separate Docker container:
+        python -m kaggle_environments.main http-server --port=8081 --host=0.0.0.0
+
+    The orchestrator will then load agents via JSON 'act' requests before
+    running games. Both JSON (UrlAgent) and protobuf (ProtobufAgent) protocols
+    are supported.
+
+    This function provides a simple wrapper for local testing:
+        AGENT_PORT=8081 python test_multicontainer.py --serve
     """
-    import random
+    from kaggle_environments.main import action_http
+    from kaggle_environments.utils import structify
 
-    agent_type = os.environ.get("AGENT_TYPE", "random")
     agent_port = int(os.environ.get("AGENT_PORT", "8081"))
-    agent_id = os.environ.get("AGENT_ID", "1")
 
-    def random_agent(obs, config):
-        """Simple random agent for RPS."""
-        return random.randint(0, 2)
+    print(f"Starting agent server on port {agent_port}")
+    print("Note: Agent must be loaded via 'act' request before use")
 
-    def rock_agent(obs, config):
-        """Always plays rock."""
-        return 0
-
-    agents = {
-        "random": random_agent,
-        "rock": rock_agent,
-    }
-
-    agent_fn = agents.get(agent_type, random_agent)
-    agent = RemoteAgent(agent_fn, agent_id)  # noqa
-    agent.serve(port=agent_port)
+    args = structify(
+        {
+            "host": "0.0.0.0",
+            "port": agent_port,
+            "debug": False,
+            "log_path": None,
+        }
+    )
+    action_http(args)
 
 
 if __name__ == "__main__":

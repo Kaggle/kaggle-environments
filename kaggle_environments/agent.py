@@ -19,7 +19,7 @@ import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from time import perf_counter
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Protocol, Tuple, runtime_checkable
 from urllib.parse import urlparse
 
 import requests
@@ -27,6 +27,47 @@ from requests.exceptions import Timeout
 
 from .errors import DeadlineExceeded, InvalidArgument
 from .utils import read_file, structify
+
+
+def calculate_request_timeout(observation: Any, configuration: Any, buffer_seconds: float = 1.0) -> float:
+    """Calculate timeout for remote agent requests.
+
+    Args:
+        observation: Environment observation (may have remainingOverageTime)
+        configuration: Environment configuration (may have actTimeout)
+        buffer_seconds: Additional buffer time to add (default 1.0)
+
+    Returns:
+        Timeout in seconds
+    """
+    # Get remainingOverageTime from observation (dict or object)
+    if isinstance(observation, dict):
+        remaining = observation.get("remainingOverageTime", 60)
+    else:
+        remaining = getattr(observation, "remainingOverageTime", 60)
+
+    # Get actTimeout from configuration (dict or object)
+    if isinstance(configuration, dict):
+        act_timeout = configuration.get("actTimeout", 5)
+    else:
+        act_timeout = getattr(configuration, "actTimeout", 5)
+
+    return float(remaining) + float(act_timeout) + buffer_seconds
+
+
+@runtime_checkable
+class RemoteAgentProtocol(Protocol):
+    """Protocol for remote agents (URL-based or protobuf-based).
+
+    Remote agents communicate with external servers to get actions.
+    They must be callable with (observation, configuration) -> action.
+    """
+
+    raw: str  # Original URL/spec
+
+    def __call__(self, observation: Any, configuration: Any) -> Any:
+        """Get action from remote agent."""
+        ...
 
 
 def is_url(url: str) -> bool:
@@ -86,7 +127,7 @@ class UrlAgent:
                 "observation": observation,
             },
         }
-        timeout = float(observation.remainingOverageTime) + float(configuration.actTimeout) + 1
+        timeout = calculate_request_timeout(observation, configuration)
         try:
             response = requests.post(url=self.raw, data=json.dumps(data), timeout=timeout)
             response.raise_for_status()
@@ -113,6 +154,15 @@ def build_agent(
     """
     Returns the agent and whether the agent is parallelizable.
     """
+    # Check for proto agent specification (dict with type='proto' or proto_config)
+    from kaggle_environments.envs.game_drivers.protobuf_agent import (
+        build_proto_agent,
+        is_proto_agent_spec,
+    )
+
+    if is_proto_agent_spec(raw):
+        return build_proto_agent(raw, environment_name)
+
     if isinstance(raw, str) and raw in builtin_agents:
         agent = builtin_agents[raw]
         # TODO: Below is a hack. Assuming an agent is a global callable is not enough to guarantee it is stateless.

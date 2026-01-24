@@ -297,6 +297,10 @@ class Environment:
         if len(self.state) != len(agents):
             raise InvalidArgument(f"{len(self.state)} agents were expected, but {len(agents)} was given.")
 
+        # Store agent specs for game driver interpreters to access
+        # This allows interpreters to know what agents were passed to run()
+        self.info["_agent_specs"] = agents
+
         runner = self.__agent_runner(agents)
         start = perf_counter()
         while not self.done and perf_counter() - start < self.configuration.runTimeout:
