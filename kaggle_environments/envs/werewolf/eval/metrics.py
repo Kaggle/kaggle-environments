@@ -2161,7 +2161,14 @@ class GameSetEvaluator:
             font=dict(family="Inter, sans-serif"),
         )
         
-        fig.update_yaxes(categoryorder="array", categoryarray=sorted_tasks, tickfont=dict(size=12))
+        # Sort Top Plot by Weight
+        fig.update_yaxes(categoryorder="array", categoryarray=sorted_tasks, tickfont=dict(size=12), row=1, col=1)
+        
+        # Sort Bottom Plot by Rating
+        ratings_df_sorted = ratings_df.sort_values("rating", ascending=True)
+        sorted_tasks_rating = ratings_df_sorted["metric"].tolist()
+        fig.update_yaxes(categoryorder="array", categoryarray=sorted_tasks_rating, tickfont=dict(size=12), row=2, col=1)
+
         fig.update_xaxes(title_text="Marginal Probability", row=1, col=1, gridcolor="#F3F4F6")
         fig.update_xaxes(title_text="Nash Value (Rating)", row=2, col=1, gridcolor="#F3F4F6")
 
