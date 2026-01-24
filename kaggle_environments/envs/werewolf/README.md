@@ -189,6 +189,36 @@ python kaggle_environments/envs/werewolf/scripts/dump_audio.py -o werewolf_repla
 python kaggle_environments/envs/werewolf/scripts/dump_audio.py --output_dir werewolf_replay_audio --shuffle_roles
 ```
 
+## Audio Generation Setup (`add_audio.py`)
+
+To use the `add_audio.py` script for generating theatrical audio for your replays, follow these setup steps:
+
+### 1. Cloud Authentication & Project Setup
+[Critical] Ensure your Google Cloud environment is configured with the correct quota project:
+```bash
+gcloud auth application-default set-quota-project octo-aif-sandbox
+export GOOGLE_CLOUD_PROJECT=octo-aif-sandbox
+```
+
+### 2. Install Python Dependencies
+The audio script requires several specific Google Cloud and AI libraries:
+```bash
+uv pip install google-cloud-texttospeech
+uv pip install --upgrade google-api-core
+uv pip install --upgrade google-genai
+```
+
+### 3. Install Visualizer Dependencies
+The audio system relies on the visualizer's Vite setup. You may need to manually install the CSS injection plugin if it's missing from your local environment:
+```bash
+npm install vite-plugin-css-injected-by-js
+```
+
+### 4. Running the Script
+```bash
+export PYTHONPATH=. && python3 kaggle_environments/envs/werewolf/scripts/add_audio.py -i <path_to_replay.json> --serve
+```
+
 ## Viewing Replays
 
 To view a text-based summary of a replay JSON (useful for analyzing LLM reasoning):

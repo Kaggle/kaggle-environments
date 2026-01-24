@@ -11,7 +11,7 @@ import {
   FALLBACK_THUMBNAIL_IMG,
   shuffleIds
 } from './utils/helpers.js';
-import { disambiguateDisplayNames } from './utils/nameUtils.js';
+import { disambiguateDisplayNames, simplifyDisplayNames } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
 
 if (!window.werewolfThreeJs) {
@@ -66,6 +66,10 @@ export function renderer(context, parent) {
   const { replay, step, height = 1000, width = 1500 } = context;
   const environment = replay;
   const parentId = parent.id;
+
+  if (window.kaggleWerewolf && replay && replay.info) {
+    window.kaggleWerewolf.episodeId = replay.info.EpisodeId;
+  }
 
   let playerNamesFor3D = [];
   let playerThumbnailsFor3D = {};
@@ -396,6 +400,7 @@ export function renderer(context, parent) {
     };
   });
 
+  simplifyDisplayNames(gameState.players);
   disambiguateDisplayNames(gameState.players);
 
   const playerMap = new Map(gameState.players.map((p) => [p.name, p]));

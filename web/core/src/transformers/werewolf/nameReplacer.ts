@@ -90,8 +90,9 @@ export function createNameReplacer(
       // - (\.?) - Captures optional trailing period (preserved in replacement)
       // - (?![\w-]) - Not followed by word char or hyphen
       const escapedName = characterName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      // Update: Handle optional "Player" prefix (e.g. "PlayerKai") by consuming it (non-capturing group)
       const regex = new RegExp(
-        `(^|[^\\w.-])(${escapedName})(\\.?)(?![\\w-])`,
+        `(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w-])`,
         'g'
       );
 

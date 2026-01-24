@@ -296,6 +296,8 @@ class GameResult:
         """Extracts costs from cost_summary or steps."""
         self.player_costs = {}
         self.player_tokens = {}
+        self.player_prompt_tokens = {}
+        self.player_completion_tokens = {}
 
         # 1. Try cost_summary from GAME_END
         cost_summary = getattr(game_end_info, "cost_summary", None)
@@ -324,6 +326,8 @@ class GameResult:
 
                         self.player_costs[p_id] = total_cost
                         self.player_tokens[p_id] = prompt_tokens + completion_tokens
+                        self.player_prompt_tokens[p_id] = prompt_tokens
+                        self.player_completion_tokens[p_id] = completion_tokens
             return
 
         # 2. Fallback: Extract from steps
@@ -358,8 +362,10 @@ class GameResult:
                 tokens = 0
                 if prompt_t is not None:
                     tokens += int(prompt_t)
+                    self.player_prompt_tokens[p_id] = self.player_prompt_tokens.get(p_id, 0) + int(prompt_t)
                 if completion_t is not None:
                     tokens += int(completion_t)
+                    self.player_completion_tokens[p_id] = self.player_completion_tokens.get(p_id, 0) + int(completion_t)
 
                 if tokens > 0:
                     self.player_tokens[p_id] = self.player_tokens.get(p_id, 0) + tokens
@@ -429,6 +435,9 @@ class GameResult:
                     try:
                         json_data = json.loads(json_str)
                         actor_id = json_data.get("actor_id")
+                        if actor_id is None:
+                            actor_id = json_data.get("data", {}).get("actor_id")
+                        
                         if actor_id is not None:
                             cost = json_data.get("cost")
                             prompt_t = json_data.get("prompt_tokens")
@@ -437,6 +446,7 @@ class GameResult:
                             total_tokens = 0
                             if prompt_t is not None:
                                 total_tokens += int(prompt_t)
+                                self.player_prompt_tokens[actor_id] = self.player_prompt_tokens.get(actor_id, 0) + int(prompt_t)
                             if completion_t is not None:
                                 total_tokens += int(completion_t)
 
@@ -447,6 +457,8 @@ class GameResult:
                                 self.player_costs[actor_id] = self.player_costs.get(actor_id, 0.0) + cost
                             if total_tokens > 0:
                                 self.player_tokens[actor_id] = self.player_tokens.get(actor_id, 0) + total_tokens
+                            if completion_t is not None:
+                                self.player_completion_tokens[actor_id] = self.player_completion_tokens.get(actor_id, 0) + int(completion_t)
                     except (json.JSONDecodeError, AttributeError):
                         pass
 

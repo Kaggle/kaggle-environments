@@ -131,12 +131,8 @@ window.handleThumbnailError = function (img) {
       const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
       // Update content
-      let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`;
-      if (player.display_name && player.display_name !== player.name) {
-        player_name_element = `<div class="player-name" title="${player.name}">
-                ${player.name}<span class="display-name">${player.display_name}</span>
-            </div>`;
-      }
+      const name_to_display = player.display_name || player.name;
+      const player_name_element = `<div class="player-name" title="${player.name}">${name_to_display}</div>`;
 
       li.innerHTML = `
             <div class="avatar-container">
@@ -166,7 +162,7 @@ window.handleThumbnailError = function (img) {
   }
 
 export function updateEventLog(container, gameState, playerMap, onSpeak) {
-    const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
+  const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
     const audioToggleDisabled = !audioState.hasAudioTracks;
     const audioToggleEnabled = audioState.isAudioEnabled && !audioToggleDisabled;
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
@@ -177,7 +173,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       container.innerHTML = `
             <h1>
                 <span>Events</span>
-                <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View" style="margin-left: auto;">
+                <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
                 </button>
                 <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
@@ -254,7 +250,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             reasoningText = window.werewolfGamePlayer.playerIdReplacer(reasoningText);
           }
           reasoningHtml = `<div class="reasoning-text" id="${reasoningId}">"${reasoningText}"</div>`;
-          reasoningToggleHtml = `<span class="reasoning-toggle" title="Show/Hide Reasoning" onclick="event.stopPropagation(); document.getElementById('${reasoningId}').classList.toggle('visible')">
+          reasoningToggleHtml = `<span class="reasoning-toggle${window.werewolfGamePlayer.isReasoningMode ? ' enabled' : ''}" title="Show/Hide Reasoning" onclick="event.stopPropagation(); this.classList.toggle('enabled'); document.getElementById('${reasoningId}').classList.toggle('visible')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </span>`;
         }
@@ -285,9 +281,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${speaker.name}</span>
-                                    ${speaker.display_name && speaker.name !== speaker.display_name ? `<span class="display-name">${speaker.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${speaker.display_name || speaker.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
@@ -465,9 +460,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${voter.name}</span>
-                                    ${voter.display_name && voter.name !== voter.display_name ? `<span class="display-name">${voter.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${voter.display_name || voter.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
@@ -558,6 +552,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       if (window.werewolfGamePlayer.isReasoningMode === undefined) {
         window.werewolfGamePlayer.isReasoningMode = false;
       }
+      // Initialize visual state
+      globalToggle.classList.toggle('enabled', window.werewolfGamePlayer.isReasoningMode);
 
       globalToggle.onclick = (event) => {
         event.stopPropagation();
@@ -571,11 +567,20 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           reasoningTexts.forEach((el) => {
             el.classList.toggle('visible', shouldShow);
           });
+
+          // Sync individual toggle buttons
+          const individualToggles = logUl.querySelectorAll('.reasoning-toggle');
+          individualToggles.forEach(toggle => {
+            toggle.classList.toggle('enabled', shouldShow);
+          });
         }
 
         // --- 2. Toggle Global Reasoning State ---
         window.werewolfGamePlayer.isReasoningMode = !window.werewolfGamePlayer.isReasoningMode;
         const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
+
+        // Toggle visual state
+        globalToggle.classList.toggle('enabled', isGlobalReasoningOn);
 
         // --- 3. Toggle 3D Bubble Reasoning (Legacy) ---
         const allPlayerUIs = document.querySelectorAll('.player-ui-container.chat-active');
@@ -645,6 +650,10 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
     const speedLabel = container.querySelector('#speed-label');
 
   if (speedSlider) {
+    speedSlider.onclick = (e) => {
+      e.stopPropagation();
+    };
+
       speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
         // Use custom event for speed change (legacy audio-speed)

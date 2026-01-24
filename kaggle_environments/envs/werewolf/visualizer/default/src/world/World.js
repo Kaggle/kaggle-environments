@@ -10,7 +10,8 @@ import { PostProcessing } from './Effects/PostProcessing.js';
 import { UIManager } from './UI/UIManager.js';
 import { VoteVisuals } from './Visuals/VoteVisuals.js';
 
-const DEFAULT_CAMERA_POSITION = { x: -18.84, y: 20.27, z: 48.08 };
+const DEFAULT_CAMERA_POSITION = { x: -19.26, y: 20.41, z: 42.90 };
+const MOBILE_CAMERA_POSITION = { x: -20.99, y: 69.87, z: 47.97 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 8, z: 0 };
 
 export class World {
@@ -61,22 +62,25 @@ export class World {
     this.sceneManager.renderer.shadowMap.autoUpdate = false;
 
     // Camera setup
-    camera.position.set(-18.84, 20.27, 48.08);
+    this.currentLayoutKey = options.width < 900 ? 'mobile' : 'desktop';
+    const initialPos = this.currentLayoutKey === 'mobile' ? MOBILE_CAMERA_POSITION : DEFAULT_CAMERA_POSITION;
+
+    camera.position.set(initialPos.x, initialPos.y, initialPos.z);
     this.sceneManager.controls.target.set(0, 8, 0);
     this.sceneManager.controls.enableDamping = true;
     this.sceneManager.controls.dampingFactor = 0.05;
     this.sceneManager.controls.minDistance = 20;
-    this.sceneManager.controls.maxDistance = 90;
-    this.sceneManager.controls.maxPolarAngle = Math.PI * 0.6;
+    this.sceneManager.controls.maxDistance = 100;
+    this.sceneManager.controls.maxPolarAngle = Math.PI * 0.52;
     this.sceneManager.controls.update();
 
     // Debug: Log camera position when user stops moving it
-    //    this.sceneManager.controls.addEventListener('end', () => {
-    //        const p = camera.position;
-    //        const t = this.sceneManager.controls.target;
-    //        console.log(`Camera Pos: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
-    //        console.log(`Target: { x: ${t.x.toFixed(2)}, y: ${t.y.toFixed(2)}, z: ${t.z.toFixed(2)} }`);
-    //    });
+    // this.sceneManager.controls.addEventListener('end', () => {
+    //   const p = camera.position;
+    //   const t = this.sceneManager.controls.target;
+    //   console.log(`Camera Pos: { x: ${p.x.toFixed(2)}, y: ${p.y.toFixed(2)}, z: ${p.z.toFixed(2)} }`);
+    //   console.log(`Target: { x: ${t.x.toFixed(2)}, y: ${t.y.toFixed(2)}, z: ${t.z.toFixed(2)} }`);
+    // });
 
     this.startRenderLoop();
   }
@@ -212,7 +216,8 @@ export class World {
 
   resetCameraView() {
       // User preferred "perfect" position
-      const endPos = new this.THREE.Vector3(DEFAULT_CAMERA_POSITION.x, DEFAULT_CAMERA_POSITION.y, DEFAULT_CAMERA_POSITION.z);
+    const targetPos = this.currentLayoutKey === 'mobile' ? MOBILE_CAMERA_POSITION : DEFAULT_CAMERA_POSITION;
+    const endPos = new this.THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
       const endTarget = new this.THREE.Vector3(DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z);
 
       this.cameraAnimation = {
@@ -286,5 +291,25 @@ export class World {
       this.postProcessing.resize(width, height);
       this.uiManager.width = width;
       this.uiManager.height = height;
+
+    // Responsive Camera Adjustment
+    const isMobile = width < 900;
+    const targetPos = isMobile ? MOBILE_CAMERA_POSITION : DEFAULT_CAMERA_POSITION;
+
+    // key-based check to avoid spamming animations on every pixel resize
+    const layoutKey = isMobile ? 'mobile' : 'desktop';
+    if (this.currentLayoutKey !== layoutKey) {
+      this.currentLayoutKey = layoutKey;
+
+      this.cameraAnimation = {
+        startTime: performance.now(),
+        duration: 1000,
+        startPos: this.sceneManager.camera.position.clone(),
+        endPos: new this.THREE.Vector3(targetPos.x, targetPos.y, targetPos.z),
+        startTarget: this.sceneManager.controls.target.clone(),
+        endTarget: new this.THREE.Vector3(DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z),
+        ease: (t) => 1 - Math.pow(1 - t, 3), // cubicOut
+      };
+    }
   }
 }
