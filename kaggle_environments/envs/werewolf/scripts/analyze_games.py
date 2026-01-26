@@ -6,6 +6,7 @@ import hashlib
 import argparse
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
+from tqdm import tqdm
 
 # Add current directory to path to import sibling scripts
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -152,7 +153,8 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
             for f in json_files
         }
         
-        for future in as_completed(future_to_file):
+        
+        for future in tqdm(as_completed(future_to_file), total=len(json_files), desc="Analyzing Games"):
             json_file = future_to_file[future]
             try:
                 result, file_hash, is_new = future.result()

@@ -352,16 +352,11 @@ def summarize_with_gemini(transcript: str, model_id: str = "gemini-3-pro-preview
     client = None
 
     if project:
-        # Prioritize Vertex AI (better quotas for parallel processing)
-        # print(f"Using Vertex AI with project: {project}")
+        print(f"Using Vertex AI with project: {project}")
         client = genai.Client(vertexai=True, project=project, location="us-central1")
     else:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            client = genai.Client(api_key=api_key)
-        else:
-            print("Error: Could not determine GOOGLE_CLOUD_PROJECT and no GEMINI_API_KEY found.")
-            return None
+        print("Error: GOOGLE_CLOUD_PROJECT not found. This script requires Vertex AI.")
+        return None
 
     prompt = f"""
 You are an expert commentator and analyst for the game of Werewolf (also known as Mafia).
