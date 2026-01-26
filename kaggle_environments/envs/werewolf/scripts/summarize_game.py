@@ -348,18 +348,19 @@ def get_gcloud_project() -> Optional[str]:
     return None
 
 def summarize_with_gemini(transcript: str, model_id: str = "gemini-3-pro-preview") -> Optional[GameAnalysis]:
-    api_key = os.environ.get("GEMINI_API_KEY")
+    project = get_gcloud_project()
     client = None
 
-    if api_key:
-        client = genai.Client(api_key=api_key)
+    if project:
+        # Prioritize Vertex AI (better quotas for parallel processing)
+        # print(f"Using Vertex AI with project: {project}")
+        client = genai.Client(vertexai=True, project=project, location="us-central1")
     else:
-        project = get_gcloud_project()
-        if project:
-            print(f"Using Vertex AI with project: {project}")
-            client = genai.Client(vertexai=True, project=project, location="us-central1")
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            client = genai.Client(api_key=api_key)
         else:
-            print("Error: No GEMINI_API_KEY found and could not determine GOOGLE_CLOUD_PROJECT.")
+            print("Error: Could not determine GOOGLE_CLOUD_PROJECT and no GEMINI_API_KEY found.")
             return None
 
     prompt = f"""
