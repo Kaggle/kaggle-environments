@@ -34,8 +34,10 @@ class EntertainmentRubric(BaseModel):
     strategic_depth: int = Field(..., description="1-10: Complexity and intelligence of plays.")
     unpredictability: int = Field(..., description="1-10: How surprising was the game?")
     narrative_quality: int = Field(..., description="1-10: Coherence and drama of the story.")
+    humor: int = Field(..., description="1-10: How funny, witty, or entertaining was the dialogue?")
     player_competence: int = Field(..., description="1-10: Overall skill level of the lobby.")
     pacing: int = Field(..., description="1-10: Flow and tension management.")
+    subjective_impression: int = Field(..., description="1-10: Judge's personal enjoyment and X-factor.")
 
 class DramaticMoment(BaseModel):
     turn: int = Field(..., description="Approximate step or day number.")
@@ -44,7 +46,7 @@ class DramaticMoment(BaseModel):
     participants: List[str] = Field(..., description="List of involved player names.")
 
 class EntertainmentMetrics(BaseModel):
-    excitement_score: int = Field(..., description="Overall 1-10 rating (weighted average of rubric).")
+    excitement_score: float = Field(..., description="Overall 1-10 rating (calculated average).")
     rubric: EntertainmentRubric
     dramatic_moments: List[DramaticMoment] = Field(..., description="List of specific explosive or turning point moments.")
     outcome_type: str = Field(..., description="e.g., 'Nail-biter', 'Stomp', 'Chaos', 'Masterclass', 'Throw', 'Upset', 'Diplomatic Victory', 'Last-Second Save'")
@@ -123,19 +125,30 @@ class NameManager:
             name = agent.get("display_name") or agent.get("name") or agent.get("id")
             name_counts[name] = name_counts.get(name, 0) + 1
 
-        # 4. Assign unique names and build map
-        current_counts = {}
-        for agent in agents:
-            agent_id = agent.get("id")  # This is now the randomized ID if applicable
-            name = agent.get("display_name") or agent.get("name") or agent.get("id")
+            if not agent.get("display_name"):
+                 # User requested strict dropping of games without display_name
+                 # We check if we have a valid name. If name matches ID and it looks like a default ID, it might be invalid.
+                 # But the safest check is: did we get a display name from metadata?
+                 pass
+            
+            # 4. Assign unique names and build map
+            current_counts = {}
+            for agent in agents:
+                agent_id = agent.get("id")
+                # Strict check: If display_name is missing, we consider it invalid for this analysis
+                d_name = agent.get("display_name")
+                if not d_name:
+                    raise ValueError(f"Missing display_name for agent {agent_id}. Dropping game.")
+                
+                name = d_name
 
-            if name_counts[name] > 1:
-                current_counts[name] = current_counts.get(name, 0) + 1
-                unique_name = f"{name} ({current_counts[name]})"
-            else:
-                unique_name = name
+                if name_counts[name] > 1:
+                    current_counts[name] = current_counts.get(name, 0) + 1
+                    unique_name = f"{name} ({current_counts[name]})"
+                else:
+                    unique_name = name
 
-            self.id_to_display[agent_id] = unique_name
+                self.id_to_display[agent_id] = unique_name
 
     def get_name(self, agent_id: str) -> str:
         """Returns the disambiguated display name for an agent ID."""
@@ -387,8 +400,10 @@ For 'excitement_score', consider the following rubric:
 - Strategic Depth: Were there complex plays or counter-plays?
 - Unpredictability: Were there twists or unexpected outcomes?
 - Narrative Quality: Did a compelling story emerge?
+- Humor: Was the dialogue funny, witty, or entertaining?
 - Player Competence: Did players demonstrate high-level understanding?
 - Pacing: Was the game tense throughout?
+- Subjective Impression: Your personal enjoyment as a spectator (the "X-factor").
 
 For 'dramatic_moments', identify specific key turns where the game shifted or excitement peaked.
 For 'player_stats', assess them relative to high-level play.
@@ -414,6 +429,25 @@ For 'player_stats', assess them relative to high-level play.
                  print("Error: Gemini response could not be parsed.")
                  # print(response.text) # Debugging
                  return None
+            
+            analysis = response.parsed
+            
+            # Recalculate excitement_score to be the strict average of rubric components
+            # This ensures the score reflects all criteria including Humor
+            r = analysis.entertainment_metrics.rubric
+            rubric_values = [
+                r.strategic_depth,
+                r.unpredictability,
+                r.narrative_quality,
+                r.humor,
+                r.player_competence,
+                r.pacing,
+                r.subjective_impression
+            ]
+            avg_score = sum(rubric_values) / len(rubric_values)
+            analysis.entertainment_metrics.excitement_score = round(avg_score, 1)
+            
+            return analysis
                  
             return response.parsed
 

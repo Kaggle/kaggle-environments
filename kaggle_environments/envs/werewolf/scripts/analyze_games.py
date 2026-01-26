@@ -225,7 +225,9 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         "mvp_count": 0,
         "best_game_overall": {"score": -1, "file": ""},
         "best_game_by_role": defaultdict(lambda: {"score": -1, "file": ""}),
-        "stats": {"persuasion": [], "deception": [], "aggression": [], "analysis": []}
+        "stats": {"persuasion": [], "deception": [], "aggression": [], "analysis": []},
+        "rubric_sums": defaultdict(list),
+        "all_games": []
     })
 
     for game in valid_results:
@@ -255,6 +257,21 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
             p_entry["stats"]["deception"].append(p_stat.get('deception', 0))
             p_entry["stats"]["aggression"].append(p_stat.get('aggression', 0))
             p_entry["stats"]["analysis"].append(p_stat.get('analysis', 0))
+            
+            # Collect Game Rubrics for aggregation
+            rubric = game['entertainment_metrics'].get('rubric', {})
+            for r_key, r_val in rubric.items():
+                p_entry["rubric_sums"][r_key].append(r_val)
+                
+            # Store game info for top-k lists
+            game_info = {
+                "score": score,
+                "file": filename,
+                "title": game.get('title', ''),
+                "role": role,
+                "rubric": rubric
+            }
+            p_entry["all_games"].append(game_info)
 
     # Construct JSON Report Structure
     report = {
@@ -298,12 +315,32 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
             k: sum(v)/len(v) if v else 0 for k, v in data["stats"].items()
         }
         
+        avg_rubrics = {
+            k: sum(v)/len(v) if v else 0 for k, v in data["rubric_sums"].items()
+        }
+        
+        # Process Top K games
+        all_games_sorted = sorted(data["all_games"], key=lambda x: x['score'], reverse=True)
+        top_games_overall_list = all_games_sorted[:top_k]
+        
+        # Process Top K by Role
+        games_by_role = defaultdict(list)
+        for g in all_games_sorted:
+            games_by_role[g['role']].append(g)
+            
+        top_games_by_role_list = {
+            role: games[:top_k] for role, games in games_by_role.items()
+        }
+        
         report["player_highlights"][name] = {
             "games_played": data["games"],
             "mvp_count": data["mvp_count"],
             "average_stats": avg_stats,
-            "best_game_overall": data["best_game_overall"],
-            "best_game_by_role": dict(data["best_game_by_role"])
+            "average_rubrics": avg_rubrics,
+            "top_games_overall": top_games_overall_list,
+            "top_games_by_role": top_games_by_role_list,
+            "best_game_overall": data["best_game_overall"], # Kept for backward compat
+            "best_game_by_role": dict(data["best_game_by_role"]) # Kept for backward compat
         }
 
     # Save JSON Report
@@ -320,7 +357,7 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
     print("="*50)
     for i, g in enumerate(top_games_overall):
         metrics = g['entertainment_metrics']
-        print(f"{i+1}. {g['title']} (Score: {metrics['excitement_score']}/10)")
+        print(f"{i+1}. {g['title']} (Score: {metrics['excitement_score']:.1f}/10)")
         print(f"   Outcome: {metrics['outcome_type']}")
         
         # Display Rubric if available (backward compatibility check)
@@ -339,7 +376,10 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
     print("-" * 80)
     
     sorted_players = sorted(player_data.items(), key=lambda x: x[1]['games'], reverse=True)
-    for name, data in sorted_players:
+    # Filter out players with fewer than 10 games to remove noise/default IDs from failed runs
+    visible_players = [p for p in sorted_players if p[1]['games'] >= 10]
+
+    for name, data in visible_players:
          avg = {k: sum(v)/len(v) if v else 0 for k, v in data["stats"].items()}
          print(f"{name:<30} | {avg['persuasion']:5.1f} | {avg['deception']:5.1f} | {avg['aggression']:5.1f} | {avg['analysis']:5.1f} | {data['mvp_count']:<3} | {data['games']:<5}")
 
