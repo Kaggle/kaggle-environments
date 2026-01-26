@@ -30,10 +30,24 @@ class PlayerHighlight(BaseModel):
     summary: str
     key_move: str
 
+class EntertainmentRubric(BaseModel):
+    strategic_depth: int = Field(..., description="1-10: Complexity and intelligence of plays.")
+    unpredictability: int = Field(..., description="1-10: How surprising was the game?")
+    narrative_quality: int = Field(..., description="1-10: Coherence and drama of the story.")
+    player_competence: int = Field(..., description="1-10: Overall skill level of the lobby.")
+    pacing: int = Field(..., description="1-10: Flow and tension management.")
+
+class DramaticMoment(BaseModel):
+    turn: int = Field(..., description="Approximate step or day number.")
+    description: str = Field(..., description="What happened.")
+    excitement_level: int = Field(..., description="1-10 impact.")
+    participants: List[str] = Field(..., description="List of involved player names.")
+
 class EntertainmentMetrics(BaseModel):
-    excitement_score: int = Field(..., description="1-10 rating of how entertaining the game was to watch.")
-    dramatic_moments: List[str] = Field(..., description="List of specific explosive or turning point moments.")
-    outcome_type: str = Field(..., description="e.g., 'Nail-biter', 'Stomp', 'Chaos', 'Masterclass', 'Throw'")
+    excitement_score: int = Field(..., description="Overall 1-10 rating (weighted average of rubric).")
+    rubric: EntertainmentRubric
+    dramatic_moments: List[DramaticMoment] = Field(..., description="List of specific explosive or turning point moments.")
+    outcome_type: str = Field(..., description="e.g., 'Nail-biter', 'Stomp', 'Chaos', 'Masterclass', 'Throw', 'Upset', 'Diplomatic Victory', 'Last-Second Save'")
     mvp_id: str = Field(..., description="The ID of the player who contributed most to the entertainment or outcome.")
 
 class GameAnalysis(BaseModel):
@@ -369,6 +383,15 @@ Here is the game transcript:
 {transcript}
 
 Please provide the analysis in the requested structured JSON format.
+For 'excitement_score', consider the following rubric:
+- Strategic Depth: Were there complex plays or counter-plays?
+- Unpredictability: Were there twists or unexpected outcomes?
+- Narrative Quality: Did a compelling story emerge?
+- Player Competence: Did players demonstrate high-level understanding?
+- Pacing: Was the game tense throughout?
+
+For 'dramatic_moments', identify specific key turns where the game shifted or excitement peaked.
+For 'player_stats', assess them relative to high-level play.
 """
 
     max_retries = 5

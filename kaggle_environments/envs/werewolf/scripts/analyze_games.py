@@ -322,6 +322,12 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         metrics = g['entertainment_metrics']
         print(f"{i+1}. {g['title']} (Score: {metrics['excitement_score']}/10)")
         print(f"   Outcome: {metrics['outcome_type']}")
+        
+        # Display Rubric if available (backward compatibility check)
+        if 'rubric' in metrics:
+            r = metrics['rubric']
+            print(f"   Rubric: Strat:{r.get('strategic_depth')} | Unpred:{r.get('unpredictability')} | Nar:{r.get('narrative_quality')} | Skill:{r.get('player_competence')} | Pace:{r.get('pacing')}")
+        
         print(f"   File: {g.get('_filename', 'Unknown')}")
         print(f"   MVP: {g.get('mvp_player', 'N/A')}")
         print("")
