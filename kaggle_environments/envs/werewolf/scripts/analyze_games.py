@@ -143,16 +143,14 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
     
     print(f"Starting analysis with {max_workers} workers...")
     
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    try:
         # Submit all tasks
-        # Pass a copy of cache keys or just check inside; 
-        # passing full cache dict is thread-safe for reading in Python (GIL), 
-        # but better to treat as read-only.
         future_to_file = {
             executor.submit(analyze_single_game, f, cache, model_id, output_dir): f 
             for f in json_files
         }
-        
         
         for future in tqdm(as_completed(future_to_file), total=len(json_files), desc="Analyzing Games"):
             json_file = future_to_file[future]
@@ -163,9 +161,22 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
                     if is_new and file_hash:
                         cache[file_hash] = result
                         new_entries_count += 1
-                        # Periodic save could go here, but doing it end-only is safer/simpler for now
             except Exception as e:
                 print(f"Exception analyzing {json_file}: {e}")
+                
+    except KeyboardInterrupt:
+        print("\nAnalysis interrupted by user. Shutting down workers...")
+        executor.shutdown(wait=False, cancel_futures=True)
+        # Still try to save whatever we have cached so far
+        if new_entries_count > 0:
+             print(f"Saving {new_entries_count} new entries before exit...")
+             try:
+                with open(cache_file, 'w') as f:
+                    json.dump(cache, f, indent=2)
+             except: pass
+        sys.exit(1)
+    finally:
+        executor.shutdown(wait=True)
 
     # Save updated cache at the end if we added anything
     if new_entries_count > 0:
