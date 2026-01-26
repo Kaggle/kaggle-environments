@@ -1227,7 +1227,7 @@ html, body, #app {
     width: auto; /* Fit content more closely */
     min-width: 300px;
     text-align: left;
-    opacity: 0; /* Hidden by default */
+    /* opacity: 0; Removed to fix immediate disappearance */
 }
 
 .cinematic-subtitle-container.moderator-mode.show-reasoning {

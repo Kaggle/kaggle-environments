@@ -707,8 +707,30 @@ export function renderer(context, parent) {
           }
       }
       
+    // STICKY SUBTITLES:
+    // If no new subtitle was shown this step, check if we should clear the old one.
+    // We ONLY clear if the current event is effectively a "speech" event that happened to be empty
+    // (which shouldn't happen often) or if we explicitly want silence.
+    // However, for "System" events like phase dividers that are effectively silent,
+    // we want to PERSIST the last message (e.g. Moderator info) so the user has time to read it.
+
       if (!subtitleShown) {
-          world.uiManager.clearSubtitle();
+        // Check if the current event is a "Silent" system event (e.g. phase divider, day start)
+        // If it IS silent, we do NOT clear. We let the previous message stick.
+        const silentEventTypes = ['phase_divider', 'day_start', 'night_start', 'vote_request', 'heal_request', 'inspect_request'];
+        const isSilent = lastEvent && (silentEventTypes.includes(lastEvent.type) || silentEventTypes.includes(lastEvent.event_name));
+
+        // If it's NOT a silent event (meaning it probably SHOULD have shown something but didn't, or it's a new turn),
+        // or if we have changed PHASE significantly (though usually phase change has a divider),
+        // AND we aren't in a "sticky" state... 
+        // Actually, simplest logic for better UX: 
+        // Only clear if we have a NEW active event that replaces the visuals but has no text (rare).
+        // OR if we explicitly want to clear. 
+        // For now, let's just NOT clear on silent events.
+
+        if (!isSilent) {
+            world.uiManager.clearSubtitle();
+          }
       }
   }
 }
