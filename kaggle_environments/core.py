@@ -699,8 +699,19 @@ class Environment:
 
         return process_schema(schemas.specification, spec)
 
-    def __agent_runner(self, agents: list[Agent | None]) -> Any:
-        # Generate the agents.
+    def __agent_runner(self, agents: list[str | Callable | Agent | None]) -> Any:
+        """Create an agent runner that can compute actions for all agents.
+
+        Args:
+            agents: List of agent specifications (strings, callables, or Agent objects).
+                The strings can be file paths, HTTP URLs, or Docker container IDs.
+                For HTTP URLs, creates UrlAgent which sends requests to remote servers.
+                See docs/agents.md for multi-container deployment details.
+
+        Returns:
+            Object with act() method that returns (actions, logs) for all agents.
+        """
+        # Wrap each agent spec in an Agent object (handles URL resolution, file loading, etc.)
         agents = [Agent(agent, self) if agent is not None else None for agent in agents]
 
         def act(none_action=None):

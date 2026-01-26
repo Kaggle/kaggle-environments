@@ -114,11 +114,22 @@ def get_last_callable(raw: str, fallback: Callable | None = None, path: str | No
 
 
 class UrlAgent:
+    """Remote agent that communicates via HTTP JSON requests.
+
+    Used in multi-container deployments where agents run on separate servers.
+    Sends POST requests with action='act' to the remote http-server.
+
+    IMPORTANT: This class does NOT include an agent path in requests.
+    The remote server must have an agent pre-loaded via an initial 'act'
+    request that includes agents=[path]. See docs/agents.md for details.
+    """
+
     def __init__(self, raw: str, environment_name: str) -> None:
-        self.raw = raw
+        self.raw = raw  # The HTTP URL of the remote agent server
         self.environment_name = environment_name
 
     def __call__(self, observation: Any, configuration: Any) -> Any:
+        # Note: No 'agents' field - relies on cached agent on remote server
         data = {
             "action": "act",
             "configuration": configuration,
@@ -148,11 +159,25 @@ class UrlAgent:
             return None
 
 
-def build_agent(
-    raw: str | Callable | Any, builtin_agents: Dict[str, Callable], environment_name: str
-) -> Tuple[Callable, bool]:
-    """
-    Returns the agent and whether the agent is parallelizable.
+# Type alias for agent specifications that can be passed to env.run()
+AgentSpec = str | Callable | Dict[str, Any] | Any
+
+
+def build_agent(raw: AgentSpec, builtin_agents: Dict[str, Callable], environment_name: str) -> Tuple[Callable, bool]:
+    """Resolve an agent specification into a callable.
+
+    Args:
+        raw: Agent specification - can be:
+            - str: Built-in agent name, HTTP URL, or file path
+            - Callable: Already a function
+            - dict: Protobuf agent spec (with type='proto' or proto_config)
+            - Any: Static action value
+        builtin_agents: Dict of named agents registered with the environment
+        environment_name: Name of the environment (passed to remote agents)
+
+    Returns:
+        Tuple of (agent_callable, is_parallelizable)
+        - is_parallelizable=True for URL agents (can run in parallel processes)
     """
     # Check for proto agent specification (dict with type='proto' or proto_config)
     from kaggle_environments.envs.game_drivers.protobuf_agent import (
