@@ -2,6 +2,8 @@ import json
 import os
 import sys
 import re
+import time
+import random
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from google import genai
@@ -369,28 +371,48 @@ Here is the game transcript:
 Please provide the analysis in the requested structured JSON format.
 """
 
-    try:
-        response = client.models.generate_content(
-            model=model_id,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=GameAnalysis,
-                temperature=0.5,
+    max_retries = 5
+    base_delay = 1
+    
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=GameAnalysis,
+                    temperature=0.5,
+                )
             )
-        )
-        
-        # Check if response is valid
-        if not response.parsed:
-             print("Error: Gemini response could not be parsed.")
-             # print(response.text) # Debugging
-             return None
-             
-        return response.parsed
+            
+            # Check if response is valid
+            if not response.parsed:
+                 print("Error: Gemini response could not be parsed.")
+                 # print(response.text) # Debugging
+                 return None
+                 
+            return response.parsed
 
-    except Exception as e:
-        print(f"Error calling Gemini API: {e}")
-        return None
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str or "Resource has been exhausted" in error_str or "404" in error_str:
+                # 404 might be transient model loading or actual missing model, but let's treat it as fatal or transient?
+                # User had 404 earlier for invalid model, but 429 is the main target here.
+                # Actually, 404 for model not found shouldn't be retried if it's static config error. 
+                # Focusing on 429/Resource Exhausted.
+                is_resource_exhausted = "429" in error_str or "Resource has been exhausted" in error_str
+                
+                if is_resource_exhausted and attempt < max_retries - 1:
+                    sleep_time = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
+                    print(f"Quota exceeded (429). Retrying in {sleep_time:.2f}s... (Attempt {attempt+1}/{max_retries})")
+                    time.sleep(sleep_time)
+                    continue
+            
+            print(f"Error calling Gemini API: {e}")
+            return None
+            
+    return None
 
 # --- Main Execution ---
 
