@@ -152,17 +152,20 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
             for f in json_files
         }
         
-        for future in tqdm(as_completed(future_to_file), total=len(json_files), desc="Analyzing Games"):
-            json_file = future_to_file[future]
-            try:
-                result, file_hash, is_new = future.result()
-                if result:
-                    results.append(result)
-                    if is_new and file_hash:
-                        cache[file_hash] = result
-                        new_entries_count += 1
-            except Exception as e:
-                print(f"Exception analyzing {json_file}: {e}")
+        with tqdm(total=len(json_files), desc="Analyzing Games") as pbar:
+            for future in as_completed(future_to_file):
+                json_file = future_to_file[future]
+                try:
+                    result, file_hash, is_new = future.result()
+                    if result:
+                        results.append(result)
+                        if is_new and file_hash:
+                            cache[file_hash] = result
+                            new_entries_count += 1
+                except Exception as e:
+                    print(f"Exception analyzing {json_file}: {e}")
+                finally:
+                    pbar.update(1)
                 
     except KeyboardInterrupt:
         print("\nAnalysis interrupted by user. Shutting down workers...")
@@ -174,9 +177,12 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
                 with open(cache_file, 'w') as f:
                     json.dump(cache, f, indent=2)
              except: pass
-        sys.exit(1)
+        sys.stdout.flush()
+        # Force exit to kill non-daemon threads from file executor
+        os._exit(1)
     finally:
-        executor.shutdown(wait=True)
+        # multiple calls to shutdown are safe
+        executor.shutdown(wait=False, cancel_futures=True)
 
     # Save updated cache at the end if we added anything
     if new_entries_count > 0:
