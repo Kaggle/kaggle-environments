@@ -46,15 +46,19 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
     # Filter out the cache file itself if it's in the same dir and has .json extension
     json_files = [f for f in json_files if os.path.abspath(f) != os.path.abspath(cache_file)]
 
-    for json_file in json_files:
+def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: Optional[str]) -> Optional[Dict]:
+    """
+    Analyzes a single game replay.
+    Returns the analysis dict (either from cache or fresh) or None if failed.
+    """
+    try:
         file_hash = get_file_hash(json_file)
         
+        # Check in-memory cache first (though typical usage expects cache populated initially)
         if file_hash in cache:
             # print(f"Skipping {os.path.basename(json_file)} (Cached)")
             cached_result = cache[file_hash]
-            # Ensure filename is up to date in case it was renamed (optional, detailed)
             cached_result["_filename"] = os.path.basename(json_file)
-            results.append(cached_result)
 
             if output_dir:
                 base_name = os.path.splitext(os.path.basename(json_file))[0]
@@ -63,57 +67,114 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
                     json.dump(cached_result, f, indent=2)
                 
                 transcript_path = os.path.join(output_dir, f"{base_name}_transcript.txt")
+                # Only regenerate transcript if missing
                 if not os.path.exists(transcript_path):
-                     try:
-                        t = summarize_game.extract_game_transcript(json_file)
-                        with open(transcript_path, 'w') as f:
-                            f.write(t)
-                     except Exception as e:
-                        print(f"Warning: Could not extract transcript for cached file {json_file}: {e}")
+                        try:
+                            t = summarize_game.extract_game_transcript(json_file)
+                            with open(transcript_path, 'w') as f:
+                                f.write(t)
+                        except Exception as e:
+                            print(f"Warning: Could not extract transcript for cached file {json_file}: {e}")
 
-            continue
-            
+            return cached_result, file_hash, False  # (result, hash, is_new)
+
         print(f"Processing {os.path.basename(json_file)}...")
         transcript = summarize_game.extract_game_transcript(json_file)
-        
+
         if "Error:" in transcript[:50] and len(transcript) < 200:
-             print(f"Skipping {json_file}: {transcript}")
-             continue
+                print(f"Skipping {json_file}: {transcript}")
+                return None, file_hash, False
 
         if len(transcript) < 100:
             print(f"Skipping {json_file}: Transcript too short.")
-            continue
+            return None, file_hash, False
             
-        try:
-            analysis = summarize_game.summarize_with_gemini(transcript, model_id=model_id)
-            if analysis:
-                # Convert pydantic to dict
-                analysis_dict = analysis.model_dump()
-                analysis_dict["_filename"] = os.path.basename(json_file)
+        analysis = summarize_game.summarize_with_gemini(transcript, model_id=model_id)
+        if analysis:
+            analysis_dict = analysis.model_dump()
+            analysis_dict["_filename"] = os.path.basename(json_file)
+            
+            if output_dir:
+                base_name = os.path.splitext(os.path.basename(json_file))[0]
+                summary_path = os.path.join(output_dir, f"{base_name}_summary.json")
+                with open(summary_path, 'w') as f:
+                    json.dump(analysis_dict, f, indent=2)
                 
-                cache[file_hash] = analysis_dict
-                results.append(analysis_dict)
+                transcript_path = os.path.join(output_dir, f"{base_name}_transcript.txt")
+                with open(transcript_path, 'w') as f:
+                    f.write(transcript)
+            
+            return analysis_dict, file_hash, True
+        else:
+                print(f"Failed to analyze {json_file} (LLM returned None)")
+                return None, file_hash, False
 
-                if output_dir:
-                    base_name = os.path.splitext(os.path.basename(json_file))[0]
-                    summary_path = os.path.join(output_dir, f"{base_name}_summary.json")
-                    with open(summary_path, 'w') as f:
-                        json.dump(analysis_dict, f, indent=2)
-                    
-                    transcript_path = os.path.join(output_dir, f"{base_name}_transcript.txt")
-                    with open(transcript_path, 'w') as f:
-                        f.write(transcript)
-                
-                # Save cache incrementally
-                try:
-                    with open(cache_file, 'w') as f:
-                        json.dump(cache, f, indent=2)
-                except Exception as e:
-                    print(f"Warning: Failed to write cache: {e}")
-            else:
-                 print(f"Failed to analyze {json_file} (LLM returned None)")
+    except Exception as e:
+        print(f"Error processing {json_file}: {e}")
+        return None, None, False
+
+def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir: Optional[str] = None, max_workers: int = 20) -> List[Dict]:
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    
+    cache = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cache = json.load(f)
+            print(f"Loaded {len(cache)} cached analyses.")
         except Exception as e:
-            print(f"Error processing {json_file}: {e}")
+            print(f"Could not load cache: {e}. Starting fresh.")
+
+    json_files = glob.glob(os.path.join(replay_dir, "*.json"))
+    print(f"Found {len(json_files)} replay files in {replay_dir}.")
+    
+    # Sort files to be deterministic
+    json_files.sort()
+
+    # Filter out the cache file itself
+    json_files = [f for f in json_files if os.path.abspath(f) != os.path.abspath(cache_file)]
+    
+    results = []
+    new_entries_count = 0
+    
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    print(f"Starting analysis with {max_workers} workers...")
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        # Pass a copy of cache keys or just check inside; 
+        # passing full cache dict is thread-safe for reading in Python (GIL), 
+        # but better to treat as read-only.
+        future_to_file = {
+            executor.submit(analyze_single_game, f, cache, model_id, output_dir): f 
+            for f in json_files
+        }
+        
+        for future in as_completed(future_to_file):
+            json_file = future_to_file[future]
+            try:
+                result, file_hash, is_new = future.result()
+                if result:
+                    results.append(result)
+                    if is_new and file_hash:
+                        cache[file_hash] = result
+                        new_entries_count += 1
+                        # Periodic save could go here, but doing it end-only is safer/simpler for now
+            except Exception as e:
+                print(f"Exception analyzing {json_file}: {e}")
+
+    # Save updated cache at the end if we added anything
+    if new_entries_count > 0:
+        try:
+            with open(cache_file, 'w') as f:
+                json.dump(cache, f, indent=2)
+            print(f"Updated cache with {new_entries_count} new entries.")
+        except Exception as e:
+            print(f"Warning: Failed to write cache: {e}")
+    else:
+        print("No new analyses to cache.")
 
     return results
 
@@ -265,8 +326,9 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", help="Optional directory to save individual transcripts and summaries")
     parser.add_argument("--top-k", type=int, default=5, help="Number of top games to list")
     parser.add_argument("--report-file", default="analysis_report.json", help="Path to save the JSON analysis report")
-    
+    parser.add_argument("--max-workers", type=int, default=20, help="Max parallel workers for analysis")
+
     args = parser.parse_args()
-    
-    results = analyze_replays(args.replay_dir, args.cache, args.model, args.output_dir)
+
+    results = analyze_replays(args.replay_dir, args.cache, args.model, args.output_dir, args.max_workers)
     generate_analysis_report(results, args.top_k, args.report_file)
