@@ -352,8 +352,8 @@ def summarize_with_gemini(transcript: str, model_id: str = "gemini-3-pro-preview
     client = None
 
     if project:
-        print(f"Using Vertex AI with project: {project}")
-        client = genai.Client(vertexai=True, project=project, location="us-central1")
+        print(f"Using Vertex AI with project: {project} (global)")
+        client = genai.Client(vertexai=True, project=project, location="global")
     else:
         print("Error: GOOGLE_CLOUD_PROJECT not found. This script requires Vertex AI.")
         return None
