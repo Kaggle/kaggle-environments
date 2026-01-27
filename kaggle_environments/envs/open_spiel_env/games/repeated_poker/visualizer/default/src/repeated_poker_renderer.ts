@@ -1127,7 +1127,7 @@ export function renderer(options: LegacyRendererOptions): void {
         if (playerInfoArea) {
           const boxRect = playerInfoArea.getBoundingClientRect();
           const containerRect = elements.playersContainer.getBoundingClientRect();
-          const left = boxRect.left - containerRect.left - elements.dealerButton.offsetWidth - 20;
+          const left = boxRect.left - containerRect.left - elements.dealerButton.offsetWidth;
           elements.dealerButton.style.left = `${left}px`;
         }
       } else {
