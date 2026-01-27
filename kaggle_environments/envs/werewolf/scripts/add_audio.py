@@ -601,7 +601,7 @@ class GeminiTTSGenerator(TTSGenerator):
 class AudioManager:
     """Orchestrates the audio generation process."""
 
-    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str):
+    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str, tqdm_kwargs: Dict = None):
         self.config = config
         self.enhancer = enhancer
         self.tts = tts
@@ -610,6 +610,7 @@ class AudioManager:
         os.makedirs(self.audio_dir, exist_ok=True)
         self.audio_map = {}
         self.name_manager = None
+        self.tqdm_kwargs = tqdm_kwargs or {}
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
@@ -720,7 +721,11 @@ class AudioManager:
         logger.info(f"Processing {len(messages)} messages...")
         
         # Use simple progress bar writing to stdout to avoid logging conflicts
-        for msg in tqdm(messages, desc="Generating Audio", unit="msg"):
+        # Merge defaults with custom kwargs
+        pbar_kwargs = {"desc": "Generating Audio", "unit": "msg"}
+        pbar_kwargs.update(self.tqdm_kwargs)
+        
+        for msg in tqdm(messages, **pbar_kwargs):
             speaker_id = msg["speaker"]
             final_text = msg["final_text"]
             voice = msg["voice"]

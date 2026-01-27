@@ -5,10 +5,20 @@ import argparse
 import subprocess
 import shutil
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
-def process_single_episode(replay_file, bucket_base, script_path, keep_temp=False):
+# Setup path for add_audio import
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(script_dir)
+try:
+    import add_audio
+except ImportError:
+    print("Could not import add_audio.py. Ensure it is in the same directory.")
+    sys.exit(1)
+
+def process_single_episode_direct(replay_file, bucket_base, config_path, tts_provider, prompt_path, cache_path, disable_llm, keep_temp=False, position=0):
     episode_id = os.path.splitext(os.path.basename(replay_file))[0]
     temp_out_dir = f"temp_audio_output/{episode_id}"
     
@@ -20,21 +30,32 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
     success = False
 
     try:
-        # 1. Generate Audio
-        # We disable LLM enhancement for speed if desired, matching the original script
-        cmd = [
-            sys.executable, script_path,
-            "-i", replay_file,
-            "-o", temp_out_dir,
-            "--disable_llm_enhancement", 
-            # "--quiet" # NOT SUPPORTED by add_audio.py
-        ]
+        # 1. Generate Audio (Direct Python Call)
+        # Pass TQDM kwargs for positioning
+        tqdm_kwargs = {
+            "position": position + 1, # Offset by 1 to leave room for main bar? Or main bar at 0?
+             # Actually, if main bar is at 0, we use position N+1.
+            "leave": False,
+            "desc": f"Gen {episode_id}",
+            "ncols": 80, # Limit width to avoid wrapping
+            "mininterval": 0.5
+        }
         
-        # We capture output to avoid spamming the console
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # We need to capture stdout/stderr to separate logs from bars?
+        # But add_audio prints to stdout/stderr.
+        # Ideally we silence add_audio logging or redirect it.
+        # But user wants bars. Bars print to stderr usually.
         
-        if result.returncode != 0:
-            return False, f"Audio check failed for {episode_id}: {result.stderr}"
+        add_audio.process_replay_file(
+            input_path=replay_file,
+            output_dir=temp_out_dir,
+            config_path=config_path,
+            tts_provider=tts_provider,
+            prompt_path=prompt_path,
+            cache_path=cache_path,
+            disable_llm=disable_llm,
+            tqdm_kwargs=tqdm_kwargs
+        )
 
         # Check if output directory has content
         files = os.listdir(temp_out_dir)
@@ -50,6 +71,9 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
         # Use gcloud storage rsync for robust directory synchronization
         upload_cmd = f"gcloud storage rsync '{temp_out_dir}' '{target_path}' --recursive"
         
+        # We capture output to avoid spamming the console heavily, 
+        # but maybe user wants to see upload progress too? 
+        # For now, let's keep capture_output=True for upload to keep bars clean.
         upload_result = subprocess.run(
             upload_cmd, 
             shell=True, 
@@ -63,11 +87,9 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
         success = True
 
     except Exception as e:
-        return False, str(e)
+        return False, f"Exception in {episode_id}: {str(e)}"
     finally:
         # Cleanup ONLY if successful and not keeping temp
-        # If passed keep_temp=True, we keep it. 
-        # If success=False (failed), we keep it for debugging (as requested).
         if success and not keep_temp and os.path.exists(temp_out_dir):
             shutil.rmtree(temp_out_dir)
             
@@ -76,10 +98,27 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
 def main():
     parser = argparse.ArgumentParser(description="Batch process audio generation and upload.")
     parser.add_argument("replay_dir", help="Directory containing .json replay files")
-    parser.add_argument("--workers", type=int, default=20, help="Number of concurrent workers")
+    parser.add_argument("--workers", type=int, default=2, help="Number of concurrent workers (Limited for display)")
     parser.add_argument("--keep-temp", action="store_true", help="Keep temporary audio files after upload")
     parser.add_argument("--log-file", type=str, default="batch_errors.log", help="Path to error log file")
+    
+    # Args expected by add_audio (defaults matching add_audio.py)
+    parser.add_argument("-c", "--config_path", type=str,
+                        default=os.path.join(script_dir, "configs/audio/standard.yaml"))
+    parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
+    parser.add_argument("--prompt_path", type=str,
+                        default=os.path.join(script_dir, "configs/audio/theatrical_prompt.txt"))
+    parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
+    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
+    
     args = parser.parse_args()
+
+    # Defaults
+    if not args.cache_path:
+        # We assume a shared cache for batch? Or per file?
+        # Ideally shared cache if we want to save API calls across identical phrases (unlikely in different games).
+        # Let's just use a default path in current dir.
+        args.cache_path = "llm_cache.json"
 
     # Setup Logging
     logging.basicConfig(
@@ -97,23 +136,60 @@ def main():
 
     # Configuration
     bucket_base = "gs://kaggle-static/episode-visualizers/werewolf/default/audio"
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Assuming add_audio.py is in the same directory as this script
-    add_audio_script = os.path.join(script_dir, "add_audio.py")
     
     print(f"Found {len(replay_files)} replays.")
     print(f"Processing with {args.workers} workers...")
     
+    # IMPORTANT: 50 workers with progress bars might exceed terminal height.
+    # We warn the user if workers > 20.
+    if args.workers > 20:
+        print("WARNING: High worker count might cause visual glitches with progress bars.")
+
     success_count = 0
     errors = []
 
+    # ThreadPool Executor
+    # We assign a static position index to each worker?
+    # No, workers pick up tasks. We need to assign a slot (0..workers-1) to each running task.
+    # We can use a Semaphore-guarded list of available slots.
+    
+    slot_lock = threading.Lock()
+    available_slots = list(range(args.workers)) # Stack of slots
+    
+    def get_slot():
+        with slot_lock:
+            return available_slots.pop()
+            
+    def release_slot(s):
+        with slot_lock:
+            available_slots.append(s)
+
+    def worker_wrapper(file_path):
+        slot = get_slot()
+        try:
+            return process_single_episode_direct(
+                file_path, bucket_base, args.config_path, 
+                args.tts_provider, args.prompt_path, args.cache_path, 
+                args.disable_llm_enhancement, args.keep_temp, 
+                position=slot
+            )
+        finally:
+            release_slot(slot)
+
+    # Main Progress Bar (Overall)
+    # position=args.workers to place it below all worker bars?
+    # Or position=0 and shift workers down?
+    # Let's put overall at position=0.
+    # Workers at 1..N.
+    
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         future_to_file = {
-            executor.submit(process_single_episode, f, bucket_base, add_audio_script, args.keep_temp): f 
+            executor.submit(worker_wrapper, f): f 
             for f in replay_files
         }
         
-        with tqdm(total=len(replay_files), desc="Overall Progress") as pbar:
+        # position=0 is the main bar
+        with tqdm(total=len(replay_files), desc="Total Progress", position=0, leave=True) as pbar:
             for future in as_completed(future_to_file):
                 is_success, msg = future.result()
                 if is_success:
@@ -121,18 +197,18 @@ def main():
                 else:
                     errors.append(msg)
                     logger.error(msg)
-                    tqdm.write(f"Error: {msg}") # Print error immediately to console via tqdm safe method
+                    # We print errors to tqdm.write to avoid breaking layout, hopefully.
+                    # tqdm.write(f"Error: {msg}") 
+                    # If we use tqdm.write with many active bars, it might shift them. 
+                    # Better to only log to file?
+                    # User asked for error logs in file.
                 pbar.update(1)
 
-    print(f"\nCompleted. Success: {success_count}, Failed: {len(errors)}")
+    print(f"\n\n\nCompleted. Success: {success_count}, Failed: {len(errors)}") # Newlines to clear bars
     
     if errors:
         print(f"\nErrors have been written to {args.log_file}")
-        print("\nFirst 20 errors:")
-        for e in errors[:20]: # Show first 20 errors
-            print(e)
-        if len(errors) > 20:
-            print(f"... and {len(errors)-20} more.")
+        print("Check the log file for details.")
 
 if __name__ == "__main__":
     main()
