@@ -47,7 +47,7 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
     # Filter out the cache file itself if it's in the same dir and has .json extension
     json_files = [f for f in json_files if os.path.abspath(f) != os.path.abspath(cache_file)]
 
-def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: Optional[str]) -> Optional[Dict]:
+def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: Optional[str], max_retries: int = 10) -> Optional[Dict]:
     """
     Analyzes a single game replay.
     Returns the analysis dict (either from cache or fresh) or None if failed.
@@ -90,7 +90,7 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
             print(f"Skipping {json_file}: Transcript too short.")
             return None, file_hash, False
             
-        analysis = summarize_game.summarize_with_gemini(transcript, model_id=model_id)
+        analysis = summarize_game.summarize_with_gemini(transcript, model_id=model_id, max_retries=max_retries)
         if analysis:
             analysis_dict = analysis.model_dump()
             analysis_dict["_filename"] = os.path.basename(json_file)
@@ -114,7 +114,7 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
         print(f"Error processing {json_file}: {e}")
         return None, None, False
 
-def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir: Optional[str] = None, max_workers: int = 20) -> List[Dict]:
+def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir: Optional[str] = None, max_workers: int = 20, max_retries: int = 10) -> List[Dict]:
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
     
@@ -148,7 +148,7 @@ def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir:
     try:
         # Submit all tasks
         future_to_file = {
-            executor.submit(analyze_single_game, f, cache, model_id, output_dir): f 
+            executor.submit(analyze_single_game, f, cache, model_id, output_dir, max_retries): f 
             for f in json_files
         }
         
@@ -389,11 +389,12 @@ if __name__ == "__main__":
     parser.add_argument("--cache", default="analysis_cache.json", help="Path to cache file")
     parser.add_argument("--model", default="gemini-3-pro-preview", help="Gemini Model ID")
     parser.add_argument("--output-dir", help="Optional directory to save individual transcripts and summaries")
-    parser.add_argument("--top-k", type=int, default=5, help="Number of top games to list")
+    parser.add_argument("--top-k", type=int, default=10, help="Number of top games to list")
     parser.add_argument("--report-file", default="analysis_report.json", help="Path to save the JSON analysis report")
-    parser.add_argument("--max-workers", type=int, default=20, help="Max parallel workers for analysis")
+    parser.add_argument("--max-workers", type=int, default=50, help="Max parallel workers for analysis")
+    parser.add_argument("--max-retries", type=int, default=10, help="Max retries for API quota errors")
 
     args = parser.parse_args()
 
-    results = analyze_replays(args.replay_dir, args.cache, args.model, args.output_dir, args.max_workers)
+    results = analyze_replays(args.replay_dir, args.cache, args.model, args.output_dir, args.max_workers, args.max_retries)
     generate_analysis_report(results, args.top_k, args.report_file)

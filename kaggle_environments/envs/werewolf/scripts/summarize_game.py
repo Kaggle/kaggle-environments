@@ -370,7 +370,7 @@ def get_gcloud_project() -> Optional[str]:
         pass
     return None
 
-def summarize_with_gemini(transcript: str, model_id: str = "gemini-3-pro-preview") -> Optional[GameAnalysis]:
+def summarize_with_gemini(transcript: str, model_id: str = "gemini-3-pro-preview", max_retries: int = 10) -> Optional[GameAnalysis]:
     project = get_gcloud_project()
     client = None
 
@@ -403,7 +403,6 @@ For 'dramatic_moments', identify specific key turns where the game shifted or ex
 For 'player_stats', assess them relative to high-level play.
 """
 
-    max_retries = 5
     base_delay = 1
     
     for attempt in range(max_retries):
@@ -474,6 +473,7 @@ def main():
     parser.add_argument("-o", "--output_dir", help="Directory to save outputs (defaults to input file's directory)")
     parser.add_argument("--model", default="gemini-3-pro-preview", help="Gemini Model ID")
     parser.add_argument("--dry-run", action="store_true", help="Generate transcript only, do not call LLM")
+    parser.add_argument("--max-retries", type=int, default=10, help="Max retries for API quota errors")
     args = parser.parse_args()
 
     json_path = args.input_path
@@ -512,7 +512,7 @@ def main():
 
     print(f"Sending to Gemini ({model_id})...")
     
-    analysis = summarize_with_gemini(transcript, model_id)
+    analysis = summarize_with_gemini(transcript, model_id, max_retries=args.max_retries)
     
     if analysis:
         # Save structured JSON
