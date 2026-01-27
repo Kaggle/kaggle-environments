@@ -348,13 +348,8 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
             k: sum(v)/len(v) if v else 0 for k, v in data["rubric_sums"].items()
         }
         
-        # Process Top K games
-        all_games_sorted = sorted(data["all_games"], key=lambda x: x['score'], reverse=True)
-        top_games_overall_list = all_games_sorted[:top_k]
-        
-        # Process Top K by Role (filtered for MVP & Win)
-        games_by_role = defaultdict(list)
-        for g in all_games_sorted:
+        # Helper to check if player won and was MVP
+        def is_mvp_win(name, g):
             # Check 1: Is Player MVP?
             if name != g['mvp'] and g['mvp'] not in name:
                  # Note: "mvp" in name check handles potential slight mismatches if fuzzy match used before
@@ -362,9 +357,8 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
                  # We'll use the same logic as the main loop: name/mvp fuzzy match check?
                  # Actually, let's strict match if possible, but the main loop used `name in mvp or mvp in name`.
                  # We stored `mvp` raw string. `name` is the key.
-                 # Let's reuse strict check if possible or fallback to match logic.
                  if g['mvp'] != name:
-                     continue
+                     return False
 
             # Check 2: Did they win?
             winner = g['winner'].lower()
@@ -378,14 +372,40 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
                 # Villager, Seer, Doctor
                 if "villager" in winner:
                     won = True
-                    
-            if won:
-                games_by_role[g['role']].append(g)
+            
+            return won
+
+        # Filter all games for this player to only include MVP wins
+        mvp_wins = [g for g in data["all_games"] if is_mvp_win(name, g)]
+        
+        # Sort by score
+        mvp_wins_sorted = sorted(mvp_wins, key=lambda x: x['score'], reverse=True)
+        
+        # Process Top K games (Overall)
+        top_games_overall_list = mvp_wins_sorted[:top_k]
+        
+        # Process Top K by Role
+        games_by_role = defaultdict(list)
+        for g in mvp_wins_sorted:
+            games_by_role[g['role']].append(g)
             
         top_games_by_role_list = {
             role: games[:top_k] for role, games in games_by_role.items()
         }
         
+        # Update Best Game Overall (derived from filtered list)
+        best_game_overall = mvp_wins_sorted[0] if mvp_wins_sorted else {"score": -1, "file": ""}
+        if best_game_overall.get("score") == -1:
+             # Fallback to legacy behavior if no MVP wins found? 
+             # Or strict: if no MVP wins, then no best game to show in this context.
+             pass
+
+        # Update Best Game by Role (derived from filtered list)
+        best_game_by_role = {}
+        for role, games in games_by_role.items():
+            if games:
+                best_game_by_role[role] = games[0]
+
         report["player_highlights"][name] = {
             "games_played": data["games"],
             "mvp_count": data["mvp_count"],
@@ -393,8 +413,8 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
             "average_rubrics": avg_rubrics,
             "top_games_overall": top_games_overall_list,
             "top_games_by_role": top_games_by_role_list,
-            "best_game_overall": data["best_game_overall"], # Kept for backward compat
-            "best_game_by_role": dict(data["best_game_by_role"]) # Kept for backward compat
+            "best_game_overall": best_game_overall, 
+            "best_game_by_role": best_game_by_role
         }
 
     # Save JSON Report
