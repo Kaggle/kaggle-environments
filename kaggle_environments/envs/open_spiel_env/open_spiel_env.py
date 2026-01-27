@@ -9,6 +9,7 @@ import pathlib
 import random
 import re
 import sys
+import warnings
 from typing import Any, Callable
 
 import numpy as np
@@ -80,6 +81,11 @@ CONFIGURATION_SPEC_TEMPLATE = {
         "default": "PLACEHOLDER_GAME_SHORT_NAME",
     },
     "openSpielGameParameters": {"description": "Game parameters for Open Spiel game.", "type": "object", "default": {}},
+    "observationType": {
+        "description": "Type of observation string: 'observation' or 'information_state'.",
+        "type": "string",
+        "default": "observation",
+    },
     "useOpenings": {
         "description": "Whether to start from a position in an opening book.",
         "type": "boolean",
@@ -90,6 +96,14 @@ CONFIGURATION_SPEC_TEMPLATE = {
             "If true, indicates the observation is intended to be rendered as"
             " an image. Note that currently the agent harness is responsible"
             " for the actual rendering; no image is passed in the observation."
+        ),
+        "type": "boolean",
+        "default": False,
+    },
+    "includeLegalActions": {
+        "description": (
+            "If true, include legalActions and legalActionStrings in observations. "
+            "Defaults to false since these can be derived from serializedGameAndState."
         ),
         "type": "boolean",
         "default": False,
@@ -127,12 +141,12 @@ OBSERVATION_SPEC_TEMPLATE = {
         "openSpielGameName": {"description": "Short name of the OpenSpiel game.", "type": "string"},
         "observationString": {"description": "String representation of state.", "type": "string"},
         "legalActions": {
-            "description": "List of OpenSpiel legal action integers.",
+            "description": "List of OpenSpiel legal action integers. Only included if includeLegalActions is true.",
             "type": "array",
             "items": {"type": "integer"},
         },
         "legalActionStrings": {
-            "description": "List of OpenSpiel legal actions strings.",
+            "description": "List of OpenSpiel legal action strings. Only included if includeLegalActions is true.",
             "type": "array",
             "items": {"type": "string"},
         },
@@ -319,20 +333,44 @@ def interpreter(
     # --- Get and maybe initialize game and state on the env object ---
     if not hasattr(env, "os_game"):
         game_string = env.configuration.get("openSpielGameString")
-        # TODO(jhtschultz): Consolidate these competition-specific config fields
+        game_name = env.configuration.get("openSpielGameName")
+
+        # Load base game from string to get its parameters
+        base_game = pyspiel.load_game(game_string)
+        base_params = base_game.get_parameters()
+
+        # Find user-provided params by comparing config to spec defaults
+        config_params = env.configuration.get("openSpielGameParameters", {})
+        default_params = env.specification.configuration.openSpielGameParameters.get("default", {})
+        user_params = {k: v for k, v in config_params.items() if config_params.get(k) != default_params.get(k)}
+
+        # Deprecated: use openSpielGameParameters.max_num_hands instead
         if env.configuration.get("setNumHands", None):
-            if "repeated_poker" not in game_string:
-                raise ValueError(f"setNumHands only supported for repeated_poker, not {game_string}")
-            game_string = re.sub(
-                r"(max_num_hands=)\d+",
-                f"max_num_hands={env.configuration.get('setNumHands')}",
-                game_string,
+            warnings.warn(
+                "setNumHands is deprecated. Use openSpielGameParameters={'max_num_hands': N} instead.",
+                DeprecationWarning,
+                stacklevel=2,
             )
-        env.os_game = pyspiel.load_game(game_string)
+            if "repeated_poker" not in game_name:
+                raise ValueError(f"setNumHands only supported for repeated_poker, not {game_name}")
+            user_params["max_num_hands"] = env.configuration.get("setNumHands")
+
+        # Merge: base params from string, then user params override
+        merged_params = {**base_params, **user_params}
+
+        # Load the game with merged parameters
+        env.os_game = pyspiel.load_game(game_name, merged_params)
+
+        # Check if a proxy exists for this game and use it instead
+        proxy_path = GAMES_DIR / game_name / f"{game_name}_proxy.py"
+        if proxy_path.is_file():
+            env.os_game = pyspiel.load_game(game_name + "_proxy", env.os_game.get_parameters())
+
+        # Store the resolved game string (after merging parameters)
+        env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
-    if "stateHistory" not in env.info:
-        env.info["stateHistory"] = [str(env.os_state)]
+    if "actionHistory" not in env.info:
         env.info["actionHistory"] = []
         env.info["moveDurations"] = []
         initial_actions, metadata = _get_initial_actions(env.configuration)
@@ -350,7 +388,6 @@ def interpreter(
             for action in initial_actions:
                 env.os_state.apply_action(action)
                 env.info["actionHistory"].append(str(action))
-                env.info["stateHistory"].append(str(env.os_state))
         if preset_hands:
             env.info["presetHands"] = copy.deepcopy(preset_hands)
             env.info["presetHandsState"] = {
@@ -389,7 +426,6 @@ def interpreter(
                 os_state.apply_action(action_submitted)
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
-                env.info["stateHistory"].append(str(os_state))
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -422,7 +458,6 @@ def interpreter(
             chance_action = np.random.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
-        env.info["stateHistory"].append(str(os_state))
 
     # --- Update agent states ---
     agent_error = any(kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"] for player_id in range(num_players))
@@ -472,15 +507,24 @@ def interpreter(
                 else "unknown"
             )
 
+        # Get observation string based on game's observation type
+        if env.configuration.get("observationType") == "information_state":
+            obs_string = os_state.information_state_string(player_id)
+        else:
+            obs_string = os_state.observation_string(player_id)
+
         obs_update_dict = {
-            "observationString": os_state.observation_string(player_id),
-            "legalActions": os_state.legal_actions(player_id),
-            "legalActionStrings": [os_state.action_to_string(action) for action in os_state.legal_actions(player_id)],
+            "observationString": obs_string,
             "currentPlayer": os_state.current_player(),
             "playerId": player_id,
             "isTerminal": os_state.is_terminal(),
             "serializedGameAndState": pyspiel.serialize_game_and_state(os_game, os_state),
         }
+        if env.configuration.get("includeLegalActions", False):
+            obs_update_dict["legalActions"] = os_state.legal_actions(player_id)
+            obs_update_dict["legalActionStrings"] = [
+                os_state.action_to_string(action) for action in os_state.legal_actions(player_id)
+            ]
         if "imageConfig" in env.configuration:
             obs_update_dict["imageConfig"] = env.configuration["imageConfig"]
 
@@ -609,8 +653,12 @@ def _build_env(game_string: str) -> dict[str, Any]:
         game = pyspiel.load_game(short_name + "_proxy", game.get_parameters())
 
     game_type = game.get_type()
-    if not game_type.provides_observation_string:
-        raise ValueError(f"No observation string for game: {game_string}")
+    if game_type.provides_observation_string:
+        observation_type = "observation"
+    elif game_type.provides_information_state_string:
+        observation_type = "information_state"
+    else:
+        raise ValueError(f"No observation or information state string for game: {game_string}")
 
     env_spec = copy.deepcopy(ENV_SPEC_TEMPLATE)
     env_spec["name"] = f"open_spiel_{short_name}"
@@ -622,6 +670,7 @@ def _build_env(game_string: str) -> dict[str, Any]:
     env_config["openSpielGameString"]["default"] = str(game)
     env_config["openSpielGameName"]["default"] = short_name
     env_config["openSpielGameParameters"]["default"] = game.get_parameters()
+    env_config["observationType"]["default"] = observation_type
 
     env_obs = env_spec["observation"]
     env_obs["properties"]["openSpielGameString"]["default"] = str(game)
@@ -713,10 +762,15 @@ DEFAULT_REPEATED_POKERKIT_GAME_STRING = (
 )
 
 GAMES_LIST = [
+    "backgammon",
+    "checkers",
     "chess",
     "connect_four",
     "gin_rummy",
     "go(board_size=9)",
+    "hearts",
+    "hex",
+    "othello",
     "tic_tac_toe",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,

@@ -1355,7 +1355,7 @@ wheels = [
 
 [[package]]
 name = "kaggle-environments"
-version = "1.26.5"
+version = "1.26.7"
 source = { editable = "." }
 dependencies = [
     { name = "flask" },

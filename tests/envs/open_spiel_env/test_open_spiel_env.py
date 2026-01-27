@@ -385,6 +385,106 @@ class OpenSpielEnvTest(absltest.TestCase):
         with self.assertRaisesRegex(ValueError, "loadPresetHands"):
             env.step([{"submission": -1}, {"submission": -1}])
 
+    def test_game_params_override(self):
+        """Test that openSpielGameParameters can override default params."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make(
+            "open_spiel_go",
+            {"openSpielGameParameters": {"board_size": 19}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        self.assertEqual(env.os_game.get_parameters()["board_size"], 19)
+        # Default komi should be preserved
+        self.assertEqual(env.os_game.get_parameters()["komi"], 7.5)
+
+    def test_game_string_override(self):
+        """Test that openSpielGameString can specify game params."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make(
+            "open_spiel_go",
+            {"openSpielGameString": "go(board_size=13)"},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        self.assertEqual(env.os_game.get_parameters()["board_size"], 13)
+
+    def test_game_string_with_params_override(self):
+        """Test that openSpielGameParameters overrides params from game string."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make(
+            "open_spiel_go",
+            {
+                "openSpielGameString": "go(board_size=19)",
+                "openSpielGameParameters": {"komi": 6.5},
+            },
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        # board_size from string
+        self.assertEqual(env.os_game.get_parameters()["board_size"], 19)
+        # komi from params
+        self.assertEqual(env.os_game.get_parameters()["komi"], 6.5)
+
+    def test_params_override_string_param(self):
+        """Test that explicit params override the same param in game string."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make(
+            "open_spiel_go",
+            {
+                "openSpielGameString": "go(board_size=9)",
+                "openSpielGameParameters": {"board_size": 19},
+            },
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        # params should win over string
+        self.assertEqual(env.os_game.get_parameters()["board_size"], 19)
+
+    def test_resolved_game_string(self):
+        """Test that openSpielGameStringResolved shows the actual game config."""
+        open_spiel_env._register_game_envs(["go"])
+        env = make(
+            "open_spiel_go",
+            {
+                "openSpielGameString": "go(board_size=19)",
+                "openSpielGameParameters": {"komi": 6.5},
+            },
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        # Original string preserved
+        self.assertEqual(env.configuration["openSpielGameString"], "go(board_size=19)")
+        # Resolved string shows actual game with merged params
+        resolved = env.info["openSpielGameStringResolved"]
+        self.assertIn("board_size=19", resolved)
+        self.assertIn("komi=6.5", resolved)
+
+    def test_include_legal_actions(self):
+        """Test that legalActions is controlled by includeLegalActions config."""
+        # Default: legalActions not included
+        env = make("open_spiel_tic_tac_toe", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        obs = env.state[0].observation
+        self.assertIsNone(getattr(obs, "legalActions", None))
+        self.assertIsNone(getattr(obs, "legalActionStrings", None))
+        self.assertIsNotNone(obs.serializedGameAndState)
+
+        # With includeLegalActions=True: legalActions included
+        env = make("open_spiel_tic_tac_toe", {"includeLegalActions": True}, debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])
+        obs = env.state[0].observation
+        self.assertIsNotNone(obs.legalActions)
+        self.assertIsNotNone(obs.legalActionStrings)
+        self.assertEqual(len(obs.legalActions), 9)  # All 9 squares available
+
 
 if __name__ == "__main__":
     absltest.main()
