@@ -274,7 +274,9 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
                 "file": filename,
                 "title": game.get('title', ''),
                 "role": role,
-                "rubric": rubric
+                "rubric": rubric,
+                "winner": game.get('winner_team', 'Unknown'),
+                "mvp": mvp
             }
             p_entry["all_games"].append(game_info)
 
@@ -350,10 +352,35 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         all_games_sorted = sorted(data["all_games"], key=lambda x: x['score'], reverse=True)
         top_games_overall_list = all_games_sorted[:top_k]
         
-        # Process Top K by Role
+        # Process Top K by Role (filtered for MVP & Win)
         games_by_role = defaultdict(list)
         for g in all_games_sorted:
-            games_by_role[g['role']].append(g)
+            # Check 1: Is Player MVP?
+            if name != g['mvp'] and g['mvp'] not in name:
+                 # Note: "mvp" in name check handles potential slight mismatches if fuzzy match used before
+                 # but usually exact match is safer if IDs are consistent. 
+                 # We'll use the same logic as the main loop: name/mvp fuzzy match check?
+                 # Actually, let's strict match if possible, but the main loop used `name in mvp or mvp in name`.
+                 # We stored `mvp` raw string. `name` is the key.
+                 # Let's reuse strict check if possible or fallback to match logic.
+                 if g['mvp'] != name:
+                     continue
+
+            # Check 2: Did they win?
+            winner = g['winner'].lower()
+            role_lower = g['role'].lower()
+            won = False
+            
+            if "werewolf" in role_lower:
+                if "werewolf" in winner or "werewolves" in winner:
+                    won = True
+            else:
+                # Villager, Seer, Doctor
+                if "villager" in winner:
+                    won = True
+                    
+            if won:
+                games_by_role[g['role']].append(g)
             
         top_games_by_role_list = {
             role: games[:top_k] for role, games in games_by_role.items()
