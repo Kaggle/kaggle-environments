@@ -14,8 +14,13 @@ import yaml
 from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
-from google.api_core.exceptions import GoogleAPICallError
+from tqdm import tqdm
+from dotenv import load_dotenv
+from google import genai
+from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
 from google.cloud import texttospeech
+import tenacity
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.genai import types
 
 from kaggle_environments.envs.werewolf.game.consts import EventName
@@ -502,6 +507,12 @@ class VertexTTSGenerator(TTSGenerator):
         self.client = texttospeech.TextToSpeechClient()
         self.model_name = model_name
 
+    @retry(
+        retry=retry_if_exception_type(ResourceExhausted),
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
+    )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
@@ -550,6 +561,12 @@ class GeminiTTSGenerator(TTSGenerator):
             raise RuntimeError("GEMINI_API_KEY required for Google GenAI.")
         self.client = genai.Client(api_key=api_key)
 
+    @retry(
+        retry=retry_if_exception_type(ResourceExhausted),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded (GenAI), retrying... (Attempt {retry_state.attempt_number})")
+    )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
