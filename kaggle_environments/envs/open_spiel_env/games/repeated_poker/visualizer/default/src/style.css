@@ -497,14 +497,15 @@
   pointer-events: auto;
   border: 2px solid black;
   outline: 2px solid #20beff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .dealer-button.dealer-player0 {
-  top: 170px;
+  top: 360px;
 }
 
 .dealer-button.dealer-player1 {
-  bottom: 170px;
+  bottom: 360px;
 }
 
 .step-counter {
