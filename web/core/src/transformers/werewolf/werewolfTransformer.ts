@@ -1,6 +1,6 @@
 import { WerewolfEvent, WerewolfPlayer, WerewolfProcessedReplay, WerewolfStep } from './werewolfReplayTypes';
 import { createNameReplacer, disambiguateDisplayNames } from './nameReplacer';
-import { BaseGameStep, ReplayMode } from '../../types';
+import { BaseGameStep, InterestingEvent, ReplayMode } from '../../types';
 
 // Re-export for external use
 export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './nameReplacer';
@@ -68,10 +68,7 @@ export function getWerewolfStepDescription(step: WerewolfStep): string {
  * @param event The werewolf event
  * @param replaceNames Function to replace character names with display names
  */
-function getActionDisplayText(
-  event: WerewolfEvent,
-  replaceNames: (text: string) => string = (t) => t
-): string {
+function getActionDisplayText(event: WerewolfEvent, replaceNames: (text: string) => string = (t) => t): string {
   const data = event.data;
   const dataType = event.dataType;
 
@@ -323,7 +320,7 @@ export const getWerewolfStepRenderTime = (
   // Example: if we're at 2x speed, we want the render time to be half as long
   const multiplier = 1 / speedModifier;
 
-  let currentPlayer = gameStep.players?.find(p => p.isTurn) || {
+  let currentPlayer = gameStep.players?.find((p) => p.isTurn) || {
     id: -1,
     name: 'System',
     thumbnail: '',
@@ -341,4 +338,37 @@ export const getWerewolfStepRenderTime = (
   }
 
   return WEREWOLF_STEP_DURATION * multiplier;
+};
+
+/**
+ * Get interesting events for werewolf episodes.
+ * Currently returns a deterministic test step plus any elimination events.
+ */
+export const getWerewolfStepInterestingEvents = (gameSteps: WerewolfStep[]): InterestingEvent[] => {
+  if (gameSteps.length === 0) {
+    return [];
+  }
+
+  const interestingEvents: InterestingEvent[] = [];
+
+  // Test implementation: pick a deterministic step (middle of episode)
+  /* const testStep = Math.floor(gameSteps.length / 2);
+  interestingEvents.push({
+    step: testStep,
+    description: `Test event at step ${testStep + 1}`,
+  });
+
+  // Also mark elimination events as interesting (if any)
+  for (let i = 0; i < gameSteps.length; i++) {
+    const step = gameSteps[i];
+    const event = step.visualizerEvent;
+    if (event?.event_name === 'player_eliminated' || event?.event_name === 'vote_result') {
+      interestingEvents.push({
+        step: i,
+        description: event.description || `${event.event_name} at step ${i + 1}`,
+      });
+    }
+  } */
+
+  return interestingEvents;
 };
