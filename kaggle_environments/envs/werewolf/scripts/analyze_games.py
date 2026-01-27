@@ -71,7 +71,7 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
                 # Only regenerate transcript if missing
                 if not os.path.exists(transcript_path):
                         try:
-                            t = summarize_game.extract_game_transcript(json_file)
+                            t, _ = summarize_game.extract_game_transcript(json_file)
                             with open(transcript_path, 'w') as f:
                                 f.write(t)
                         except Exception as e:
@@ -80,7 +80,7 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
             return cached_result, file_hash, False  # (result, hash, is_new)
 
         print(f"Processing {os.path.basename(json_file)}...")
-        transcript = summarize_game.extract_game_transcript(json_file)
+        transcript, turn_count = summarize_game.extract_game_transcript(json_file)
 
         if "Error:" in transcript[:50] and len(transcript) < 200:
                 print(f"Skipping {json_file}: {transcript}")
@@ -92,6 +92,7 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
             
         analysis = summarize_game.summarize_with_gemini(transcript, model_id=model_id, max_retries=max_retries)
         if analysis:
+            analysis.total_turns = turn_count
             analysis_dict = analysis.model_dump()
             analysis_dict["_filename"] = os.path.basename(json_file)
             
@@ -307,6 +308,28 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         "player_highlights": {}
     }
 
+    # Helper to get mvp role
+    def get_mvp_role(game: Dict) -> str:
+        mvp = game.get('mvp_player', 'N/A')
+        if mvp == 'N/A': return "N/A"
+        for p in game.get('player_stats', []):
+            if p.get('display_name') == mvp:
+                return p.get('role', 'Unknown')
+        return "Unknown"
+
+    report["top_games_overall"] = [
+        {
+            "title": g.get('title'),
+            "score": g['entertainment_metrics']['excitement_score'],
+            "file": g.get('_filename'),
+            "mvp": g.get('mvp_player'),
+            "mvp_role": get_mvp_role(g),
+            "mvp_reasoning": g.get('mvp_reasoning'),
+            "winner": g.get('winner_team', 'Unknown'),
+            "total_turns": g.get('total_turns', 0)
+        } for g in top_games_overall
+    ]
+
     # Format Player Highlights
     for name, data in player_data.items():
         if data["games"] < 1: continue
@@ -357,16 +380,25 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
     print("="*50)
     for i, g in enumerate(top_games_overall):
         metrics = g['entertainment_metrics']
+        mvp_name = g.get('mvp_player', 'N/A')
+        mvp_role = "Unknown"
+        if mvp_name != 'N/A':
+            for p in g.get('player_stats', []):
+                if p.get('display_name') == mvp_name:
+                    mvp_role = p.get('role', 'Unknown')
+                    break
+
         print(f"{i+1}. {g['title']} (Score: {metrics['excitement_score']:.1f}/10)")
+        print(f"   Winner: {g.get('winner_team', 'Unknown')}")
         print(f"   Outcome: {metrics['outcome_type']}")
         
         # Display Rubric if available (backward compatibility check)
         if 'rubric' in metrics:
             r = metrics['rubric']
-            print(f"   Rubric: Strat:{r.get('strategic_depth')} | Unpred:{r.get('unpredictability')} | Nar:{r.get('narrative_quality')} | Skill:{r.get('player_competence')} | Pace:{r.get('pacing')}")
+            print(f"   Rubric: Strat:{r.get('strategic_depth')} | Unpred:{r.get('unpredictability')} | Nar:{r.get('narrative_quality')} | Skill:{r.get('player_competence')} | Pace:{r.get('pacing')} | Humor:{r.get('humor')} | Subj:{r.get('subjective_impression')} | Syn:{r.get('synergy', '-')}")
         
         print(f"   File: {g.get('_filename', 'Unknown')}")
-        print(f"   MVP: {g.get('mvp_player', 'N/A')}")
+        print(f"   MVP: {mvp_name} ({mvp_role})")
         print("")
 
     print("\n" + "="*80)

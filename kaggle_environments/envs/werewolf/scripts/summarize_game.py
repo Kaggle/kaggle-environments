@@ -4,7 +4,7 @@ import sys
 import re
 import time
 import random
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
@@ -38,6 +38,7 @@ class EntertainmentRubric(BaseModel):
     player_competence: int = Field(..., description="1-10: Overall skill level of the lobby.")
     pacing: int = Field(..., description="1-10: Flow and tension management.")
     subjective_impression: int = Field(..., description="1-10: Judge's personal enjoyment and X-factor.")
+    synergy: int = Field(..., description="1-10: How well did players collaborate (Villagers or Wolves)?")
 
 class DramaticMoment(BaseModel):
     turn: int = Field(..., description="Approximate step or day number.")
@@ -63,6 +64,7 @@ class GameAnalysis(BaseModel):
     player_highlights: List[PlayerHighlight]
     player_stats: List[PlayerStats]
     entertainment_metrics: EntertainmentMetrics
+    total_turns: int = Field(0, description="Total number of steps/turns in the game.")
 
 # --- Log Extraction Logic (Adapted from print_werewolf_llm.py) ---
 
@@ -165,15 +167,15 @@ class NameManager:
 
         return text
 
-def extract_game_transcript(json_path: str) -> str:
+def extract_game_transcript(json_path: str) -> Tuple[str, int]:
     if not os.path.exists(json_path):
-        return f"Error: File {json_path} not found."
+        return f"Error: File {json_path} not found.", 0
 
     with open(json_path, "r") as f:
         try:
             game_data = json.load(f)
         except json.JSONDecodeError as e:
-            return f"Error decoding JSON: {e}"
+            return f"Error decoding JSON: {e}", 0
 
     name_manager = NameManager(game_data)
 
@@ -345,7 +347,7 @@ def extract_game_transcript(json_path: str) -> str:
                 except:
                     pass
 
-    return "\n".join(transcript)
+    return "\n".join(transcript), len(steps)
 
 
 # --- Gemini Summarization ---
@@ -398,6 +400,7 @@ For 'excitement_score', consider the following rubric:
 - Player Competence: Did players demonstrate high-level understanding?
 - Pacing: Was the game tense throughout?
 - Subjective Impression: Your personal enjoyment as a spectator (the "X-factor").
+- Synergy: Did players demonstrate amazing teamwork or coordination (e.g. Wolf bussing, Village consolidation, Doctor/Seer sync)?
 
 For 'dramatic_moments', identify specific key turns where the game shifted or excitement peaked.
 For 'player_stats', assess them relative to high-level play.
@@ -435,7 +438,8 @@ For 'player_stats', assess them relative to high-level play.
                 r.humor,
                 r.player_competence,
                 r.pacing,
-                r.subjective_impression
+                r.subjective_impression,
+                r.synergy
             ]
             avg_score = sum(rubric_values) / len(rubric_values)
             analysis.entertainment_metrics.excitement_score = round(avg_score, 1)
@@ -493,7 +497,7 @@ def main():
     summary_path = os.path.join(output_dir, f"{base_name}_summary.json")
 
     print(f"Reading game log from: {json_path}")
-    transcript = extract_game_transcript(json_path)
+    transcript, turn_count = extract_game_transcript(json_path)
     
     if len(transcript) < 100:
         print("Transcript is too short or empty. Something went wrong with extraction.")
@@ -515,6 +519,7 @@ def main():
     analysis = summarize_with_gemini(transcript, model_id, max_retries=args.max_retries)
     
     if analysis:
+        analysis.total_turns = turn_count
         # Save structured JSON
         with open(summary_path, "w") as f:
              f.write(analysis.model_dump_json(indent=2))
