@@ -846,6 +846,42 @@ def load_env_modules():
         logger.warning("Could not import kaggle_environments.PROJECT_ROOT")
 
 
+def process_replay_file(input_path, output_dir, config_path, tts_provider, prompt_path, cache_path, disable_llm, debug_audio=False, tqdm_kwargs=None):
+    """Helper to process a single replay file programmatically."""
+    tqdm_kwargs = tqdm_kwargs or {}
+    
+    with open(input_path, "r", encoding="utf-8") as f:
+        replay_data = json.load(f)
+
+    # Setup Components
+    config = AudioConfig(config_path)
+    
+    # LLM Enhancer
+    api_key = os.getenv("GEMINI_API_KEY")
+    enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
+
+    # TTS Generator
+    if tts_provider == "google_genai":
+        tts = GeminiTTSGenerator(api_key)
+    else:
+        model_name = config.get_vertex_model()
+        tts = VertexTTSGenerator(model_name)
+
+    manager = AudioManager(config, enhancer, tts, output_dir, tqdm_kwargs=tqdm_kwargs)
+
+    setup_logger(output_dir=output_dir, base_name="add_audio") # Ensure logger is setup for this process? 
+    # Actually, running in thread might share logger. 
+    # But AudioManager uses logger.
+    
+    if debug_audio:
+        manager.generate_debug_audio()
+    else:
+        manager.process_replay(replay_data)
+
+    # Save cache if needed
+    enhancer.save_cache()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
