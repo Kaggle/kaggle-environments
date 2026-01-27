@@ -7,7 +7,7 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
-def process_single_episode(replay_file, bucket_base, script_path):
+def process_single_episode(replay_file, bucket_base, script_path, keep_temp=False):
     episode_id = os.path.splitext(os.path.basename(replay_file))[0]
     temp_out_dir = f"temp_audio_output/{episode_id}"
     
@@ -16,6 +16,8 @@ def process_single_episode(replay_file, bucket_base, script_path):
         shutil.rmtree(temp_out_dir)
     os.makedirs(temp_out_dir, exist_ok=True)
     
+    success = False
+
     try:
         # 1. Generate Audio
         # We disable LLM enhancement for speed if desired, matching the original script
@@ -23,8 +25,8 @@ def process_single_episode(replay_file, bucket_base, script_path):
             sys.executable, script_path,
             "-i", replay_file,
             "-o", temp_out_dir,
-            "--disable_llm_enhancement",
-            "--quiet" # Adding quiet flag if supported or just relying on capture_output
+            "--disable_llm_enhancement", 
+            # "--quiet" # NOT SUPPORTED by add_audio.py
         ]
         
         # We capture output to avoid spamming the console
@@ -33,26 +35,20 @@ def process_single_episode(replay_file, bucket_base, script_path):
         if result.returncode != 0:
             return False, f"Audio check failed for {episode_id}: {result.stderr}"
 
+        # Check if output directory has content
+        if not os.listdir(temp_out_dir):
+             return False, f"No audio files generated for {episode_id} (Output dir empty)"
+
         # 2. Upload to GCS
-        target_path = f"{bucket_base}/{episode_id}/"
-        upload_cmd = [
-            "gsutil", "-m", "cp", "-r", 
-            f"{temp_out_dir}/*", 
-            target_path
-        ]
-        # Shell=True might be needed for wildcard expansion in arguments if passed as string, 
-        # but with list args, wildcard * inside string doesn't expand. 
-        # Better to iterate files or use shell=True carefully.
-        # Actually simplest is: gsutil -m cp -r temp_dir/* gs://...
-        # But subprocess w/ list doesn't expand *. 
-        # We'll just upload the directory content by uploading the directory itself?
-        # gsutil cp -r dir gs://bucket/path/ -> gs://bucket/path/dir/... which might be wrong nesting.
-        # The original script did: gsutil -m cp -r "$TEMP_OUT_DIR"/* "$TARGET_PATH"
+        target_path = f"{bucket_base}/{episode_id}"
+        # Use gcloud storage cp for faster, modern upload (recursive)
+        # We use * to upload contents of current dir to target
+        upload_cmd = f"gcloud storage cp -r * '{target_path}'"
         
-        # Let's use shell=True for the upload command to support wildcard
         upload_result = subprocess.run(
-            f"gsutil -m cp -r '{temp_out_dir}'/* '{target_path}'", 
+            upload_cmd, 
             shell=True, 
+            cwd=temp_out_dir,
             capture_output=True, 
             text=True
         )
@@ -60,11 +56,15 @@ def process_single_episode(replay_file, bucket_base, script_path):
         if upload_result.returncode != 0:
              return False, f"Upload failed for {episode_id}: {upload_result.stderr}"
 
+        success = True
+
     except Exception as e:
         return False, str(e)
     finally:
-        # Cleanup
-        if os.path.exists(temp_out_dir):
+        # Cleanup ONLY if successful and not keeping temp
+        # If passed keep_temp=True, we keep it. 
+        # If success=False (failed), we keep it for debugging (as requested).
+        if success and not keep_temp and os.path.exists(temp_out_dir):
             shutil.rmtree(temp_out_dir)
             
     return True, episode_id
@@ -73,6 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description="Batch process audio generation and upload.")
     parser.add_argument("replay_dir", help="Directory containing .json replay files")
     parser.add_argument("--workers", type=int, default=20, help="Number of concurrent workers")
+    parser.add_argument("--keep-temp", action="store_true", help="Keep temporary audio files after upload")
     args = parser.parse_args()
 
     replay_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
@@ -94,7 +95,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         future_to_file = {
-            executor.submit(process_single_episode, f, bucket_base, add_audio_script): f 
+            executor.submit(process_single_episode, f, bucket_base, add_audio_script, args.keep_temp): f 
             for f in replay_files
         }
         
@@ -105,6 +106,7 @@ def main():
                     success_count += 1
                 else:
                     errors.append(msg)
+                    tqdm.write(f"Error: {msg}") # Print error immediately
                 pbar.update(1)
 
     print(f"\nCompleted. Success: {success_count}, Failed: {len(errors)}")
