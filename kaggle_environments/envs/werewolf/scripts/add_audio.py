@@ -11,9 +11,7 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
-from tqdm import tqdm
-from dotenv import load_dotenv
-from google import genai
+import yaml
 from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
@@ -721,7 +719,8 @@ class AudioManager:
         """Generates audio for a batch of messages."""
         logger.info(f"Processing {len(messages)} messages...")
         
-        for msg in tqdm(messages, desc="Generating Audio"):
+        # Use simple progress bar writing to stdout to avoid logging conflicts
+        for msg in tqdm(messages, desc="Generating Audio", unit="msg"):
             speaker_id = msg["speaker"]
             final_text = msg["final_text"]
             voice = msg["voice"]
