@@ -41,14 +41,12 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
 
         # 2. Upload to GCS
         target_path = f"{bucket_base}/{episode_id}"
-        # Use gcloud storage cp for faster, modern upload (recursive)
-        # We use * to upload contents of current dir to target
-        upload_cmd = f"gcloud storage cp -r * '{target_path}'"
+        # Use gcloud storage rsync for robust directory synchronization
+        upload_cmd = f"gcloud storage rsync '{temp_out_dir}' '{target_path}' --recursive"
         
         upload_result = subprocess.run(
             upload_cmd, 
             shell=True, 
-            cwd=temp_out_dir,
             capture_output=True, 
             text=True
         )
