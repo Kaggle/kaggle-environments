@@ -12,10 +12,15 @@ import {
   getWerewolfStepLabel,
   getWerewolfStepDescription,
   getWerewolfStepRenderTime,
+  getWerewolfStepInterestingEvents,
 } from './transformers/werewolf/werewolfTransformer';
 
 // Re-export utility functions for external use
-export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './transformers/werewolf/nameReplacer';
+export {
+  createNameReplacer,
+  createPlayerCapsule,
+  disambiguateDisplayNames,
+} from './transformers/werewolf/nameReplacer';
 export type { PlayerConfig, OutputFormat } from './transformers/werewolf/nameReplacer';
 import { WerewolfStep } from './transformers/werewolf/werewolfReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
@@ -108,7 +113,6 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
   }
 };
 
-
 export const getGameStepRenderTime = (
   gameStep: BaseGameStep,
   gameName: string,
@@ -139,6 +143,8 @@ export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    case 'werewolf':
+      return getWerewolfStepInterestingEvents(gameSteps as unknown as WerewolfStep[]);
     default:
       return [];
   }
