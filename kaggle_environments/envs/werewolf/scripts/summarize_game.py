@@ -125,30 +125,24 @@ class NameManager:
             name = agent.get("display_name") or agent.get("name") or agent.get("id")
             name_counts[name] = name_counts.get(name, 0) + 1
 
-            if not agent.get("display_name"):
-                 # User requested strict dropping of games without display_name
-                 # We check if we have a valid name. If name matches ID and it looks like a default ID, it might be invalid.
-                 # But the safest check is: did we get a display name from metadata?
-                 pass
+        # 4. Assign unique names and build map
+        current_counts = {}
+        for agent in agents:
+            agent_id = agent.get("id")
+            # Strict check: If display_name is missing, we consider it invalid for this analysis
+            d_name = agent.get("display_name")
+            if not d_name:
+                raise ValueError(f"Missing display_name for agent {agent_id}. Dropping game.")
             
-            # 4. Assign unique names and build map
-            current_counts = {}
-            for agent in agents:
-                agent_id = agent.get("id")
-                # Strict check: If display_name is missing, we consider it invalid for this analysis
-                d_name = agent.get("display_name")
-                if not d_name:
-                    raise ValueError(f"Missing display_name for agent {agent_id}. Dropping game.")
-                
-                name = d_name
+            name = d_name
 
-                if name_counts[name] > 1:
-                    current_counts[name] = current_counts.get(name, 0) + 1
-                    unique_name = f"{name} ({current_counts[name]})"
-                else:
-                    unique_name = name
+            if name_counts[name] > 1:
+                current_counts[name] = current_counts.get(name, 0) + 1
+                unique_name = f"{name} ({current_counts[name]})"
+            else:
+                unique_name = name
 
-                self.id_to_display[agent_id] = unique_name
+            self.id_to_display[agent_id] = unique_name
 
     def get_name(self, agent_id: str) -> str:
         """Returns the disambiguated display name for an agent ID."""
