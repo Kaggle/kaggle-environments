@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
+from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
 from google.api_core.exceptions import GoogleAPICallError
@@ -702,8 +703,8 @@ class AudioManager:
     def _generate_audio_batch(self, messages: List[Dict]):
         """Generates audio for a batch of messages."""
         logger.info(f"Processing {len(messages)} messages...")
-
-        for msg in messages:
+        
+        for msg in tqdm(messages, desc="Generating Audio"):
             speaker_id = msg["speaker"]
             final_text = msg["final_text"]
             voice = msg["voice"]
