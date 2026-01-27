@@ -4,6 +4,7 @@ import json
 import glob
 import hashlib
 import argparse
+import csv
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from tqdm import tqdm
@@ -57,27 +58,30 @@ def analyze_single_game(json_file: str, cache: Dict, model_id: str, output_dir: 
         
         # Check in-memory cache first (though typical usage expects cache populated initially)
         if file_hash in cache:
-            # print(f"Skipping {os.path.basename(json_file)} (Cached)")
-            cached_result = cache[file_hash]
-            cached_result["_filename"] = os.path.basename(json_file)
+             # print(f"Skipping {os.path.basename(json_file)} (Cached)")
+             cached_result = cache[file_hash]
+             cached_result["_filename"] = os.path.basename(json_file)
+             return cached_result, file_hash, False
+        
+        # Check if summary json exists in output_dir
+        if output_dir:
+            base_name = os.path.splitext(os.path.basename(json_file))[0]
+            summary_path = os.path.join(output_dir, f"{base_name}_summary.json")
+            if os.path.exists(summary_path):
+                try:
+                    with open(summary_path, 'r') as f:
+                        existing_analysis = json.load(f)
+                    # We assume if the summary exists, it's valid. 
+                    # We might want to backfill _filename if missing
+                    existing_analysis["_filename"] = os.path.basename(json_file)
+                    # Update cache with this existing result so next run is faster
+                    # Note: We won't have the compute hash if we just load json, 
+                    # but we computed file_hash above.
+                    return existing_analysis, file_hash, True 
+                except Exception as e:
+                    print(f"Warning: Failed to load existing summary {summary_path}: {e}")
 
-            if output_dir:
-                base_name = os.path.splitext(os.path.basename(json_file))[0]
-                summary_path = os.path.join(output_dir, f"{base_name}_summary.json")
-                with open(summary_path, 'w') as f:
-                    json.dump(cached_result, f, indent=2)
-                
-                transcript_path = os.path.join(output_dir, f"{base_name}_transcript.txt")
-                # Only regenerate transcript if missing
-                if not os.path.exists(transcript_path):
-                        try:
-                            t, _ = summarize_game.extract_game_transcript(json_file)
-                            with open(transcript_path, 'w') as f:
-                                f.write(t)
-                        except Exception as e:
-                            print(f"Warning: Could not extract transcript for cached file {json_file}: {e}")
-
-            return cached_result, file_hash, False  # (result, hash, is_new)
+        # If not in cache and not on disk, proceed with analysis
 
         print(f"Processing {os.path.basename(json_file)}...")
         transcript, turn_count = summarize_game.extract_game_transcript(json_file)
@@ -415,6 +419,61 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
          avg = {k: sum(v)/len(v) if v else 0 for k, v in data["stats"].items()}
          print(f"{name:<30} | {avg['persuasion']:5.1f} | {avg['deception']:5.1f} | {avg['aggression']:5.1f} | {avg['analysis']:5.1f} | {data['mvp_count']:<3} | {data['games']:<5}")
 
+def save_csv_report(results: List[Dict], csv_file: str):
+    """Saves a CSV report with rubric scores, MVP, and key metrics."""
+    if not results:
+        print("No results to save to CSV.")
+        return
+
+    fieldnames = [
+        "File", "Title", "Score", "Winner", "Outcome", "Turns",
+        "Strategic Depth", "Unpredictability", "Narrative Quality", 
+        "Humor", "Player Competence", "Pacing", "Subjective Impression", "Synergy",
+        "MVP", "MVP Role", "MVP Reasoning"
+    ]
+
+    try:
+        with open(csv_file, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            
+            for res in results:
+                metrics = res.get('entertainment_metrics', {})
+                rubric = metrics.get('rubric', {})
+                
+                # Find MVP Role
+                mvp_name = res.get('mvp_player', 'N/A')
+                mvp_role = "Unknown"
+                if mvp_name != 'N/A':
+                    for p in res.get('player_stats', []):
+                        if p.get('display_name') == mvp_name:
+                            mvp_role = p.get('role', 'Unknown')
+                            break
+
+                row = {
+                    "File": res.get("_filename", "Unknown"),
+                    "Title": res.get("title", ""),
+                    "Score": metrics.get("excitement_score", 0),
+                    "Winner": res.get("winner_team", "Unknown"),
+                    "Outcome": metrics.get("outcome_type", ""),
+                    "Turns": res.get("total_turns", 0),
+                    "Strategic Depth": rubric.get("strategic_depth", 0),
+                    "Unpredictability": rubric.get("unpredictability", 0),
+                    "Narrative Quality": rubric.get("narrative_quality", 0),
+                    "Humor": rubric.get("humor", 0),
+                    "Player Competence": rubric.get("player_competence", 0),
+                    "Pacing": rubric.get("pacing", 0),
+                    "Subjective Impression": rubric.get("subjective_impression", 0),
+                    "Synergy": rubric.get("synergy", 0),
+                    "MVP": mvp_name,
+                    "MVP Role": mvp_role,
+                    "MVP Reasoning": res.get("mvp_reasoning", "")
+                }
+                writer.writerow(row)
+        print(f"CSV report saved to: {csv_file}")
+    except Exception as e:
+        print(f"Error saving CSV report: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("replay_dir", help="Directory containing .json replays")
@@ -425,8 +484,12 @@ if __name__ == "__main__":
     parser.add_argument("--report-file", default="analysis_report.json", help="Path to save the JSON analysis report")
     parser.add_argument("--max-workers", type=int, default=50, help="Max parallel workers for analysis")
     parser.add_argument("--max-retries", type=int, default=10, help="Max retries for API quota errors")
+    parser.add_argument("--csv-file", help="Path to save the CSV analysis report")
 
     args = parser.parse_args()
 
     results = analyze_replays(args.replay_dir, args.cache, args.model, args.output_dir, args.max_workers, args.max_retries)
     generate_analysis_report(results, args.top_k, args.report_file)
+    
+    if args.csv_file:
+        save_csv_report(results, args.csv_file)
