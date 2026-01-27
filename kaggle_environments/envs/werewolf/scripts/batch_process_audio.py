@@ -4,6 +4,7 @@ import glob
 import argparse
 import subprocess
 import shutil
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -36,8 +37,13 @@ def process_single_episode(replay_file, bucket_base, script_path, keep_temp=Fals
             return False, f"Audio check failed for {episode_id}: {result.stderr}"
 
         # Check if output directory has content
-        if not os.listdir(temp_out_dir):
+        files = os.listdir(temp_out_dir)
+        if not files:
              return False, f"No audio files generated for {episode_id} (Output dir empty)"
+        
+        wav_files = [f for f in files if f.endswith(".wav")]
+        if len(wav_files) < 5:
+             return False, f"Suspiciously low audio file count ({len(wav_files)}) for {episode_id}. Check logs."
 
         # 2. Upload to GCS
         target_path = f"{bucket_base}/{episode_id}"
@@ -72,7 +78,17 @@ def main():
     parser.add_argument("replay_dir", help="Directory containing .json replay files")
     parser.add_argument("--workers", type=int, default=20, help="Number of concurrent workers")
     parser.add_argument("--keep-temp", action="store_true", help="Keep temporary audio files after upload")
+    parser.add_argument("--log-file", type=str, default="batch_errors.log", help="Path to error log file")
     args = parser.parse_args()
+
+    # Setup Logging
+    logging.basicConfig(
+        filename=args.log_file,
+        level=logging.ERROR,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        filemode='w' # Overwrite log file on new run
+    )
+    logger = logging.getLogger()
 
     replay_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
     if not replay_files:
@@ -104,12 +120,15 @@ def main():
                     success_count += 1
                 else:
                     errors.append(msg)
-                    tqdm.write(f"Error: {msg}") # Print error immediately
+                    logger.error(msg)
+                    tqdm.write(f"Error: {msg}") # Print error immediately to console via tqdm safe method
                 pbar.update(1)
 
     print(f"\nCompleted. Success: {success_count}, Failed: {len(errors)}")
+    
     if errors:
-        print("\nErrors:")
+        print(f"\nErrors have been written to {args.log_file}")
+        print("\nFirst 20 errors:")
         for e in errors[:20]: # Show first 20 errors
             print(e)
         if len(errors) > 20:
