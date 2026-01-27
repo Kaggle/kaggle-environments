@@ -8,6 +8,7 @@ import csv
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from tqdm import tqdm
+from pydantic import BaseModel, Field
 
 # Add current directory to path to import sibling scripts
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +25,20 @@ def get_file_hash(filepath: str) -> str:
         buf = f.read()
         hasher.update(buf)
     return hasher.hexdigest()
+
+class GameReport(BaseModel):
+    title: str
+    score: float
+    file: str
+    mvp: str
+    mvp_role: str
+    mvp_reasoning: str
+    winner: str
+    total_turns: int
+    rubric: Dict[str, Any]
+
+
+
 
 def analyze_replays(replay_dir: str, cache_file: str, model_id: str, output_dir: Optional[str] = None) -> List[Dict]:
     if output_dir and not os.path.exists(output_dir):
@@ -269,14 +284,24 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
                 p_entry["rubric_sums"][r_key].append(r_val)
                 
             # Store game info for top-k lists
+            game_mvp_role = "Unknown"
+            if mvp != 'N/A' and mvp:
+                for p in game.get('player_stats', []):
+                    if p.get('display_name') == mvp:
+                        game_mvp_role = p.get('role', 'Unknown')
+                        break
+            
             game_info = {
                 "score": score,
                 "file": filename,
                 "title": game.get('title', ''),
-                "role": role,
                 "rubric": rubric,
                 "winner": game.get('winner_team', 'Unknown'),
-                "mvp": mvp
+                "mvp": mvp,
+                "mvp_role": game_mvp_role,
+                "mvp_reasoning": game.get('mvp_reasoning', ''),
+                "total_turns": game.get('total_turns', 0),
+                "role": role # identifying role for this player's perspective (not in schema but needed for filtering)
             }
             p_entry["all_games"].append(game_info)
 
@@ -323,18 +348,45 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
                 return p.get('role', 'Unknown')
         return "Unknown"
 
-    report["top_games_overall"] = [
-        {
-            "title": g.get('title'),
-            "score": g['entertainment_metrics']['excitement_score'],
-            "file": g.get('_filename'),
-            "mvp": g.get('mvp_player'),
-            "mvp_role": get_mvp_role(g),
-            "mvp_reasoning": g.get('mvp_reasoning'),
-            "winner": g.get('winner_team', 'Unknown'),
-            "total_turns": g.get('total_turns', 0)
-        } for g in top_games_overall
-    ]
+    def to_game_report(g: Dict, from_processed: bool = False) -> Dict:
+        if from_processed:
+            # 'g' is game_info from player_data
+            return GameReport(
+                title=g['title'],
+                score=g['score'],
+                file=g['file'],
+                mvp=g['mvp'],
+                mvp_role=g['mvp_role'],
+                mvp_reasoning=g['mvp_reasoning'],
+                winner=g['winner'],
+                total_turns=g['total_turns'],
+                rubric=g['rubric']
+            ).model_dump()
+        else:
+            # 'g' is raw game dict
+            return GameReport(
+                title=g.get('title', ''),
+                score=g['entertainment_metrics']['excitement_score'],
+                file=g.get('_filename', ''),
+                mvp=g.get('mvp_player', 'N/A'),
+                mvp_role=get_mvp_role(g),
+                mvp_reasoning=g.get('mvp_reasoning', ''),
+                winner=g.get('winner_team', 'Unknown'),
+                total_turns=g.get('total_turns', 0),
+                rubric=g['entertainment_metrics'].get('rubric', {})
+            ).model_dump()
+
+    # Construct JSON Report Structure
+    report = {
+        "config": {
+            "top_k": top_k,
+            "total_games_analyzed": len(valid_results)
+        },
+        "top_games_overall": [to_game_report(g, False) for g in top_games_overall],
+        "top_villager_wins": [to_game_report(g, False) for g in top_villager_wins],
+        "top_werewolf_wins": [to_game_report(g, False) for g in top_werewolf_wins],
+        "player_highlights": {}
+    }
 
     # Format Player Highlights
     for name, data in player_data.items():
@@ -351,14 +403,8 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         # Helper to check if player won and was MVP
         def is_mvp_win(name, g):
             # Check 1: Is Player MVP?
-            if name != g['mvp'] and g['mvp'] not in name:
-                 # Note: "mvp" in name check handles potential slight mismatches if fuzzy match used before
-                 # but usually exact match is safer if IDs are consistent. 
-                 # We'll use the same logic as the main loop: name/mvp fuzzy match check?
-                 # Actually, let's strict match if possible, but the main loop used `name in mvp or mvp in name`.
-                 # We stored `mvp` raw string. `name` is the key.
-                 if g['mvp'] != name:
-                     return False
+            if g['mvp'] != name:
+                 return False
 
             # Check 2: Did they win?
             winner = g['winner'].lower()
@@ -394,12 +440,8 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
         }
         
         # Update Best Game Overall (derived from filtered list)
-        best_game_overall = mvp_wins_sorted[0] if mvp_wins_sorted else {"score": -1, "file": ""}
-        if best_game_overall.get("score") == -1:
-             # Fallback to legacy behavior if no MVP wins found? 
-             # Or strict: if no MVP wins, then no best game to show in this context.
-             pass
-
+        best_game_overall = mvp_wins_sorted[0] if mvp_wins_sorted else None
+        
         # Update Best Game by Role (derived from filtered list)
         best_game_by_role = {}
         for role, games in games_by_role.items():
@@ -411,10 +453,10 @@ def generate_analysis_report(results: List[Dict], top_k: int = 5, report_file: s
             "mvp_count": data["mvp_count"],
             "average_stats": avg_stats,
             "average_rubrics": avg_rubrics,
-            "top_games_overall": top_games_overall_list,
-            "top_games_by_role": top_games_by_role_list,
-            "best_game_overall": best_game_overall, 
-            "best_game_by_role": best_game_by_role
+            "top_games_overall": [to_game_report(g, True) for g in top_games_overall_list],
+            "top_games_by_role": {r: [to_game_report(g, True) for g in games] for r, games in top_games_by_role_list.items()},
+            "best_game_overall": to_game_report(best_game_overall, True) if best_game_overall else None, 
+            "best_game_by_role": {r: to_game_report(g, True) for r, g in best_game_by_role.items()}
         }
 
     # Save JSON Report
