@@ -1,3 +1,5 @@
+import { applyTranscriptOverrides } from './transcriptUtils.js';
+
 // Re-implemented locally to fix HTML artifact bugs in core
 // (Use 2-pass placeholder strategy to avoid replacing text inside generated HTML attributes)
 
@@ -459,7 +461,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           case 'system':
             if (entry.text && entry.text.includes('has begun')) return;
 
-            let systemText = entry.text;
+            let systemText = entry.text || '';
 
             const listRegex = /\\\[(.*?)\\\](\\s*[.,?!])?/g;
 
@@ -470,6 +472,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
               }
               return cleanedContent;
             });
+
+            systemText = applyTranscriptOverrides(systemText);
 
             const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 

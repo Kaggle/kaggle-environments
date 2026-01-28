@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { applyTranscriptOverrides } from '../../utils/transcriptUtils.js';
 
 export class UIManager {
   constructor(CSS2DObject, width, height, camera, parent) {
@@ -91,11 +92,8 @@ export class UIManager {
     if (speakerName) {
       innerContent += `<span class="subtitle-speaker">${speakerName}:</span> `;
     }
-    // 2-Phase Replacement System
-    // This allows us to replace names with safe placeholders (text), 
-    // run Markdown parsing (text -> HTML), 
-    // and THEN replace placeholders with Capsules (HTML injection).
-    // This prevents Markdown from escaping our HTML capsules, AND prevents Regex from matching inside HTML attributes.
+    // 0. Apply Transcript Overrides
+    const textToProcess = applyTranscriptOverrides(message || '');
 
     // 1. Get Replacer
     const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
@@ -103,7 +101,7 @@ export class UIManager {
 
     if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
       // Phase 1: Text -> Placeholders
-      const textWithPlaceholders = replacer.replaceToPlaceholders(message);
+      const textWithPlaceholders = replacer.replaceToPlaceholders(textToProcess);
 
       // Phase 2: Markdown Parse
       const htmlWithPlaceholders = marked.parse(textWithPlaceholders);
@@ -112,7 +110,7 @@ export class UIManager {
       finalHtml = replacer.expandPlaceholders(htmlWithPlaceholders);
     } else {
       // Fallback (unsafe) behavior
-      const parsedMessage = marked.parse(message);
+      const parsedMessage = marked.parse(textToProcess);
       finalHtml = replacer ? replacer(parsedMessage) : parsedMessage;
     }
 
@@ -214,19 +212,21 @@ export class UIManager {
     if (isAction) {
       // Actions are pre-formatted HTML (capsules). Do NOT markdown parse.
       // Also assume player IDs are already replaced by caller (legacy-renderer).
-      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
+      const textToDisplay = applyTranscriptOverrides(message || '');
+      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${textToDisplay}</div>`;
     } else {
       // System / Narrator messages.
+      const textToProcess = applyTranscriptOverrides(message || '');
       // Use Phased Replacement
       const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
       let finalHtml = '';
 
       if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
-        const t = replacer.replaceToPlaceholders(message);
+        const t = replacer.replaceToPlaceholders(textToProcess);
         const h = marked.parse(t);
         finalHtml = replacer.expandPlaceholders(h);
       } else {
-        const p = marked.parse(message);
+        const p = marked.parse(textToProcess);
         finalHtml = replacer ? replacer(p) : p;
       }
 

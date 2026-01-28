@@ -1,3 +1,4 @@
+import { applyTranscriptOverrides } from '../utils/transcriptUtils.js';
 let context = null;
 
 export function setAudioContext(ctx) {
@@ -204,7 +205,7 @@ export function loadQueueFrom(startIndex) {
           } else if (description.includes('Voting phase begins')) {
           audioEventDetails = { message: 'Exile voting begins!', speaker: 'moderator' };
           } else {
-          audioEventDetails = { message: entry.description, speaker: 'moderator' };
+            audioEventDetails = { message: applyTranscriptOverrides(entry.description || ''), speaker: 'moderator' };
           }
       } else if (!audioEventDetails && event_name === 'day_start') {
           audioEventDetails = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
