@@ -138,6 +138,42 @@ class NameManager:
         return text
 
 
+        return text
+
+
+class TranscriptManager:
+    """Handles moderator message overrides with normalization and substring replacement."""
+
+    def __init__(self, overrides: Dict[str, str]):
+        self.overrides = overrides or {}
+
+    def normalize(self, text: str) -> str:
+        """Collapses extra spaces before terminal punctuation introduced by legacy cleaning logic."""
+        if not text:
+            return ""
+        return re.sub(r"\s+([.?!])", r"\1", text.strip())
+
+    def apply_overrides(self, text: str) -> str:
+        """Applies transcript overrides to consistent moderator messages."""
+        if not text:
+            return text
+
+        result = self.normalize(text)
+
+        # Sort keys by length descending to prevent partial match collisions
+        sorted_keys = sorted(self.overrides.keys(), key=len, reverse=True)
+
+        for key in sorted_keys:
+            normalized_key = self.normalize(key)
+            replacement_value = self.overrides[key]
+
+            if normalized_key and normalized_key in result:
+                # Global replacement of the normalized fragment within the normalized text
+                result = result.replace(normalized_key, replacement_value)
+
+        return result
+
+
 class AudioConfig:
     """Handles loading and accessing audio configuration."""
 
@@ -175,6 +211,10 @@ class AudioConfig:
     @property
     def speech_intro_template(self) -> str:
         return self.data.get("audio", {}).get("speech_intro_template", "")
+
+    @property
+    def transcript_overrides(self) -> Dict[str, str]:
+        return self.data.get("audio", {}).get("transcript_overrides", {})
 
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
@@ -636,6 +676,7 @@ class AudioManager:
         os.makedirs(self.audio_dir, exist_ok=True)
         self.audio_map = {}
         self.name_manager = None
+        self.transcript_manager = TranscriptManager(config.transcript_overrides)
         self.tqdm_kwargs = tqdm_kwargs or {}
 
     def process_replay(self, replay_data: Dict):
@@ -673,6 +714,10 @@ class AudioManager:
             # Key remains raw for lookup compatibility
             # Text is updated with display names for better TTS
             tts_text = self.name_manager.replace_names(text)
+
+            # Apply transcript overrides for moderator messages
+            if speaker_id == "moderator":
+                tts_text = self.transcript_manager.apply_overrides(tts_text)
 
             # Lookup enhancement
             speaker_display = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
