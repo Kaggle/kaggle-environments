@@ -9,7 +9,8 @@ import {
   createPlayerIdReplacer,
   updateEventLog,
   FALLBACK_THUMBNAIL_IMG,
-  shuffleIds
+  shuffleIds,
+  createPlayerCapsule
 } from './utils/helpers.js';
 import { disambiguateDisplayNames, simplifyDisplayNames } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
@@ -154,6 +155,7 @@ export function renderer(context, parent) {
   }
 
   // --- Audio State ---
+  // --- Audio State ---
   const audioMap = window.AUDIO_MAP || {};
   if (!window.kaggleWerewolf) {
     window.kaggleWerewolf = {
@@ -166,11 +168,56 @@ export function renderer(context, parent) {
       playbackRate: 1,
       allEvents: null,
       audioContextActivated: false,
+      audioMapAttempted: false, // flag to prevent spamming fetches
+      episodeId: null,
     };
   }
   const audioState = window.kaggleWerewolf;
+
+  // Try to determine Episode ID from environment
+  // environment.id is usually the Episode ID in Kaggle Renderer
+  const episodeId = environment.id || (environment.info && environment.info.EpisodeId);
+  if (episodeId) {
+    audioState.episodeId = episodeId;
+  }
+
+  // Attempt to fetch audio map if not already present and we have an ID
+  if (!window.AUDIO_MAP && audioState.episodeId && !audioState.audioMapAttempted) {
+    audioState.audioMapAttempted = true;
+    const mapUrl = `/audio/${audioState.episodeId}/audio_map.json`;
+    console.log(`[Werewolf] Attempting to fetch audio map from: ${mapUrl}`);
+
+    fetch(mapUrl)
+      .then(res => {
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        console.log(`[Werewolf] Audio map loaded for episode ${audioState.episodeId}`);
+        window.AUDIO_MAP = data;
+        audioState.hasAudioTracks = true;
+        audioState.isAudioEnabled = true; // Auto-enable if found
+        // Trigger a re-render if needed or update UI
+        // Since this is legacy renderer, next frame will pick it up?
+        // But we might need to force UI update if it rendered 'disabled' state.
+        const soundToggle = document.getElementById('sound-toggle');
+        if (soundToggle) {
+          soundToggle.classList.remove('disabled');
+          soundToggle.textContent = '🔊';
+        }
+      })
+      .catch(e => {
+        console.warn(`[Werewolf] Failed to load audio map: ${e.message}`);
+        audioState.hasAudioTracks = false;
+      });
+  }
+
+  // If AUDIO_MAP was already loaded (e.g. by main.ts or previous fetch)
   if (audioState.hasAudioTracks === undefined) {
-    audioState.hasAudioTracks = Object.keys(audioMap).length > 0;
+    audioState.hasAudioTracks = window.AUDIO_MAP && Object.keys(window.AUDIO_MAP).length > 0;
+    if (audioState.hasAudioTracks) {
+      audioState.isAudioEnabled = true;
+    }
   }
 
   // --- Patch Controls ---
@@ -403,11 +450,19 @@ export function renderer(context, parent) {
   simplifyDisplayNames(gameState.players);
   disambiguateDisplayNames(gameState.players);
 
-  const playerMap = new Map(gameState.players.map((p) => [p.name, p]));
+  const playerMap = new Map();
+  gameState.players.forEach(p => {
+    playerMap.set(p.name, p);
+    if (p.display_name && p.display_name !== p.name) {
+      playerMap.set(p.display_name, p);
+    }
+  });
 
   if (!player.playerIdReplacer) {
     player.playerIdReplacer = createPlayerIdReplacer(playerMap);
   }
+  // Force create an HTML replacer for subtitles to ensure capsules
+  player.htmlPlayerIdReplacer = createPlayerIdReplacer(playerMap);
 
   gameState.players.forEach((p) => gameState.playerThreatLevels.set(p.name, 0));
 
@@ -679,19 +734,63 @@ export function renderer(context, parent) {
               case 'system':
                   // NEW: Display moderator announcement
                   let announcement = lastEvent.text;
-                  if (window.werewolfGamePlayer && window.werewolfGamePlayer.playerIdReplacer) {
-                      announcement = window.werewolfGamePlayer.playerIdReplacer(announcement);
-                  }
-                  world.uiManager.displayModeratorAnnouncement(announcement);
-                  subtitleShown = true;
-                  break;
+
+              // Cleanup lists like ['p0', 'p1'] -> p0 p1
+              const listRegex = /\[(.*?)\](\s*[.,?!])?/g;
+              announcement = announcement.replace(listRegex, (match, listContent, punctuation) => {
+                const cleanedContent = listContent.replace(/'/g, '').replace(/, /g, ' ').trim();
+                if (punctuation) {
+                  return cleanedContent + ' ' + punctuation.trim();
+                }
+                return cleanedContent;
+              });
+
+              // Do not replace IDs here, let UIManager do it after markdown parsing to avoid escaping HTML capsules (if parsed) 
+              // or just to allow correct order.
+              world.uiManager.displayModeratorAnnouncement(announcement, false);
+              subtitleShown = true;
+              break;
+            case 'exile':
+              if (playerMap.has(lastEvent.name)) {
+                const p = playerMap.get(lastEvent.name);
+                const cap = createPlayerCapsule(p);
+                const roleText = lastEvent.role ? ` (${lastEvent.role})` : '';
+                const msg = `${cap}${roleText} was exiled by vote.`;
+                world.uiManager.displayModeratorAnnouncement(msg, true);
+                subtitleShown = true;
+              }
+              break;
+            case 'elimination':
+              if (playerMap.has(lastEvent.name)) {
+                const p = playerMap.get(lastEvent.name);
+                const cap = createPlayerCapsule(p);
+                const roleText = lastEvent.role ? ` Their role was a ${lastEvent.role}.` : '';
+                const msg = `${cap} was eliminated.${roleText}`;
+                world.uiManager.displayModeratorAnnouncement(msg, true);
+                subtitleShown = true;
+              }
+              break;
+            case 'save':
+              if (playerMap.has(lastEvent.saved_player)) {
+                const p = playerMap.get(lastEvent.saved_player);
+                const cap = createPlayerCapsule(p);
+                const msg = `Player ${cap} was attacked but saved by a Doctor!`;
+                world.uiManager.displayModeratorAnnouncement(msg, true);
+                subtitleShown = true;
+              }
+              break;
           }
 
           if (messageForBubble && actorName && playerMap.has(actorName)) {
-              const formattedMessage = window.werewolfGamePlayer.playerIdReplacer(messageForBubble);
+            // Pass RAW message (no replacement yet)
+            const rawMessage = messageForBubble;
+            let rawReasoning = reasoningForBubble; // Pass raw reasoning too
+
               const playerObj = world.characterManager.playerObjects.get(actorName);
               if (playerObj && playerObj.playerUI) {
-                  world.uiManager.displayPlayerBubble(playerObj.playerUI, formattedMessage, reasoningForBubble, lastEvent.timestamp);
+                // Determine if this is an action (not chat)
+                const isAction = lastEvent.type !== 'chat';
+                world.uiManager.displayPlayerBubble(playerObj.playerUI, rawMessage, rawReasoning, lastEvent.timestamp, isAction);
                   world.characterManager.updatePlayerActive(actorName);
                   subtitleShown = true;
               }
