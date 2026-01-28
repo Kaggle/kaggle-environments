@@ -435,6 +435,7 @@ export function renderer(context, parent) {
   // Augment with variations (Inverse cleanup lookup + Title Casing)
   augmentPlayerMapWithVariations(playerMap, gameState.players);
 
+
   // Always update replacers to handle map/logic changes
   player.playerIdReplacer = createPlayerIdReplacer(playerMap);
   // Force create an HTML replacer for subtitles to ensure capsules
