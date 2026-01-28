@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import random
 import subprocess
 import wave
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
 from google.cloud import texttospeech
+from google.api_core.client_options import ClientOptions
 import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.genai import types
@@ -176,6 +178,10 @@ class AudioConfig:
 
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
+
+    @property
+    def vertex_ai_regions(self) -> List[str]:
+        return self.data.get("vertex_ai_regions", [])
 
 
 class ReplayParser:
@@ -498,11 +504,31 @@ class TTSGenerator(ABC):
 class VertexTTSGenerator(TTSGenerator):
     """Generates audio using Vertex AI TTS."""
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, regions: List[str] = None):
         if not os.getenv("GOOGLE_CLOUD_PROJECT"):
             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI.")
-        self.client = texttospeech.TextToSpeechClient()
+        
         self.model_name = model_name
+        self.client = None
+        self.region = None
+        
+        if not regions:
+             # Default client (implicitly uses default region)
+             self.client = texttospeech.TextToSpeechClient()
+             logger.info("Initialized Vertex AI client with default region.")
+        else:
+             # Select ONE region for this entire game session
+             selected_region = random.choice(regions)
+             self.region = selected_region
+             
+             api_endpoint = f"{selected_region}-texttospeech.googleapis.com"
+             client_options = ClientOptions(api_endpoint=api_endpoint)
+             try:
+                 self.client = texttospeech.TextToSpeechClient(client_options=client_options)
+                 logger.info(f"Initialized Vertex AI client for region: {selected_region}")
+             except Exception as e:
+                 logger.error(f"Failed to init client for region {selected_region}: {e}")
+                 raise e
 
     @retry(
         retry=retry_if_exception_type(ResourceExhausted),
@@ -541,6 +567,7 @@ class VertexTTSGenerator(TTSGenerator):
             audio_conf = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3, sample_rate_hertz=24000
             )
+            
             response = self.client.synthesize_speech(
                 input=synthesis_input, voice=voice_params, audio_config=audio_conf
             )
@@ -864,7 +891,8 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
         tts = GeminiTTSGenerator(api_key)
     else:
         model_name = config.get_vertex_model()
-        tts = VertexTTSGenerator(model_name)
+        regions = config.vertex_ai_regions
+        tts = VertexTTSGenerator(model_name, regions=regions)
 
     manager = AudioManager(config, enhancer, tts, output_dir, tqdm_kwargs=tqdm_kwargs)
 

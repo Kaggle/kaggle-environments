@@ -58,9 +58,16 @@ def process_single_episode_direct(replay_file, bucket_base, config_path, tts_pro
         )
 
         # Check if output directory has content
-        files = os.listdir(temp_out_dir)
+        # add_audio creates a subdirectory "audio" by default (standard.yaml)
+        # We should check inside that validation.
+        audio_subdir = os.path.join(temp_out_dir, "audio")
+        
+        if not os.path.isdir(audio_subdir):
+             return False, f"No 'audio' subdirectory generated for {episode_id}"
+
+        files = os.listdir(audio_subdir)
         if not files:
-             return False, f"No audio files generated for {episode_id} (Output dir empty)"
+             return False, f"No audio files generated for {episode_id} (Audio dir empty)"
         
         wav_files = [f for f in files if f.endswith(".wav")]
         if len(wav_files) < 5:
