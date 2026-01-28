@@ -23,6 +23,68 @@ if (!window.kaggleWerewolf) {
   window.kaggleWerewolf = audioState;
 }
 
+/**
+ * Centrally manages fetching and rebasing the audio map.
+ * Supports episodic paths (/audio/${episodeId}/audio_map.json) with environment fallbacks.
+ * @param {string|null} episodeId 
+ * @param {string|null} envUrl 
+ */
+export async function tryLoadAudioMap(episodeId, envUrl) {
+  if (window.AUDIO_MAP) return;
+  if (!episodeId && !envUrl) return;
+
+  const episodicUrl = episodeId ? `/audio/${episodeId}/audio_map.json` : null;
+  const audioMapUrl = episodicUrl || envUrl;
+
+  if (!audioMapUrl) return;
+
+  try {
+    console.log(`[Werewolf] Attempting to load audio map from: ${audioMapUrl}`);
+    let response = await fetch(audioMapUrl);
+
+    // If episodic fetch failed (404/non-ok) and we have an env fallback, try the fallback
+    if (!response.ok && episodicUrl && envUrl && episodicUrl !== envUrl) {
+      console.warn(`[Werewolf] Episodic audio map not found at ${episodicUrl}, trying fallback from env: ${envUrl}`);
+      response = await fetch(envUrl);
+      if (!response.ok) throw new Error(`Fallback fetch failed with status ${response.status}`);
+    } else if (!response.ok) {
+      throw new Error(`Fetch failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Final resolved URL used for rebasing
+    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : audioMapUrl;
+
+    // Rebase audio paths relative to the map file directory
+    const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
+    if (audioMapDir) {
+      for (const key in data) {
+        if (typeof data[key] === 'string' && !data[key].startsWith('http') && !data[key].startsWith('/')) {
+          data[key] = audioMapDir + data[key];
+        }
+      }
+    }
+
+    window.AUDIO_MAP = data;
+    audioState.hasAudioTracks = Object.keys(data).length > 0;
+
+    if (audioState.hasAudioTracks) {
+      audioState.isAudioEnabled = true; // Auto-enable if tracks were found
+      console.log(`[Werewolf] Audio map loaded successfully (${Object.keys(data).length} tracks).`);
+
+      // Update UI if present
+      const soundToggle = document.getElementById('sound-toggle');
+      if (soundToggle) {
+        soundToggle.classList.remove('disabled');
+        soundToggle.textContent = '🔊';
+      }
+    }
+  } catch (e) {
+    console.error(`[Werewolf] Failed to load audio map:`, e);
+  }
+}
+
 export function loadQueueFrom(startIndex) {
   console.debug(`DEBUG: [loadQueueFrom] Loading queue from index: ${startIndex}`);
   if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) {
@@ -303,8 +365,8 @@ export function playNextInQueue(isContinuous = true) {
     const originalPath = audioPath;
     const playAttempts = [];
 
-    // 1. Try Local Path (if EpisodeId exists)
-    if (audioState.episodeId) {
+    // 1. Try Local Path (only if EpisodeId exists and path is relative)
+    if (audioState.episodeId && !originalPath.startsWith('/') && !originalPath.startsWith('http')) {
       // originalPath usually includes "audio/" prefix (e.g. "audio/hash.wav")
       // We append this directly to the episode-specific local base path.
       // Final result: "/audio/{episodeId}/audio/{hash}.wav"

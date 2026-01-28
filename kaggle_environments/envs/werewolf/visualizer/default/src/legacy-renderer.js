@@ -12,6 +12,7 @@ import {
   shuffleIds,
   createPlayerCapsule
 } from './utils/helpers.js';
+import { tryLoadAudioMap } from './audio/AudioController.js';
 import { disambiguateDisplayNames, simplifyDisplayNames, augmentPlayerMapWithVariations } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
 
@@ -174,50 +175,23 @@ export function renderer(context, parent) {
   }
   const audioState = window.kaggleWerewolf;
 
-  // Try to determine Episode ID from environment
-  // environment.id is usually the Episode ID in Kaggle Renderer
+  // Ensure Episode ID is synchronized with replay data
   const episodeId = environment.id || (environment.info && environment.info.EpisodeId);
   if (episodeId) {
     audioState.episodeId = episodeId;
   }
 
-  // Attempt to fetch audio map if not already present and we have an ID
-  if (!window.AUDIO_MAP && audioState.episodeId && !audioState.audioMapAttempted) {
-    audioState.audioMapAttempted = true;
-    const mapUrl = `/audio/${audioState.episodeId}/audio_map.json`;
-    console.log(`[Werewolf] Attempting to fetch audio map from: ${mapUrl}`);
-
-    fetch(mapUrl)
-      .then(res => {
-        if (!res.ok) throw new Error(`Status ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        console.log(`[Werewolf] Audio map loaded for episode ${audioState.episodeId}`);
-        window.AUDIO_MAP = data;
-        audioState.hasAudioTracks = true;
-        audioState.isAudioEnabled = true; // Auto-enable if found
-        // Trigger a re-render if needed or update UI
-        // Since this is legacy renderer, next frame will pick it up?
-        // But we might need to force UI update if it rendered 'disabled' state.
-        const soundToggle = document.getElementById('sound-toggle');
-        if (soundToggle) {
-          soundToggle.classList.remove('disabled');
-          soundToggle.textContent = '🔊';
-        }
-      })
-      .catch(e => {
-        console.warn(`[Werewolf] Failed to load audio map: ${e.message}`);
-        audioState.hasAudioTracks = false;
-      });
-  }
-
-  // If AUDIO_MAP was already loaded (e.g. by main.ts or previous fetch)
+  // If AUDIO_MAP was loaded by main.ts, initialize audio tracks state
   if (audioState.hasAudioTracks === undefined) {
-    audioState.hasAudioTracks = window.AUDIO_MAP && Object.keys(window.AUDIO_MAP).length > 0;
+    audioState.hasAudioTracks = !!(window.AUDIO_MAP && Object.keys(window.AUDIO_MAP).length > 0);
     if (audioState.hasAudioTracks) {
       audioState.isAudioEnabled = true;
     }
+  }
+
+  // Trigger audio map load if missing (fallback for runtime discovery from JSON)
+  if (!window.AUDIO_MAP && episodeId) {
+    tryLoadAudioMap(episodeId);
   }
 
   // --- Patch Controls ---
