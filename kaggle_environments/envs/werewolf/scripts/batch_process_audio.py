@@ -154,7 +154,8 @@ def main():
     # We can use a Semaphore-guarded list of available slots.
     
     slot_lock = threading.Lock()
-    available_slots = list(range(args.workers)) # Stack of slots
+    # Initialize in reverse so pop() gives 0, 1, 2...
+    available_slots = list(range(args.workers - 1, -1, -1))
     
     def get_slot():
         with slot_lock:
