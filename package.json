@@ -10,7 +10,7 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
-    "pnpm": "^9.0.0",
+    "pnpm": "^10.28.2",
     "postcss-styled-syntax": "^0.7.1",
     "prettier": "^3.6.2",
     "prompts": "^2.4.2",
