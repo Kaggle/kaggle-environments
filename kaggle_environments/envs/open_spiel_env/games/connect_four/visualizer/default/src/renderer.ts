@@ -162,6 +162,11 @@ export const Renderer: FunctionComponent<RendererProps> = ({ replay, step, agent
   const animationFrameId = useRef<number>();
   const prevStep = useRef(step);
 
+  const config = replay.configuration.openSpielGameParameters || replay.configuration;
+  const columns = config.columns || 7;
+  const rows = config.rows || 6;
+  const aspectRatio = columns / rows;
+
   useEffect(() => {
     const isBackStep = step < prevStep.current;
     prevStep.current = step;
@@ -170,9 +175,6 @@ export const Renderer: FunctionComponent<RendererProps> = ({ replay, step, agent
     const c = canvas.getContext("2d");
     if (!c) return;
 
-    const config = replay.configuration.openSpielGameParameters || replay.configuration;
-    const columns = config.columns || 7;
-    const rows = config.rows || 6;
     const inarow = config.x_in_row || config.inarow || 4;
 
     const currentStep = replay.steps[step];
@@ -426,7 +428,9 @@ export const Renderer: FunctionComponent<RendererProps> = ({ replay, step, agent
           <span>${player2Name} <span style="opacity: 0.7;">(o)</span></span>
         </div>
       </div>
-      <canvas ref=${canvasRef} />
+      <div class="canvas-wrapper" style="aspect-ratio: ${aspectRatio}; max-width: 100%; max-height: 100%; margin: auto;">
+        <canvas ref=${canvasRef} />
+      </div>
       <${GameStatus} replay=${replay} step=${step} agents=${agents} />
     </div>
   `;

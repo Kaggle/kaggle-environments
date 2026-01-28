@@ -16,12 +16,19 @@ html, body, #app {
   overflow: hidden;
 }
 
+.renderer-container .canvas-wrapper {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .renderer-container canvas {
   /* Override web/core's .viewer canvas absolute positioning */
   position: relative;
-  flex-grow: 1;
   width: 100%;
-  min-height: 0; /* Critical for flex items to shrink properly */
+  height: 100%;
 }
 
 .status-bar {
