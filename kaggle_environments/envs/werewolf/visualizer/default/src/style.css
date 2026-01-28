@@ -1051,7 +1051,7 @@ html, body, #app {
     transform: translateX(-50%);
     width: 80%;
     max-width: 1200px;
-    text-align: center;
+    text-align: left;
     pointer-events: none; /* Make sure to enable pointer events for buttons later if needed, but container wrapper might need pointer-events: none and children auto */
     /* Update: We need pointer events for buttons! */
     pointer-events: auto;
@@ -1065,7 +1065,8 @@ html, body, #app {
 
     display: flex; /* Use flexbox for layout */
     align-items: center; /* Center vertically */
-    justify-content: center; /* Center horizontally */
+    justify-content: flex-start;
+        /* Center horizontally */
     gap: 10px; /* Space between text and controls */
 
     background: rgba(0, 0, 0, 0.6); /* Slightly darker background for readability */
@@ -1088,7 +1089,7 @@ html, body, #app {
     max-height: 80px; /* Increased height (~4-5 lines) */
     overflow-y: auto; /* Enable native scrolling */
     position: relative;
-    text-align: center;
+    text-align: left;
     scroll-behavior: smooth;
     pointer-events: auto; /* Ensure scrolling works */
     padding-right: 25px;
@@ -1227,9 +1228,34 @@ html, body, #app {
     width: auto; /* Fit content more closely */
     min-width: 300px;
     text-align: left;
+        /* Narrator messages left-aligned */
+            justify-content: flex-start;
     /* opacity: 0; Removed to fix immediate disappearance */
 }
 
+/* Generic Action Mode (for Player Bubbles/Actions) - Center Aligned */
+.cinematic-subtitle-container.action-mode {
+    justify-content: center;
+    text-align: center;
+}
+
+.cinematic-subtitle-container.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode {
+    text-align: center;
+    justify-content: center;
+}
+
+.cinematic-subtitle-container.moderator-mode .cinematic-subtitle-content-wrapper {
+    text-align: left;
+    /* Narrator messages left-aligned */
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
+}
 .cinematic-subtitle-container.moderator-mode.show-reasoning {
     opacity: 1; /* Show only when reasoning is enabled */
 }

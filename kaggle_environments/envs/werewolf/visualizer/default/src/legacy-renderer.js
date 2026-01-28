@@ -12,7 +12,7 @@ import {
   shuffleIds,
   createPlayerCapsule
 } from './utils/helpers.js';
-import { disambiguateDisplayNames, simplifyDisplayNames } from './utils/nameUtils.js';
+import { disambiguateDisplayNames, simplifyDisplayNames, augmentPlayerMapWithVariations } from './utils/nameUtils.js';
 import { updateSkyInfo } from './ui/SkyControls.js';
 
 if (!window.werewolfThreeJs) {
@@ -458,9 +458,13 @@ export function renderer(context, parent) {
     }
   });
 
-  if (!player.playerIdReplacer) {
-    player.playerIdReplacer = createPlayerIdReplacer(playerMap);
-  }
+  // Augment with variations (Inverse cleanup lookup + Title Casing)
+  augmentPlayerMapWithVariations(playerMap, gameState.players);
+
+
+
+  // Always update replacers to handle map/logic changes
+  player.playerIdReplacer = createPlayerIdReplacer(playerMap);
   // Force create an HTML replacer for subtitles to ensure capsules
   player.htmlPlayerIdReplacer = createPlayerIdReplacer(playerMap);
 
