@@ -37,7 +37,7 @@
     "vite-plugin-dts": "^4.5.4"
   },
   "dependencies": {
-    "preact": "^10.27.2"
+    "preact": "^10.27.3"
   },
   "peerDependencies": {
     "@kaggle-environments/core": "workspace:*"
