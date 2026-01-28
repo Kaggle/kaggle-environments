@@ -1,8 +1,90 @@
-// Import shared utilities from core package
-import { createNameReplacer, createPlayerCapsule } from '@kaggle-environments/core';
+import { applyTranscriptOverrides } from './transcriptUtils.js';
 
-// Re-export core utilities for use by visualizer components
-export { createNameReplacer, createPlayerCapsule };
+// Re-implemented locally to fix HTML artifact bugs in core
+// (Use 2-pass placeholder strategy to avoid replacing text inside generated HTML attributes)
+
+export function createPlayerCapsule(player) {
+  if (!player) return '';
+  const nameToShow = player.display_name || player.name;
+  const thumbnailSrc = player.thumbnail || '';
+  // Escape quotes in the name to prevent attribute breakage
+  const safeName = (player.name || '').replace(/"/g, '&quot;');
+  return `<span class="player-capsule" title="${safeName}">
+    <img src="${thumbnailSrc}" class="capsule-avatar" alt="${safeName}" onerror="handleThumbnailError(this)">
+    <span class="capsule-name">${nameToShow}</span>
+  </span>`;
+}
+
+export function createNameReplacer(playerMap, format = 'text') {
+  const textCache = new Map();
+  // Unique placeholder prefix (Markdown safe - no leading underscores)
+  const PLACEHOLDER_PREFIX = `KGL_CAP_${Math.floor(Math.random() * 1000000)}_`;
+
+  const sortedPlayerReplacements = [...playerMap.keys()]
+    .sort((a, b) => b.length - a.length)
+    .map((characterName, index) => {
+      const player = playerMap.get(characterName);
+      if (!player) return null;
+
+      const displayName = player.display_name || characterName;
+      if (format === 'text' && displayName === characterName) return null;
+
+      const replacementHtml = format === 'html'
+        ? createPlayerCapsule(player)
+        : displayName;
+
+      // Wrap placeholder in unique characters to prevent partial prefix replacement during expansion
+      // (e.g. preventing KGL_CAP_1 from matching inside KGL_CAP_10)
+      const placeholder = `|${PLACEHOLDER_PREFIX}${index}|`;
+      const escapedName = characterName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+      // Regex handling "Player Name" simplification and word boundaries
+      // Match inside quotes (text) but try to avoid breaking attributes if simple replacer is used.
+      // Stronger boundary: include dots and hyphens in the exclusion to prevent prefix matching for versions/dots.
+      const regex = new RegExp(
+        `(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w.-])`,
+        'gi'
+      );
+
+      return { regex, placeholder, replacementHtml };
+    })
+    .filter(r => r !== null);
+
+  const replaceToPlaceholders = (text) => {
+    if (!text) return '';
+    let newText = text;
+    for (const { regex, placeholder } of sortedPlayerReplacements) {
+      newText = newText.replace(regex, `$1${placeholder}$3`);
+    }
+    return newText;
+  };
+
+  const expandPlaceholders = (text) => {
+    if (!text) return '';
+    let newText = text;
+    for (const { placeholder, replacementHtml } of sortedPlayerReplacements) {
+      // Global replace of the placeholder string
+      newText = newText.split(placeholder).join(replacementHtml);
+    }
+    return newText;
+  };
+
+  const replaceNames = function (text) {
+    if (!text) return '';
+    if (textCache.has(text)) return textCache.get(text);
+
+    let newText = replaceToPlaceholders(text);
+    newText = expandPlaceholders(newText);
+
+    textCache.set(text, newText);
+    return newText;
+  };
+
+  replaceNames.replaceToPlaceholders = replaceToPlaceholders;
+  replaceNames.expandPlaceholders = expandPlaceholders;
+
+  return replaceNames;
+}
 
 export function formatTimestamp(isoString) {
     if (!isoString) return '';
@@ -379,7 +461,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           case 'system':
             if (entry.text && entry.text.includes('has begun')) return;
 
-            let systemText = entry.text;
+            let systemText = entry.text || '';
 
             const listRegex = /\\\[(.*?)\\\](\\s*[.,?!])?/g;
 
@@ -390,6 +472,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
               }
               return cleanedContent;
             });
+
+            systemText = applyTranscriptOverrides(systemText);
 
             const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 

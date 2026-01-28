@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import random
 import subprocess
 import wave
 from abc import ABC, abstractmethod
@@ -11,10 +12,14 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
+from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
 from google.cloud import texttospeech
+from google.api_core.client_options import ClientOptions
+import tenacity
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.genai import types
 
 from kaggle_environments.envs.werewolf.game.consts import EventName
@@ -133,6 +138,42 @@ class NameManager:
         return text
 
 
+        return text
+
+
+class TranscriptManager:
+    """Handles moderator message overrides with normalization and substring replacement."""
+
+    def __init__(self, overrides: Dict[str, str]):
+        self.overrides = overrides or {}
+
+    def normalize(self, text: str) -> str:
+        """Collapses extra spaces before terminal punctuation introduced by legacy cleaning logic."""
+        if not text:
+            return ""
+        return re.sub(r"\s+([.?!])", r"\1", text.strip())
+
+    def apply_overrides(self, text: str) -> str:
+        """Applies transcript overrides to consistent moderator messages."""
+        if not text:
+            return text
+
+        result = self.normalize(text)
+
+        # Sort keys by length descending to prevent partial match collisions
+        sorted_keys = sorted(self.overrides.keys(), key=len, reverse=True)
+
+        for key in sorted_keys:
+            normalized_key = self.normalize(key)
+            replacement_value = self.overrides[key]
+
+            if normalized_key and normalized_key in result:
+                # Global replacement of the normalized fragment within the normalized text
+                result = result.replace(normalized_key, replacement_value)
+
+        return result
+
+
 class AudioConfig:
     """Handles loading and accessing audio configuration."""
 
@@ -171,8 +212,16 @@ class AudioConfig:
     def speech_intro_template(self) -> str:
         return self.data.get("audio", {}).get("speech_intro_template", "")
 
+    @property
+    def transcript_overrides(self) -> Dict[str, str]:
+        return self.data.get("audio", {}).get("transcript_overrides", {})
+
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
+
+    @property
+    def vertex_ai_regions(self) -> List[str]:
+        return self.data.get("vertex_ai_regions", [])
 
 
 class ReplayParser:
@@ -495,12 +544,38 @@ class TTSGenerator(ABC):
 class VertexTTSGenerator(TTSGenerator):
     """Generates audio using Vertex AI TTS."""
 
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, regions: List[str] = None):
         if not os.getenv("GOOGLE_CLOUD_PROJECT"):
             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI.")
-        self.client = texttospeech.TextToSpeechClient()
+        
         self.model_name = model_name
+        self.client = None
+        self.region = None
+        
+        if not regions:
+             # Default client (implicitly uses default region)
+             self.client = texttospeech.TextToSpeechClient()
+             logger.info("Initialized Vertex AI client with default region.")
+        else:
+             # Select ONE region for this entire game session
+             selected_region = random.choice(regions)
+             self.region = selected_region
+             
+             api_endpoint = f"{selected_region}-texttospeech.googleapis.com"
+             client_options = ClientOptions(api_endpoint=api_endpoint)
+             try:
+                 self.client = texttospeech.TextToSpeechClient(client_options=client_options)
+                 logger.info(f"Initialized Vertex AI client for region: {selected_region}")
+             except Exception as e:
+                 logger.error(f"Failed to init client for region {selected_region}: {e}")
+                 raise e
 
+    @retry(
+        retry=retry_if_exception_type(ResourceExhausted),
+        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
+    )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
@@ -532,6 +607,7 @@ class VertexTTSGenerator(TTSGenerator):
             audio_conf = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3, sample_rate_hertz=24000
             )
+            
             response = self.client.synthesize_speech(
                 input=synthesis_input, voice=voice_params, audio_config=audio_conf
             )
@@ -549,6 +625,12 @@ class GeminiTTSGenerator(TTSGenerator):
             raise RuntimeError("GEMINI_API_KEY required for Google GenAI.")
         self.client = genai.Client(api_key=api_key)
 
+    @retry(
+        retry=retry_if_exception_type(ResourceExhausted),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded (GenAI), retrying... (Attempt {retry_state.attempt_number})")
+    )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
@@ -585,7 +667,7 @@ class GeminiTTSGenerator(TTSGenerator):
 class AudioManager:
     """Orchestrates the audio generation process."""
 
-    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str):
+    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str, tqdm_kwargs: Dict = None):
         self.config = config
         self.enhancer = enhancer
         self.tts = tts
@@ -594,6 +676,8 @@ class AudioManager:
         os.makedirs(self.audio_dir, exist_ok=True)
         self.audio_map = {}
         self.name_manager = None
+        self.transcript_manager = TranscriptManager(config.transcript_overrides)
+        self.tqdm_kwargs = tqdm_kwargs or {}
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
@@ -630,6 +714,10 @@ class AudioManager:
             # Key remains raw for lookup compatibility
             # Text is updated with display names for better TTS
             tts_text = self.name_manager.replace_names(text)
+
+            # Apply transcript overrides for moderator messages
+            if speaker_id == "moderator":
+                tts_text = self.transcript_manager.apply_overrides(tts_text)
 
             # Lookup enhancement
             speaker_display = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
@@ -702,8 +790,13 @@ class AudioManager:
     def _generate_audio_batch(self, messages: List[Dict]):
         """Generates audio for a batch of messages."""
         logger.info(f"Processing {len(messages)} messages...")
-
-        for msg in messages:
+        
+        # Use simple progress bar writing to stdout to avoid logging conflicts
+        # Merge defaults with custom kwargs
+        pbar_kwargs = {"desc": "Generating Audio", "unit": "msg"}
+        pbar_kwargs.update(self.tqdm_kwargs)
+        
+        for msg in tqdm(messages, **pbar_kwargs):
             speaker_id = msg["speaker"]
             final_text = msg["final_text"]
             voice = msg["voice"]
@@ -822,6 +915,43 @@ def load_env_modules():
             logger.info(f".env not found at {env_path}, relying on system vars.")
     except ImportError:
         logger.warning("Could not import kaggle_environments.PROJECT_ROOT")
+
+
+def process_replay_file(input_path, output_dir, config_path, tts_provider, prompt_path, cache_path, disable_llm, debug_audio=False, tqdm_kwargs=None):
+    """Helper to process a single replay file programmatically."""
+    tqdm_kwargs = tqdm_kwargs or {}
+    
+    with open(input_path, "r", encoding="utf-8") as f:
+        replay_data = json.load(f)
+
+    # Setup Components
+    config = AudioConfig(config_path)
+    
+    # LLM Enhancer
+    api_key = os.getenv("GEMINI_API_KEY")
+    enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
+
+    # TTS Generator
+    if tts_provider == "google_genai":
+        tts = GeminiTTSGenerator(api_key)
+    else:
+        model_name = config.get_vertex_model()
+        regions = config.vertex_ai_regions
+        tts = VertexTTSGenerator(model_name, regions=regions)
+
+    manager = AudioManager(config, enhancer, tts, output_dir, tqdm_kwargs=tqdm_kwargs)
+
+    setup_logger(output_dir=output_dir, base_name="add_audio") # Ensure logger is setup for this process? 
+    # Actually, running in thread might share logger. 
+    # But AudioManager uses logger.
+    
+    if debug_audio:
+        manager.generate_debug_audio()
+    else:
+        manager.process_replay(replay_data)
+
+    # Save cache if needed
+    enhancer.save_cache()
 
 
 def main():

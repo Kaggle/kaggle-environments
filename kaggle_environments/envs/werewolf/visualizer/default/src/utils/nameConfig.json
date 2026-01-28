@@ -9,7 +9,11 @@
         "grok-4.1-fast-reasoning": "Grok 4.1 Fast",
         "Grok 4": "Grok 4",
         "gpt-5.2-2025-12-11": "GPT-5.2",
+        "GPT-5.2": "GPT-5.2",
+        "GPT 5.2": "GPT-5.2",
         "gpt-5-mini-2025-08-07": "GPT-5 Mini",
+        "GPT-5 Mini": "GPT-5 Mini",
+        "GPT 5 Mini": "GPT-5 Mini",
         "gpt-4o-2024-05-13": "GPT-4o",
         "gpt-4o-mini-2024-07-18": "GPT-4o Mini"
     },
