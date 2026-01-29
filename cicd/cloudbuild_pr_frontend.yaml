@@ -1,0 +1,36 @@
+# Frontend PR validation pipeline for kaggle-environments
+# Builds visualizers WITHOUT Docker image build, publishing, or accessing secrets
+#
+# Security: This file intentionally has NO secrets access to prevent
+# secret exfiltration from untrusted PR authors.
+#
+# Triggered on pull requests that modify only TypeScript/web/visualizer files
+# This is significantly faster than the backend build since it skips Docker image build
+
+steps:
+  # Build visualizers to validate frontend changes
+  - id: "build-all-visualizers"
+    name: "gcr.io/cloud-builders/npm"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        apt-get update && apt-get install -y jq
+        npm install -g pnpm
+        pnpm install
+        node web/scripts/sync-version.js
+        pnpm build-ci
+    waitFor: ["-"]
+
+# No secrets - this is intentional for security
+# No images pushed - PRs only validate, they don't publish
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: "600s"
+
+tags: ["kaggle-environments", "pr-validation", "frontend"]
