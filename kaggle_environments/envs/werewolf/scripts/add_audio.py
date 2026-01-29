@@ -874,17 +874,10 @@ class VisualizerServer:
 
         logger.info(f"\nStarting Vite server from '{visualizer_dir}'...")
 
-        # Relativize for cleaner env vars
-        try:
-            rel_replay = os.path.relpath(replay_path, visualizer_dir)
-            rel_audio_map = os.path.relpath(audio_map_path, visualizer_dir)
-        except ValueError:
-            rel_replay = replay_path
-            rel_audio_map = audio_map_path
-
+        # Use /@fs/ prefix for absolute paths to allow serving external files
         env = os.environ.copy()
-        env["VITE_REPLAY_FILE"] = rel_replay
-        env["VITE_AUDIO_MAP_FILE"] = rel_audio_map
+        env["VITE_REPLAY_FILE"] = f"/@fs/{replay_path}"
+        env["VITE_AUDIO_MAP_FILE"] = f"/@fs/{audio_map_path}"
         cmd = [
             "npx",
             "vite",

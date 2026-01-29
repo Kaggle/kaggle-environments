@@ -37,35 +37,56 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
   if (window.AUDIO_MAP) return;
   if (!episodeId && !envUrl) return;
 
-  let audioMapUrl = null;
+  // Helper to fetch and validate JSON
+  const fetchMap = async (url) => {
+    console.log(`[Werewolf] Attempting to fetch audio map from: ${url}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      throw new Error('Received HTML (likely 404 SPA fallback) instead of JSON');
+    }
+    return res;
+  };
 
+  let response = null;
+  let usedUrl = null;
+
+  // 1. Try Episode ID Strategy first (Production Standard)
   if (episodeId) {
-    // Use global episode-assets path (not bundled with visualizer)
-    audioMapUrl = getEpisodeAssetUrl({ gameName: 'werewolf', episodeId }, 'audio_map.json');
-  } else if (envUrl) {
-    // If envUrl is relative (e.g. /static/...), resolve it against the origin
-    audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
+    const episodicUrl = getEpisodeAssetUrl({ gameName: 'werewolf', episodeId }, 'audio_map.json');
+    try {
+      response = await fetchMap(episodicUrl);
+      usedUrl = episodicUrl;
+    } catch (e) {
+      console.warn(`[Werewolf] Failed to load episodic map from ${episodicUrl}:`, e);
+    }
   }
-  if (!audioMapUrl) return;
+
+  // 2. Fallback to Env/Local URL if episodic failed or skipped
+  if (!response && envUrl) {
+    const localUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
+    try {
+      if (usedUrl !== localUrl) { // Avoid duplicate retry
+        response = await fetchMap(localUrl);
+        usedUrl = localUrl;
+      }
+    } catch (e) {
+      console.warn(`[Werewolf] Failed to load env map from ${localUrl}:`, e);
+    }
+  }
+
+  // If both failed, abort
+  if (!response) {
+    console.error("[Werewolf] Could not load audio map from any source.");
+    return;
+  }
 
   try {
-    console.log(`[Werewolf] Attempting to load audio map from: ${audioMapUrl}`);
-    let response = await fetch(audioMapUrl);
-
-    // Special fallback for development/legacy: if first fetch fails and it was an episodic one, try env fallback
-    if (!response.ok && episodeId && envUrl && audioMapUrl !== envUrl) {
-      console.warn(`[Werewolf] Episodic audio map not found at ${audioMapUrl}, trying fallback from env: ${envUrl}`);
-      response = await fetch(envUrl);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Fetch failed with status ${response.status}`);
-    }
-
     const data = await response.json();
 
     // Final resolved URL used for rebasing
-    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : audioMapUrl;
+    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : usedUrl;
 
     // Rebase audio paths relative to the map file directory
     const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
@@ -94,7 +115,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
       }
     }
   } catch (e) {
-    console.error(`[Werewolf] Failed to load audio map:`, e);
+    console.error(`[Werewolf] Failed to parse/process audio map from ${usedUrl}:`, e);
   }
 }
 
