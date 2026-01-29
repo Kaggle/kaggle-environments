@@ -136,7 +136,12 @@ def main():
     )
     logger = logging.getLogger()
 
-    replay_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
+    all_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
+    # Filter for numeric IDs only (e.g. 74222013.json) to avoid processing summaries or other artifacts
+    replay_files = [
+        f for f in all_files 
+        if os.path.basename(f).replace(".json", "").isdigit()
+    ]
     if not replay_files:
         print(f"No json files found in {args.replay_dir}")
         return
