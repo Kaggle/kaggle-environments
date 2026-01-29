@@ -34,12 +34,20 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
   if (window.AUDIO_MAP) return;
   if (!episodeId && !envUrl) return;
 
-  const baseUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href;
-  const episodicUrl = episodeId
-    ? `${baseUrl}audio/${episodeId}/audio_map.json`
-    : null;
+  // Determine where we are right now
+  const currentPath = window.location.pathname;
+  const directoryPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+  const absoluteBase = `${window.location.origin}${directoryPath}`;
 
-  const audioMapUrl = episodicUrl || envUrl;
+  let audioMapUrl = null;
+
+  if (episodeId) {
+    // Force absolute pathing to the current subfolder
+    audioMapUrl = `${absoluteBase}audio/${episodeId}/audio_map.json`;
+  } else if (envUrl) {
+    // If envUrl is relative (e.g. /static/...), resolve it against the origin
+    audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
+  }
 
   if (!audioMapUrl) return;
 
