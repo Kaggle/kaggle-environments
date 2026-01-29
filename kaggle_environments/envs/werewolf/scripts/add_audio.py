@@ -598,8 +598,10 @@ class VertexTTSGenerator(TTSGenerator):
         try:
             synthesis_input = texttospeech.SynthesisInput(text=input_text)
             voice_params = texttospeech.VoiceSelectionParams(
-                language_code="en-US", name=voice, model_name=self.model_name
+                language_code="en-US", name=voice
             )
+            if self.model_name:
+                voice_params.model_name = self.model_name
             audio_conf = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3, sample_rate_hertz=24000
             )
@@ -660,7 +662,44 @@ class GeminiTTSGenerator(TTSGenerator):
             return None
 
 
+class RandomVoiceAssigner:
+    """Deterministically assigns voices to players from a pool."""
+
+    def __init__(self, voice_pool: List[str], fixed_map: Dict[str, str], seed: int):
+        self.voice_pool = sorted(voice_pool)  # Sort for stability
+        self.fixed_map = fixed_map
+        self.seed = seed
+        self.assigned_voices = {}
+        self.rng = random.Random(seed)
+
+    def assign_voices(self, players: List[str]) -> Dict[str, str]:
+        """Assigns voices to a list of players."""
+        # 1. Assign fixed voices first
+        remaining_players = []
+        for p in players:
+            if p in self.fixed_map:
+                self.assigned_voices[p] = self.fixed_map[p]
+            else:
+                remaining_players.append(p)
+
+        # 2. Assign from pool for remaining
+        # Shuffle pool deterministically
+        pool = list(self.voice_pool)
+        self.rng.shuffle(pool)
+
+        # Assign round-robin if pool is smaller than players (unlikely with 30 voices but safe)
+        for i, p in enumerate(remaining_players):
+            voice = pool[i % len(pool)]
+            self.assigned_voices[p] = voice
+        
+        return self.assigned_voices
+
+    def get_voice(self, player_name: str) -> str:
+        return self.assigned_voices.get(player_name, self.voice_pool[0] if self.voice_pool else "en-US-Journey-D")
+
+
 class AudioManager:
+
     """Orchestrates the audio generation process."""
 
     def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str, tqdm_kwargs: Dict = None):
@@ -769,13 +808,36 @@ class AudioManager:
 
         # 3. Player Messages
         game_config = replay_data.get("configuration", {})
-        player_voices = self.config.voices.get("players", {})
-        player_voice_map = {
-            a["id"]: player_voices.get(a["id"]) for a in game_config.get("agents", [])
-        }
+        seed = game_config.get("seed", 0) # Default to 0 if no seed, but usually present
+        
+        # Initialize Voice Assigner
+        # Fixed map comes from config (keys are Original names usually, but here we deal with IDs or Names)
+        # config.voices['players'] maps Name -> Voice. 
+        # But here we have Agent IDs. 
+        # We need to map Agent ID -> Name -> Voice if possible? 
+        # Or just use the assigner to map Agent ID -> Voice directly?
+        # The assigner logic: fixed_map keys should match whatever we pass to assign_voices.
+        # We pass Agent IDs (e.g. "Cedric", "0", etc).
+        
+        # Original logic: 
+        # player_voices = self.config.voices.get("players", {})
+        # player_voice_map = { a["id"]: player_voices.get(a["id"]) ... }
+        # This implies standard.yaml has IDs as keys (Kai, Jordan etc).
+        # In this game, IDs are likely Names if not randomized? or strings.
+        
+        # Let's get all agent IDs first.
+        agents = game_config.get("agents", [])
+        agent_ids = [a["id"] for a in agents]
+        
+        # Retrieve voice pool and players map from config
+        voice_pool = self.config.data.get("voices", {}).get("voice_pool", [])
+        fixed_player_voices = self.config.voices.get("players", {})
+
+        assigner = RandomVoiceAssigner(voice_pool, fixed_player_voices, seed)
+        assigner.assign_voices(agent_ids)
 
         for speaker_id, text in unique_msgs:
-            voice = player_voice_map.get(speaker_id)
+            voice = assigner.get_voice(speaker_id)
             if voice:
                 add(speaker_id, text, text, voice, is_player=True)
             else:

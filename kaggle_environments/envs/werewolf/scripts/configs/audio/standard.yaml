@@ -1,5 +1,5 @@
 # Settings for the dump_audio.py script
-vertex_ai_model: "gemini-2.5-flash-tts"
+vertex_ai_model: null
 vertex_ai_regions:
   - "us-central1"
   - "europe-central2"
@@ -29,16 +29,47 @@ paths:
   debug_audio_dir_name: "debug_audio"
   output_html_filename: "replay.html"
 voices:
-  moderator: "enceladus"
+  moderator: "en-US-Chirp3-HD-Fenrir"
+  voice_pool:
+    - "en-US-Chirp3-HD-Achernar"
+    - "en-US-Chirp3-HD-Achird"
+    - "en-US-Chirp3-HD-Algenib"
+    - "en-US-Chirp3-HD-Algieba"
+    - "en-US-Chirp3-HD-Alnilam"
+    - "en-US-Chirp3-HD-Aoede"
+    - "en-US-Chirp3-HD-Autonoe"
+    - "en-US-Chirp3-HD-Callirrhoe"
+    - "en-US-Chirp3-HD-Charon"
+    - "en-US-Chirp3-HD-Despina"
+    - "en-US-Chirp3-HD-Enceladus"
+    - "en-US-Chirp3-HD-Erinome"
+    - "en-US-Chirp3-HD-Fenrir"
+    - "en-US-Chirp3-HD-Gacrux"
+    - "en-US-Chirp3-HD-Iapetus"
+    - "en-US-Chirp3-HD-Kore"
+    - "en-US-Chirp3-HD-Laomedeia"
+    - "en-US-Chirp3-HD-Leda"
+    - "en-US-Chirp3-HD-Orus"
+    - "en-US-Chirp3-HD-Pulcherrima"
+    - "en-US-Chirp3-HD-Puck"
+    - "en-US-Chirp3-HD-Rasalgethi"
+    - "en-US-Chirp3-HD-Sadachbia"
+    - "en-US-Chirp3-HD-Sadaltager"
+    - "en-US-Chirp3-HD-Schedar"
+    - "en-US-Chirp3-HD-Sulafat"
+    - "en-US-Chirp3-HD-Umbriel"
+    - "en-US-Chirp3-HD-Vindemiatrix"
+    - "en-US-Chirp3-HD-Zephyr"
+    - "en-US-Chirp3-HD-Zubenelgenubi"
   players:
-    Kai: 'Kore'
-    Jordan: 'Charon'
-    Charlie: 'Leda'
-    Taylor: 'Despina'
-    Alex: 'Erinome'
-    Jamie: 'Gacrux'
-    Quinn: 'Achird'
-    Casey: 'Puck'
+    Kai: 'en-US-Chirp3-HD-Kore'
+    Jordan: 'en-US-Chirp3-HD-Charon'
+    Charlie: 'en-US-Chirp3-HD-Leda'
+    Taylor: 'en-US-Chirp3-HD-Aoede'
+    Alex: 'en-US-Chirp3-HD-Zephyr'
+    Jamie: 'en-US-Chirp3-HD-Orus'
+    Quinn: 'en-US-Chirp3-HD-Puck'
+    Casey: 'en-US-Chirp3-HD-Fenrir'
 audio:
   name_simplification_map:
     "gpt-5.2-2025-12-11": "GPT 5.2"
