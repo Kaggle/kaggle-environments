@@ -53,7 +53,7 @@ def process_single_episode_direct(replay_file, bucket_base, config_path, tts_pro
             tts_provider=tts_provider,
             prompt_path=prompt_path,
             cache_path=cache_path,
-            enable_llm_enhancement=enable_llm,
+            disable_llm=not enable_llm,
             tqdm_kwargs=tqdm_kwargs
         )
 
