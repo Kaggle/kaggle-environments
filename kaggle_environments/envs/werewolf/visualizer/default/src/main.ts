@@ -41,7 +41,7 @@ if (app) {
     createReplayVisualizer(app, adapter, {
       transformer: (replay: any) => {
         // Final fallback: if we only just received the episodeId from the replayer, trigger load
-        const finalId = replay.id || (replay.info && replay.info.EpisodeId);
+        const finalId = replay?.info?.EpisodeId || replay.id;
         if (finalId && !(window as any).AUDIO_MAP) {
           tryLoadAudioMap(finalId, envUrl);
         }

@@ -34,7 +34,11 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
   if (window.AUDIO_MAP) return;
   if (!episodeId && !envUrl) return;
 
-  const episodicUrl = episodeId ? `/audio/${episodeId}/audio_map.json` : null;
+  const baseUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+  const episodicUrl = episodeId
+    ? `${baseUrl}audio/${episodeId}/audio_map.json`
+    : null;
+
   const audioMapUrl = episodicUrl || envUrl;
 
   if (!audioMapUrl) return;

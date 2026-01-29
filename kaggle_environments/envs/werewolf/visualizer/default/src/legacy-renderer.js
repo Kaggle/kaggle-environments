@@ -176,7 +176,7 @@ export function renderer(context, parent) {
   const audioState = window.kaggleWerewolf;
 
   // Ensure Episode ID is synchronized with replay data
-  const episodeId = environment.id || (environment.info && environment.info.EpisodeId);
+  const episodeId = environment?.info?.EpisodeId ?? null;
   if (episodeId) {
     audioState.episodeId = episodeId;
   }
