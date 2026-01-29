@@ -21,3 +21,4 @@ export * from './replay-visualizer-factory';
 export * from './timing';
 export * from './transformers';
 export * from './components';
+export * from './episodeAssetUtils';
