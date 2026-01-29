@@ -1,3 +1,6 @@
+import { marked } from 'marked';
+import { applyTranscriptOverrides } from '../../utils/transcriptUtils.js';
+
 export class UIManager {
   constructor(CSS2DObject, width, height, camera, parent) {
     this.CSS2DObject = CSS2DObject;
@@ -40,14 +43,8 @@ export class UIManager {
     nameText.textContent = displayName || name;
     textDetails.appendChild(nameText);
 
-    // Show character name (e.g., Alex) as subtitle when different from display name
-    // This helps viewers associate character names in reasoning with model names
-    if (displayName && name && displayName !== name) {
-      const characterNameText = document.createElement('div');
-      characterNameText.className = 'player-character-name-3d';
-      characterNameText.textContent = name;
-      textDetails.appendChild(characterNameText);
-    }
+    // Display name is used for the main label.
+    // Technical ID (name) is hidden from viewer as requested.
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
@@ -71,7 +68,7 @@ export class UIManager {
     return label;
   }
 
-  displayPlayerBubble(playerUI, message, reasoning, timestamp) {
+  displayPlayerBubble(playerUI, message, reasoning, timestamp, isAction = false) {
     let speakerName = '';
     if (playerUI && playerUI.element) {
         const nameEl = playerUI.element.querySelector('.player-name-3d');
@@ -79,15 +76,15 @@ export class UIManager {
     }
 
     // Redirect to cinematic subtitle
-    this.displaySubtitle(message, reasoning, speakerName);
+    this.displaySubtitle(message, reasoning, speakerName, isAction);
 
-    // Visual feedback on the player's UI (optional, e.g., highlight the nameplate)
-    if (playerUI && playerUI.element) {
+    // Visual feedback on the player's UI (only for chat, not actions)
+    if (!isAction && playerUI && playerUI.element) {
         playerUI.element.classList.add('chat-active');
     }
   }
 
-  displaySubtitle(message, reasoning, speakerName = '') {
+  displaySubtitle(message, reasoning, speakerName = '', isAction = false) {
     // No timeout - subtitle persists until cleared manually (or replaced)
     
     // Construct HTML structure
@@ -95,10 +92,43 @@ export class UIManager {
     if (speakerName) {
       innerContent += `<span class="subtitle-speaker">${speakerName}:</span> `;
     }
-    innerContent += `<div class="cinematic-subtitle-text">${message}</div>`;
+    // 0. Apply Transcript Overrides
+    const textToProcess = applyTranscriptOverrides(message || '');
+
+    // 1. Get Replacer
+    const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+    let finalHtml = '';
+
+    if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+      // Phase 1: Text -> Placeholders
+      const textWithPlaceholders = replacer.replaceToPlaceholders(textToProcess);
+
+      // Phase 2: Markdown Parse
+      const htmlWithPlaceholders = marked.parse(textWithPlaceholders);
+
+      // Phase 3: Placeholders -> HTML Capsules
+      finalHtml = replacer.expandPlaceholders(htmlWithPlaceholders);
+    } else {
+      // Fallback (unsafe) behavior
+      const parsedMessage = marked.parse(textToProcess);
+      finalHtml = replacer ? replacer(parsedMessage) : parsedMessage;
+    }
+
+    innerContent += `<div class="cinematic-subtitle-text">${finalHtml}</div>`;
 
     if (reasoning) {
-      innerContent += `<div class="cinematic-subtitle-reasoning">${reasoning}</div>`;
+      let finalReasoningHtml = '';
+      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+
+      if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+        const rText = replacer.replaceToPlaceholders(reasoning);
+        const rHtml = marked.parse(rText);
+        finalReasoningHtml = replacer.expandPlaceholders(rHtml);
+      } else {
+        const pR = marked.parse(reasoning);
+        finalReasoningHtml = replacer ? replacer(pR) : pR;
+      }
+      innerContent += `<div class="cinematic-subtitle-reasoning">${finalReasoningHtml}</div>`;
     }
 
     // 1. Check if we already have the wrapper, if so preserve it and just update content
@@ -109,6 +139,9 @@ export class UIManager {
             <div class="cinematic-subtitle-content-wrapper"></div>
             <div class="subtitle-controls">
                 <button class="subtitle-scroll-btn up">▲</button>
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
                 <button class="subtitle-scroll-btn down">▼</button>
             </div>
         `;
@@ -139,6 +172,7 @@ export class UIManager {
     if (wrapper) {
       wrapper.innerHTML = innerContent;
       wrapper.scrollTop = 0; // Reset scroll on new message
+      this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
     // Show Container
@@ -154,18 +188,50 @@ export class UIManager {
     // Ensure we aren't in moderator mode
     this.subtitleContainer.classList.remove('moderator-mode');
 
+    // Add action mode if applicable (centers text)
+    if (isAction) {
+      this.subtitleContainer.classList.add('action-mode');
+    } else {
+      this.subtitleContainer.classList.remove('action-mode');
+    }
+
     // Show/Hide controls based on content overflow (checked in update loop or next frame)
     // For now we set them visible if we expect overflow, but dynamic check is better.
     // We'll rely on the update loop or just show them always if content is long?
     // We'll check in update()
   }
 
-  displayModeratorAnnouncement(message) {
+  displayModeratorAnnouncement(message, isAction = false) {
     // Reuse displaySubtitle logic but add moderator class? 
     // Or reimplement structure since moderator mode has specific styling.
     // Let's reimplement structure for consistent scrolling.
 
-    let innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
+    // Parse Markdown
+    let innerContent = '';
+
+    if (isAction) {
+      // Actions are pre-formatted HTML (capsules). Do NOT markdown parse.
+      // Also assume player IDs are already replaced by caller (legacy-renderer).
+      const textToDisplay = applyTranscriptOverrides(message || '');
+      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${textToDisplay}</div>`;
+    } else {
+      // System / Narrator messages.
+      const textToProcess = applyTranscriptOverrides(message || '');
+      // Use Phased Replacement
+      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+      let finalHtml = '';
+
+      if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+        const t = replacer.replaceToPlaceholders(textToProcess);
+        const h = marked.parse(t);
+        finalHtml = replacer.expandPlaceholders(h);
+      } else {
+        const p = marked.parse(textToProcess);
+        finalHtml = replacer ? replacer(p) : p;
+      }
+
+      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${finalHtml}</div>`;
+    }
 
     let wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
     if (!wrapper) {
@@ -173,6 +239,9 @@ export class UIManager {
             <div class="cinematic-subtitle-content-wrapper"></div>
             <div class="subtitle-controls">
                 <button class="subtitle-scroll-btn up">▲</button>
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
                 <button class="subtitle-scroll-btn down">▼</button>
             </div>
         `;
@@ -189,10 +258,18 @@ export class UIManager {
     if (wrapper) {
       wrapper.innerHTML = innerContent;
       wrapper.scrollTop = 0;
+      this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
       this.subtitleContainer.classList.add('visible');
     this.subtitleContainer.classList.add('moderator-mode'); // Adds transparency/blur/shape
+
+    // Toggle action mode for alignment
+    if (isAction) {
+      this.subtitleContainer.classList.add('action-mode');
+    } else {
+      this.subtitleContainer.classList.remove('action-mode');
+    }
 
       // Sync visibility state
       if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
@@ -225,7 +302,9 @@ export class UIManager {
         const lastUpdate = (window.werewolfThreeJs && window.werewolfThreeJs.lastStepUpdateTime) || 0;
         const isStepping = (performance.now() - lastUpdate) < 1000;
 
-        if (isAudioPlaying || isStepping) {
+        const timeSinceMessage = performance.now() - (this.lastMessageTime || 0);
+
+        if (timeSinceMessage > 1500 && (isAudioPlaying || isStepping)) {
           // Slow auto scroll
           const rate = (audioState && audioState.playbackRate) || 1.0;
           const speed = 10 * rate; // Pixels per second
@@ -234,6 +313,20 @@ export class UIManager {
           if (Math.ceil(wrapper.scrollTop + wrapper.clientHeight) < wrapper.scrollHeight) {
             wrapper.scrollTop += speed * delta;
           }
+        }
+
+        // Update Scroll Thumb Position/Size
+        const track = this.subtitleContainer.querySelector('.scroll-track');
+        const thumb = this.subtitleContainer.querySelector('.scroll-thumb');
+        if (track && thumb) {
+          const trackHeight = track.clientHeight;
+          const thumbHeight = 6; // Fixed dot size
+          const maxScroll = wrapper.scrollHeight - wrapper.clientHeight;
+          const scrollRatio = maxScroll > 0 ? wrapper.scrollTop / maxScroll : 0;
+          const thumbMaxTop = trackHeight - thumbHeight;
+          const thumbTop = scrollRatio * thumbMaxTop;
+
+          thumb.style.top = `${thumbTop}px`;
         }
       } else {
         controls.classList.remove('visible');

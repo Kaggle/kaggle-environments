@@ -1,6 +1,8 @@
+import { h, render as preactRender } from 'preact';
 import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData, ReplayMode } from './types';
-import { getGameStepRenderTime } from './transformers';
+import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { getGameStepRenderTime, getInterestingEvents } from './transformers';
+import { PlayerControls } from './components';
 import './style.css';
 
 export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -23,13 +25,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private viewer: HTMLElement;
   private controls: HTMLElement;
   private legend: HTMLElement;
-  private playPauseButton: HTMLButtonElement;
-  private playPauseIconPath: SVGPathElement;
-  private prevButton: HTMLButtonElement;
-  private nextButton: HTMLButtonElement;
-  private stepSlider: HTMLInputElement;
-  private stepCounter: HTMLSpanElement;
-  private speedSelector: HTMLSelectElement;
+  private interestingEvents: InterestingEvent[] = [];
 
   constructor(
     container: HTMLElement,
@@ -63,52 +59,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     this.container.innerHTML = '';
     this.container.appendChild(playerDiv);
 
-    this.playPauseButton = this.createButton('play-pause', this.getIconHTML('play'));
-    this.playPauseIconPath = this.playPauseButton.querySelector('path')!;
-
-    this.prevButton = this.createButton('prev', this.getIconHTML('prev'));
-    this.nextButton = this.createButton('next', this.getIconHTML('next'));
-
-    this.stepSlider = document.createElement('input');
-    this.stepSlider.type = 'range';
-    this.stepSlider.min = '0';
-    this.stepSlider.value = '0';
-
-    this.stepCounter = document.createElement('span');
-    this.stepCounter.className = 'step-counter';
-
-    // Speed selector dropdown
-    this.speedSelector = document.createElement('select');
-    this.speedSelector.className = 'speed-selector';
-    const speeds = [0.5, 0.75, 1, 1.5, 2];
-    speeds.forEach((speed) => {
-      const option = document.createElement('option');
-      option.value = speed.toString();
-      option.textContent = `${speed}x`;
-      if (speed === 1) option.selected = true;
-      this.speedSelector.appendChild(option);
-    });
-
-    this.controls.appendChild(this.playPauseButton);
-    this.controls.appendChild(this.prevButton);
-    this.controls.appendChild(this.stepSlider);
-    this.controls.appendChild(this.nextButton);
-    this.controls.appendChild(this.stepCounter);
-    this.controls.appendChild(this.speedSelector);
-
-    // Wire up event listeners ONCE
-    this.playPauseButton.addEventListener('click', () => (this.playing ? this.pause() : this.play()));
-    this.prevButton.addEventListener('click', () => this.setStep(this.step - 1));
-    this.nextButton.addEventListener('click', () => this.setStep(this.step + 1));
-    this.stepSlider.addEventListener('input', (e) => {
-      this.pause();
-      this.setStep(parseInt((e.target as HTMLInputElement).value, 10));
-    });
-    this.speedSelector.addEventListener('change', (e) => {
-      const newSpeed = parseFloat((e.target as HTMLSelectElement).value);
-      this.setSpeed(newSpeed);
-    });
-
     // Listen for speed changes from game-specific renderers
     window.addEventListener('replayer-speed', this.handleReplayerSpeed);
 
@@ -116,32 +66,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     window.addEventListener('keydown', this.handleKeyDown);
 
     this.loadData();
-  }
-
-  // Helper to create buttons with SVG icons
-  private createButton(id: string, svgPathHTML: string): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.id = id;
-    button.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="#FFFFFF">
-      ${svgPathHTML}
-    </svg>
-    `;
-    return button;
-  }
-
-  // Helper to get SVG path data
-  private getIconHTML(icon: 'play' | 'pause' | 'prev' | 'next'): string {
-    switch (icon) {
-      case 'play':
-        return `<path d="M8 5v14l11-7z" /><path d="M0 0h24v24H0z" fill="none" />`;
-      case 'pause':
-        return `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /><path d="M0 0h24v24H0z" fill="none" />`;
-      case 'prev':
-        return `<path d="M6 18V6h2v12H6zm3.5-6L18 6v12l-8.5-6z" />`;
-      case 'next':
-        return `<path d="M7 18l8.5-6L7 6v12zM15 6v12h2V6h-2z" />`;
-    }
   }
 
   /**
@@ -317,7 +241,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     // our controls to match, not trigger a destructive re-render.
     if (event.data.setSteps && this.replay) {
       this.replay.steps = event.data.setSteps;
-      this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
+      this.updateInterestingEvents();
       this.renderControls();
     }
 
@@ -385,7 +309,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     // Always update controls and render the current state.
     if (this.replay) {
-      this.stepSlider.max = (this.replay.steps.length > 0 ? this.replay.steps.length - 1 : 0).toString();
+      this.updateInterestingEvents();
     }
     this.renderControls();
     this.renderLegend();
@@ -487,8 +411,8 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     if (this.speedModifier === speed) return;
     this.speedModifier = speed;
 
-    // Update the speed selector UI
-    this.speedSelector.value = speed.toString();
+    // Re-render controls to update speed selector UI
+    this.renderControls();
 
     // Dispatch event for game-specific renderers (werewolf, etc.)
     window.dispatchEvent(new CustomEvent('replayer-speed', { detail: { rate: speed, fromReplayer: true } }));
@@ -510,7 +434,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     const newSpeed = customEvent.detail.rate;
     if (this.speedModifier !== newSpeed) {
       this.speedModifier = newSpeed;
-      this.speedSelector.value = newSpeed.toString();
+      this.renderControls();
       this.notifyParent({ speed: newSpeed });
     }
   };
@@ -537,55 +461,43 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }, stepDuration);
   };
 
+  private updateInterestingEvents() {
+    if (!this.replay) {
+      this.interestingEvents = [];
+      return;
+    }
+    const gameName = this.replay.name ?? '';
+    this.interestingEvents = getInterestingEvents(this.replay.steps, gameName);
+  }
+
   private renderControls() {
-    // Step 1: Handle visibility based *only* on showControls
+    // Handle visibility based on showControls
     if (!this.showControls) {
       this.controls.style.display = 'none';
+      preactRender(null, this.controls);
       return;
     }
-    this.controls.style.display = 'flex';
+    this.controls.style.display = '';
 
-    // Step 2: Handle the *state* of the controls,
-    // which *does* depend on having a replay.
-    if (!this.replay) {
-      // No replay data. Disable buttons and show default text.
-      this.playPauseButton.disabled = true;
-      this.prevButton.disabled = true;
-      this.nextButton.disabled = true;
-      this.stepSlider.disabled = true;
-      this.stepSlider.value = '0';
-      this.stepSlider.max = '0';
-      this.stepCounter.textContent = '0 / 0';
+    const totalSteps = this.replay?.steps.length ?? 0;
+    const disabled = !this.replay;
 
-      // Make sure icon is 'play'
-      const newIconHTML = this.getIconHTML('play');
-      if (this.playPauseIconPath.outerHTML !== newIconHTML) {
-        this.playPauseIconPath.outerHTML = newIconHTML;
-        this.playPauseIconPath = this.playPauseButton.querySelector('path')!;
-      }
-      return;
-    }
-
-    // --- We have a replay, so render full state ---
-    this.playPauseButton.disabled = false;
-    this.stepSlider.disabled = false;
-
-    const maxSteps = this.replay.steps.length - 1;
-
-    // Update only what's necessary
-    const newIconHTML = this.getIconHTML(this.playing ? 'pause' : 'play');
-    if (this.playPauseIconPath.outerHTML !== newIconHTML) {
-      this.playPauseIconPath.outerHTML = newIconHTML;
-      this.playPauseIconPath = this.playPauseButton.querySelector('path')!;
-    }
-
-    this.prevButton.disabled = this.step === 0;
-    this.nextButton.disabled = this.step === maxSteps;
-
-    this.stepSlider.value = this.step.toString();
-    // Ensure max is set correctly
-    this.stepSlider.max = (maxSteps >= 0 ? maxSteps : 0).toString();
-    this.stepCounter.textContent = `${this.step + 1} / ${maxSteps + 1}`;
+    preactRender(
+      h(PlayerControls, {
+        playing: this.playing,
+        step: this.step,
+        totalSteps,
+        speedModifier: this.speedModifier,
+        replayMode: this.replayMode,
+        interestingEvents: this.interestingEvents,
+        disabled,
+        onPlay: () => this.play(),
+        onPause: () => this.pause(),
+        onStepChange: (step: number) => this.setStep(step),
+        onSpeedChange: (speed: number) => this.setSpeed(speed),
+      }),
+      this.controls
+    );
   }
 
   private renderLegend() {
@@ -664,7 +576,10 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       this.mounted = false;
     }
 
-    // 4. (Optional) Clear the container to show it's gone
+    // 4. Unmount Preact controls component
+    preactRender(null, this.controls);
+
+    // 5. (Optional) Clear the container to show it's gone
     this.container.innerHTML = '';
   }
 }

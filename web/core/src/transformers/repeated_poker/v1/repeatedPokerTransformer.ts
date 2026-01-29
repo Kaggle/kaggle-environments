@@ -245,12 +245,10 @@ export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
     case 'small-blind-post':
       return `**Hand ${currentHandNumber}**: Post Small Blind`;
     case 'final': {
-      const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
-      if (winningPlayer) {
-        return `**Hand ${currentHandNumber}**: 🎉 ${winningPlayer?.name} wins ${winningPlayer?.reward}! 🎉`;
-      } else {
-        return `**Hand ${currentHandNumber}**: Split Pot`;
-      }
+      const winners = (gameStep.players as RepeatedPokerStepPlayer[]).filter((p) => p.isWinner);
+      return winners.length === 1
+        ? `**Hand ${currentHandNumber}**: 🎉 ${winners[0].name} wins ${winners[0].reward}! 🎉`
+        : `**Hand ${currentHandNumber}**: Split Pot`;
     }
     case 'game-over': {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);

@@ -1,0 +1,30 @@
+{
+    "simplification_map": {
+        "Gemini 3 Pro Preview": "Gemini 3 Pro",
+        "Gemini-3-Flash-Preview": "Gemini 3 Flash",
+        "gemini-3-flash-preview": "Gemini 3 Flash",
+        "Claude Sonnet 4.5": "Claude Sonnet 4.5",
+        "Claude Opus 4.5": "Claude Opus 4.5",
+        "Grok 4.1 Fast Reasoning": "Grok 4.1 Fast",
+        "grok-4.1-fast-reasoning": "Grok 4.1 Fast",
+        "Grok 4": "Grok 4",
+        "gpt-5.2-2025-12-11": "GPT-5.2",
+        "GPT-5.2": "GPT-5.2",
+        "GPT 5.2": "GPT-5.2",
+        "gpt-5-mini-2025-08-07": "GPT-5 Mini",
+        "GPT-5 Mini": "GPT-5 Mini",
+        "GPT 5 Mini": "GPT-5 Mini",
+        "gpt-4o-2024-05-13": "GPT-4o",
+        "gpt-4o-mini-2024-07-18": "GPT-4o Mini"
+    },
+    "simplification_rules": [
+        {
+            "pattern": "-[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "replacement": ""
+        },
+        {
+            "pattern": "-v[0-9]+$",
+            "replacement": ""
+        }
+    ]
+}

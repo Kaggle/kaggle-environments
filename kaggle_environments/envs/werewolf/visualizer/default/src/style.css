@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 html, body, #app {
   width: 100%;
   height: 100%;
@@ -9,7 +10,7 @@ html, body, #app {
 /* Game Status Scoreboard */
 .game-scoreboard {
     position: fixed;
-    top: 50px;
+    top: 20px;
     left: auto;
     right: 20px;
     transform: none;
@@ -19,12 +20,15 @@ html, body, #app {
     border: none;
     border-radius: 0;
     box-shadow: none;
-    padding: 12px 20px;
+    padding: 0 20px;
     display: flex;
     gap: 20px;
     align-items: center;
+    height: 50px;
+        /* Match event panel header height */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .scoreboard-item {
@@ -91,21 +95,23 @@ html, body, #app {
 
 /* Phase Indicator */
 .phase-indicator {
-    position: fixed;
-    top: 60px;
-    left: 50px;
-    transform: translateX(-50%);
+    position: relative;
     z-index: 1000;
-    padding: 12px 24px;
+    padding: 8px 16px;
+        /* Slightly more compact */
     border-radius: 30px;
-    font-size: 1.2rem;
+    font-size: 1rem;
+        /* Matched to scoreboard value */
     font-weight: 600;
     letter-spacing: 0.05em;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     backdrop-filter: blur(10px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    scale: 0.6;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+        justify-content: center;
+        gap: 8px;
 }
 
 .phase-indicator.day {
@@ -140,7 +146,7 @@ html, body, #app {
 
 .phase-indicator .phase-icon {
     display: inline-block;
-    margin-right: 8px;
+    margin-right: 0;
     font-size: 1.4rem;
     vertical-align: middle;
 }
@@ -166,7 +172,7 @@ html, body, #app {
     --text-muted: #74b9ff;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 
 .werewolf-parent {
     position: relative;
@@ -196,8 +202,8 @@ html, body, #app {
 /* Enhanced Panel Styling */
 .left-panel, .event-panel {
     position: fixed;
-    top: 70px;
-    max-height: calc(100vh - 124px);
+    top: 20px;
+        max-height: calc(100vh - 140px);
     background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     border-radius: 16px;
@@ -220,10 +226,10 @@ html, body, #app {
 
 .event-panel {
     position: fixed;
-    top: 54px;
+    top: 20px;
     left: 20px;
     width: 420px;
-    max-height: calc(100vh - 124px);
+    max-height: calc(100vh - 140px);
     background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     border-radius: 16px;
@@ -238,7 +244,8 @@ html, body, #app {
 }
 
 .event-panel.collapsed {
-    max-height: 65px; /* Height of just the header */
+    max-height: 50px;
+        /* Height of just the header */
     padding-top: 0;
     padding-bottom: 0;
 }
@@ -246,27 +253,31 @@ html, body, #app {
 /* ENHANCED Header to act as a toggle */
 .event-panel h1 {
     margin: 0;
-    font-size: 1.75rem;
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--text-primary);
     position: relative;
-    padding: 20px 20px 20px 60px;
+    padding: 0 14px 0 40px;
+        /* Zero top/bottom, rely on height + center alignment */
     flex-shrink: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
     cursor: pointer;
     user-select: none;
+    height: 50px;
+        box-sizing: border-box;
+        line-height: 1;
 }
 
 /* Adds a visual indicator for expanding/collapsing */
 .event-panel h1::before {
     content: ''; /* The content is now the background image */
     position: absolute;
-    left: 20px;
-    width: 20px;
-    height: 20px;
+    left: 14px;
+        width: 16px;
+        height: 16px;
 
     background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2374b9ff"><path d="M12 8l-6 6h12z"/></svg>');
     background-repeat: no-repeat;
@@ -353,6 +364,11 @@ html, body, #app {
         0 0 4px rgba(0,0,0,0.8),
         0 0 8px rgba(0,0,0,0.6);
     pointer-events: auto;
+/* Prevent selection */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     cursor: pointer;
     transition: all 0.2s ease;
     padding: 0;
@@ -373,7 +389,6 @@ html, body, #app {
         0 0 10px rgba(0,0,0,0.7),
         0 0 12px rgba(255,204,0,0.4);
 }
-
 /* NEW: This encircles the nameplate when chat is active */
 .player-ui-container.chat-active .player-info-card {
     /* background: rgba(10, 10, 20, 0.4); */
@@ -430,6 +445,10 @@ html, body, #app {
             border: 1px solid rgba(255,255,255,0.4);
             box-shadow: 0 0 5px rgba(0,0,0,0.5);
             margin-bottom: 4px;
+/* Prevent image dragging/selection */
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
         }
 .player-text-details {
     display: flex;
@@ -437,7 +456,7 @@ html, body, #app {
     align-items: center;
 }
 .player-name-3d {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
 }
 .player-id-3d {
@@ -544,18 +563,20 @@ html, body, #app {
 }
 
 /* Enhanced Headers */
-.event-panel h1, #player-list-area h1 {
-    margin: 0 0 20px 0;
-    font-size: 1.75rem;
+.event-panel h1,
+#player-list-area h1 {
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--text-primary);
     position: relative;
-    padding-bottom: 15px;
     flex-shrink: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
+        height: 50px;
+        line-height: 1;
+        box-sizing: border-box;
 }
 
 .event-panel h1 > span, #player-list-area h1 > span {
@@ -575,6 +596,13 @@ html, body, #app {
     height: 3px;
     background: linear-gradient(90deg, transparent, #74b9ff, transparent);
     border-radius: 2px;
+    opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+    
+    .event-panel.collapsed h1::after {
+        opacity: 0;
+        /* Hide indicator when collapsed */
 }
 
 #global-reasoning-toggle, .reset-view-btn {
@@ -588,6 +616,9 @@ html, body, #app {
     justify-content: center;
     color: var(--text-muted);
     transition: all 0.2s ease;
+    height: 32px;
+        /* Fixed height for consistent centering */
+        width: 32px;
 }
 #global-reasoning-toggle:hover, .reset-view-btn:hover {
     background-color: var(--hover-bg);
@@ -599,6 +630,62 @@ html, body, #app {
     height: 20px;
 }
 
+#header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    height: 100%;
+}
+
+.audio-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 4px;
+    height: 32px;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    border-radius: 50%;
+}
+
+.audio-toggle-btn:hover {
+    background-color: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.audio-toggle-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+#speed-label {
+    font-size: 12px;
+    min-width: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+#playback-speed {
+    cursor: pointer;
+    accent-color: var(--accent-blue);
+    margin: 0;
+    vertical-align: middle;
+}
+#global-reasoning-toggle.enabled {
+    color: var(--text-muted);
+}
+
+#global-reasoning-toggle {
+    color: var(--text-secondary);
+}
 #global-audio-toggle {
     background: none;
     border: none;
@@ -612,6 +699,29 @@ html, body, #app {
     transition: all 0.2s ease;
 }
 
+/* Individual Reasoning Toggle */
+.reasoning-toggle {
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.reasoning-toggle.enabled {
+    color: var(--text-muted);
+}
+
+.reasoning-toggle svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
 /* Enhanced Chat Entries */
 .chat-entry {
     display: flex;
@@ -690,6 +800,85 @@ html, body, #app {
     }
 }
 
+/* Responsive Layout */
+@media (max-width: 1100px) {
+    .game-scoreboard {
+        top: 60px !important;
+        left: 10px !important;
+        right: auto !important;
+        transform: none !important;
+        padding: 5px 12px !important;
+        gap: 8px !important;
+        width: max-content !important;
+        max-width: calc(100vw - 20px) !important;
+        background: transparent !important;
+            backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        border-radius: 8px !important;
+        pointer-events: auto !important;
+        z-index: 1001 !important;
+    }
+
+    .phase-indicator.day {
+        background: linear-gradient(135deg, #ffdc64, #ffb432) !important;
+        color: #000 !important;
+        opacity: 1 !important;
+    }
+
+    .phase-indicator.night {
+        background: linear-gradient(135deg, #1e1e3c, #3c3c78) !important;
+        color: #fff !important;
+        opacity: 1 !important;
+    }
+
+    .scoreboard-item {
+        padding: 0 5px !important;
+        border-right: 1px solid rgba(116, 185, 255, 0.2) !important;
+    }
+
+    .scoreboard-label {
+        font-size: 0.65rem !important;
+        text-shadow: none !important;
+    }
+
+    .scoreboard-value {
+        font-size: 0.85rem !important;
+        text-shadow: none !important;
+    }
+
+    .event-panel {
+        top: 140px !important;
+        /* Below scoreboard and replayer UI */
+        left: 10px !important;
+        width: 420px !important;
+        max-width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 200px) !important;
+        background: #1a1a2e !important;
+        z-index: 1000 !important;
+        border-radius: 12px !important;
+    }
+
+    .event-panel.collapsed {
+        max-height: 50px !important;
+    }
+
+    .event-panel h1 {
+        padding: 0 15px 0 40px !important;
+        font-size: 1.1rem !important;
+        justify-content: flex-start !important;
+        height: 50px !important;
+            line-height: 1 !important;
+            align-items: center !important;
+            display: flex !important;
+    }
+
+    .event-panel h1::before {
+        left: 12px !important;
+        width: 16px !important;
+        height: 16px !important;
+    }
+}
 /* Enhanced Message Bubbles */
 .balloon {
     padding: 14px 16px;
@@ -862,7 +1051,7 @@ html, body, #app {
     transform: translateX(-50%);
     width: 80%;
     max-width: 1200px;
-    text-align: center;
+    text-align: left;
     pointer-events: none; /* Make sure to enable pointer events for buttons later if needed, but container wrapper might need pointer-events: none and children auto */
     /* Update: We need pointer events for buttons! */
     pointer-events: auto;
@@ -876,12 +1065,16 @@ html, body, #app {
 
     display: flex; /* Use flexbox for layout */
     align-items: center; /* Center vertically */
-    justify-content: center; /* Center horizontally */
+    justify-content: flex-start;
+        /* Center horizontally */
     gap: 10px; /* Space between text and controls */
 
     background: rgba(0, 0, 0, 0.6); /* Slightly darker background for readability */
-    padding: 10px 20px;
+    padding: 10px 14px 10px 20px;
+        /* Reduced right padding to bring arrows closer to edge */
     border-radius: 8px;
+    gap: 6px;
+        /* Reduced gap between text and scroller */
 
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
@@ -896,9 +1089,11 @@ html, body, #app {
     max-height: 80px; /* Increased height (~4-5 lines) */
     overflow-y: auto; /* Enable native scrolling */
     position: relative;
-    text-align: center;
+    text-align: left;
     scroll-behavior: smooth;
     pointer-events: auto; /* Ensure scrolling works */
+    padding-right: 25px;
+        /* Add space for absolute scroller overlay */
 
     /* Hide scrollbar for aesthetics but allow scroll */
     scrollbar-width: none;
@@ -910,11 +1105,23 @@ html, body, #app {
 }
 
 .subtitle-controls {
+    position: absolute;
+        right: 6px;
+        /* Align with container right padding */
+        top: 10px;
+        /* Match container top padding */
+        bottom: 10px;
+        /* Match container bottom padding */
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    opacity: 0; /* Hidden unless needed */
+    justify-content: space-between;
+        align-items: center;
+        width: 20px;
+        opacity: 0;
+        /* Hidden unless needed */
     transition: opacity 0.2s;
+    pointer-events: auto;
+        z-index: 5;
 }
 
 .subtitle-controls.visible {
@@ -922,26 +1129,59 @@ html, body, #app {
 }
 
 .subtitle-scroll-btn {
-    background: rgba(255, 255, 255, 0.2);
+    background: transparent;
     border: none;
-    color: white;
+    color: var(--text-muted);
+        /* Blueish */
     cursor: pointer;
     border-radius: 4px;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+        height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    transition: background 0.2s;
+    font-size: 10px;
+        /* Smaller arrows */
+        transition: color 0.2s, transform 0.1s;
+        padding: 0;
+        flex-shrink: 0;
 }
 
 .subtitle-scroll-btn:hover {
-    background: rgba(255, 255, 255, 0.4);
+    color: var(--text-primary);
+        transform: scale(1.1);
 }
 
 .subtitle-scroll-btn:active {
-    background: rgba(255, 255, 255, 0.6);
+    transform: scale(0.95);
+    }
+    
+    .scroll-track {
+        flex-grow: 1;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 1px;
+        position: relative;
+        margin: 4px 0;
+        /* Space between arrows and track */
+    }
+    
+    .scroll-thumb {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        /* Circular dot */
+        background: var(--text-muted);
+        border-radius: 50%;
+        /* Perfect circle */
+        transition: background 0.2s;
+        pointer-events: none;
+    }
+    
+    .scroll-thumb:hover {
+        background: var(--text-primary);
 }
 
 .subtitle-speaker {
@@ -988,9 +1228,34 @@ html, body, #app {
     width: auto; /* Fit content more closely */
     min-width: 300px;
     text-align: left;
-    opacity: 0; /* Hidden by default */
+        /* Narrator messages left-aligned */
+            justify-content: flex-start;
+    /* opacity: 0; Removed to fix immediate disappearance */
 }
 
+/* Generic Action Mode (for Player Bubbles/Actions) - Center Aligned */
+.cinematic-subtitle-container.action-mode {
+    justify-content: center;
+    text-align: center;
+}
+
+.cinematic-subtitle-container.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode {
+    text-align: center;
+    justify-content: center;
+}
+
+.cinematic-subtitle-container.moderator-mode .cinematic-subtitle-content-wrapper {
+    text-align: left;
+    /* Narrator messages left-aligned */
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
+}
 .cinematic-subtitle-container.moderator-mode.show-reasoning {
     opacity: 1; /* Show only when reasoning is enabled */
 }

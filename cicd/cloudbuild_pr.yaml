@@ -1,0 +1,61 @@
+# PR validation pipeline for kaggle-environments
+# Runs tests and validates builds WITHOUT publishing or accessing secrets
+#
+# Security: This file intentionally has NO secrets access to prevent
+# secret exfiltration from untrusted PR authors.
+#
+# Triggered on pull requests with maintainer approval required for external contributors
+
+steps:
+  # Step 1: Build CPU Docker image for testing
+  - id: "build-cpu-image"
+    name: "gcr.io/cloud-builders/docker"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "--file",
+        "docker/Dockerfile",
+        "--target",
+        "cpu",
+        "--tag",
+        "python-simulations-cpu",
+        "--build-arg",
+        "BASE_IMAGE=gcr.io/kaggle-images/python:v163",
+        ".",
+      ]
+    waitFor: ["-"]
+
+  # Step 2: Run tests using run_tests.sh --docker
+  - id: "run-tests"
+    name: "gcr.io/cloud-builders/docker"
+    entrypoint: "bash"
+    args: ["./run_tests.sh", "--docker"]
+    waitFor: ["build-cpu-image"]
+
+  # Step 3: Build visualizers to validate frontend changes
+  - id: "build-all-visualizers"
+    name: "gcr.io/cloud-builders/npm"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        apt-get update && apt-get install -y jq
+        npm install -g pnpm
+        pnpm install
+        node web/scripts/sync-version.js
+        pnpm build-ci
+    waitFor: ["-"]
+
+# No secrets - this is intentional for security
+# No images pushed - PRs only validate, they don't publish
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: "1800s"
+
+tags: ["kaggle-environments", "pr-validation"]

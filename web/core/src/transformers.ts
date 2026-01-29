@@ -11,10 +11,16 @@ import {
   werewolfTransformer,
   getWerewolfStepLabel,
   getWerewolfStepDescription,
+  getWerewolfStepRenderTime,
+  getWerewolfStepInterestingEvents,
 } from './transformers/werewolf/werewolfTransformer';
 
 // Re-export utility functions for external use
-export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './transformers/werewolf/nameReplacer';
+export {
+  createNameReplacer,
+  createPlayerCapsule,
+  disambiguateDisplayNames,
+} from './transformers/werewolf/nameReplacer';
 export type { PlayerConfig, OutputFormat } from './transformers/werewolf/nameReplacer';
 import { WerewolfStep } from './transformers/werewolf/werewolfReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
@@ -117,6 +123,8 @@ export const getGameStepRenderTime = (
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepRenderTime(gameStep as RepeatedPokerStep, replayMode, speedModifier);
+    case 'werewolf':
+      return getWerewolfStepRenderTime(gameStep, replayMode, speedModifier);
     default:
       return defaultGetStepRenderTime(gameStep, replayMode, speedModifier, defaultDuration);
   }
@@ -135,6 +143,8 @@ export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    case 'werewolf':
+      return getWerewolfStepInterestingEvents(gameSteps as unknown as WerewolfStep[]);
     default:
       return [];
   }
@@ -154,6 +164,7 @@ export const getEpisodesFromFile = async (file: File, gameName: string): Promise
 export const getTokenRenderDistribution = (chunkCount: number, gameName: string): number[] => {
   switch (gameName) {
     case 'open_spiel_chess':
+    case 'werewolf':
       return generateEaseInDelayDistribution(chunkCount);
 
     default:

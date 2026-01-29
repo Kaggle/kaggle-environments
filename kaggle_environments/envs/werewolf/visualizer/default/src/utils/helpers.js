@@ -1,8 +1,90 @@
-// Import shared utilities from core package
-import { createNameReplacer, createPlayerCapsule } from '@kaggle-environments/core';
+import { applyTranscriptOverrides } from './transcriptUtils.js';
 
-// Re-export core utilities for use by visualizer components
-export { createNameReplacer, createPlayerCapsule };
+// Re-implemented locally to fix HTML artifact bugs in core
+// (Use 2-pass placeholder strategy to avoid replacing text inside generated HTML attributes)
+
+export function createPlayerCapsule(player) {
+  if (!player) return '';
+  const nameToShow = player.display_name || player.name;
+  const thumbnailSrc = player.thumbnail || '';
+  // Escape quotes in the name to prevent attribute breakage
+  const safeName = (player.name || '').replace(/"/g, '&quot;');
+  return `<span class="player-capsule" title="${safeName}">
+    <img src="${thumbnailSrc}" class="capsule-avatar" alt="${safeName}" onerror="handleThumbnailError(this)">
+    <span class="capsule-name">${nameToShow}</span>
+  </span>`;
+}
+
+export function createNameReplacer(playerMap, format = 'text') {
+  const textCache = new Map();
+  // Unique placeholder prefix (Markdown safe - no leading underscores)
+  const PLACEHOLDER_PREFIX = `KGL_CAP_${Math.floor(Math.random() * 1000000)}_`;
+
+  const sortedPlayerReplacements = [...playerMap.keys()]
+    .sort((a, b) => b.length - a.length)
+    .map((characterName, index) => {
+      const player = playerMap.get(characterName);
+      if (!player) return null;
+
+      const displayName = player.display_name || characterName;
+      if (format === 'text' && displayName === characterName) return null;
+
+      const replacementHtml = format === 'html'
+        ? createPlayerCapsule(player)
+        : displayName;
+
+      // Wrap placeholder in unique characters to prevent partial prefix replacement during expansion
+      // (e.g. preventing KGL_CAP_1 from matching inside KGL_CAP_10)
+      const placeholder = `|${PLACEHOLDER_PREFIX}${index}|`;
+      const escapedName = characterName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+      // Regex handling "Player Name" simplification and word boundaries
+      // Match inside quotes (text) but try to avoid breaking attributes if simple replacer is used.
+      // Stronger boundary: include dots and hyphens in the exclusion to prevent prefix matching for versions/dots.
+      const regex = new RegExp(
+        `(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w.-])`,
+        'gi'
+      );
+
+      return { regex, placeholder, replacementHtml };
+    })
+    .filter(r => r !== null);
+
+  const replaceToPlaceholders = (text) => {
+    if (!text) return '';
+    let newText = text;
+    for (const { regex, placeholder } of sortedPlayerReplacements) {
+      newText = newText.replace(regex, `$1${placeholder}$3`);
+    }
+    return newText;
+  };
+
+  const expandPlaceholders = (text) => {
+    if (!text) return '';
+    let newText = text;
+    for (const { placeholder, replacementHtml } of sortedPlayerReplacements) {
+      // Global replace of the placeholder string
+      newText = newText.split(placeholder).join(replacementHtml);
+    }
+    return newText;
+  };
+
+  const replaceNames = function (text) {
+    if (!text) return '';
+    if (textCache.has(text)) return textCache.get(text);
+
+    let newText = replaceToPlaceholders(text);
+    newText = expandPlaceholders(newText);
+
+    textCache.set(text, newText);
+    return newText;
+  };
+
+  replaceNames.replaceToPlaceholders = replaceToPlaceholders;
+  replaceNames.expandPlaceholders = expandPlaceholders;
+
+  return replaceNames;
+}
 
 export function formatTimestamp(isoString) {
     if (!isoString) return '';
@@ -131,12 +213,8 @@ window.handleThumbnailError = function (img) {
       const roleText = player.role !== 'Unknown' ? `Role: ${roleDisplay}` : 'Role: Unknown';
 
       // Update content
-      let player_name_element = `<div class="player-name" title="${player.name}">${player.name}</div>`;
-      if (player.display_name && player.display_name !== player.name) {
-        player_name_element = `<div class="player-name" title="${player.name}">
-                ${player.name}<span class="display-name">${player.display_name}</span>
-            </div>`;
-      }
+      const name_to_display = player.display_name || player.name;
+      const player_name_element = `<div class="player-name" title="${player.name}">${name_to_display}</div>`;
 
       li.innerHTML = `
             <div class="avatar-container">
@@ -166,7 +244,7 @@ window.handleThumbnailError = function (img) {
   }
 
 export function updateEventLog(container, gameState, playerMap, onSpeak) {
-    const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
+  const audioState = window.kaggleWerewolf || { hasAudioTracks: false, isAudioEnabled: false, playbackRate: 1.0 };
     const audioToggleDisabled = !audioState.hasAudioTracks;
     const audioToggleEnabled = audioState.isAudioEnabled && !audioToggleDisabled;
     const audioToggleTitle = audioToggleDisabled ? 'Audio Not Available' : 'Toggle Audio';
@@ -177,7 +255,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       container.innerHTML = `
             <h1>
                 <span>Events</span>
-                <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View" style="margin-left: auto;">
+                <button id="reset-view-btn" class="reset-view-btn" title="Reset Camera View">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
                 </button>
                 <div id="header-controls" style="display: flex; align-items: center; gap: 15px;">
@@ -254,7 +332,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
             reasoningText = window.werewolfGamePlayer.playerIdReplacer(reasoningText);
           }
           reasoningHtml = `<div class="reasoning-text" id="${reasoningId}">"${reasoningText}"</div>`;
-          reasoningToggleHtml = `<span class="reasoning-toggle" title="Show/Hide Reasoning" onclick="event.stopPropagation(); document.getElementById('${reasoningId}').classList.toggle('visible')">
+          reasoningToggleHtml = `<span class="reasoning-toggle${window.werewolfGamePlayer.isReasoningMode ? ' enabled' : ''}" title="Show/Hide Reasoning" onclick="event.stopPropagation(); this.classList.toggle('enabled'); document.getElementById('${reasoningId}').classList.toggle('visible')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                 </span>`;
         }
@@ -285,9 +363,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${speaker.thumbnail}" alt="${speaker.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${speaker.name}</span>
-                                    ${speaker.display_name && speaker.name !== speaker.display_name ? `<span class="display-name">${speaker.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${speaker.display_name || speaker.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
@@ -384,7 +461,7 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           case 'system':
             if (entry.text && entry.text.includes('has begun')) return;
 
-            let systemText = entry.text;
+            let systemText = entry.text || '';
 
             const listRegex = /\\\[(.*?)\\\](\\s*[.,?!])?/g;
 
@@ -395,6 +472,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
               }
               return cleanedContent;
             });
+
+            systemText = applyTranscriptOverrides(systemText);
 
             const finalSystemText = window.werewolfGamePlayer.playerIdReplacer(systemText);
 
@@ -465,9 +544,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
                         <img src="${voter.thumbnail}" alt="${voter.name}" class="chat-avatar" onerror="handleThumbnailError(this)">
                         <div class="message-content">
                             <cite>
-                                <span> <span>${voter.name}</span>
-                                    ${voter.display_name && voter.name !== voter.display_name ? `<span class="display-name">${voter.display_name}</span>` : ''}
-                                </span> ${reasoningToggleHtml}
+                                 <span> <span>${voter.display_name || voter.name}</span>
+                                 </span> ${reasoningToggleHtml}
                                 ${timestampHtml}
                             </cite>
                             <div class="balloon">
@@ -558,6 +636,8 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
       if (window.werewolfGamePlayer.isReasoningMode === undefined) {
         window.werewolfGamePlayer.isReasoningMode = false;
       }
+      // Initialize visual state
+      globalToggle.classList.toggle('enabled', window.werewolfGamePlayer.isReasoningMode);
 
       globalToggle.onclick = (event) => {
         event.stopPropagation();
@@ -571,11 +651,20 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
           reasoningTexts.forEach((el) => {
             el.classList.toggle('visible', shouldShow);
           });
+
+          // Sync individual toggle buttons
+          const individualToggles = logUl.querySelectorAll('.reasoning-toggle');
+          individualToggles.forEach(toggle => {
+            toggle.classList.toggle('enabled', shouldShow);
+          });
         }
 
         // --- 2. Toggle Global Reasoning State ---
         window.werewolfGamePlayer.isReasoningMode = !window.werewolfGamePlayer.isReasoningMode;
         const isGlobalReasoningOn = window.werewolfGamePlayer.isReasoningMode;
+
+        // Toggle visual state
+        globalToggle.classList.toggle('enabled', isGlobalReasoningOn);
 
         // --- 3. Toggle 3D Bubble Reasoning (Legacy) ---
         const allPlayerUIs = document.querySelectorAll('.player-ui-container.chat-active');
@@ -645,6 +734,10 @@ export function updateEventLog(container, gameState, playerMap, onSpeak) {
     const speedLabel = container.querySelector('#speed-label');
 
   if (speedSlider) {
+    speedSlider.onclick = (e) => {
+      e.stopPropagation();
+    };
+
       speedSlider.oninput = (e) => {
         const newRate = parseFloat(e.target.value);
         // Use custom event for speed change (legacy audio-speed)

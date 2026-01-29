@@ -40,6 +40,6 @@
     "preact": "^10.27.2"
   },
   "peerDependencies": {
-    "@kaggle-environments/core": "*"
+    "@kaggle-environments/core": "workspace:*"
   }
 }

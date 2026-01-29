@@ -1,8 +1,11 @@
+import { applyTranscriptOverrides } from '../utils/transcriptUtils.js';
 let context = null;
 
 export function setAudioContext(ctx) {
   context = ctx;
 }
+
+const AUDIO_SPEED_MULTIPLIER = 1.6;
 
 const audioState = window.kaggleWerewolf || {
   audioQueue: [],
@@ -11,7 +14,7 @@ const audioState = window.kaggleWerewolf || {
   isPaused: false,
   lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
   audioPlayer: new Audio(),
-  playbackRate: 1,
+  playbackRate: 1.0,
   allEvents: null,
   audioContextActivated: false,
 };
@@ -19,6 +22,80 @@ const audioState = window.kaggleWerewolf || {
 // Ensure it is globally available as legacy renderer expects it
 if (!window.kaggleWerewolf) {
   window.kaggleWerewolf = audioState;
+}
+
+/**
+ * Centrally manages fetching and rebasing the audio map.
+ * Supports episodic paths (/audio/${episodeId}/audio_map.json) with environment fallbacks.
+ * @param {string|null} episodeId 
+ * @param {string|null} envUrl 
+ */
+export async function tryLoadAudioMap(episodeId, envUrl) {
+  if (window.AUDIO_MAP) return;
+  if (!episodeId && !envUrl) return;
+
+  // Determine where we are right now
+  const currentPath = window.location.pathname;
+  const directoryPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+  const absoluteBase = `${window.location.origin}${directoryPath}`;
+
+  let audioMapUrl = null;
+
+  if (episodeId) {
+    // Force absolute pathing to the current subfolder
+    audioMapUrl = `${absoluteBase}audio/${episodeId}/audio_map.json`;
+  } else if (envUrl) {
+    // If envUrl is relative (e.g. /static/...), resolve it against the origin
+    audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
+  }
+
+  if (!audioMapUrl) return;
+
+  try {
+    console.log(`[Werewolf] Attempting to load audio map from: ${audioMapUrl}`);
+    let response = await fetch(audioMapUrl);
+
+    // If episodic fetch failed (404/non-ok) and we have an env fallback, try the fallback
+    if (!response.ok && episodicUrl && envUrl && episodicUrl !== envUrl) {
+      console.warn(`[Werewolf] Episodic audio map not found at ${episodicUrl}, trying fallback from env: ${envUrl}`);
+      response = await fetch(envUrl);
+      if (!response.ok) throw new Error(`Fallback fetch failed with status ${response.status}`);
+    } else if (!response.ok) {
+      throw new Error(`Fetch failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Final resolved URL used for rebasing
+    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : audioMapUrl;
+
+    // Rebase audio paths relative to the map file directory
+    const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
+    if (audioMapDir) {
+      for (const key in data) {
+        if (typeof data[key] === 'string' && !data[key].startsWith('http') && !data[key].startsWith('/')) {
+          data[key] = audioMapDir + data[key];
+        }
+      }
+    }
+
+    window.AUDIO_MAP = data;
+    audioState.hasAudioTracks = Object.keys(data).length > 0;
+
+    if (audioState.hasAudioTracks) {
+      audioState.isAudioEnabled = true; // Auto-enable if tracks were found
+      console.log(`[Werewolf] Audio map loaded successfully (${Object.keys(data).length} tracks).`);
+
+      // Update UI if present
+      const soundToggle = document.getElementById('sound-toggle');
+      if (soundToggle) {
+        soundToggle.classList.remove('disabled');
+        soundToggle.textContent = '🔊';
+      }
+    }
+  } catch (e) {
+    console.error(`[Werewolf] Failed to load audio map:`, e);
+  }
 }
 
 export function loadQueueFrom(startIndex) {
@@ -140,7 +217,7 @@ export function loadQueueFrom(startIndex) {
           } else if (description.includes('Voting phase begins')) {
           audioEventDetails = { message: 'Exile voting begins!', speaker: 'moderator' };
           } else {
-          audioEventDetails = { message: entry.description, speaker: 'moderator' };
+            audioEventDetails = { message: applyTranscriptOverrides(entry.description || ''), speaker: 'moderator' };
           }
       } else if (!audioEventDetails && event_name === 'day_start') {
           audioEventDetails = { message: `Day ${day_count} begins!`, speaker: 'moderator' };
@@ -298,32 +375,81 @@ export function playNextInQueue(isContinuous = true) {
   }
 
   if (audioPath) {
-    console.debug(
-      `DEBUG: [playNextInQueue] Popped event for index: ${event.allEventsIndex}. Audio key: "${audioKey}"`
-    );
-    console.debug(`DEBUG: [playNextInQueue] Playing audio: ${audioPath}`);
-    audioState.audioPlayer.src = audioPath;
-    audioState.audioPlayer.playbackRate = audioState.playbackRate;
-    audioState.audioPlayer.onended = () => {
-      console.debug(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
-      audioState.isAudioPlaying = false;
-      if (!audioState.isPaused && isContinuous) {
-        console.debug('DEBUG: [onended] Calling playNextInQueue recursively.');
-        playNextInQueue(isContinuous);
-      } else {
-        console.debug('DEBUG: [onended] Loop stopped. isPaused or !isContinuous.');
+    const originalPath = audioPath;
+    const playAttempts = [];
+
+    // 1. Try Local Path (only if EpisodeId exists and path is relative)
+    if (audioState.episodeId && !originalPath.startsWith('/') && !originalPath.startsWith('http')) {
+      // originalPath usually includes "audio/" prefix (e.g. "audio/hash.wav")
+      // We append this directly to the episode-specific local base path.
+      // Final result: "/audio/{episodeId}/audio/{hash}.wav"
+      const localPath = `/audio/${audioState.episodeId}/${originalPath}`;
+      playAttempts.push(localPath);
+    }
+
+    // 2. Fallback to Original Path
+    playAttempts.push(originalPath);
+
+    /**
+     * Recursive function to try playing paths in order.
+     * @param {number} index - Current attempt index.
+     */
+    const tryPlayAudio = (index) => {
+      if (index >= playAttempts.length) {
+        console.error(`DEBUG: [tryPlayAudio] All attempts failed for key: "${audioKey}"`);
+        audioState.isAudioPlaying = false;
+        if (!audioState.isPaused && isContinuous) {
+          playNextInQueue(isContinuous);
+        }
+        return;
       }
+
+      const currentPath = playAttempts[index];
+      console.debug(`DEBUG: [tryPlayAudio] Attempt ${index + 1}/${playAttempts.length}: ${currentPath}`);
+
+      audioState.audioPlayer.src = currentPath;
+      audioState.audioPlayer.playbackRate = audioState.playbackRate * AUDIO_SPEED_MULTIPLIER;
+
+      // Reset handlers for this attempt
+      audioState.audioPlayer.onended = () => {
+        console.debug(`DEBUG: [onended] Audio for index ${event.allEventsIndex} finished.`);
+        audioState.isAudioPlaying = false;
+        if (!audioState.isPaused && isContinuous) {
+          console.debug('DEBUG: [onended] Calling playNextInQueue recursively.');
+          playNextInQueue(isContinuous);
+        } else {
+          console.debug('DEBUG: [onended] Loop stopped. isPaused or !isContinuous.');
+        }
+      };
+
+      audioState.audioPlayer.onerror = (e) => {
+        console.warn(`DEBUG: [onerror] Failed to play: ${currentPath}. Trying next...`, e);
+        tryPlayAudio(index + 1);
+      };
+
+      audioState.audioPlayer.play().catch((e) => {
+        console.warn(`DEBUG: [play.catch] Audio play rejected: ${currentPath}. Trying next...`, e);
+        // Often play() rejects if src is invalid or user interaction blocked, 
+        // but if it's a 404, onerror usually fires too. 
+        // To avoid double-calling, we might want to check audioState.isAudioPlaying?
+        // But simpler: just let onerror handle loading errors. 
+        // However, if play() fails due to interaction validation, we might want to stop?
+        // For 404s, play() usually returns a promise that stays pending until loaded? 
+        // actually for 404, the browser fires error event on the element.
+        // We'll let onerror handle logic to proceed, BUT if play() throws synchronously (e.g. NotAllowedError),
+        // we might not get an onerror.
+        if (e.name === 'NotAllowedError') {
+          console.error("Autoplay blocked. User interaction required.");
+          audioState.isAudioPlaying = false;
+          // Don't retry other paths if it's an interaction issue
+        }
+        // If it's not an interaction error, we might want to ensure we switch.
+        // But usually onerror covers network/format errors.
+      });
     };
-    audioState.audioPlayer.onerror = () => {
-      console.error(`DEBUG: [onerror] Audio failed to play for key: "${audioKey}"`);
-      audioState.isAudioPlaying = false;
-      playNextInQueue(isContinuous);
-    };
-    audioState.audioPlayer.play().catch((e) => {
-      console.error(`DEBUG: [play.catch] Audio failed to play:`, e);
-      audioState.isAudioPlaying = false;
-      playNextInQueue(isContinuous);
-    });
+
+    // Start with the first attempt
+    tryPlayAudio(0);
   } else {
     console.warn(`DEBUG: [playNextInQueue] No audio for event index: ${event.allEventsIndex}. Using setTimeout.`);
     setTimeout(() => {

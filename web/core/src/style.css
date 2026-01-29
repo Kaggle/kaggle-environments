@@ -204,3 +204,83 @@ body,
   background-color: var(--control-background-color);
   color: var(--primary-text-color);
 }
+
+/* Slider container with event markers */
+.slider-container {
+  position: relative;
+  flex-grow: 1;
+  margin: 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.slider-container input[type="range"] {
+  margin: 0;
+}
+
+/* Event markers overlay */
+.event-markers {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.event-marker {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-color);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.9;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  z-index: 1;
+}
+
+.event-marker:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  opacity: 1;
+}
+
+/* Event tooltip */
+.event-tooltip {
+  position: absolute;
+  transform: translateX(-50%) translateY(-100%);
+  background-color: var(--background-color);
+  color: var(--primary-text-color);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--divider-color);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Replay mode toggle button */
+.replay-mode-toggle {
+  background-color: var(--control-background-color);
+  color: var(--primary-text-color);
+  border: 1px solid var(--divider-color);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: border-color 0.2s;
+}
+
+.replay-mode-toggle:hover {
+  border-color: var(--accent-color);
+}
+
+.replay-mode-toggle:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
