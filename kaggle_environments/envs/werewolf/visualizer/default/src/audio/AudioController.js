@@ -1,5 +1,5 @@
 import { applyTranscriptOverrides } from '../utils/transcriptUtils.js';
-import { fetchAndRebaseAssetMap, getEpisodeAssetUrl } from '@kaggle-environments/core';
+import { getEpisodeAssetUrl } from '@kaggle-environments/core';
 
 let context = null;
 
@@ -46,40 +46,26 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
     // If envUrl is relative (e.g. /static/...), resolve it against the origin
     audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
   }
-  const legacyEpisodicUrl = episodeId ? `/audio/${episodeId}/audio_map.json` : null;
->>>>>>> cfac2894 (Update the audio file loading location)
-
-  const urlsToTry = [episodicUrl, legacyEpisodicUrl, envUrl].filter(Boolean);
-
-  if (urlsToTry.length === 0) return;
-
-  let response = null;
-  let successUrl = null;
-
-  for (const url of urlsToTry) {
-    try {
-      console.log(`[Werewolf] Attempting to load audio map from: ${url}`);
-      response = await fetch(url);
-      if (response.ok) {
-        successUrl = url;
-        break;
-      }
-      console.warn(`[Werewolf] Audio map not found at ${url} (status ${response.status})`);
-    } catch (e) {
-      console.warn(`[Werewolf] Failed to fetch from ${url}:`, e);
-    }
-  }
-
-  if (!response || !response.ok) {
-    console.error(`[Werewolf] Failed to load audio map from any source: ${urlsToTry.join(', ')}`);
-    return;
-  }
+  if (!audioMapUrl) return;
 
   try {
+    console.log(`[Werewolf] Attempting to load audio map from: ${audioMapUrl}`);
+    let response = await fetch(audioMapUrl);
+
+    // Special fallback for development/legacy: if first fetch fails and it was an episodic one, try env fallback
+    if (!response.ok && episodeId && envUrl && audioMapUrl !== envUrl) {
+      console.warn(`[Werewolf] Episodic audio map not found at ${audioMapUrl}, trying fallback from env: ${envUrl}`);
+      response = await fetch(envUrl);
+    }
+
+    if (!response.ok) {
+      throw new Error(`Fetch failed with status ${response.status}`);
+    }
+
     const data = await response.json();
 
     // Final resolved URL used for rebasing
-    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : successUrl;
+    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : audioMapUrl;
 
     // Rebase audio paths relative to the map file directory
     const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
