@@ -1,9 +1,6 @@
 import { applyTranscriptOverrides } from '../utils/transcriptUtils.js';
-<<<<<<< HEAD
 import { fetchAndRebaseAssetMap, getEpisodeAssetUrl } from '@kaggle-environments/core';
 
-=======
->>>>>>> fcf2537d (Do partial correction to replace bad english in game record)
 let context = null;
 
 export function setAudioContext(ctx) {
@@ -49,26 +46,40 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
     // If envUrl is relative (e.g. /static/...), resolve it against the origin
     audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
   }
+  const legacyEpisodicUrl = episodeId ? `/audio/${episodeId}/audio_map.json` : null;
+>>>>>>> cfac2894 (Update the audio file loading location)
 
-  if (!audioMapUrl) return;
+  const urlsToTry = [episodicUrl, legacyEpisodicUrl, envUrl].filter(Boolean);
+
+  if (urlsToTry.length === 0) return;
+
+  let response = null;
+  let successUrl = null;
+
+  for (const url of urlsToTry) {
+    try {
+      console.log(`[Werewolf] Attempting to load audio map from: ${url}`);
+      response = await fetch(url);
+      if (response.ok) {
+        successUrl = url;
+        break;
+      }
+      console.warn(`[Werewolf] Audio map not found at ${url} (status ${response.status})`);
+    } catch (e) {
+      console.warn(`[Werewolf] Failed to fetch from ${url}:`, e);
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.error(`[Werewolf] Failed to load audio map from any source: ${urlsToTry.join(', ')}`);
+    return;
+  }
 
   try {
-    console.log(`[Werewolf] Attempting to load audio map from: ${audioMapUrl}`);
-    let response = await fetch(audioMapUrl);
-
-    // If episodic fetch failed (404/non-ok) and we have an env fallback, try the fallback
-    if (!response.ok && episodicUrl && envUrl && episodicUrl !== envUrl) {
-      console.warn(`[Werewolf] Episodic audio map not found at ${episodicUrl}, trying fallback from env: ${envUrl}`);
-      response = await fetch(envUrl);
-      if (!response.ok) throw new Error(`Fallback fetch failed with status ${response.status}`);
-    } else if (!response.ok) {
-      throw new Error(`Fetch failed with status ${response.status}`);
-    }
-
     const data = await response.json();
 
     // Final resolved URL used for rebasing
-    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : audioMapUrl;
+    const resolvedUrl = (response.url && !response.url.includes('blob:')) ? response.url : successUrl;
 
     // Rebase audio paths relative to the map file directory
     const audioMapDir = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);

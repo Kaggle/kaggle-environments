@@ -142,7 +142,7 @@ def main():
         return
 
     # Configuration
-    bucket_base = "gs://kaggle-static/episode-visualizers/werewolf/default/audio"
+    bucket_base = "gs://kaggle-static/episode-assets/werewolf/episodes"
     
     print(f"Found {len(replay_files)} replays.")
     print(f"Processing with {args.workers} workers...")
