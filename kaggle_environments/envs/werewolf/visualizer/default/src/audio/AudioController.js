@@ -88,10 +88,12 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
       console.log(`[Werewolf] Audio map loaded successfully (${Object.keys(data).length} tracks).`);
 
       // Update UI if present
-      const soundToggle = document.getElementById('sound-toggle');
+      const soundToggle = document.getElementById('global-audio-toggle');
       if (soundToggle) {
         soundToggle.classList.remove('disabled');
-        soundToggle.textContent = '🔊';
+        soundToggle.classList.add('enabled');
+        soundToggle.innerHTML = '&#x1F50A;';
+        soundToggle.title = 'Toggle Audio';
       }
     }
   } catch (e) {
