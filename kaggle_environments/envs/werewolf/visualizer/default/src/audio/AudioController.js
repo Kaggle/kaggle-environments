@@ -1,4 +1,6 @@
 import { applyTranscriptOverrides } from '../utils/transcriptUtils.js';
+import { fetchAndRebaseAssetMap, getEpisodeAssetUrl } from '@kaggle-environments/core';
+
 let context = null;
 
 export function setAudioContext(ctx) {
@@ -26,24 +28,20 @@ if (!window.kaggleWerewolf) {
 
 /**
  * Centrally manages fetching and rebasing the audio map.
- * Supports episodic paths (/audio/${episodeId}/audio_map.json) with environment fallbacks.
- * @param {string|null} episodeId 
- * @param {string|null} envUrl 
+ * Uses global episode-assets path (/episode-assets/werewolf/episodes/{episodeId}/audio_map.json)
+ * with environment URL fallback.
+ * @param {string|null} episodeId
+ * @param {string|null} envUrl
  */
 export async function tryLoadAudioMap(episodeId, envUrl) {
   if (window.AUDIO_MAP) return;
   if (!episodeId && !envUrl) return;
 
-  // Determine where we are right now
-  const currentPath = window.location.pathname;
-  const directoryPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
-  const absoluteBase = `${window.location.origin}${directoryPath}`;
-
   let audioMapUrl = null;
 
   if (episodeId) {
-    // Force absolute pathing to the current subfolder
-    audioMapUrl = `${absoluteBase}audio/${episodeId}/audio_map.json`;
+    // Use global episode-assets path (not bundled with visualizer)
+    audioMapUrl = getEpisodeAssetUrl({ gameName: 'werewolf', episodeId }, 'audio_map.json');
   } else if (envUrl) {
     // If envUrl is relative (e.g. /static/...), resolve it against the origin
     audioMapUrl = envUrl.startsWith('http') ? envUrl : `${window.location.origin}${envUrl}`;
