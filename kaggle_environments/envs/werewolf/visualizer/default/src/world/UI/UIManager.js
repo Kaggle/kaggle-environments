@@ -21,10 +21,16 @@ export class UIManager {
     // Add click listener for expansion toggle
     this.subtitleContainer.addEventListener('click', () => this.toggleExpansion());
 
-    // Add global key listener for Enter key
+    // Add global key listener for shortcuts
     window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'e') {
+      const key = e.key.toLowerCase();
+      if (key === 'e') {
         this.toggleExpansion();
+      } else if (key === 'r') {
+        const reasoningToggle = document.getElementById('global-reasoning-toggle');
+        if (reasoningToggle) {
+          reasoningToggle.click();
+        }
       }
     });
   }
