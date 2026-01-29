@@ -63,7 +63,7 @@ export const getPokerStepRenderTime = (
       }
       return defaultTime;
     case 'final':
-      return defaultTime * 1.2;
+      return 5000;
     default:
       return defaultTime;
   }
