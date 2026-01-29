@@ -568,8 +568,8 @@ class VertexTTSGenerator(TTSGenerator):
 
     @retry(
         retry=retry_if_exception_type(ResourceExhausted),
-        stop=stop_after_attempt(10),
-        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(20),
+        wait=wait_exponential(multiplier=2, min=10, max=120),
         before_sleep=lambda retry_state: logger.warning(f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
     )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
