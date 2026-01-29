@@ -1141,6 +1141,17 @@ body,
     opacity: 1;
 }
 
+.cinematic-subtitle-container.expanded {
+    bottom: 20px;
+    padding: 20px 14px 20px 20px;
+    background: rgba(0, 0, 0, 0.85);
+    /* Even darker background */
+    border: 1px solid rgba(116, 185, 255, 0.5);
+}
+
+.cinematic-subtitle-container.expanded .cinematic-subtitle-content-wrapper {
+    max-height: 60vh;
+}
 .cinematic-subtitle-content-wrapper {
     flex: 1;
     max-height: 80px;

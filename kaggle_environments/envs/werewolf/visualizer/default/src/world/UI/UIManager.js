@@ -16,6 +16,27 @@ export class UIManager {
     (this.parent || document.body).appendChild(this.subtitleContainer);
 
     this.subtitleTimeout = null;
+    this.isExpanded = false;
+
+    // Add click listener for expansion toggle
+    this.subtitleContainer.addEventListener('click', () => this.toggleExpansion());
+
+    // Add global key listener for Enter key
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'e') {
+        this.toggleExpansion();
+      }
+    });
+  }
+
+  toggleExpansion() {
+    this.isExpanded = !this.isExpanded;
+    if (this.isExpanded) {
+      this.subtitleContainer.classList.add('expanded');
+    } else {
+      this.subtitleContainer.classList.remove('expanded');
+    }
+    console.debug(`[Werewolf] Subtitle expanded: ${this.isExpanded}`);
   }
 
   createPlayerUI(name, displayName, imageUrl, focusCallback) {
