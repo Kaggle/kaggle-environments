@@ -437,10 +437,15 @@ class LLMEnhancer:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to save cache: {e}")
 
-    def enhance_script(self, script: List[Dict], name_manager: NameManager) -> Dict[str, str]:
-        """Enhances the full game script in one go (or chunks)."""
+    def enhance_script(self, script: List[Dict], name_manager: NameManager, tqdm_kwargs: Dict = None) -> Dict[str, str]:
+        """Enhances the full game script in chunks for better context and progress reporting."""
         if self.disabled or not self.client:
             return {}
+
+        tqdm_kwargs = tqdm_kwargs or {}
+        tqdm_kwargs = tqdm_kwargs.copy()
+        tqdm_kwargs["desc"] = "LLM Enhancement"
+        tqdm_kwargs["unit"] = "chunk"
 
         # 1. Format script for LLM
         transcript_lines = []
@@ -456,53 +461,44 @@ class LLMEnhancer:
                 text = name_manager.replace_names(entry["text"])
                 transcript_lines.append(f"[{speaker_display}]: {text}")
 
-        transcript = "\n".join(transcript_lines)
+        # 2. Chunk and Process
+        chunk_size = 20
+        all_enhanced = {}
+        
+        chunks = [transcript_lines[i:i + chunk_size] for i in range(0, len(transcript_lines), chunk_size)]
+        
+        for chunk in tqdm(chunks, **tqdm_kwargs):
+            chunk_transcript = "\n".join(chunk)
+            prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
 
-        # Check cache logic could be improved, but for now assumption is unique scripts
-
-        prompt = self.prompt_template.replace("{transcript}", transcript)
-
-        logger.info(f"Sending full script ({len(script)} events) to Gemini for enhancement...")
-
-        try:
-            response = self.client.models.generate_content(
-                model="gemini-3-flash-preview",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
+            try:
+                response = self.client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    )
                 )
-            )
 
-            if response.text:
-                try:
-                    enhanced_map = json.loads(response.text)
-                    if isinstance(enhanced_map, list):
-                        logger.warning("LLM returned a list instead of a dict. Attempting to merge if possible.")
-                        # If list of dicts, merge them? Or just empty?
-                        # If it's a list, it might be [ { "Key": "Val" }, ... ]
-                        merged = {}
-                        for item in enhanced_map:
-                            if isinstance(item, dict):
-                                merged.update(item)
-                        if merged:
+                if response.text:
+                    try:
+                        enhanced_map = json.loads(response.text)
+                        if isinstance(enhanced_map, list):
+                            merged = {}
+                            for item in enhanced_map:
+                                if isinstance(item, dict):
+                                    merged.update(item)
                             enhanced_map = merged
-                            logger.info(f"Merged {len(merged)} entries from list.")
-                        else:
-                            logger.warning("Could not extract map from list. Using empty map.")
-                            enhanced_map = {}
 
-                    if not isinstance(enhanced_map, dict):
-                        logger.warning(f"LLM returned unexpected type: {type(enhanced_map)}. Using empty map.")
-                        enhanced_map = {}
+                        if isinstance(enhanced_map, dict):
+                            all_enhanced.update(enhanced_map)
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to decode JSON response from LLM for a chunk.")
+            except Exception as e:
+                logger.warning(f"LLM enhancement failed for a chunk: {e}")
 
-                    logger.info(f"Received {len(enhanced_map)} enhanced entries.")
-                    return enhanced_map
-                except json.JSONDecodeError:
-                    logger.warning("Failed to decode JSON response from LLM.")
-        except Exception as e:
-            logger.warning(f"LLM enhancement failed: {e}")
-
-        return {}
+        logger.info(f"Received {len(all_enhanced)} enhanced entries across {len(chunks)} chunks.")
+        return all_enhanced
 
     def enhance(self, text: str, speaker: str) -> str:
         """Enhances text if client is available and text is not cached."""
@@ -691,7 +687,7 @@ class AudioManager:
 
         # 1. Extract Full Context Script & Enhance
         chronological_script = parser.extract_chronological_script()
-        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager)
+        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager, tqdm_kwargs=self.tqdm_kwargs)
 
         # 2. Extract Unique Messages for Audio Generation (as before)
         unique_msgs, dyn_mod_msgs = parser.extract_messages()
@@ -966,7 +962,7 @@ def main():
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
-    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
+    parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
 
     args = parser.parse_args()
 
@@ -996,7 +992,7 @@ def main():
 
     # Components
     gemini_key = os.getenv("GEMINI_API_KEY")
-    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, args.disable_llm_enhancement)
+    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, not args.enable_llm_enhancement)
 
     if args.tts_provider == "vertex_ai":
         tts = VertexTTSGenerator(config.get_vertex_model())

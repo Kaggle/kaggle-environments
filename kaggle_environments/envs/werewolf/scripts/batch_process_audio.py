@@ -18,7 +18,7 @@ except ImportError:
     print("Could not import add_audio.py. Ensure it is in the same directory.")
     sys.exit(1)
 
-def process_single_episode_direct(replay_file, bucket_base, config_path, tts_provider, prompt_path, cache_path, disable_llm, keep_temp=False, position=0):
+def process_single_episode_direct(replay_file, bucket_base, config_path, tts_provider, prompt_path, cache_path, enable_llm, keep_temp=False, position=0):
     episode_id = os.path.splitext(os.path.basename(replay_file))[0]
     temp_out_dir = f"temp_audio_output/{episode_id}"
     
@@ -53,7 +53,7 @@ def process_single_episode_direct(replay_file, bucket_base, config_path, tts_pro
             tts_provider=tts_provider,
             prompt_path=prompt_path,
             cache_path=cache_path,
-            disable_llm=disable_llm,
+            enable_llm_enhancement=enable_llm,
             tqdm_kwargs=tqdm_kwargs
         )
 
@@ -116,7 +116,7 @@ def main():
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(script_dir, "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
-    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
+    parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
     
     args = parser.parse_args()
 
@@ -178,7 +178,7 @@ def main():
             return process_single_episode_direct(
                 file_path, bucket_base, args.config_path, 
                 args.tts_provider, args.prompt_path, args.cache_path, 
-                args.disable_llm_enhancement, args.keep_temp, 
+                args.enable_llm_enhancement, args.keep_temp, 
                 position=slot
             )
         finally:
