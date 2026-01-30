@@ -79,10 +79,10 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
  * A top level summary of the step. Usually the action taken
  * by the player whose turn it is.
  */
-export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string): string => {
+export const getGameStepLabel = (gameStep: BaseGameStep, gameName: string, replayMode?: ReplayMode): string => {
   switch (gameName) {
     case 'open_spiel_repeated_poker':
-      return getPokerStepLabel(gameStep as RepeatedPokerStep);
+      return getPokerStepLabel(gameStep as RepeatedPokerStep, replayMode);
     case 'open_spiel_chess':
       return getChessStepLabel(gameStep as ChessStep);
     case 'open_spiel_connect_four':

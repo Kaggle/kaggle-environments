@@ -1,3 +1,4 @@
+import { ReplayMode } from '@kaggle-environments/core';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '../v2/poker-steps-types';
 import { getActionStringsFromACPC } from './buildTimeline';
 
@@ -227,28 +228,33 @@ const _getEndCondition = (
   };
 };
 
-export const getPokerStepLabel = (gameStep: RepeatedPokerStep) => {
-  const currentHandNumber = gameStep.currentHandIndex + 1;
+export const getPokerStepLabel = (gameStep: RepeatedPokerStep, replayMode?: ReplayMode) => {
+
+  let stepLabelHandPrefix = '';
+  if (replayMode !== 'only-stream') {
+    stepLabelHandPrefix = `**Hand ${gameStep.currentHandIndex + 1}**: `;
+  }
+
   switch (gameStep.stepType) {
     case 'player-action':
       return `**Decision**: ${gameStep.players[gameStep.currentPlayer].actionDisplayText ?? ''}`;
     case 'deal-player-hands':
-      return `**Hand ${currentHandNumber}**: Dealing...`;
+      return `${stepLabelHandPrefix}Dealing...`;
     case 'deal-flop':
-      return `**Hand ${currentHandNumber}**: Flop`;
+      return `${stepLabelHandPrefix}Flop`;
     case 'deal-turn':
-      return `**Hand ${currentHandNumber}**: Turn`;
+      return `${stepLabelHandPrefix}Turn`;
     case 'deal-river':
-      return `**Hand ${currentHandNumber}**: River`;
+      return `${stepLabelHandPrefix}River`;
     case 'big-blind-post':
-      return `**Hand ${currentHandNumber}**: Post Big Blind`;
+      return `${stepLabelHandPrefix}Post Big Blind`;
     case 'small-blind-post':
-      return `**Hand ${currentHandNumber}**: Post Small Blind`;
+      return `${stepLabelHandPrefix}Post Small Blind`;
     case 'final': {
       const winners = (gameStep.players as RepeatedPokerStepPlayer[]).filter((p) => p.isWinner);
       return winners.length === 1
-        ? `**Hand ${currentHandNumber}**: 🎉 ${winners[0].name} wins ${winners[0].reward}! 🎉`
-        : `**Hand ${currentHandNumber}**: Split Pot`;
+        ? `${stepLabelHandPrefix}🎉 ${winners[0].name} wins ${winners[0].reward}! 🎉`
+        : `${stepLabelHandPrefix}Split Pot`;
     }
     case 'game-over': {
       const winningPlayer = (gameStep.players as RepeatedPokerStepPlayer[]).find((p) => p.isWinner);
