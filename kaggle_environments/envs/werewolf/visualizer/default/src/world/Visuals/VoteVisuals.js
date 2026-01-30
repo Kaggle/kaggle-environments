@@ -12,7 +12,7 @@ export class VoteVisuals {
     // Shared Resources
     this.ringGeometry = new this.THREE.RingGeometry(2, 2.2, 32);
     this.baseRingMaterial = new this.THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: 0xff0000,
       transparent: true,
       opacity: 0,
       side: this.THREE.DoubleSide,
@@ -26,8 +26,7 @@ export class VoteVisuals {
     shape.lineTo(0, 0.6); // Back to tip
 
     this.particleGeometry = new this.THREE.ShapeGeometry(shape);
-    this.particleGeometry.rotateX(Math.PI / 2); // Point tip along +Z
-    this.particleGeometry.rotateZ(Math.PI / 2); // Rotate into vertical plane (YZ)
+    this.particleGeometry.rotateX(Math.PI / 2); // Point tip along +Z (Horizontal)
 
     this.particleCount = 30;
     this.dummy = new this.THREE.Object3D();
@@ -99,7 +98,7 @@ export class VoteVisuals {
     this.animatingTrails.push(trail);
   }
 
-  updateTargetRing(target, targetName, voteCount) {
+  updateTargetRing(target, targetName, voteCount, color = 0xff0000) {
     if (!target) return;
 
     let ringData = this.activeTargetRings.get(targetName);
@@ -118,6 +117,7 @@ export class VoteVisuals {
     if (ringData) {
       if (voteCount > 0) {
         ringData.targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
+        ringData.material.color.setHex(color); // Match the action color
       } else {
         ringData.targetOpacity = 0;
       }
@@ -139,14 +139,18 @@ export class VoteVisuals {
       }
     });
 
+    const targetColors = new Map(); // Track color for each target
+
     votes.forEach((voteData, voterName) => {
       const { target: targetName, type } = voteData;
       const existingTrail = this.activeVoteArcs.get(voterName);
 
-      let color = 0x00ffff;
+      let color = 0xff0000; // Default to red for better visibility (Day votes)
       if (type === 'night_vote') color = 0xff0000;
       else if (type === 'doctor_heal_action') color = 0x00ff00;
       else if (type === 'seer_inspection') color = 0x800080;
+
+      targetColors.set(targetName, color); // Last action color wins for the ring
 
       if (existingTrail) {
         if (existingTrail.target !== targetName) {
@@ -166,7 +170,7 @@ export class VoteVisuals {
     });
 
     playerObjects.forEach((player, playerName) => {
-      this.updateTargetRing(player, playerName, targetVoteCounts.get(playerName) || 0);
+      this.updateTargetRing(player, playerName, targetVoteCounts.get(playerName) || 0, targetColors.get(playerName));
     });
   }
 
