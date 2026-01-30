@@ -148,7 +148,7 @@ export class VoteVisuals {
       let color = 0xff0000; // Default to red for better visibility (Day votes)
       if (type === 'night_vote') color = 0xff0000;
       else if (type === 'doctor_heal_action') color = 0x00ff00;
-      else if (type === 'seer_inspection') color = 0x800080;
+      else if (type === 'seer_inspection') color = 0x0000ff;
 
       targetColors.set(targetName, color); // Last action color wins for the ring
 
