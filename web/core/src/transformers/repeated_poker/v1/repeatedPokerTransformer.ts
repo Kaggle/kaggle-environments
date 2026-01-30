@@ -1,4 +1,3 @@
-import { ReplayMode } from '@kaggle-environments/core';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from '../v2/poker-steps-types';
 import { getActionStringsFromACPC } from './buildTimeline';
 
@@ -228,12 +227,8 @@ const _getEndCondition = (
   };
 };
 
-export const getPokerStepLabel = (gameStep: RepeatedPokerStep, replayMode?: ReplayMode) => {
-
-  let stepLabelHandPrefix = '';
-  if (replayMode !== 'only-stream') {
-    stepLabelHandPrefix = `**Hand ${gameStep.currentHandIndex + 1}**: `;
-  }
+export const getPokerStepLabel = (gameStep: RepeatedPokerStep, useSimpleSystemLabels?: boolean) => {
+  const stepLabelHandPrefix = useSimpleSystemLabels ? '': `**Hand ${gameStep.currentHandIndex + 1}**: `;
 
   switch (gameStep.stepType) {
     case 'player-action':
