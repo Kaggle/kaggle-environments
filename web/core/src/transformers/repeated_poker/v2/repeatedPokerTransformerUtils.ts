@@ -840,6 +840,73 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
         )
       );
     }
+
+    // 4. Handle end of REPLAY (last hand of the game, no next hand exists).
+    // This occurs when we've consumed all remaining raw steps without finding a next hand.
+    const isEndOfReplay = !endOfHand && rawStepsConsumed >= remainingRawSteps.length;
+    if (isEndOfReplay) {
+      // Use the last raw step for final state data
+      const lastRawStep = remainingRawSteps[remainingRawSteps.length - 1];
+      const finalJson = lastRawStep.current_universal_poker_json;
+      const handIndex = preDealStep.hand_number;
+      const finalRewards = lastRawStep.hand_returns?.[handIndex] ?? [0, 0];
+
+      // Generate final hand step
+      const finalHandStep = createFinalHandStep(
+        finalJson,
+        finalRewards,
+        preDealStep.hand_number,
+        preDealStep.dealer,
+        agents,
+        visualStepIndex++
+      );
+      newSteps.push(finalHandStep);
+
+      // Generate game-over step
+      const allReturns = lastRawStep.hand_returns ?? [];
+      const totalReturns = [0, 0];
+      allReturns.forEach((handReturn) => {
+        totalReturns[0] += handReturn[0];
+        totalReturns[1] += handReturn[1];
+      });
+
+      let overallWinnerId = -1;
+      if (totalReturns[0] > totalReturns[1]) overallWinnerId = 0;
+      else if (totalReturns[1] > totalReturns[0]) overallWinnerId = 1;
+
+      const gameOverPlayers: RepeatedPokerStepPlayer[] = (finalHandStep.players as RepeatedPokerStepPlayer[]).map(
+        (player) => {
+          const totalWinnings = totalReturns[player.id];
+          const isOverallWinner = player.id === overallWinnerId;
+          return {
+            ...player,
+            chipStack: totalWinnings,
+            currentBet: 0,
+            cards: '',
+            reward: totalWinnings,
+            isWinner: isOverallWinner,
+            actionDisplayText: '',
+            isTurn: false,
+            isDealer: false,
+          };
+        }
+      );
+
+      const gameOverStep: RepeatedPokerStep = {
+        stepType: 'game-over',
+        communityCards: '',
+        pot: 0,
+        step: visualStepIndex++,
+        winOdds: [],
+        bestFiveCardHands: ['', ''],
+        bestHandRankTypes: ['', ''],
+        currentPlayer: -1,
+        currentHandIndex: preDealStep.hand_number,
+        players: gameOverPlayers,
+      };
+      newSteps.push(gameOverStep);
+    }
+
     return {
       newSteps: newSteps,
       rawStepsConsumed: rawStepsConsumed,
