@@ -1,8 +1,31 @@
 # Settings for the dump_audio.py script
 vertex_ai_model: null
 vertex_ai_regions:
-  - "us"
-  - "eu"
+  - "us-central1"
+  - "us-east4"
+  - "us-west1"
+  - "europe-west1"
+  - "us-central1"
+  - "europe-central2"
+  - "europe-north1"
+  - "europe-southwest1"
+  - "europe-west1"
+  - "europe-west12"
+  - "europe-west2"
+  - "europe-west3"
+  - "europe-west4"
+  - "europe-west8"
+  - "europe-west9"
+  - "northamerica-northeast1"
+  - "southamerica-east1"
+  - "us-east1"
+  - "us-east4"
+  - "us-east5"
+  - "us-south1"
+  - "us-west1"
+  - "us-west2"
+  - "us-west3"
+  - "us-west4"
 server:
   port: 7999
 paths:
@@ -10,47 +33,47 @@ paths:
   debug_audio_dir_name: "debug_audio"
   output_html_filename: "replay.html"
 voices:
-  moderator: "en-US-Chirp3-HD-Fenrir"
+  moderator: "Fenrir"
   voice_pool:
-    - "en-US-Chirp3-HD-Achernar"
-    - "en-US-Chirp3-HD-Achird"
-    - "en-US-Chirp3-HD-Algenib"
-    - "en-US-Chirp3-HD-Algieba"
-    - "en-US-Chirp3-HD-Alnilam"
-    - "en-US-Chirp3-HD-Aoede"
-    - "en-US-Chirp3-HD-Autonoe"
-    - "en-US-Chirp3-HD-Callirrhoe"
-    - "en-US-Chirp3-HD-Charon"
-    - "en-US-Chirp3-HD-Despina"
-    - "en-US-Chirp3-HD-Enceladus"
-    - "en-US-Chirp3-HD-Erinome"
-    - "en-US-Chirp3-HD-Fenrir"
-    - "en-US-Chirp3-HD-Gacrux"
-    - "en-US-Chirp3-HD-Iapetus"
-    - "en-US-Chirp3-HD-Kore"
-    - "en-US-Chirp3-HD-Laomedeia"
-    - "en-US-Chirp3-HD-Leda"
-    - "en-US-Chirp3-HD-Orus"
-    - "en-US-Chirp3-HD-Pulcherrima"
-    - "en-US-Chirp3-HD-Puck"
-    - "en-US-Chirp3-HD-Rasalgethi"
-    - "en-US-Chirp3-HD-Sadachbia"
-    - "en-US-Chirp3-HD-Sadaltager"
-    - "en-US-Chirp3-HD-Schedar"
-    - "en-US-Chirp3-HD-Sulafat"
-    - "en-US-Chirp3-HD-Umbriel"
-    - "en-US-Chirp3-HD-Vindemiatrix"
-    - "en-US-Chirp3-HD-Zephyr"
-    - "en-US-Chirp3-HD-Zubenelgenubi"
+    - "Achernar"
+    - "Achird"
+    - "Algenib"
+    - "Algieba"
+    - "Alnilam"
+    - "Aoede"
+    - "Autonoe"
+    - "Callirrhoe"
+    - "Charon"
+    - "Despina"
+    - "Enceladus"
+    - "Erinome"
+    - "Fenrir"
+    - "Gacrux"
+    - "Iapetus"
+    - "Kore"
+    - "Laomedeia"
+    - "Leda"
+    - "Orus"
+    - "Pulcherrima"
+    - "Puck"
+    - "Rasalgethi"
+    - "Sadachbia"
+    - "Sadaltager"
+    - "Schedar"
+    - "Sulafat"
+    - "Umbriel"
+    - "Vindemiatrix"
+    - "Zephyr"
+    - "Zubenelgenubi"
   players:
-    Kai: 'en-US-Chirp3-HD-Kore'
-    Jordan: 'en-US-Chirp3-HD-Charon'
-    Charlie: 'en-US-Chirp3-HD-Leda'
-    Taylor: 'en-US-Chirp3-HD-Aoede'
-    Alex: 'en-US-Chirp3-HD-Zephyr'
-    Jamie: 'en-US-Chirp3-HD-Orus'
-    Quinn: 'en-US-Chirp3-HD-Puck'
-    Casey: 'en-US-Chirp3-HD-Fenrir'
+    Kai: 'Kore'
+    Jordan: 'Charon'
+    Charlie: 'Leda'
+    Taylor: 'Aoede'
+    Alex: 'Zephyr'
+    Jamie: 'Orus'
+    Quinn: 'Puck'
+    Casey: 'Fenrir'
 audio:
   name_simplification_map:
     "gpt-5.2-2025-12-11": "GPT 5.2"

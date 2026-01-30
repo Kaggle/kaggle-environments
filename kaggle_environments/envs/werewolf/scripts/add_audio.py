@@ -576,6 +576,10 @@ class VertexTTSGenerator(TTSGenerator):
         if not text:
             return None
 
+        # Clean custom markup: (params)[content] -> content
+        # Example: (rate="fast")[Hello] -> Hello
+        input_text = re.sub(r"\([^)]+\)\[([^\]]+)\]", r"\1", text)
+        
         # Vertex TTS (Standard) doesn't support 'style_prompt' natively in SynthesisInput yet
         # unless using a specific generative endpoint which this client might not target by default.
         # But if the user provides markup tags (e.g. SSML), we could use it.
@@ -618,15 +622,32 @@ class VertexTTSGenerator(TTSGenerator):
 class GeminiTTSGenerator(TTSGenerator):
     """Generates audio using Google GenAI TTS."""
 
-    def __init__(self, api_key: str):
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY required for Google GenAI.")
-        self.client = genai.Client(api_key=api_key)
+    def __init__(self, api_key: str = None, regions: List[str] = None):
+        # API Key is NOT needed for Vertex AI (uses ADC), but we might keep it if user wants mixed mode?
+        # User specified "charge through vertex ai", which implies Vertex AI Client (ADC).
+        # We'll use GOOGLE_CLOUD_PROJECT + ADC.
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        
+        # Determine region:
+        # 1. Randomly pick from provided regions if available (Rotation)
+        # 2. Fallback to env var GOOGLE_CLOUD_REGION
+        # 3. Fallback to "us-central1"
+        if regions:
+            location = random.choice(regions)
+        else:
+            location = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
+        
+        if not project_id:
+             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI Gemini.")
+
+        # Initialize with vertexai=True
+        self.client = genai.Client(vertexai=True, project=project_id, location=location)
+        logger.info(f"Initialized Gemini TTS via Vertex AI (Project: {project_id}, Location: {location})")
 
     @retry(
         retry=retry_if_exception_type(ResourceExhausted),
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(20),
+        wait=wait_exponential(multiplier=2, min=10, max=120),
         before_sleep=lambda retry_state: logger.warning(f"Quota exceeded (GenAI), retrying... (Attempt {retry_state.attempt_number})")
     )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
@@ -984,7 +1005,7 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 
     # TTS Generator
     if tts_provider == "google_genai":
-        tts = GeminiTTSGenerator(api_key)
+        tts = GeminiTTSGenerator(api_key, regions=config.vertex_ai_regions)
     else:
         model_name = config.get_vertex_model()
         regions = config.vertex_ai_regions
