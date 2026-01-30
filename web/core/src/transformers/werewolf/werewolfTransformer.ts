@@ -257,8 +257,13 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
       const buckets = {
         start: [] as any[], // Phase start, moderator announcements
         chat: [] as any[],  // Discussion / Chat
-        wake: [] as any[],  // Wakeup calls / Requests (Night specific mostly)
-        action: [] as any[], // Votes, heals, inspects (Night or Day)
+        werewolf_wake: [] as any[],
+        werewolf_vote: [] as any[],
+        doctor_wake: [] as any[],
+        doctor_save: [] as any[],
+        seer_wake: [] as any[],
+        seer_inspect: [] as any[],
+        day_vote: [] as any[],
         result: [] as any[], // Eliminations, exile results, save results
         end: [] as any[],   // Phase end dividers
         other: [] as any[]
@@ -268,8 +273,9 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         const dt = e.dataType || '';
         const en = e.event_name || '';
         const desc = e.description || '';
+        const txt = desc.toLowerCase();
 
-        // Prioritize Result types across all phases
+        // Eliminations and results (End of phase usually)
         if (dt === 'DayExileElectedDataEntry' ||
           dt === 'WerewolfNightEliminationDataEntry' ||
           dt === 'DoctorSaveDataEntry' ||
@@ -277,36 +283,45 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
           en === 'heal_result') {
           buckets.result.push(e);
         }
-        // Action types (Votes/Heals/Inspects)
-        else if (dt === 'DayExileVoteDataEntry' ||
-          dt === 'WerewolfNightVoteDataEntry' ||
-          dt === 'DoctorHealActionDataEntry' ||
-          dt === 'SeerInspectActionDataEntry' ||
-          dt === 'SeerInspectResultDataEntry' ||
-          en === 'inspect_result' ||
-          en === 'vote_result') {
-          buckets.action.push(e);
+        // Day Votes
+        else if (dt === 'DayExileVoteDataEntry') {
+          buckets.day_vote.push(e);
+        }
+        // Werewolf Actions
+        else if (dt === 'WerewolfNightVoteDataEntry' || (en === 'vote_result' && dt === 'WerewolfNightEliminationElectedDataEntry')) {
+          buckets.werewolf_vote.push(e);
+        }
+        else if (en === 'vote_request' && txt.includes('werewolf')) {
+          buckets.werewolf_wake.push(e);
+        }
+        // Doctor Actions
+        else if (dt === 'DoctorHealActionDataEntry') {
+          buckets.doctor_save.push(e);
+        }
+        else if (en === 'heal_request' || txt.includes('doctor')) {
+          buckets.doctor_wake.push(e);
+        }
+        // Seer Actions
+        else if (dt === 'SeerInspectActionDataEntry' || dt === 'SeerInspectResultDataEntry' || en === 'inspect_result') {
+          buckets.seer_inspect.push(e);
+        }
+        else if (en === 'inspect_request' || txt.includes('seer')) {
+          buckets.seer_wake.push(e);
         }
         // Chat/Discussion
         else if (dt === 'ChatDataEntry') {
           buckets.chat.push(e);
         }
-        // Start events
+          // Phase Starts
         else if (en === 'night_start' || en === 'day_start' || (desc.includes('begins') && (desc.includes('Day') || desc.includes('Night')))) {
           buckets.start.push(e);
         }
-        // Wakeup / Requests
-        else if (en === 'vote_request' || en === 'heal_request' || en === 'inspect_request' ||
-          desc.toLowerCase().includes('wake') || desc.toLowerCase().includes('open eyes')) {
-          buckets.wake.push(e);
-        }
-        // End events
+          // End dividers
         else if (en === 'phase_divider' && desc.includes('END')) {
           buckets.end.push(e);
         }
-        // General moderator announcements (if not handled above)
+          // Moderator announcements
         else if (en === 'moderator_announcement') {
-          // Put general announcements at start
           buckets.start.push(e);
         }
         else {
@@ -314,12 +329,18 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         }
       });
 
-      // Unified reordering strategy: Start -> Chat -> Wake -> Action -> Result -> End -> Other
+      // Precise Narrative Order:
+      // Start -> Chat -> (Werewolf) -> (Doctor) -> (Seer) -> DayVote -> Result -> End -> Other
       const reorderedBuffer = [
         ...buckets.start,
         ...buckets.chat,
-        ...buckets.wake,
-        ...buckets.action,
+        ...buckets.werewolf_wake,
+        ...buckets.werewolf_vote,
+        ...buckets.doctor_wake,
+        ...buckets.doctor_save,
+        ...buckets.seer_wake,
+        ...buckets.seer_inspect,
+        ...buckets.day_vote,
         ...buckets.result,
         ...buckets.end,
         ...buckets.other
