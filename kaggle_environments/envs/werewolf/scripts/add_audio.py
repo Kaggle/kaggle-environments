@@ -701,6 +701,10 @@ class GeminiTTSGenerator(TTSGenerator):
         if style_prompt:
             final_content = f"{style_prompt}: {text}"
 
+        # Dynamic timeout: at least 120s, plus more for longer text (0.5s per char safe buffer)
+        # Cap at 600s (10 mins) to prevent indefinite hangs
+        calc_timeout = max(120, min(600, len(final_content) * 0.5))
+
         response = self.client.models.generate_content(
             model="gemini-2.5-flash-tts",
             contents=final_content,
@@ -712,6 +716,7 @@ class GeminiTTSGenerator(TTSGenerator):
                     )
                 ),
             ),
+            timeout=calc_timeout,
         )
         return response.candidates[0].content.parts[0].inline_data.data
 
