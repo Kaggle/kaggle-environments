@@ -221,105 +221,113 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
 
   console.log(`[WerewolfTransformer] Total raw events: ${allRawEvents.length}`);
 
-  // Iterate and process events, detecting Night blocks
+  // Iterate and process events, detecting Phase blocks (Day or Night)
   let i = 0;
   while (i < allRawEvents.length) {
     const event = allRawEvents[i];
+    const txt = event.description || '';
 
-    // Check for Night Start
-    const isNightStart = event.event_name === 'night_start' ||
-      (event.description && event.description.includes('Night') && event.description.includes('begins'));
+    // Check for Phase Start (Day or Night)
+    const isNightStart = event.event_name === 'night_start' || (txt.includes('Night') && txt.includes('begins'));
+    const isDayStart = event.event_name === 'day_start' || (txt.includes('Day') && txt.includes('begins'));
 
-    if (isNightStart) {
-      // Look ahead to find the end of this night (Day Start or next Night Start or Game End)
-      const nightBuffer: any[] = [];
+    if (isNightStart || isDayStart) {
+      const isNight = isNightStart;
+      const phaseBuffer: any[] = [];
       let j = i;
+
+      // Buffer until next phase start or game end
       while (j < allRawEvents.length) {
         const nextE = allRawEvents[j];
         if (j > i && (
           nextE.event_name === 'day_start' ||
-          (nextE.description && nextE.description.includes('Day') && nextE.description.includes('begins')) ||
-          nextE.event_name === 'night_start' || // Should not happen ideally if structure is correct
+          nextE.event_name === 'night_start' ||
+          (nextE.description && (nextE.description.includes('Day') || nextE.description.includes('Night')) && nextE.description.includes('begins')) ||
           nextE.dataType === 'GameEndResultsDataEntry'
         )) {
           break;
         }
-        nightBuffer.push(nextE);
+        phaseBuffer.push(nextE);
         j++;
       }
 
-      console.log(`[WerewolfTransformer] Night block found at index ${i}, length ${nightBuffer.length}`);
+      console.log(`[WerewolfTransformer] ${isNight ? 'Night' : 'Day'} block found at index ${i}, length ${phaseBuffer.length}`);
 
-      // Reorder the night buffer
+      // Phase-specific buckets
       const buckets = {
-        start: [] as any[],
-        werewolf_wake: [] as any[],
-        werewolf_vote: [] as any[],
-        doctor_wake: [] as any[],
-        doctor_save: [] as any[],
-        seer_wake: [] as any[],
-        seer_inspect: [] as any[],
-        results: [] as any[],
-        end: [] as any[],
+        start: [] as any[], // Phase start, moderator announcements
+        chat: [] as any[],  // Discussion / Chat
+        wake: [] as any[],  // Wakeup calls / Requests (Night specific mostly)
+        action: [] as any[], // Votes, heals, inspects (Night or Day)
+        result: [] as any[], // Eliminations, exile results, save results
+        end: [] as any[],   // Phase end dividers
         other: [] as any[]
       };
 
-      nightBuffer.forEach((e: any) => {
+      phaseBuffer.forEach((e: any) => {
         const dt = e.dataType || '';
         const en = e.event_name || '';
-        const txt = e.description || '';
+        const desc = e.description || '';
 
-        // Prioritize specific data types
-        if (dt === 'WerewolfNightVoteDataEntry' || dt === 'WerewolfNightEliminationElectedDataEntry' || (en === 'vote_result' && dt === 'WerewolfNightEliminationElectedDataEntry')) {
-          buckets.werewolf_vote.push(e);
-        } else if (dt === 'DoctorHealActionDataEntry') {
-          buckets.doctor_save.push(e);
-        } else if (dt === 'SeerInspectActionDataEntry' || dt === 'SeerInspectResultDataEntry' || en === 'inspect_result') {
-          buckets.seer_inspect.push(e);
-        } else if (dt === 'WerewolfNightEliminationDataEntry' || dt === 'DoctorSaveDataEntry' || en === 'elimination' || en === 'heal_result') {
-          buckets.results.push(e);
-        } else if (en === 'night_start' || (txt.includes('Night') && txt.includes('begins'))) {
+        // Prioritize Result types across all phases
+        if (dt === 'DayExileElectedDataEntry' ||
+          dt === 'WerewolfNightEliminationDataEntry' ||
+          dt === 'DoctorSaveDataEntry' ||
+          en === 'elimination' ||
+          en === 'heal_result') {
+          buckets.result.push(e);
+        }
+        // Action types (Votes/Heals/Inspects)
+        else if (dt === 'DayExileVoteDataEntry' ||
+          dt === 'WerewolfNightVoteDataEntry' ||
+          dt === 'DoctorHealActionDataEntry' ||
+          dt === 'SeerInspectActionDataEntry' ||
+          dt === 'SeerInspectResultDataEntry' ||
+          en === 'inspect_result' ||
+          en === 'vote_result') {
+          buckets.action.push(e);
+        }
+        // Chat/Discussion
+        else if (dt === 'ChatDataEntry') {
+          buckets.chat.push(e);
+        }
+        // Start events
+        else if (en === 'night_start' || en === 'day_start' || (desc.includes('begins') && (desc.includes('Day') || desc.includes('Night')))) {
           buckets.start.push(e);
-        } else if (en === 'phase_divider') {
-          if (txt.includes('END')) {
-            buckets.end.push(e);
-          } else {
-            buckets.start.push(e);
-          }
-        } else if (en === 'vote_request' && txt.toLowerCase().includes('werewolf')) {
-          buckets.werewolf_wake.push(e);
-        } else if (en === 'heal_request' || txt.toLowerCase().includes('doctor')) {
-          buckets.doctor_wake.push(e);
-        } else if (en === 'inspect_request' || txt.toLowerCase().includes('seer')) {
-          buckets.seer_wake.push(e);
-        } else if (en === 'moderator_announcement') {
-          // General moderator announcements at start
+        }
+        // Wakeup / Requests
+        else if (en === 'vote_request' || en === 'heal_request' || en === 'inspect_request' ||
+          desc.toLowerCase().includes('wake') || desc.toLowerCase().includes('open eyes')) {
+          buckets.wake.push(e);
+        }
+        // End events
+        else if (en === 'phase_divider' && desc.includes('END')) {
+          buckets.end.push(e);
+        }
+        // General moderator announcements (if not handled above)
+        else if (en === 'moderator_announcement') {
+          // Put general announcements at start
           buckets.start.push(e);
-        } else {
+        }
+        else {
           buckets.other.push(e);
         }
       });
 
+      // Unified reordering strategy: Start -> Chat -> Wake -> Action -> Result -> End -> Other
       const reorderedBuffer = [
         ...buckets.start,
-        ...buckets.werewolf_wake,
-        ...buckets.werewolf_vote,
-        ...buckets.doctor_wake,
-        ...buckets.doctor_save,
-        ...buckets.seer_wake,
-        ...buckets.seer_inspect,
-        ...buckets.results,
+        ...buckets.chat,
+        ...buckets.wake,
+        ...buckets.action,
+        ...buckets.result,
         ...buckets.end,
         ...buckets.other
       ];
 
-      // Process the reordered buffer
       reorderedBuffer.forEach(processEvent);
-
-      // Advance outer loop
       i = j;
     } else {
-      // Normal event processing
       processEvent(event);
       i++;
     }
