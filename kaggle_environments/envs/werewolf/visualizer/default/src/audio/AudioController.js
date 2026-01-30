@@ -59,7 +59,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
       response = await fetchMap(episodicUrl);
       usedUrl = episodicUrl;
     } catch (e) {
-      console.warn(`[Werewolf] Failed to load episodic map from ${episodicUrl}:`, e);
+      console.warn('[Werewolf] Failed to load episodic map from:', episodicUrl, e);
     }
   }
 
@@ -72,7 +72,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
         usedUrl = localUrl;
       }
     } catch (e) {
-      console.warn(`[Werewolf] Failed to load env map from ${localUrl}:`, e);
+      console.warn('[Werewolf] Failed to load env map from:', localUrl, e);
     }
   }
 
