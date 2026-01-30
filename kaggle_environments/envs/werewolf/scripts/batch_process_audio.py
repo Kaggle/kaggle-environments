@@ -112,7 +112,7 @@ def main():
     # Args expected by add_audio (defaults matching add_audio.py)
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(script_dir, "configs/audio/standard.yaml"))
-    parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
+    parser.add_argument("--voice", type=str, default="gemini", choices=["chirp", "gemini"])
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(script_dir, "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
@@ -182,7 +182,7 @@ def main():
         try:
             return process_single_episode_direct(
                 file_path, bucket_base, args.config_path, 
-                args.tts_provider, args.prompt_path, args.cache_path, 
+                args.voice, args.prompt_path, args.cache_path, 
                 args.enable_llm_enhancement, args.keep_temp, 
                 position=slot
             )

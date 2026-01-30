@@ -1004,7 +1004,7 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
     enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
 
     # TTS Generator
-    if tts_provider == "google_genai":
+    if tts_provider == "gemini":
         tts = GeminiTTSGenerator(api_key, regions=config.vertex_ai_regions)
     else:
         model_name = config.get_vertex_model()
@@ -1029,18 +1029,29 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
+    parser.add_argument("-i", "--replay_file", type=str, required=True, help="Path to replay JSON.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory.")
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/standard.yaml"))
     parser.add_argument("--debug-audio", action="store_true", help="Generate debug audio only.")
     parser.add_argument("--serve", action="store_true", help="Start Vite server.")
-    parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
+    parser.add_argument("--voice", choices=["chirp", "gemini"], default="gemini", help="Voice model to use (chirp/gemini)")
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
     parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
+    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement (theatrical rewrites).")
 
     args = parser.parse_args()
+
+    # Determine LLM status
+    # Default to False if not specified, unless enable flag is set.
+    # But wait, logic below says disable_llm = args.disable...
+    # Let's keep existing logic structure but fixing the args for voice.
+
+    disable_llm = args.disable_llm_enhancement
+    if args.enable_llm_enhancement:
+        disable_llm = False
 
     # Defaults
     if not args.output_dir:
@@ -1060,10 +1071,10 @@ def main():
         return
 
     # Replay
-    if not os.path.exists(args.input_path):
-        logger.error(f"Replay not found: {args.input_path}")
+    if not os.path.exists(args.replay_file):
+        logger.error(f"Replay not found: {args.replay_file}")
         return
-    with open(args.input_path, "r", encoding="utf-8") as f:
+    with open(args.replay_file, "r", encoding="utf-8") as f:
         replay_data = json.load(f)
 
     # Components
