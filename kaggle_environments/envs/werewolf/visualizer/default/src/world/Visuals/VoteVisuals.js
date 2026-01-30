@@ -28,7 +28,7 @@ export class VoteVisuals {
     this.particleGeometry = new this.THREE.ShapeGeometry(shape);
     this.particleGeometry.rotateX(Math.PI / 2); // Point tip along +Z (Horizontal)
 
-    this.particleCount = 30;
+    this.particleCount = 20;
     this.dummy = new this.THREE.Object3D();
   }
 
@@ -68,7 +68,7 @@ export class VoteVisuals {
       },
       update: () => {
         const elapsedTime = (Date.now() - trail.startTime) / 1000;
-        const speed = 1.0;
+        const speed = 0.5;
 
         for (let i = 0; i < this.particleCount; i++) {
           const t = (elapsedTime * speed + i / this.particleCount) % 1;
