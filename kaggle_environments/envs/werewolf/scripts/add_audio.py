@@ -15,9 +15,10 @@ import yaml
 from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
-from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
+from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted, NotFound, FailedPrecondition
 from google.cloud import texttospeech
 from google.api_core.client_options import ClientOptions
+from google.auth.exceptions import DefaultCredentialsError
 import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.genai import types
@@ -678,26 +679,16 @@ class GeminiTTSGenerator(TTSGenerator):
         return self._generate_with_retry(text, voice, **kwargs)
 
     @retry(
-        retry=retry_if_exception_type((ResourceExhausted, NotFound, FailedPrecondition)),
+        retry=retry_if_exception_type(Exception),
         stop=stop_after_attempt(20),
         wait=wait_exponential(multiplier=2, min=2, max=60),
         before_sleep=lambda retry_state: logger.warning(f"Retrying due to error: {retry_state.outcome.exception()} (Attempt {retry_state.attempt_number})")
     )
     def _generate_with_retry(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
-        # We need to rotate client if previous attempt failed with specific errors.
-        # But tenacity retries the *same* function.
-        # Best way: Check if we are in a retry context (attempt > 1)?
-        # Or better: Catch the error, rotate, and re-raise.
-        
         try:
             return self._unsafe_generate(text, voice, **kwargs)
-        except (NotFound, FailedPrecondition) as e:
-            logger.warning(f"Region {self.current_region} failed with {e}. Rotating...")
-            self._rotate_client()
-            raise e # Raise to let tenacity wait and retry
-        except ResourceExhausted as e:
-            # Maybe rotate on Quota too? Quota is often regional.
-            logger.warning(f"Region {self.current_region} quota exhausted. Rotating...")
+        except Exception as e:
+            logger.warning(f"Region {self.current_region} failed with {type(e).__name__}: {e}. Rotating...")
             self._rotate_client()
             raise e
 
