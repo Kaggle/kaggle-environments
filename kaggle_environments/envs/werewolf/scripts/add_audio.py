@@ -260,6 +260,12 @@ class ReplayParser:
                                 "text": description,
                                 "day": event.get("day")
                             })
+                        elif event_name == EventName.VOTE_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Werewolves, who would you like to eliminate?", "day": event.get("day")})
+                        elif event_name == EventName.HEAL_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Doctor, who would you like to save?", "day": event.get("day")})
+                        elif event_name == EventName.INSPECT_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Seer, who would you like to inspect?", "day": event.get("day")})
                     except:
                         pass
 
@@ -393,6 +399,12 @@ class ReplayParser:
                 dynamic_moderator_messages.add("Discussion begins!")
             elif "Voting phase begins" in description:
                 dynamic_moderator_messages.add("Exile voting begins!")
+        elif event_name == EventName.VOTE_REQUEST:
+            dynamic_moderator_messages.add("Wake up Werewolves, who would you like to eliminate?")
+        elif event_name == EventName.HEAL_REQUEST:
+            dynamic_moderator_messages.add("Wake up Doctor, who would you like to save?")
+        elif event_name == EventName.INSPECT_REQUEST:
+            dynamic_moderator_messages.add("Wake up Seer, who would you like to inspect?")
 
 
 class LLMEnhancer:
