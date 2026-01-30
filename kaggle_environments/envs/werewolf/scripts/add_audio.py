@@ -15,9 +15,10 @@ import yaml
 from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
-from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
+from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted, NotFound, FailedPrecondition
 from google.cloud import texttospeech
 from google.api_core.client_options import ClientOptions
+from google.auth.exceptions import DefaultCredentialsError
 import tenacity
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from google.genai import types
@@ -437,10 +438,15 @@ class LLMEnhancer:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to save cache: {e}")
 
-    def enhance_script(self, script: List[Dict], name_manager: NameManager) -> Dict[str, str]:
-        """Enhances the full game script in one go (or chunks)."""
+    def enhance_script(self, script: List[Dict], name_manager: NameManager, tqdm_kwargs: Dict = None) -> Dict[str, str]:
+        """Enhances the full game script in chunks for better context and progress reporting."""
         if self.disabled or not self.client:
             return {}
+
+        tqdm_kwargs = tqdm_kwargs or {}
+        tqdm_kwargs = tqdm_kwargs.copy()
+        tqdm_kwargs["desc"] = "LLM Enhancement"
+        tqdm_kwargs["unit"] = "chunk"
 
         # 1. Format script for LLM
         transcript_lines = []
@@ -456,53 +462,44 @@ class LLMEnhancer:
                 text = name_manager.replace_names(entry["text"])
                 transcript_lines.append(f"[{speaker_display}]: {text}")
 
-        transcript = "\n".join(transcript_lines)
+        # 2. Chunk and Process
+        chunk_size = 20
+        all_enhanced = {}
+        
+        chunks = [transcript_lines[i:i + chunk_size] for i in range(0, len(transcript_lines), chunk_size)]
+        
+        for chunk in tqdm(chunks, **tqdm_kwargs):
+            chunk_transcript = "\n".join(chunk)
+            prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
 
-        # Check cache logic could be improved, but for now assumption is unique scripts
-
-        prompt = self.prompt_template.replace("{transcript}", transcript)
-
-        logger.info(f"Sending full script ({len(script)} events) to Gemini for enhancement...")
-
-        try:
-            response = self.client.models.generate_content(
-                model="gemini-3-flash-preview",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
+            try:
+                response = self.client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    )
                 )
-            )
 
-            if response.text:
-                try:
-                    enhanced_map = json.loads(response.text)
-                    if isinstance(enhanced_map, list):
-                        logger.warning("LLM returned a list instead of a dict. Attempting to merge if possible.")
-                        # If list of dicts, merge them? Or just empty?
-                        # If it's a list, it might be [ { "Key": "Val" }, ... ]
-                        merged = {}
-                        for item in enhanced_map:
-                            if isinstance(item, dict):
-                                merged.update(item)
-                        if merged:
+                if response.text:
+                    try:
+                        enhanced_map = json.loads(response.text)
+                        if isinstance(enhanced_map, list):
+                            merged = {}
+                            for item in enhanced_map:
+                                if isinstance(item, dict):
+                                    merged.update(item)
                             enhanced_map = merged
-                            logger.info(f"Merged {len(merged)} entries from list.")
-                        else:
-                            logger.warning("Could not extract map from list. Using empty map.")
-                            enhanced_map = {}
 
-                    if not isinstance(enhanced_map, dict):
-                        logger.warning(f"LLM returned unexpected type: {type(enhanced_map)}. Using empty map.")
-                        enhanced_map = {}
+                        if isinstance(enhanced_map, dict):
+                            all_enhanced.update(enhanced_map)
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to decode JSON response from LLM for a chunk.")
+            except Exception as e:
+                logger.warning(f"LLM enhancement failed for a chunk: {e}")
 
-                    logger.info(f"Received {len(enhanced_map)} enhanced entries.")
-                    return enhanced_map
-                except json.JSONDecodeError:
-                    logger.warning("Failed to decode JSON response from LLM.")
-        except Exception as e:
-            logger.warning(f"LLM enhancement failed: {e}")
-
-        return {}
+        logger.info(f"Received {len(all_enhanced)} enhanced entries across {len(chunks)} chunks.")
+        return all_enhanced
 
     def enhance(self, text: str, speaker: str) -> str:
         """Enhances text if client is available and text is not cached."""
@@ -572,14 +569,18 @@ class VertexTTSGenerator(TTSGenerator):
 
     @retry(
         retry=retry_if_exception_type(ResourceExhausted),
-        stop=stop_after_attempt(10),
-        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(20),
+        wait=wait_exponential(multiplier=2, min=10, max=120),
         before_sleep=lambda retry_state: logger.warning(f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
     )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
 
+        # Clean custom markup: (params)[content] -> content
+        # Example: (rate="fast")[Hello] -> Hello
+        input_text = re.sub(r"\([^)]+\)\[([^\]]+)\]", r"\1", text)
+        
         # Vertex TTS (Standard) doesn't support 'style_prompt' natively in SynthesisInput yet
         # unless using a specific generative endpoint which this client might not target by default.
         # But if the user provides markup tags (e.g. SSML), we could use it.
@@ -602,8 +603,10 @@ class VertexTTSGenerator(TTSGenerator):
         try:
             synthesis_input = texttospeech.SynthesisInput(text=input_text)
             voice_params = texttospeech.VoiceSelectionParams(
-                language_code="en-US", name=voice, model_name=self.model_name
+                language_code="en-US", name=voice
             )
+            if self.model_name:
+                voice_params.model_name = self.model_name
             audio_conf = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3, sample_rate_hertz=24000
             )
@@ -620,51 +623,142 @@ class VertexTTSGenerator(TTSGenerator):
 class GeminiTTSGenerator(TTSGenerator):
     """Generates audio using Google GenAI TTS."""
 
-    def __init__(self, api_key: str):
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY required for Google GenAI.")
-        self.client = genai.Client(api_key=api_key)
+    def __init__(self, api_key: str = None, regions: List[str] = None):
+        self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        if not self.project_id:
+             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI Gemini.")
+        
+        self.regions = regions or [os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")]
+        self.current_region = None
+        self.client = None
+        self._rotate_client()
+
+    def _rotate_client(self):
+        """Selects a new random region and initializes the client."""
+        if not self.regions:
+            return
+
+        # Pick a random region
+        new_region = random.choice(self.regions)
+        if len(self.regions) > 1 and new_region == self.current_region:
+            # Try once more to get a different one
+            new_region = random.choice(self.regions)
+            
+        self.current_region = new_region
+        self.client = genai.Client(vertexai=True, project=self.project_id, location=self.current_region)
+        logger.info(f"Switched Gemini TTS client to region: {self.current_region}")
+
+    def _should_retry_error(exception):
+        """Custom retry predicate to include 400/404 errors for rotation."""
+        if isinstance(exception, ResourceExhausted):
+            return True
+        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
+            # 400/404/Precondition should trigger rotation and retry
+            return True
+        return False
+
+    def _on_retry(retry_state):
+        """Callback to rotate region on failure."""
+        exception = retry_state.outcome.exception()
+        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
+             # Access 'self' from the bound method if possible, or we need to design this carefully.
+             # Tenacity doesn't easily pass 'self' unless we use a class-based retry or closure.
+             # Simplified: We can just catch the exception inside generate() loop or use a mutable wrapper.
+             # BUT 'before_sleep' receives retry_state.
+             # We can make a method on the instance that handles this.
+             pass
+             
+        logger.warning(f"Error (Attempt {retry_state.attempt_number}): {exception}. Retrying...")
+
+    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+        # We implement a manual retry loop for rotation logic to ensure we have access to 'self'
+        # or we use tenacity with a check.
+        # Manual loop with tenacity for backoff is cleanest?
+        # Actually, let's keep tenacity for the mechanism but handle the rotation explicitly.
+        
+        return self._generate_with_retry(text, voice, **kwargs)
 
     @retry(
-        retry=retry_if_exception_type(ResourceExhausted),
-        stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=2, min=4, max=60),
-        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded (GenAI), retrying... (Attempt {retry_state.attempt_number})")
+        retry=retry_if_exception_type(Exception),
+        stop=stop_after_attempt(20),
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Retrying due to error: {retry_state.outcome.exception()} (Attempt {retry_state.attempt_number})")
     )
-    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+    def _generate_with_retry(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+        try:
+            return self._unsafe_generate(text, voice, **kwargs)
+        except Exception as e:
+            logger.warning(f"Region {self.current_region} failed with {type(e).__name__}: {e}. Rotating...")
+            self._rotate_client()
+            raise e
+
+    def _unsafe_generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
 
         style_prompt = kwargs.get("style_prompt")
-
-        # Combine instructions and text
-        # Format based on user example: "{Style Prompt}: {Text}"
-        # text now contains inline tags if provided by LLM.
-
         final_content = text
         if style_prompt:
             final_content = f"{style_prompt}: {text}"
 
-        try:
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-tts",
-                contents=final_content,
-                config=types.GenerateContentConfig(
-                    response_modalities=["AUDIO"],
-                    speech_config=types.SpeechConfig(
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
-                        )
-                    ),
+        # Dynamic timeout: at least 120s, plus more for longer text (0.5s per char safe buffer)
+        # Cap at 600s (10 mins) to prevent indefinite hangs
+        calc_timeout = max(120, min(600, len(final_content) * 0.5))
+
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash-tts",
+            contents=final_content,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                    )
                 ),
-            )
-            return response.candidates[0].content.parts[0].inline_data.data
-        except (GoogleAPICallError, ValueError) as e:
-            logger.error(f"  - Error generating audio (GenAI): {e}")
-            return None
+            ),
+            timeout=calc_timeout,
+        )
+        return response.candidates[0].content.parts[0].inline_data.data
+
+
+class RandomVoiceAssigner:
+    """Deterministically assigns voices to players from a pool."""
+
+    def __init__(self, voice_pool: List[str], fixed_map: Dict[str, str], seed: int):
+        self.voice_pool = sorted(voice_pool)  # Sort for stability
+        self.fixed_map = fixed_map
+        self.seed = seed
+        self.assigned_voices = {}
+        self.rng = random.Random(seed)
+
+    def assign_voices(self, players: List[str]) -> Dict[str, str]:
+        """Assigns voices to a list of players."""
+        # 1. Assign fixed voices first
+        remaining_players = []
+        for p in players:
+            if p in self.fixed_map:
+                self.assigned_voices[p] = self.fixed_map[p]
+            else:
+                remaining_players.append(p)
+
+        # 2. Assign from pool for remaining
+        # Shuffle pool deterministically
+        pool = list(self.voice_pool)
+        self.rng.shuffle(pool)
+
+        # Assign round-robin if pool is smaller than players (unlikely with 30 voices but safe)
+        for i, p in enumerate(remaining_players):
+            voice = pool[i % len(pool)]
+            self.assigned_voices[p] = voice
+        
+        return self.assigned_voices
+
+    def get_voice(self, player_name: str) -> str:
+        return self.assigned_voices.get(player_name, self.voice_pool[0] if self.voice_pool else "en-US-Journey-D")
 
 
 class AudioManager:
+
     """Orchestrates the audio generation process."""
 
     def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str, tqdm_kwargs: Dict = None):
@@ -691,7 +785,7 @@ class AudioManager:
 
         # 1. Extract Full Context Script & Enhance
         chronological_script = parser.extract_chronological_script()
-        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager)
+        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager, tqdm_kwargs=self.tqdm_kwargs)
 
         # 2. Extract Unique Messages for Audio Generation (as before)
         unique_msgs, dyn_mod_msgs = parser.extract_messages()
@@ -773,13 +867,36 @@ class AudioManager:
 
         # 3. Player Messages
         game_config = replay_data.get("configuration", {})
-        player_voices = self.config.voices.get("players", {})
-        player_voice_map = {
-            a["id"]: player_voices.get(a["id"]) for a in game_config.get("agents", [])
-        }
+        seed = game_config.get("seed", 0) # Default to 0 if no seed, but usually present
+        
+        # Initialize Voice Assigner
+        # Fixed map comes from config (keys are Original names usually, but here we deal with IDs or Names)
+        # config.voices['players'] maps Name -> Voice. 
+        # But here we have Agent IDs. 
+        # We need to map Agent ID -> Name -> Voice if possible? 
+        # Or just use the assigner to map Agent ID -> Voice directly?
+        # The assigner logic: fixed_map keys should match whatever we pass to assign_voices.
+        # We pass Agent IDs (e.g. "Cedric", "0", etc).
+        
+        # Original logic: 
+        # player_voices = self.config.voices.get("players", {})
+        # player_voice_map = { a["id"]: player_voices.get(a["id"]) ... }
+        # This implies standard.yaml has IDs as keys (Kai, Jordan etc).
+        # In this game, IDs are likely Names if not randomized? or strings.
+        
+        # Let's get all agent IDs first.
+        agents = game_config.get("agents", [])
+        agent_ids = [a["id"] for a in agents]
+        
+        # Retrieve voice pool and players map from config
+        voice_pool = self.config.data.get("voices", {}).get("voice_pool", [])
+        fixed_player_voices = self.config.voices.get("players", {})
+
+        assigner = RandomVoiceAssigner(voice_pool, fixed_player_voices, seed)
+        assigner.assign_voices(agent_ids)
 
         for speaker_id, text in unique_msgs:
-            voice = player_voice_map.get(speaker_id)
+            voice = assigner.get_voice(speaker_id)
             if voice:
                 add(speaker_id, text, text, voice, is_player=True)
             else:
@@ -878,17 +995,10 @@ class VisualizerServer:
 
         logger.info(f"\nStarting Vite server from '{visualizer_dir}'...")
 
-        # Relativize for cleaner env vars
-        try:
-            rel_replay = os.path.relpath(replay_path, visualizer_dir)
-            rel_audio_map = os.path.relpath(audio_map_path, visualizer_dir)
-        except ValueError:
-            rel_replay = replay_path
-            rel_audio_map = audio_map_path
-
+        # Use /@fs/ prefix for absolute paths to allow serving external files
         env = os.environ.copy()
-        env["VITE_REPLAY_FILE"] = rel_replay
-        env["VITE_AUDIO_MAP_FILE"] = rel_audio_map
+        env["VITE_REPLAY_FILE"] = f"/@fs/{replay_path}"
+        env["VITE_AUDIO_MAP_FILE"] = f"/@fs/{audio_map_path}"
         cmd = [
             "npx",
             "vite",
@@ -932,8 +1042,8 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
     enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
 
     # TTS Generator
-    if tts_provider == "google_genai":
-        tts = GeminiTTSGenerator(api_key)
+    if tts_provider == "gemini":
+        tts = GeminiTTSGenerator(api_key, regions=config.vertex_ai_regions)
     else:
         model_name = config.get_vertex_model()
         regions = config.vertex_ai_regions
@@ -957,18 +1067,29 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
+    parser.add_argument("-i", "--replay_file", type=str, required=True, help="Path to replay JSON.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory.")
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/standard.yaml"))
     parser.add_argument("--debug-audio", action="store_true", help="Generate debug audio only.")
     parser.add_argument("--serve", action="store_true", help="Start Vite server.")
-    parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
+    parser.add_argument("--voice", choices=["chirp", "gemini"], default="gemini", help="Voice model to use (chirp/gemini)")
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
-    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
+    parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
+    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement (theatrical rewrites).")
 
     args = parser.parse_args()
+
+    # Determine LLM status
+    # Default to False if not specified, unless enable flag is set.
+    # But wait, logic below says disable_llm = args.disable...
+    # Let's keep existing logic structure but fixing the args for voice.
+
+    disable_llm = args.disable_llm_enhancement
+    if args.enable_llm_enhancement:
+        disable_llm = False
 
     # Defaults
     if not args.output_dir:
@@ -988,15 +1109,15 @@ def main():
         return
 
     # Replay
-    if not os.path.exists(args.input_path):
-        logger.error(f"Replay not found: {args.input_path}")
+    if not os.path.exists(args.replay_file):
+        logger.error(f"Replay not found: {args.replay_file}")
         return
-    with open(args.input_path, "r", encoding="utf-8") as f:
+    with open(args.replay_file, "r", encoding="utf-8") as f:
         replay_data = json.load(f)
 
     # Components
     gemini_key = os.getenv("GEMINI_API_KEY")
-    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, args.disable_llm_enhancement)
+    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, not args.enable_llm_enhancement)
 
     if args.tts_provider == "vertex_ai":
         tts = VertexTTSGenerator(config.get_vertex_model())

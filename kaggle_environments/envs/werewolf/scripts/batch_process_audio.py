@@ -18,7 +18,7 @@ except ImportError:
     print("Could not import add_audio.py. Ensure it is in the same directory.")
     sys.exit(1)
 
-def process_single_episode_direct(replay_file, bucket_base, config_path, tts_provider, prompt_path, cache_path, disable_llm, keep_temp=False, position=0):
+def process_single_episode_direct(replay_file, bucket_base, config_path, tts_provider, prompt_path, cache_path, enable_llm, keep_temp=False, position=0):
     episode_id = os.path.splitext(os.path.basename(replay_file))[0]
     temp_out_dir = f"temp_audio_output/{episode_id}"
     
@@ -53,7 +53,7 @@ def process_single_episode_direct(replay_file, bucket_base, config_path, tts_pro
             tts_provider=tts_provider,
             prompt_path=prompt_path,
             cache_path=cache_path,
-            disable_llm=disable_llm,
+            disable_llm=not enable_llm,
             tqdm_kwargs=tqdm_kwargs
         )
 
@@ -112,11 +112,11 @@ def main():
     # Args expected by add_audio (defaults matching add_audio.py)
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(script_dir, "configs/audio/standard.yaml"))
-    parser.add_argument("--tts-provider", type=str, default="vertex_ai", choices=["vertex_ai", "google_genai"])
+    parser.add_argument("--voice", type=str, default="gemini", choices=["chirp", "gemini"])
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(script_dir, "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
-    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement.")
+    parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
     
     args = parser.parse_args()
 
@@ -136,13 +136,18 @@ def main():
     )
     logger = logging.getLogger()
 
-    replay_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
+    all_files = glob.glob(os.path.join(args.replay_dir, "*.json"))
+    # Filter for numeric IDs only (e.g. 74222013.json) to avoid processing summaries or other artifacts
+    replay_files = [
+        f for f in all_files 
+        if os.path.basename(f).replace(".json", "").isdigit()
+    ]
     if not replay_files:
         print(f"No json files found in {args.replay_dir}")
         return
 
     # Configuration
-    bucket_base = "gs://kaggle-static/episode-visualizers/werewolf/default/audio"
+    bucket_base = "gs://kaggle-static/episode-assets/werewolf/episodes"
     
     print(f"Found {len(replay_files)} replays.")
     print(f"Processing with {args.workers} workers...")
@@ -177,8 +182,8 @@ def main():
         try:
             return process_single_episode_direct(
                 file_path, bucket_base, args.config_path, 
-                args.tts_provider, args.prompt_path, args.cache_path, 
-                args.disable_llm_enhancement, args.keep_temp, 
+                args.voice, args.prompt_path, args.cache_path, 
+                args.enable_llm_enhancement, args.keep_temp, 
                 position=slot
             )
         finally:
