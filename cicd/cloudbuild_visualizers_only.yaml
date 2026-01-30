@@ -1,0 +1,49 @@
+# Visualizers-only build and deploy pipeline for kaggle-environments
+# Builds visualizers and deploys to GCS WITHOUT npm/PyPI publishing or Docker builds
+#
+# Use this for quick visualizer-only deployments when only frontend changes are needed
+# Skips: Docker image builds, tests, PyPI publishing, NPM publishing
+#
+# Triggered on push to master branch for visualizer/web file changes only
+#
+# Currently unused until we can eliminate the kaggleazure dependency
+
+steps:
+  # Step 1: Build all visualizers
+  - id: "build-all-visualizers"
+    name: "gcr.io/cloud-builders/npm"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        apt-get update && apt-get install -y jq
+        npm install -g pnpm
+        pnpm install
+        node web/scripts/sync-version.js
+        pnpm build-ci
+    waitFor: ["-"]
+
+  # Step 2: Deploy visualizers to GCS
+  - id: "deploy-to-gcs"
+    name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "gsutil"
+    args:
+      - "-m"
+      - "rsync"
+      - "-d"
+      - "-r"
+      - "./build"
+      - "gs://$_BUCKET_NAME/episode-visualizers"
+    waitFor: ["build-all-visualizers"]
+
+substitutions:
+  _BUCKET_NAME: "kaggle-static"
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+
+timeout: "900s"
+
+tags: ["kaggle-environments", "visualizer-deployment"]

@@ -1,6 +1,10 @@
 # Settings for the dump_audio.py script
-vertex_ai_model: "gemini-2.5-flash-tts"
+vertex_ai_model: null
 vertex_ai_regions:
+  - "us-central1"
+  - "us-east4"
+  - "us-west1"
+  - "europe-west1"
   - "us-central1"
   - "europe-central2"
   - "europe-north1"
@@ -29,16 +33,47 @@ paths:
   debug_audio_dir_name: "debug_audio"
   output_html_filename: "replay.html"
 voices:
-  moderator: "enceladus"
+  moderator: "Fenrir"
+  voice_pool:
+    - "Achernar"
+    - "Achird"
+    - "Algenib"
+    - "Algieba"
+    - "Alnilam"
+    - "Aoede"
+    - "Autonoe"
+    - "Callirrhoe"
+    - "Charon"
+    - "Despina"
+    - "Enceladus"
+    - "Erinome"
+    - "Fenrir"
+    - "Gacrux"
+    - "Iapetus"
+    - "Kore"
+    - "Laomedeia"
+    - "Leda"
+    - "Orus"
+    - "Pulcherrima"
+    - "Puck"
+    - "Rasalgethi"
+    - "Sadachbia"
+    - "Sadaltager"
+    - "Schedar"
+    - "Sulafat"
+    - "Umbriel"
+    - "Vindemiatrix"
+    - "Zephyr"
+    - "Zubenelgenubi"
   players:
     Kai: 'Kore'
     Jordan: 'Charon'
     Charlie: 'Leda'
-    Taylor: 'Despina'
-    Alex: 'Erinome'
-    Jamie: 'Gacrux'
-    Quinn: 'Achird'
-    Casey: 'Puck'
+    Taylor: 'Aoede'
+    Alex: 'Zephyr'
+    Jamie: 'Orus'
+    Quinn: 'Puck'
+    Casey: 'Fenrir'
 audio:
   name_simplification_map:
     "gpt-5.2-2025-12-11": "GPT 5.2"
