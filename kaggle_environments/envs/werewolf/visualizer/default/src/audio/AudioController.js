@@ -115,7 +115,7 @@ export async function tryLoadAudioMap(episodeId, envUrl) {
       }
     }
   } catch (e) {
-    console.error(`[Werewolf] Failed to parse/process audio map from ${usedUrl}:`, e);
+    console.error('[Werewolf] Failed to parse/process audio map from:', usedUrl, e);
   }
 }
 
