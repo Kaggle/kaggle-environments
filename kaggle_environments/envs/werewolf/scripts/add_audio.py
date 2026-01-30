@@ -623,64 +623,106 @@ class GeminiTTSGenerator(TTSGenerator):
     """Generates audio using Google GenAI TTS."""
 
     def __init__(self, api_key: str = None, regions: List[str] = None):
-        # API Key is NOT needed for Vertex AI (uses ADC), but we might keep it if user wants mixed mode?
-        # User specified "charge through vertex ai", which implies Vertex AI Client (ADC).
-        # We'll use GOOGLE_CLOUD_PROJECT + ADC.
-        project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
-        
-        # Determine region:
-        # 1. Randomly pick from provided regions if available (Rotation)
-        # 2. Fallback to env var GOOGLE_CLOUD_REGION
-        # 3. Fallback to "us-central1"
-        if regions:
-            location = random.choice(regions)
-        else:
-            location = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
-        
-        if not project_id:
+        self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        if not self.project_id:
              raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI Gemini.")
+        
+        self.regions = regions or [os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")]
+        self.current_region = None
+        self.client = None
+        self._rotate_client()
 
-        # Initialize with vertexai=True
-        self.client = genai.Client(vertexai=True, project=project_id, location=location)
-        logger.info(f"Initialized Gemini TTS via Vertex AI (Project: {project_id}, Location: {location})")
+    def _rotate_client(self):
+        """Selects a new random region and initializes the client."""
+        if not self.regions:
+            return
+
+        # Pick a random region
+        new_region = random.choice(self.regions)
+        if len(self.regions) > 1 and new_region == self.current_region:
+            # Try once more to get a different one
+            new_region = random.choice(self.regions)
+            
+        self.current_region = new_region
+        self.client = genai.Client(vertexai=True, project=self.project_id, location=self.current_region)
+        logger.info(f"Switched Gemini TTS client to region: {self.current_region}")
+
+    def _should_retry_error(exception):
+        """Custom retry predicate to include 400/404 errors for rotation."""
+        if isinstance(exception, ResourceExhausted):
+            return True
+        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
+            # 400/404/Precondition should trigger rotation and retry
+            return True
+        return False
+
+    def _on_retry(retry_state):
+        """Callback to rotate region on failure."""
+        exception = retry_state.outcome.exception()
+        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
+             # Access 'self' from the bound method if possible, or we need to design this carefully.
+             # Tenacity doesn't easily pass 'self' unless we use a class-based retry or closure.
+             # Simplified: We can just catch the exception inside generate() loop or use a mutable wrapper.
+             # BUT 'before_sleep' receives retry_state.
+             # We can make a method on the instance that handles this.
+             pass
+             
+        logger.warning(f"Error (Attempt {retry_state.attempt_number}): {exception}. Retrying...")
+
+    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+        # We implement a manual retry loop for rotation logic to ensure we have access to 'self'
+        # or we use tenacity with a check.
+        # Manual loop with tenacity for backoff is cleanest?
+        # Actually, let's keep tenacity for the mechanism but handle the rotation explicitly.
+        
+        return self._generate_with_retry(text, voice, **kwargs)
 
     @retry(
-        retry=retry_if_exception_type(ResourceExhausted),
+        retry=retry_if_exception_type((ResourceExhausted, NotFound, FailedPrecondition)),
         stop=stop_after_attempt(20),
-        wait=wait_exponential(multiplier=2, min=10, max=120),
-        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded (GenAI), retrying... (Attempt {retry_state.attempt_number})")
+        wait=wait_exponential(multiplier=2, min=2, max=60),
+        before_sleep=lambda retry_state: logger.warning(f"Retrying due to error: {retry_state.outcome.exception()} (Attempt {retry_state.attempt_number})")
     )
-    def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+    def _generate_with_retry(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
+        # We need to rotate client if previous attempt failed with specific errors.
+        # But tenacity retries the *same* function.
+        # Best way: Check if we are in a retry context (attempt > 1)?
+        # Or better: Catch the error, rotate, and re-raise.
+        
+        try:
+            return self._unsafe_generate(text, voice, **kwargs)
+        except (NotFound, FailedPrecondition) as e:
+            logger.warning(f"Region {self.current_region} failed with {e}. Rotating...")
+            self._rotate_client()
+            raise e # Raise to let tenacity wait and retry
+        except ResourceExhausted as e:
+            # Maybe rotate on Quota too? Quota is often regional.
+            logger.warning(f"Region {self.current_region} quota exhausted. Rotating...")
+            self._rotate_client()
+            raise e
+
+    def _unsafe_generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
 
         style_prompt = kwargs.get("style_prompt")
-
-        # Combine instructions and text
-        # Format based on user example: "{Style Prompt}: {Text}"
-        # text now contains inline tags if provided by LLM.
-
         final_content = text
         if style_prompt:
             final_content = f"{style_prompt}: {text}"
 
-        try:
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-tts",
-                contents=final_content,
-                config=types.GenerateContentConfig(
-                    response_modalities=["AUDIO"],
-                    speech_config=types.SpeechConfig(
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
-                        )
-                    ),
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash-tts",
+            contents=final_content,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+                    )
                 ),
-            )
-            return response.candidates[0].content.parts[0].inline_data.data
-        except (GoogleAPICallError, ValueError) as e:
-            logger.error(f"  - Error generating audio (GenAI): {e}")
-            return None
+            ),
+        )
+        return response.candidates[0].content.parts[0].inline_data.data
 
 
 class RandomVoiceAssigner:
