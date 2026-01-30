@@ -208,59 +208,167 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   // Create memoized name replacer for efficient text processing
   const replaceNames = createNameReplacer(playerConfigMap, 'text');
 
+  // Pre-process all steps to flatten events but keep track of their origin
+  const allRawEvents: any[] = [];
   ((processedReplay.info?.MODERATOR_OBSERVATION as any[]) || []).forEach((stepEvents: any, kaggleStep: number) => {
     (stepEvents || []).flat().forEach((dataEntry: any) => {
       const event = JSON.parse(dataEntry.json_str);
-      const dataType = dataEntry.data_type;
-      const visibleInUI = event.visible_in_ui ?? true;
+      event.dataType = dataEntry.data_type;
+      event.kaggleStep = kaggleStep; // Track origin
+      allRawEvents.push(event);
+    });
+  });
 
-      if (!visibleInUI) return;
+  console.log(`[WerewolfTransformer] Total raw events: ${allRawEvents.length}`);
 
-      if (
+  // Iterate and process events, detecting Night blocks
+  let i = 0;
+  while (i < allRawEvents.length) {
+    const event = allRawEvents[i];
+
+    // Check for Night Start
+    const isNightStart = event.event_name === 'night_start' ||
+      (event.description && event.description.includes('Night') && event.description.includes('begins'));
+
+    if (isNightStart) {
+      // Look ahead to find the end of this night (Day Start or next Night Start or Game End)
+      const nightBuffer: any[] = [];
+      let j = i;
+      while (j < allRawEvents.length) {
+        const nextE = allRawEvents[j];
+        if (j > i && (
+          nextE.event_name === 'day_start' ||
+          (nextE.description && nextE.description.includes('Day') && nextE.description.includes('begins')) ||
+          nextE.event_name === 'night_start' || // Should not happen ideally if structure is correct
+          nextE.dataType === 'GameEndResultsDataEntry'
+        )) {
+          break;
+        }
+        nightBuffer.push(nextE);
+        j++;
+      }
+
+      console.log(`[WerewolfTransformer] Night block found at index ${i}, length ${nightBuffer.length}`);
+
+      // Reorder the night buffer
+      const buckets = {
+        start: [] as any[],
+        werewolf_wake: [] as any[],
+        werewolf_vote: [] as any[],
+        doctor_wake: [] as any[],
+        doctor_save: [] as any[],
+        seer_wake: [] as any[],
+        seer_inspect: [] as any[],
+        results: [] as any[],
+        end: [] as any[],
+        other: [] as any[]
+      };
+
+      nightBuffer.forEach((e: any) => {
+        const dt = e.dataType || '';
+        const en = e.event_name || '';
+        const txt = e.description || '';
+
+        // Prioritize specific data types
+        if (dt === 'WerewolfNightVoteDataEntry' || dt === 'WerewolfNightEliminationElectedDataEntry' || (en === 'vote_result' && dt === 'WerewolfNightEliminationElectedDataEntry')) {
+          buckets.werewolf_vote.push(e);
+        } else if (dt === 'DoctorHealActionDataEntry') {
+          buckets.doctor_save.push(e);
+        } else if (dt === 'SeerInspectActionDataEntry' || dt === 'SeerInspectResultDataEntry' || en === 'inspect_result') {
+          buckets.seer_inspect.push(e);
+        } else if (dt === 'WerewolfNightEliminationDataEntry' || dt === 'DoctorSaveDataEntry' || en === 'elimination' || en === 'heal_result') {
+          buckets.results.push(e);
+        } else if (en === 'night_start' || (txt.includes('Night') && txt.includes('begins'))) {
+          buckets.start.push(e);
+        } else if (en === 'phase_divider') {
+          if (txt.includes('END')) {
+            buckets.end.push(e);
+          } else {
+            buckets.start.push(e);
+          }
+        } else if (en === 'vote_request' && txt.toLowerCase().includes('werewolf')) {
+          buckets.werewolf_wake.push(e);
+        } else if (en === 'heal_request' || txt.toLowerCase().includes('doctor')) {
+          buckets.doctor_wake.push(e);
+        } else if (en === 'inspect_request' || txt.toLowerCase().includes('seer')) {
+          buckets.seer_wake.push(e);
+        } else if (en === 'moderator_announcement') {
+          // General moderator announcements at start
+          buckets.start.push(e);
+        } else {
+          buckets.other.push(e);
+        }
+      });
+
+      const reorderedBuffer = [
+        ...buckets.start,
+        ...buckets.werewolf_wake,
+        ...buckets.werewolf_vote,
+        ...buckets.doctor_wake,
+        ...buckets.doctor_save,
+        ...buckets.seer_wake,
+        ...buckets.seer_inspect,
+        ...buckets.results,
+        ...buckets.end,
+        ...buckets.other
+      ];
+
+      // Process the reordered buffer
+      reorderedBuffer.forEach(processEvent);
+
+      // Advance outer loop
+      i = j;
+    } else {
+      // Normal event processing
+      processEvent(event);
+      i++;
+    }
+  }
+
+  function processEvent(event: any) {
+    const dataType = event.dataType;
+    const kaggleStep = event.kaggleStep;
+    const visibleInUI = event.visible_in_ui ?? true;
+
+  if (!visibleInUI) return;
+
+  if (
         event.event_name === 'day_start' ||
         event.event_name === 'night_start' ||
         event.description?.includes('Voting phase begins')
-      ) {
+  ) {
         processedPhaseEvents.clear();
-      }
+  }
 
-      const eventFingerprint = event.description;
-      if (processedPhaseEvents.has(eventFingerprint)) return;
-      processedPhaseEvents.add(eventFingerprint);
+  const eventFingerprint = event.description;
+  if (processedPhaseEvents.has(eventFingerprint)) return;
+  processedPhaseEvents.add(eventFingerprint);
 
-      const isVisibleDataType = visibleEventDataTypes.has(dataType);
-      const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
+  const isVisibleDataType = visibleEventDataTypes.has(dataType);
+  const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
 
-      if (!isVisibleDataType && !isVisibleEntryType) return;
+  if (!isVisibleDataType && !isVisibleEntryType) return;
 
-      event.kaggleStep = kaggleStep;
-      event.dataType = dataType;
+  // Replace character names with display names in the event description
+  if (event.description) {
+    event.description = replaceNames(event.description);
+  }
 
-      // Replace character names with display names in the event description
-      // This ensures labels and descriptions show model names consistently
-      if (event.description) {
-        event.description = replaceNames(event.description);
-      }
+  allEvents.push(event);
+  eventToKaggleStep.push(kaggleStep);
 
-      allEvents.push(event);
-      eventToKaggleStep.push(kaggleStep);
+  if (dataType !== 'PhaseDividerDataEntry') {
+    const stepData = originalSteps[kaggleStep];
 
-      if (dataType !== 'PhaseDividerDataEntry') {
-        const stepData = originalSteps[kaggleStep];
+    // Get the actor for this event
+    const actorId = getActorId(event);
+    const actorConfig = actorId ? playerConfigMap.get(actorId) : undefined;
 
-        // Get the actor for this event
-        const actorId = getActorId(event);
-        const actorConfig = actorId ? playerConfigMap.get(actorId) : undefined;
+    // Build a players array with the active player marked with isTurn
+    const players: WerewolfPlayer[] = [];
 
-        // Build a players array with the active player marked with isTurn
-        const players: WerewolfPlayer[] = [];
-
-        if (actorId) {
-          // Use display_name (model name like "GPT-5.2") for consistency with visualizer
-          // Fall back to actorId (character name like "Alex") if display_name not available
-          const displayName = actorConfig?.display_name || actorId;
-
-          // Replace character names with model names in the reasoning text
+    if (actorId) {
+        const displayName = actorConfig?.display_name || actorId;
           const rawThoughts = event.data?.reasoning || '';
           const thoughts = replaceNames(rawThoughts);
 
@@ -272,25 +380,23 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
             actionDisplayText: getActionDisplayText(event, replaceNames),
           };
           players.push(activePlayer);
-        }
+      }
 
-        // Create a proper WerewolfStep object
-        const werewolfStep: WerewolfStep = {
+    const werewolfStep: WerewolfStep = {
           step: currentDisplayStep,
           players,
           visualizerEvent: event,
           originalStepData: stepData,
-        };
+      };
 
-        newSteps.push(werewolfStep);
+    newSteps.push(werewolfStep);
 
-        displayStepToAllEventsIndex.push(allEventsIndex);
-        allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
-        currentDisplayStep++;
-      }
-      allEventsIndex++;
-    });
-  });
+    displayStepToAllEventsIndex.push(allEventsIndex);
+    allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
+    currentDisplayStep++;
+  }
+  allEventsIndex++;
+}
 
   processedReplay.steps = newSteps;
   processedReplay.isTransformed = true;
