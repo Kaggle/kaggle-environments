@@ -16,7 +16,8 @@ export class UIManager {
     (this.parent || document.body).appendChild(this.subtitleContainer);
 
     this.subtitleTimeout = null;
-    this.isExpanded = false;
+    this.isExpanded = true;
+    this.subtitleContainer.classList.add('expanded');
 
     // Add click listener for expansion toggle
     this.subtitleContainer.addEventListener('click', () => this.toggleExpansion());
