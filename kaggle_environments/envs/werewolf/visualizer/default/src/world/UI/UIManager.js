@@ -53,6 +53,12 @@ export class UIManager {
     const playerInfoCard = document.createElement('div');
     playerInfoCard.className = 'player-info-card centered-component';
 
+    const textDetails = document.createElement('div');
+    textDetails.className = 'player-text-details';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'player-name-row';
+
     const img = document.createElement('img');
     img.className = 'player-avatar-3d';
     img.src = imageUrl;
@@ -61,18 +67,14 @@ export class UIManager {
         window.handleThumbnailError(this);
       }
     };
-    playerInfoCard.appendChild(img);
-
-    const textDetails = document.createElement('div');
-    textDetails.className = 'player-text-details';
+    nameRow.appendChild(img);
 
     const nameText = document.createElement('div');
     nameText.className = 'player-name-3d';
     nameText.textContent = displayName || name;
-    textDetails.appendChild(nameText);
+    nameRow.appendChild(nameText);
 
-    // Display name is used for the main label.
-    // Technical ID (name) is hidden from viewer as requested.
+    textDetails.appendChild(nameRow);
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
