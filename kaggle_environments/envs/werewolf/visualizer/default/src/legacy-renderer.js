@@ -708,6 +708,20 @@ export function renderer(context, parent) {
           messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
           world.characterManager.triggerPointingAnimation(actorName, lastEvent.target);
           break;
+        case 'seer_inspection_result':
+          if (playerMap.has(lastEvent.target) && playerMap.has(lastEvent.actor_id)) {
+            const seerPlayer = playerMap.get(lastEvent.actor_id);
+            const targetPlayer = playerMap.get(lastEvent.target);
+
+            const seerCap = createPlayerCapsule(seerPlayer);
+            const targetCap = createPlayerCapsule(targetPlayer);
+
+            const roleText = lastEvent.role ? ` is a ${lastEvent.role}` : '';
+            const msg = `${seerCap} has learned that ${targetCap}${roleText}.`;
+            world.uiManager.displayModeratorAnnouncement(msg, true);
+            subtitleShown = true;
+          }
+          break;
         case 'system':
           // NEW: Display moderator announcement
           let announcement = lastEvent.text;
