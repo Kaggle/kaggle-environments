@@ -221,6 +221,37 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
 
   console.log(`[WerewolfTransformer] Total raw events: ${allRawEvents.length}`);
 
+  // Add initial "Night 0" intro step
+  const introEvent: any = {
+    dataType: 'SynthesizedIntroEntry',
+    event_name: 'night_start',
+    description: 'Welcome fellow players.',
+    visible_in_ui: true,
+    kaggleStep: 0,
+    phase: 'night',
+    day: 0,
+    data: {}
+  };
+
+  allEvents.push(introEvent);
+  eventToKaggleStep.push(0);
+
+  newSteps.push({
+    step: currentDisplayStep,
+    players: [], // No active players
+    visualizerEvent: introEvent,
+    originalStepData: originalSteps[0] || {},
+  });
+
+  displayStepToAllEventsIndex.push(allEventsIndex);
+  allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
+  currentDisplayStep++;
+  allEventsIndex++;
+
+  // Track current phase and day for sky continuity
+  let currentPhase = 'night';
+  let currentDay = 0;
+
   // Iterate and process events, detecting Phase blocks (Day or Night)
   let i = 0;
   while (i < allRawEvents.length) {
@@ -235,6 +266,18 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
       const isNight = isNightStart;
       const phaseBuffer: any[] = [];
       let j = i;
+
+      // Update current phase info
+      currentPhase = isNight ? 'night' : 'day';
+
+      // Try to extract day number from description (e.g., "Night 1 begins")
+      const dayMatch = txt.match(/(?:Night|Day)\s+(\d+)/i);
+      if (dayMatch) {
+        const d = parseInt(dayMatch[1], 10);
+        if (!isNaN(d)) {
+          currentDay = d;
+        }
+      }
 
       // Buffer until next phase start or game end
       while (j < allRawEvents.length) {
@@ -314,6 +357,9 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         }
           // Phase Starts
         else if (en === 'night_start' || en === 'day_start' || (desc.includes('begins') && (desc.includes('Day') || desc.includes('Night')))) {
+          if (en === 'night_start' && currentDay === 0) {
+            e.event_name = 'moderator_announcement';
+          }
           buckets.start.push(e);
         }
           // End dividers
@@ -355,6 +401,10 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   }
 
   function processEvent(event: any) {
+    // Propagate phase and day info if missing
+    if (!event.phase) event.phase = currentPhase;
+    if (event.day === undefined) event.day = currentDay;
+
     const dataType = event.dataType;
     const kaggleStep = event.kaggleStep;
     const visibleInUI = event.visible_in_ui ?? true;
