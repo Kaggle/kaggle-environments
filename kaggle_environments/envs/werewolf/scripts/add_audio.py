@@ -252,7 +252,13 @@ class ReplayParser:
                         data = event.get("data", {})
                         event_name = event.get("event_name", "")
 
-                        if description:
+                        if event_name == EventName.VOTE_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Werewolves, who would you like to eliminate?", "day": event.get("day")})
+                        elif event_name == EventName.HEAL_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Doctor, who would you like to save?", "day": event.get("day")})
+                        elif event_name == EventName.INSPECT_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Seer, who would you like to inspect?", "day": event.get("day")})
+                        elif description:
                             # Enrich description with dynamic data if needed
                             # For now, just use description as the "text"
                             script.append({
@@ -260,12 +266,6 @@ class ReplayParser:
                                 "text": description,
                                 "day": event.get("day")
                             })
-                        elif event_name == EventName.VOTE_REQUEST:
-                            script.append({"type": "moderator", "text": "Wake up Werewolves, who would you like to eliminate?", "day": event.get("day")})
-                        elif event_name == EventName.HEAL_REQUEST:
-                            script.append({"type": "moderator", "text": "Wake up Doctor, who would you like to save?", "day": event.get("day")})
-                        elif event_name == EventName.INSPECT_REQUEST:
-                            script.append({"type": "moderator", "text": "Wake up Seer, who would you like to inspect?", "day": event.get("day")})
                     except:
                         pass
 

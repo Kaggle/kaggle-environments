@@ -770,6 +770,19 @@ export function renderer(context, parent) {
             subtitleShown = true;
           }
           break;
+        case 'vote_request':
+          // Match text exactly with add_audio.py for audio playback
+          world.uiManager.displayModeratorAnnouncement("Wake up Werewolves, who would you like to eliminate?", false);
+          subtitleShown = true;
+          break;
+        case 'heal_request':
+          world.uiManager.displayModeratorAnnouncement("Wake up Doctor, who would you like to save?", false);
+          subtitleShown = true;
+          break;
+        case 'inspect_request':
+          world.uiManager.displayModeratorAnnouncement("Wake up Seer, who would you like to inspect?", false);
+          subtitleShown = true;
+          break;
       }
 
       if (messageForBubble && actorName && playerMap.has(actorName)) {
