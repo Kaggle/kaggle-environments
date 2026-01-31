@@ -1079,7 +1079,6 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
-    parser.add_argument("-i", "--replay_file", type=str, required=True, help="Path to replay JSON.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory.")
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/standard.yaml"))
@@ -1121,20 +1120,20 @@ def main():
         return
 
     # Replay
-    if not os.path.exists(args.replay_file):
-        logger.error(f"Replay not found: {args.replay_file}")
+    if not os.path.exists(args.input_path):
+        logger.error(f"Replay not found: {args.input_path}")
         return
-    with open(args.replay_file, "r", encoding="utf-8") as f:
+    with open(args.input_path, "r", encoding="utf-8") as f:
         replay_data = json.load(f)
 
     # Components
     gemini_key = os.getenv("GEMINI_API_KEY")
     enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, not args.enable_llm_enhancement)
 
-    if args.tts_provider == "vertex_ai":
-        tts = VertexTTSGenerator(config.get_vertex_model())
+    if args.voice == "chirp":
+        tts = VertexTTSGenerator(config.get_vertex_model(), regions=config.vertex_ai_regions)
     else:
-        tts = GeminiTTSGenerator(gemini_key)
+        tts = GeminiTTSGenerator(gemini_key, regions=config.vertex_ai_regions)
 
     manager = AudioManager(config, enhancer, tts, args.output_dir)
 
