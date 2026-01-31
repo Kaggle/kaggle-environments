@@ -479,6 +479,7 @@ export function renderer(context, parent) {
     const historyEvent = allEvents[i];
     const data = historyEvent.data;
     const timestamp = historyEvent.created_at;
+    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
 
     if (data && data.actor_id && data.perceived_threat_level) {
       const threatScore = threatStringToLevel(data.perceived_threat_level);
@@ -489,17 +490,15 @@ export function renderer(context, parent) {
       if (historyEvent.event_name === 'vote_action') {
         const match = historyEvent.description.match(/P(player_\d+)/);
         if (match) {
-          gameState.eventLog.push({ type: 'timeout', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: match[1], reasoning: 'Timed out', timestamp: historyEvent.created_at });
+          gameState.eventLog.push({ type: 'timeout', ...commonProps, actor_id: match[1], reasoning: 'Timed out' });
         }
-      } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start') {
-        gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, allEventsIndex: i, timestamp });
+      } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start' || systemEntryTypeSet.has(historyEvent.event_name)) {
+        gameState.eventLog.push({ type: 'system', ...commonProps, text: historyEvent.description });
       }
       continue;
     }
 
     // Process event types (simplified mapping)
-    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
-
     if (historyEvent.dataType === 'ChatDataEntry') {
       gameState.eventLog.push({ type: 'chat', ...commonProps, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, mentioned_player_ids: data.mentioned_player_ids || [] });
     } else if (historyEvent.dataType === 'DayExileVoteDataEntry') {

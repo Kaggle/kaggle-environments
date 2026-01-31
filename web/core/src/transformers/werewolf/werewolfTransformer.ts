@@ -193,7 +193,7 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   const allEvents: WerewolfEvent[] = [];
   const newSteps: WerewolfStep[] = [];
   const originalSteps = [...(processedReplay.steps as any[])];
-  const processedPhaseEvents = new Set<string>();
+  const processedEventFingerprints = new Set<string>();
 
   let currentDisplayStep = 0;
   let allEventsIndex = 0;
@@ -224,7 +224,7 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
   // Add initial "Night 0" intro step
   const introEvent: any = {
     dataType: 'SynthesizedIntroEntry',
-    event_name: 'night_start',
+    event_name: 'moderator_announcement',
     description: 'Welcome fellow players.',
     visible_in_ui: true,
     kaggleStep: 0,
@@ -408,25 +408,22 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
     const dataType = event.dataType;
     const kaggleStep = event.kaggleStep;
     const visibleInUI = event.visible_in_ui ?? true;
+    if (!visibleInUI) return;
 
-  if (!visibleInUI) return;
+    // Use a unique fingerprint for deduplication
+    const isRoster = dataType === 'GameStartDataEntry' || event.description?.includes('Werewolf game begins');
+    const eventFingerprint = isRoster
+      ? `roster:${event.description || ''}`
+      : `${event.day}:${event.phase}:${event.event_name}:${event.description || ''}`;
 
-  if (
-        event.event_name === 'day_start' ||
-        event.event_name === 'night_start' ||
-        event.description?.includes('Voting phase begins')
-  ) {
-        processedPhaseEvents.clear();
-  }
+    if (processedEventFingerprints.has(eventFingerprint)) return;
+    processedEventFingerprints.add(eventFingerprint);
 
-  const eventFingerprint = event.description;
-  if (processedPhaseEvents.has(eventFingerprint)) return;
-  processedPhaseEvents.add(eventFingerprint);
 
-  const isVisibleDataType = visibleEventDataTypes.has(dataType);
-  const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
+    const isVisibleDataType = visibleEventDataTypes.has(dataType);
+    const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
 
-  if (!isVisibleDataType && !isVisibleEntryType) return;
+    if (!isVisibleDataType && !isVisibleEntryType) return;
 
   // Replace character names with display names in the event description
   if (event.description) {
