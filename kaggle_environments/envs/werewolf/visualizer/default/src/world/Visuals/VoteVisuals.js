@@ -85,8 +85,7 @@ export class VoteVisuals {
             this.dummy.lookAt(pos.clone().add(tangent));
           }
 
-          const edgeFade = Math.sin(t * Math.PI);
-          this.dummy.scale.setScalar(edgeFade * 0.8);
+          this.dummy.scale.setScalar(0.7);
 
           this.dummy.updateMatrix();
           mesh.setMatrixAt(i, this.dummy.matrix);
