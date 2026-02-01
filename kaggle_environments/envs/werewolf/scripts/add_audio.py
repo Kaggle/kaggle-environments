@@ -304,7 +304,7 @@ class ReplayParser:
                             pass
         return script
 
-    def extract_messages(self) -> Tuple[Set[Tuple[str, str]], Set[str]]:
+    def extract_messages(self) -> Tuple[Set[Tuple[str, str]], Set[Tuple[str, str]]]:
         """Extracts unique speaker messages and dynamic moderator messages."""
         logger.info("Extracting game data from replay...")
         unique_speaker_messages = set()
@@ -350,61 +350,79 @@ class ReplayParser:
                 unique_speaker_messages.add((data["actor_id"], data["message"]))
         elif data_type == "DayExileVoteDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} votes to exile {data['target_id']}.")
+                text = f"{data['actor_id']} votes to exile {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightVoteDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} votes to eliminate {data['target_id']}.")
+                text = f"{data['actor_id']} votes to eliminate {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "SeerInspectActionDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} inspects {data['target_id']}.")
+                text = f"{data['actor_id']} inspects {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DoctorHealActionDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} heals {data['target_id']}.")
+                text = f"{data['actor_id']} heals {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DayExileElectedDataEntry":
             if all(k in data for k in ["elected_player_id", "elected_player_role_name"]):
-                dynamic_moderator_messages.add(
-                    f"{data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}."
-                )
+                text = f"{data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightEliminationDataEntry":
             if all(k in data for k in ["eliminated_player_id", "eliminated_player_role_name"]):
-                dynamic_moderator_messages.add(
-                    f"{data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}."
-                )
+                text = f"{data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DoctorSaveDataEntry":
             if "saved_player_id" in data:
-                dynamic_moderator_messages.add(f"{data['saved_player_id']} was attacked but saved by a Doctor!")
+                text = f"{data['saved_player_id']} was attacked but saved by a Doctor!"
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "SeerInspectResultDataEntry":
             if data.get("role"):
-                dynamic_moderator_messages.add(
-                    f"{data['actor_id']} saw {data['target_id']}'s role is {data['role']}."
-                )
+                text = f"{data['actor_id']} saw {data['target_id']}'s role is {data['role']}."
+                dynamic_moderator_messages.add((text, text))
             elif data.get("team"):
-                dynamic_moderator_messages.add(
-                    f"{data['actor_id']} saw {data['target_id']}'s team is {data['team']}."
-                )
+                text = f"{data['actor_id']} saw {data['target_id']}'s team is {data['team']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "GameEndResultsDataEntry":
             if "winner_team" in data:
-                dynamic_moderator_messages.add(f"The game is over. The {data['winner_team']} team has won!")
+                text = f"The game is over. The {data['winner_team']} team has won!"
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightEliminationElectedDataEntry":
             if "elected_target_player_id" in data:
-                dynamic_moderator_messages.add(
-                    f"The werewolves have chosen to eliminate {data['elected_target_player_id']}."
-                )
+                text = f"The werewolves have chosen to eliminate {data['elected_target_player_id']}."
+                dynamic_moderator_messages.add((text, text))
+        elif data_type == "RequestWerewolfVotingDataEntry":
+            text = "Wake up Werewolves, who would you like to eliminate?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.DAY_START:
-            dynamic_moderator_messages.add(f"Day {day_count} begins!")
+            text = f"Day {day_count} begins!"
+            dynamic_moderator_messages.add((text, text))
         elif event_name == EventName.NIGHT_START:
-            dynamic_moderator_messages.add(f"Night {day_count} begins!")
+            text = f"Night {day_count} begins!"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.MODERATOR_ANNOUNCEMENT:
             if "discussion rule is" in description:
-                dynamic_moderator_messages.add("Discussion begins!")
+                text = "Discussion begins!"
+                key = description if description else text
+                dynamic_moderator_messages.add((key, text))
             elif "Voting phase begins" in description:
-                dynamic_moderator_messages.add("Exile voting begins!")
+                text = "Exile voting begins!"
+                key = description if description else text
+                dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.VOTE_REQUEST:
-            dynamic_moderator_messages.add("Wake up Werewolves, who would you like to eliminate?")
+            text = "Wake up Werewolves, who would you like to eliminate?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.HEAL_REQUEST:
-            dynamic_moderator_messages.add("Wake up Doctor, who would you like to save?")
+            text = "Wake up Doctor, who would you like to save?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.INSPECT_REQUEST:
-            dynamic_moderator_messages.add("Wake up Seer, who would you like to inspect?")
+            text = "Wake up Seer, who would you like to inspect?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
 
 
 class LLMEnhancer:
@@ -728,7 +746,6 @@ class GeminiTTSGenerator(TTSGenerator):
                     )
                 ),
             ),
-            timeout=calc_timeout,
         )
         return response.candidates[0].content.parts[0].inline_data.data
 
@@ -873,9 +890,9 @@ class AudioManager:
                 add("moderator", key_aliases[key], text, moderator_voice, is_player=False)
 
         # 2. Dynamic Moderator Messages
-        for msg in dyn_mod_msgs:
-            # For dynamic messages, the key is the exact text
-            add("moderator", msg, msg, moderator_voice, is_player=False)
+        for key, text in dyn_mod_msgs:
+            # key is already set to description (or fallback text)
+            add("moderator", key, text, moderator_voice, is_player=False)
 
         # 3. Player Messages
         game_config = replay_data.get("configuration", {})

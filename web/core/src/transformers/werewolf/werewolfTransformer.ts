@@ -427,6 +427,7 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
 
   // Replace character names with display names in the event description
   if (event.description) {
+    event.originalDescription = event.description;
     event.description = replaceNames(event.description);
   }
 
