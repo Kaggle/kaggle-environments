@@ -479,6 +479,7 @@ export function renderer(context, parent) {
     const historyEvent = allEvents[i];
     const data = historyEvent.data;
     const timestamp = historyEvent.created_at;
+    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
 
     if (data && data.actor_id && data.perceived_threat_level) {
       const threatScore = threatStringToLevel(data.perceived_threat_level);
@@ -489,17 +490,15 @@ export function renderer(context, parent) {
       if (historyEvent.event_name === 'vote_action') {
         const match = historyEvent.description.match(/P(player_\d+)/);
         if (match) {
-          gameState.eventLog.push({ type: 'timeout', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, actor_id: match[1], reasoning: 'Timed out', timestamp: historyEvent.created_at });
+          gameState.eventLog.push({ type: 'timeout', ...commonProps, actor_id: match[1], reasoning: 'Timed out' });
         }
-      } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start') {
-        gameState.eventLog.push({ type: 'system', step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, text: historyEvent.description, allEventsIndex: i, timestamp });
+      } else if (historyEvent.event_name === 'day_start' || historyEvent.event_name === 'night_start' || systemEntryTypeSet.has(historyEvent.event_name)) {
+        gameState.eventLog.push({ type: 'system', ...commonProps, text: historyEvent.description });
       }
       continue;
     }
 
     // Process event types (simplified mapping)
-    const commonProps = { step: historyEvent.kaggleStep, day: historyEvent.day, phase: historyEvent.phase, allEventsIndex: i, timestamp, event_name: historyEvent.event_name };
-
     if (historyEvent.dataType === 'ChatDataEntry') {
       gameState.eventLog.push({ type: 'chat', ...commonProps, actor_id: data.actor_id, speaker: data.actor_id, message: data.message, reasoning: data.reasoning, mentioned_player_ids: data.mentioned_player_ids || [] });
     } else if (historyEvent.dataType === 'DayExileVoteDataEntry') {
@@ -708,6 +707,20 @@ export function renderer(context, parent) {
           messageForBubble = `Inspects <strong>${lastEvent.target}</strong>.`;
           world.characterManager.triggerPointingAnimation(actorName, lastEvent.target);
           break;
+        case 'seer_inspection_result':
+          if (playerMap.has(lastEvent.target) && playerMap.has(lastEvent.actor_id)) {
+            const seerPlayer = playerMap.get(lastEvent.actor_id);
+            const targetPlayer = playerMap.get(lastEvent.target);
+
+            const seerCap = createPlayerCapsule(seerPlayer);
+            const targetCap = createPlayerCapsule(targetPlayer);
+
+            const roleText = lastEvent.role ? ` is a ${lastEvent.role}` : '';
+            const msg = `${seerCap} has learned that ${targetCap}${roleText}.`;
+            world.uiManager.displayModeratorAnnouncement(msg, true);
+            subtitleShown = true;
+          }
+          break;
         case 'system':
           // NEW: Display moderator announcement
           let announcement = lastEvent.text;
@@ -756,6 +769,19 @@ export function renderer(context, parent) {
             subtitleShown = true;
           }
           break;
+        case 'vote_request':
+          // Match text exactly with add_audio.py for audio playback
+          world.uiManager.displayModeratorAnnouncement("Wake up Werewolves, who would you like to eliminate?", false);
+          subtitleShown = true;
+          break;
+        case 'heal_request':
+          world.uiManager.displayModeratorAnnouncement("Wake up Doctor, who would you like to save?", false);
+          subtitleShown = true;
+          break;
+        case 'inspect_request':
+          world.uiManager.displayModeratorAnnouncement("Wake up Seer, who would you like to inspect?", false);
+          subtitleShown = true;
+          break;
       }
 
       if (messageForBubble && actorName && playerMap.has(actorName)) {
@@ -776,6 +802,9 @@ export function renderer(context, parent) {
       if (lastEvent.type === 'game_over') {
         if (lastEvent.winners) lastEvent.winners.forEach(w => { if (playerMap.has(w)) world.characterManager.triggerVictoryAnimation(w); });
         if (lastEvent.losers) lastEvent.losers.forEach(l => { if (playerMap.has(l)) world.characterManager.triggerDefeatedAnimation(l); });
+        const winMsg = `The game is over. The ${lastEvent.winner} team has won!`;
+        world.uiManager.displayModeratorAnnouncement(winMsg, true);
+        subtitleShown = true;
       } else if (lastEvent.event_name === 'moderator_announcement') {
         gameState.players.forEach(p => { if (p.is_alive) world.characterManager.updatePlayerActive(p.name); });
       } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {

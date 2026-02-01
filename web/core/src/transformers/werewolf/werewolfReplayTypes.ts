@@ -3,6 +3,7 @@ import { BaseGamePlayer, ReplayData } from '../../types';
 export interface WerewolfEvent {
   event_name: string;
   description?: string;
+  originalDescription?: string;
   visible_in_ui?: boolean;
   kaggleStep?: number;
   dataType?: string;
