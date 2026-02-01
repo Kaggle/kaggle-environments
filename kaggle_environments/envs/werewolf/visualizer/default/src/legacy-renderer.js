@@ -802,6 +802,9 @@ export function renderer(context, parent) {
       if (lastEvent.type === 'game_over') {
         if (lastEvent.winners) lastEvent.winners.forEach(w => { if (playerMap.has(w)) world.characterManager.triggerVictoryAnimation(w); });
         if (lastEvent.losers) lastEvent.losers.forEach(l => { if (playerMap.has(l)) world.characterManager.triggerDefeatedAnimation(l); });
+        const winMsg = `The game is over. The ${lastEvent.winner} team has won!`;
+        world.uiManager.displayModeratorAnnouncement(winMsg, true);
+        subtitleShown = true;
       } else if (lastEvent.event_name === 'moderator_announcement') {
         gameState.players.forEach(p => { if (p.is_alive) world.characterManager.updatePlayerActive(p.name); });
       } else if (lastEvent.actor_id && playerMap.has(lastEvent.actor_id)) {
