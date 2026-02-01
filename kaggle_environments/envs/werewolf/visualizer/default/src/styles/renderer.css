@@ -921,9 +921,10 @@
 .cinematic-subtitle-container.moderator-mode {
     background: rgba(20, 20, 35, 0.75);
     border: 1px solid rgba(116, 185, 255, 0.4);
-    border-radius: 40px 30px 50px 30px / 30px 50px 30px 40px; /* Blob shape */
+    border-radius: 12px;
+        /* Clean rounded corners */
     backdrop-filter: blur(6px);
-    padding: 15px 30px;
+    padding: 12px 24px;
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(116, 185, 255, 0.1);
     transition: all 0.5s ease-in-out;
     width: auto; /* Fit content more closely */

@@ -14,8 +14,36 @@ export class UIManager {
     this.subtitleContainer.className = 'cinematic-subtitle-container';
     // Ensure parent exists, otherwise fallback to body
     (this.parent || document.body).appendChild(this.subtitleContainer);
-    
+
     this.subtitleTimeout = null;
+    this.isExpanded = true;
+    this.subtitleContainer.classList.add('expanded');
+
+    // Add click listener for expansion toggle
+    this.subtitleContainer.addEventListener('click', () => this.toggleExpansion());
+
+    // Add global key listener for shortcuts
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'e') {
+        this.toggleExpansion();
+      } else if (key === 'r') {
+        const reasoningToggle = document.getElementById('global-reasoning-toggle');
+        if (reasoningToggle) {
+          reasoningToggle.click();
+        }
+      }
+    });
+  }
+
+  toggleExpansion() {
+    this.isExpanded = !this.isExpanded;
+    if (this.isExpanded) {
+      this.subtitleContainer.classList.add('expanded');
+    } else {
+      this.subtitleContainer.classList.remove('expanded');
+    }
+    console.debug(`[Werewolf] Subtitle expanded: ${this.isExpanded}`);
   }
 
   createPlayerUI(name, displayName, imageUrl, focusCallback) {
@@ -25,6 +53,12 @@ export class UIManager {
     const playerInfoCard = document.createElement('div');
     playerInfoCard.className = 'player-info-card centered-component';
 
+    const textDetails = document.createElement('div');
+    textDetails.className = 'player-text-details';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'player-name-row';
+
     const img = document.createElement('img');
     img.className = 'player-avatar-3d';
     img.src = imageUrl;
@@ -33,18 +67,14 @@ export class UIManager {
         window.handleThumbnailError(this);
       }
     };
-    playerInfoCard.appendChild(img);
-
-    const textDetails = document.createElement('div');
-    textDetails.className = 'player-text-details';
+    nameRow.appendChild(img);
 
     const nameText = document.createElement('div');
     nameText.className = 'player-name-3d';
     nameText.textContent = displayName || name;
-    textDetails.appendChild(nameText);
+    nameRow.appendChild(nameText);
 
-    // Display name is used for the main label.
-    // Technical ID (name) is hidden from viewer as requested.
+    textDetails.appendChild(nameRow);
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
@@ -60,7 +90,7 @@ export class UIManager {
     playerInfoCard.onclick = (e) => {
       // Simplified click handler - just focus
       if (focusCallback) {
-          focusCallback(name);
+        focusCallback(name);
       }
     };
 
@@ -71,8 +101,8 @@ export class UIManager {
   displayPlayerBubble(playerUI, message, reasoning, timestamp, isAction = false) {
     let speakerName = '';
     if (playerUI && playerUI.element) {
-        const nameEl = playerUI.element.querySelector('.player-name-3d');
-        if (nameEl) speakerName = nameEl.textContent;
+      const nameEl = playerUI.element.querySelector('.player-name-3d');
+      if (nameEl) speakerName = nameEl.textContent;
     }
 
     // Redirect to cinematic subtitle
@@ -80,13 +110,13 @@ export class UIManager {
 
     // Visual feedback on the player's UI (only for chat, not actions)
     if (!isAction && playerUI && playerUI.element) {
-        playerUI.element.classList.add('chat-active');
+      playerUI.element.classList.add('chat-active');
     }
   }
 
   displaySubtitle(message, reasoning, speakerName = '', isAction = false) {
     // No timeout - subtitle persists until cleared manually (or replaced)
-    
+
     // Construct HTML structure
     let innerContent = '';
     if (speakerName) {
@@ -177,14 +207,14 @@ export class UIManager {
 
     // Show Container
     this.subtitleContainer.classList.add('visible');
-    
+
     // Sync visibility state
     if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
-        this.subtitleContainer.classList.add('show-reasoning');
+      this.subtitleContainer.classList.add('show-reasoning');
     } else {
-        this.subtitleContainer.classList.remove('show-reasoning');
+      this.subtitleContainer.classList.remove('show-reasoning');
     }
-    
+
     // Ensure we aren't in moderator mode
     this.subtitleContainer.classList.remove('moderator-mode');
 
@@ -261,7 +291,7 @@ export class UIManager {
       this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
-      this.subtitleContainer.classList.add('visible');
+    this.subtitleContainer.classList.add('visible');
     this.subtitleContainer.classList.add('moderator-mode'); // Adds transparency/blur/shape
 
     // Toggle action mode for alignment
@@ -271,16 +301,16 @@ export class UIManager {
       this.subtitleContainer.classList.remove('action-mode');
     }
 
-      // Sync visibility state
-      if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
-          this.subtitleContainer.classList.add('show-reasoning');
-      } else {
-          this.subtitleContainer.classList.remove('show-reasoning');
-      }
+    // Sync visibility state
+    if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
+      this.subtitleContainer.classList.add('show-reasoning');
+    } else {
+      this.subtitleContainer.classList.remove('show-reasoning');
+    }
   }
 
   clearSubtitle() {
-      this.subtitleContainer.classList.remove('visible');
+    this.subtitleContainer.classList.remove('visible');
   }
 
   update(delta) {
@@ -335,6 +365,6 @@ export class UIManager {
   }
 
   updateDynamicUI(playerObjects) {
-      // Logic for arrows was commented out in legacy code, preserving stub
+    // Logic for arrows was commented out in legacy code, preserving stub
   }
 }

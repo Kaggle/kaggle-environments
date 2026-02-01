@@ -6,6 +6,11 @@ import baseConfig from '../../../../../web/vite.config.base';
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    server: {
+      fs: {
+        allow: ['../../../../..'],
+      },
+    },
     plugins: [
       viteStaticCopy({
         targets: [
