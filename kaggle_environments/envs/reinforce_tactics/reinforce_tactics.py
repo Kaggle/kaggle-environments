@@ -180,6 +180,78 @@ def _mark_agent_loss(state, losing_idx):
 
 
 # ---------------------------------------------------------------------------
+# Built-in Maps (from the upstream reinforce-tactics repository)
+# Format: 2D list of tile code strings (see README for tile codes).
+# Small maps are automatically padded to 20x20 with ocean borders.
+# ---------------------------------------------------------------------------
+BUILTIN_MAPS = {
+    "beginner": [
+        ["h_1", "b_1", "p", "p", "p", "p"],
+        ["b_1", "p", "p", "p", "p", "p"],
+        ["p", "p", "t", "t", "p", "p"],
+        ["p", "p", "t", "t", "p", "p"],
+        ["p", "p", "p", "p", "p", "b_2"],
+        ["p", "p", "p", "p", "b_2", "h_2"],
+    ],
+    "crossroads": [
+        ["h_1", "b_1", "p", "p", "p", "p", "p", "p"],
+        ["b_1", "p", "p", "f", "p", "p", "p", "p"],
+        ["p", "p", "f", "p", "p", "m", "p", "p"],
+        ["p", "f", "p", "t", "t", "p", "p", "p"],
+        ["p", "p", "p", "t", "t", "p", "f", "p"],
+        ["p", "p", "m", "p", "p", "f", "p", "p"],
+        ["p", "p", "p", "p", "f", "p", "p", "b_2"],
+        ["p", "p", "p", "p", "p", "p", "b_2", "h_2"],
+    ],
+    "tower_rush": [
+        ["h_1", "b_1", "p", "p", "p", "p", "p", "p"],
+        ["b_1", "p", "p", "p", "t", "p", "p", "p"],
+        ["p", "p", "m", "p", "p", "p", "p", "p"],
+        ["p", "p", "p", "t", "p", "p", "f", "p"],
+        ["p", "f", "p", "p", "t", "p", "p", "p"],
+        ["p", "p", "p", "p", "p", "m", "p", "p"],
+        ["p", "p", "p", "t", "p", "p", "p", "b_2"],
+        ["p", "p", "p", "p", "p", "p", "b_2", "h_2"],
+    ],
+}
+
+
+def _pad_map(map_rows, min_size=20):
+    """
+    Pad a small map to at least ``min_size x min_size`` by centering it in an
+    ocean border, matching the upstream ``FileIO._pad_map`` behaviour.
+
+    Args:
+        map_rows: 2D list of tile code strings.
+        min_size: Minimum dimension (default 20).
+
+    Returns:
+        A pandas DataFrame of the padded map.
+    """
+    import pandas as pd
+
+    rows = len(map_rows)
+    cols = len(map_rows[0]) if rows > 0 else 0
+
+    if rows >= min_size and cols >= min_size:
+        return pd.DataFrame(map_rows)
+
+    new_h = max(rows, min_size)
+    new_w = max(cols, min_size)
+
+    padded = np.full((new_h, new_w), 'o', dtype=object)
+
+    offset_y = (new_h - rows) // 2
+    offset_x = (new_w - cols) // 2
+
+    for y in range(rows):
+        for x in range(cols):
+            padded[offset_y + y, offset_x + x] = map_rows[y][x]
+
+    return pd.DataFrame(padded)
+
+
+# ---------------------------------------------------------------------------
 # Map Generation (inlined to avoid pygame dependency from utils package)
 # ---------------------------------------------------------------------------
 def _generate_map(width, height, num_players=2):
@@ -251,14 +323,21 @@ def _generate_map(width, height, num_players=2):
 # ---------------------------------------------------------------------------
 def _init_game(config):
     """Create a new GameState from the Kaggle configuration."""
-    width = config.mapWidth
-    height = config.mapHeight
-    seed = config.mapSeed
+    map_name = getattr(config, "mapName", "")
 
-    if seed >= 0:
-        np.random.seed(seed)
+    if map_name and map_name in BUILTIN_MAPS:
+        # Use a built-in map (padded to minimum 20x20)
+        map_data = _pad_map(BUILTIN_MAPS[map_name])
+    else:
+        # Random generation
+        width = config.mapWidth
+        height = config.mapHeight
+        seed = config.mapSeed
 
-    map_data = _generate_map(width, height, num_players=2)
+        if seed >= 0:
+            np.random.seed(seed)
+
+        map_data = _generate_map(width, height, num_players=2)
 
     enabled_units = [u.strip() for u in config.enabledUnits.split(",") if u.strip()]
     fog_of_war = bool(config.fogOfWar)
@@ -583,6 +662,14 @@ def renderer(state, env):
         lines.append(line)
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# HTML Renderer
+# ---------------------------------------------------------------------------
+def html_renderer():
+    """Return JavaScript for browser-based rendering (placeholder)."""
+    return ""
 
 
 # ---------------------------------------------------------------------------

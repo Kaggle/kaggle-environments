@@ -7,6 +7,6 @@ AI agent evaluation through the Kaggle platform.
 
 Usage:
     from kaggle_environments import make
-    env = make("reinforcetactics/kaggle/reinforce_tactics")
+    env = make("reinforce_tactics")
     result = env.run([agent1, agent2])
 """

@@ -105,24 +105,75 @@ Each turn, an agent returns a list of action dicts:
 | Parameter      | Default            | Description |
 |----------------|--------------------|-------------|
 | `episodeSteps` | 200                | Max turns before draw |
-| `mapWidth`     | 20                 | Map width (10-40) |
-| `mapHeight`    | 20                 | Map height (10-40) |
-| `mapSeed`      | -1 (random)        | Seed for map generation |
+| `mapName`      | `"beginner"`       | Built-in map name (see below), or empty for random generation |
+| `mapWidth`     | 20                 | Map width (10-40) &mdash; only used when `mapName` is empty |
+| `mapHeight`    | 20                 | Map height (10-40) &mdash; only used when `mapName` is empty |
+| `mapSeed`      | -1 (random)        | Seed for map generation &mdash; only used when `mapName` is empty |
 | `enabledUnits` | `W,M,C,A,K,R,S,B` | Which unit types are available |
 | `fogOfWar`     | false              | Enable fog of war |
 | `startingGold` | 250                | Starting gold per player |
+
+### Map Selection
+
+You can play on a **built-in map** or a **randomly generated** one.
+
+#### Built-in maps
+
+Set the `mapName` configuration parameter to one of these map names:
+
+| Name          | Description |
+|---------------|-------------|
+| `beginner`    | Small 6x6 symmetrical map with 4 central towers. Good for learning. |
+| `crossroads`  | 8x8 map with forests, mountains, and 4 central towers. |
+| `tower_rush`  | 8x8 map with scattered towers encouraging aggressive play. |
+
+Built-in maps smaller than 20x20 are automatically padded to 20x20 with an
+ocean border (matching the upstream
+[reinforce-tactics](https://github.com/kuds/reinforce-tactics) map editor
+behaviour). More maps from the main repository may be added in the future.
+
+```python
+# Play on the "beginner" built-in map
+env = make("reinforce_tactics", configuration={"mapName": "beginner"})
+```
+
+#### Random generation (default)
+
+When `mapName` is empty (the default), a random map is generated using
+`mapWidth`, `mapHeight`, and `mapSeed`. The random generator places terrain
+features (forests ~10%, mountains ~5%, water ~3%), two headquarters with
+adjacent buildings, and four neutral towers near the centre.
+
+```python
+# Random map with a fixed seed for reproducibility
+env = make("reinforce_tactics", configuration={
+    "mapWidth": 20,
+    "mapHeight": 20,
+    "mapSeed": 42,
+})
+
+# Fully random map (different each run)
+env = make("reinforce_tactics")
+```
+
+#### Map format reference
+
+Maps use single-letter tile codes, optionally suffixed with `_player` for
+ownership (e.g. `h_1` = Player 1 headquarters, `b_2` = Player 2 building,
+`t` = neutral tower). See the
+[upstream repository](https://github.com/kuds/reinforce-tactics) for the full
+map editor and additional maps.
 
 ## Quick Start
 
 ```python
 from kaggle_environments import make
 
-# Create the environment
-env = make("reinforce_tactics", configuration={
-    "mapWidth": 20,
-    "mapHeight": 20,
-    "mapSeed": 42,
-})
+# Create the environment with a built-in map
+env = make("reinforce_tactics", configuration={"mapName": "beginner"})
+
+# -- or with random generation --
+# env = make("reinforce_tactics", configuration={"mapSeed": 42})
 
 # Run with built-in agents
 result = env.run(["random", "aggressive"])

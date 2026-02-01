@@ -14,12 +14,12 @@
     },
     "actTimeout": {
       "description": "Seconds allowed per agent action.",
-      "type": "integer",
+      "type": "number",
       "default": 5
     },
     "runTimeout": {
       "description": "Seconds allowed per episode.",
-      "type": "integer",
+      "type": "number",
       "default": 1200
     },
     "mapWidth": {
@@ -37,9 +37,14 @@
       "maximum": 40
     },
     "mapSeed": {
-      "description": "Random seed for map generation. -1 for random.",
+      "description": "Random seed for map generation. -1 for random. Only used when mapName is empty.",
       "type": "integer",
       "default": -1
+    },
+    "mapName": {
+      "description": "Name of a built-in map to use (e.g. 'beginner', 'crossroads', 'tower_rush'). Leave empty for random generation.",
+      "type": "string",
+      "default": "beginner"
     },
     "enabledUnits": {
       "description": "Comma-separated list of enabled unit types (W=Warrior, M=Mage, C=Cleric, A=Archer, K=Knight, R=Rogue, S=Sorcerer, B=Barbarian).",
