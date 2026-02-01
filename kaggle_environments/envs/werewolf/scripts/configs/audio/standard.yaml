@@ -89,10 +89,11 @@ audio:
     - pattern: '-v\d+'               # Remove version suffixes like -v2
       replacement: ''
   static_moderator_messages:
-    night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
-    day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
-    discussion_begins: "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]"
-    voting_begins: "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]"
-  speech_intro_template: "(voice=\"neutral\")[{player} speaking.] (break=\"500ms\")"
+    night_begins: "As darkness descends, the village falls silent. Everyone, close your eyes."
+    day_begins: "Wake up, villagers! The sun rises on a new day. Let's see who survived the night."
+    discussion_begins: "The town meeting now begins. You have a few minutes to discuss and find the werewolves among you. Begin."
+    voting_begins: "The time for talk is over. Now, you must cast your votes!"
+  speech_intro_template: "{player} speaking."
+  moderator_style: "Narrate this in the calm, authoritative tone of a nature documentary narrator."
   transcript_overrides:
     "Who would you like to see their true role?": "Whose role would you like me to reveal?"
