@@ -35,11 +35,18 @@ import {
 import { BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.actionDisplayText ?? '';
 };
 
 const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
+
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.thoughts ?? '';
 };
