@@ -466,20 +466,26 @@ body,
 }
 
 .player-avatar-3d {
-    width: 32px;
-    height: 32px;
+    width: 16px;
+        height: 16px;
     border-radius: 50%;
     object-fit: cover;
     background-color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.4);
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-    margin-bottom: 4px;
+    margin-bottom: 0px;
     /* Prevent image dragging/selection */
     pointer-events: none;
     -webkit-user-drag: none;
     user-select: none;
 }
 
+.player-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
 .player-text-details {
     display: flex;
     flex-direction: column;
@@ -487,7 +493,7 @@ body,
 }
 
 .player-name-3d {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -498,7 +504,7 @@ body,
 }
 
 .player-role-3d {
-    font-size: 11px;
+    font-size: 14px;
     opacity: 0.8;
 }
 
@@ -1296,10 +1302,10 @@ body,
 .cinematic-subtitle-container.moderator-mode {
     background: rgba(20, 20, 35, 0.75);
     border: 1px solid rgba(116, 185, 255, 0.4);
-    border-radius: 40px 30px 50px 30px / 30px 50px 30px 40px;
-    /* Blob shape */
+    border-radius: 12px;
+        /* Clean rounded corners */
     backdrop-filter: blur(6px);
-    padding: 15px 30px;
+    padding: 12px 24px;
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(116, 185, 255, 0.1);
     transition: all 0.5s ease-in-out;
     width: auto;

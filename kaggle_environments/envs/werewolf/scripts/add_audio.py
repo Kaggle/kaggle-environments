@@ -3,8 +3,8 @@ import hashlib
 import json
 import logging
 import os
-import re
 import random
+import re
 import subprocess
 import wave
 from abc import ABC, abstractmethod
@@ -12,16 +12,14 @@ from copy import deepcopy
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
-from tqdm import tqdm
 from dotenv import load_dotenv
 from google import genai
-from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted, NotFound, FailedPrecondition
-from google.cloud import texttospeech
 from google.api_core.client_options import ClientOptions
-from google.auth.exceptions import DefaultCredentialsError
-import tenacity
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
+from google.cloud import texttospeech
 from google.genai import types
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tqdm import tqdm
 
 from kaggle_environments.envs.werewolf.game.consts import EventName
 from kaggle_environments.envs.werewolf.game.roles import shuffle_ids
@@ -34,7 +32,8 @@ logger = logging.getLogger(__name__)
 class NameManager:
     """Manages player display names and disambiguation."""
 
-    def __init__(self, replay_data: Dict, simplification_rules: List[Dict] = None, simplification_map: Dict[str, str] = None):
+    def __init__(self, replay_data: Dict, simplification_rules: List[Dict] = None,
+                 simplification_map: Dict[str, str] = None):
         self.id_to_display = {}
         self.simplification_rules = simplification_rules or []
         self.simplification_map = simplification_map or {}
@@ -67,11 +66,11 @@ class NameManager:
         for agent in agents:
             name = agent.get("display_name") or agent.get("name") or agent.get("id")
             original_name = name
-            
+
             # A. Explicit Map
             if name in self.simplification_map:
                 name = self.simplification_map[name]
-            
+
             # B. Regex Rules (apply if map didn't change it, OR apply on top? User said "simplify names in the map", implying map is primary)
             # Let's apply rules AFTER map, in case map output needs cleaning? Or maybe map is final?
             # Usually map is "exact override". If map hits, we might skip rules.
@@ -81,7 +80,7 @@ class NameManager:
             # Safest is: If map hit, use map value. Checks rules only if map didn't hit?
             # OR: Apply map, THEN apply rules to the result.
             # Let's apply map, then rules.
-            
+
             if self.simplification_rules:
                 for rule in self.simplification_rules:
                     pattern = rule.get("pattern")
@@ -137,7 +136,6 @@ class NameManager:
                 text = re.sub(pattern, display_name, text)
 
         return text
-
 
         return text
 
@@ -252,7 +250,17 @@ class ReplayParser:
                         data = event.get("data", {})
                         event_name = event.get("event_name", "")
 
-                        if description:
+                        if event_name == EventName.VOTE_REQUEST:
+                            script.append(
+                                {"type": "moderator", "text": "Wake up Werewolves, who would you like to eliminate?",
+                                 "day": event.get("day")})
+                        elif event_name == EventName.HEAL_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Doctor, who would you like to save?",
+                                           "day": event.get("day")})
+                        elif event_name == EventName.INSPECT_REQUEST:
+                            script.append({"type": "moderator", "text": "Wake up Seer, who would you like to inspect?",
+                                           "day": event.get("day")})
+                        elif description:
                             # Enrich description with dynamic data if needed
                             # For now, just use description as the "text"
                             script.append({
@@ -298,7 +306,7 @@ class ReplayParser:
                             pass
         return script
 
-    def extract_messages(self) -> Tuple[Set[Tuple[str, str]], Set[str]]:
+    def extract_messages(self) -> Tuple[Set[Tuple[str, str]], Set[Tuple[str, str]]]:
         """Extracts unique speaker messages and dynamic moderator messages."""
         logger.info("Extracting game data from replay...")
         unique_speaker_messages = set()
@@ -344,55 +352,79 @@ class ReplayParser:
                 unique_speaker_messages.add((data["actor_id"], data["message"]))
         elif data_type == "DayExileVoteDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} votes to exile {data['target_id']}.")
+                text = f"{data['actor_id']} votes to exile {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightVoteDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} votes to eliminate {data['target_id']}.")
+                text = f"{data['actor_id']} votes to eliminate {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "SeerInspectActionDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} inspects {data['target_id']}.")
+                text = f"{data['actor_id']} inspects {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DoctorHealActionDataEntry":
             if data.get("actor_id") and data.get("target_id"):
-                dynamic_moderator_messages.add(f"{data['actor_id']} heals {data['target_id']}.")
+                text = f"{data['actor_id']} heals {data['target_id']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DayExileElectedDataEntry":
             if all(k in data for k in ["elected_player_id", "elected_player_role_name"]):
-                dynamic_moderator_messages.add(
-                    f"{data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}."
-                )
+                text = f"{data['elected_player_id']} was exiled by vote. Their role was a {data['elected_player_role_name']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightEliminationDataEntry":
             if all(k in data for k in ["eliminated_player_id", "eliminated_player_role_name"]):
-                dynamic_moderator_messages.add(
-                    f"{data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}."
-                )
+                text = f"{data['eliminated_player_id']} was eliminated. Their role was a {data['eliminated_player_role_name']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "DoctorSaveDataEntry":
             if "saved_player_id" in data:
-                dynamic_moderator_messages.add(f"{data['saved_player_id']} was attacked but saved by a Doctor!")
+                text = f"{data['saved_player_id']} was attacked but saved by a Doctor!"
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "SeerInspectResultDataEntry":
             if data.get("role"):
-                dynamic_moderator_messages.add(
-                    f"{data['actor_id']} saw {data['target_id']}'s role is {data['role']}."
-                )
+                text = f"{data['actor_id']} saw {data['target_id']}'s role is {data['role']}."
+                dynamic_moderator_messages.add((text, text))
             elif data.get("team"):
-                dynamic_moderator_messages.add(
-                    f"{data['actor_id']} saw {data['target_id']}'s team is {data['team']}."
-                )
+                text = f"{data['actor_id']} saw {data['target_id']}'s team is {data['team']}."
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "GameEndResultsDataEntry":
             if "winner_team" in data:
-                dynamic_moderator_messages.add(f"The game is over. The {data['winner_team']} team has won!")
+                text = f"The game is over. The {data['winner_team']} team has won!"
+                dynamic_moderator_messages.add((text, text))
         elif data_type == "WerewolfNightEliminationElectedDataEntry":
             if "elected_target_player_id" in data:
-                dynamic_moderator_messages.add(
-                    f"The werewolves have chosen to eliminate {data['elected_target_player_id']}."
-                )
+                text = f"The werewolves have chosen to eliminate {data['elected_target_player_id']}."
+                dynamic_moderator_messages.add((text, text))
+        elif data_type == "RequestWerewolfVotingDataEntry":
+            text = "Wake up Werewolves, who would you like to eliminate?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.DAY_START:
-            dynamic_moderator_messages.add(f"Day {day_count} begins!")
+            text = f"Day {day_count} begins!"
+            dynamic_moderator_messages.add((text, text))
         elif event_name == EventName.NIGHT_START:
-            dynamic_moderator_messages.add(f"Night {day_count} begins!")
+            text = f"Night {day_count} begins!"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
         elif event_name == EventName.MODERATOR_ANNOUNCEMENT:
             if "discussion rule is" in description:
-                dynamic_moderator_messages.add("Discussion begins!")
+                text = "Discussion begins!"
+                key = description if description else text
+                dynamic_moderator_messages.add((key, text))
             elif "Voting phase begins" in description:
-                dynamic_moderator_messages.add("Exile voting begins!")
+                text = "Exile voting begins!"
+                key = description if description else text
+                dynamic_moderator_messages.add((key, text))
+        elif event_name == EventName.VOTE_REQUEST:
+            text = "Wake up Werewolves, who would you like to eliminate?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
+        elif event_name == EventName.HEAL_REQUEST:
+            text = "Wake up Doctor, who would you like to save?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
+        elif event_name == EventName.INSPECT_REQUEST:
+            text = "Wake up Seer, who would you like to inspect?"
+            key = description if description else text
+            dynamic_moderator_messages.add((key, text))
 
 
 class LLMEnhancer:
@@ -465,9 +497,9 @@ class LLMEnhancer:
         # 2. Chunk and Process
         chunk_size = 20
         all_enhanced = {}
-        
+
         chunks = [transcript_lines[i:i + chunk_size] for i in range(0, len(transcript_lines), chunk_size)]
-        
+
         for chunk in tqdm(chunks, **tqdm_kwargs):
             chunk_transcript = "\n".join(chunk)
             prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
@@ -544,34 +576,35 @@ class VertexTTSGenerator(TTSGenerator):
     def __init__(self, model_name: str, regions: List[str] = None):
         if not os.getenv("GOOGLE_CLOUD_PROJECT"):
             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI.")
-        
+
         self.model_name = model_name
         self.client = None
         self.region = None
-        
+
         if not regions:
-             # Default client (implicitly uses default region)
-             self.client = texttospeech.TextToSpeechClient()
-             logger.info("Initialized Vertex AI client with default region.")
+            # Default client (implicitly uses default region)
+            self.client = texttospeech.TextToSpeechClient()
+            logger.info("Initialized Vertex AI client with default region.")
         else:
-             # Select ONE region for this entire game session
-             selected_region = random.choice(regions)
-             self.region = selected_region
-             
-             api_endpoint = f"{selected_region}-texttospeech.googleapis.com"
-             client_options = ClientOptions(api_endpoint=api_endpoint)
-             try:
-                 self.client = texttospeech.TextToSpeechClient(client_options=client_options)
-                 logger.info(f"Initialized Vertex AI client for region: {selected_region}")
-             except Exception as e:
-                 logger.error(f"Failed to init client for region {selected_region}: {e}")
-                 raise e
+            # Select ONE region for this entire game session
+            selected_region = random.choice(regions)
+            self.region = selected_region
+
+            api_endpoint = f"{selected_region}-texttospeech.googleapis.com"
+            client_options = ClientOptions(api_endpoint=api_endpoint)
+            try:
+                self.client = texttospeech.TextToSpeechClient(client_options=client_options)
+                logger.info(f"Initialized Vertex AI client for region: {selected_region}")
+            except Exception as e:
+                logger.error(f"Failed to init client for region {selected_region}: {e}")
+                raise e
 
     @retry(
         retry=retry_if_exception_type(ResourceExhausted),
         stop=stop_after_attempt(20),
         wait=wait_exponential(multiplier=2, min=10, max=120),
-        before_sleep=lambda retry_state: logger.warning(f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
+        before_sleep=lambda retry_state: logger.warning(
+            f"Quota exceeded, retrying... (Attempt {retry_state.attempt_number})")
     )
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
@@ -580,7 +613,7 @@ class VertexTTSGenerator(TTSGenerator):
         # Clean custom markup: (params)[content] -> content
         # Example: (rate="fast")[Hello] -> Hello
         input_text = re.sub(r"\([^)]+\)\[([^\]]+)\]", r"\1", text)
-        
+
         # Vertex TTS (Standard) doesn't support 'style_prompt' natively in SynthesisInput yet
         # unless using a specific generative endpoint which this client might not target by default.
         # But if the user provides markup tags (e.g. SSML), we could use it.
@@ -610,7 +643,7 @@ class VertexTTSGenerator(TTSGenerator):
             audio_conf = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3, sample_rate_hertz=24000
             )
-            
+
             response = self.client.synthesize_speech(
                 input=synthesis_input, voice=voice_params, audio_config=audio_conf
             )
@@ -621,104 +654,54 @@ class VertexTTSGenerator(TTSGenerator):
 
 
 class GeminiTTSGenerator(TTSGenerator):
-    """Generates audio using Google GenAI TTS."""
+    """Generates audio using Google GenAI TTS (via Vertex AI TextToSpeechClient)."""
 
     def __init__(self, api_key: str = None, regions: List[str] = None):
         self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
         if not self.project_id:
-             raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI Gemini.")
-        
-        self.regions = regions or [os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")]
-        self.current_region = None
-        self.client = None
-        self._rotate_client()
+            raise RuntimeError("GOOGLE_CLOUD_PROJECT environment variable required for Vertex AI Gemini.")
 
-    def _rotate_client(self):
-        """Selects a new random region and initializes the client."""
-        if not self.regions:
-            return
-
-        # Pick a random region
-        new_region = random.choice(self.regions)
-        if len(self.regions) > 1 and new_region == self.current_region:
-            # Try once more to get a different one
-            new_region = random.choice(self.regions)
-            
-        self.current_region = new_region
-        self.client = genai.Client(vertexai=True, project=self.project_id, location=self.current_region)
-        logger.info(f"Switched Gemini TTS client to region: {self.current_region}")
-
-    def _should_retry_error(exception):
-        """Custom retry predicate to include 400/404 errors for rotation."""
-        if isinstance(exception, ResourceExhausted):
-            return True
-        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
-            # 400/404/Precondition should trigger rotation and retry
-            return True
-        return False
-
-    def _on_retry(retry_state):
-        """Callback to rotate region on failure."""
-        exception = retry_state.outcome.exception()
-        if isinstance(exception, (NotFound, FailedPrecondition, GoogleAPICallError)):
-             # Access 'self' from the bound method if possible, or we need to design this carefully.
-             # Tenacity doesn't easily pass 'self' unless we use a class-based retry or closure.
-             # Simplified: We can just catch the exception inside generate() loop or use a mutable wrapper.
-             # BUT 'before_sleep' receives retry_state.
-             # We can make a method on the instance that handles this.
-             pass
-             
-        logger.warning(f"Error (Attempt {retry_state.attempt_number}): {exception}. Retrying...")
+        # Use default client (ADC) or api_key if provided (ClientOptions not shown in example but Standard pattern)
+        # The example uses ADC. We'll stick to ADC/Environment unless an explicit key is needed for some reason.
+        # But we previously used genai.Client with key or vertexai=True. 
+        # TextToSpeechClient typically uses ADC.
+        self.client = texttospeech.TextToSpeechClient()
 
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
-        # We implement a manual retry loop for rotation logic to ensure we have access to 'self'
-        # or we use tenacity with a check.
-        # Manual loop with tenacity for backoff is cleanest?
-        # Actually, let's keep tenacity for the mechanism but handle the rotation explicitly.
-        
-        return self._generate_with_retry(text, voice, **kwargs)
-
-    @retry(
-        retry=retry_if_exception_type(Exception),
-        stop=stop_after_attempt(20),
-        wait=wait_exponential(multiplier=2, min=2, max=60),
-        before_sleep=lambda retry_state: logger.warning(f"Retrying due to error: {retry_state.outcome.exception()} (Attempt {retry_state.attempt_number})")
-    )
-    def _generate_with_retry(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
-        try:
-            return self._unsafe_generate(text, voice, **kwargs)
-        except Exception as e:
-            logger.warning(f"Region {self.current_region} failed with {type(e).__name__}: {e}. Rotating...")
-            self._rotate_client()
-            raise e
-
-    def _unsafe_generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
 
         style_prompt = kwargs.get("style_prompt")
-        final_content = text
-        if style_prompt:
-            final_content = f"{style_prompt}: {text}"
+        # Default style for moderator if not provided
+        final_prompt = style_prompt if style_prompt else "Speak naturally and clearly."
 
-        # Dynamic timeout: at least 120s, plus more for longer text (0.5s per char safe buffer)
-        # Cap at 600s (10 mins) to prevent indefinite hangs
-        calc_timeout = max(120, min(600, len(final_content) * 0.5))
+        try:
+            # Construct SynthesisInput with prompt
+            # Note: prompt argument requires google-cloud-texttospeech >= 2.29.0
+            synthesis_input = texttospeech.SynthesisInput(text=text, prompt=final_prompt)
 
-        response = self.client.models.generate_content(
-            model="gemini-2.5-flash-tts",
-            contents=final_content,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
-                    )
-                ),
-            ),
-            timeout=calc_timeout,
-        )
-        return response.candidates[0].content.parts[0].inline_data.data
+            voice_params = texttospeech.VoiceSelectionParams(
+                language_code="en-US",
+                name=voice,
+                model_name="gemini-2.5-flash-tts"
+            )
+
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.LINEAR16,  # WAV
+                sample_rate_hertz=24000
+            )
+
+            response = self.client.synthesize_speech(
+                input=synthesis_input,
+                voice=voice_params,
+                audio_config=audio_config
+            )
+
+            return response.audio_content
+
+        except Exception as e:
+            logger.error(f"Gemini/Vertex TTS failed: {e}")
+            return None
 
 
 class RandomVoiceAssigner:
@@ -750,7 +733,7 @@ class RandomVoiceAssigner:
         for i, p in enumerate(remaining_players):
             voice = pool[i % len(pool)]
             self.assigned_voices[p] = voice
-        
+
         return self.assigned_voices
 
     def get_voice(self, player_name: str) -> str:
@@ -758,10 +741,10 @@ class RandomVoiceAssigner:
 
 
 class AudioManager:
-
     """Orchestrates the audio generation process."""
 
-    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str, tqdm_kwargs: Dict = None):
+    def __init__(self, config: AudioConfig, enhancer: LLMEnhancer, tts: TTSGenerator, output_dir: str,
+                 tqdm_kwargs: Dict = None):
         self.config = config
         self.enhancer = enhancer
         self.tts = tts
@@ -776,16 +759,17 @@ class AudioManager:
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
         self.name_manager = NameManager(
-            replay_data, 
+            replay_data,
             self.config.name_simplification_rules,
             self.config.name_simplification_map
         )
-        
+
         parser = ReplayParser(replay_data)
 
         # 1. Extract Full Context Script & Enhance
         chronological_script = parser.extract_chronological_script()
-        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager, tqdm_kwargs=self.tqdm_kwargs)
+        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager,
+                                                    tqdm_kwargs=self.tqdm_kwargs)
 
         # 2. Extract Unique Messages for Audio Generation (as before)
         unique_msgs, dyn_mod_msgs = parser.extract_messages()
@@ -796,15 +780,13 @@ class AudioManager:
 
         return messages
 
-
-
     def _prepare_messages(self, unique_msgs, dyn_mod_msgs, replay_data, enhanced_map) -> List[Dict]:
         """Prepares a list of message objects for processing."""
         messages = []
         intro_template = self.config.speech_intro_template
 
         # Helper to add
-        def add(speaker_id, key, text, voice, is_player=False):
+        def add(speaker_id, key, text, voice, is_player=False, force_style=None):
             # Key remains raw for lookup compatibility
             # Text is updated with display names for better TTS
             tts_text = self.name_manager.replace_names(text)
@@ -829,7 +811,11 @@ class AudioManager:
                         final_text = enhanced_text
                 else:
                     final_text = enhancement
-            
+
+            # Override style if forced (e.g. for moderator)
+            if force_style:
+                style_prompt = force_style
+
             # Prepend intro if it's a player and template exists
             if is_player and intro_template:
                 # We insert the intro BEFORE the final text
@@ -850,25 +836,32 @@ class AudioManager:
         # 1. Static Moderator Messages
         moderator_voice = self.config.voices["moderator"]
         static_msgs = self.config.static_moderator_messages
+        moderator_style = self.config.data.get("audio", {}).get("moderator_style", "Speak naturally and clearly.")
         key_aliases = {
             "discussion_begins": "Discussion begins!",
             "voting_begins": "Exile voting begins!"
         }
 
         for key, text in static_msgs.items():
-            add("moderator", key, text, moderator_voice, is_player=False)
+            # Pass the static moderator style
+            add("moderator", key, text, moderator_voice, is_player=False, force_style=moderator_style)
             if key in key_aliases:
-                add("moderator", key_aliases[key], text, moderator_voice, is_player=False)
+                add("moderator", key_aliases[key], text, moderator_voice, is_player=False, force_style=moderator_style)
 
         # 2. Dynamic Moderator Messages
-        for msg in dyn_mod_msgs:
-            # For dynamic messages, the key is the exact text
-            add("moderator", msg, msg, moderator_voice, is_player=False)
+        for msg_item in dyn_mod_msgs:
+            # msg_item should be a tuple (key, text) or string
+            if isinstance(msg_item, tuple):
+                key, text = msg_item
+            else:
+                key = text = msg_item
+
+            add("moderator", key, text, moderator_voice, is_player=False, force_style=moderator_style)
 
         # 3. Player Messages
         game_config = replay_data.get("configuration", {})
-        seed = game_config.get("seed", 0) # Default to 0 if no seed, but usually present
-        
+        seed = game_config.get("seed", 0)  # Default to 0 if no seed, but usually present
+
         # Initialize Voice Assigner
         # Fixed map comes from config (keys are Original names usually, but here we deal with IDs or Names)
         # config.voices['players'] maps Name -> Voice. 
@@ -877,17 +870,17 @@ class AudioManager:
         # Or just use the assigner to map Agent ID -> Voice directly?
         # The assigner logic: fixed_map keys should match whatever we pass to assign_voices.
         # We pass Agent IDs (e.g. "Cedric", "0", etc).
-        
+
         # Original logic: 
         # player_voices = self.config.voices.get("players", {})
         # player_voice_map = { a["id"]: player_voices.get(a["id"]) ... }
         # This implies standard.yaml has IDs as keys (Kai, Jordan etc).
         # In this game, IDs are likely Names if not randomized? or strings.
-        
+
         # Let's get all agent IDs first.
         agents = game_config.get("agents", [])
         agent_ids = [a["id"] for a in agents]
-        
+
         # Retrieve voice pool and players map from config
         voice_pool = self.config.data.get("voices", {}).get("voice_pool", [])
         fixed_player_voices = self.config.voices.get("players", {})
@@ -907,12 +900,12 @@ class AudioManager:
     def _generate_audio_batch(self, messages: List[Dict]):
         """Generates audio for a batch of messages."""
         logger.info(f"Processing {len(messages)} messages...")
-        
+
         # Use simple progress bar writing to stdout to avoid logging conflicts
         # Merge defaults with custom kwargs
         pbar_kwargs = {"desc": "Generating Audio", "unit": "msg"}
         pbar_kwargs.update(self.tqdm_kwargs)
-        
+
         for msg in tqdm(messages, **pbar_kwargs):
             speaker_id = msg["speaker"]
             final_text = msg["final_text"]
@@ -926,7 +919,11 @@ class AudioManager:
             # Generate Keys & Path
             # IMPORTANT: map_key uses raw speaker_id and raw key/text to match visualizer logic
             map_key = f"{speaker_id}:{key}"
-            filename = hashlib.md5(map_key.encode()).hexdigest() + ".wav"
+
+            # Use CONTENT hash for filename so that if we change the text (e.g. add intro), we regenerate audio.
+            # We include voice and style in hash so changing voice/style also forces regen.
+            content_signature = f"{final_text}|{voice}|{style_prompt}"
+            filename = hashlib.md5(content_signature.encode()).hexdigest() + ".wav"
             audio_path_html = os.path.join(self.config.paths.get("audio_dir_name", "audio"), filename)
 
             # Use abspath for local check, but audio_path_on_disk should be inside output_dir
@@ -1027,16 +1024,17 @@ def load_env_modules():
         logger.warning("Could not import kaggle_environments.PROJECT_ROOT")
 
 
-def process_replay_file(input_path, output_dir, config_path, tts_provider, prompt_path, cache_path, disable_llm, debug_audio=False, tqdm_kwargs=None):
+def process_replay_file(input_path, output_dir, config_path, tts_provider, prompt_path, cache_path, disable_llm,
+                        debug_audio=False, tqdm_kwargs=None):
     """Helper to process a single replay file programmatically."""
     tqdm_kwargs = tqdm_kwargs or {}
-    
+
     with open(input_path, "r", encoding="utf-8") as f:
         replay_data = json.load(f)
 
     # Setup Components
     config = AudioConfig(config_path)
-    
+
     # LLM Enhancer
     api_key = os.getenv("GEMINI_API_KEY")
     enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
@@ -1051,10 +1049,10 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 
     manager = AudioManager(config, enhancer, tts, output_dir, tqdm_kwargs=tqdm_kwargs)
 
-    setup_logger(output_dir=output_dir, base_name="add_audio") # Ensure logger is setup for this process? 
+    setup_logger(output_dir=output_dir, base_name="add_audio")  # Ensure logger is setup for this process?
     # Actually, running in thread might share logger. 
     # But AudioManager uses logger.
-    
+
     if debug_audio:
         manager.generate_debug_audio()
     else:
@@ -1067,18 +1065,20 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 def main():
     parser = argparse.ArgumentParser(description="Add audio to a Werewolf game replay.")
     parser.add_argument("-i", "--input_path", type=str, required=True, help="Path to replay JSON.")
-    parser.add_argument("-i", "--replay_file", type=str, required=True, help="Path to replay JSON.")
     parser.add_argument("-o", "--output_dir", type=str, help="Output directory.")
     parser.add_argument("-c", "--config_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/standard.yaml"))
     parser.add_argument("--debug-audio", action="store_true", help="Generate debug audio only.")
     parser.add_argument("--serve", action="store_true", help="Start Vite server.")
-    parser.add_argument("--voice", choices=["chirp", "gemini"], default="gemini", help="Voice model to use (chirp/gemini)")
+    parser.add_argument("--voice", choices=["chirp", "gemini"], default="gemini",
+                        help="Voice model to use (chirp/gemini)")
     parser.add_argument("--prompt_path", type=str,
                         default=os.path.join(os.path.dirname(__file__), "configs/audio/theatrical_prompt.txt"))
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
-    parser.add_argument("--enable_llm_enhancement", action="store_true", help="Enable LLM enhancement (theatrical rewrites).")
-    parser.add_argument("--disable_llm_enhancement", action="store_true", help="Disable LLM enhancement (theatrical rewrites).")
+    parser.add_argument("--enable_llm_enhancement", action="store_true",
+                        help="Enable LLM enhancement (theatrical rewrites).")
+    parser.add_argument("--disable_llm_enhancement", action="store_true",
+                        help="Disable LLM enhancement (theatrical rewrites).")
 
     args = parser.parse_args()
 
@@ -1109,20 +1109,20 @@ def main():
         return
 
     # Replay
-    if not os.path.exists(args.replay_file):
-        logger.error(f"Replay not found: {args.replay_file}")
+    if not os.path.exists(args.input_path):
+        logger.error(f"Replay not found: {args.input_path}")
         return
-    with open(args.replay_file, "r", encoding="utf-8") as f:
+    with open(args.input_path, "r", encoding="utf-8") as f:
         replay_data = json.load(f)
 
     # Components
     gemini_key = os.getenv("GEMINI_API_KEY")
     enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, not args.enable_llm_enhancement)
 
-    if args.tts_provider == "vertex_ai":
-        tts = VertexTTSGenerator(config.get_vertex_model())
+    if args.voice == "chirp":
+        tts = VertexTTSGenerator(config.get_vertex_model(), regions=config.vertex_ai_regions)
     else:
-        tts = GeminiTTSGenerator(gemini_key)
+        tts = GeminiTTSGenerator(gemini_key, regions=config.vertex_ai_regions)
 
     manager = AudioManager(config, enhancer, tts, args.output_dir)
 

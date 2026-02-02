@@ -229,7 +229,17 @@ export function loadQueueFrom(startIndex) {
           }
           break;
         case 'DiscussionOrderDataEntry':
-          audioEventDetails = { message: description, speaker: 'moderator' };
+          audioEventDetails = { message: entry.originalDescription || description, speaker: 'moderator' };
+          break;
+        case 'RequestDoctorSaveDataEntry':
+          audioEventDetails = { message: entry.originalDescription || description, speaker: 'moderator' };
+          break;
+        case 'RequestSeerRevealDataEntry':
+          audioEventDetails = { message: entry.originalDescription || description, speaker: 'moderator' };
+          break;
+        case 'RequestWerewolfVotingDataEntry':
+          audioEventDetails = { message: entry.originalDescription || description, speaker: 'moderator' };
+          break;
       }
 
       if (!audioEventDetails && event_name === 'moderator_announcement') {
@@ -238,7 +248,7 @@ export function loadQueueFrom(startIndex) {
         } else if (description.includes('Voting phase begins')) {
           audioEventDetails = { message: 'Exile voting begins!', speaker: 'moderator' };
         } else {
-          audioEventDetails = { message: applyTranscriptOverrides(entry.description || ''), speaker: 'moderator' };
+          audioEventDetails = { message: applyTranscriptOverrides(entry.originalDescription || entry.description || ''), speaker: 'moderator' };
         }
       } else if (!audioEventDetails && event_name === 'day_start') {
         audioEventDetails = { message: `Day ${day_count} begins!`, speaker: 'moderator' };

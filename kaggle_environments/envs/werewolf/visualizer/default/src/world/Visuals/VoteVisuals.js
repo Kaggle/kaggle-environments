@@ -8,57 +8,31 @@ export class VoteVisuals {
     this.activeVoteArcs = new Map();
     this.activeTargetRings = new Map();
     this.animatingTrails = [];
-    this.particlePool = [];
 
     // Shared Resources
     this.ringGeometry = new this.THREE.RingGeometry(2, 2.2, 32);
     this.baseRingMaterial = new this.THREE.MeshBasicMaterial({
-      color: 0x00ffff,
+      color: 0xff0000,
       transparent: true,
       opacity: 0,
       side: this.THREE.DoubleSide,
     });
-    this.particleMaterials = new Map();
+
+    // Flat Triangle shape for particles
+    const shape = new this.THREE.Shape();
+    shape.moveTo(0, 0.6); // Tip (1.5x 0.4)
+    shape.lineTo(-0.375, -0.525); // Bottom left (1.5x 0.25, 1.5x 0.35)
+    shape.lineTo(0.375, -0.525); // Bottom right
+    shape.lineTo(0, 0.6); // Back to tip
+
+    this.particleGeometry = new this.THREE.ShapeGeometry(shape);
+    this.particleGeometry.rotateX(Math.PI / 2); // Point tip along +Z (Horizontal)
+
+    this.particleCount = 20;
+    this.dummy = new this.THREE.Object3D();
   }
 
-  getParticleMaterial(color) {
-    if (!this.particleMaterials.has(color)) {
-      const mat = new this.THREE.PointsMaterial({
-        color: color,
-        size: 0.3,
-        transparent: true,
-        opacity: 0.8,
-        blending: this.THREE.AdditiveBlending,
-        sizeAttenuation: true,
-      });
-      this.particleMaterials.set(color, mat);
-    }
-    return this.particleMaterials.get(color);
-  }
-
-  getPooledParticles(color) {
-      let particles;
-      if (this.particlePool.length > 0) {
-          particles = this.particlePool.pop();
-      } else {
-          const particleCount = 50;
-          const geometry = new this.THREE.BufferGeometry();
-          const positions = new Float32Array(particleCount * 3);
-          geometry.setAttribute('position', new this.THREE.BufferAttribute(positions, 3));
-          particles = new this.THREE.Points(geometry, this.getParticleMaterial(color));
-      }
-      particles.material = this.getParticleMaterial(color);
-      return particles;
-  }
-
-  returnToPool(particles) {
-      if (particles.parent) {
-          particles.parent.remove(particles);
-      }
-      this.particlePool.push(particles);
-  }
-
-  createVoteParticleTrail(voter, target, voterName, targetName, color = 0x00ffff) {
+  createVoteTriangleTrail(voter, target, voterName, targetName, color = 0x00ffff) {
     if (!voter || !target) return;
 
     const startPos = voter.container.position.clone();
@@ -71,34 +45,59 @@ export class VoteVisuals {
     midPos.y += dist * 0.3;
 
     const curve = new this.THREE.CatmullRomCurve3([startPos, midPos, endPos]);
-    const particleCount = 50;
-    
-    const particles = this.getPooledParticles(color);
-    this.votingArcsGroup.add(particles);
+
+    const material = new this.THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.8,
+      side: this.THREE.DoubleSide, // Ensure visibility from all angles
+    });
+
+    const mesh = new this.THREE.InstancedMesh(this.particleGeometry, material, this.particleCount);
+    this.votingArcsGroup.add(mesh);
 
     const trail = {
-      particles,
+      mesh,
       curve,
       target: targetName,
       startTime: Date.now(),
+      dispose: () => {
+        this.votingArcsGroup.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+      },
       update: () => {
         const elapsedTime = (Date.now() - trail.startTime) / 1000;
-        const positions = trail.particles.geometry.attributes.position.array;
-        for (let i = 0; i < particleCount; i++) {
-          const t = (elapsedTime * 0.2 + i / particleCount) % 1;
-          const pos = trail.curve.getPointAt(t);
-          positions[i * 3] = pos.x;
-          positions[i * 3 + 1] = pos.y;
-          positions[i * 3 + 2] = pos.z;
+        const speed = 0.5;
+
+        for (let i = 0; i < this.particleCount; i++) {
+          const t = (elapsedTime * speed + i / this.particleCount) % 1;
+
+          const pos = curve.getPoint(t);
+          const nextT = Math.min(t + 0.01, 1);
+          const nextPos = curve.getPoint(nextT);
+
+          this.dummy.position.copy(pos);
+          if (t < 0.99) {
+            this.dummy.lookAt(nextPos);
+          } else {
+            const tangent = curve.getTangent(t).normalize();
+            this.dummy.lookAt(pos.clone().add(tangent));
+          }
+
+          this.dummy.scale.setScalar(0.7);
+
+          this.dummy.updateMatrix();
+          mesh.setMatrixAt(i, this.dummy.matrix);
         }
-        trail.particles.geometry.attributes.position.needsUpdate = true;
+        mesh.instanceMatrix.needsUpdate = true;
       },
     };
     this.activeVoteArcs.set(voterName, trail);
     this.animatingTrails.push(trail);
   }
 
-  updateTargetRing(target, targetName, voteCount) {
+  updateTargetRing(target, targetName, voteCount, color = 0xff0000) {
     if (!target) return;
 
     let ringData = this.activeTargetRings.get(targetName);
@@ -117,6 +116,7 @@ export class VoteVisuals {
     if (ringData) {
       if (voteCount > 0) {
         ringData.targetOpacity = 0.3 + Math.min(voteCount * 0.2, 0.7);
+        ringData.material.color.setHex(color); // Match the action color
       } else {
         ringData.targetOpacity = 0;
       }
@@ -132,29 +132,33 @@ export class VoteVisuals {
 
     this.activeVoteArcs.forEach((trail, voterName) => {
       if (!votes.has(voterName)) {
-        this.returnToPool(trail.particles);
+        trail.dispose();
         this.activeVoteArcs.delete(voterName);
         this.animatingTrails = this.animatingTrails.filter((t) => t !== trail);
       }
     });
 
+    const targetColors = new Map(); // Track color for each target
+
     votes.forEach((voteData, voterName) => {
       const { target: targetName, type } = voteData;
       const existingTrail = this.activeVoteArcs.get(voterName);
 
-      let color = 0x00ffff;
+      let color = 0xff0000; // Default to red for better visibility (Day votes)
       if (type === 'night_vote') color = 0xff0000;
       else if (type === 'doctor_heal_action') color = 0x00ff00;
-      else if (type === 'seer_inspection') color = 0x800080;
+      else if (type === 'seer_inspection') color = 0x0000ff;
+
+      targetColors.set(targetName, color); // Last action color wins for the ring
 
       if (existingTrail) {
         if (existingTrail.target !== targetName) {
-          this.returnToPool(existingTrail.particles);
+          existingTrail.dispose();
           this.animatingTrails = this.animatingTrails.filter((t) => t !== existingTrail);
-          this.createVoteParticleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
+          this.createVoteTriangleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
         }
       } else {
-        this.createVoteParticleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
+        this.createVoteTriangleTrail(playerObjects.get(voterName), playerObjects.get(targetName), voterName, targetName, color);
       }
     });
 
@@ -165,7 +169,7 @@ export class VoteVisuals {
     });
 
     playerObjects.forEach((player, playerName) => {
-      this.updateTargetRing(player, playerName, targetVoteCounts.get(playerName) || 0);
+      this.updateTargetRing(player, playerName, targetVoteCounts.get(playerName) || 0, targetColors.get(playerName));
     });
   }
 

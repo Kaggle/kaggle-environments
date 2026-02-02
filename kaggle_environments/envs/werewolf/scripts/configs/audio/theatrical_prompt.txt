@@ -11,11 +11,14 @@ Values are Objects containing:
   - "text_content": The text with markup tags inserted at natural points. (e.g. "I am... [short pause] the Seer"). DO NOT change the spoken words, only insert tags.
 
 Guidelines:
-- **Style Prompt**: Focus on natural, interesting human speech. **Prefer faster speech** ("fast-paced", "quick delivery") to keep it engaging. Use descriptors like "impatient," "interjecting," "sarcastic," "mumbling," "laughing," "sighing."
-- **Markup Tags**: Use the following supported tags. Insert them **inline** where they make sense naturally.
-  - **Reactions**: `[sigh]`, `[laughing]`, `[uhm]`.
-  - **Modifiers**: `[sarcasm]`, `[shouting]`, `[whispering]`, `[robotic]`, `[extremely fast]`.
-  - **Pauses**: `[short pause]` (~250ms), `[medium pause]` (~500ms), `[long pause]` (~1s+).
+- **Style Prompt**: This is the primary driver of the overall emotional tone and delivery. Describe the tone, emotion, and context for the *entire* speech segment.
+  - Good: "Speaking in a scared, hushed tone," "Calm, authoritative, and analytical," "Laughing and joyful."
+  - Bad: "Saying the following text." (Too neutral)
+- **Text Content**: The semantic meaning of the words. **DO NOT** change the spoken words from the original text, only insert tags.
+- **Markup Tags**: Use bracketed tags `[tag]` ONLY for specific, localized actions or style modifications within the text.
+  - **Non-speech sounds**: `[sigh]`, `[laugh]`, `[throat clearing]`, `[gasp]`.
+  - **Style modifiers**: `[whispering]`, `[shouting]` (use sparingly, prefer Style Prompt for overall tone).
+  - **Pauses**: `[short pause]`, `[long pause]`.
 - **Context**: Use the provided game context to determine the appropriate emotion.
 - **Moderator**: Keep moderator messages monotonic or neutral unless it's a major event.
 - **Output JSON ONLY**.
