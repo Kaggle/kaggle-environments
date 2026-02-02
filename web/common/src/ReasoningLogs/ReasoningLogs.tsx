@@ -8,9 +8,15 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import * as React from "react";
 import { useSearchParams } from "react-router";
 import { Virtuoso, VirtuosoHandle, Components } from "react-virtuoso";
-import styled from "styled-components";
-import { Body1, Heading6 } from "../Typography/Typography";
-import { CircularProgress, List, Select, Slider, Tooltip } from "@mui/material";
+import { styled } from "@mui/material/styles";
+import { Button, CircularProgress, Icon, IconButton, List, MenuItem, Select, Slider, Tooltip, Typography } from "@mui/material";
+
+interface SelectOption<T> {
+  label: string;
+  value: T;
+  icon?: string;
+  valueLabel?: React.ReactNode;
+}
 
 const SPEED_OPTIONS: SelectOption<number>[] = [
   {
@@ -47,8 +53,8 @@ const SPEED_OPTIONS: SelectOption<number>[] = [
 
 const IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT = "74px";
 
-const LogsContainer = styled.div`
-  border-left: 1px solid ${p => p.theme.km.color.outline.divider};
+const LogsContainer = styled('div')`
+  border-left: 1px solid ${p => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   min-width: 300px;
@@ -56,29 +62,29 @@ const LogsContainer = styled.div`
   height: calc(100% - ${IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT});
   min-height: 0;
 
-  @media ${MaterialBreakpointDown.TABLET} {
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
     height: 100%;
   }
 `;
 
-const SidebarHeader = styled.div`
+const SidebarHeader = styled('div')`
   align-items: center;
-  background-color: ${p => p.theme.km.color.background.normal};
-  border-bottom: 1px solid ${p => p.theme.km.color.outline.divider};
+  background-color: ${p => p.theme.palette.background.default};
+  border-bottom: 1px solid ${p => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 16px;
   flex-shrink: 0;
 
-  @media ${MaterialBreakpointDown.TABLET} {
-    border-top: 1px solid ${p => p.theme.km.color.outline.divider};
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    border-top: 1px solid ${p => p.theme.palette.divider};
     padding: 8px 16px;
   }
 `;
 
-const PlayerControlsSection = styled.div`
+const PlayerControlsSection = styled('div')`
   align-items: center;
   display: flex;
   gap: 8px;
@@ -90,12 +96,12 @@ const GameLogHeader = styled(PlayerControlsSection)`
   height: 28px;
 `;
 
-const PlayerButtons = styled.div`
+const PlayerButtons = styled('div')`
   display: flex;
   gap: 8px;
 `;
 
-const SpacedListItem = styled.li`
+const SpacedListItem = styled('li')`
   /* Reset default li styles just in case */
   margin: 0;
   padding: 0;
@@ -108,7 +114,7 @@ const SpacedListItem = styled.li`
   padding-top: 20px;
   box-sizing: border-box;
 
-  @media ${MaterialBreakpointDown.TABLET} {
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
     padding-top: 8px;
   }
 `;
@@ -121,7 +127,7 @@ const StepList = styled(List)`
 `;
 
 /* Hide all scrollbars- they get distracting when content is constantly scrolling */
-const LogsScroller = styled.div`
+const LogsScroller = styled('div')`
   scrollbar-width: none;
   -ms-overflow-style: none;
   overflow-anchor: none;
@@ -139,11 +145,11 @@ const PlaybackSlider = styled(Slider)`
   margin-right: 4px;
 
   && .MuiSlider-rail {
-    color: ${({ theme }) => theme.km.color.outline.normal};
+    color: ${({ theme }) => theme.palette.text.secondary};
   }
 
   && .MuiSlider-track {
-    color: ${({ theme }) => theme.km.color.outline.high};
+    color: ${({ theme }) => theme.palette.text.primary};
     opacity: 1;
   }
 
@@ -164,8 +170,8 @@ const PlaybackSlider = styled(Slider)`
   }
 `;
 
-const MarkDot = styled.div<{ $active?: boolean }>`
-  background-color: ${({ theme }) => theme.km.color.kaggle.blue};
+const MarkDot = styled('div')<{ $active?: boolean }>`
+  background-color: ${({ theme }) => theme.palette.primary.main};
   height: 10px;
   width: 10px;
   border-radius: 50%;
@@ -173,20 +179,20 @@ const MarkDot = styled.div<{ $active?: boolean }>`
   border: 2px solid
     ${({ theme, $active }) =>
     $active
-      ? theme.name === "dark"
-        ? theme.km.color.kaggle.white
-        : theme.km.color.kaggle.black
-      : theme.km.color.background.normal};
+      ? theme.palette.mode === "dark"
+        ? theme.palette.common.white
+        : theme.palette.common.black
+      : theme.palette.background.default};
   &:hover {
     border: 2px solid
       ${({ theme }) =>
-    theme.name === "dark"
-      ? theme.km.color.kaggle.white
-      : theme.km.color.kaggle.black};
+    theme.palette.mode === "dark"
+      ? theme.palette.common.white
+      : theme.palette.common.black};
   }
 `;
 
-const NoStepsContainer = styled.div`
+const NoStepsContainer = styled('div')`
   width: 100%;
   height: 100%;
   display: flex;
@@ -196,7 +202,7 @@ const NoStepsContainer = styled.div`
 
 const VirtuosoScrollerList = React.forwardRef(
   (props, ref: React.ForwardedRef<any>) => {
-    return <StepList {...props} innerRef={ref} />;
+    return <StepList {...props} ref={ref} />;
   }
 );
 
@@ -258,7 +264,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
   const [searchParams] = useSearchParams();
   const [hasCopied, setHasCopied] = React.useState(false);
 
-  const isTablet = useMediaQuery(MaterialBreakpointDown.TABLET);
+  const isTablet = useMediaQuery(theme => theme.breakpoints.down('tablet'));
   const showControls = replayMode !== "only-stream";
 
   const visibleSteps = React.useMemo(() => {
@@ -361,15 +367,16 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
     <LogsContainer>
       <SidebarHeader>
         <GameLogHeader>
-          <Heading6 as="h2">Game Log</Heading6>
+          <Typography variant="h6" component="h2">Game Log</Typography>
           <div>
             {replayMode !== "only-stream" && (
               <IconButton
                 size={isTablet ? "small" : "medium"}
                 onClick={closePanel}
-                icon={isTablet ? "bottom_panel_close" : "right_panel_close"}
-                title="Collapse Episodes"
-              />
+                aria-label="Collapse Episodes"
+              >
+                <Icon>{isTablet ? "bottom_panel_close" : "right_panel_close"}</Icon>
+              </IconButton>
             )}
             {replayMode !== "only-stream" && !isTablet && (
               <IconButton
@@ -384,9 +391,10 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                     setHasCopied(false);
                   }, 3000);
                 }}
-                icon={hasCopied ? "done" : "ios_share"}
-                title="Share Episode"
-              />
+                aria-label="Share Episode"
+              >
+                <Icon>{hasCopied ? "done" : "ios_share"}</Icon>
+              </IconButton>
             )}
           </div>
         </GameLogHeader>
@@ -396,17 +404,17 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
               <PlayerButtons>
                 <IconButton
                   size="large"
-                  icon="refresh"
-                  title="Restart"
+                  aria-label="Restart"
                   onClick={() => {
                     onPlayChange(/* playing= */ true);
                     onStepChange(0);
                   }}
-                />
+                >
+                  <Icon>refresh</Icon>
+                </IconButton>
                 <IconButton
                   size="large"
-                  icon="skip_previous"
-                  title="Previous Step"
+                  aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
                       onPlayChange(/* playing= */ false);
@@ -414,17 +422,19 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                       scrollLogs(true);
                     }
                   }}
-                />
+                >
+                  <Icon>skip_previous</Icon>
+                </IconButton>
                 <IconButton
                   size="large"
-                  icon={playing ? "pause" : "play_arrow"}
-                  title={playing ? "Pause" : "Play"}
+                  aria-label={playing ? "Pause" : "Play"}
                   onClick={() => onPlayChange()}
-                />
+                >
+                  <Icon>{playing ? "pause" : "play_arrow"}</Icon>
+                </IconButton>
                 <IconButton
                   size="large"
-                  icon="skip_next"
-                  title="Next Step"
+                  aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
                       onPlayChange(/* playing= */ false);
@@ -432,19 +442,21 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                       scrollLogs(true);
                     }
                   }}
-                />
+                >
+                  <Icon>skip_next</Icon>
+                </IconButton>
               </PlayerButtons>
               {totalSteps > 0 && currentStep > -1 && (
-                <Body1 style={{ marginRight: "8px" }}>
+                <Typography variant="body1" style={{ marginRight: "8px" }}>
                   {currentStep + 1}/{totalSteps}
-                </Body1>
+                </Typography>
               )}
             </PlayerControlsSection>
             <PlayerControlsSection>
               <PlaybackSlider
                 min={1}
                 max={totalSteps > 0 ? totalSteps : 0}
-                onChangeCommitted={(_, value) => {
+                onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
                   if (typeof value === "number") {
                     onStepChange(value - 1);
                     setIsChangingStep(false);
@@ -452,7 +464,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 }}
                 name="Change Step"
                 value={userInputStep}
-                onChange={(_, value) => {
+                onChange={(_: Event, value: number | number[]) => {
                   if (typeof value === "number") {
                     setUserInputStep(value);
 
@@ -465,11 +477,11 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 marks={interestingEvents?.map(event => ({
                   value: event.step + 1, // The slider is 1-indexed.
                   label: (
-                    <Tooltip line1={event.description} position="top">
+                    <Tooltip title={event.description} placement="top">
                       <MarkDot
                         $active={currentStep === event.step} // We want the dot to be active when the current step on the dot, regardless of whether it was clicked or not.
-                        onMouseDown={e => e.stopPropagation()}
-                        onClick={e => {
+                        onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+                        onClick={(e: React.MouseEvent) => {
                           e.stopPropagation();
                           onPlayChange(false);
                           onStepChange(event.step);
@@ -481,20 +493,25 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
               />
               <Select
                 value={speedModifier}
-                onSelect={onSpeedChange}
+                onChange={(e) => onSpeedChange(e.target.value as number)}
                 aria-label="Change Playback Speed"
-                dense
-                options={SPEED_OPTIONS}
-              />
+                size="small"
+              >
+                {SPEED_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
             </PlayerControlsSection>
             <PlayerControlsSection
               style={{ justifyContent: "flex-start", marginTop: "8px" }}
             >
               <Button
-                emphasis="medium"
-                dense
-                leadingIcon={
-                  replayMode === "zen" ? "view_object_track" : "sensors"
+                variant="outlined"
+                size="small"
+                startIcon={
+                  <Icon>{replayMode === "zen" ? "view_object_track" : "sensors"}</Icon>
                 }
                 onClick={() => {
                   if (replayMode === "zen") {
@@ -508,9 +525,9 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
               </Button>
               {replayMode === "condensed" && (
                 <Button
-                  emphasis="medium"
-                  dense
-                  leadingIcon="expand_all"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Icon>expand_all</Icon>}
                   onClick={() => setExpandAll(!expandAll)}
                 >
                   {expandAll ? "Collapse" : "Expand"} All

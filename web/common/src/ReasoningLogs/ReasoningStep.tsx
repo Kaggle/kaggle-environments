@@ -1,4 +1,4 @@
-import { Icon } from "@mui/material";
+import { Button, Icon, Typography } from "@mui/material";
 import { getPlayer } from "../utils";
 import {
   BaseGameStep,
@@ -9,8 +9,8 @@ import {
 } from "@kaggle-environments/core";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import * as React from "react";
-import styled, { css, keyframes } from "styled-components";
-import { Body1, Heading4, Heading5, Subhead } from "../Typography/Typography";
+import { styled, css, keyframes } from "@mui/material/styles";
+import { UserContent } from "../UserContent";
 
 const MOBILE_CARD_HEIGHT = 100;
 const MAX_STREAMING_ONLY_CARD_HEIGHT = 550;
@@ -25,44 +25,44 @@ const fadeIn = keyframes`
   }
 `;
 
-const StepCard = styled.div`
-border-radius: 16px;
+const StepCard = styled('div')`
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 16px;
   animation: ${fadeIn} 0.3s ease-out forwards;
-    min-width: 200px;
+  min-width: 200px;
   width: 100%;
   overflow: hidden;
   box-sizing: border-box;
-          border: 1px solid ${cardColors[p.theme.name].border};
+  border: 1px solid ${({ theme }) => theme.palette.divider};
 
   p {
     margin: 0;
   }
 
-  @media ${MaterialBreakpointDown.LG2} {
+  ${({ theme }) => theme.breakpoints.down('lg2')} {
     padding-top: 8px;
     padding-bottom: 8px;
   }
 `;
 
-const StepMeta = styled.div`
+const StepMeta = styled('div')`
   align-items: center;
   display: flex;
   gap: 8px;
 `;
 
-const PlayerStep = styled.div`
+const PlayerStep = styled('div')`
   align-items: center;
   display: flex;
   justify-content: space-between;
   width: 100%;
 `;
 
-const ReasoningContent = styled.div<{ $replayMode: ReplayMode }>`
-  border-top: 1px solid ${p => p.theme.km.color.outline.divider};
+const ReasoningContent = styled('div')<{ $replayMode: ReplayMode }>`
+  border-top: 1px solid ${p => p.theme.palette.divider};
   max-height: ${p =>
     p.$replayMode === "only-stream"
       ? MAX_STREAMING_ONLY_CARD_HEIGHT
@@ -79,7 +79,7 @@ const ReasoningContent = styled.div<{ $replayMode: ReplayMode }>`
     background: transparent;
   }
 
-  @media ${MaterialBreakpointDown.TABLET} {
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
     max-height: ${MOBILE_CARD_HEIGHT}px;
   }
 `;
@@ -87,14 +87,14 @@ const ReasoningContent = styled.div<{ $replayMode: ReplayMode }>`
 const DescriptionAndLabelMarkdown = styled(UserContent) <{
   $useLargeFonts: boolean;
 }>`
-  background-color: ${p => p.theme.km.color.background.dialog};
-  color: ${p => p.theme.km.color.text.high};
+  background-color: ${p => p.theme.palette.background.paper};
+  color: ${p => p.theme.palette.text.primary};
   max-width: 550px;
 
   ${p =>
     p.$useLargeFonts &&
     css`
-      @media ${MaterialBreakpointUp.TABLET} {
+      ${p.theme.breakpoints.up('tablet')} {
         margin-top: 16px;
 
         h1,
@@ -132,7 +132,7 @@ const DescriptionAndLabelMarkdown = styled(UserContent) <{
     `}
 `;
 
-const Avatar = styled.img<{ $size: "small" | "medium" }>`
+const Avatar = styled('img')<{ $size: "small" | "medium" }>`
    position: absolute;
   top: 50%;
   left: 50%;
@@ -173,7 +173,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
 
   const internalScrollStickRef = React.useRef(true);
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const isLargerThanTablet = useMediaQuery(MaterialBreakpointUp.TABLET);
+  const isLargerThanTablet = useMediaQuery(theme => theme.breakpoints.up('tablet'));
 
   const streaming = replayMode !== "condensed";
   const useStreamingStyles = streaming && isLargerThanTablet;
@@ -284,7 +284,6 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
   if (label.length === 0 || description.length === 0) {
     return (
       <StepCard
-        $hoverBoxShadow={false}
         role="button"
         onClick={() => onStepChange(stepNumber - 1)}
       >
@@ -297,23 +296,21 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
             />
           ) : (
             <Icon
-              baseClassName="google-symbols"
               component="span"
-              size={useStreamingStyles ? "medium" : "small"}
-              title=""
+              fontSize={useStreamingStyles ? "medium" : "small"}
             >
               person
             </Icon>
           )}
           {useStreamingStyles ? (
             <PlayerStep>
-              {player && <Heading4 as="p">{player.name}</Heading4>}
-              <Heading5 as="p">{stepNumber}</Heading5>
+              {player && <Typography variant="h4" component="p">{player.name}</Typography>}
+              <Typography variant="h5" component="p">{stepNumber}</Typography>
             </PlayerStep>
           ) : (
             <PlayerStep>
-              <Subhead>{player?.name ?? "System"}</Subhead>
-              <Body1>{stepNumber}</Body1>
+              <Typography variant="subtitle1">{player?.name ?? "System"}</Typography>
+              <Typography variant="body1">{stepNumber}</Typography>
             </PlayerStep>
           )}
         </StepMeta>
@@ -328,7 +325,6 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
 
   return (
     <StepCard
-      $hoverBoxShadow={false}
       role="button"
       onClick={() => onStepChange(stepNumber - 1)}
     >
@@ -342,13 +338,13 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
         )}
         {useStreamingStyles ? (
           <PlayerStep>
-            {player && <Heading4 as="p">{player.name}</Heading4>}
-            <Heading5 as="p">{stepNumber}</Heading5>
+            {player && <Typography variant="h4" component="p">{player.name}</Typography>}
+            <Typography variant="h5" component="p">{stepNumber}</Typography>
           </PlayerStep>
         ) : (
           <PlayerStep>
-            <Subhead>{player?.name ?? "System"}</Subhead>
-            <Body1>{stepNumber}</Body1>
+            <Typography variant="subtitle1">{player?.name ?? "System"}</Typography>
+            <Typography variant="body1">{stepNumber}</Typography>
           </PlayerStep>
         )}
       </StepMeta>
@@ -359,7 +355,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
       />
       {showExpandButton && description && (
         <Button
-          leadingIcon={expanded ? "keyboard_arrow_up" : "keyboard_arrow_down"}
+          startIcon={<Icon>{expanded ? "keyboard_arrow_up" : "keyboard_arrow_down"}</Icon>}
           onClick={() => {
             setExpanded(!expanded);
             // Give a little time for the expanded card to render, then make sure all new content is visible
@@ -367,7 +363,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
               setTimeout(() => scrollLogs(true), 250);
             }
           }}
-          emphasis="low"
+          variant="text"
         >
           {expanded ? "Hide" : "Show"} thinking
         </Button>
