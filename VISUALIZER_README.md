@@ -6,6 +6,11 @@ This document provides technical guidance for developers working on simulation v
 
 All new visualizers are developed as standalone packages within a `pnpm` monorepo. This approach uses Vite for a fast, modern development experience with hot-reloading and generates static assets for production.
 
+## Getting Started:
+```pnpm install``` (at root)
+```pnpm lefthook install```  (one time only - sets up pre-commit hooks for testing/linting/formatting)
+```pnpm dev```
+
 ### 1. Directory Structure
 
 Each visualizer lives in its own package directory. To create a new visualizer for a game named `my-game`, you would create the following structure:
