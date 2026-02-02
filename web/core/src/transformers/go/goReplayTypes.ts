@@ -1,8 +1,30 @@
+import { BaseGamePlayer, BaseGameStep } from '../../types';
+
+export interface GoPlayer extends BaseGamePlayer {
+  reward: number | null;
+}
+
+export interface GoBoardState {
+  board_size: number;
+  komi: number;
+  current_player_to_move: string;
+  move_number: number;
+  previous_move_a1: string | null;
+  board: string[][];
+}
+
+export interface GoStep extends Omit<BaseGameStep, 'players'> {
+  players: GoPlayer[];
+  boardState: GoBoardState;
+  isTerminal: boolean;
+  winner: string | null;
+}
+
 /**
  * Everything below this point is only used in the transformer to parse
- * the replay and should not be used for game dispay.
+ * the replay and should not be used for game display.
  */
-export interface ChessReplay {
+export interface GoReplay {
   configuration: {
     actTimeout: number;
     episodeSteps: number;
@@ -34,20 +56,20 @@ export interface ChessReplay {
  * Only used internally as part of the type for replay data,
  * do not use elsewhere.
  */
-interface GoReplayStep {
-  action: {
-    actionString: string;
-    generate_returns: string[];
-    status: string;
+export interface GoReplayStep {
+  action?: {
+    actionString?: string;
+    generate_returns?: string[];
+    status?: string;
     submission: number;
-    thoughts: string;
+    thoughts?: string;
   };
-  info: {
-    actionApplied: number;
-    actionSubmitted: number;
-    actionSubmittedToString: string;
-    agentSelfReportedStatus: string;
-    timeTaken: number;
+  info?: {
+    actionApplied?: number;
+    actionSubmitted?: number;
+    actionSubmittedToString?: string;
+    agentSelfReportedStatus?: string;
+    timeTaken?: number;
   };
   observation: {
     currentPlayer: number;
@@ -61,5 +83,5 @@ interface GoReplayStep {
     step: number;
   };
   reward: number | null;
-  status: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'DONE';
 }
