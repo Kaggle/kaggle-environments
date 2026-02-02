@@ -1,4 +1,5 @@
-import { GoReplay, GoPlayer, GoStep, GoBoardState } from './goReplayTypes';
+import { GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
+import { BaseGamePlayer } from '../../types';
 
 function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string }): string {
   if (action?.generate_returns?.[0]) {
@@ -8,7 +9,7 @@ function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string
         return parsed.main_response_and_thoughts;
       }
     } catch {
-      // Fall through to use action.thoughts
+      return action?.thoughts ?? '';
     }
   }
   return action?.thoughts ?? '';
@@ -41,19 +42,17 @@ function parseBoardState(observationString: string): GoBoardState {
   }
 }
 
-function deriveWinnerFromRewards(players: GoPlayer[]): string {
-  if (players.length < 2) return '';
+function deriveWinner(step: GoReplayStep[]): string {
+  if (step.length < 2) return '';
 
-  const player0Reward = players[0].reward;
-  const player1Reward = players[1].reward;
+  const reward0 = step[0].reward;
+  const reward1 = step[1].reward;
 
-  if (player0Reward === player1Reward) {
+  if (reward0 === reward1) {
     return 'Draw';
   }
 
-  const winnerPlayerIndex = player0Reward === 1 ? 0 : 1;
-
-  return `${players[winnerPlayerIndex].name} Wins!`;
+  return reward0 === 1 ? 'Black Wins!' : 'White Wins!';
 }
 
 export const goTransformer = (environment: any): GoStep[] => {
@@ -62,7 +61,7 @@ export const goTransformer = (environment: any): GoStep[] => {
   const goSteps: GoStep[] = [];
 
   goReplay.steps.forEach((step, index) => {
-    const stepPlayers: GoPlayer[] = step.map((player, playerIndex): GoPlayer => {
+    const stepPlayers: BaseGamePlayer[] = step.map((player, playerIndex) => {
       const actionString = player.action?.actionString ?? '';
       const [colorCode, move] = actionString.split(' ');
       const colorName = colorCode === 'W' ? 'White' : 'Black';
@@ -74,27 +73,20 @@ export const goTransformer = (environment: any): GoStep[] => {
         isTurn: player.action?.submission !== undefined && player.action.submission !== -1,
         actionDisplayText: move ?? '',
         thoughts: parseThoughts(player.action),
-        reward: player.reward,
       };
     });
 
     if (stepPlayers.some((player) => player.isTurn)) {
+      const isTerminal = step[0].observation.isTerminal;
       goSteps.push({
         step: index,
         players: stepPlayers,
         boardState: parseBoardState(step[0].observation.observationString),
-        isTerminal: step[0].observation.isTerminal,
-        winner: null,
+        isTerminal,
+        winner: isTerminal ? deriveWinner(step) : null,
       });
     }
   });
-
-  if (goSteps.length > 0) {
-    const lastStep = goSteps[goSteps.length - 1];
-    if (lastStep.isTerminal) {
-      lastStep.winner = deriveWinnerFromRewards(lastStep.players);
-    }
-  }
 
   return goSteps;
 };

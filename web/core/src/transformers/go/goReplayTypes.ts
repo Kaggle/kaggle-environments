@@ -1,8 +1,4 @@
-import { BaseGamePlayer, BaseGameStep } from '../../types';
-
-export interface GoPlayer extends BaseGamePlayer {
-  reward: number | null;
-}
+import { BaseGameStep } from '../../types';
 
 export interface GoBoardState {
   board_size: number;
@@ -13,8 +9,7 @@ export interface GoBoardState {
   board: string[][];
 }
 
-export interface GoStep extends Omit<BaseGameStep, 'players'> {
-  players: GoPlayer[];
+export interface GoStep extends BaseGameStep {
   boardState: GoBoardState;
   isTerminal: boolean;
   winner: string | null;
