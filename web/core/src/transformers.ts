@@ -33,13 +33,21 @@ import {
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
 import { BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { goTransformer } from './transformers/go/goTransformer';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.actionDisplayText ?? '';
 };
 
 const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
+
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.thoughts ?? '';
 };
@@ -64,6 +72,9 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
     case 'werewolf':
       // Werewolf transformer modifies environment in place and adds visualizerData
       return werewolfTransformer(environment) as any;
+    case 'open_spiel_go':
+      transformedSteps = goTransformer(environment);
+      break;
     default:
       // If no transformer, return the original environment
       return environment;
