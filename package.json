@@ -24,6 +24,7 @@
     "vite-tsconfig-paths": "^5.1.4"
   },
   "dependencies": {
+    "lefthook": "^2.0.16",
     "marked": "^17.0.1"
   }
 }
