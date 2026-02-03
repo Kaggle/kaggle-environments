@@ -1,4 +1,5 @@
 /* eslint-disable no-undef, @typescript-eslint/no-require-imports */
+
 const { chromium } = require('playwright');
 const { login } = require('../login.js');
 

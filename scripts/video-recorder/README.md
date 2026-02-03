@@ -22,23 +22,23 @@ docker build -t web-recorder .
 
 ```bash
 # Basic usage (timestamp filename, 3 hour max)
-docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder "https://example.com"
+docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder URL_OR_FILEPATH_OR_ID
 
 # Custom filename
-docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder "https://example.com" "my_recording"
+docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder URL_OR_FILEPATH_OR_ID "my_recording"
 
 # Custom filename + 60 second timeout
-docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder "https://example.com" "my_recording" 60
+docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder URL_OR_FILEPATH_OR_ID "my_recording" 60
 
 # Timestamp filename + custom timeout
-docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder "https://example.com" "" 60
+docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder URL_OR_FILEPATH_OR_ID "" 60
 ```
 
 ### Arguments
 
 | Position | Name | Description | Default |
 |----------|------|-------------|---------|
-| 1 | URL | Website URL to record | Required |
+| 1 | TARGET_CONTENT | Website URL, file path, or episode ID to record | Required |
 | 2 | Filename | Output filename (without .mp4) | `recording_YYYYMMDD_HHMMSS` |
 | 3 | Length | Max recording length in seconds | `10800` (3 hours) |
 
@@ -47,6 +47,15 @@ docker run --rm -v "$(pwd)/recordings:/app/recordings" web-recorder "https://exa
 Recordings are saved to the mounted `/app/recordings` directory as MP4 files with:
 - **Video**: H.264, 1920x1080
 - **Audio**: AAC, 128kbps
+
+## Editing Playback Speed
+
+To speed up an already completed recording, you can use `speed_up_video.sh`: 
+
+```bash
+docker build -t web-recorder .
+docker run --rm -v "$(pwd)/recordings:/app/recordings" --entrypoint ./speed_up_video.sh web-recorder  
+```
 
 ## How It Works
 
@@ -60,11 +69,7 @@ Recordings are saved to the mounted `/app/recordings` directory as MP4 files wit
 
 ### Stop Signal
 
-Edit `record.js` to change the selector that triggers recording stop:
-
-```javascript
-await page.waitForSelector('.replay-complete-signal', { timeout: timeoutMs });
-```
+Fork and edit `record-template.js` to change the selectors that trigger recording start and stop.
 
 ### Resolution
 
@@ -75,7 +80,7 @@ ENV SCREEN_WIDTH=1920
 ENV SCREEN_HEIGHT=1080
 ```
 
-Also update the window size in `record.js`:
+Also update the window size in `record-template.js` (or whereever you're working):
 
 ```javascript
 '--window-size=1920,1080',

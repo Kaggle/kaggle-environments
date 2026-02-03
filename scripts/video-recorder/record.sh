@@ -59,6 +59,9 @@ fi
 
 echo "Output will be saved to: $OUTPUT_FILE"
 
+# Ensure recordings directory exists
+mkdir -p /app/recordings
+
 # 1. Cleanup potential stale locks
 rm -f /tmp/.X99-lock
 
@@ -94,7 +97,7 @@ ffmpeg -f x11grab \
 FFMPEG_PID=$!
 
 # 5. Run the Playwright Script - change this out to another recording script if needed
-node record.js "$TARGET_CONTENT" &
+node ./recording-scripts/record-werewolf.js "$TARGET_CONTENT" &
 NODE_PID=$!
 wait $NODE_PID
 

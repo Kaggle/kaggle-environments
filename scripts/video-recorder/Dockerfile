@@ -18,7 +18,6 @@ RUN npx playwright install chromium
 
 COPY record.sh .
 COPY speed_up_video.sh .
-COPY record.js .
 COPY login.js .
 COPY recording-scripts/ ./recording-scripts/
 
