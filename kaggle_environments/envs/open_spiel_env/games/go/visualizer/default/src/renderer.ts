@@ -1,3 +1,45 @@
+interface GoRendererOptions {
+  environment: any;
+  step: number;
+  steps: any[];
+  parent: any;
+  interactive: boolean;
+  isInteractive: boolean;
+  maxBoardSize?: number;
+}
+
+ const starPointsMap: Record<number, [number, number][]> = {
+      9: [
+        [2, 2],
+        [2, 6],
+        [4, 4],
+        [6, 2],
+        [6, 6],
+      ],
+      13: [
+        [3, 3],
+        [3, 9],
+        [6, 6],
+        [9, 3],
+        [9, 9],
+      ],
+      19: [
+        [3, 3],
+        [3, 9],
+        [3, 15],
+        [9, 3],
+        [9, 9],
+        [9, 15],
+        [15, 3],
+        [15, 9],
+        [15, 15],
+      ],
+    };
+
+      function _getStarPoints(boardSize: number) {   
+    return Object.keys(starPointsMap).includes(boardSize.toString()) ? starPointsMap[boardSize] : [];
+  }
+
 /**
  * Go Board Renderer for OpenSpiel.
  * [dominoweir] NOTE: do not treat this code as sacred. We ported this to the new
@@ -5,8 +47,10 @@
  * it is a clone of the original go.js, there's always a chance something broke
  * along the way. Code is meant to be deleted- do it if you need to!
  * */
-export function renderer(options) {
-  const { environment, step, parent, interactive, isInteractive, maxBoardSize = 800 } = options;
+export function renderer(options: GoRendererOptions) {
+  const { environment, step, steps, parent, maxBoardSize = 800 } = options;
+
+  console.log(options);
 
   // --- Constants ---
   const DEFAULT_BOARD_SIZE = 19;
@@ -23,7 +67,7 @@ export function renderer(options) {
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   // Dynamic sizing based on board size
-  function getBoardConfig(boardSize) {
+  function getBoardConfig(boardSize: number) {
     let intersectionSize, margin, fontSize;
 
     if (boardSize <= 9) {
@@ -46,14 +90,15 @@ export function renderer(options) {
   // Go column labels (A-T, omitting I)
   const COLUMN_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
 
-  let currentBoardSvgElement = null;
-  let currentStatusTextElement = null;
-  let currentWinnerTextElement = null;
-  let currentMessageBoxElement = typeof document !== 'undefined' ? document.getElementById('messageBox') : null;
-  let currentRendererContainer = null;
-  let currentTitleElement = null;
+  let currentBoardSvgElement: SVGSVGElement | null = null;
+  let currentStatusTextElement: HTMLElement | null = null;
+  let currentWinnerTextElement: HTMLElement | null = null;
+  let currentMessageBoxElement: HTMLElement | null =
+    typeof document !== 'undefined' ? document.getElementById('messageBox') : null;
+  let currentRendererContainer: HTMLElement | null = null;
+  let currentTitleElement: HTMLElement | null = null;
 
-  function _showMessage(message, type = 'info', duration = 3000) {
+  function _showMessage(message: string, type = 'info', duration = 3000) {
     if (typeof document === 'undefined' || !document.body) return;
     if (!currentMessageBoxElement) {
       currentMessageBoxElement = document.createElement('div');
@@ -81,39 +126,9 @@ export function renderer(options) {
     }, duration);
   }
 
-  function _getStarPoints(boardSize) {
-    // Star points for different board sizes
-    const starPointsMap = {
-      9: [
-        [2, 2],
-        [2, 6],
-        [4, 4],
-        [6, 2],
-        [6, 6],
-      ],
-      13: [
-        [3, 3],
-        [3, 9],
-        [6, 6],
-        [9, 3],
-        [9, 9],
-      ],
-      19: [
-        [3, 3],
-        [3, 9],
-        [3, 15],
-        [9, 3],
-        [9, 9],
-        [9, 15],
-        [15, 3],
-        [15, 9],
-        [15, 15],
-      ],
-    };
-    return starPointsMap[boardSize] || [];
-  }
 
-  function _ensureRendererElements(parentElementToClear, boardSize) {
+
+  function _ensureRendererElements(parentElementToClear: HTMLElement | null, boardSize: number) {
     if (!parentElementToClear) return false;
     parentElementToClear.innerHTML = '';
 
@@ -193,6 +208,7 @@ export function renderer(options) {
     // Star points
     const starPoints = _getStarPoints(boardSize);
     starPoints.forEach(([row, col]) => {
+      if (!currentBoardSvgElement) return;
       const x = margin + col * intersectionSize;
       const y = margin + row * intersectionSize;
       const starPoint = document.createElementNS(SVG_NS, 'circle');
@@ -328,7 +344,7 @@ export function renderer(options) {
     return true;
   }
 
-  function _renderBoardDisplay_svg(gameStateToDisplay, boardSize) {
+  function _renderBoardDisplay_svg(gameStateToDisplay: any, boardSize: number) {
     if (!currentBoardSvgElement || !currentStatusTextElement || !currentWinnerTextElement) return;
 
     // Clear all stones and recent move indicators first
@@ -373,7 +389,7 @@ export function renderer(options) {
         if (stoneState && (stoneState === 'B' || stoneState === 'W')) {
           const stoneElement = currentBoardSvgElement.querySelector(`#stone-${gridRow}-${gridCol}`);
           if (stoneElement) {
-            stoneElement.setAttribute('fill', STONE_COLORS[stoneState]);
+            stoneElement.setAttribute('fill', STONE_COLORS[stoneState as 'B' | 'W']);
             stoneElement.setAttribute('stroke', stoneState === 'W' ? '#666' : 'none');
             stoneElement.setAttribute('stroke-width', stoneState === 'W' ? '1' : '0');
           }
@@ -463,13 +479,17 @@ export function renderer(options) {
         if (gameMasterAgent.observation.observationString) {
           try {
             gameState = JSON.parse(gameMasterAgent.observation.observationString);
-          } catch (e) {}
+          } catch (e) {
+            console.error('Error parsing observationString:', e);
+          }
         }
 
         if (!gameState && gameMasterAgent.observation.json) {
           try {
             gameState = JSON.parse(gameMasterAgent.observation.json);
-          } catch (e) {}
+          } catch (e) {
+            console.error('Error parsing json:', e);
+          }
         }
 
         if (gameState && gameState.board_size) {
@@ -487,16 +507,16 @@ export function renderer(options) {
     return;
   }
 
-  if (!environment || !environment.steps || !environment.steps[step]) {
+  if (!environment || !steps || !steps[step]) {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Initializing environment...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Initializing environment...';
     return;
   }
 
   const currentStepAgents = environment.steps[step];
-  if (!currentStepAgents || !Array.isArray(currentStepAgents) || currentStepAgents.length === 0) {
+  if (!step || !Array.isArray(currentStepAgents) || currentStepAgents.length === 0) {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Waiting for agent data...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for agent data...';
     return;
   }
 
@@ -505,7 +525,7 @@ export function renderer(options) {
 
   if (!gameMasterAgent || typeof gameMasterAgent.observation === 'undefined') {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Waiting for observation data...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for observation data...';
     return;
   }
 
@@ -519,7 +539,7 @@ export function renderer(options) {
   ) {
     try {
       gameSpecificState = JSON.parse(observationForRenderer.observationString);
-    } catch (e) {
+    } catch {
       _showMessage('Error: Corrupted game state (obs_string).', 'error');
     }
   }
@@ -532,7 +552,7 @@ export function renderer(options) {
   ) {
     try {
       gameSpecificState = JSON.parse(observationForRenderer.json);
-    } catch (e) {
+    } catch {
       _showMessage('Error: Corrupted game state (json).', 'error');
     }
   }
