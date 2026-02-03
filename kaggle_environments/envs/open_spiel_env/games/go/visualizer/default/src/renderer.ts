@@ -1,3 +1,83 @@
+import { GoStep } from '@kaggle-environments/core';
+
+interface GoRendererOptions {
+  environment: any;
+  step: number;
+  steps: GoStep[];
+  parent: any;
+  maxBoardSize?: number;
+}
+
+// --- Constants ---
+const DEFAULT_BOARD_SIZE = 19;
+const STONE_COLORS = {
+  'B': '#2d3748', // Black stone
+  'W': '#f7fafc', // White stone with slight gray tint
+  '.': 'transparent', // Empty intersection
+};
+const BOARD_COLOR = '#dcb871'; // Traditional Go board wood color
+const LINE_COLOR = '#8b4513'; // Dark brown for grid lines
+const STAR_POINT_COLOR = '#654321'; // Darker brown for star points
+const LABEL_COLOR = '#2d3748';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Go column labels (A-T, omitting I)
+const COLUMN_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
+
+const starPointsMap: Record<number, [number, number][]> = {
+  9: [
+    [2, 2],
+    [2, 6],
+    [4, 4],
+    [6, 2],
+    [6, 6],
+  ],
+  13: [
+    [3, 3],
+    [3, 9],
+    [6, 6],
+    [9, 3],
+    [9, 9],
+  ],
+  19: [
+    [3, 3],
+    [3, 9],
+    [3, 15],
+    [9, 3],
+    [9, 9],
+    [9, 15],
+    [15, 3],
+    [15, 9],
+    [15, 15],
+  ],
+};
+
+function _getStarPoints(boardSize: number) {
+  return Object.keys(starPointsMap).includes(boardSize.toString()) ? starPointsMap[boardSize] : [];
+}
+
+// Dynamic sizing based on board size
+function getBoardConfig(boardSize: number) {
+  let intersectionSize, margin, fontSize;
+
+  if (boardSize <= 9) {
+    intersectionSize = 35;
+    margin = 45;
+    fontSize = 14;
+  } else if (boardSize <= 13) {
+    intersectionSize = 30;
+    margin = 40;
+    fontSize = 13;
+  } else {
+    intersectionSize = 25;
+    margin = 35;
+    fontSize = 12;
+  }
+
+  return { intersectionSize, margin, fontSize };
+}
+
 /**
  * Go Board Renderer for OpenSpiel.
  * [dominoweir] NOTE: do not treat this code as sacred. We ported this to the new
@@ -5,55 +85,18 @@
  * it is a clone of the original go.js, there's always a chance something broke
  * along the way. Code is meant to be deleted- do it if you need to!
  * */
-export function renderer(options) {
-  const { environment, step, parent, interactive, isInteractive, maxBoardSize = 800 } = options;
+export function renderer(options: GoRendererOptions) {
+  const { step, steps, parent, maxBoardSize = 800 } = options;
 
-  // --- Constants ---
-  const DEFAULT_BOARD_SIZE = 19;
-  const STONE_COLORS = {
-    'B': '#2d3748', // Black stone
-    'W': '#f7fafc', // White stone with slight gray tint
-    '.': 'transparent', // Empty intersection
-  };
-  const BOARD_COLOR = '#dcb871'; // Traditional Go board wood color
-  const LINE_COLOR = '#8b4513'; // Dark brown for grid lines
-  const STAR_POINT_COLOR = '#654321'; // Darker brown for star points
-  const LABEL_COLOR = '#2d3748';
+  let currentBoardSvgElement: SVGSVGElement | null = null;
+  let currentStatusTextElement: HTMLElement | null = null;
+  let currentWinnerTextElement: HTMLElement | null = null;
+  let currentMessageBoxElement: HTMLElement | null =
+    typeof document !== 'undefined' ? document.getElementById('messageBox') : null;
+  let currentRendererContainer: HTMLElement | null = null;
+  let currentTitleElement: HTMLElement | null = null;
 
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  // Dynamic sizing based on board size
-  function getBoardConfig(boardSize) {
-    let intersectionSize, margin, fontSize;
-
-    if (boardSize <= 9) {
-      intersectionSize = 35;
-      margin = 45;
-      fontSize = 14;
-    } else if (boardSize <= 13) {
-      intersectionSize = 30;
-      margin = 40;
-      fontSize = 13;
-    } else {
-      intersectionSize = 25;
-      margin = 35;
-      fontSize = 12;
-    }
-
-    return { intersectionSize, margin, fontSize };
-  }
-
-  // Go column labels (A-T, omitting I)
-  const COLUMN_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
-
-  let currentBoardSvgElement = null;
-  let currentStatusTextElement = null;
-  let currentWinnerTextElement = null;
-  let currentMessageBoxElement = typeof document !== 'undefined' ? document.getElementById('messageBox') : null;
-  let currentRendererContainer = null;
-  let currentTitleElement = null;
-
-  function _showMessage(message, type = 'info', duration = 3000) {
+  function _showMessage(message: string, type = 'info', duration = 3000) {
     if (typeof document === 'undefined' || !document.body) return;
     if (!currentMessageBoxElement) {
       currentMessageBoxElement = document.createElement('div');
@@ -81,39 +124,7 @@ export function renderer(options) {
     }, duration);
   }
 
-  function _getStarPoints(boardSize) {
-    // Star points for different board sizes
-    const starPointsMap = {
-      9: [
-        [2, 2],
-        [2, 6],
-        [4, 4],
-        [6, 2],
-        [6, 6],
-      ],
-      13: [
-        [3, 3],
-        [3, 9],
-        [6, 6],
-        [9, 3],
-        [9, 9],
-      ],
-      19: [
-        [3, 3],
-        [3, 9],
-        [3, 15],
-        [9, 3],
-        [9, 9],
-        [9, 15],
-        [15, 3],
-        [15, 9],
-        [15, 15],
-      ],
-    };
-    return starPointsMap[boardSize] || [];
-  }
-
-  function _ensureRendererElements(parentElementToClear, boardSize) {
+  function _ensureRendererElements(parentElementToClear: HTMLElement | null, boardSize: number) {
     if (!parentElementToClear) return false;
     parentElementToClear.innerHTML = '';
 
@@ -193,6 +204,7 @@ export function renderer(options) {
     // Star points
     const starPoints = _getStarPoints(boardSize);
     starPoints.forEach(([row, col]) => {
+      if (!currentBoardSvgElement) return;
       const x = margin + col * intersectionSize;
       const y = margin + row * intersectionSize;
       const starPoint = document.createElementNS(SVG_NS, 'circle');
@@ -311,12 +323,14 @@ export function renderer(options) {
     currentStatusTextElement.style.fontSize = '1.1rem';
     currentStatusTextElement.style.fontWeight = '600';
     currentStatusTextElement.style.margin = '0 0 5px 0';
+    currentStatusTextElement.style.color = 'black';
     statusContainer.appendChild(currentStatusTextElement);
 
     currentWinnerTextElement = document.createElement('p');
     currentWinnerTextElement.style.fontSize = '1.25rem';
     currentWinnerTextElement.style.fontWeight = '700';
     currentWinnerTextElement.style.margin = '5px 0 0 0';
+    currentWinnerTextElement.style.color = 'black';
     statusContainer.appendChild(currentWinnerTextElement);
 
     parentElementToClear.appendChild(currentRendererContainer);
@@ -328,7 +342,7 @@ export function renderer(options) {
     return true;
   }
 
-  function _renderBoardDisplay_svg(gameStateToDisplay, boardSize) {
+  function _renderBoardDisplay_svg(step: GoStep | null, boardSize: number) {
     if (!currentBoardSvgElement || !currentStatusTextElement || !currentWinnerTextElement) return;
 
     // Clear all stones and recent move indicators first
@@ -348,32 +362,28 @@ export function renderer(options) {
       }
     }
 
-    if (!gameStateToDisplay || !gameStateToDisplay.board_grid) {
+    if (!step) {
       currentStatusTextElement.textContent = 'Waiting for game data...';
       currentWinnerTextElement.textContent = '';
       return;
     }
 
-    const { board_grid, current_player_to_move, move_number, komi, previous_move_a1 } = gameStateToDisplay;
+    const currentPlayer = step.players.find((player) => player.isTurn);
+    const { board, komi, previous_move_a1 } = step.boardState;
 
-    // Render stones on the board
-    // board_grid[0] is the top row (row 9 in a 9x9 board), board_grid[8] is bottom row (row 1)
-    for (let gridRow = 0; gridRow < board_grid.length && gridRow < boardSize; gridRow++) {
-      const rowData = board_grid[gridRow];
+    // Render stones on the board, from top to bottom
+    // board[0] is the top row (row 9 in a 9x9 board), board[8] is bottom row (row 1)
+    for (let gridRow = 0; gridRow < board.length && gridRow < boardSize; gridRow++) {
+      const rowData = board[gridRow];
       if (!Array.isArray(rowData)) continue;
 
       for (let gridCol = 0; gridCol < rowData.length && gridCol < boardSize; gridCol++) {
-        const intersection = rowData[gridCol];
-        if (!intersection || typeof intersection !== 'object') continue;
-
-        // Extract the stone state from the intersection dictionary
-        const coordinate = Object.keys(intersection)[0];
-        const stoneState = intersection[coordinate];
+        const stoneState = rowData[gridCol];
 
         if (stoneState && (stoneState === 'B' || stoneState === 'W')) {
           const stoneElement = currentBoardSvgElement.querySelector(`#stone-${gridRow}-${gridCol}`);
           if (stoneElement) {
-            stoneElement.setAttribute('fill', STONE_COLORS[stoneState]);
+            stoneElement.setAttribute('fill', STONE_COLORS[stoneState as 'B' | 'W']);
             stoneElement.setAttribute('stroke', stoneState === 'W' ? '#666' : 'none');
             stoneElement.setAttribute('stroke-width', stoneState === 'W' ? '1' : '0');
           }
@@ -387,28 +397,6 @@ export function renderer(options) {
       const colLetter = previous_move_a1[0];
       const rowNumber = parseInt(previous_move_a1.slice(1));
 
-      // Convert to array indices
-      const COLUMN_LABELS = [
-        'A',
-        'B',
-        'C',
-        'D',
-        'E',
-        'F',
-        'G',
-        'H',
-        'J',
-        'K',
-        'L',
-        'M',
-        'N',
-        'O',
-        'P',
-        'Q',
-        'R',
-        'S',
-        'T',
-      ];
       const colIndex = COLUMN_LABELS.indexOf(colLetter);
       const rowIndex = boardSize - rowNumber; // Convert Go row numbering to array index
 
@@ -436,10 +424,7 @@ export function renderer(options) {
     }
 
     // Update status display
-    const playerColor = current_player_to_move === 'B' ? '#2d3748' : '#f7fafc';
-    const playerName = current_player_to_move === 'B' ? 'Black' : 'White';
-
-    currentStatusTextElement.innerHTML = `Move ${move_number || 1}: <span style="color: ${playerColor}; font-weight: bold; ${current_player_to_move === 'W' ? 'text-shadow: 1px 1px 2px rgba(0,0,0,0.3);' : ''}">${playerName}</span> to play`;
+    currentStatusTextElement.innerHTML = currentPlayer?.name || '';
 
     if (previous_move_a1) {
       currentWinnerTextElement.textContent = `Last move: ${previous_move_a1}${komi ? ` • Komi: ${komi}` : ''}`;
@@ -449,33 +434,16 @@ export function renderer(options) {
   }
 
   // --- Main execution logic ---
+
   let boardSize = DEFAULT_BOARD_SIZE;
+  let currentStep: GoStep | null = null;
 
   // Try to extract board size from game state
-  if (environment && environment.steps && environment.steps[step]) {
-    const currentStepAgents = environment.steps[step];
-    if (Array.isArray(currentStepAgents) && currentStepAgents.length > 0) {
-      const gameMasterAgent = currentStepAgents[currentStepAgents.length - 1];
-      if (gameMasterAgent && gameMasterAgent.observation) {
-        let gameState = null;
+  if (steps && steps[step]) {
+    currentStep = steps[step];
 
-        // Try to parse game state from observation
-        if (gameMasterAgent.observation.observationString) {
-          try {
-            gameState = JSON.parse(gameMasterAgent.observation.observationString);
-          } catch (e) {}
-        }
-
-        if (!gameState && gameMasterAgent.observation.json) {
-          try {
-            gameState = JSON.parse(gameMasterAgent.observation.json);
-          } catch (e) {}
-        }
-
-        if (gameState && gameState.board_size) {
-          boardSize = gameState.board_size;
-        }
-      }
+    if (currentStep.boardState) {
+      boardSize = currentStep.boardState.board_size;
     }
   }
 
@@ -487,55 +455,19 @@ export function renderer(options) {
     return;
   }
 
-  if (!environment || !environment.steps || !environment.steps[step]) {
+  if (!currentStep || currentStep.players.length === 0) {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Initializing environment...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for agent data...';
     return;
   }
 
-  const currentStepAgents = environment.steps[step];
-  if (!currentStepAgents || !Array.isArray(currentStepAgents) || currentStepAgents.length === 0) {
+  const currentPlayer = currentStep.players.find((player) => player.isTurn);
+
+  if (!currentPlayer) {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Waiting for agent data...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for player moves...';
     return;
   }
 
-  const gameMasterAgentIndex = currentStepAgents.length - 1;
-  const gameMasterAgent = currentStepAgents[gameMasterAgentIndex];
-
-  if (!gameMasterAgent || typeof gameMasterAgent.observation === 'undefined') {
-    _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) currentStatusTextElement.textContent = 'Waiting for observation data...';
-    return;
-  }
-
-  const observationForRenderer = gameMasterAgent.observation;
-  let gameSpecificState = null;
-
-  if (
-    observationForRenderer &&
-    typeof observationForRenderer.observationString === 'string' &&
-    observationForRenderer.observationString.trim() !== ''
-  ) {
-    try {
-      gameSpecificState = JSON.parse(observationForRenderer.observationString);
-    } catch (e) {
-      _showMessage('Error: Corrupted game state (obs_string).', 'error');
-    }
-  }
-
-  if (
-    !gameSpecificState &&
-    observationForRenderer &&
-    typeof observationForRenderer.json === 'string' &&
-    observationForRenderer.json.trim() !== ''
-  ) {
-    try {
-      gameSpecificState = JSON.parse(observationForRenderer.json);
-    } catch (e) {
-      _showMessage('Error: Corrupted game state (json).', 'error');
-    }
-  }
-
-  _renderBoardDisplay_svg(gameSpecificState, boardSize);
+  _renderBoardDisplay_svg(currentStep, boardSize);
 }

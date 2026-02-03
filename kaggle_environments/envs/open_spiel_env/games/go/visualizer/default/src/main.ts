@@ -1,5 +1,5 @@
 import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
-import { renderer } from './renderer.js';
+import { renderer } from './renderer';
 
 const app = document.getElementById('app');
 if (!app) {
