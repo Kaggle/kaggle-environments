@@ -15,7 +15,8 @@ Guidelines:
   - Good: "Speaking in a scared, hushed tone," "Calm, authoritative, and analytical," "Laughing and joyful."
   - Bad: "Saying the following text." (Too neutral)
 - **Text Content**: The semantic meaning of the words. **DO NOT** change the spoken words from the original text, only insert tags.
-- **Markup Tags**: Use bracketed tags `[tag]` ONLY for specific, localized actions or style modifications within the text.
+- **Markup Tags**: You MUST use bracketed tags `[tag]` for ALL style modifications and directions that should NOT be spoken.
+  - **IMPORTANT**: Any text in brackets `[...]` will be silenced. Text NOT in brackets will be spoken.
   - **Non-speech sounds**: `[sigh]`, `[laugh]`, `[throat clearing]`, `[gasp]`.
   - **Style modifiers**: `[whispering]`, `[shouting]` (use sparingly, prefer Style Prompt for overall tone).
   - **Pauses**: `[short pause]`, `[long pause]`.
