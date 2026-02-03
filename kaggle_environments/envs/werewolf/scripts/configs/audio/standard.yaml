@@ -76,13 +76,14 @@ voices:
     Casey: 'Fenrir'
 audio:
   name_simplification_map:
-    "gpt-5.2-2025-12-11": "GPT 5.2"
-    "gpt-5-mini-2025-08-07": "GPT 5 Mini"
-    "grok-4.1-fast-reasoning": "Grok 4.1 Fast"
-    "Claude Sonnet 4.5": "Claude Sonnet 4.5"
-    "Claude Opus 4.5": "Claude Opus 4.5"
-    "Gemini 3 Pro Preview": "Gemini 3 Pro"
-    "gemini-3-flash-preview": "Gemini 3 Flash"
+    "gpt-5.2-2025-12-11": "GPT"
+    "gpt-5-mini-2025-08-07": "GPT Mini"
+    "Grok 4": "Grok"
+    "grok-4.1-fast-reasoning": "Grok Fast"
+    "Claude Sonnet 4.5": "Claude Sonnet"
+    "Claude Opus 4.5": "Claude Opus"
+    "Gemini 3 Pro Preview": "Gemini Pro"
+    "gemini-3-flash-preview": "Gemini Flash"
   name_simplification_rules:
     - pattern: '-\d{4}-\d{2}-\d{2}'  # Remove date suffixes like -2025-08-07
       replacement: ''
