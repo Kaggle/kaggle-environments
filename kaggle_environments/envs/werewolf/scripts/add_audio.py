@@ -8,7 +8,9 @@ import re
 import subprocess
 import wave
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from threading import Lock
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
@@ -218,6 +220,9 @@ class AudioConfig:
 
     def get_vertex_model(self) -> str:
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
+    
+    def get_enhancer_model(self) -> str:
+        return self.data.get("enhancer_model", "gemini-3-pro-preview")
 
     @property
     def vertex_ai_regions(self) -> List[str]:
@@ -487,7 +492,7 @@ class LLMEnhancer:
             except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"Failed to save cache: {e}")
 
-    def enhance_script(self, script: List[Dict], name_manager: NameManager, tqdm_kwargs: Dict = None) -> Dict[str, str]:
+    def enhance_script(self, script: List[Dict], name_manager: NameManager, config: AudioConfig, tqdm_kwargs: Dict = None) -> Dict[str, str]:
         """Enhances the full game script in chunks for better context and progress reporting."""
         if self.disabled or not self.client:
             return {}
@@ -503,8 +508,8 @@ class LLMEnhancer:
         for entry in script:
             text = name_manager.replace_names(entry["text"])
             if entry["type"] == "moderator":
-                line = f"[Moderator]: {text}"
                 speaker_display = "Moderator"
+                line = f"[{speaker_display}]: {text}"
             elif entry["type"] == "player":
                 speaker_display = name_manager.get_name(entry["speaker"])
                 line = f"[{speaker_display}]: {text}"
@@ -518,6 +523,8 @@ class LLMEnhancer:
         chunk_size = 20
         all_enhanced = {}
         chunks = [transcript_items[i:i + chunk_size] for i in range(0, len(transcript_items), chunk_size)]
+
+        model_name = config.get_enhancer_model() or "gemini-3-pro-preview"
 
         for chunk in tqdm(chunks, **tqdm_kwargs):
             chunk_lines = [item[0] for item in chunk]
@@ -537,7 +544,7 @@ class LLMEnhancer:
 
             # If not cached, generate with retry
             try:
-                self._generate_chunk_with_retry(chunk_lines, all_enhanced)
+                self._generate_chunk_with_retry(chunk_lines, all_enhanced, model_name)
             except Exception as e:
                 logger.error(f"Failed to process chunk after retries: {e}")
                 # Log usage but do not fail entire script if one chunk fails?
@@ -546,7 +553,7 @@ class LLMEnhancer:
         logger.info(f"Received {len(all_enhanced)} enhanced entries across {len(chunks)} chunks.")
         return all_enhanced
 
-    def _generate_chunk_with_retry(self, chunk_lines: List[str], all_enhanced: Dict):
+    def _generate_chunk_with_retry(self, chunk_lines: List[str], all_enhanced: Dict, model_name: str):
         """Wrapper to call generation with tenacity retry."""
         chunk_transcript = "\n".join(chunk_lines)
         prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
@@ -559,13 +566,10 @@ class LLMEnhancer:
         )
         def _call_api():
             response = self.client.models.generate_content(
-                model="gemini-3-pro-preview", 
+                model=model_name, 
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level=types.ThinkingLevel.LOW # For fast and low latency response
-                    )
+                    response_mime_type="application/json"
                 )
             )
             return response
@@ -582,28 +586,34 @@ class LLMEnhancer:
                     enhanced_map = merged
 
                 if isinstance(enhanced_map, dict):
-                    all_enhanced.update(enhanced_map)
-                    for k, v in enhanced_map.items():
+                    # Canonicalize keys by stripping
+                    processed_map = {k.strip(): v for k, v in enhanced_map.items()}
+                    all_enhanced.update(processed_map)
+                    for k, v in processed_map.items():
                         self.cache[k] = v
                     self.cache_updated = True
-            except json.JSONDecodeError:
-                logger.warning("Failed to decode JSON response from LLM for a chunk.")
+                else:
+                    logger.warning(f"LLM returned non-dict JSON: {type(enhanced_map)}")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode JSON response from LLM for a chunk. Error: {e}")
+                logger.error(f"Raw Response: {response.text}")
 
-    def enhance(self, text: str, speaker: str) -> str:
+    def enhance(self, text: str, speaker: str, config: Optional[AudioConfig] = None) -> str:
         """Enhances text if client is available and text is not cached."""
         if self.disabled or not self.client:
             return text
 
-        cache_key = f"{speaker}:{text}"
+        cache_key = f"{speaker}: {text}" # Added space after colon for consistency
         if cache_key in self.cache:
             return self.cache[cache_key]
 
         logger.info(f"  - Enhancing text for {speaker}...")
         prompt = self.prompt_template.format(text=text, speaker=speaker)
+        model_name = config.get_vertex_model() if config else "gemini-2.0-flash-exp"
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model=model_name,
                 contents=prompt
             )
             enhanced = response.text.strip()
@@ -804,6 +814,7 @@ class AudioManager:
         self.tqdm_kwargs = tqdm_kwargs or {}
         # New: List to store structured enhancement logs
         self.enhancement_logs = []
+        self.lock = Lock()
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
@@ -817,7 +828,7 @@ class AudioManager:
 
         # 1. Extract Full Context Script & Enhance
         chronological_script = parser.extract_chronological_script()
-        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager,
+        enhanced_map = self.enhancer.enhance_script(chronological_script, self.name_manager, self.config,
                                                     tqdm_kwargs=self.tqdm_kwargs)
 
         # 2. Extract Unique Messages for Audio Generation (as before)
@@ -948,76 +959,68 @@ class AudioManager:
         return messages
 
     def _generate_audio_batch(self, messages: List[Dict]):
-        """Generates audio for a batch of messages."""
-        logger.info(f"Processing {len(messages)} messages...")
+        """Generates audio for a batch of messages in parallel."""
+        logger.info(f"Processing {len(messages)} messages (parallel execution)...")
 
-        # Use simple progress bar writing to stdout to avoid logging conflicts
-        # Merge defaults with custom kwargs
-        pbar_kwargs = {"desc": "Generating Audio", "unit": "msg"}
+        pbar_kwargs = {"desc": "Generating Audio", "unit": "msg", "total": len(messages)}
         pbar_kwargs.update(self.tqdm_kwargs)
 
-        for msg in tqdm(messages, **pbar_kwargs):
-            speaker_id = msg["speaker"]
-            final_text = msg["final_text"]
-            voice = msg["voice"]
-            key = msg["key"]
+        with tqdm(**pbar_kwargs) as pbar:
+            def _process_single(msg):
+                speaker_id = msg["speaker"]
+                final_text = msg["final_text"]
+                voice = msg["voice"]
+                key = msg["key"]
+                style_prompt = msg.get("style_prompt")
+                markup_tags = msg.get("markup_tags")
 
-            # Extract style/tags
-            style_prompt = msg.get("style_prompt")
-            markup_tags = msg.get("markup_tags")
+                map_key = f"{speaker_id}:{key}"
+                content_signature = f"{final_text}|{voice}|{style_prompt}"
+                filename = hashlib.md5(content_signature.encode()).hexdigest() + ".wav"
+                audio_path_html = os.path.join(self.config.paths.get("audio_dir_name", "audio"), filename)
+                audio_path_disk = os.path.join(self.audio_dir, filename)
 
-            # Generate Keys & Path
-            # IMPORTANT: map_key uses raw speaker_id and raw key/text to match visualizer logic
-            map_key = f"{speaker_id}:{key}"
+                if os.path.exists(audio_path_disk):
+                    with self.lock:
+                        self.audio_map[map_key] = audio_path_html
+                        self.enhancement_logs.append({
+                            "speaker": speaker_id,
+                            "original_text": msg["original_text"],
+                            "final_text": final_text,
+                            "style_prompt": style_prompt,
+                            "voice": voice,
+                            "key": key,
+                            "cached": True
+                        })
+                else:
+                    logger.debug(f'Generating audio for {speaker_id}: "{final_text[:40]}..."')
+                    audio_content = self.tts.generate(
+                        final_text,
+                        voice,
+                        style_prompt=style_prompt,
+                        markup_tags=markup_tags
+                    )
 
-            # Use CONTENT hash for filename so that if we change the text (e.g. add intro), we regenerate audio.
-            # We include voice and style in hash so changing voice/style also forces regen.
-            content_signature = f"{final_text}|{voice}|{style_prompt}"
-            filename = hashlib.md5(content_signature.encode()).hexdigest() + ".wav"
-            audio_path_html = os.path.join(self.config.paths.get("audio_dir_name", "audio"), filename)
+                    if audio_content:
+                        self._save_wave(audio_path_disk, audio_content)
+                        with self.lock:
+                            self.audio_map[map_key] = audio_path_html
+                            self.enhancement_logs.append({
+                                "speaker": speaker_id,
+                                "original_text": msg["original_text"],
+                                "final_text": final_text,
+                                "style_prompt": style_prompt,
+                                "voice": voice,
+                                "key": key
+                            })
 
-            # Use abspath for local check, but audio_path_on_disk should be inside output_dir
-            audio_path_disk = os.path.join(self.audio_dir, filename)
+                with self.lock:
+                    pbar.update(1)
 
-            if not os.path.exists(audio_path_disk):
-                # print(f'Generating audio: "{final_text[:60]}..."') # Reduce noise
-                logger.debug(f'Generating audio for {speaker_id}: "{final_text[:40]}..." (Style: {style_prompt})')
+            # Use 10 workers for TTS generation
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                list(executor.map(_process_single, messages))
 
-                # Log the enhancement details if LLM was used or style is present
-                if style_prompt:
-                    print(f"  [TTS Prompt] [{speaker_id}]: {style_prompt}")
-
-                self.enhancement_logs.append({
-                    "speaker": speaker_id,
-                    "original_text": msg["original_text"],
-                    "final_text": final_text,
-                    "style_prompt": style_prompt,
-                    "voice": voice,
-                    "key": key
-                })
-
-                audio_content = self.tts.generate(
-                    final_text,
-                    voice,
-                    style_prompt=style_prompt,
-                    markup_tags=markup_tags
-                )
-
-                if audio_content:
-                    self._save_wave(audio_path_disk, audio_content)
-                    self.audio_map[map_key] = audio_path_html
-            else:
-                self.audio_map[map_key] = audio_path_html
-                # Still log it even if cached? Maybe good for completeness in the report.
-                self.enhancement_logs.append({
-                    "speaker": speaker_id,
-                    "original_text": msg["original_text"],
-                    "final_text": final_text,
-                    "style_prompt": style_prompt,
-                    "voice": voice,
-                    "key": key,
-                    "cached": True
-                })
 
     def _save_wave(self, filename, pcm, channels=1, rate=24000, sample_width=2):
         """Saves PCM audio bytes to WAV."""
@@ -1117,7 +1120,8 @@ def process_replay_file(input_path, output_dir, config_path, tts_provider, promp
 
     # LLM Enhancer
     api_key = os.getenv("GEMINI_API_KEY")
-    enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm)
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    enhancer = LLMEnhancer(api_key, prompt_path, cache_path, disabled=disable_llm, project_id=project_id)
 
     # TTS Generator
     if tts_provider == "gemini":

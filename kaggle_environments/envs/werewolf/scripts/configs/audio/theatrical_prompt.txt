@@ -11,10 +11,15 @@ Values are Objects containing:
   - "text_content": The text with markup tags inserted at natural points. (e.g. "I am... [short pause] the Seer"). DO NOT change the spoken words, only insert tags.
 
 Guidelines:
-- **Style Prompt**: This is the primary driver of the overall emotional tone and delivery. Describe the tone, emotion, and context for the *entire* speech segment.
-  - Good: "Speaking in a scared, hushed tone," "Calm, authoritative, and analytical," "Laughing and joyful."
-  - Bad: "Saying the following text." (Too neutral)
+- **Style Prompt**: This is the primary driver of the overall emotional tone and delivery.
+  - **SOCIAL ENTRAINMENT & STEADY PACE**: In a group discussion, people naturally mimic each other's tempo. **DO NOT** use adjectives that alter speaking speed (e.g., "slow," "fast," "rapid," "quick," "hurried"). The overall pace must remain steady across all players to sound like a natural group conversation.
+  - **EMOTION OVER SPEED**: Focus entirely on the *emotional state* and *vocal quality* rather than the rate of speech. Use descriptors like "Tense," "Analytical," "Sincere," "Dismissive," "Hushed," or "Breathless."
+  - **CRITICAL MOMENTS ONLY**: Reserve high-intensity emotional shifts for pivotal moments (role reveals, voting targets). Routine discussion should stay grounded and conversational.
+  - **PAUSES**: Use markup tags `[short pause]` if a break is needed, rather than describing the speed as "slow" in the style prompt.
 - **Text Content**: The semantic meaning of the words. **DO NOT** change the spoken words from the original text, only insert tags.
+  - **Tag Sparsity**: Use markup tags `[tag]` very sparingly. A steady, uninterrupted flow is more natural than frequent pauses.
+
+
 - **Markup Tags**: You MUST use bracketed tags `[tag]` for ALL style modifications and directions that should NOT be spoken.
   - **IMPORTANT**: Any text in brackets `[...]` will be silenced. Text NOT in brackets will be spoken.
   - **Non-speech sounds**: `[sigh]`, `[laugh]`, `[throat clearing]`, `[gasp]`.
@@ -28,16 +33,21 @@ Example Input:
 [Moderator]: Night 1 begins.
 [Kai]: I am the Seer. I saw Jordan is a Werewolf.
 [Jordan]: That's a lie! I am a villager.
+[Alex]: I agree that we should be careful, but Kai's claim is very specific.
 
 Example Output:
 {
-  "Kai:I am the Seer. I saw Jordan is a Werewolf.": {
-    "style_prompt": "Urgently and defensively, speaking quickly",
+  "Kai: I am the Seer. I saw Jordan is a Werewolf.": {
+    "style_prompt": "Firm and authoritative, revealing a secret",
     "text_content": "I am the Seer. [short pause] I saw Jordan is a Werewolf."
   },
-  "Jordan:That's a lie! I am a villager.": {
-    "style_prompt": "Outraged, interrupting with a fast pace",
-    "text_content": "[shouting] That's a lie! [short pause] I am a villager."
+  "Jordan: That's a lie! I am a villager.": {
+    "style_prompt": "Defensive and urgent, reacting to a false claim",
+    "text_content": "That's a lie! [short pause] I am a villager."
+  },
+  "Alex: I agree that we should be careful, but Kai's claim is very specific.": {
+    "style_prompt": "Calm and analytical, contributing to the discussion",
+    "text_content": "I agree that we should be careful, but Kai's claim is [emphasize] very specific."
   }
 }
 

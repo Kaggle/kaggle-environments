@@ -1,5 +1,6 @@
 # Settings for the dump_audio.py script
-vertex_ai_model: null
+vertex_ai_model: gemini-2.5-flash-tts
+enhancer_model: gemini-3-pro-preview
 vertex_ai_regions:
   - "us-central1"
   - "us-east4"
