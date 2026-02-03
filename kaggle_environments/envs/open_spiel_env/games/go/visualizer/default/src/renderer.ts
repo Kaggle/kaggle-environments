@@ -1,44 +1,82 @@
+import { GoStep } from '@kaggle-environments/core';
+
 interface GoRendererOptions {
   environment: any;
   step: number;
-  steps: any[];
+  steps: GoStep[];
   parent: any;
-  interactive: boolean;
-  isInteractive: boolean;
   maxBoardSize?: number;
 }
 
- const starPointsMap: Record<number, [number, number][]> = {
-      9: [
-        [2, 2],
-        [2, 6],
-        [4, 4],
-        [6, 2],
-        [6, 6],
-      ],
-      13: [
-        [3, 3],
-        [3, 9],
-        [6, 6],
-        [9, 3],
-        [9, 9],
-      ],
-      19: [
-        [3, 3],
-        [3, 9],
-        [3, 15],
-        [9, 3],
-        [9, 9],
-        [9, 15],
-        [15, 3],
-        [15, 9],
-        [15, 15],
-      ],
-    };
+// --- Constants ---
+const DEFAULT_BOARD_SIZE = 19;
+const STONE_COLORS = {
+  'B': '#2d3748', // Black stone
+  'W': '#f7fafc', // White stone with slight gray tint
+  '.': 'transparent', // Empty intersection
+};
+const BOARD_COLOR = '#dcb871'; // Traditional Go board wood color
+const LINE_COLOR = '#8b4513'; // Dark brown for grid lines
+const STAR_POINT_COLOR = '#654321'; // Darker brown for star points
+const LABEL_COLOR = '#2d3748';
 
-      function _getStarPoints(boardSize: number) {   
-    return Object.keys(starPointsMap).includes(boardSize.toString()) ? starPointsMap[boardSize] : [];
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Go column labels (A-T, omitting I)
+const COLUMN_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
+
+const starPointsMap: Record<number, [number, number][]> = {
+  9: [
+    [2, 2],
+    [2, 6],
+    [4, 4],
+    [6, 2],
+    [6, 6],
+  ],
+  13: [
+    [3, 3],
+    [3, 9],
+    [6, 6],
+    [9, 3],
+    [9, 9],
+  ],
+  19: [
+    [3, 3],
+    [3, 9],
+    [3, 15],
+    [9, 3],
+    [9, 9],
+    [9, 15],
+    [15, 3],
+    [15, 9],
+    [15, 15],
+  ],
+};
+
+function _getStarPoints(boardSize: number) {
+  return Object.keys(starPointsMap).includes(boardSize.toString()) ? starPointsMap[boardSize] : [];
+}
+
+// Dynamic sizing based on board size
+function getBoardConfig(boardSize: number) {
+  let intersectionSize, margin, fontSize;
+
+  if (boardSize <= 9) {
+    intersectionSize = 35;
+    margin = 45;
+    fontSize = 14;
+  } else if (boardSize <= 13) {
+    intersectionSize = 30;
+    margin = 40;
+    fontSize = 13;
+  } else {
+    intersectionSize = 25;
+    margin = 35;
+    fontSize = 12;
   }
+
+  return { intersectionSize, margin, fontSize };
+}
 
 /**
  * Go Board Renderer for OpenSpiel.
@@ -48,47 +86,7 @@ interface GoRendererOptions {
  * along the way. Code is meant to be deleted- do it if you need to!
  * */
 export function renderer(options: GoRendererOptions) {
-  const { environment, step, steps, parent, maxBoardSize = 800 } = options;
-
-  console.log(options);
-
-  // --- Constants ---
-  const DEFAULT_BOARD_SIZE = 19;
-  const STONE_COLORS = {
-    'B': '#2d3748', // Black stone
-    'W': '#f7fafc', // White stone with slight gray tint
-    '.': 'transparent', // Empty intersection
-  };
-  const BOARD_COLOR = '#dcb871'; // Traditional Go board wood color
-  const LINE_COLOR = '#8b4513'; // Dark brown for grid lines
-  const STAR_POINT_COLOR = '#654321'; // Darker brown for star points
-  const LABEL_COLOR = '#2d3748';
-
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  // Dynamic sizing based on board size
-  function getBoardConfig(boardSize: number) {
-    let intersectionSize, margin, fontSize;
-
-    if (boardSize <= 9) {
-      intersectionSize = 35;
-      margin = 45;
-      fontSize = 14;
-    } else if (boardSize <= 13) {
-      intersectionSize = 30;
-      margin = 40;
-      fontSize = 13;
-    } else {
-      intersectionSize = 25;
-      margin = 35;
-      fontSize = 12;
-    }
-
-    return { intersectionSize, margin, fontSize };
-  }
-
-  // Go column labels (A-T, omitting I)
-  const COLUMN_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
+  const { step, steps, parent, maxBoardSize = 800 } = options;
 
   let currentBoardSvgElement: SVGSVGElement | null = null;
   let currentStatusTextElement: HTMLElement | null = null;
@@ -125,8 +123,6 @@ export function renderer(options: GoRendererOptions) {
       if (currentMessageBoxElement) currentMessageBoxElement.style.opacity = '0';
     }, duration);
   }
-
-
 
   function _ensureRendererElements(parentElementToClear: HTMLElement | null, boardSize: number) {
     if (!parentElementToClear) return false;
@@ -327,12 +323,14 @@ export function renderer(options: GoRendererOptions) {
     currentStatusTextElement.style.fontSize = '1.1rem';
     currentStatusTextElement.style.fontWeight = '600';
     currentStatusTextElement.style.margin = '0 0 5px 0';
+    currentStatusTextElement.style.color = 'black';
     statusContainer.appendChild(currentStatusTextElement);
 
     currentWinnerTextElement = document.createElement('p');
     currentWinnerTextElement.style.fontSize = '1.25rem';
     currentWinnerTextElement.style.fontWeight = '700';
     currentWinnerTextElement.style.margin = '5px 0 0 0';
+    currentWinnerTextElement.style.color = 'black';
     statusContainer.appendChild(currentWinnerTextElement);
 
     parentElementToClear.appendChild(currentRendererContainer);
@@ -344,7 +342,7 @@ export function renderer(options: GoRendererOptions) {
     return true;
   }
 
-  function _renderBoardDisplay_svg(gameStateToDisplay: any, boardSize: number) {
+  function _renderBoardDisplay_svg(step: GoStep | null, boardSize: number) {
     if (!currentBoardSvgElement || !currentStatusTextElement || !currentWinnerTextElement) return;
 
     // Clear all stones and recent move indicators first
@@ -364,27 +362,23 @@ export function renderer(options: GoRendererOptions) {
       }
     }
 
-    if (!gameStateToDisplay || !gameStateToDisplay.board_grid) {
+    if (!step) {
       currentStatusTextElement.textContent = 'Waiting for game data...';
       currentWinnerTextElement.textContent = '';
       return;
     }
 
-    const { board_grid, current_player_to_move, move_number, komi, previous_move_a1 } = gameStateToDisplay;
+    const currentPlayer = step.players.find((player) => player.isTurn);
+    const { board, komi, previous_move_a1 } = step.boardState;
 
-    // Render stones on the board
-    // board_grid[0] is the top row (row 9 in a 9x9 board), board_grid[8] is bottom row (row 1)
-    for (let gridRow = 0; gridRow < board_grid.length && gridRow < boardSize; gridRow++) {
-      const rowData = board_grid[gridRow];
+    // Render stones on the board, from top to bottom
+    // board[0] is the top row (row 9 in a 9x9 board), board[8] is bottom row (row 1)
+    for (let gridRow = 0; gridRow < board.length && gridRow < boardSize; gridRow++) {
+      const rowData = board[gridRow];
       if (!Array.isArray(rowData)) continue;
 
       for (let gridCol = 0; gridCol < rowData.length && gridCol < boardSize; gridCol++) {
-        const intersection = rowData[gridCol];
-        if (!intersection || typeof intersection !== 'object') continue;
-
-        // Extract the stone state from the intersection dictionary
-        const coordinate = Object.keys(intersection)[0];
-        const stoneState = intersection[coordinate];
+        const stoneState = rowData[gridCol];
 
         if (stoneState && (stoneState === 'B' || stoneState === 'W')) {
           const stoneElement = currentBoardSvgElement.querySelector(`#stone-${gridRow}-${gridCol}`);
@@ -403,28 +397,6 @@ export function renderer(options: GoRendererOptions) {
       const colLetter = previous_move_a1[0];
       const rowNumber = parseInt(previous_move_a1.slice(1));
 
-      // Convert to array indices
-      const COLUMN_LABELS = [
-        'A',
-        'B',
-        'C',
-        'D',
-        'E',
-        'F',
-        'G',
-        'H',
-        'J',
-        'K',
-        'L',
-        'M',
-        'N',
-        'O',
-        'P',
-        'Q',
-        'R',
-        'S',
-        'T',
-      ];
       const colIndex = COLUMN_LABELS.indexOf(colLetter);
       const rowIndex = boardSize - rowNumber; // Convert Go row numbering to array index
 
@@ -452,10 +424,7 @@ export function renderer(options: GoRendererOptions) {
     }
 
     // Update status display
-    const playerColor = current_player_to_move === 'B' ? '#2d3748' : '#f7fafc';
-    const playerName = current_player_to_move === 'B' ? 'Black' : 'White';
-
-    currentStatusTextElement.innerHTML = `Move ${move_number || 1}: <span style="color: ${playerColor}; font-weight: bold; ${current_player_to_move === 'W' ? 'text-shadow: 1px 1px 2px rgba(0,0,0,0.3);' : ''}">${playerName}</span> to play`;
+    currentStatusTextElement.innerHTML = currentPlayer?.name || '';
 
     if (previous_move_a1) {
       currentWinnerTextElement.textContent = `Last move: ${previous_move_a1}${komi ? ` • Komi: ${komi}` : ''}`;
@@ -465,37 +434,16 @@ export function renderer(options: GoRendererOptions) {
   }
 
   // --- Main execution logic ---
+
   let boardSize = DEFAULT_BOARD_SIZE;
+  let currentStep: GoStep | null = null;
 
   // Try to extract board size from game state
-  if (environment && environment.steps && environment.steps[step]) {
-    const currentStepAgents = environment.steps[step];
-    if (Array.isArray(currentStepAgents) && currentStepAgents.length > 0) {
-      const gameMasterAgent = currentStepAgents[currentStepAgents.length - 1];
-      if (gameMasterAgent && gameMasterAgent.observation) {
-        let gameState = null;
+  if (steps && steps[step]) {
+    currentStep = steps[step];
 
-        // Try to parse game state from observation
-        if (gameMasterAgent.observation.observationString) {
-          try {
-            gameState = JSON.parse(gameMasterAgent.observation.observationString);
-          } catch (e) {
-            console.error('Error parsing observationString:', e);
-          }
-        }
-
-        if (!gameState && gameMasterAgent.observation.json) {
-          try {
-            gameState = JSON.parse(gameMasterAgent.observation.json);
-          } catch (e) {
-            console.error('Error parsing json:', e);
-          }
-        }
-
-        if (gameState && gameState.board_size) {
-          boardSize = gameState.board_size;
-        }
-      }
+    if (currentStep.boardState) {
+      boardSize = currentStep.boardState.board_size;
     }
   }
 
@@ -507,55 +455,19 @@ export function renderer(options: GoRendererOptions) {
     return;
   }
 
-  if (!environment || !steps || !steps[step]) {
-    _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Initializing environment...';
-    return;
-  }
-
-  const currentStepAgents = environment.steps[step];
-  if (!step || !Array.isArray(currentStepAgents) || currentStepAgents.length === 0) {
+  if (!currentStep || currentStep.players.length === 0) {
     _renderBoardDisplay_svg(null, boardSize);
     if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for agent data...';
     return;
   }
 
-  const gameMasterAgentIndex = currentStepAgents.length - 1;
-  const gameMasterAgent = currentStepAgents[gameMasterAgentIndex];
+  const currentPlayer = currentStep.players.find((player) => player.isTurn);
 
-  if (!gameMasterAgent || typeof gameMasterAgent.observation === 'undefined') {
+  if (!currentPlayer) {
     _renderBoardDisplay_svg(null, boardSize);
-    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for observation data...';
+    if (currentStatusTextElement) (currentStatusTextElement as HTMLElement).textContent = 'Waiting for player moves...';
     return;
   }
 
-  const observationForRenderer = gameMasterAgent.observation;
-  let gameSpecificState = null;
-
-  if (
-    observationForRenderer &&
-    typeof observationForRenderer.observationString === 'string' &&
-    observationForRenderer.observationString.trim() !== ''
-  ) {
-    try {
-      gameSpecificState = JSON.parse(observationForRenderer.observationString);
-    } catch {
-      _showMessage('Error: Corrupted game state (obs_string).', 'error');
-    }
-  }
-
-  if (
-    !gameSpecificState &&
-    observationForRenderer &&
-    typeof observationForRenderer.json === 'string' &&
-    observationForRenderer.json.trim() !== ''
-  ) {
-    try {
-      gameSpecificState = JSON.parse(observationForRenderer.json);
-    } catch {
-      _showMessage('Error: Corrupted game state (json).', 'error');
-    }
-  }
-
-  _renderBoardDisplay_svg(gameSpecificState, boardSize);
+  _renderBoardDisplay_svg(currentStep, boardSize);
 }

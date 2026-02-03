@@ -12,6 +12,7 @@ export type {
   WerewolfVisualizerData,
   WerewolfProcessedReplay,
 } from './transformers/werewolf/werewolfReplayTypes';
+export type { GoStep } from './transformers/go/goReplayTypes';
 export * from './adapter';
 export * from './preact-adapter';
 export * from './legacy-adapter';
