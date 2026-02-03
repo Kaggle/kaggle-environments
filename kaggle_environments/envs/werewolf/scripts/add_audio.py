@@ -18,7 +18,8 @@ from google.api_core.client_options import ClientOptions
 from google.api_core.exceptions import GoogleAPICallError, ResourceExhausted
 from google.cloud import texttospeech
 from google.genai import types
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from google.genai.types import HttpOptions
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 from tqdm import tqdm
 
 from kaggle_environments.envs.werewolf.game.consts import EventName
@@ -430,19 +431,35 @@ class ReplayParser:
 class LLMEnhancer:
     """Handles text enhancement using LLM."""
 
-    def __init__(self, api_key: Optional[str], prompt_path: str, cache_path: str, disabled: bool = False):
+    def __init__(self, api_key: Optional[str], prompt_path: str, cache_path: str,
+                 disabled: bool = False, project_id: str = None):
         self.disabled = disabled
+        self.project_id = project_id
         self.client = None
+        
         self.prompt_template = self._load_prompt(prompt_path)
         self.cache_path = cache_path
         self.cache = self._load_cache()
         self.cache_updated = False
 
-        if not disabled and api_key:
+        if not disabled:
+            if not project_id:
+                raise ValueError("Vertex AI requires GOOGLE_CLOUD_PROJECT.")
+            
+            # Set environment variables for GenAI SDK as per user instruction
+            os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
+            # Ensure project is set if not already (though usually it is if project_id is passed from env)
+            if "GOOGLE_CLOUD_PROJECT" not in os.environ:
+                 os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+
             try:
-                self.client = genai.Client(api_key=api_key)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                logger.warning(f"Failed to init GenAI client for LLM enhancement: {e}")
+                # Simple init relying on env vars as requested
+                self.client = genai.Client()
+                logger.info(f"Initialized GenAI client with Vertex AI (Project: {self.project_id}, Location: global)")
+            except Exception as e:
+                logger.error(f"Failed to init GenAI client: {e}")
+                raise e
 
     def _load_prompt(self, path: str) -> str:
         if not os.path.exists(path):
@@ -480,58 +497,97 @@ class LLMEnhancer:
         tqdm_kwargs["desc"] = "LLM Enhancement"
         tqdm_kwargs["unit"] = "chunk"
 
-        # 1. Format script for LLM
-        transcript_lines = []
-        # We also need a way to map back: "Speaker:OriginalText" -> EnhancedText
+        # 1. Format script for LLM and build signatures for cache lookup
+        transcript_items = []
 
         for entry in script:
+            text = name_manager.replace_names(entry["text"])
             if entry["type"] == "moderator":
-                text = name_manager.replace_names(entry["text"])
-                transcript_lines.append(f"[Moderator]: {text}")
+                line = f"[Moderator]: {text}"
+                speaker_display = "Moderator"
             elif entry["type"] == "player":
                 speaker_display = name_manager.get_name(entry["speaker"])
-                # The script provided to LLM should use *Display Names*
-                text = name_manager.replace_names(entry["text"])
-                transcript_lines.append(f"[{speaker_display}]: {text}")
+                line = f"[{speaker_display}]: {text}"
+            else:
+                continue
+
+            signature = f"{speaker_display}: {text}"
+            transcript_items.append((line, signature))
 
         # 2. Chunk and Process
         chunk_size = 20
         all_enhanced = {}
-
-        chunks = [transcript_lines[i:i + chunk_size] for i in range(0, len(transcript_lines), chunk_size)]
+        chunks = [transcript_items[i:i + chunk_size] for i in range(0, len(transcript_items), chunk_size)]
 
         for chunk in tqdm(chunks, **tqdm_kwargs):
-            chunk_transcript = "\n".join(chunk)
-            prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
+            chunk_lines = [item[0] for item in chunk]
+            chunk_signatures = [item[1] for item in chunk]
 
+            # Check Cache
+            all_cached = True
+            for sig in chunk_signatures:
+                if sig not in self.cache:
+                    all_cached = False
+                    break
+            
+            if all_cached:
+                for sig in chunk_signatures:
+                    all_enhanced[sig] = self.cache[sig]
+                continue
+
+            # If not cached, generate with retry
             try:
-                response = self.client.models.generate_content(
-                    model="gemini-3-flash-preview",
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json"
-                    )
-                )
-
-                if response.text:
-                    try:
-                        enhanced_map = json.loads(response.text)
-                        if isinstance(enhanced_map, list):
-                            merged = {}
-                            for item in enhanced_map:
-                                if isinstance(item, dict):
-                                    merged.update(item)
-                            enhanced_map = merged
-
-                        if isinstance(enhanced_map, dict):
-                            all_enhanced.update(enhanced_map)
-                    except json.JSONDecodeError:
-                        logger.warning("Failed to decode JSON response from LLM for a chunk.")
+                self._generate_chunk_with_retry(chunk_lines, all_enhanced)
             except Exception as e:
-                logger.warning(f"LLM enhancement failed for a chunk: {e}")
+                logger.error(f"Failed to process chunk after retries: {e}")
+                # Log usage but do not fail entire script if one chunk fails?
+                # User preference seemed strict. But retry exhaustion is serious.
 
         logger.info(f"Received {len(all_enhanced)} enhanced entries across {len(chunks)} chunks.")
         return all_enhanced
+
+    def _generate_chunk_with_retry(self, chunk_lines: List[str], all_enhanced: Dict):
+        """Wrapper to call generation with tenacity retry."""
+        chunk_transcript = "\n".join(chunk_lines)
+        prompt = self.prompt_template.replace("{transcript}", chunk_transcript)
+
+        @retry(
+            retry=retry_if_exception_type((ResourceExhausted, GoogleAPICallError, Exception)), 
+            stop=stop_after_attempt(5),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            before_sleep=before_sleep_log(logger, logging.WARNING)
+        )
+        def _call_api():
+            response = self.client.models.generate_content(
+                model="gemini-3-pro-preview", 
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level=types.ThinkingLevel.LOW # For fast and low latency response
+                    )
+                )
+            )
+            return response
+
+        response = _call_api()
+        if response.text:
+            try:
+                enhanced_map = json.loads(response.text)
+                if isinstance(enhanced_map, list):
+                    merged = {}
+                    for item in enhanced_map:
+                        if isinstance(item, dict):
+                            merged.update(item)
+                    enhanced_map = merged
+
+                if isinstance(enhanced_map, dict):
+                    all_enhanced.update(enhanced_map)
+                    for k, v in enhanced_map.items():
+                        self.cache[k] = v
+                    self.cache_updated = True
+            except json.JSONDecodeError:
+                logger.warning("Failed to decode JSON response from LLM for a chunk.")
 
     def enhance(self, text: str, speaker: str) -> str:
         """Enhances text if client is available and text is not cached."""
@@ -609,15 +665,6 @@ class VertexTTSGenerator(TTSGenerator):
     def generate(self, text: str, voice: str, **kwargs) -> Optional[bytes]:
         if not text:
             return None
-
-        # Clean custom markup: (params)[content] -> content
-        # Example: (rate="fast")[Hello] -> Hello
-        input_text = re.sub(r"\([^)]+\)\[([^\]]+)\]", r"\1", text)
-
-        # Vertex TTS (Standard) doesn't support 'style_prompt' natively in SynthesisInput yet
-        # unless using a specific generative endpoint which this client might not target by default.
-        # But if the user provides markup tags (e.g. SSML), we could use it.
-        # For now, we will verify if markup_tags indicates SSML.
 
         markup_tags = kwargs.get("markup_tags")
         is_ssml = False
@@ -755,6 +802,8 @@ class AudioManager:
         self.name_manager = None
         self.transcript_manager = TranscriptManager(config.transcript_overrides)
         self.tqdm_kwargs = tqdm_kwargs or {}
+        # New: List to store structured enhancement logs
+        self.enhancement_logs = []
 
     def process_replay(self, replay_data: Dict):
         """Runs the full processing pipeline on the replay data."""
@@ -777,6 +826,7 @@ class AudioManager:
         messages = self._prepare_messages(unique_msgs, dyn_mod_msgs, replay_data, enhanced_map)
         self._generate_audio_batch(messages)
         self._save_audio_map()
+        self._save_enhancement_logs()  # Save the logs
 
         return messages
 
@@ -812,8 +862,8 @@ class AudioManager:
                 else:
                     final_text = enhancement
 
-            # Override style if forced (e.g. for moderator)
-            if force_style:
+            # Override style if forced (e.g. for moderator), but prioritize enhancement
+            if force_style and not style_prompt:
                 style_prompt = force_style
 
             # Prepend intro if it's a player and template exists
@@ -933,6 +983,19 @@ class AudioManager:
                 # print(f'Generating audio: "{final_text[:60]}..."') # Reduce noise
                 logger.debug(f'Generating audio for {speaker_id}: "{final_text[:40]}..." (Style: {style_prompt})')
 
+                # Log the enhancement details if LLM was used or style is present
+                if style_prompt:
+                    print(f"  [TTS Prompt] [{speaker_id}]: {style_prompt}")
+
+                self.enhancement_logs.append({
+                    "speaker": speaker_id,
+                    "original_text": msg["original_text"],
+                    "final_text": final_text,
+                    "style_prompt": style_prompt,
+                    "voice": voice,
+                    "key": key
+                })
+
                 audio_content = self.tts.generate(
                     final_text,
                     voice,
@@ -945,6 +1008,16 @@ class AudioManager:
                     self.audio_map[map_key] = audio_path_html
             else:
                 self.audio_map[map_key] = audio_path_html
+                # Still log it even if cached? Maybe good for completeness in the report.
+                self.enhancement_logs.append({
+                    "speaker": speaker_id,
+                    "original_text": msg["original_text"],
+                    "final_text": final_text,
+                    "style_prompt": style_prompt,
+                    "voice": voice,
+                    "key": key,
+                    "cached": True
+                })
 
     def _save_wave(self, filename, pcm, channels=1, rate=24000, sample_width=2):
         """Saves PCM audio bytes to WAV."""
@@ -960,6 +1033,13 @@ class AudioManager:
         logger.info(f"Saving audio map to: {path}")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.audio_map, f, indent=2)
+
+    def _save_enhancement_logs(self):
+        """Saves the enhancement logs to JSON."""
+        path = os.path.join(self.output_dir, "enhancement_log.json")
+        logger.info(f"Saving enhancement log to: {path}")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.enhancement_logs, f, indent=2, ensure_ascii=False)
 
     def generate_debug_audio(self):
         """Generates a single debug file."""
@@ -1077,19 +1157,13 @@ def main():
     parser.add_argument("--cache_path", type=str, help="LLM cache file path.")
     parser.add_argument("--enable_llm_enhancement", action="store_true",
                         help="Enable LLM enhancement (theatrical rewrites).")
-    parser.add_argument("--disable_llm_enhancement", action="store_true",
-                        help="Disable LLM enhancement (theatrical rewrites).")
+    # parser.add_argument("--disable_llm_enhancement", action="store_true", help="DEPRECATED") 
 
     args = parser.parse_args()
 
     # Determine LLM status
-    # Default to False if not specified, unless enable flag is set.
-    # But wait, logic below says disable_llm = args.disable...
-    # Let's keep existing logic structure but fixing the args for voice.
-
-    disable_llm = args.disable_llm_enhancement
-    if args.enable_llm_enhancement:
-        disable_llm = False
+    # Default is disabled unless enabled
+    disable_llm = not args.enable_llm_enhancement
 
     # Defaults
     if not args.output_dir:
@@ -1117,7 +1191,14 @@ def main():
 
     # Components
     gemini_key = os.getenv("GEMINI_API_KEY")
-    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, not args.enable_llm_enhancement)
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    
+    # Select a region for Vertex AI if configured, else default
+    # vertex_regions = config.vertex_ai_regions
+    # vertex_location = random.choice(vertex_regions) if vertex_regions else "us-central1"
+
+    enhancer = LLMEnhancer(gemini_key, args.prompt_path, args.cache_path, disabled=disable_llm,
+                           project_id=project_id)
 
     if args.voice == "chirp":
         tts = VertexTTSGenerator(config.get_vertex_model(), regions=config.vertex_ai_regions)
