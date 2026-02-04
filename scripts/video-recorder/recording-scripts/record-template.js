@@ -1,10 +1,10 @@
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports */
-const { chromium } = require('playwright');
+import { chromium } from 'playwright';
+import { login } from '../login.js';
 
 async function run() {
-  const url = process.argv[2];
-  if (!url) {
-    console.error('No URL provided!');
+  const targetContent = process.argv[2];
+  if (!targetContent) {
+    console.error('No URL/ID/filepath provided!');
     process.exit(1);
   }
 

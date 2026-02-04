@@ -1,5 +1,4 @@
 #!/bin/bash
-# docker run --rm -v "/wherever_your_directory_is/kaggle-environments/scripts/video-recorder/recordings:/app/recordings"  --entrypoint ./speed_up_video.sh web-recorder  
 
 # .75*PTS = 1.25 speed
 ffmpeg -i /app/recordings/your_recording.mp4 \

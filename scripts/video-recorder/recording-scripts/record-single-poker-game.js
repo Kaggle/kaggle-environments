@@ -1,10 +1,9 @@
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports */
-const { chromium } = require('playwright');
-const { login } = require('../login.js');
+import { chromium } from 'playwright';
+import { login } from '../login.js';
 
 const TARGET_URL =
   'https://kaggle.com/competitions/repeated-poker/leaderboard?submissionId=47607376&episodeId=73734724&onlyStream=true';
-const TOTAL_HANDS = 30;
+const TOTAL_HANDS = 100;
 
 async function run() {
   const browser = await chromium.launch({

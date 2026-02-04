@@ -1,5 +1,3 @@
-/* eslint-disable no-undef */
-
 // Credentials for a Kaggle account, replace with your own and DO NOT MERGE.
 const creds = {
   email: 'USERNAME',
@@ -8,8 +6,7 @@ const creds = {
 
 const BASE_URL = 'https://www.kaggle.com';
 
-async function login(page) {
-  // Sign In
+export async function login(page) {
   const loginUrl = `${BASE_URL}/account/login?phase=emailSignIn`;
   console.log(`Attempting to navigate to: ${loginUrl}`);
 
@@ -57,5 +54,3 @@ async function login(page) {
   await page.waitForURL(`${BASE_URL}`);
   await page.context().storageState({ path: 'logged-in-state.json' });
 }
-
-module.exports = { login };

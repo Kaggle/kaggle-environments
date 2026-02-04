@@ -1,7 +1,5 @@
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports */
-
-const { chromium } = require('playwright');
-const { login } = require('../login.js');
+import { chromium } from 'playwright';
+import { login } from '../login.js';
 
 async function run() {
   const episodeId = process.argv[2];
@@ -39,11 +37,9 @@ async function run() {
       ],
     });
 
-    const contextOptions = {
+    const context = await browser.newContext({
       viewport: null, // Use full window size, no fixed viewport
-    };
-
-    const context = await browser.newContext(contextOptions);
+    });
 
     const page = await context.newPage();
 

@@ -1,6 +1,5 @@
-/* eslint-disable no-undef, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-const { chromium } = require('playwright');
-const { login } = require('../login.js');
+import { chromium } from 'playwright';
+import { login } from '../login.js';
 
 const handsFile = process.argv[2];
 if (!handsFile) {
@@ -102,7 +101,7 @@ async function run() {
 
     // Poll until we see "wins", "split pot", or "collected" for the correct hand
     await page.waitForFunction(
-      (num) => {
+      () => {
         const scroller = document.querySelector('[data-testid="virtuoso-scroller"]');
         if (!scroller) return false;
 
@@ -116,19 +115,11 @@ async function run() {
           .map((a) => a.innerText.trim())
           .filter((t) => t.length > 0);
 
-        // console.log(
-        //  `DEBUG: Hand #${num} recent: ${lastFewText.slice(-2).join(" | ").substring(0, 60)}`,
-        // );
-
         const fullRecentText = lastFewText.join(' ').toLowerCase();
         const isWin = /wins|split pot|collected/.test(fullRecentText);
-        // const isCorrectHand =
-        //  fullRecentText.includes(`hand ${num}`) ||
-        //  fullRecentText.includes(`hand #${num}`);
 
         return isWin;
       },
-      expectedHandNumber,
       { polling: 2000, timeout: 2400000 }
     );
     console.log(`[Poker] Hand ${handIndex + 1} complete (win/tie detected)`);
