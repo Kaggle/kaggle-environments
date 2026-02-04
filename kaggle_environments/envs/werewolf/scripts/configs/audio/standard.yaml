@@ -100,6 +100,15 @@ audio:
     discussion_begins: "The town meeting now begins. You have a few minutes to discuss and find the werewolves among you. Begin."
     voting_begins: "The time for talk is over. Now, you must cast your votes!"
   speech_intro_template: "{player} speaking."
-  moderator_style: "Narrate this in the calm, authoritative tone of a nature documentary narrator."
+  moderator_style: "Speak in a calm, neutral, and informative tone."
+  moderator_event_styles:
+    night_begins: "Solemn and quiet, setting a night-time atmosphere."
+    day_begins: "Clear and professional, like a morning news announcement."
+    discussion_begins: "Neutral and encouraging, starting a meeting."
+    voting_begins: "Formal and serious, announcing a high-stakes decision."
+    VOTE_REQUEST: "Ominous and secretive, prompting the werewolves."
+    HEAL_REQUEST: "Hushed and secretive, prompting the doctor."
+    INSPECT_REQUEST: "Hushed and secretive, prompting the seer."
   transcript_overrides:
+
     "Who would you like to see their true role?": "Whose role would you like me to reveal?"

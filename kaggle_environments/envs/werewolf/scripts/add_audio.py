@@ -218,7 +218,12 @@ class AudioConfig:
     def transcript_overrides(self) -> Dict[str, str]:
         return self.data.get("audio", {}).get("transcript_overrides", {})
 
+    @property
+    def moderator_event_styles(self) -> Dict[str, str]:
+        return self.data.get("audio", {}).get("moderator_event_styles", {})
+
     def get_vertex_model(self) -> str:
+
         return self.data.get("vertex_ai_model", "gemini-2.5-flash-tts")
     
     def get_enhancer_model(self) -> str:
@@ -858,27 +863,39 @@ class AudioManager:
 
             # Lookup enhancement
             speaker_display = self.name_manager.get_name(speaker_id) if speaker_id != "moderator" else "Moderator"
-            signature = f"{speaker_display}: {tts_text}"
 
-            enhancement = enhanced_map.get(signature)
-            final_text = tts_text
-            style_prompt = None
+            # 2. Handle enhancement and style
+            if speaker_id == "moderator":
 
-            if enhancement:
-                if isinstance(enhancement, dict):
-                    style_prompt = enhancement.get("style_prompt")
-                    enhanced_text = enhancement.get("text_content")
-                    if enhanced_text:
-                        final_text = enhanced_text
-                else:
-                    final_text = enhancement
+                # Moderator is ALWAYS deterministic now
+                # We skip LLM enhancement for moderator text to avoid "hammy" rewrites
+                final_text = tts_text
+                
+                # Check for event-specific style, then fall back to general moderator style
+                style_prompt = self.config.moderator_event_styles.get(key, force_style)
+            else:
+                # Players still use LLM enhancement
+                signature = f"{speaker_display}: {tts_text}"
+                enhancement = enhanced_map.get(signature)
+                final_text = tts_text
+                style_prompt = None
 
-            # Override style if forced (e.g. for moderator), but prioritize enhancement
-            if force_style and not style_prompt:
-                style_prompt = force_style
+                if enhancement:
+                    if isinstance(enhancement, dict):
+                        style_prompt = enhancement.get("style_prompt")
+                        enhanced_text = enhancement.get("text_content")
+                        if enhanced_text:
+                            final_text = enhanced_text
+                    else:
+                        final_text = enhancement
+
+                # Override style if forced (not usually for players, but for consistency)
+                if force_style and not style_prompt:
+                    style_prompt = force_style
 
             # Prepend intro if it's a player and template exists
             if is_player and intro_template:
+
                 # We insert the intro BEFORE the final text
                 # Note: final_text might contain style tags or be pure text.
                 # If we rely on Gemini to handle tags, we can just prepend.
