@@ -109,7 +109,7 @@ export default defineConfig({
   testMatch: testPatterns,
   fullyParallel: true,
   retries: 1,
-  reporter: [['line'], ['json'], ['html']],
+  reporter: [['list'], ['json', { outputFile: 'test-results/results.json' }], ['html', { open: 'never' }]],
   projects,
   webServer: webServers.length > 0 ? webServers : undefined,
 });
