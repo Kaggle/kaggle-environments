@@ -147,7 +147,7 @@ if (gameArg) {
 
       // 3. Build all visualizers in parallel (since dependencies are now ready)
       console.log('\n--- Step 3: Building all visualizers ---');
-      const buildCommand = 'pnpm -r --parallel build --filter "*-visualizer"';
+      const buildCommand = 'pnpm -r --parallel --filter "*-visualizer" build';
       execSync(buildCommand, { stdio: 'inherit' });
 
       console.log('\n✅ All visualizers and dependencies built successfully.');
