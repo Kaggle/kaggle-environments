@@ -5,9 +5,14 @@
     "build": "node ./web/scripts/find-games.js build",
     "build-all": "node ./web/scripts/find-games.js build --all",
     "collect-artifacts": "./web/scripts/collect-artifacts.sh",
-    "build-ci": "pnpm build-all && pnpm collect-artifacts"
+    "build-ci": "pnpm build-all && pnpm collect-artifacts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "devDependencies": {
+    "@playwright/test": "^1.50.0",
     "@eslint/js": "^9.37.0",
     "eslint": "^9.37.0",
     "eslint-plugin-react": "^7.37.5",
