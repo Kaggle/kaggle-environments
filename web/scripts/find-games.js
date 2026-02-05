@@ -1,23 +1,46 @@
+/* eslint-disable no-undef */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { execSync, spawn } = require('child_process');
 const prompts = require('prompts');
 const path = require('path');
 
-// The command to run ('dev' or 'build')
-const command = process.argv[2];
-// An optional game name to target directly (e.g., 'connectx' or '--all')
-const gameArg = process.argv[3];
+// Parse arguments
+const args = process.argv.slice(2);
+const command = args[0]; // 'dev', 'build', or 'test-server'
+
+// Parse flags and positional arguments
+let gameArg = null;
+let withReplay = false;
+
+for (let i = 1; i < args.length; i++) {
+  if (args[i] === '--with-replay') {
+    withReplay = true;
+  } else if (!args[i].startsWith('--')) {
+    gameArg = args[i];
+  }
+}
 
 if (!command) {
-  console.error('Error: No command specified. Usage: node find-games.js <dev|build> [game-name]');
+  console.error(
+    'Error: No command specified. Usage: node find-games.js <dev|build|test-server> [game-name] [--with-replay]'
+  );
   process.exit(1);
 }
+
+// Determine the actual npm script to run
+const getDevScript = () => {
+  if (withReplay || command === 'test-server') {
+    return 'dev-with-replay';
+  }
+  return 'dev';
+};
 
 // Gets all workspace packages from pnpm
 let packages = [];
 try {
   const pnpmOutput = execSync('pnpm m ls --json --depth -1', { encoding: 'utf8' });
   packages = JSON.parse(pnpmOutput);
-} catch (e) {
+} catch {
   console.error('Error: Could not list pnpm workspaces. Make sure you are in a pnpm workspace root.');
   process.exit(1);
 }
@@ -48,7 +71,8 @@ const runCommand = (pkg) => {
 
   let cmdToRun, cmdArgs, cwd;
 
-  if (command === 'dev') {
+  if (command === 'dev' || command === 'test-server') {
+    const devScript = getDevScript();
     try {
       // STEP 1: Build all dependencies of the target package first.
       // The `...^` syntax targets all dependencies, but NOT the package itself.
@@ -58,16 +82,25 @@ const runCommand = (pkg) => {
         cwd: process.cwd(),
       });
       console.log(`✅ Dependencies built successfully.`);
-    } catch (e) {
+    } catch {
       console.error('\n❌ Initial build of dependencies failed. Aborting.');
       process.exit(1);
     }
 
-    // STEP 2: Now, run the parallel dev/watch commands.
-    console.log(`\n[2/2] Starting dev servers for ${packageName} and its dependencies...`);
-    cmdToRun = 'pnpm';
-    cmdArgs = ['--parallel', '--filter', `${packageName}...`, 'dev'];
-    cwd = process.cwd(); // Run from the monorepo root
+    // STEP 2: Now, run the dev server from the monorepo root.
+    // For test-server/with-replay, run only the target package with dev-with-replay.
+    // For regular dev, run parallel dev and watch commands.
+    if (devScript === 'dev-with-replay') {
+      console.log(`\n[2/2] Starting test server for ${packageName} with replay...`);
+      cmdToRun = 'pnpm';
+      cmdArgs = ['--filter', packageName, devScript];
+      cwd = process.cwd();
+    } else {
+      console.log(`\n[2/2] Starting dev servers for ${packageName} and its dependencies...`);
+      cmdToRun = 'pnpm';
+      cmdArgs = ['--parallel', '--filter', `${packageName}...`, 'dev'];
+      cwd = process.cwd();
+    }
   } else {
     // For 'build' of a single package, the original logic is fine.
     console.log(`Running "pnpm ${command}" in ${relativePath}...`);
@@ -118,7 +151,7 @@ if (gameArg) {
       execSync(buildCommand, { stdio: 'inherit' });
 
       console.log('\n✅ All visualizers and dependencies built successfully.');
-    } catch (error) {
+    } catch {
       console.error('\n❌ Build failed during sequential execution.');
       process.exit(1);
     }
