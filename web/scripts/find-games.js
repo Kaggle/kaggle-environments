@@ -15,6 +15,8 @@ let withReplay = false;
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '--with-replay') {
     withReplay = true;
+  } else if (args[i] === '--all') {
+    gameArg = '--all';
   } else if (!args[i].startsWith('--')) {
     gameArg = args[i];
   }
@@ -147,7 +149,7 @@ if (gameArg) {
 
       // 3. Build all visualizers in parallel (since dependencies are now ready)
       console.log('\n--- Step 3: Building all visualizers ---');
-      const buildCommand = 'pnpm -r --parallel --filter "*-visualizer" build';
+      const buildCommand = 'pnpm -r --parallel build --filter "*-visualizer"';
       execSync(buildCommand, { stdio: 'inherit' });
 
       console.log('\n✅ All visualizers and dependencies built successfully.');
