@@ -87,9 +87,9 @@ const runCommand = (pkg) => {
       process.exit(1);
     }
 
-    // STEP 2: Now, run the dev server.
+    // STEP 2: Now, run the dev server from the monorepo root.
     // For test-server/with-replay, run only the target package with dev-with-replay.
-    // For regular dev, run parallel dev servers for the package and its dependencies.
+    // For regular dev, run parallel dev and watch commands.
     if (devScript === 'dev-with-replay') {
       console.log(`\n[2/2] Starting test server for ${packageName} with replay...`);
       cmdToRun = 'pnpm';

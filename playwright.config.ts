@@ -65,7 +65,7 @@ function getPortForVisualizer(name: string): number {
   for (let i = 0; i < name.length; i++) {
     const char = name.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
 
   return BASE_PORT + (Math.abs(hash) % PORT_RANGE);
