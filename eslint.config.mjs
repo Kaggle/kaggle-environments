@@ -4,12 +4,28 @@ import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import jsxA11Y from "eslint-plugin-jsx-a11y";
+import globals from "globals";
 
 export default defineConfig([
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
+    files: ["**/*.js", "**/*.mjs", "**/*.cjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.browser, // For browser environment
+        ...globals.node, // For Node.js environment
+        ...globals.builtin, // For built-in globals
+      },
+    },
     plugins: {
       react,
       "react-hooks": reactHooks,
