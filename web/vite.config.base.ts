@@ -3,9 +3,6 @@ import checker from 'vite-plugin-checker';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
-// Support custom port via environment variable (used by Playwright tests)
-const port = process.env.VITE_PORT ? parseInt(process.env.VITE_PORT, 10) : 5173;
-
 export default defineConfig({
   base: './',
   optimizeDeps: {
@@ -13,12 +10,12 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port,
+    port: 5173,
     cors: true,
   },
   preview: {
     host: '0.0.0.0',
-    port,
+    port: 5173,
     cors: true,
   },
   plugins: [
