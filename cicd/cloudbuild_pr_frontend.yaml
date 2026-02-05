@@ -23,6 +23,21 @@ steps:
         pnpm build-ci
     waitFor: ["-"]
 
+  # Run Playwright e2e tests for visualizers
+  - id: "run-e2e-tests"
+    name: "mcr.microsoft.com/playwright:v1.50.0-noble"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm
+        pnpm install
+        # Install browsers matching the installed Playwright version
+        pnpm exec playwright install chromium --with-deps
+        pnpm test:e2e
+    waitFor: ["build-all-visualizers"]
+
 # No secrets - this is intentional for security
 # No images pushed - PRs only validate, they don't publish
 
