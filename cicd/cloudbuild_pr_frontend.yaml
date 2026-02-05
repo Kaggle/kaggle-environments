@@ -33,6 +33,8 @@ steps:
         set -e
         npm install -g pnpm
         pnpm install
+        # Install browsers matching the installed Playwright version
+        pnpm exec playwright install chromium --with-deps
         pnpm test:e2e
     waitFor: ["build-all-visualizers"]
 
