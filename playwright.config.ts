@@ -5,7 +5,7 @@ import { globSync } from 'glob';
  * Playwright configuration for kaggle-environments visualizer integration tests.
  *
  * To add tests for a visualizer:
- *   1. Create a test file in your visualizer directory (e.g., connectx.test.ts)
+ *   1. Create a test file in your visualizer's e2e directory (e.g., visualizer/default/e2e/connectx.test.ts)
  *   2. Ensure the visualizer has a `dev-with-replay` script in package.json
  *   3. Add a test replay file in the replays/ directory.
  *      - Warning: this replay file is PUBLIC. If you are actively developing a visualizer for a simulation competition,
