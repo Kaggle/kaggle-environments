@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import { Chessboard, PieceRenderObject, defaultPieces } from 'react-chessboard';
+import { Chessboard, PieceRenderObject } from 'react-chessboard';
 import {
   createReplayVisualizer,
   processEpisodeData,
@@ -33,7 +33,7 @@ const useChessStore = create<ChessStore>((set) => ({
       set({ chess });
 
       console.log(player.thoughts);
-      console.log(`${player.name}: ${move.piece} ${move.from} -> ${move.to}`);
+      console.log(`${player.name} (${move.color}): ${move.piece} ${move.from} -> ${move.to}`);
     }
   },
 }));
@@ -55,7 +55,6 @@ function App() {
   const style = { width: '100%', height: '100%' };
 
   const pieces: PieceRenderObject = {
-    ...defaultPieces,
     wP: () => <img src="images/wP.png" style={style} />,
     wK: () => <img src="images/wK.png" style={style} />,
     wQ: () => <img src="images/wQ.png" style={style} />,
