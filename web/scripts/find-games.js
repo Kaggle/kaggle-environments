@@ -143,12 +143,8 @@ if (gameArg) {
       console.log('--- Step 1: Building @kaggle-environments/core ---');
       execSync('pnpm --filter @kaggle-environments/core build', { stdio: 'inherit' });
 
-      // 2. Build Common second
-      console.log('\n--- Step 2: Building @kaggle-environments/common ---');
-      execSync('pnpm --filter @kaggle-environments/common build', { stdio: 'inherit' });
-
-      // 3. Build all visualizers in parallel (since dependencies are now ready)
-      console.log('\n--- Step 3: Building all visualizers ---');
+      // 2. Build all visualizers in parallel (since dependencies are now ready)
+      console.log('\n--- Step 2: Building all visualizers ---');
       const buildCommand = 'pnpm -r --parallel build --filter "*-visualizer"';
       execSync(buildCommand, { stdio: 'inherit' });
 
