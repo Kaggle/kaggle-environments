@@ -105,7 +105,10 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     // 3. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
     //    This block is now reachable even if this.hmrState exists.
-    else if (import.meta.env?.DEV) {
+
+    // TODO: Remove temporary change for sharing WIP builds, always use the replay file if it's defined in env.
+    // else if (import.meta.env?.DEV) {
+    else if (import.meta.env?.VITE_REPLAY_FILE) {
       const replayFile = import.meta.env.VITE_REPLAY_FILE;
       if (replayFile) {
         fetch(replayFile)
