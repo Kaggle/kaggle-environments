@@ -1,4 +1,4 @@
-import { BaseGameStep, BaseGamePlayer } from '@kaggle-environments/core';
+import { BaseGameStep, BaseGamePlayer } from './types';
 
 /**
  * Returns the player whose turn it is for the given step.
@@ -11,7 +11,7 @@ export function getPlayer(step: BaseGameStep): BaseGamePlayer | undefined {
   }
 
   // Find the player whose turn it is
-  const activePlayer = players.find(p => p.isTurn);
+  const activePlayer = players.find((p) => p.isTurn);
   if (activePlayer) {
     return activePlayer;
   }

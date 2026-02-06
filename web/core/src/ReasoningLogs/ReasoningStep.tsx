@@ -1,16 +1,16 @@
-import { Button, Icon, Typography } from "@mui/material";
-import { getPlayer } from "../utils";
+import { Button, Icon, Typography } from '@mui/material';
+import { getPlayer } from '../utils';
 import {
   BaseGameStep,
   getGameStepLabel,
   getGameStepDescription,
   ReplayMode,
   getTokenRenderDistribution,
-} from "@kaggle-environments/core";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import * as React from "react";
-import { styled, css, keyframes } from "@mui/material/styles";
-import { UserContent } from "../UserContent";
+} from '../index';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import * as React from 'react';
+import { styled, css, keyframes } from '@mui/material/styles';
+import { UserContent } from '../UserContent';
 
 const MOBILE_CARD_HEIGHT = 100;
 const MAX_STREAMING_ONLY_CARD_HEIGHT = 550;
@@ -62,11 +62,8 @@ const PlayerStep = styled('div')`
 `;
 
 const ReasoningContent = styled('div')<{ $replayMode: ReplayMode }>`
-  border-top: 1px solid ${p => p.theme.palette.divider};
-  max-height: ${p =>
-    p.$replayMode === "only-stream"
-      ? MAX_STREAMING_ONLY_CARD_HEIGHT
-      : MAX_CARD_HEIGHT}px;
+  border-top: 1px solid ${(p) => p.theme.palette.divider};
+  max-height: ${(p) => (p.$replayMode === 'only-stream' ? MAX_STREAMING_ONLY_CARD_HEIGHT : MAX_CARD_HEIGHT)}px;
   overflow-y: scroll;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -84,14 +81,14 @@ const ReasoningContent = styled('div')<{ $replayMode: ReplayMode }>`
   }
 `;
 
-const DescriptionAndLabelMarkdown = styled(UserContent) <{
+const DescriptionAndLabelMarkdown = styled(UserContent)<{
   $useLargeFonts: boolean;
 }>`
-  background-color: ${p => p.theme.palette.background.paper};
-  color: ${p => p.theme.palette.text.primary};
+  background-color: ${(p) => p.theme.palette.background.paper};
+  color: ${(p) => p.theme.palette.text.primary};
   max-width: 550px;
 
-  ${p =>
+  ${(p) =>
     p.$useLargeFonts &&
     css`
       ${p.theme.breakpoints.up('tablet')} {
@@ -125,24 +122,24 @@ const DescriptionAndLabelMarkdown = styled(UserContent) <{
             margin: 0 0 0 16px;
           }
           &:before {
-            content: "• ";
+            content: '• ';
           }
         }
       }
     `}
 `;
 
-const Avatar = styled('img')<{ $size: "small" | "medium" }>`
-   position: absolute;
+const Avatar = styled('img')<{ $size: 'small' | 'medium' }>`
+  position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: ${p => (p.$size === "small" ? 16 : 18)}px;
-  height: ${p => (p.$size === "small" ? 16 : 18)}px;
+  width: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
+  height: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   border-radius: 50%;
-`
+`;
 
-export interface ReasoningStep {
+export interface ReasoningStepProps {
   expandByDefault: boolean;
   isCurrentStep: boolean;
   showExpandButton?: boolean;
@@ -155,7 +152,7 @@ export interface ReasoningStep {
   onStepChange: (step: number) => void;
 }
 
-export const ReasoningStep: React.FC<ReasoningStep> = ({
+export const ReasoningStep: React.FC<ReasoningStepProps> = ({
   expandByDefault,
   isCurrentStep,
   showExpandButton,
@@ -168,23 +165,20 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
   onStepChange,
 }) => {
   const [expanded, setExpanded] = React.useState(expandByDefault);
-  const [text, setText] = React.useState("");
+  const [text, setText] = React.useState('');
   const [currentTokenIndex, setCurrentTokenIndex] = React.useState(0);
 
   const internalScrollStickRef = React.useRef(true);
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const isLargerThanTablet = useMediaQuery(theme => theme.breakpoints.up('tablet'));
+  const isLargerThanTablet = useMediaQuery((theme) => theme.breakpoints.up('tablet'));
 
-  const streaming = replayMode !== "condensed";
+  const streaming = replayMode !== 'condensed';
   const useStreamingStyles = streaming && isLargerThanTablet;
 
   const player = getPlayer(step);
   const label = getGameStepLabel(step, gameName);
   const description = getGameStepDescription(step, gameName);
-  const chunks = React.useMemo(
-    () => (description.length > 0 ? description.split(" ") : []),
-    [description]
-  );
+  const chunks = React.useMemo(() => (description.length > 0 ? description.split(' ') : []), [description]);
   const delays = getTokenRenderDistribution(chunks.length, gameName);
 
   const handleInternalScroll = React.useCallback(() => {
@@ -202,20 +196,16 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
       return;
     }
 
-    const shouldStreamTokens =
-      currentTokenIndex < chunks.length &&
-      isCurrentStep &&
-      expanded &&
-      streaming;
+    const shouldStreamTokens = currentTokenIndex < chunks.length && isCurrentStep && expanded && streaming;
 
     if (shouldStreamTokens) {
-      /* React 18 batches state updates together, but we want 
+      /* React 18 batches state updates together, but we want
       each change in the text to render separately to get the
       token streaming effect. So, we use setTimeout to ensure
       each chunk is rendered individually. */
       const timeoutId = setTimeout(() => {
-        setText(prev => prev + " " + chunks[currentTokenIndex]);
-        setCurrentTokenIndex(prev => prev + 1);
+        setText((prev) => prev + ' ' + chunks[currentTokenIndex]);
+        setCurrentTokenIndex((prev) => prev + 1);
       }, delays[currentTokenIndex]);
       return () => clearTimeout(timeoutId);
     } else if (text !== description) {
@@ -223,15 +213,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
     }
     return;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    chunks,
-    currentTokenIndex,
-    delays,
-    isCurrentStep,
-    description,
-    expanded,
-    playing,
-  ]);
+  }, [chunks, currentTokenIndex, delays, isCurrentStep, description, expanded, playing]);
 
   React.useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -241,8 +223,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
 
     if (isInternallyScrollable) {
       if (internalScrollStickRef.current) {
-        const distanceFromBottom =
-          el.scrollHeight - el.scrollTop - el.clientHeight;
+        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
 
         if (distanceFromBottom > 1) {
           el.scrollTop = el.scrollHeight;
@@ -259,8 +240,8 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
   React.useEffect(() => {
     const el = scrollRef.current;
     if (el) {
-      el.addEventListener("scroll", handleInternalScroll);
-      return () => el.removeEventListener("scroll", handleInternalScroll);
+      el.addEventListener('scroll', handleInternalScroll);
+      return () => el.removeEventListener('scroll', handleInternalScroll);
     }
     return;
   }, [expanded, handleInternalScroll]);
@@ -273,7 +254,7 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
   // so that we can start streaming tokens from the beginning
   React.useEffect(() => {
     if (isCurrentStep && streaming) {
-      setText("");
+      setText('');
     }
   }, [isCurrentStep, streaming]);
 
@@ -283,33 +264,29 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
 
   if (label.length === 0 || description.length === 0) {
     return (
-      <StepCard
-        role="button"
-        onClick={() => onStepChange(stepNumber - 1)}
-      >
+      <StepCard role="button" onClick={() => onStepChange(stepNumber - 1)}>
         <StepMeta>
           {player?.thumbnail ? (
-            <Avatar
-              $size={useStreamingStyles ? "medium" : "small"}
-              src={player.thumbnail}
-              alt=""
-            />
+            <Avatar $size={useStreamingStyles ? 'medium' : 'small'} src={player.thumbnail} alt="" />
           ) : (
-            <Icon
-              component="span"
-              fontSize={useStreamingStyles ? "medium" : "small"}
-            >
+            <Icon component="span" fontSize={useStreamingStyles ? 'medium' : 'small'}>
               person
             </Icon>
           )}
           {useStreamingStyles ? (
             <PlayerStep>
-              {player && <Typography variant="h4" component="p">{player.name}</Typography>}
-              <Typography variant="h5" component="p">{stepNumber}</Typography>
+              {player && (
+                <Typography variant="h4" component="p">
+                  {player.name}
+                </Typography>
+              )}
+              <Typography variant="h5" component="p">
+                {stepNumber}
+              </Typography>
             </PlayerStep>
           ) : (
             <PlayerStep>
-              <Typography variant="subtitle1">{player?.name ?? "System"}</Typography>
+              <Typography variant="subtitle1">{player?.name ?? 'System'}</Typography>
               <Typography variant="body1">{stepNumber}</Typography>
             </PlayerStep>
           )}
@@ -324,38 +301,31 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
   }
 
   return (
-    <StepCard
-      role="button"
-      onClick={() => onStepChange(stepNumber - 1)}
-    >
+    <StepCard role="button" onClick={() => onStepChange(stepNumber - 1)}>
       <StepMeta>
-        {player?.thumbnail && (
-          <Avatar
-            $size={useStreamingStyles ? "medium" : "small"}
-            src={player.thumbnail}
-            alt=""
-          />
-        )}
+        {player?.thumbnail && <Avatar $size={useStreamingStyles ? 'medium' : 'small'} src={player.thumbnail} alt="" />}
         {useStreamingStyles ? (
           <PlayerStep>
-            {player && <Typography variant="h4" component="p">{player.name}</Typography>}
-            <Typography variant="h5" component="p">{stepNumber}</Typography>
+            {player && (
+              <Typography variant="h4" component="p">
+                {player.name}
+              </Typography>
+            )}
+            <Typography variant="h5" component="p">
+              {stepNumber}
+            </Typography>
           </PlayerStep>
         ) : (
           <PlayerStep>
-            <Typography variant="subtitle1">{player?.name ?? "System"}</Typography>
+            <Typography variant="subtitle1">{player?.name ?? 'System'}</Typography>
             <Typography variant="body1">{stepNumber}</Typography>
           </PlayerStep>
         )}
       </StepMeta>
-      <DescriptionAndLabelMarkdown
-        markdown={label}
-        youtubePreviewOnly
-        $useLargeFonts={useStreamingStyles}
-      />
+      <DescriptionAndLabelMarkdown markdown={label} youtubePreviewOnly $useLargeFonts={useStreamingStyles} />
       {showExpandButton && description && (
         <Button
-          startIcon={<Icon>{expanded ? "keyboard_arrow_up" : "keyboard_arrow_down"}</Icon>}
+          startIcon={<Icon>{expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}</Icon>}
           onClick={() => {
             setExpanded(!expanded);
             // Give a little time for the expanded card to render, then make sure all new content is visible
@@ -365,13 +335,13 @@ export const ReasoningStep: React.FC<ReasoningStep> = ({
           }}
           variant="text"
         >
-          {expanded ? "Hide" : "Show"} thinking
+          {expanded ? 'Hide' : 'Show'} thinking
         </Button>
       )}
       {expanded && description.length > 0 && (
         <ReasoningContent ref={scrollRef} $replayMode={replayMode}>
           <DescriptionAndLabelMarkdown
-            style={{ marginTop: "16px" }}
+            style={{ marginTop: '16px' }}
             markdown={text}
             youtubePreviewOnly
             $useLargeFonts={useStreamingStyles}

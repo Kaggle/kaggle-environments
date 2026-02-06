@@ -1,8 +1,8 @@
-import { createTheme } from "@mui/material/styles";
+import { createTheme } from '@mui/material/styles';
 
 // Custom breakpoints matching the Material design guidelines
 // See: https://carbon.googleplex.com/kaggle/pages/layout-breakpoints/principles
-declare module "@mui/material/styles" {
+declare module '@mui/material/styles' {
   interface BreakpointOverrides {
     xs: true;
     sm: true;
@@ -57,4 +57,40 @@ export const themeBreakpoints = {
 
 export const theme = createTheme({
   breakpoints: themeBreakpoints,
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#90caf9',
+    },
+    secondary: {
+      main: '#ce93d8',
+    },
+    background: {
+      default: '#121212',
+      paper: '#1e1e1e',
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: 'rgba(255, 255, 255, 0.7)',
+    },
+    divider: 'rgba(255, 255, 255, 0.12)',
+  },
+});
+
+// Light theme variant for games that prefer light mode
+export const lightTheme = createTheme({
+  breakpoints: themeBreakpoints,
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#9c27b0',
+    },
+    background: {
+      default: '#ffffff',
+      paper: '#f5f5f5',
+    },
+  },
 });
