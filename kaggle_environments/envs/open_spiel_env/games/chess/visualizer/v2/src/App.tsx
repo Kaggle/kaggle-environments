@@ -75,6 +75,7 @@ function App() {
     backgroundPosition: 'center',
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
+    backgroundColor: 'transparent',
   };
 
   const darkSquareStyle = {
@@ -82,9 +83,8 @@ function App() {
     backgroundPosition: 'center',
     backgroundSize: 'cover',
     backgroundRepeat: 'no-repeat',
+    backgroundColor: 'transparent',
   };
-
-  console.log(pieces);
 
   return (
     <div className="container">
