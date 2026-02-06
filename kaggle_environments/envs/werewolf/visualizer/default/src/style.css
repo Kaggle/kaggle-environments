@@ -1,10 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-html, body, #app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+
+html,
+body,
+#app {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 /* Game Status Scoreboard */
@@ -25,7 +28,7 @@ html, body, #app {
     gap: 20px;
     align-items: center;
     height: 50px;
-        /* Match event panel header height */
+    /* Match event panel header height */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     pointer-events: none;
     box-sizing: border-box;
@@ -89,8 +92,15 @@ html, body, #app {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
 }
 
 /* Phase Indicator */
@@ -98,10 +108,10 @@ html, body, #app {
     position: relative;
     z-index: 1000;
     padding: 8px 16px;
-        /* Slightly more compact */
+    /* Slightly more compact */
     border-radius: 30px;
     font-size: 1rem;
-        /* Matched to scoreboard value */
+    /* Matched to scoreboard value */
     font-weight: 600;
     letter-spacing: 0.05em;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -110,8 +120,8 @@ html, body, #app {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     display: flex;
     align-items: center;
-        justify-content: center;
-        gap: 8px;
+    justify-content: center;
+    gap: 8px;
 }
 
 .phase-indicator.day {
@@ -127,7 +137,8 @@ html, body, #app {
 }
 
 .game-scoreboard .phase-indicator {
-    position: relative; /* Override the 'fixed' positioning */
+    position: relative;
+    /* Override the 'fixed' positioning */
     top: auto;
     left: auto;
     transform: none;
@@ -200,10 +211,11 @@ html, body, #app {
 }
 
 /* Enhanced Panel Styling */
-.left-panel, .event-panel {
+.left-panel,
+.event-panel {
     position: fixed;
     top: 20px;
-        max-height: calc(100vh - 140px);
+    max-height: calc(100vh - 140px);
     background: var(--panel-bg);
     backdrop-filter: blur(20px) saturate(1.5);
     border-radius: 16px;
@@ -221,7 +233,8 @@ html, body, #app {
 .left-panel {
     /* left: 20px; */
     /* width: 320px; */
-    display: none; /* Hide the left panel */
+    display: none;
+    /* Hide the left panel */
 }
 
 .event-panel {
@@ -245,7 +258,7 @@ html, body, #app {
 
 .event-panel.collapsed {
     max-height: 50px;
-        /* Height of just the header */
+    /* Height of just the header */
     padding-top: 0;
     padding-bottom: 0;
 }
@@ -258,7 +271,7 @@ html, body, #app {
     color: var(--text-primary);
     position: relative;
     padding: 0 14px 0 40px;
-        /* Zero top/bottom, rely on height + center alignment */
+    /* Zero top/bottom, rely on height + center alignment */
     flex-shrink: 0;
     display: flex;
     justify-content: center;
@@ -267,17 +280,18 @@ html, body, #app {
     cursor: pointer;
     user-select: none;
     height: 50px;
-        box-sizing: border-box;
-        line-height: 1;
+    box-sizing: border-box;
+    line-height: 1;
 }
 
 /* Adds a visual indicator for expanding/collapsing */
 .event-panel h1::before {
-    content: ''; /* The content is now the background image */
+    content: '';
+    /* The content is now the background image */
     position: absolute;
     left: 14px;
-        width: 16px;
-        height: 16px;
+    width: 16px;
+    height: 16px;
 
     background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2374b9ff"><path d="M12 8l-6 6h12z"/></svg>');
     background-repeat: no-repeat;
@@ -291,7 +305,7 @@ html, body, #app {
     transform: rotate(180deg);
 }
 
-.event-panel h1 > span {
+.event-panel h1>span {
     background: linear-gradient(135deg, #74b9ff, #0984e3);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -312,7 +326,8 @@ html, body, #app {
     overflow-y: auto;
     padding-right: 8px;
     margin-right: -8px;
-    min-height: 0; /* Critical for flex scrolling */
+    min-height: 0;
+    /* Critical for flex scrolling */
 }
 
 /* Main container: now acts as a positioning context for its children.
@@ -320,11 +335,16 @@ html, body, #app {
   We will center its *content* using flex or absolute positioning.
 */
 .player-ui-container {
-    position: relative; /* CRITICAL: Establishes a positioning context for absolute children */
-    display: block; /* No longer flex. Children handle their own layout */
-    width: max-content; /* Allow container to grow with content */
-    height: max-content; /* Allow container to grow with content */
-    pointer-events: none; /* Let children handle clicks */
+    position: relative;
+    /* CRITICAL: Establishes a positioning context for absolute children */
+    display: block;
+    /* No longer flex. Children handle their own layout */
+    width: max-content;
+    /* Allow container to grow with content */
+    height: max-content;
+    /* Allow container to grow with content */
+    pointer-events: none;
+    /* Let children handle clicks */
 
     /* CRITICAL ANCHORING FIX:
       We want the player-info-card (nameplate) to be horizontally centered
@@ -332,7 +352,8 @@ html, body, #app {
       within this container, with its own transform to center itself.
       The container itself is placed at 0,0 relative to the CSS2DObject.
     */
-    transform: none; /* REMOVE any transforms from the container itself */
+    transform: none;
+    /* REMOVE any transforms from the container itself */
 }
 
 /* The truly FLOATING player info card (Name, ID, Role, Timestamp, Avatar)
@@ -340,8 +361,10 @@ html, body, #app {
 */
 .player-info-card {
     position: relative;
-    top: 50%; /* Position its top edge at the vertical center of the container */
-    left: 50%; /* Position its left edge at the horizontal center of the container */
+    top: 50%;
+    /* Position its top edge at the vertical center of the container */
+    left: 50%;
+    /* Position its left edge at the horizontal center of the container */
 
     /* CRITICAL: Translate it back by 50% of its OWN width and height to truly center it.
       This element is now fixed relative to the 3D point.
@@ -361,10 +384,10 @@ html, body, #app {
 
     color: #ffffff;
     text-shadow:
-        0 0 4px rgba(0,0,0,0.8),
-        0 0 8px rgba(0,0,0,0.6);
+        0 0 4px rgba(0, 0, 0, 0.8),
+        0 0 8px rgba(0, 0, 0, 0.6);
     pointer-events: auto;
-/* Prevent selection */
+    /* Prevent selection */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -373,7 +396,8 @@ html, body, #app {
     transition: all 0.2s ease;
     padding: 0;
     margin: 0;
-    white-space: nowrap; /* Prevent text wrapping */
+    white-space: nowrap;
+    /* Prevent text wrapping */
     z-index: 5;
 
     padding: 4px 8px;
@@ -385,10 +409,11 @@ html, body, #app {
 .player-info-card:hover {
     color: #ffcc00;
     text-shadow:
-        0 0 6px rgba(0,0,0,0.9),
-        0 0 10px rgba(0,0,0,0.7),
-        0 0 12px rgba(255,204,0,0.4);
+        0 0 6px rgba(0, 0, 0, 0.9),
+        0 0 10px rgba(0, 0, 0, 0.7),
+        0 0 12px rgba(255, 204, 0, 0.4);
 }
+
 /* NEW: This encircles the nameplate when chat is active */
 .player-ui-container.chat-active .player-info-card {
     /* background: rgba(10, 10, 20, 0.4); */
@@ -396,7 +421,8 @@ html, body, #app {
     border: 1px solid #ffffff;
     box-shadow: 0 0 2px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 255, 255, 0.5);
     border-radius: 8px;
-    padding: 4px 8px; /* Add padding so border isn't flush */
+    padding: 4px 8px;
+    /* Add padding so border isn't flush */
 }
 
 /* NEW: This styles the message text like a movie subtitle */
@@ -407,21 +433,23 @@ html, body, #app {
     line-height: 1.4;
     /* Classic subtitle shadow */
     text-shadow:
-        0 0 5px rgba(0,0,0,1),
-        0 0 8px rgba(0,0,0,0.8);
+        0 0 5px rgba(0, 0, 0, 1),
+        0 0 8px rgba(0, 0, 0, 0.8);
 }
 
 /* NEW: Reasoning text styles */
 .player-ui-container.chat-active .bubble-reasoning {
-    display: none; /* Hide reasoning by default */
+    display: none;
+    /* Hide reasoning by default */
     font-size: 14px;
     font-weight: 400;
-    color: #bbbbbb; /* Grey text */
+    color: #bbbbbb;
+    /* Grey text */
     line-height: 1.4;
     font-style: italic;
     text-shadow:
-        0 0 5px rgba(0,0,0,1),
-        0 0 8px rgba(0,0,0,0.8);
+        0 0 5px rgba(0, 0, 0, 1),
+        0 0 8px rgba(0, 0, 0, 0.8);
 }
 
 /* NEW: Prefix for reasoning */
@@ -432,40 +460,51 @@ html, body, #app {
 
 /* NEW: State toggle for showing reasoning */
 .player-ui-container.chat-active.show-reasoning .bubble-reasoning {
-    display: block; /* Show reasoning */
+    display: block;
+    /* Show reasoning */
     margin-top: 6px;
 }
 
-        .player-avatar-3d {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            background-color: #ffffff;
-            border: 1px solid rgba(255,255,255,0.4);
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-            margin-bottom: 4px;
-/* Prevent image dragging/selection */
+.player-avatar-3d {
+    width: 16px;
+        height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    margin-bottom: 0px;
+    /* Prevent image dragging/selection */
     pointer-events: none;
     -webkit-user-drag: none;
     user-select: none;
-        }
+}
+
+.player-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
 .player-text-details {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
+
 .player-name-3d {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
 }
+
 .player-id-3d {
     font-size: 10px;
     opacity: 0.9;
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
 }
+
 .player-role-3d {
-    font-size: 11px;
+    font-size: 14px;
     opacity: 0.8;
 }
 
@@ -557,7 +596,8 @@ html, body, #app {
 
 /* --- End New Unified Player UI Component --- */
 
-.left-panel:hover, .event-panel:hover {
+.left-panel:hover,
+.event-panel:hover {
     border-color: rgba(116, 185, 255, 0.3);
     box-shadow: var(--card-shadow), 0 0 60px rgba(116, 185, 255, 0.08);
 }
@@ -574,19 +614,21 @@ html, body, #app {
     justify-content: center;
     align-items: center;
     gap: 15px;
-        height: 50px;
-        line-height: 1;
-        box-sizing: border-box;
+    height: 50px;
+    line-height: 1;
+    box-sizing: border-box;
 }
 
-.event-panel h1 > span, #player-list-area h1 > span {
+.event-panel h1>span,
+#player-list-area h1>span {
     background: linear-gradient(135deg, #74b9ff, #0984e3);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
-.event-panel h1::after, #player-list-area h1::after {
+.event-panel h1::after,
+#player-list-area h1::after {
     content: '';
     position: absolute;
     bottom: 0;
@@ -597,15 +639,16 @@ html, body, #app {
     background: linear-gradient(90deg, transparent, #74b9ff, transparent);
     border-radius: 2px;
     opacity: 1;
-        transition: opacity 0.3s ease;
-    }
-    
-    .event-panel.collapsed h1::after {
-        opacity: 0;
-        /* Hide indicator when collapsed */
+    transition: opacity 0.3s ease;
 }
 
-#global-reasoning-toggle, .reset-view-btn {
+.event-panel.collapsed h1::after {
+    opacity: 0;
+    /* Hide indicator when collapsed */
+}
+
+#global-reasoning-toggle,
+.reset-view-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -617,14 +660,18 @@ html, body, #app {
     color: var(--text-muted);
     transition: all 0.2s ease;
     height: 32px;
-        /* Fixed height for consistent centering */
-        width: 32px;
+    /* Fixed height for consistent centering */
+    width: 32px;
 }
-#global-reasoning-toggle:hover, .reset-view-btn:hover {
+
+#global-reasoning-toggle:hover,
+.reset-view-btn:hover {
     background-color: var(--hover-bg);
     color: var(--text-primary);
 }
-#global-reasoning-toggle svg, .reset-view-btn svg {
+
+#global-reasoning-toggle svg,
+.reset-view-btn svg {
     stroke: currentColor;
     width: 20px;
     height: 20px;
@@ -679,6 +726,7 @@ html, body, #app {
     margin: 0;
     vertical-align: middle;
 }
+
 #global-reasoning-toggle.enabled {
     color: var(--text-muted);
 }
@@ -686,6 +734,7 @@ html, body, #app {
 #global-reasoning-toggle {
     color: var(--text-secondary);
 }
+
 #global-audio-toggle {
     background: none;
     border: none;
@@ -722,6 +771,7 @@ html, body, #app {
     height: 16px;
     stroke: currentColor;
 }
+
 /* Enhanced Chat Entries */
 .chat-entry {
     display: flex;
@@ -767,6 +817,7 @@ html, body, #app {
 .reasoning-text {
     display: none !important;
 }
+
 .reasoning-text.visible {
     display: block !important;
 }
@@ -794,6 +845,7 @@ html, body, #app {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -812,9 +864,9 @@ html, body, #app {
         width: max-content !important;
         max-width: calc(100vw - 20px) !important;
         background: transparent !important;
-            backdrop-filter: none !important;
-            border: none !important;
-            box-shadow: none !important;
+        backdrop-filter: none !important;
+        border: none !important;
+        box-shadow: none !important;
         border-radius: 8px !important;
         pointer-events: auto !important;
         z-index: 1001 !important;
@@ -868,9 +920,9 @@ html, body, #app {
         font-size: 1.1rem !important;
         justify-content: flex-start !important;
         height: 50px !important;
-            line-height: 1 !important;
-            align-items: center !important;
-            display: flex !important;
+        line-height: 1 !important;
+        align-items: center !important;
+        display: flex !important;
     }
 
     .event-panel h1::before {
@@ -879,6 +931,7 @@ html, body, #app {
         height: 16px !important;
     }
 }
+
 /* Enhanced Message Bubbles */
 .balloon {
     padding: 14px 16px;
@@ -910,11 +963,14 @@ html, body, #app {
     border-left: 2px solid rgba(116, 185, 255, 0.3);
     line-height: 1.4;
     font-family: 'JetBrains Mono', monospace;
-    display: none; /* Hidden by default */
+    display: none;
+    /* Hidden by default */
 }
+
 .reasoning-text.visible {
     display: block;
 }
+
 .reasoning-toggle {
     cursor: pointer;
     font-size: 1rem;
@@ -924,9 +980,11 @@ html, body, #app {
     display: inline-flex;
     align-items: center;
 }
+
 .reasoning-toggle:hover {
     opacity: 1;
 }
+
 .msg-entry .reasoning-toggle {
     float: right;
 }
@@ -1051,8 +1109,9 @@ html, body, #app {
     transform: translateX(-50%);
     width: 80%;
     max-width: 1200px;
-    text-align: center;
-    pointer-events: none; /* Make sure to enable pointer events for buttons later if needed, but container wrapper might need pointer-events: none and children auto */
+    text-align: left;
+    pointer-events: none;
+    /* Make sure to enable pointer events for buttons later if needed, but container wrapper might need pointer-events: none and children auto */
     /* Update: We need pointer events for buttons! */
     pointer-events: auto;
     z-index: 2000;
@@ -1063,17 +1122,22 @@ html, body, #app {
     line-height: 1.5;
     color: #ffffff;
 
-    display: flex; /* Use flexbox for layout */
-    align-items: center; /* Center vertically */
-    justify-content: center; /* Center horizontally */
-    gap: 10px; /* Space between text and controls */
+    display: flex;
+    /* Use flexbox for layout */
+    align-items: center;
+    /* Center vertically */
+    justify-content: flex-start;
+    /* Center horizontally */
+    gap: 10px;
+    /* Space between text and controls */
 
-    background: rgba(0, 0, 0, 0.6); /* Slightly darker background for readability */
+    background: rgba(0, 0, 0, 0.6);
+    /* Slightly darker background for readability */
     padding: 10px 14px 10px 20px;
-        /* Reduced right padding to bring arrows closer to edge */
+    /* Reduced right padding to bring arrows closer to edge */
     border-radius: 8px;
     gap: 6px;
-        /* Reduced gap between text and scroller */
+    /* Reduced gap between text and scroller */
 
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
@@ -1083,16 +1147,30 @@ html, body, #app {
     opacity: 1;
 }
 
+.cinematic-subtitle-container.expanded {
+    bottom: 20px;
+    padding: 20px 14px 20px 20px;
+    background: rgba(0, 0, 0, 0.85);
+    /* Even darker background */
+    border: 1px solid rgba(116, 185, 255, 0.5);
+}
+
+.cinematic-subtitle-container.expanded .cinematic-subtitle-content-wrapper {
+    max-height: 60vh;
+}
 .cinematic-subtitle-content-wrapper {
     flex: 1;
-    max-height: 80px; /* Increased height (~4-5 lines) */
-    overflow-y: auto; /* Enable native scrolling */
+    max-height: 80px;
+    /* Increased height (~4-5 lines) */
+    overflow-y: auto;
+    /* Enable native scrolling */
     position: relative;
-    text-align: center;
+    text-align: left;
     scroll-behavior: smooth;
-    pointer-events: auto; /* Ensure scrolling works */
+    pointer-events: auto;
+    /* Ensure scrolling works */
     padding-right: 25px;
-        /* Add space for absolute scroller overlay */
+    /* Add space for absolute scroller overlay */
 
     /* Hide scrollbar for aesthetics but allow scroll */
     scrollbar-width: none;
@@ -1105,22 +1183,22 @@ html, body, #app {
 
 .subtitle-controls {
     position: absolute;
-        right: 6px;
-        /* Align with container right padding */
-        top: 10px;
-        /* Match container top padding */
-        bottom: 10px;
-        /* Match container bottom padding */
+    right: 6px;
+    /* Align with container right padding */
+    top: 10px;
+    /* Match container top padding */
+    bottom: 10px;
+    /* Match container bottom padding */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-        align-items: center;
-        width: 20px;
-        opacity: 0;
-        /* Hidden unless needed */
+    align-items: center;
+    width: 20px;
+    opacity: 0;
+    /* Hidden unless needed */
     transition: opacity 0.2s;
     pointer-events: auto;
-        z-index: 5;
+    z-index: 5;
 }
 
 .subtitle-controls.visible {
@@ -1131,60 +1209,61 @@ html, body, #app {
     background: transparent;
     border: none;
     color: var(--text-muted);
-        /* Blueish */
+    /* Blueish */
     cursor: pointer;
     border-radius: 4px;
     width: 20px;
-        height: 16px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 10px;
-        /* Smaller arrows */
-        transition: color 0.2s, transform 0.1s;
-        padding: 0;
-        flex-shrink: 0;
+    /* Smaller arrows */
+    transition: color 0.2s, transform 0.1s;
+    padding: 0;
+    flex-shrink: 0;
 }
 
 .subtitle-scroll-btn:hover {
     color: var(--text-primary);
-        transform: scale(1.1);
+    transform: scale(1.1);
 }
 
 .subtitle-scroll-btn:active {
     transform: scale(0.95);
-    }
-    
-    .scroll-track {
-        flex-grow: 1;
-        width: 2px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 1px;
-        position: relative;
-        margin: 4px 0;
-        /* Space between arrows and track */
-    }
-    
-    .scroll-thumb {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 6px;
-        height: 6px;
-        /* Circular dot */
-        background: var(--text-muted);
-        border-radius: 50%;
-        /* Perfect circle */
-        transition: background 0.2s;
-        pointer-events: none;
-    }
-    
-    .scroll-thumb:hover {
-        background: var(--text-primary);
+}
+
+.scroll-track {
+    flex-grow: 1;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 1px;
+    position: relative;
+    margin: 4px 0;
+    /* Space between arrows and track */
+}
+
+.scroll-thumb {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    /* Circular dot */
+    background: var(--text-muted);
+    border-radius: 50%;
+    /* Perfect circle */
+    transition: background 0.2s;
+    pointer-events: none;
+}
+
+.scroll-thumb:hover {
+    background: var(--text-primary);
 }
 
 .subtitle-speaker {
-    color: #2db7f7ff; /* Changed from Gold */
+    color: #2db7f7ff;
+    /* Changed from Gold */
     font-weight: 700;
     margin-right: 8px;
     text-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
@@ -1195,14 +1274,18 @@ html, body, #app {
 }
 
 .cinematic-subtitle-reasoning {
-    display: none; /* Hidden by default */
-    font-size: 12px; /* Slightly smaller than main text */
+    display: none;
+    /* Hidden by default */
+    font-size: 12px;
+    /* Slightly smaller than main text */
     font-style: italic;
     color: #cccccc;
     margin-top: 8px;
     padding-left: 12px;
-    border-left: 3px solid rgba(116, 185, 255, 0.5); /* Vertical line */
-    text-align: left; /* Align text to the bar */
+    border-left: 3px solid rgba(116, 185, 255, 0.5);
+    /* Vertical line */
+    text-align: left;
+    /* Align text to the bar */
     line-height: 1.4;
     text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.9);
     width: fit-content;
@@ -1219,24 +1302,55 @@ html, body, #app {
 .cinematic-subtitle-container.moderator-mode {
     background: rgba(20, 20, 35, 0.75);
     border: 1px solid rgba(116, 185, 255, 0.4);
-    border-radius: 40px 30px 50px 30px / 30px 50px 30px 40px; /* Blob shape */
+    border-radius: 12px;
+        /* Clean rounded corners */
     backdrop-filter: blur(6px);
-    padding: 15px 30px;
+    padding: 12px 24px;
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(116, 185, 255, 0.1);
     transition: all 0.5s ease-in-out;
-    width: auto; /* Fit content more closely */
+    width: auto;
+    /* Fit content more closely */
     min-width: 300px;
     text-align: left;
-    opacity: 0; /* Hidden by default */
+    /* Narrator messages left-aligned */
+    justify-content: flex-start;
+    /* opacity: 0; Removed to fix immediate disappearance */
+}
+
+/* Generic Action Mode (for Player Bubbles/Actions) - Center Aligned */
+.cinematic-subtitle-container.action-mode {
+    justify-content: center;
+    text-align: center;
+}
+
+.cinematic-subtitle-container.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode {
+    text-align: center;
+    justify-content: center;
+}
+
+.cinematic-subtitle-container.moderator-mode .cinematic-subtitle-content-wrapper {
+    text-align: left;
+    /* Narrator messages left-aligned */
+}
+
+.cinematic-subtitle-container.moderator-mode.action-mode .cinematic-subtitle-content-wrapper {
+    text-align: center;
 }
 
 .cinematic-subtitle-container.moderator-mode.show-reasoning {
-    opacity: 1; /* Show only when reasoning is enabled */
+    opacity: 1;
+    /* Show only when reasoning is enabled */
 }
 
 .cinematic-subtitle-container.moderator-mode .subtitle-speaker {
-    color: #74b9ff; /* Specific color for moderator */
-    display: block; /* Moderator name on top? or inline */
+    color: #74b9ff;
+    /* Specific color for moderator */
+    display: block;
+    /* Moderator name on top? or inline */
     margin-bottom: 4px;
     font-size: 0.9em;
     text-transform: uppercase;
@@ -1247,7 +1361,8 @@ html, body, #app {
     font-size: 1.1em;
     font-weight: 500;
     color: #ffffff;
-    text-shadow: none; /* Clean text inside the blob */
+    text-shadow: none;
+    /* Clean text inside the blob */
     display: block;
     white-space: pre-wrap;
 }

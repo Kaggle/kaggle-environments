@@ -1,3 +1,6 @@
+import { marked } from 'marked';
+import { applyTranscriptOverrides } from '../../utils/transcriptUtils.js';
+
 export class UIManager {
   constructor(CSS2DObject, width, height, camera, parent) {
     this.CSS2DObject = CSS2DObject;
@@ -11,8 +14,36 @@ export class UIManager {
     this.subtitleContainer.className = 'cinematic-subtitle-container';
     // Ensure parent exists, otherwise fallback to body
     (this.parent || document.body).appendChild(this.subtitleContainer);
-    
+
     this.subtitleTimeout = null;
+    this.isExpanded = true;
+    this.subtitleContainer.classList.add('expanded');
+
+    // Add click listener for expansion toggle
+    this.subtitleContainer.addEventListener('click', () => this.toggleExpansion());
+
+    // Add global key listener for shortcuts
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'e') {
+        this.toggleExpansion();
+      } else if (key === 'r') {
+        const reasoningToggle = document.getElementById('global-reasoning-toggle');
+        if (reasoningToggle) {
+          reasoningToggle.click();
+        }
+      }
+    });
+  }
+
+  toggleExpansion() {
+    this.isExpanded = !this.isExpanded;
+    if (this.isExpanded) {
+      this.subtitleContainer.classList.add('expanded');
+    } else {
+      this.subtitleContainer.classList.remove('expanded');
+    }
+    console.debug(`[Werewolf] Subtitle expanded: ${this.isExpanded}`);
   }
 
   createPlayerUI(name, displayName, imageUrl, focusCallback) {
@@ -22,6 +53,12 @@ export class UIManager {
     const playerInfoCard = document.createElement('div');
     playerInfoCard.className = 'player-info-card centered-component';
 
+    const textDetails = document.createElement('div');
+    textDetails.className = 'player-text-details';
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'player-name-row';
+
     const img = document.createElement('img');
     img.className = 'player-avatar-3d';
     img.src = imageUrl;
@@ -30,18 +67,14 @@ export class UIManager {
         window.handleThumbnailError(this);
       }
     };
-    playerInfoCard.appendChild(img);
-
-    const textDetails = document.createElement('div');
-    textDetails.className = 'player-text-details';
+    nameRow.appendChild(img);
 
     const nameText = document.createElement('div');
     nameText.className = 'player-name-3d';
     nameText.textContent = displayName || name;
-    textDetails.appendChild(nameText);
+    nameRow.appendChild(nameText);
 
-    // Display name is used for the main label.
-    // Technical ID (name) is hidden from viewer as requested.
+    textDetails.appendChild(nameRow);
 
     const roleText = document.createElement('div');
     roleText.className = 'player-role-3d';
@@ -57,7 +90,7 @@ export class UIManager {
     playerInfoCard.onclick = (e) => {
       // Simplified click handler - just focus
       if (focusCallback) {
-          focusCallback(name);
+        focusCallback(name);
       }
     };
 
@@ -65,34 +98,67 @@ export class UIManager {
     return label;
   }
 
-  displayPlayerBubble(playerUI, message, reasoning, timestamp) {
+  displayPlayerBubble(playerUI, message, reasoning, timestamp, isAction = false) {
     let speakerName = '';
     if (playerUI && playerUI.element) {
-        const nameEl = playerUI.element.querySelector('.player-name-3d');
-        if (nameEl) speakerName = nameEl.textContent;
+      const nameEl = playerUI.element.querySelector('.player-name-3d');
+      if (nameEl) speakerName = nameEl.textContent;
     }
 
     // Redirect to cinematic subtitle
-    this.displaySubtitle(message, reasoning, speakerName);
+    this.displaySubtitle(message, reasoning, speakerName, isAction);
 
-    // Visual feedback on the player's UI (optional, e.g., highlight the nameplate)
-    if (playerUI && playerUI.element) {
-        playerUI.element.classList.add('chat-active');
+    // Visual feedback on the player's UI (only for chat, not actions)
+    if (!isAction && playerUI && playerUI.element) {
+      playerUI.element.classList.add('chat-active');
     }
   }
 
-  displaySubtitle(message, reasoning, speakerName = '') {
+  displaySubtitle(message, reasoning, speakerName = '', isAction = false) {
     // No timeout - subtitle persists until cleared manually (or replaced)
-    
+
     // Construct HTML structure
     let innerContent = '';
     if (speakerName) {
       innerContent += `<span class="subtitle-speaker">${speakerName}:</span> `;
     }
-    innerContent += `<div class="cinematic-subtitle-text">${message}</div>`;
+    // 0. Apply Transcript Overrides
+    const textToProcess = applyTranscriptOverrides(message || '');
+
+    // 1. Get Replacer
+    const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+    let finalHtml = '';
+
+    if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+      // Phase 1: Text -> Placeholders
+      const textWithPlaceholders = replacer.replaceToPlaceholders(textToProcess);
+
+      // Phase 2: Markdown Parse
+      const htmlWithPlaceholders = marked.parse(textWithPlaceholders);
+
+      // Phase 3: Placeholders -> HTML Capsules
+      finalHtml = replacer.expandPlaceholders(htmlWithPlaceholders);
+    } else {
+      // Fallback (unsafe) behavior
+      const parsedMessage = marked.parse(textToProcess);
+      finalHtml = replacer ? replacer(parsedMessage) : parsedMessage;
+    }
+
+    innerContent += `<div class="cinematic-subtitle-text">${finalHtml}</div>`;
 
     if (reasoning) {
-      innerContent += `<div class="cinematic-subtitle-reasoning">${reasoning}</div>`;
+      let finalReasoningHtml = '';
+      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+
+      if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+        const rText = replacer.replaceToPlaceholders(reasoning);
+        const rHtml = marked.parse(rText);
+        finalReasoningHtml = replacer.expandPlaceholders(rHtml);
+      } else {
+        const pR = marked.parse(reasoning);
+        finalReasoningHtml = replacer ? replacer(pR) : pR;
+      }
+      innerContent += `<div class="cinematic-subtitle-reasoning">${finalReasoningHtml}</div>`;
     }
 
     // 1. Check if we already have the wrapper, if so preserve it and just update content
@@ -141,16 +207,23 @@ export class UIManager {
 
     // Show Container
     this.subtitleContainer.classList.add('visible');
-    
+
     // Sync visibility state
     if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
-        this.subtitleContainer.classList.add('show-reasoning');
+      this.subtitleContainer.classList.add('show-reasoning');
     } else {
-        this.subtitleContainer.classList.remove('show-reasoning');
+      this.subtitleContainer.classList.remove('show-reasoning');
     }
-    
+
     // Ensure we aren't in moderator mode
     this.subtitleContainer.classList.remove('moderator-mode');
+
+    // Add action mode if applicable (centers text)
+    if (isAction) {
+      this.subtitleContainer.classList.add('action-mode');
+    } else {
+      this.subtitleContainer.classList.remove('action-mode');
+    }
 
     // Show/Hide controls based on content overflow (checked in update loop or next frame)
     // For now we set them visible if we expect overflow, but dynamic check is better.
@@ -158,12 +231,37 @@ export class UIManager {
     // We'll check in update()
   }
 
-  displayModeratorAnnouncement(message) {
+  displayModeratorAnnouncement(message, isAction = false) {
     // Reuse displaySubtitle logic but add moderator class? 
     // Or reimplement structure since moderator mode has specific styling.
     // Let's reimplement structure for consistent scrolling.
 
-    let innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${message}</div>`;
+    // Parse Markdown
+    let innerContent = '';
+
+    if (isAction) {
+      // Actions are pre-formatted HTML (capsules). Do NOT markdown parse.
+      // Also assume player IDs are already replaced by caller (legacy-renderer).
+      const textToDisplay = applyTranscriptOverrides(message || '');
+      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${textToDisplay}</div>`;
+    } else {
+      // System / Narrator messages.
+      const textToProcess = applyTranscriptOverrides(message || '');
+      // Use Phased Replacement
+      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+      let finalHtml = '';
+
+      if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
+        const t = replacer.replaceToPlaceholders(textToProcess);
+        const h = marked.parse(t);
+        finalHtml = replacer.expandPlaceholders(h);
+      } else {
+        const p = marked.parse(textToProcess);
+        finalHtml = replacer ? replacer(p) : p;
+      }
+
+      innerContent = `<span class="subtitle-speaker">Moderator</span><div class="cinematic-subtitle-text">${finalHtml}</div>`;
+    }
 
     let wrapper = this.subtitleContainer.querySelector('.cinematic-subtitle-content-wrapper');
     if (!wrapper) {
@@ -193,19 +291,26 @@ export class UIManager {
       this.lastMessageTime = performance.now(); // Record time for scroll delay
     }
 
-      this.subtitleContainer.classList.add('visible');
+    this.subtitleContainer.classList.add('visible');
     this.subtitleContainer.classList.add('moderator-mode'); // Adds transparency/blur/shape
 
-      // Sync visibility state
-      if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
-          this.subtitleContainer.classList.add('show-reasoning');
-      } else {
-          this.subtitleContainer.classList.remove('show-reasoning');
-      }
+    // Toggle action mode for alignment
+    if (isAction) {
+      this.subtitleContainer.classList.add('action-mode');
+    } else {
+      this.subtitleContainer.classList.remove('action-mode');
+    }
+
+    // Sync visibility state
+    if (window.werewolfGamePlayer && window.werewolfGamePlayer.isReasoningMode) {
+      this.subtitleContainer.classList.add('show-reasoning');
+    } else {
+      this.subtitleContainer.classList.remove('show-reasoning');
+    }
   }
 
   clearSubtitle() {
-      this.subtitleContainer.classList.remove('visible');
+    this.subtitleContainer.classList.remove('visible');
   }
 
   update(delta) {
@@ -260,6 +365,6 @@ export class UIManager {
   }
 
   updateDynamicUI(playerObjects) {
-      // Logic for arrows was commented out in legacy code, preserving stub
+    // Logic for arrows was commented out in legacy code, preserving stub
   }
 }

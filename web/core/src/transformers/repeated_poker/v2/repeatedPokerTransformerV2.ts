@@ -63,7 +63,7 @@ export const getPokerStepRenderTime = (
       }
       return defaultTime;
     case 'final':
-      return defaultTime * 1.2;
+      return 5000;
     default:
       return defaultTime;
   }
@@ -143,26 +143,44 @@ export async function processPokerFile(file: File): Promise<EpisodeSlice[]> {
   try {
     const fileContent = await file.text();
 
-    const regex = /PokerStars Hand #(\d+):/g;
+    const combinedRegex = /^# (\{.*\})$|PokerStars Hand #(\d+):/gm;
     let match;
+    let currentMetadata: { hand_num?: number; total_hands?: number } | null = null;
 
-    while ((match = regex.exec(fileContent)) !== null) {
-      const fullIdString = match[1];
+    while ((match = combinedRegex.exec(fileContent)) !== null) {
+      if (match[1]) {
+        // JSON metadata line
+        try {
+          currentMetadata = JSON.parse(match[1]);
+          console.log(currentMetadata);
+        } catch {
+          currentMetadata = null;
+        }
+      } else if (match[2]) {
+        // PokerStars hand line
+        const fullIdString = match[2];
 
-      if (fullIdString.length < 5) {
-        console.warn(`ID "${fullIdString}" is too short to be parsed.`);
-        continue;
+        if (fullIdString.length < 5) {
+          console.warn(`ID "${fullIdString}" is too short to be parsed.`);
+          currentMetadata = null;
+          continue;
+        }
+
+        const episodeId = parseInt(fullIdString.slice(0, -5), 10);
+        const handId = parseInt(fullIdString.slice(-5), 10);
+
+        const handNum = currentMetadata?.hand_num ?? handId + 1;
+        const totalHands = currentMetadata?.total_hands;
+
+        results.push({
+          id: episodeId,
+          start: handId,
+          title: totalHands ? `Hand #${handNum} of ${totalHands}` : `Hand #${handNum}`,
+          urlParamKey: 'hand',
+        });
+
+        currentMetadata = null;
       }
-
-      const episodeId = parseInt(fullIdString.slice(0, -5), 10);
-      const handId = parseInt(fullIdString.slice(-5), 10);
-
-      results.push({
-        id: episodeId,
-        start: handId,
-        title: `Hand #${handId + 1}`,
-        urlParamKey: 'hand',
-      });
     }
   } catch (error) {
     console.error('Error reading file:', error);

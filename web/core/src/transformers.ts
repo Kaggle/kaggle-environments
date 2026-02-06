@@ -12,10 +12,15 @@ import {
   getWerewolfStepLabel,
   getWerewolfStepDescription,
   getWerewolfStepRenderTime,
+  getWerewolfStepInterestingEvents,
 } from './transformers/werewolf/werewolfTransformer';
 
 // Re-export utility functions for external use
-export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './transformers/werewolf/nameReplacer';
+export {
+  createNameReplacer,
+  createPlayerCapsule,
+  disambiguateDisplayNames,
+} from './transformers/werewolf/nameReplacer';
 export type { PlayerConfig, OutputFormat } from './transformers/werewolf/nameReplacer';
 import { WerewolfStep } from './transformers/werewolf/werewolfReplayTypes';
 import { getPokerStepDescription, getPokerStepLabel } from './transformers/repeated_poker/v1/repeatedPokerTransformer';
@@ -28,13 +33,21 @@ import {
   repeatedPokerTransformerV2,
 } from './transformers/repeated_poker/v2/repeatedPokerTransformerV2';
 import { BaseGameStep, EpisodeSlice, InterestingEvent, ReplayData, ReplayMode } from './types';
+import { goTransformer } from './transformers/go/goTransformer';
 
 const defaultGetGameStepLabel = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.actionDisplayText ?? '';
 };
 
 const defaultGetGameStepDescription = (gameStep: BaseGameStep) => {
+  if (!gameStep.players) {
+    return '';
+  }
+
   const activePlayer = gameStep.players.find((player) => player.isTurn);
   return activePlayer?.thoughts ?? '';
 };
@@ -59,6 +72,9 @@ export const processEpisodeData = (environment: ReplayData, gameName: string): R
     case 'werewolf':
       // Werewolf transformer modifies environment in place and adds visualizerData
       return werewolfTransformer(environment) as any;
+    case 'open_spiel_go':
+      transformedSteps = goTransformer(environment);
+      break;
     default:
       // If no transformer, return the original environment
       return environment;
@@ -108,7 +124,6 @@ export const getGameStepDescription = (gameStep: BaseGameStep, gameName: string)
   }
 };
 
-
 export const getGameStepRenderTime = (
   gameStep: BaseGameStep,
   gameName: string,
@@ -139,6 +154,8 @@ export const getInterestingEvents = (gameSteps: BaseGameStep[], gameName: string
   switch (gameName) {
     case 'open_spiel_repeated_poker':
       return getPokerStepInterestingEvents(gameSteps as RepeatedPokerStep[]);
+    case 'werewolf':
+      return getWerewolfStepInterestingEvents(gameSteps as unknown as WerewolfStep[]);
     default:
       return [];
   }

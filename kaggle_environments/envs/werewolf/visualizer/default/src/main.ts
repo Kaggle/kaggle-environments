@@ -1,5 +1,6 @@
 import { createReplayVisualizer, LegacyAdapter, processEpisodeData } from '@kaggle-environments/core';
 import { renderer as legacyRenderer } from './legacy-renderer.js';
+import { tryLoadAudioMap } from './audio/AudioController.js';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -16,33 +17,36 @@ if (app) {
   }
 
   const init = async () => {
-    // Check if we need to load an external audio map (for dev-with-audio mode)
-    const audioMapFile = import.meta.env.VITE_AUDIO_MAP_FILE;
-    if (audioMapFile) {
-      try {
-        console.log(`Loading audio map from: ${audioMapFile}`);
-        const response = await fetch(audioMapFile);
-        const data = await response.json();
+    // Resolve Episode ID from URL params (prioritized for production)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlEpisodeId = urlParams.get('episodeId');
 
-        // Rebase audio paths relative to the map file
-        const audioMapDir = audioMapFile.substring(0, audioMapFile.lastIndexOf('/') + 1);
-        if (audioMapDir) {
-          for (const key in data) {
-            if (typeof data[key] === 'string' && !data[key].startsWith('http') && !data[key].startsWith('/')) {
-              data[key] = audioMapDir + data[key];
-            }
-          }
-        }
+    // Also check for injected REPLAY data (standard for some Kaggle loaders)
+    const replayData = (window as any).REPLAY;
+    const jsonEpisodeId = replayData?.info?.EpisodeId || replayData?.id;
 
-        (window as any).AUDIO_MAP = data;
-        console.log("Audio map loaded successfully.");
-      } catch (e) {
-        console.error(`Failed to load audio map from ${audioMapFile}:`, e);
-      }
+    const episodeId = urlEpisodeId || jsonEpisodeId;
+
+    // Ensure kaggleWerewolf state exists (should be initialized by AudioController import)
+    const audioState = (window as any).kaggleWerewolf || {};
+    if (episodeId) {
+      audioState.episodeId = episodeId;
     }
 
+    const envUrl = import.meta.env.VITE_AUDIO_MAP_FILE;
+
+    // Centralized discovery and loading
+    await tryLoadAudioMap(episodeId, envUrl);
+
     createReplayVisualizer(app, adapter, {
-      transformer: (replay) => processEpisodeData(replay, 'werewolf'),
+      transformer: (replay: any) => {
+        // Final fallback: if we only just received the episodeId from the replayer, trigger load
+        const finalId = replay?.info?.EpisodeId || replay.id;
+        if (finalId && !(window as any).AUDIO_MAP) {
+          tryLoadAudioMap(finalId, envUrl);
+        }
+        return processEpisodeData(replay, 'werewolf');
+      },
     });
   };
 

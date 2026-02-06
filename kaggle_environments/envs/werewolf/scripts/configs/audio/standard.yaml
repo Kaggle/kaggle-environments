@@ -1,4 +1,31 @@
 # Settings for the dump_audio.py script
+vertex_ai_model: null
+vertex_ai_regions:
+  - "us-central1"
+  - "us-east4"
+  - "us-west1"
+  - "europe-west1"
+  - "us-central1"
+  - "europe-central2"
+  - "europe-north1"
+  - "europe-southwest1"
+  - "europe-west1"
+  - "europe-west12"
+  - "europe-west2"
+  - "europe-west3"
+  - "europe-west4"
+  - "europe-west8"
+  - "europe-west9"
+  - "northamerica-northeast1"
+  - "southamerica-east1"
+  - "us-east1"
+  - "us-east4"
+  - "us-east5"
+  - "us-south1"
+  - "us-west1"
+  - "us-west2"
+  - "us-west3"
+  - "us-west4"
 server:
   port: 7999
 paths:
@@ -6,16 +33,47 @@ paths:
   debug_audio_dir_name: "debug_audio"
   output_html_filename: "replay.html"
 voices:
-  moderator: "enceladus"
+  moderator: "Fenrir"
+  voice_pool:
+    - "Achernar"
+    - "Achird"
+    - "Algenib"
+    - "Algieba"
+    - "Alnilam"
+    - "Aoede"
+    - "Autonoe"
+    - "Callirrhoe"
+    - "Charon"
+    - "Despina"
+    - "Enceladus"
+    - "Erinome"
+    - "Fenrir"
+    - "Gacrux"
+    - "Iapetus"
+    - "Kore"
+    - "Laomedeia"
+    - "Leda"
+    - "Orus"
+    - "Pulcherrima"
+    - "Puck"
+    - "Rasalgethi"
+    - "Sadachbia"
+    - "Sadaltager"
+    - "Schedar"
+    - "Sulafat"
+    - "Umbriel"
+    - "Vindemiatrix"
+    - "Zephyr"
+    - "Zubenelgenubi"
   players:
     Kai: 'Kore'
     Jordan: 'Charon'
     Charlie: 'Leda'
-    Taylor: 'Despina'
-    Alex: 'Erinome'
-    Jamie: 'Gacrux'
-    Quinn: 'Achird'
-    Casey: 'Puck'
+    Taylor: 'Aoede'
+    Alex: 'Zephyr'
+    Jamie: 'Orus'
+    Quinn: 'Puck'
+    Casey: 'Fenrir'
 audio:
   name_simplification_map:
     "gpt-5.2-2025-12-11": "GPT 5.2"
@@ -31,8 +89,11 @@ audio:
     - pattern: '-v\d+'               # Remove version suffixes like -v2
       replacement: ''
   static_moderator_messages:
-    night_begins: "(rate=\"fast\", volume=\"soft\", voice=\"mysterious\")[As darkness descends, the village falls silent.](rate=\"medium\", pitch=\"-2st\")[Everyone, close your eyes.]"
-    day_begins: "(rate=\"fast\", volume=\"loud\")[Wake up, villagers!] (rate=\"medium\", voice=\"neutral\")[The sun rises on a new day.] (break=\"50ms\") (rate=\"medium\", voice=\"somber\")[Let's see who survived the night.]"
-    discussion_begins: "(voice=\"authoritative\")[The town meeting now begins.] (voice=\"neutral\")[You have a few minutes to discuss and find the werewolves among you.] (voice=\"authoritative\")[Begin.]"
-    voting_begins: "(rate=\"slow\", voice=\"serious\")[The time for talk is over.] (break=\"50ms\") (rate=\"medium\", volume=\"loud\", voice=\"dramatic\")[Now, you must cast your votes!]"
-  speech_intro_template: "(voice=\"neutral\")[{player}'s turn to speak.] (break=\"500ms\")"
+    night_begins: "As darkness descends, the village falls silent. Everyone, close your eyes."
+    day_begins: "Wake up, villagers! The sun rises on a new day. Let's see who survived the night."
+    discussion_begins: "The town meeting now begins. You have a few minutes to discuss and find the werewolves among you. Begin."
+    voting_begins: "The time for talk is over. Now, you must cast your votes!"
+  speech_intro_template: "{player} speaking."
+  moderator_style: "Narrate this in the calm, authoritative tone of a nature documentary narrator."
+  transcript_overrides:
+    "Who would you like to see their true role?": "Whose role would you like me to reveal?"
