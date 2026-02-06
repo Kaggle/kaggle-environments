@@ -370,6 +370,8 @@ def interpreter(
         env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
+    if "stateHistory" not in env.info:
+        env.info["stateHistory"] = [str(env.os_state)]
     if "actionHistory" not in env.info:
         env.info["actionHistory"] = []
         env.info["moveDurations"] = []
@@ -388,6 +390,7 @@ def interpreter(
             for action in initial_actions:
                 env.os_state.apply_action(action)
                 env.info["actionHistory"].append(str(action))
+                env.info["stateHistory"].append(str(env.os_state))
         if preset_hands:
             env.info["presetHands"] = copy.deepcopy(preset_hands)
             env.info["presetHandsState"] = {
@@ -426,6 +429,7 @@ def interpreter(
                 os_state.apply_action(action_submitted)
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
+                env.info["stateHistory"].append(str(os_state))
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -458,6 +462,7 @@ def interpreter(
             chance_action = np.random.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
+        env.info["stateHistory"].append(str(os_state))
 
     # --- Update agent states ---
     agent_error = any(kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"] for player_id in range(num_players))
