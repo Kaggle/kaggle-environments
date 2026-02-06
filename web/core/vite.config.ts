@@ -14,31 +14,23 @@ export default defineConfig({
     },
     outDir: 'dist',
     rollupOptions: {
-      external: [
-        'react',
-        'react-dom',
-        'react/jsx-runtime',
-        '@mui/material',
-        '@mui/material/styles',
-        '@mui/material/useMediaQuery',
-        '@emotion/react',
-        '@emotion/styled',
-        'react-markdown',
-        'react-virtuoso',
-      ],
+      // Only externalize React - it must be a singleton across the app.
+      // MUI, emotion, and other UI deps are bundled into core so visualizers
+      // don't need to re-bundle them separately.
+      external: ['react', 'react-dom', 'react/jsx-runtime'],
       output: {
         globals: {
           'react': 'React',
           'react-dom': 'ReactDOM',
           'react/jsx-runtime': 'jsxRuntime',
-          '@mui/material': 'MuiMaterial',
-          '@mui/material/styles': 'MuiStyles',
-          '@mui/material/useMediaQuery': 'useMediaQuery',
-          '@emotion/react': 'emotionReact',
-          '@emotion/styled': 'emotionStyled',
-          'react-markdown': 'ReactMarkdown',
-          'react-virtuoso': 'reactVirtuoso',
         },
+      },
+      // Suppress "use client" directive warnings from MUI
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('"use client"')) {
+          return;
+        }
+        warn(warning);
       },
     },
   },

@@ -30,6 +30,17 @@ export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
   height: number;
   setCurrentStep: (step: number) => void;
   setPlaying: (playing?: boolean) => void;
+  // Generally not recommended: setAgents is a bit of a hack for older renderers
+  // that need to update the visualizer's state (e.g. agents for the legend).
+  setAgents?: (agents: any[]) => void;
+  unstable_replayerControls?: {
+    step: number;
+    setStep: (step: number) => void;
+    play: (continuing?: boolean) => void;
+    pause: () => void;
+    setPlaying: (playing: boolean) => void;
+    [key: string]: any;
+  };
 }
 
 /**
@@ -209,6 +220,14 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       // These are no-ops since EpisodePlayer manages state
       setCurrentStep: () => {},
       setPlaying: () => {},
+      setAgents: () => {},
+      unstable_replayerControls: {
+        step,
+        setStep: () => {},
+        play: () => {},
+        pause: () => {},
+        setPlaying: () => {},
+      },
     };
 
     renderer(options, containerRef.current);
