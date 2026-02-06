@@ -1,0 +1,80 @@
+# CI/CD pipeline for building and deploying a single visualizer
+# For use with dev branches targeting specific games (e.g., Go, Chess v2)
+#
+# Required substitution variables:
+#   _VISUALIZER_PACKAGE: The pnpm package name (e.g., "@kaggle-environments/open-spiel-go-visualizer")
+#   _VISUALIZER_PATH: Path to the visualizer package from repo root (e.g., "kaggle_environments/envs/open_spiel_env/games/go/visualizer/default")
+#   _GAME_NAME: The game directory in GCS (e.g., "open_spiel_go", "open_spiel_chess")
+#   _VISUALIZER_NAME: The visualizer folder name (e.g., "default", "v2")
+#
+# Example trigger configurations:
+#
+# Go visualizer (dev-go branch):
+#   _VISUALIZER_PACKAGE: "@kaggle-environments/open-spiel-go-visualizer"
+#   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/go/visualizer/default"
+#   _GAME_NAME: "open_spiel_go"
+#   _VISUALIZER_NAME: "default"
+#
+# Chess v2 visualizer (dev-chess-v2 branch):
+#   _VISUALIZER_PACKAGE: "@kaggle-environments/open-spiel-chess-v2-visualizer"
+#   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/chess/visualizer/v2"
+#   _GAME_NAME: "open_spiel_chess"
+#   _VISUALIZER_NAME: "v2"
+
+steps:
+  # Step 1: Build dependencies (core and common) and the target visualizer
+  - id: "build-visualizer"
+    name: "gcr.io/cloud-builders/npm"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        echo "Installing pnpm..."
+        npm install -g pnpm
+
+        echo "Installing dependencies..."
+        pnpm install
+
+        echo "Building @kaggle-environments/core..."
+        pnpm --filter @kaggle-environments/core build
+
+        echo "Building @kaggle-environments/common..."
+        pnpm --filter @kaggle-environments/common build
+
+        echo "Building ${_VISUALIZER_PACKAGE}..."
+        pnpm --filter "${_VISUALIZER_PACKAGE}" build
+
+        echo "Build complete!"
+
+  # Step 2: Deploy the visualizer to GCS
+  - id: "deploy-to-gcs"
+    name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "gsutil"
+    args:
+      - "-m"
+      - "rsync"
+      - "-d"
+      - "-r"
+      - "./${_VISUALIZER_PATH}/dist"
+      - "gs://${_BUCKET_NAME}/episode-visualizers/${_GAME_NAME}/${_VISUALIZER_NAME}/"
+    waitFor: ["build-visualizer"]
+
+substitutions:
+  _BUCKET_NAME: "kaggle-static"
+  # These must be provided by the trigger:
+  # _VISUALIZER_PACKAGE: (required) pnpm package name
+  # _VISUALIZER_PATH: (required) path from repo root to visualizer package
+  # _GAME_NAME: (required) game directory name in GCS
+  # _VISUALIZER_NAME: (required) visualizer folder name in GCS
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+
+timeout: "1800s"
+
+tags:
+  - "kaggle-environments"
+  - "visualizer-deployment"
+  - "dev-branch"
