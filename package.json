@@ -17,6 +17,7 @@
     "@eslint/js": "^9.37.0",
     "@playwright/test": "^1.50.0",
     "@types/node": "^25.2.1",
+    "@vitejs/plugin-react": "^4.0.0",
     "eslint": "^9.37.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -39,6 +40,8 @@
   },
   "dependencies": {
     "lefthook": "^2.0.16",
-    "marked": "^17.0.1"
+    "marked": "^17.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
