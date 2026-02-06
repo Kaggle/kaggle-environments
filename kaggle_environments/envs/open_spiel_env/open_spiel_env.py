@@ -370,6 +370,8 @@ def interpreter(
         env.info["openSpielGameStringResolved"] = str(env.os_game)
     if not hasattr(env, "os_state"):
         env.os_state = env.os_game.new_initial_state()
+    if "stateHistory" not in env.info:
+        env.info["stateHistory"] = [str(env.os_state)]
     if "actionHistory" not in env.info:
         env.info["actionHistory"] = []
         env.info["moveDurations"] = []
@@ -388,6 +390,7 @@ def interpreter(
             for action in initial_actions:
                 env.os_state.apply_action(action)
                 env.info["actionHistory"].append(str(action))
+                env.info["stateHistory"].append(str(env.os_state))
         if preset_hands:
             env.info["presetHands"] = copy.deepcopy(preset_hands)
             env.info["presetHandsState"] = {
@@ -410,10 +413,18 @@ def interpreter(
 
     # --- Apply agent action ---
     acting_agent = os_state.current_player()
+    # Per-player tracking for sequential moves.
     action_submitted: int | None = None
     action_submitted_to_string: str | None = None
     action_applied: int | None = None
     move_duration: float | None = None
+    # Per-player tracking for simultaneous moves.
+    simul_actions_submitted: list[int | None] = [None] * num_players
+    simul_actions_submitted_to_string: list[str | None] = [None] * num_players
+    simul_actions_applied: list[int | None] = [None] * num_players
+    simul_move_durations: list[float | None] = [None] * num_players
+    simul_all_valid = False
+
     if is_initial_step:
         pass
     elif 0 <= acting_agent < num_players:
@@ -426,6 +437,7 @@ def interpreter(
                 os_state.apply_action(action_submitted)
                 action_applied = action_submitted
                 env.info["actionHistory"].append(str(action_applied))
+                env.info["stateHistory"].append(str(os_state))
             elif action_submitted == AGENT_ERROR_ACTION:
                 kaggle_state[acting_agent]["status"] = "ERROR"
             else:
@@ -440,7 +452,44 @@ def interpreter(
                 pass  # No logs when stepping the env manually.
 
     elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
-        raise NotImplementedError
+        # Collect and validate actions from all players.
+        actions_for_apply: list[int] = []
+        simul_all_valid = True
+        for pid in range(num_players):
+            if kaggle_state[pid]["status"] != "ACTIVE":
+                simul_all_valid = False
+                break
+            sub = kaggle_state[pid]["action"]["submission"]
+            simul_actions_submitted[pid] = sub
+            if sub == AGENT_ERROR_ACTION:
+                kaggle_state[pid]["status"] = "ERROR"
+                simul_all_valid = False
+                break
+            elif sub not in os_state.legal_actions(pid):
+                kaggle_state[pid]["status"] = "INVALID"
+                simul_all_valid = False
+                break
+            # Capture action string BEFORE applying (state will advance).
+            simul_actions_submitted_to_string[pid] = os_state.action_to_string(pid, sub)
+            actions_for_apply.append(sub)
+
+        if simul_all_valid:
+            os_state.apply_actions(actions_for_apply)
+            for pid in range(num_players):
+                simul_actions_applied[pid] = simul_actions_submitted[pid]
+            env.info["actionHistory"].append(str(actions_for_apply))
+            env.info["stateHistory"].append(str(os_state))
+
+        # Record move durations for all players.
+        for pid in range(num_players):
+            try:
+                if "duration" in logs[pid]:
+                    simul_move_durations[pid] = round(logs[pid]["duration"], 3)
+                    env.info["moveDurations"].append(simul_move_durations[pid])
+                else:
+                    env.info["moveDurations"].append(None)
+            except Exception:
+                pass  # No logs when stepping the env manually.
     elif acting_agent == pyspiel.PlayerId.TERMINAL:
         pass
     elif acting_agent == pyspiel.PlayerId.CHANCE:
@@ -458,6 +507,7 @@ def interpreter(
             chance_action = np.random.choice(outcomes, p=probs)
         os_state.apply_action(chance_action)
         env.info["actionHistory"].append(str(chance_action))
+        env.info["stateHistory"].append(str(os_state))
 
     # --- Update agent states ---
     agent_error = any(kaggle_state[player_id]["status"] in ["TIMEOUT", "ERROR"] for player_id in range(num_players))
@@ -487,6 +537,11 @@ def interpreter(
         elif os_state.is_terminal():
             status = "DONE"
             reward = os_state.returns()[player_id]
+        elif os_state.is_simultaneous_node():
+            if os_state.legal_actions(player_id):
+                status = "ACTIVE"
+            else:
+                status = "INACTIVE"
         elif os_state.current_player() == player_id:
             status = "ACTIVE"
             if not os_state.legal_actions(player_id):
@@ -496,7 +551,17 @@ def interpreter(
         assert status is not None
 
         info_dict = {}
-        if acting_agent == player_id:
+        if acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
+            info_dict["actionSubmitted"] = simul_actions_submitted[player_id]
+            info_dict["actionSubmittedToString"] = simul_actions_submitted_to_string[player_id]
+            info_dict["actionApplied"] = simul_actions_applied[player_id]
+            info_dict["timeTaken"] = simul_move_durations[player_id]
+            info_dict["agentSelfReportedStatus"] = (
+                kaggle_state[player_id]["action"].get("status")
+                if kaggle_state[player_id]["action"]
+                else "unknown"
+            )
+        elif acting_agent == player_id:
             info_dict["actionSubmitted"] = action_submitted
             info_dict["actionSubmittedToString"] = action_submitted_to_string
             info_dict["actionApplied"] = action_applied
@@ -768,9 +833,12 @@ GAMES_LIST = [
     "connect_four",
     "gin_rummy",
     "go(board_size=9)",
+    "goofspiel(num_cards=4,points_order=descending,returns_type=total_points)",
     "hearts",
     "hex",
+    "matching_pennies_3p",
     "othello",
+    "repeated_game(stage_game=matrix_pd(),num_repetitions=100)",
     "tic_tac_toe",
     DEFAULT_UNIVERSAL_POKER_GAME_STRING,
     DEFAULT_REPEATED_POKER_GAME_STRING,
