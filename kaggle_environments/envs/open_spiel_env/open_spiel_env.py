@@ -452,10 +452,15 @@ def interpreter(
                 pass  # No logs when stepping the env manually.
 
     elif acting_agent == pyspiel.PlayerId.SIMULTANEOUS:
-        # Collect and validate actions from all players.
-        actions_for_apply: list[int] = []
+        # Collect and validate actions from all players. Players with no
+        # legal actions (INACTIVE) get kInvalidAction per OpenSpiel convention.
+        actions_for_apply: list[int] = [pyspiel.INVALID_ACTION] * num_players
         simul_all_valid = True
         for pid in range(num_players):
+            legal = os_state.legal_actions(pid)
+            if not legal:
+                # Player has no legal actions at this node — skip.
+                continue
             if kaggle_state[pid]["status"] != "ACTIVE":
                 simul_all_valid = False
                 break
@@ -465,13 +470,13 @@ def interpreter(
                 kaggle_state[pid]["status"] = "ERROR"
                 simul_all_valid = False
                 break
-            elif sub not in os_state.legal_actions(pid):
+            elif sub not in legal:
                 kaggle_state[pid]["status"] = "INVALID"
                 simul_all_valid = False
                 break
             # Capture action string BEFORE applying (state will advance).
             simul_actions_submitted_to_string[pid] = os_state.action_to_string(pid, sub)
-            actions_for_apply.append(sub)
+            actions_for_apply[pid] = sub
 
         if simul_all_valid:
             os_state.apply_actions(actions_for_apply)
@@ -480,8 +485,10 @@ def interpreter(
             env.info["actionHistory"].append(str(actions_for_apply))
             env.info["stateHistory"].append(str(os_state))
 
-        # Record move durations for all players.
+        # Record move durations for players who submitted actions.
         for pid in range(num_players):
+            if simul_actions_submitted[pid] is None:
+                continue
             try:
                 if "duration" in logs[pid]:
                     simul_move_durations[pid] = round(logs[pid]["duration"], 3)
