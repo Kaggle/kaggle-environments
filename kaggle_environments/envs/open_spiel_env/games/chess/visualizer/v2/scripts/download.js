@@ -1,10 +1,10 @@
 import fs from 'fs';
 import https from 'https';
 import { createGunzip } from 'zlib';
-import { loadEnvFile } from 'node:process';
+import process from 'node:process';
 
 try {
-  loadEnvFile();
+  process.loadEnvFile();
 } catch (error) {
   console.log('No .env found');
 }

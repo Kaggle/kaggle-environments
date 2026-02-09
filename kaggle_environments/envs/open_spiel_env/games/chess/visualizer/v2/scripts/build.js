@@ -1,8 +1,8 @@
 import fs from 'fs';
-import { loadEnvFile } from 'node:process';
+import process from 'node:process';
 
 try {
-  loadEnvFile();
+  process.loadEnvFile();
 } catch (error) {
   console.log('No .env found');
 }
