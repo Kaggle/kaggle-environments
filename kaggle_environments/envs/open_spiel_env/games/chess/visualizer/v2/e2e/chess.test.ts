@@ -5,64 +5,45 @@ test.describe('Chess Visualizer (v2)', () => {
     await page.goto('/');
   });
 
-  test('renders the chess board grid', async ({ page }) => {
-    // Chess board is an 8x8 grid with cells identified by cell-{row}-{col}
+  test('renders the game', async ({ page }) => {
+    // 8x8 board grid
     const firstCell = page.locator('#cell-0-0');
-    await expect(firstCell).toBeVisible();
-
     const lastCell = page.locator('#cell-7-7');
+    await expect(firstCell).toBeVisible();
     await expect(lastCell).toBeVisible();
-  });
 
-  test('displays alternating square colors', async ({ page }) => {
-    // Chess board has alternating light and dark squares
+    // Alternating square colors
     const cell00 = page.locator('#cell-0-0');
     const cell01 = page.locator('#cell-0-1');
-
-    await expect(cell00).toBeVisible();
-    await expect(cell01).toBeVisible();
-
-    // The cells should have different background colors
     const bg00 = await cell00.evaluate((el) => getComputedStyle(el).backgroundColor);
     const bg01 = await cell01.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(bg00).not.toBe(bg01);
-  });
 
-  test('renders chess pieces as images', async ({ page }) => {
-    // Pieces are rendered as img elements inside cells
+    // Chess pieces as images
     const pieceImages = page.locator('div[id^="cell-"] img');
     await expect(pieceImages.first()).toBeVisible();
-
-    // At the start, there should be pieces on the board
     const pieceCount = await pieceImages.count();
     expect(pieceCount).toBeGreaterThan(0);
-  });
 
-  test('displays player names in header', async ({ page }) => {
-    // Header shows player names and "Chess" title
+    // Title and player indicators
     const chessTitle = page.locator('h1').filter({ hasText: 'Chess' });
     await expect(chessTitle).toBeVisible();
-
-    // Player names are displayed as text spans near the header
-    // The header container has player name text
     const headerImages = page.locator('h1').locator('..').locator('img');
     const imgCount = await headerImages.count();
-    // Should have pawn icons for player indicators
     expect(imgCount).toBeGreaterThanOrEqual(2);
-  });
 
-  test('shows current player or winner status', async ({ page }) => {
-    // Status area shows "Current Player" during game or winner at end
+    // Current player status
     const statusText = page.locator('p').filter({ hasText: /Current Player|Winner|White|Black/ });
     await expect(statusText.first()).toBeVisible();
   });
 
-  test('displays winner at final step', async ({ page }) => {
+  test('displays correct game state after navigation', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
     await slider.waitFor({ state: 'visible' });
+
+    // Navigate to final step
     const maxValue = await slider.getAttribute('max');
     await slider.fill(maxValue || '0');
-
     await page.waitForTimeout(200);
 
     // At the final step, should show the winner
