@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { execSync, spawn } = require('child_process');
 const prompts = require('prompts');
