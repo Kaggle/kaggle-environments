@@ -94,4 +94,20 @@ test.describe('Repeated Poker Visualizer', () => {
     const headerRow = legendTable.locator('.legend-header');
     await expect(headerRow).toBeVisible();
   });
+
+  test('displays game-over screen at end of match', async ({ page }) => {
+    const slider = page.locator('input[type="range"]');
+    await slider.waitFor({ state: 'visible' });
+
+    // Navigate to final step
+    const maxValue = await slider.getAttribute('max');
+    await slider.fill(maxValue || '0');
+    await page.waitForTimeout(300);
+
+    // Should show "Match Complete" and winner
+    const matchComplete = page.getByText('Match Complete');
+    await expect(matchComplete).toBeVisible();
+    const winnerText = page.getByText(/Winner:/);
+    await expect(winnerText).toBeVisible();
+  });
 });

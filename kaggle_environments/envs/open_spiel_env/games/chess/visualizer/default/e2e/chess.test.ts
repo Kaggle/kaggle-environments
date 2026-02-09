@@ -57,4 +57,18 @@ test.describe('Chess Visualizer (Default)', () => {
     const statusText = page.locator('p').filter({ hasText: /Current Player|White|Black/ });
     await expect(statusText.first()).toBeVisible();
   });
+
+  test('displays winner at end of game', async ({ page }) => {
+    const slider = page.locator('input[type="range"]');
+    await slider.waitFor({ state: 'visible' });
+
+    // Navigate to final step
+    const maxValue = await slider.getAttribute('max');
+    await slider.fill(maxValue || '0');
+    await page.waitForTimeout(200);
+
+    // Should show winner
+    const winnerText = page.locator('p').filter({ hasText: /Wins|Draw/ });
+    await expect(winnerText.first()).toBeVisible();
+  });
 });
