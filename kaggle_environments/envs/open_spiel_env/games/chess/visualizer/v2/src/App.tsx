@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import { Chessboard } from 'react-chessboard';
+import { Chessboard, PieceRenderObject } from 'react-chessboard';
 import {
   createReplayVisualizer,
   processEpisodeData,
@@ -15,25 +15,25 @@ import './App.css';
 
 interface ChessStore {
   chess: Chess;
-  setState: (data: LegacyRendererOptions<ChessStep[]>) => void;
+  setState: (options: LegacyRendererOptions<ChessStep[]>) => void;
 }
 
 const useChessStore = create<ChessStore>((set) => ({
   chess: new Chess(),
 
-  setState: (data: LegacyRendererOptions<ChessStep[]>) => {
-    const step = data.steps.at(data.step)!;
-    const player = step.players.find((element: ChessPlayer) => element.isTurn);
+  setState: (options: LegacyRendererOptions<ChessStep[]>) => {
+    const step = options.steps.at(options.step);
+    const player = step!.players.find((element: ChessPlayer) => element.isTurn);
 
     if (player) {
-      const history = data.replay.info!.stateHistory;
-      const chess = new Chess(history.at(data.step));
+      const history = options.replay.info!.stateHistory;
+      const chess = new Chess(history.at(options.step));
       const move = chess.move(player.actionDisplayText!);
 
       set({ chess });
 
       console.log(player.thoughts);
-      console.log(`${player.name}: ${move.piece} ${move.from} -> ${move.to}`);
+      console.log(`${player.name} (${move.color}): ${move.piece} ${move.from} -> ${move.to}`);
     }
   },
 }));
@@ -82,9 +82,42 @@ function App() {
 
   const move = chess.history({ verbose: true })[0];
 
+  const style = { width: '100%', height: '100%' };
+
+  const pieces: PieceRenderObject = {
+    wP: () => <img src="images/wP.png" style={style} />,
+    wK: () => <img src="images/wK.png" style={style} />,
+    wQ: () => <img src="images/wQ.png" style={style} />,
+    wR: () => <img src="images/wR.png" style={style} />,
+    wB: () => <img src="images/wB.png" style={style} />,
+    wN: () => <img src="images/wN.png" style={style} />,
+    bP: () => <img src="images/bP.png" style={style} />,
+    bK: () => <img src="images/bK.png" style={style} />,
+    bQ: () => <img src="images/bQ.png" style={style} />,
+    bR: () => <img src="images/bR.png" style={style} />,
+    bB: () => <img src="images/bB.png" style={style} />,
+    bN: () => <img src="images/bN.png" style={style} />,
+  };
+
+  const lightSquareStyle = {
+    backgroundImage: 'url(/images/wBg.png)',
+    backgroundPosition: 'center',
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: 'transparent',
+  };
+
+  const darkSquareStyle = {
+    backgroundImage: 'url(/images/bBg.png)',
+    backgroundPosition: 'center',
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    backgroundColor: 'transparent',
+  };
+
   return (
     <div className="container">
-      <Chessboard options={{ position: chess.fen() }} />
+      <Chessboard options={{ position: chess.fen(), pieces, lightSquareStyle, darkSquareStyle }} />
       <div id="controls" ref={controlsRef} />
       <div id="moves">{move ? `${move.piece} ${move.from} → ${move.to}` : `Loading...`}</div>
     </div>

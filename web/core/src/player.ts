@@ -103,31 +103,31 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       }
     }
 
-    // 3. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
+    // 3. (PRIORITY 2) No HMR replay data. 
     //    This block is now reachable even if this.hmrState exists.
+    else if (import.meta.env?.VITE_REPLAY_FILE) {
+      // Always Fetch VITE_REPLAY_FILE if it's defined, for both in Dev or Production builds.
+      const replayFile = import.meta.env?.VITE_REPLAY_FILE;
+      fetch(replayFile)
+        .then((res) => res.json())
+        .then((data) => {
+          this.setData(data, data.info.Agents);
+          // TODO: Move to game-specific config for showControls/showLegend/stepTime/etc.
+          if (this.replay?.name === 'halite' || this.replay?.name === 'hungry_geese') {
+            this.showLegend = true;
+          }
+        })
+        .catch((err) => {
+          console.error(`Error fetching ${replayFile}:`, err);
+          this.viewer.innerHTML = `<div>Error loading ${replayFile}</div>`;
+          this.renderControls(); // Render controls to show they are disabled
+        });
+    }
     else if (import.meta.env?.DEV) {
-      const replayFile = import.meta.env.VITE_REPLAY_FILE;
-      if (replayFile) {
-        fetch(replayFile)
-          .then((res) => res.json())
-          .then((data) => {
-            this.setData(data, data.info.Agents);
-            // TODO: Move to game-specific config for showControls/showLegend/stepTime/etc.
-            if (this.replay?.name === 'halite' || this.replay?.name === 'hungry_geese') {
-              this.showLegend = true;
-            }
-          })
-          .catch((err) => {
-            console.error(`Error fetching ${replayFile}:`, err);
-            this.viewer.innerHTML = `<div>Error loading ${replayFile}</div>`;
-            this.renderControls(); // Render controls to show they are disabled
-          });
-      } else {
-        // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
-        this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
-        this.renderControls(); // Apply restored showControls state
-        this.renderLegend();
-      }
+      // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
+      this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
+      this.renderControls(); // Apply restored showControls state
+      this.renderLegend();
     }
 
     // 4. (PRIORITY 3) Production build (or not DEV) and no HMR data.
