@@ -1,6 +1,13 @@
 import fs from 'fs';
 import https from 'https';
 import { createGunzip } from 'zlib';
+import { loadEnvFile } from 'node:process';
+
+try {
+  loadEnvFile();
+} catch (error) {
+  console.log('No .env found');
+}
 
 if (!process.env.REPLAY_DOWNLOAD_FOLDER) process.exit();
 

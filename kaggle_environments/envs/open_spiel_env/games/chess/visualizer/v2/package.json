@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node --env-file-if-exists=.env ./scripts/build.js",
+    "build": "tsc -b && vite build && node ./scripts/build.js",
     "preview": "vite preview",
     "tsc": "tsc -b",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "download-replays": "node --env-file-if-exists=.env ./scripts/download.js"
+    "download-replays": "node ./scripts/download.js"
   },
   "devDependencies": {
     "@types/react": "^19.2.10",

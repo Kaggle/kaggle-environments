@@ -1,4 +1,11 @@
 import fs from 'fs';
+import { loadEnvFile } from 'node:process';
+
+try {
+  loadEnvFile();
+} catch (error) {
+  console.log('No .env found');
+}
 
 if (!process.env.VITE_REPLAY_FILE) process.exit();
 
