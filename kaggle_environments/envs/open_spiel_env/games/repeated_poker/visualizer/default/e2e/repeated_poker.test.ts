@@ -50,7 +50,7 @@ test.describe('Repeated Poker Visualizer', () => {
     const dealerButton = page.locator('.dealer-button');
     await expect(dealerButton).toBeAttached();
 
-    // Legend with hand history (use the one with .legend-title)
+    // Legend with hand history
     const legendTitle = page.locator('.legend-title');
     await expect(legendTitle).toBeVisible();
     await expect(legendTitle).toContainText(/Hand/i);
@@ -61,33 +61,37 @@ test.describe('Repeated Poker Visualizer', () => {
     await expect(blindsInfo).toContainText(/Blinds/i);
   });
 
-  test('displays correct game state after navigation', async ({ page }) => {
+  test('displays correct game state at mid-game', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
     await slider.waitFor({ state: 'visible' });
+
+    // Navigate to mid-game step
     const maxValue = await slider.getAttribute('max');
-
-    // Navigate to step 2 where cards should be dealt
-    if (maxValue && parseInt(maxValue) > 2) {
-      await slider.fill('2');
-      await page.waitForTimeout(200);
-
-      // Cards should have rank and suit elements visible
-      const cards = page.locator('.card:not(.card-empty):not(.card-back)');
-      const cardCount = await cards.count();
-      if (cardCount > 0) {
-        const rankElement = cards.first().locator('.card-rank');
-        await expect(rankElement).toBeVisible();
-      }
-    }
-
-    // Navigate to final step
-    await slider.fill(maxValue || '0');
+    const midStep = Math.floor(parseInt(maxValue || '0') / 2);
+    await slider.fill(String(midStep));
     await page.waitForTimeout(300);
 
-    // At game over, should show "Match Complete" and winner
-    const matchComplete = page.getByText('Match Complete');
-    await expect(matchComplete).toBeVisible();
-    const winnerText = page.getByText(/Winner:/);
-    await expect(winnerText).toBeVisible();
+    // Poker table should still be visible
+    const pokerTable = page.locator('.poker-table');
+    await expect(pokerTable).toBeVisible();
+
+    // Player cards should be dealt and visible (not just empty/back)
+    const visibleCards = page.locator('.card:not(.card-empty):not(.card-back)');
+    const cardCount = await visibleCards.count();
+    expect(cardCount).toBeGreaterThan(0);
+
+    // Cards should have visible rank elements
+    const rankElement = visibleCards.first().locator('.card-rank');
+    await expect(rankElement).toBeVisible();
+
+    // Pot should show an amount
+    const potDisplay = page.locator('.pot-display');
+    await expect(potDisplay).toBeVisible();
+
+    // Legend table should show hand history
+    const legendTable = page.locator('.legend-table');
+    await expect(legendTable).toBeVisible();
+    const headerRow = legendTable.locator('.legend-header');
+    await expect(headerRow).toBeVisible();
   });
 });

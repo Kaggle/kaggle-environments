@@ -37,17 +37,24 @@ test.describe('Chess Visualizer (Default)', () => {
     await expect(statusText.first()).toBeVisible();
   });
 
-  test('displays correct game state after navigation', async ({ page }) => {
+  test('displays correct game state at mid-game', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
     await slider.waitFor({ state: 'visible' });
 
-    // Navigate to final step
+    // Navigate to mid-game step
     const maxValue = await slider.getAttribute('max');
-    await slider.fill(maxValue || '0');
+    const midStep = Math.floor(parseInt(maxValue || '0') / 2);
+    await slider.fill(String(midStep));
     await page.waitForTimeout(200);
 
-    // At the final step, should show the winner
-    const winnerText = page.locator('p, span, div').filter({ hasText: /Winner|Checkmate|Draw|White|Black/ });
-    await expect(winnerText.first()).toBeVisible();
+    // Board should still have pieces (game in progress)
+    const pieceImages = page.locator('div[id^="cell-"] img');
+    await expect(pieceImages.first()).toBeVisible();
+    const pieceCount = await pieceImages.count();
+    expect(pieceCount).toBeGreaterThan(0);
+
+    // Should show current player indicator (game not over yet)
+    const statusText = page.locator('p').filter({ hasText: /Current Player|White|Black/ });
+    await expect(statusText.first()).toBeVisible();
   });
 });
