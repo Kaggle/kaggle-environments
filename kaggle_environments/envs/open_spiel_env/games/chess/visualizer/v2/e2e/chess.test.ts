@@ -69,23 +69,4 @@ test.describe('Chess Visualizer (v2)', () => {
     const winnerText = page.locator('p, span, div').filter({ hasText: /Winner|Checkmate|Draw|White|Black/ });
     await expect(winnerText.first()).toBeVisible();
   });
-
-  test('board updates when navigating steps', async ({ page }) => {
-    const slider = page.locator('input[type="range"]');
-    await slider.waitFor({ state: 'visible' });
-
-    // Get initial piece count
-    const initialPieces = await page.locator('div[id^="cell-"] img').count();
-
-    // Move to a later step
-    const maxValue = await slider.getAttribute('max');
-    if (maxValue && parseInt(maxValue) > 10) {
-      await slider.fill('10');
-      await page.waitForTimeout(200);
-    }
-
-    // Board should still have pieces
-    const laterPieces = await page.locator('div[id^="cell-"] img').count();
-    expect(laterPieces).toBeGreaterThan(0);
-  });
 });

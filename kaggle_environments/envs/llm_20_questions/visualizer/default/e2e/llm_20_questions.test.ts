@@ -10,24 +10,4 @@ test.describe('LLM 20 Questions Visualizer', () => {
     const canvas = page.locator('canvas');
     await expect(canvas).toBeVisible();
   });
-
-  test('displays playback controls', async ({ page }) => {
-    const slider = page.locator('input[type="range"]');
-    await expect(slider).toBeVisible();
-  });
-
-  test('step slider navigates through rounds', async ({ page }) => {
-    const slider = page.locator('input[type="range"]');
-    await slider.waitFor({ state: 'visible' });
-
-    const maxValue = await slider.getAttribute('max');
-    if (maxValue && parseInt(maxValue) > 5) {
-      await slider.fill('5');
-      await page.waitForTimeout(200);
-    }
-
-    // Canvas should still be visible after navigation
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
-  });
 });

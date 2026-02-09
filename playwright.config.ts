@@ -1,5 +1,33 @@
 import { defineConfig, devices } from '@playwright/test';
 import { globSync } from 'glob';
+import { execSync } from 'child_process';
+
+// Get all visualizer packages at config time
+let visualizerPackages: { name: string; path: string }[] = [];
+try {
+  const pnpmOutput = execSync('pnpm m ls --json --depth -1', { encoding: 'utf8' });
+  const packages = JSON.parse(pnpmOutput);
+  visualizerPackages = packages.filter(
+    (pkg: any) => pkg.name?.startsWith('@kaggle-environments/') && pkg.name?.endsWith('-visualizer')
+  );
+} catch {
+  console.warn('Could not list pnpm workspaces');
+}
+
+// Find the best matching package name for a given directory name
+function findPackageMatch(dirName: string): string {
+  // Try exact match with directory name
+  let match = visualizerPackages.find((pkg) => pkg.name.includes(dirName));
+  if (match) return dirName;
+
+  // Try with hyphens instead of underscores
+  const kebabName = dirName.replace(/_/g, '-');
+  match = visualizerPackages.find((pkg) => pkg.name.includes(kebabName));
+  if (match) return kebabName;
+
+  // Fallback to directory name
+  return dirName;
+}
 
 /**
  * Playwright configuration for kaggle-environments visualizer integration tests.
@@ -31,12 +59,15 @@ function getVisualizerInfo(testFile: string): VisualizerInfo | null {
   // Match standard envs: kaggle_environments/envs/{name}/visualizer/...
   const standardMatch = testFile.match(/kaggle_environments\/envs\/([^/]+)\/visualizer\//);
   if (standardMatch) {
-    const name = standardMatch[1];
+    const dirName = standardMatch[1];
+    // Package names are inconsistent - some use hyphens (kore-fleets), some underscores (llm_20_questions)
+    // Find the correct form that matches the actual package name
+    const matchingName = findPackageMatch(dirName);
     return {
-      name,
-      testMatch: `kaggle_environments/envs/${name}/visualizer/**/*.test.ts`,
-      port: getPortForVisualizer(name),
-      packageFilter: `@kaggle-environments/${name}-visualizer`,
+      name: dirName,
+      testMatch: `kaggle_environments/envs/${dirName}/visualizer/**/*.test.ts`,
+      port: getPortForVisualizer(dirName),
+      packageFilter: matchingName,
     };
   }
 
@@ -101,7 +132,7 @@ const projects = visualizers.map((viz) => ({
 }));
 
 const webServers = visualizers.map((viz) => ({
-  command: `pnpm test-server ${viz.name}`,
+  command: `pnpm test-server ${viz.packageFilter}`,
   url: `http://localhost:${viz.port}`,
   reuseExistingServer: !process.env.CI,
   timeout: 120000,

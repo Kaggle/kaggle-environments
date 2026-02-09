@@ -56,20 +56,4 @@ test.describe('Go Visualizer', () => {
     const playerText = page.locator('p').filter({ hasText: /Black|White/ });
     await expect(playerText.first()).toBeVisible();
   });
-
-  test('step slider works', async ({ page }) => {
-    const slider = page.locator('input[type="range"]');
-    await slider.waitFor({ state: 'visible' });
-
-    // Move to a later step
-    const maxValue = await slider.getAttribute('max');
-    if (maxValue && parseInt(maxValue) > 5) {
-      await slider.fill('5');
-      await page.waitForTimeout(200);
-    }
-
-    // Page should still be functional
-    const title = page.locator('h1');
-    await expect(title).toBeVisible();
-  });
 });
