@@ -11,16 +11,13 @@ test.describe('Go Visualizer', () => {
     await expect(title).toBeVisible();
     await expect(title).toContainText(/Go \(\d+×\d+\)/);
 
-    // Coordinate labels (columns A, B, etc. and row numbers)
     await expect(page.getByText('A').first()).toBeVisible();
     await expect(page.getByText('B').first()).toBeVisible();
     await expect(page.getByText('1').first()).toBeVisible();
 
-    // Status information with komi
     const komiText = page.getByText(/Komi/);
     await expect(komiText).toBeVisible();
 
-    // Current player indicator (Black or White)
     const playerText = page.locator('p').filter({ hasText: /Black|White/ });
     await expect(playerText.first()).toBeVisible();
   });

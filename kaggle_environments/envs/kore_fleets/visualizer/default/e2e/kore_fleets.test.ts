@@ -6,7 +6,6 @@ test.describe('Kore Fleets Visualizer', () => {
   });
 
   test('renders the game board canvases', async ({ page }) => {
-    // Kore Fleets uses multiple canvases similar to Halite
     const foregroundCanvas = page.locator('canvas#foreground');
     await expect(foregroundCanvas).toBeVisible();
 

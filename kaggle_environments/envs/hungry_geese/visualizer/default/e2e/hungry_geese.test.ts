@@ -6,7 +6,6 @@ test.describe('Hungry Geese Visualizer', () => {
   });
 
   test('renders the game board canvas', async ({ page }) => {
-    // Hungry Geese uses canvas for rendering
     const canvas = page.locator('canvas#hungry_geese');
     await expect(canvas).toBeVisible();
   });

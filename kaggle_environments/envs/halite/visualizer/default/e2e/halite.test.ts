@@ -6,7 +6,6 @@ test.describe('Halite Visualizer', () => {
   });
 
   test('renders the game board canvases', async ({ page }) => {
-    // Halite uses multiple canvases: buffer, background, foreground
     const foregroundCanvas = page.locator('canvas#foreground');
     await expect(foregroundCanvas).toBeVisible();
 
