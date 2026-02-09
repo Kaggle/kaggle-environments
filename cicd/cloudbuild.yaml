@@ -54,8 +54,10 @@ steps:
 
   # Step 4: Build all visualizers (runs in parallel with tests after CPU image is ready)
   - id: "build-all-visualizers"
-    name: "gcr.io/cloud-builders/npm"
+    name: "node:22"
     entrypoint: "bash"
+    env:
+      - "SKIP_GAMES=${_SKIP_GAMES}"
     args:
       - "-c"
       - |
@@ -103,6 +105,9 @@ images:
 
 substitutions:
   _BUCKET_NAME: "kaggle-static"
+  # Comma-separated list of patterns to skip deployment. Games are still built.
+  # Patterns: "open_spiel_go" (all visualizers) or "open_spiel_chess/v2" (specific visualizer)
+  _SKIP_GAMES: ""
 
 availableSecrets:
   secretManager:

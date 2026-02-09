@@ -10,7 +10,7 @@
 steps:
   # Build visualizers to validate frontend changes
   - id: "build-all-visualizers"
-    name: "gcr.io/cloud-builders/npm"
+    name: "node:22"
     entrypoint: "bash"
     args:
       - "-c"
