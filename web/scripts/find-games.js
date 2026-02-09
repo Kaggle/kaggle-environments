@@ -14,6 +14,8 @@ let withReplay = false;
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '--with-replay') {
     withReplay = true;
+  } else if (args[i] === '--all') {
+    gameArg = '--all';
   } else if (!args[i].startsWith('--')) {
     gameArg = args[i];
   }
