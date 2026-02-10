@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import useChessStore from '../stores/useChessStore';
 
 const Meter = () => {
   const workerRef = useRef<Worker>(null);
   const chess = useChessStore((state) => state.chess);
+  const [percent, setPercent] = useState(0);
 
   useEffect(() => {
     workerRef.current = new Worker('./scripts/stockfish-17.1-lite-single-03e3232.js');
@@ -21,6 +22,7 @@ const Meter = () => {
           let percent = Math.round(50 + 50 * (2 / (1 + Math.exp(-0.00368208 * Number(match.at(1)))) - 1));
           if (chess.turn() == 'b') percent = 100 - percent;
           console.log(`score w ${percent}% / b ${100 - percent}%`);
+          setPercent(percent);
         }
       };
 
@@ -28,9 +30,9 @@ const Meter = () => {
       workerRef.current.postMessage(`position fen ${chess.fen()}`);
       workerRef.current.postMessage('go depth 1');
     }
-  }, [chess]);
+  }, [chess, setPercent]);
 
-  return null;
+  return <meter value={percent} min="0" max="100" />;
 };
 
 export default Meter;
