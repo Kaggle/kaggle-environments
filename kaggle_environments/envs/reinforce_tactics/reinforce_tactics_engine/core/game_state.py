@@ -4,19 +4,21 @@ Core game state management without rendering dependencies.
 Vendored copy for Kaggle Environments — save/replay features that depend
 on ``reinforcetactics.utils.file_io`` are stubbed out.
 """
+
 from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from .unit import Unit
-from .grid import TileGrid
-from .visibility import VisibilityMap, get_visible_units, VISIBLE
-from ..game.mechanics import GameMechanics
 from ..constants import STARTING_GOLD, UNIT_DATA, TileType
+from ..game.mechanics import GameMechanics
+from .grid import TileGrid
+from .unit import Unit
+from .visibility import VISIBLE, VisibilityMap, get_visible_units
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -26,11 +28,16 @@ class GameState:
     """Manages the core game state without rendering."""
 
     # All available unit types
-    ALL_UNIT_TYPES = ['W', 'M', 'C', 'A', 'K', 'R', 'S', 'B']
+    ALL_UNIT_TYPES = ["W", "M", "C", "A", "K", "R", "S", "B"]
 
-    def __init__(self, map_data, num_players: int = 2, max_turns: Optional[int] = None,
-                 enabled_units: Optional[List[str]] = None,
-                 fog_of_war: bool = False) -> None:
+    def __init__(
+        self,
+        map_data,
+        num_players: int = 2,
+        max_turns: Optional[int] = None,
+        enabled_units: Optional[List[str]] = None,
+        fog_of_war: bool = False,
+    ) -> None:
         """
         Initialize the game state.
 
@@ -53,18 +60,14 @@ class GameState:
 
         # Fog of war settings
         self.fog_of_war: bool = fog_of_war
-        self.fog_of_war_method: str = 'simple_radius' if fog_of_war else 'none'
+        self.fog_of_war_method: str = "simple_radius" if fog_of_war else "none"
         self.visibility_maps: Dict[int, VisibilityMap] = {}
         if fog_of_war:
             for player in range(1, num_players + 1):
-                self.visibility_maps[player] = VisibilityMap(
-                    self.grid.width, self.grid.height, player
-                )
+                self.visibility_maps[player] = VisibilityMap(self.grid.width, self.grid.height, player)
 
         # Enabled unit types (defaults to all if not specified)
-        self.enabled_units: List[str] = (
-            enabled_units if enabled_units is not None else self.ALL_UNIT_TYPES.copy()
-        )
+        self.enabled_units: List[str] = enabled_units if enabled_units is not None else self.ALL_UNIT_TYPES.copy()
 
         # Optional map file reference for saving
         self.map_file_used: Optional[str] = None
@@ -96,20 +99,25 @@ class GameState:
         self.action_history: List[Dict[str, Any]] = []
         self.game_start_time: datetime = datetime.now()
 
-        # Cached values for performance
+        # Cached values for performance (separate validity flags to prevent stale cross-reads)
         self._unit_count_cache: Dict[int, int] = {}
+        self._unit_count_cache_valid: bool = False
         self._legal_actions_cache: Dict[int, Dict[str, List[Any]]] = {}
-        self._cache_valid: bool = False
+        self._legal_actions_cache_valid: bool = False
 
     def reset(self, map_data) -> None:
         """Reset the game state."""
-        self.__init__(map_data, self.num_players, self.max_turns,
-                      self.enabled_units, self.fog_of_war)
+        self.__init__(map_data, self.num_players, self.max_turns, self.enabled_units, self.fog_of_war)
 
-    def set_map_metadata(self, original_width: int, original_height: int,
-                         padding_offset_x: int, padding_offset_y: int,
-                         map_file: Optional[str] = None,
-                         original_map_data: Optional[List[List[str]]] = None) -> None:
+    def set_map_metadata(
+        self,
+        original_width: int,
+        original_height: int,
+        padding_offset_x: int,
+        padding_offset_y: int,
+        map_file: Optional[str] = None,
+        original_map_data: Optional[List[List[str]]] = None,
+    ) -> None:
         """Set metadata about the original map before padding."""
         self.original_map_width = original_width
         self.original_map_height = original_height
@@ -130,8 +138,9 @@ class GameState:
 
     def _invalidate_cache(self) -> None:
         """Invalidate cached values."""
-        self._cache_valid = False
+        self._unit_count_cache_valid = False
         self._unit_count_cache.clear()
+        self._legal_actions_cache_valid = False
         self._legal_actions_cache.clear()
 
     def update_visibility(self, player: Optional[int] = None) -> None:
@@ -146,8 +155,7 @@ class GameState:
             for vis_map in self.visibility_maps.values():
                 vis_map.update(self)
 
-    def get_visible_units_for_player(self, player: int,
-                                     include_own: bool = True) -> List[Unit]:
+    def get_visible_units_for_player(self, player: int, include_own: bool = True) -> List[Unit]:
         """Get units visible to a specific player."""
         return get_visible_units(self, player, include_own)
 
@@ -208,13 +216,11 @@ class GameState:
 
     def get_unit_count(self, player: int) -> int:
         """Get cached unit count for a player."""
-        if not self._cache_valid:
+        if not self._unit_count_cache_valid:
             self._unit_count_cache = {}
             for unit in self.units:
-                self._unit_count_cache[unit.player] = (
-                    self._unit_count_cache.get(unit.player, 0) + 1
-                )
-            self._cache_valid = True
+                self._unit_count_cache[unit.player] = self._unit_count_cache.get(unit.player, 0) + 1
+            self._unit_count_cache_valid = True
         return self._unit_count_cache.get(player, 0)
 
     def get_unit_at_position(self, x: int, y: int) -> Optional[Unit]:
@@ -228,32 +234,27 @@ class GameState:
         """Record an action for replay purposes."""
         converted_kwargs = {}
         for key, value in kwargs.items():
-            if key in ['x', 'y', 'from_x', 'from_y', 'to_x', 'to_y']:
-                if key.endswith('_x'):
+            if key in ["x", "y", "from_x", "from_y", "to_x", "to_y"]:
+                if key.endswith("_x"):
                     converted_kwargs[key] = value
-                elif key.endswith('_y'):
-                    x_key = key.replace('_y', '_x')
+                elif key.endswith("_y"):
+                    x_key = key.replace("_y", "_x")
                     if x_key in kwargs:
-                        orig_x, orig_y = self.padded_to_original_coords(
-                            kwargs[x_key], value
-                        )
+                        orig_x, orig_y = self.padded_to_original_coords(kwargs[x_key], value)
                         converted_kwargs[x_key] = orig_x
                         converted_kwargs[key] = orig_y
                     else:
                         converted_kwargs[key] = value
-                elif key == 'x':
+                elif key == "x":
                     converted_kwargs[key] = value
-                elif key == 'y':
-                    if 'x' in kwargs:
-                        orig_x, orig_y = self.padded_to_original_coords(
-                            kwargs['x'], value
-                        )
-                        converted_kwargs['x'] = orig_x
+                elif key == "y":
+                    if "x" in kwargs:
+                        orig_x, orig_y = self.padded_to_original_coords(kwargs["x"], value)
+                        converted_kwargs["x"] = orig_x
                         converted_kwargs[key] = orig_y
                     else:
                         converted_kwargs[key] = value
-            elif key in ['position', 'attacker_pos', 'target_pos',
-                         'healer_pos', 'paralyzer_pos', 'curer_pos']:
+            elif key in ["position", "attacker_pos", "target_pos", "healer_pos", "paralyzer_pos", "curer_pos"]:
                 if isinstance(value, (tuple, list)) and len(value) == 2:
                     orig_x, orig_y = self.padded_to_original_coords(value[0], value[1])
                     converted_kwargs[key] = (orig_x, orig_y)
@@ -263,16 +264,15 @@ class GameState:
                 converted_kwargs[key] = value
 
         action_record = {
-            'turn': self.turn_number,
-            'player': self.current_player,
-            'type': action_type,
-            'timestamp': datetime.now().isoformat(),
-            **converted_kwargs
+            "turn": self.turn_number,
+            "player": self.current_player,
+            "type": action_type,
+            "timestamp": datetime.now().isoformat(),
+            **converted_kwargs,
         }
         self.action_history.append(action_record)
 
-    def create_unit(self, unit_type: str, x: int, y: int,
-                    player: Optional[int] = None) -> Optional[Unit]:
+    def create_unit(self, unit_type: str, x: int, y: int, player: Optional[int] = None) -> Optional[Unit]:
         """Create a unit at the specified position."""
         if player is None:
             player = self.current_player
@@ -283,7 +283,7 @@ class GameState:
         if unit_type not in UNIT_DATA:
             return None
 
-        cost = UNIT_DATA[unit_type]['cost']
+        cost = UNIT_DATA[unit_type]["cost"]
         if self.player_gold[player] < cost:
             return None
 
@@ -292,7 +292,7 @@ class GameState:
         self.units.append(unit)
         self._invalidate_cache()
 
-        self.record_action('create_unit', unit_type=unit_type, x=x, y=y, player=player)
+        self.record_action("create_unit", unit_type=unit_type, x=x, y=y, player=player)
         return unit
 
     def move_unit(self, unit: Unit, to_x: int, to_y: int) -> bool:
@@ -304,7 +304,7 @@ class GameState:
             self.grid.height,
             lambda x, y: self.mechanics.can_move_to_position(
                 x, y, self.grid, self.units, moving_unit=unit, is_destination=False
-            )
+            ),
         )
 
         if (to_x, to_y) not in reachable:
@@ -318,8 +318,9 @@ class GameState:
         unit.move_to(to_x, to_y)
         unit.can_move = False
 
-        self.record_action('move', unit_type=unit.type, from_x=from_x, from_y=from_y,
-                           to_x=to_x, to_y=to_y, player=unit.player)
+        self.record_action(
+            "move", unit_type=unit.type, from_x=from_x, from_y=from_y, to_x=to_x, to_y=to_y, player=unit.player
+        )
         self._invalidate_cache()
         self.update_visibility(unit.player)
 
@@ -329,16 +330,18 @@ class GameState:
         """Execute an attack."""
         result = self.mechanics.attack_unit(attacker, target, self.grid, self.units)
 
-        self.record_action('attack',
-                           attacker_type=attacker.type,
-                           attacker_pos=(attacker.x, attacker.y),
-                           target_type=target.type,
-                           target_pos=(target.x, target.y),
-                           damage=result['damage'],
-                           target_killed=not result['target_alive'],
-                           player=attacker.player)
+        self.record_action(
+            "attack",
+            attacker_type=attacker.type,
+            attacker_pos=(attacker.x, attacker.y),
+            target_type=target.type,
+            target_pos=(target.x, target.y),
+            damage=result["damage"],
+            target_killed=not result["target_alive"],
+            player=attacker.player,
+        )
 
-        if not result['target_alive']:
+        if not result["target_alive"]:
             target_tile = self.grid.get_tile(target.x, target.y)
             if target_tile.is_capturable() and target_tile.health < target_tile.max_health:
                 target_tile.regenerating = True
@@ -352,18 +355,15 @@ class GameState:
                 if self.num_players == 2:
                     self.winner = 2 if defeated_player == 1 else 1
                 else:
-                    self.winner = (
-                        defeated_player + 1
-                        if defeated_player < self.num_players
-                        else 1
-                    )
+                    self.winner = defeated_player + 1 if defeated_player < self.num_players else 1
 
-        if not result['attacker_alive']:
+        if not result["attacker_alive"]:
             attacker_tile = self.grid.get_tile(attacker.x, attacker.y)
             if attacker_tile.is_capturable() and attacker_tile.health < attacker_tile.max_health:
                 attacker_tile.regenerating = True
             defeated_player = attacker.player
-            self.units.remove(attacker)
+            if attacker in self.units:
+                self.units.remove(attacker)
             self._invalidate_cache()
 
             remaining_units = [u for u in self.units if u.player == defeated_player]
@@ -372,14 +372,11 @@ class GameState:
                 if self.num_players == 2:
                     self.winner = 2 if defeated_player == 1 else 1
                 else:
-                    self.winner = (
-                        defeated_player + 1
-                        if defeated_player < self.num_players
-                        else 1
-                    )
+                    self.winner = defeated_player + 1 if defeated_player < self.num_players else 1
 
-        attacker.can_move = False
-        attacker.can_attack = False
+        if result['attacker_alive']:
+            attacker.can_move = False
+            attacker.can_attack = False
         self._invalidate_cache()
 
         return result
@@ -390,10 +387,12 @@ class GameState:
         if result:
             paralyzer.can_move = False
             paralyzer.can_attack = False
-            self.record_action('paralyze',
-                               paralyzer_pos=(paralyzer.x, paralyzer.y),
-                               target_pos=(target.x, target.y),
-                               player=paralyzer.player)
+            self.record_action(
+                "paralyze",
+                paralyzer_pos=(paralyzer.x, paralyzer.y),
+                target_pos=(target.x, target.y),
+                player=paralyzer.player,
+            )
             self._invalidate_cache()
         return result
 
@@ -403,11 +402,13 @@ class GameState:
         if amount > 0:
             healer.can_move = False
             healer.can_attack = False
-            self.record_action('heal',
-                               healer_pos=(healer.x, healer.y),
-                               target_pos=(target.x, target.y),
-                               amount=amount,
-                               player=healer.player)
+            self.record_action(
+                "heal",
+                healer_pos=(healer.x, healer.y),
+                target_pos=(target.x, target.y),
+                amount=amount,
+                player=healer.player,
+            )
             self._invalidate_cache()
         return amount
 
@@ -417,10 +418,9 @@ class GameState:
         if result:
             curer.can_move = False
             curer.can_attack = False
-            self.record_action('cure',
-                               curer_pos=(curer.x, curer.y),
-                               target_pos=(target.x, target.y),
-                               player=curer.player)
+            self.record_action(
+                "cure", curer_pos=(curer.x, curer.y), target_pos=(target.x, target.y), player=curer.player
+            )
             self._invalidate_cache()
         return result
 
@@ -430,11 +430,13 @@ class GameState:
         if result:
             sorcerer.can_move = False
             sorcerer.can_attack = False
-            self.record_action('haste',
-                               sorcerer_pos=(sorcerer.x, sorcerer.y),
-                               target_pos=(target.x, target.y),
-                               target_type=target.type,
-                               player=sorcerer.player)
+            self.record_action(
+                "haste",
+                sorcerer_pos=(sorcerer.x, sorcerer.y),
+                target_pos=(target.x, target.y),
+                target_type=target.type,
+                player=sorcerer.player,
+            )
             self._invalidate_cache()
         return result
 
@@ -444,11 +446,13 @@ class GameState:
         if result:
             sorcerer.can_move = False
             sorcerer.can_attack = False
-            self.record_action('defence_buff',
-                               sorcerer_pos=(sorcerer.x, sorcerer.y),
-                               target_pos=(target.x, target.y),
-                               target_type=target.type,
-                               player=sorcerer.player)
+            self.record_action(
+                "defence_buff",
+                sorcerer_pos=(sorcerer.x, sorcerer.y),
+                target_pos=(target.x, target.y),
+                target_type=target.type,
+                player=sorcerer.player,
+            )
             self._invalidate_cache()
         return result
 
@@ -458,11 +462,13 @@ class GameState:
         if result:
             sorcerer.can_move = False
             sorcerer.can_attack = False
-            self.record_action('attack_buff',
-                               sorcerer_pos=(sorcerer.x, sorcerer.y),
-                               target_pos=(target.x, target.y),
-                               target_type=target.type,
-                               player=sorcerer.player)
+            self.record_action(
+                "attack_buff",
+                sorcerer_pos=(sorcerer.x, sorcerer.y),
+                target_pos=(target.x, target.y),
+                target_type=target.type,
+                player=sorcerer.player,
+            )
             self._invalidate_cache()
         return result
 
@@ -471,14 +477,16 @@ class GameState:
         tile = self.grid.get_tile(unit.x, unit.y)
         result = self.mechanics.seize_structure(unit, tile)
 
-        self.record_action('seize',
-                           unit_type=unit.type,
-                           position=(unit.x, unit.y),
-                           structure_type=tile.type,
-                           captured=result['captured'],
-                           player=unit.player)
+        self.record_action(
+            "seize",
+            unit_type=unit.type,
+            position=(unit.x, unit.y),
+            structure_type=tile.type,
+            captured=result["captured"],
+            player=unit.player,
+        )
 
-        if result['game_over']:
+        if result["game_over"]:
             self.game_over = True
             self.winner = unit.player
 
@@ -490,15 +498,12 @@ class GameState:
 
     def heal_units_on_structures(self, player: int) -> Dict[str, Any]:
         """Heal units on owned structures at the start of their turn."""
-        stats: Dict[str, Any] = {
-            'total_healed': 0, 'total_cost': 0, 'units_healed': []
-        }
+        stats: Dict[str, Any] = {"total_healed": 0, "total_cost": 0, "units_healed": []}
 
         enemy_hq_pos = None
         for row in self.grid.tiles:
             for tile in row:
-                if (tile.type == TileType.HEADQUARTERS.value
-                        and tile.player and tile.player != player):
+                if tile.type == TileType.HEADQUARTERS.value and tile.player and tile.player != player:
                     enemy_hq_pos = (tile.x, tile.y)
                     break
             if enemy_hq_pos:
@@ -530,28 +535,25 @@ class GameState:
                 structure_name = "Building"
 
             if heal_amount > 0:
-                distance = float('inf')
+                distance = float("inf")
                 if enemy_hq_pos:
                     distance = abs(unit.x - enemy_hq_pos[0]) + abs(unit.y - enemy_hq_pos[1])
 
-                units_to_heal.append({
-                    'unit': unit,
-                    'heal_amount': heal_amount,
-                    'structure_name': structure_name,
-                    'distance': distance
-                })
+                units_to_heal.append(
+                    {"unit": unit, "heal_amount": heal_amount, "structure_name": structure_name, "distance": distance}
+                )
 
-        units_to_heal.sort(key=lambda x: x['distance'])
+        units_to_heal.sort(key=lambda x: x["distance"])
 
         for heal_data in units_to_heal:
-            unit = heal_data['unit']
-            requested_heal = heal_data['heal_amount']
-            structure_name = heal_data['structure_name']
+            unit = heal_data["unit"]
+            requested_heal = heal_data["heal_amount"]
+            structure_name = heal_data["structure_name"]
 
             max_possible_heal = unit.max_health - unit.health
             desired_heal = min(requested_heal, max_possible_heal)
 
-            unit_cost = UNIT_DATA[unit.type]['cost']
+            unit_cost = UNIT_DATA[unit.type]["cost"]
             cost_per_hp = unit_cost / unit.max_health
 
             actual_heal = 0
@@ -575,23 +577,25 @@ class GameState:
                 unit.health = min(unit.health + actual_heal, unit.max_health)
                 self.player_gold[player] -= actual_cost
 
-                stats['total_healed'] += actual_heal
-                stats['total_cost'] += actual_cost
-                stats['units_healed'].append({
-                    'unit_type': unit.type,
-                    'position': (unit.x, unit.y),
-                    'structure': structure_name,
-                    'healed': actual_heal,
-                    'cost': actual_cost,
-                    'old_health': old_health,
-                    'new_health': unit.health
-                })
+                stats["total_healed"] += actual_heal
+                stats["total_cost"] += actual_cost
+                stats["units_healed"].append(
+                    {
+                        "unit_type": unit.type,
+                        "position": (unit.x, unit.y),
+                        "structure": structure_name,
+                        "healed": actual_heal,
+                        "cost": actual_cost,
+                        "old_health": old_health,
+                        "new_health": unit.health,
+                    }
+                )
 
         return stats
 
     def end_turn(self) -> Dict[str, Any]:
         """End the current player's turn and pass to the next player."""
-        self.record_action('end_turn', player=self.current_player)
+        self.record_action("end_turn", player=self.current_player)
 
         for unit in self.units:
             if unit.player == self.current_player and unit.has_moved:
@@ -629,10 +633,10 @@ class GameState:
             unit.selected = False
 
         income_data = self.mechanics.calculate_income(self.current_player, self.grid)
-        self.player_gold[self.current_player] += income_data['total']
+        self.player_gold[self.current_player] += income_data["total"]
 
         healing_stats = self.heal_units_on_structures(self.current_player)
-        income_data['healing'] = healing_stats
+        income_data["healing"] = healing_stats
 
         self.update_visibility(self.current_player)
 
@@ -643,7 +647,7 @@ class GameState:
         if player is None:
             player = self.current_player
 
-        self.record_action('resign', player=player)
+        self.record_action("resign", player=player)
 
         if self.num_players == 2:
             self.winner = 2 if player == 1 else 1
@@ -661,29 +665,24 @@ class GameState:
             return self._legal_actions_cache[player]
 
         legal_actions: Dict[str, Any] = {
-            'create_unit': [],
-            'move': [],
-            'attack': [],
-            'paralyze': [],
-            'heal': [],
-            'cure': [],
-            'haste': [],
-            'defence_buff': [],
-            'attack_buff': [],
-            'seize': [],
-            'end_turn': True
+            "create_unit": [],
+            "move": [],
+            "attack": [],
+            "paralyze": [],
+            "heal": [],
+            "cure": [],
+            "haste": [],
+            "defence_buff": [],
+            "attack_buff": [],
+            "seize": [],
+            "end_turn": True,
         }
 
         for tile in self.grid.get_capturable_tiles(player):
-            if (tile.type == TileType.BUILDING.value
-                    and not self.get_unit_at_position(tile.x, tile.y)):
+            if tile.type == TileType.BUILDING.value and not self.get_unit_at_position(tile.x, tile.y):
                 for unit_type in self.enabled_units:
-                    if self.player_gold[player] >= UNIT_DATA[unit_type]['cost']:
-                        legal_actions['create_unit'].append({
-                            'unit_type': unit_type,
-                            'x': tile.x,
-                            'y': tile.y
-                        })
+                    if self.player_gold[player] >= UNIT_DATA[unit_type]["cost"]:
+                        legal_actions["create_unit"].append({"unit_type": unit_type, "x": tile.x, "y": tile.y})
 
         for unit in self.units:
             if unit.player == player and not unit.is_paralyzed():
@@ -691,116 +690,66 @@ class GameState:
                     reachable = unit.get_reachable_positions(
                         self.grid.width,
                         self.grid.height,
-                        lambda x, y: self.mechanics.can_move_to_position(
-                            x, y, self.grid, self.units
-                        )
+                        lambda x, y: self.mechanics.can_move_to_position(x, y, self.grid, self.units),
                     )
                     for pos in reachable:
-                        legal_actions['move'].append({
-                            'unit': unit,
-                            'from_x': unit.x,
-                            'from_y': unit.y,
-                            'to_x': pos[0],
-                            'to_y': pos[1]
-                        })
+                        legal_actions["move"].append(
+                            {"unit": unit, "from_x": unit.x, "from_y": unit.y, "to_x": pos[0], "to_y": pos[1]}
+                        )
 
                 if unit.can_attack:
-                    if unit.type in ['M', 'A', 'S']:
+                    if unit.type in ["M", "A", "S"]:
                         unit_tile = self.grid.get_tile(unit.x, unit.y)
-                        on_mountain = (unit_tile.type == 'm')
+                        on_mountain = unit_tile.type == "m"
 
                         for enemy in self.units:
                             if enemy.player != player:
-                                if (self.fog_of_war
-                                        and not self.is_enemy_attackable_by_unit(unit, enemy)):
+                                if self.fog_of_war and not self.is_enemy_attackable_by_unit(unit, enemy):
                                     continue
 
-                                damage = unit.get_attack_damage(
-                                    enemy.x, enemy.y, on_mountain
-                                )
+                                damage = unit.get_attack_damage(enemy.x, enemy.y, on_mountain)
                                 if damage > 0:
-                                    legal_actions['attack'].append({
-                                        'attacker': unit,
-                                        'target': enemy
-                                    })
+                                    legal_actions["attack"].append({"attacker": unit, "target": enemy})
 
-                                    if unit.type == 'M' and unit.can_use_paralyze():
-                                        distance = (abs(unit.x - enemy.x)
-                                                    + abs(unit.y - enemy.y))
+                                    if unit.type == "M" and unit.can_use_paralyze():
+                                        distance = abs(unit.x - enemy.x) + abs(unit.y - enemy.y)
                                         if distance <= 2:
-                                            legal_actions['paralyze'].append({
-                                                'paralyzer': unit,
-                                                'target': enemy
-                                            })
+                                            legal_actions["paralyze"].append({"paralyzer": unit, "target": enemy})
                     else:
-                        adjacent_enemies = self.mechanics.get_adjacent_enemies(
-                            unit, self.units
-                        )
+                        adjacent_enemies = self.mechanics.get_adjacent_enemies(unit, self.units)
                         for enemy in adjacent_enemies:
-                            if (self.fog_of_war
-                                    and not self.is_enemy_attackable_by_unit(unit, enemy)):
+                            if self.fog_of_war and not self.is_enemy_attackable_by_unit(unit, enemy):
                                 continue
 
-                            legal_actions['attack'].append({
-                                'attacker': unit,
-                                'target': enemy
-                            })
+                            legal_actions["attack"].append({"attacker": unit, "target": enemy})
 
-                    if unit.type == 'C':
-                        healable_allies = self.mechanics.get_healable_allies(
-                            unit, self.units
-                        )
+                    if unit.type == "C":
+                        healable_allies = self.mechanics.get_healable_allies(unit, self.units)
                         for ally in healable_allies:
-                            legal_actions['heal'].append({
-                                'healer': unit,
-                                'target': ally
-                            })
+                            legal_actions["heal"].append({"healer": unit, "target": ally})
 
-                        curable_allies = self.mechanics.get_curable_allies(
-                            unit, self.units
-                        )
+                        curable_allies = self.mechanics.get_curable_allies(unit, self.units)
                         for ally in curable_allies:
-                            legal_actions['cure'].append({
-                                'curer': unit,
-                                'target': ally
-                            })
+                            legal_actions["cure"].append({"curer": unit, "target": ally})
 
-                    if unit.type == 'S' and unit.can_use_haste():
-                        hasteable_allies = self.mechanics.get_hasteable_allies(
-                            unit, self.units
-                        )
+                    if unit.type == "S" and unit.can_use_haste():
+                        hasteable_allies = self.mechanics.get_hasteable_allies(unit, self.units)
                         for ally in hasteable_allies:
-                            legal_actions['haste'].append({
-                                'sorcerer': unit,
-                                'target': ally
-                            })
+                            legal_actions["haste"].append({"sorcerer": unit, "target": ally})
 
-                    if unit.type == 'S' and unit.can_use_defence_buff():
-                        buffable_allies = self.mechanics.get_defence_buffable_allies(
-                            unit, self.units
-                        )
+                    if unit.type == "S" and unit.can_use_defence_buff():
+                        buffable_allies = self.mechanics.get_defence_buffable_allies(unit, self.units)
                         for ally in buffable_allies:
-                            legal_actions['defence_buff'].append({
-                                'sorcerer': unit,
-                                'target': ally
-                            })
+                            legal_actions["defence_buff"].append({"sorcerer": unit, "target": ally})
 
-                    if unit.type == 'S' and unit.can_use_attack_buff():
-                        buffable_allies = self.mechanics.get_attack_buffable_allies(
-                            unit, self.units
-                        )
+                    if unit.type == "S" and unit.can_use_attack_buff():
+                        buffable_allies = self.mechanics.get_attack_buffable_allies(unit, self.units)
                         for ally in buffable_allies:
-                            legal_actions['attack_buff'].append({
-                                'sorcerer': unit,
-                                'target': ally
-                            })
+                            legal_actions["attack_buff"].append({"sorcerer": unit, "target": ally})
 
                     tile = self.grid.get_tile(unit.x, unit.y)
                     if tile.is_capturable() and tile.player != player:
-                        legal_actions['seize'].append({
-                            'unit': unit,
-                            'tile': tile
-                        })
+                        legal_actions["seize"].append({"unit": unit, "tile": tile})
 
         if self._cache_valid:
             self._legal_actions_cache[player] = legal_actions
@@ -810,20 +759,20 @@ class GameState:
     def to_dict(self) -> Dict[str, Any]:
         """Convert game state to dictionary for serialization."""
         return {
-            'timestamp': self.game_start_time.strftime("%Y-%m-%d %H-%M-%S"),
-            'current_player': self.current_player,
-            'num_players': self.num_players,
-            'player_gold': self.player_gold,
-            'turn_number': self.turn_number,
-            'game_over': self.game_over,
-            'winner': self.winner,
-            'map_file': self.map_file_used,
-            'player_configs': self.player_configs,
-            'enabled_units': self.enabled_units,
-            'fog_of_war': self.fog_of_war,
-            'fog_of_war_method': self.fog_of_war_method,
-            'units': [unit.to_dict() for unit in self.units],
-            'tiles': self.grid.to_dict()['tiles']
+            "timestamp": self.game_start_time.strftime("%Y-%m-%d %H-%M-%S"),
+            "current_player": self.current_player,
+            "num_players": self.num_players,
+            "player_gold": self.player_gold,
+            "turn_number": self.turn_number,
+            "game_over": self.game_over,
+            "winner": self.winner,
+            "map_file": self.map_file_used,
+            "player_configs": self.player_configs,
+            "enabled_units": self.enabled_units,
+            "fog_of_war": self.fog_of_war,
+            "fog_of_war_method": self.fog_of_war_method,
+            "units": [unit.to_dict() for unit in self.units],
+            "tiles": self.grid.to_dict()["tiles"],
         }
 
     def to_numpy(self, for_player: Optional[int] = None) -> Dict[str, np.ndarray]:
@@ -831,13 +780,9 @@ class GameState:
         grid_state = self.grid.to_numpy()
 
         unit_state = np.zeros((self.grid.height, self.grid.width, 3), dtype=np.float32)
-        unit_type_encoding = {
-            'W': 1, 'M': 2, 'C': 3, 'A': 4, 'K': 5, 'R': 6, 'S': 7, 'B': 8
-        }
+        unit_type_encoding = {"W": 1, "M": 2, "C": 3, "A": 4, "K": 5, "R": 6, "S": 7, "B": 8}
 
-        visibility_state = np.full(
-            (self.grid.height, self.grid.width), VISIBLE, dtype=np.uint8
-        )
+        visibility_state = np.full((self.grid.height, self.grid.width), VISIBLE, dtype=np.uint8)
 
         if self.fog_of_war and for_player is not None:
             vis_map = self.visibility_maps.get(for_player)
@@ -863,18 +808,15 @@ class GameState:
                             grid_state[y, x, 2] = 0
 
         result: Dict[str, Any] = {
-            'grid': grid_state,
-            'units': unit_state,
-            'gold': np.array(
-                [self.player_gold[i] for i in range(1, self.num_players + 1)],
-                dtype=np.float32
-            ),
-            'current_player': self.current_player,
-            'turn_number': self.turn_number
+            "grid": grid_state,
+            "units": unit_state,
+            "gold": np.array([self.player_gold[i] for i in range(1, self.num_players + 1)], dtype=np.float32),
+            "current_player": self.current_player,
+            "turn_number": self.turn_number,
         }
 
         if self.fog_of_war:
-            result['visibility'] = visibility_state
+            result["visibility"] = visibility_state
 
         return result
 
@@ -893,45 +835,41 @@ class GameState:
         )
 
     @classmethod
-    def from_dict(cls, save_data: Dict[str, Any], map_data) -> 'GameState':
+    def from_dict(cls, save_data: Dict[str, Any], map_data) -> "GameState":
         """Restore game state from dictionary."""
-        enabled_units = save_data.get('enabled_units', cls.ALL_UNIT_TYPES)
-        fog_of_war = save_data.get('fog_of_war', False)
-        fog_of_war_method = save_data.get(
-            'fog_of_war_method',
-            'simple_radius' if fog_of_war else 'none'
-        )
+        enabled_units = save_data.get("enabled_units", cls.ALL_UNIT_TYPES)
+        fog_of_war = save_data.get("fog_of_war", False)
+        fog_of_war_method = save_data.get("fog_of_war_method", "simple_radius" if fog_of_war else "none")
 
-        game = cls(map_data, save_data.get('num_players', 2),
-                   enabled_units=enabled_units, fog_of_war=fog_of_war)
+        game = cls(map_data, save_data.get("num_players", 2), enabled_units=enabled_units, fog_of_war=fog_of_war)
         game.fog_of_war_method = fog_of_war_method
 
-        game.current_player = save_data.get('current_player', 1)
-        game.turn_number = save_data.get('turn_number', 0)
-        game.game_over = save_data.get('game_over', False)
-        game.winner = save_data.get('winner')
+        game.current_player = save_data.get("current_player", 1)
+        game.turn_number = save_data.get("turn_number", 0)
+        game.game_over = save_data.get("game_over", False)
+        game.winner = save_data.get("winner")
 
-        saved_gold = save_data.get('player_gold', {})
+        saved_gold = save_data.get("player_gold", {})
         game.player_gold = {int(k): v for k, v in saved_gold.items()}
 
-        game.map_file_used = save_data.get('map_file')
-        game.player_configs = save_data.get('player_configs', [])
+        game.map_file_used = save_data.get("map_file")
+        game.player_configs = save_data.get("player_configs", [])
 
         game.units = []
-        for unit_data in save_data.get('units', []):
+        for unit_data in save_data.get("units", []):
             unit = Unit.from_dict(unit_data)
             game.units.append(unit)
 
-        for tile_data in save_data.get('tiles', []):
-            x, y = tile_data['x'], tile_data['y']
+        for tile_data in save_data.get("tiles", []):
+            x, y = tile_data["x"], tile_data["y"]
             if 0 <= x < game.grid.width and 0 <= y < game.grid.height:
                 tile = game.grid.tiles[y][x]
-                if tile_data.get('player'):
-                    tile.player = tile_data['player']
-                if tile_data.get('health') is not None:
-                    tile.health = tile_data['health']
-                if tile_data.get('regenerating') is not None:
-                    tile.regenerating = tile_data['regenerating']
+                if tile_data.get("player"):
+                    tile.player = tile_data["player"]
+                if tile_data.get("health") is not None:
+                    tile.health = tile_data["health"]
+                if tile_data.get("regenerating") is not None:
+                    tile.regenerating = tile_data["regenerating"]
 
         game._invalidate_cache()
         return game

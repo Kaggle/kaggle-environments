@@ -8,13 +8,19 @@ Usage as a Kaggle submission:
     Copy this file and submit it. The ``agent`` function will be called
     each turn with the current observation and configuration.
 """
-import random
 
+import random
 
 # Unit costs for budget tracking
 UNIT_COSTS = {
-    "W": 200, "M": 300, "C": 200, "A": 250,
-    "K": 350, "R": 350, "S": 400, "B": 400,
+    "W": 200,
+    "M": 300,
+    "C": 200,
+    "A": 250,
+    "K": 350,
+    "R": 350,
+    "S": 400,
+    "B": 400,
 }
 
 
@@ -48,9 +54,7 @@ def agent(observation, configuration):
     # Find buildings we own that are unoccupied
     occupied = {(u["x"], u["y"]) for u in units}
     my_buildings = [
-        s for s in structures
-        if s["owner"] == player and s["type"] == "b"
-        and (s["x"], s["y"]) not in occupied
+        s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied
     ]
 
     # Parse enabled units from configuration
@@ -59,18 +63,17 @@ def agent(observation, configuration):
 
     # Try to create a random unit at each available building
     for bldg in my_buildings:
-        affordable = [
-            ut for ut in enabled_units
-            if ut in UNIT_COSTS and UNIT_COSTS[ut] <= gold
-        ]
+        affordable = [ut for ut in enabled_units if ut in UNIT_COSTS and UNIT_COSTS[ut] <= gold]
         if affordable:
             unit_type = random.choice(affordable)
-            actions.append({
-                "type": "create_unit",
-                "unit_type": unit_type,
-                "x": bldg["x"],
-                "y": bldg["y"],
-            })
+            actions.append(
+                {
+                    "type": "create_unit",
+                    "unit_type": unit_type,
+                    "x": bldg["x"],
+                    "y": bldg["y"],
+                }
+            )
             gold -= UNIT_COSTS[unit_type]
 
     actions.append({"type": "end_turn"})

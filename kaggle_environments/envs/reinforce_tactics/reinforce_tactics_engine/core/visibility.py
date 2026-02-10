@@ -17,27 +17,27 @@ if TYPE_CHECKING:
 
 # Visibility state constants
 UNEXPLORED = 0  # Never seen - terrain unknown
-SHROUDED = 1    # Previously explored - terrain known, units/ownership hidden
-VISIBLE = 2     # Currently visible - full information
+SHROUDED = 1  # Previously explored - terrain known, units/ownership hidden
+VISIBLE = 2  # Currently visible - full information
 
 
 # Default vision ranges for units (Chebyshev distance)
 UNIT_VISION_RANGES: Dict[str, int] = {
-    'W': 3,  # Warrior - standard vision
-    'M': 3,  # Mage - standard vision
-    'C': 3,  # Cleric - standard vision
-    'A': 4,  # Archer - extended vision (scout)
-    'K': 3,  # Knight - standard vision
-    'R': 4,  # Rogue - extended vision (scout)
-    'S': 3,  # Sorcerer - standard vision
-    'B': 2,  # Barbarian - limited vision
+    "W": 3,  # Warrior - standard vision
+    "M": 3,  # Mage - standard vision
+    "C": 3,  # Cleric - standard vision
+    "A": 4,  # Archer - extended vision (scout)
+    "K": 3,  # Knight - standard vision
+    "R": 4,  # Rogue - extended vision (scout)
+    "S": 3,  # Sorcerer - standard vision
+    "B": 2,  # Barbarian - limited vision
 }
 
 # Vision ranges for structures
 STRUCTURE_VISION_RANGES: Dict[str, int] = {
-    'h': 4,  # Headquarters - large vision radius
-    'b': 3,  # Building - standard vision
-    't': 5,  # Tower - best vision (elevated position)
+    "h": 4,  # Headquarters - large vision radius
+    "b": 3,  # Building - standard vision
+    "t": 5,  # Tower - best vision (elevated position)
 }
 
 
@@ -47,6 +47,7 @@ class UnitSnapshot:
 
     Used to remember enemy unit positions after they leave vision.
     """
+
     unit_type: str
     owner: int
     health: int
@@ -58,6 +59,7 @@ class UnitSnapshot:
 @dataclass
 class StructureSnapshot:
     """Snapshot of structure information when last visible."""
+
     tile_type: str
     owner: Optional[int]
     health: int
@@ -96,7 +98,7 @@ class VisibilityMap:
         # Current visibility mask (recomputed each update)
         self._current_visible = np.zeros((height, width), dtype=bool)
 
-    def update(self, game_state: 'GameState') -> None:
+    def update(self, game_state: "GameState") -> None:
         """Recalculate visibility based on current unit/structure positions.
 
         This method:
@@ -113,10 +115,12 @@ class VisibilityMap:
         # Step 2: Calculate new visibility
         self._current_visible.fill(False)
 
-        # Vision from units
+        # Vision from units (includes terrain bonuses like mountain +1)
         for unit in game_state.units:
             if unit.player == self.player:
-                vision_range = UNIT_VISION_RANGES.get(unit.type, 3)
+                tile = game_state.grid.get_tile(unit.x, unit.y)
+                tile_type = tile.type if tile else None
+                vision_range = calculate_vision_radius(unit.type, tile_type=tile_type)
                 self._add_vision_radius(unit.x, unit.y, vision_range)
 
         # Vision from structures
@@ -124,7 +128,8 @@ class VisibilityMap:
             for x in range(self.width):
                 tile = game_state.grid.get_tile(x, y)
                 if tile.player == self.player and tile.type in STRUCTURE_VISION_RANGES:
-                    vision_range = STRUCTURE_VISION_RANGES[tile.type]
+                    vision_range = calculate_vision_radius(
+                        tile.type, is_structure=True)
                     self._add_vision_radius(x, y, vision_range)
 
         # Step 3: Update state array
@@ -152,7 +157,7 @@ class VisibilityMap:
                     if max(abs(dx), abs(dy)) <= radius:
                         self._current_visible[ny, nx] = True
 
-    def _update_memory(self, game_state: 'GameState') -> None:
+    def _update_memory(self, game_state: "GameState") -> None:
         """Update memory of seen units and structures.
 
         Args:
@@ -161,10 +166,7 @@ class VisibilityMap:
         turn = game_state.turn_number
 
         # Clear memory for positions that are now visible (will re-add current info)
-        positions_to_clear = [
-            pos for pos in self.last_seen_units
-            if self.is_visible(pos[0], pos[1])
-        ]
+        positions_to_clear = [pos for pos in self.last_seen_units if self.is_visible(pos[0], pos[1])]
         for pos in positions_to_clear:
             del self.last_seen_units[pos]
 
@@ -177,7 +179,7 @@ class VisibilityMap:
                     health=unit.health,
                     max_health=unit.max_health,
                     position=(unit.x, unit.y),
-                    turn_seen=turn
+                    turn_seen=turn,
                 )
 
         # Record structures we can see
@@ -185,13 +187,9 @@ class VisibilityMap:
             for x in range(self.width):
                 if self.is_visible(x, y):
                     tile = game_state.grid.get_tile(x, y)
-                    if tile.type in ('h', 'b', 't'):
+                    if tile.type in ("h", "b", "t"):
                         self.last_seen_structures[(x, y)] = StructureSnapshot(
-                            tile_type=tile.type,
-                            owner=tile.player,
-                            health=tile.health,
-                            position=(x, y),
-                            turn_seen=turn
+                            tile_type=tile.type, owner=tile.player, health=tile.health, position=(x, y), turn_seen=turn
                         )
 
     def is_visible(self, x: int, y: int) -> bool:
@@ -284,8 +282,7 @@ class VisibilityMap:
             current_turn: Current game turn
         """
         stale_positions = [
-            pos for pos, snapshot in self.last_seen_units.items()
-            if current_turn - snapshot.turn_seen > max_turns
+            pos for pos, snapshot in self.last_seen_units.items() if current_turn - snapshot.turn_seen > max_turns
         ]
         for pos in stale_positions:
             del self.last_seen_units[pos]
@@ -300,9 +297,7 @@ class VisibilityMap:
 
 
 def calculate_vision_radius(
-    unit_or_structure_type: str,
-    tile_type: Optional[str] = None,
-    is_structure: bool = False
+    unit_or_structure_type: str, tile_type: Optional[str] = None, is_structure: bool = False
 ) -> int:
     """Calculate vision radius for a unit or structure.
 
@@ -320,18 +315,13 @@ def calculate_vision_radius(
         base_range = UNIT_VISION_RANGES.get(unit_or_structure_type, 3)
 
     # Mountain bonus: +1 vision when standing on mountain (units only)
-    # Note: Units can't normally stand on mountains, but keeping for future flexibility
-    if not is_structure and tile_type == 'm':
+    if not is_structure and tile_type == "m":
         base_range += 1
 
     return base_range
 
 
-def get_visible_units(
-    game_state: 'GameState',
-    player: int,
-    include_own: bool = True
-) -> List['Unit']:
+def get_visible_units(game_state: "GameState", player: int, include_own: bool = True) -> List["Unit"]:
     """Get list of units visible to a player.
 
     Args:
@@ -363,10 +353,7 @@ def get_visible_units(
     return visible
 
 
-def get_visible_tiles_info(
-    game_state: 'GameState',
-    player: int
-) -> List[Tuple[int, int, 'any', int]]:
+def get_visible_tiles_info(game_state: "GameState", player: int) -> List[Tuple[int, int, "any", int]]:
     """Get list of tiles with visibility information.
 
     Args:

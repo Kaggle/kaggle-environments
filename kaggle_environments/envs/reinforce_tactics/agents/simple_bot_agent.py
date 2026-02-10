@@ -10,16 +10,29 @@ This agent implements a basic strategy:
 Usage as a Kaggle submission:
     Copy this file and submit it.
 """
+
 # Unit costs for budget tracking
 UNIT_COSTS = {
-    "W": 200, "M": 300, "C": 200, "A": 250,
-    "K": 350, "R": 350, "S": 400, "B": 400,
+    "W": 200,
+    "M": 300,
+    "C": 200,
+    "A": 250,
+    "K": 350,
+    "R": 350,
+    "S": 400,
+    "B": 400,
 }
 
 # Unit movement ranges
 UNIT_MOVEMENT = {
-    "W": 3, "M": 2, "C": 2, "A": 3,
-    "K": 4, "R": 4, "S": 2, "B": 5,
+    "W": 3,
+    "M": 2,
+    "C": 2,
+    "A": 3,
+    "K": 4,
+    "R": 4,
+    "S": 2,
+    "B": 5,
 }
 
 # Preferred unit creation order
@@ -58,9 +71,7 @@ def agent(observation, configuration):
 
     # ---- Phase 1: Create units ----
     my_buildings = [
-        s for s in structures
-        if s["owner"] == player and s["type"] == "b"
-        and (s["x"], s["y"]) not in occupied
+        s for s in structures if s["owner"] == player and s["type"] == "b" and (s["x"], s["y"]) not in occupied
     ]
 
     for bldg in my_buildings:
@@ -70,12 +81,14 @@ def agent(observation, configuration):
                 best = ut
                 break
         if best:
-            actions.append({
-                "type": "create_unit",
-                "unit_type": best,
-                "x": bldg["x"],
-                "y": bldg["y"],
-            })
+            actions.append(
+                {
+                    "type": "create_unit",
+                    "unit_type": best,
+                    "x": bldg["x"],
+                    "y": bldg["y"],
+                }
+            )
             gold -= UNIT_COSTS[best]
             occupied.add((bldg["x"], bldg["y"]))
 
@@ -101,23 +114,27 @@ def agent(observation, configuration):
                 dist = abs(ux - enemy["x"]) + abs(uy - enemy["y"])
                 attack_range = _get_attack_range(unit["type"])
                 if attack_range[0] <= dist <= attack_range[1]:
-                    actions.append({
-                        "type": "attack",
-                        "from_x": ux,
-                        "from_y": uy,
-                        "to_x": enemy["x"],
-                        "to_y": enemy["y"],
-                    })
+                    actions.append(
+                        {
+                            "type": "attack",
+                            "from_x": ux,
+                            "from_y": uy,
+                            "to_x": enemy["x"],
+                            "to_y": enemy["y"],
+                        }
+                    )
                     break  # One attack per unit
 
         # Seize if on enemy structure
         tile_structure = _get_structure_at(structures, ux, uy)
         if tile_structure and tile_structure["owner"] != player and tile_structure["owner"] != 0:
-            actions.append({
-                "type": "seize",
-                "x": ux,
-                "y": uy,
-            })
+            actions.append(
+                {
+                    "type": "seize",
+                    "x": ux,
+                    "y": uy,
+                }
+            )
             continue
 
         # Move toward nearest enemy or enemy HQ
@@ -131,18 +148,17 @@ def agent(observation, configuration):
                 target = enemy_hq
 
             if target:
-                next_pos = _step_toward(
-                    ux, uy, target[0], target[1],
-                    board, occupied, map_w, map_h
-                )
+                next_pos = _step_toward(ux, uy, target[0], target[1], board, occupied, map_w, map_h)
                 if next_pos and next_pos != (ux, uy):
-                    actions.append({
-                        "type": "move",
-                        "from_x": ux,
-                        "from_y": uy,
-                        "to_x": next_pos[0],
-                        "to_y": next_pos[1],
-                    })
+                    actions.append(
+                        {
+                            "type": "move",
+                            "from_x": ux,
+                            "from_y": uy,
+                            "to_x": next_pos[0],
+                            "to_y": next_pos[1],
+                        }
+                    )
                     # Update occupied set
                     occupied.discard((ux, uy))
                     occupied.add(next_pos)
@@ -153,10 +169,7 @@ def agent(observation, configuration):
 
 def _find_nearest_enemy(ux, uy, enemy_units):
     """Find the nearest enemy unit by Manhattan distance."""
-    return min(
-        enemy_units,
-        key=lambda e: abs(ux - e["x"]) + abs(uy - e["y"])
-    )
+    return min(enemy_units, key=lambda e: abs(ux - e["x"]) + abs(uy - e["y"]))
 
 
 def _get_attack_range(unit_type):
@@ -184,7 +197,7 @@ def _step_toward(from_x, from_y, to_x, to_y, board, occupied, map_w, map_h):
     best_pos = None
     best_dist = abs(from_x - to_x) + abs(from_y - to_y)
 
-    non_walkable = {"w", "o", "m"}
+    non_walkable = {"w", "o"}
 
     for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
         nx, ny = from_x + dx, from_y + dy

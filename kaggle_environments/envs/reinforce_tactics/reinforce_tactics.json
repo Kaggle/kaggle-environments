@@ -122,8 +122,8 @@
   },
 
   "reward": {
-    "description": "Final reward: 1=Won, 0=Draw, -1=Lost. During the game reward is 0.",
-    "type": "number",
+    "description": "-1 = Lost, 0 = Draw/Ongoing, 1 = Won",
+    "enum": [-1, 0, 1],
     "default": 0
   },
 

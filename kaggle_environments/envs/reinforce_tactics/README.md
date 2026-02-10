@@ -38,7 +38,7 @@ Gold is spent to recruit units at buildings or the headquarters.
 |----------|------|--------|
 | Grass    | `p`  | Normal movement |
 | Forest   | `f`  | +30% evasion for Rogues, blocks ranged line of sight |
-| Mountain | `m`  | Impassable; Archers gain +1 range when adjacent |
+| Mountain | `m`  | Walkable; units gain +1 vision when standing on it |
 | Water    | `w`  | Impassable |
 | Road     | `r`  | Normal movement |
 | Building | `b`  | Capturable; provides income and unit recruitment |
@@ -137,9 +137,9 @@ behaviour). More maps from the main repository may be added in the future.
 env = make("reinforce_tactics", configuration={"mapName": "beginner"})
 ```
 
-#### Random generation (default)
+#### Random generation
 
-When `mapName` is empty (the default), a random map is generated using
+When `mapName` is set to an empty string, a random map is generated using
 `mapWidth`, `mapHeight`, and `mapSeed`. The random generator places terrain
 features (forests ~10%, mountains ~5%, water ~3%), two headquarters with
 adjacent buildings, and four neutral towers near the centre.
@@ -147,13 +147,14 @@ adjacent buildings, and four neutral towers near the centre.
 ```python
 # Random map with a fixed seed for reproducibility
 env = make("reinforce_tactics", configuration={
+    "mapName": "",
     "mapWidth": 20,
     "mapHeight": 20,
     "mapSeed": 42,
 })
 
 # Fully random map (different each run)
-env = make("reinforce_tactics")
+env = make("reinforce_tactics", configuration={"mapName": ""})
 ```
 
 #### Map format reference

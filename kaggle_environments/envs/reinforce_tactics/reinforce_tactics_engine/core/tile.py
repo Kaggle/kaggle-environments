@@ -1,10 +1,8 @@
 """
 Tile class representing a single tile in the game grid.
 """
-from ..constants import (
-    TILE_COLORS, PLAYER_COLORS, TOWER_MAX_HEALTH,
-    BUILDING_MAX_HEALTH, HEADQUARTERS_MAX_HEALTH
-)
+
+from ..constants import BUILDING_MAX_HEALTH, HEADQUARTERS_MAX_HEALTH, PLAYER_COLORS, TILE_COLORS, TOWER_MAX_HEALTH
 
 
 class Tile:
@@ -23,8 +21,8 @@ class Tile:
         tile_str = str(tile_data).strip()
 
         # Handle NaN, empty, or invalid values
-        if tile_str in ['', 'nan', 'None', 'NaN']:
-            tile_str = 'o'  # Default to grass
+        if tile_str in ["", "nan", "None", "NaN"]:
+            tile_str = "o"  # Default to grass
 
         # Split by underscore
         parts = tile_str.split("_")
@@ -36,22 +34,22 @@ class Tile:
         self.y = y
 
         # Validate tile type - if invalid, default to grass
-        valid_types = ['p', 'w', 'm', 'f', 'r', 'b', 'h', 't', 'o']
+        valid_types = ["p", "w", "m", "f", "r", "b", "h", "t", "o"]
         if self.type not in valid_types:
-            self.type = 'o'
+            self.type = "o"
 
         # Tower/Headquarters/Building-specific properties
-        if self.type == 't':
+        if self.type == "t":
             self.max_health = TOWER_MAX_HEALTH
             self.health = TOWER_MAX_HEALTH
             self.original_player = self.player
             self.regenerating = False
-        elif self.type == 'h':
+        elif self.type == "h":
             self.max_health = HEADQUARTERS_MAX_HEALTH
             self.health = HEADQUARTERS_MAX_HEALTH
             self.original_player = self.player
             self.regenerating = False
-        elif self.type == 'b':
+        elif self.type == "b":
             self.max_health = BUILDING_MAX_HEALTH
             self.health = BUILDING_MAX_HEALTH
             self.original_player = self.player
@@ -70,50 +68,45 @@ class Tile:
         if self.player and self.player in PLAYER_COLORS:
             player_color = PLAYER_COLORS[self.player]
 
-            if self.type in ['h', 'b', 't']:
+            if self.type in ["h", "b", "t"]:
                 # Structures: 70% player color, 30% base color
-                return tuple(
-                    min(int(base * 0.3 + player * 0.7), 255)
-                    for base, player in zip(base_color, player_color)
-                )
-            # Regular terrain with owner: 60% base, 40% player
-            return tuple(
-                min(int(base * 0.6 + player * 0.4), 255)
-                for base, player in zip(base_color, player_color)
-            )
+                return tuple(min(int(base * 0.3 + player * 0.7), 255) for base, player in zip(base_color, player_color))
+            else:
+                # Regular terrain with owner: 60% base, 40% player
+                return tuple(min(int(base * 0.6 + player * 0.4), 255) for base, player in zip(base_color, player_color))
 
         return base_color
 
     def is_walkable(self):
         """Check if this tile can be walked on."""
-        return self.type != 'w' and self.type != 'o'  # Water is not walkable
+        return self.type != "w" and self.type != "o"  # Water is not walkable
 
     def is_capturable(self):
         """Check if this tile can be captured."""
-        return self.type in ['t', 'h', 'b']
+        return self.type in ["t", "h", "b"]
 
     def to_dict(self):
         """Convert tile to dictionary for serialization."""
         return {
-            'x': self.x,
-            'y': self.y,
-            'type': self.type,
-            'player': self.player,
-            'health': self.health,
-            'regenerating': self.regenerating
+            "x": self.x,
+            "y": self.y,
+            "type": self.type,
+            "player": self.player,
+            "health": self.health,
+            "regenerating": self.regenerating,
         }
 
     @classmethod
     def from_dict(cls, data):
         """Create tile from dictionary."""
-        tile_str = data['type']
-        if data.get('player'):
+        tile_str = data["type"]
+        if data.get("player"):
             tile_str += f"_{data['player']}"
 
-        tile = cls(tile_str, data['x'], data['y'])
-        if data.get('health') is not None:
-            tile.health = data['health']
-        if data.get('regenerating') is not None:
-            tile.regenerating = data['regenerating']
+        tile = cls(tile_str, data["x"], data["y"])
+        if data.get("health") is not None:
+            tile.health = data["health"]
+        if data.get("regenerating") is not None:
+            tile.regenerating = data["regenerating"]
 
         return tile

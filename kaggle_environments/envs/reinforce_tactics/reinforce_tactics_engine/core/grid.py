@@ -1,7 +1,9 @@
 """
 Grid class for managing the tile map.
 """
+
 import numpy as np
+
 from .tile import Tile
 
 
@@ -22,7 +24,7 @@ class TileGrid:
         for y in range(self.height):
             row = []
             for x in range(self.width):
-                tile = Tile(map_data.iloc[y, x] if hasattr(map_data, 'iloc') else map_data[y, x], x, y)
+                tile = Tile(map_data.iloc[y, x] if hasattr(map_data, "iloc") else map_data[y, x], x, y)
                 row.append(tile)
             self.tiles.append(row)
 
@@ -55,9 +57,7 @@ class TileGrid:
         """
         result = np.zeros((self.height, self.width, 3), dtype=np.float32)
 
-        tile_type_encoding = {
-            'p': 0, 'w': 1, 'm': 2, 'f': 3, 'r': 4, 'b': 5, 'h': 6, 't': 7
-        }
+        tile_type_encoding = {"p": 0, "w": 1, "m": 2, "f": 3, "r": 4, "b": 5, "h": 6, "t": 7}
 
         for y in range(self.height):
             for x in range(self.width):
@@ -75,9 +75,9 @@ class TileGrid:
     def to_dict(self):
         """Convert grid to dictionary for serialization."""
         return {
-            'width': self.width,
-            'height': self.height,
-            'tiles': [tile.to_dict() for row in self.tiles for tile in row if tile.is_capturable()]
+            "width": self.width,
+            "height": self.height,
+            "tiles": [tile.to_dict() for row in self.tiles for tile in row if tile.is_capturable()],
         }
 
     @classmethod
@@ -86,15 +86,15 @@ class TileGrid:
         grid = cls(map_data)
 
         # Restore tile states
-        for tile_data in data.get('tiles', []):
-            x, y = tile_data['x'], tile_data['y']
+        for tile_data in data.get("tiles", []):
+            x, y = tile_data["x"], tile_data["y"]
             if 0 <= x < grid.width and 0 <= y < grid.height:
                 tile = grid.tiles[y][x]
-                if tile_data.get('player'):
-                    tile.player = tile_data['player']
-                if tile_data.get('health') is not None:
-                    tile.health = tile_data['health']
-                if tile_data.get('regenerating') is not None:
-                    tile.regenerating = tile_data['regenerating']
+                if tile_data.get("player"):
+                    tile.player = tile_data["player"]
+                if tile_data.get("health") is not None:
+                    tile.health = tile_data["health"]
+                if tile_data.get("regenerating") is not None:
+                    tile.regenerating = tile_data["regenerating"]
 
         return grid

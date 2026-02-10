@@ -88,9 +88,9 @@ def test_can_run_random_agents():
     assert final[1].status == "DONE"
 
 
-def test_can_run_aggressive_agents():
+def test_can_run_simple_bot_agents():
     before_each(configuration={"mapSeed": 42, "episodeSteps": 30})
-    result = env.run(["aggressive", "aggressive"])
+    result = env.run(["simple_bot", "simple_bot"])
     final = result[-1]
     assert final[0].status == "DONE"
     assert final[1].status == "DONE"

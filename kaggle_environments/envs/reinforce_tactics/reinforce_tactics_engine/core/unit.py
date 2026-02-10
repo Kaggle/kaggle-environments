@@ -1,7 +1,9 @@
 """
 Unit class representing a game unit.
 """
+
 from collections import deque
+
 from ..constants import UNIT_DATA
 
 
@@ -29,11 +31,11 @@ class Unit:
         self.can_attack = False
         self.selected = False
         self.has_moved = False
-        self.movement_range = UNIT_DATA[unit_type]['movement']
-        self.max_health = UNIT_DATA[unit_type]['health']
+        self.movement_range = UNIT_DATA[unit_type]["movement"]
+        self.max_health = UNIT_DATA[unit_type]["health"]
         self.health = self.max_health
-        self.attack_data = UNIT_DATA[unit_type]['attack']
-        self.defence = UNIT_DATA[unit_type]['defence']
+        self.attack_data = UNIT_DATA[unit_type]["attack"]
+        self.defence = UNIT_DATA[unit_type]["defence"]
         self.paralyzed_turns = 0
 
         # Knight charge tracking
@@ -74,14 +76,14 @@ class Unit:
         """
         distance = abs(self.x - target_x) + abs(self.y - target_y)
 
-        if self.type in ['M', 'S']:
+        if self.type in ["M", "S"]:
             # Mage and Sorcerer have ranged attacks
             if distance == 1:
-                return self.attack_data['adjacent']
+                return self.attack_data["adjacent"]
             if distance == 2:
-                return self.attack_data['range']
+                return self.attack_data["range"]
             return 0
-        if self.type == 'A':
+        if self.type == "A":
             # Archer has range 2-3 normally, 2-4 on mountain (cannot attack at distance 1)
             max_range = 4 if on_mountain else 3
             if 2 <= distance <= max_range:
@@ -101,10 +103,10 @@ class Unit:
         Returns:
             Tuple of (min_range, max_range)
         """
-        if self.type in ['M', 'S']:
+        if self.type in ["M", "S"]:
             # Mage and Sorcerer: distance 1-2
             return (1, 2)
-        if self.type == 'A':
+        if self.type == "A":
             # Archer: distance 2-3, or 2-4 on mountain
             max_range = 4 if on_mountain else 3
             return (2, max_range)
@@ -233,19 +235,19 @@ class Unit:
 
     def can_use_paralyze(self):
         """Check if this Mage can use Paralyze ability."""
-        return self.type == 'M' and self.paralyze_cooldown == 0
+        return self.type == "M" and self.paralyze_cooldown == 0
 
     def can_use_haste(self):
         """Check if this Sorcerer can use Haste ability."""
-        return self.type == 'S' and self.haste_cooldown == 0
+        return self.type == "S" and self.haste_cooldown == 0
 
     def can_use_defence_buff(self):
         """Check if this Sorcerer can use Defence Buff ability."""
-        return self.type == 'S' and self.defence_buff_cooldown == 0
+        return self.type == "S" and self.defence_buff_cooldown == 0
 
     def can_use_attack_buff(self):
         """Check if this Sorcerer can use Attack Buff ability."""
-        return self.type == 'S' and self.attack_buff_cooldown == 0
+        return self.type == "S" and self.attack_buff_cooldown == 0
 
     def has_defence_buff(self):
         """Check if this unit has an active defence buff."""
@@ -258,40 +260,40 @@ class Unit:
     def to_dict(self):
         """Convert unit to dictionary for serialization."""
         return {
-            'type': self.type,
-            'x': self.x,
-            'y': self.y,
-            'player': self.player,
-            'health': self.health,
-            'paralyzed_turns': self.paralyzed_turns,
-            'paralyze_cooldown': self.paralyze_cooldown,
-            'can_move': self.can_move,
-            'can_attack': self.can_attack,
-            'haste_cooldown': self.haste_cooldown,
-            'is_hasted': self.is_hasted,
-            'distance_moved': self.distance_moved,
-            'defence_buff_cooldown': self.defence_buff_cooldown,
-            'attack_buff_cooldown': self.attack_buff_cooldown,
-            'defence_buff_turns': self.defence_buff_turns,
-            'attack_buff_turns': self.attack_buff_turns
+            "type": self.type,
+            "x": self.x,
+            "y": self.y,
+            "player": self.player,
+            "health": self.health,
+            "paralyzed_turns": self.paralyzed_turns,
+            "paralyze_cooldown": self.paralyze_cooldown,
+            "can_move": self.can_move,
+            "can_attack": self.can_attack,
+            "haste_cooldown": self.haste_cooldown,
+            "is_hasted": self.is_hasted,
+            "distance_moved": self.distance_moved,
+            "defence_buff_cooldown": self.defence_buff_cooldown,
+            "attack_buff_cooldown": self.attack_buff_cooldown,
+            "defence_buff_turns": self.defence_buff_turns,
+            "attack_buff_turns": self.attack_buff_turns,
         }
 
     @classmethod
     def from_dict(cls, data):
         """Create unit from dictionary."""
-        unit = cls(data['type'], data['x'], data['y'], data['player'])
-        unit.health = data['health']
-        unit.paralyzed_turns = data.get('paralyzed_turns', 0)
-        unit.paralyze_cooldown = data.get('paralyze_cooldown', 0)
-        unit.can_move = data.get('can_move', True)
-        unit.can_attack = data.get('can_attack', True)
-        unit.haste_cooldown = data.get('haste_cooldown', 0)
-        unit.is_hasted = data.get('is_hasted', False)
-        unit.distance_moved = data.get('distance_moved', 0)
-        unit.defence_buff_cooldown = data.get('defence_buff_cooldown', 0)
-        unit.attack_buff_cooldown = data.get('attack_buff_cooldown', 0)
-        unit.defence_buff_turns = data.get('defence_buff_turns', 0)
-        unit.attack_buff_turns = data.get('attack_buff_turns', 0)
+        unit = cls(data["type"], data["x"], data["y"], data["player"])
+        unit.health = data["health"]
+        unit.paralyzed_turns = data.get("paralyzed_turns", 0)
+        unit.paralyze_cooldown = data.get("paralyze_cooldown", 0)
+        unit.can_move = data.get("can_move", True)
+        unit.can_attack = data.get("can_attack", True)
+        unit.haste_cooldown = data.get("haste_cooldown", 0)
+        unit.is_hasted = data.get("is_hasted", False)
+        unit.distance_moved = data.get("distance_moved", 0)
+        unit.defence_buff_cooldown = data.get("defence_buff_cooldown", 0)
+        unit.attack_buff_cooldown = data.get("attack_buff_cooldown", 0)
+        unit.defence_buff_turns = data.get("defence_buff_turns", 0)
+        unit.attack_buff_turns = data.get("attack_buff_turns", 0)
         unit.original_x = unit.x
         unit.original_y = unit.y
         return unit
