@@ -33,6 +33,7 @@ meter::-webkit-meter-inner-element {
 
 meter::-webkit-meter-optimum-value {
   background: #f0ede7;
+  transition: width 2s ease-in-out;
 }
 
 meter::-moz-meter-bar {
