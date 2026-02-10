@@ -25,7 +25,12 @@ const Controls = () => {
         const fen = history.at(options.step);
         const chess = new Chess(fen);
         const move = chess.move(player.actionDisplayText!);
-        chess.setHeader('name', player.name);
+
+        step!.players.map((p) => {
+          const opposite = { w: 'b', b: 'w' };
+          const color = p.isTurn ? move.color : opposite[move.color];
+          chess.setHeader(color, p.name);
+        });
 
         console.log(player.thoughts);
         console.log(`${player.name} (${move.color}): ${move.piece} ${move.from} -> ${move.to}`);
