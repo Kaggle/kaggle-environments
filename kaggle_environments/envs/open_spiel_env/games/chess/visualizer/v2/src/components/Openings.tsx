@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useChessStore from '../stores/useChessStore';
 
-const Openings = () => {
+export default function Openings() {
   const chess = useChessStore((state) => state.chess);
 
   useEffect(() => {
@@ -43,6 +43,4 @@ const Openings = () => {
   }, [chess]);
 
   return null;
-};
-
-export default Openings;
+}
