@@ -1,31 +1,19 @@
 import * as React from 'react';
-import { InterestingEvent, ReplayMode } from '../types';
-
 export interface PlaybackControlsProps {
   // State
   playing: boolean;
   currentStep: number;
   totalSteps: number;
   speedModifier: number;
-  replayMode: ReplayMode;
 
   // Callbacks
   onPlayChange: (playing?: boolean) => void;
   onStepChange: (step: number) => void;
-  onSpeedChange: (speed: number) => void;
-  onReplayModeChange?: (mode: ReplayMode) => void;
-
-  // Optional features
-  interestingEvents?: InterestingEvent[];
-  showReplayModeToggle?: boolean;
-  speedOptions?: number[];
 
   // Styling
   className?: string;
   style?: React.CSSProperties;
 }
-
-const DEFAULT_SPEED_OPTIONS = [0.5, 0.75, 1, 1.5, 2];
 
 const controlsStyles: React.CSSProperties = {
   display: 'flex',
@@ -55,28 +43,12 @@ const stepCounterStyles: React.CSSProperties = {
   textAlign: 'center',
 };
 
-const selectStyles: React.CSSProperties = {
-  padding: '4px 8px',
-  borderRadius: '4px',
-  border: '1px solid #444',
-  backgroundColor: '#2a2a2a',
-  color: '#fff',
-  cursor: 'pointer',
-};
-
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   playing,
   currentStep,
   totalSteps,
-  speedModifier,
-  replayMode,
   onPlayChange,
   onStepChange,
-  onSpeedChange,
-  onReplayModeChange,
-  interestingEvents,
-  showReplayModeToggle = false,
-  speedOptions = DEFAULT_SPEED_OPTIONS,
   className,
   style,
 }) => {
@@ -104,16 +76,6 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onPlayChange(false);
     onStepChange(parseInt(e.target.value, 10));
-  };
-
-  const handleSpeedChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onSpeedChange(parseFloat(e.target.value));
-  };
-
-  const handleReplayModeToggle = () => {
-    if (!onReplayModeChange) return;
-    const nextMode: ReplayMode = replayMode === 'condensed' ? 'zen' : 'condensed';
-    onReplayModeChange(nextMode);
   };
 
   const stepDisplay = `${currentStep + 1} / ${totalSteps}`;
@@ -182,65 +144,8 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             accentColor: '#1ebeff',
           }}
         />
-        {interestingEvents && interestingEvents.length > 0 && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: 0,
-              right: 0,
-              pointerEvents: 'none',
-            }}
-          >
-            {interestingEvents.map((event, index) => {
-              const position = maxStep > 0 ? (event.step / maxStep) * 100 : 0;
-              return (
-                <div
-                  key={`${event.step}-${index}`}
-                  style={{
-                    position: 'absolute',
-                    left: `${position}%`,
-                    transform: 'translate(-50%, -50%)',
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1ebeff',
-                    border: '2px solid #fff',
-                    pointerEvents: 'auto',
-                    cursor: 'pointer',
-                    zIndex: 10,
-                  }}
-                  title={event.description}
-                  onClick={() => {
-                    onPlayChange(false);
-                    onStepChange(event.step);
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
       </div>
-
       <span style={stepCounterStyles}>{stepDisplay}</span>
-
-      <select value={speedModifier} onChange={handleSpeedChange} style={selectStyles} aria-label="Playback speed">
-        {speedOptions.map((speed) => (
-          <option key={speed} value={speed}>
-            {speed}x
-          </option>
-        ))}
-      </select>
-
-      {showReplayModeToggle && onReplayModeChange && (
-        <button
-          style={{ ...buttonStyles, fontSize: '12px', padding: '4px 8px' }}
-          onClick={handleReplayModeToggle}
-          title={`Mode: ${replayMode}`}
-        >
-          {replayMode === 'zen' ? 'Zen' : 'Fast'}
-        </button>
-      )}
     </div>
   );
 };
