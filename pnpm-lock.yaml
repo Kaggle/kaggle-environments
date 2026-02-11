@@ -474,8 +474,8 @@ importers:
         specifier: ^10.27.2
         version: 10.27.2
       three:
-        specifier: ~0.118.3
-        version: 0.118.3
+        specifier: ~0.137.0
+        version: 0.137.0
       vite-plugin-static-copy:
         specifier: ^3.1.4
         version: 3.1.4(vite@5.4.20(@types/node@25.2.1))
@@ -3089,8 +3089,8 @@ packages:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
     engines: {node: '>=10.0.0'}
 
-  three@0.118.3:
-    resolution: {integrity: sha512-ijECXrNzDkHieoeh2H69kgawTGH8DiamhR4uBN8jEM7VHSKvfTdEvOoHsA8Aq7dh7PHAxhlqBsN5arBI3KixSw==}
+  three@0.137.0:
+    resolution: {integrity: sha512-rzSDhia6cU35UCy6y+zEEws6vSgytfHqFMSaBvUcySgzwvDO6vETyswtSNi/+aVqJw8WLMwyT1mlQQ1T/dxxOA==}
 
   tiny-invariant@1.3.3:
     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
@@ -6303,7 +6303,7 @@ snapshots:
       string-width: 4.2.3
       strip-ansi: 6.0.1
 
-  three@0.118.3: {}
+  three@0.137.0: {}
 
   tiny-invariant@1.3.3: {}
 
