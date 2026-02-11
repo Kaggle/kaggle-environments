@@ -11,7 +11,7 @@ import {
 } from '@kaggle-environments/core';
 import useChessStore from '../stores/useChessStore';
 
-const Controls = () => {
+export default function Controls() {
   const containerRef = useRef(null);
   const setState = useChessStore((state) => state.setState);
 
@@ -47,6 +47,4 @@ const Controls = () => {
   }, [setState]);
 
   return <div id="controls" ref={containerRef} />;
-};
-
-export default Controls;
+}
