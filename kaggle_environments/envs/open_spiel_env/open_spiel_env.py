@@ -132,6 +132,25 @@ CONFIGURATION_SPEC_TEMPLATE = {
             "items": {"type": "integer"},
         },
     },
+    "connectx_rows": {
+        "description": "The number of rows for the Connect Four board.",
+        "type": "integer",
+        "default": 6,
+        "minimum": 4
+    },
+    "connectx_columns": {
+        "description": "The number of columns for the Connect Four board.",
+        "type": "integer",
+        "default": 7,
+        "minimum": 4
+    },
+    "connectx_inARow": {
+        "description": "The number of pieces in a row required to win.",
+        "type": "integer",
+        "default": 4,
+        "minimum": 3
+    },
+
     "metadata": {"description": "Arbitrary metadata.", "type": "object", "default": {}},
 }
 
@@ -312,6 +331,24 @@ def _get_preset_chance_action(
     next_index[hand_idx] = action_pos + 1
     return next_action
 
+def _get_connectx_params(env: core.Environment) -> str:
+    """Helper to get connectx parameters from environment configuration."""
+    if env.configuration.get("openSpielGameName") != "connect_four":
+        raise ValueError("ConnectX parameters can only be set for connect_four game.")
+    rows = 6
+    columns = 7
+    in_a_row = 4
+    try:
+        rows = int(env.configuration.get("connectx_rows", rows))
+        columns = int(env.configuration.get("connectx_columns", columns))
+        in_a_row = int(env.configuration.get("connectx_inARow", in_a_row))
+    except ValueError:
+        raise ValueError("connectx_rows, connectx_columns, and connectx_inARow must be integers.")
+    if rows < 4 or columns < 4:
+        raise ValueError("connectx_rows and connectx_columns must be at least 4.")
+    if in_a_row < 3:
+        raise ValueError("connectx_inARow must be at least 3.")
+    return f"connect_four(rows={rows},columns={columns},in_a_row={in_a_row})"
 
 # --- Core step logic ---
 
