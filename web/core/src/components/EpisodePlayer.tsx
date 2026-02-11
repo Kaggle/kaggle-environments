@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePlaybackState } from '../hooks/usePlaybackState';
-import { useParentMessaging } from '../hooks/useParentMessaging';
+import { usePlayerController } from '../hooks/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
@@ -118,10 +117,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
-  const [replayMode, setReplayMode] = useState<ReplayMode>(initialReplayMode);
-  // Track if parent is handling UI - if true, hide our UI regardless of `ui` prop
-  const [parentHandlesUi, setParentHandlesUi] = useState(false);
-
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Process replay data through transformer (skip if already transformed)
@@ -145,73 +140,39 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     [processedReplay, gameName]
   );
 
-  // Playback state management
-  const playback = usePlaybackState({
+  const [state, actions, parentData] = usePlayerController({
     totalSteps,
-    gameName,
-    initialStep,
-    initialPlaying,
-    initialSpeed,
-    initialReplayMode,
-    onStepChange,
-    onPlayingChange,
-    onSpeedChange,
     getStepDuration,
+    initial: {
+      step: initialStep,
+      playing: initialPlaying,
+      speed: initialSpeed,
+      replayMode: initialReplayMode,
+    },
+    onChange: (newState, changed) => {
+      if (changed === 'step') onStepChange?.(newState.step);
+      if (changed === 'playing') onPlayingChange?.(newState.playing);
+      if (changed === 'speed') onSpeedChange?.(newState.speed);
+    },
   });
+
+  useEffect(() => {
+    if (parentData.replay) {
+      setReplay(parentData.replay as ReplayData<TSteps>);
+    }
+  }, [parentData.replay]);
+
+  useEffect(() => {
+    if (parentData.agents) {
+      setCurrentAgents(parentData.agents);
+    }
+  }, [parentData.agents]);
 
   // Calculate interesting events for the slider
   const interestingEvents = useMemo<InterestingEvent[]>(() => {
     if (!processedReplay) return [];
     return getInterestingEvents(processedReplay.steps, gameName);
   }, [processedReplay, gameName]);
-
-  // Parent messaging for iframe communication
-  const { notifyParent } = useParentMessaging({
-    onStepChange: (step) => {
-      playback.pause();
-      playback.setStep(step);
-    },
-    onPlayingChange: (playing) => {
-      if (playing) {
-        playback.play();
-      } else {
-        playback.pause();
-      }
-    },
-    onSpeedChange: playback.setSpeed,
-    onReplayModeChange: setReplayMode,
-    onReplayData: (data) => setReplay(data as ReplayData<TSteps>),
-    onAgentsData: setCurrentAgents,
-    // Handle 'environment' data from parent (alternative to 'replay')
-    onEnvironmentData: (env) => {
-      setReplay((prev) => {
-        const base = prev ?? {
-          name: 'unknown',
-          version: 'unknown',
-          steps: [] as unknown as TSteps,
-          configuration: {},
-          info: {},
-        };
-        return { ...base, ...env } as ReplayData<TSteps>;
-      });
-    },
-    onControlsChange: () => {}, // Controls visibility handled via ui prop
-    onLegendChange: () => {}, // Legend not currently used
-    onParentHandlesUi: setParentHandlesUi,
-  });
-
-  // Notify parent of state changes
-  useEffect(() => {
-    notifyParent({ step: playback.step });
-  }, [playback.step, notifyParent]);
-
-  useEffect(() => {
-    notifyParent({ playing: playback.playing });
-  }, [playback.playing, notifyParent]);
-
-  useEffect(() => {
-    notifyParent({ speed: playback.speed });
-  }, [playback.speed, notifyParent]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -224,32 +185,30 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       switch (event.key) {
         case 'ArrowLeft':
           event.preventDefault();
-          playback.stepBackward();
+          actions.stepBackward();
           break;
         case 'ArrowRight':
           event.preventDefault();
-          playback.stepForward();
+          actions.stepForward();
           break;
         case ' ':
         case 'Enter':
           event.preventDefault();
-          playback.togglePlayPause();
+          actions.toggle();
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playback]);
+  }, [actions]);
 
-  // Update replay when prop changes
   useEffect(() => {
     if (rawReplay) {
       setReplay(rawReplay);
     }
   }, [rawReplay]);
 
-  // Update agents when prop changes
   useEffect(() => {
     setCurrentAgents(agents);
   }, [agents]);
@@ -257,27 +216,19 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const handlePlayChange = useCallback(
     (playing?: boolean) => {
       if (playing === undefined) {
-        playback.togglePlayPause();
+        actions.toggle();
       } else if (playing) {
-        playback.play();
+        actions.play();
       } else {
-        playback.pause();
+        actions.pause();
       }
     },
-    [playback]
+    [actions]
   );
 
   const handleClosePanel = useCallback(() => {
     setShowLogs(false);
   }, []);
-
-  const handleReplayModeChange = useCallback(
-    (mode: ReplayMode) => {
-      setReplayMode(mode);
-      playback.setReplayMode(mode);
-    },
-    [playback]
-  );
 
   if (!processedReplay) {
     return (
@@ -297,42 +248,38 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   return (
     <div ref={containerRef} className={className} style={{ ...containerStyles, flexDirection, ...style }}>
       <div style={visualizerContainerStyles}>
-        <GameRenderer replay={processedReplay} step={playback.step} agents={currentAgents} />
+        <GameRenderer replay={processedReplay} step={state.step} agents={currentAgents} />
       </div>
 
       {/* Inline mode: PlaybackControls below the game (hidden if parent handles UI) */}
-      {ui === 'inline' && !parentHandlesUi && (
+      {ui === 'inline' && !parentData.parentHandlesUi && (
         <div style={inlineControlsContainerStyles}>
           <PlaybackControls
-            playing={playback.playing}
-            currentStep={playback.step}
+            playing={state.playing}
+            currentStep={state.step}
             totalSteps={totalSteps}
-            speedModifier={playback.speed}
-            replayMode={replayMode}
+            speedModifier={state.speed}
             onPlayChange={handlePlayChange}
-            onStepChange={playback.setStep}
-            onSpeedChange={playback.setSpeed}
-            onReplayModeChange={handleReplayModeChange}
-            interestingEvents={interestingEvents}
+            onStepChange={actions.setStep}
           />
         </div>
       )}
 
       {/* Side-panel mode: ReasoningLogs with controls (hidden if parent handles UI) */}
-      {ui === 'side-panel' && showLogs && !parentHandlesUi && (
+      {ui === 'side-panel' && showLogs && !parentData.parentHandlesUi && (
         <div style={layout === 'stacked' ? { width: '100%', height: '300px' } : reasoningLogsContainerStyles}>
           <ReasoningLogs
             closePanel={handleClosePanel}
             onPlayChange={handlePlayChange}
-            onSpeedChange={playback.setSpeed}
-            onStepChange={playback.setStep}
-            playing={playback.playing}
-            replayMode={replayMode}
-            setReplayMode={handleReplayModeChange}
-            speedModifier={playback.speed}
+            onSpeedChange={actions.setSpeed}
+            onStepChange={actions.setStep}
+            playing={state.playing}
+            replayMode={state.replayMode}
+            setReplayMode={actions.setReplayMode}
+            speedModifier={state.speed}
             totalSteps={totalSteps}
             steps={processedReplay.steps}
-            currentStep={playback.step}
+            currentStep={state.step}
             gameName={gameName}
             interestingEvents={interestingEvents}
           />
