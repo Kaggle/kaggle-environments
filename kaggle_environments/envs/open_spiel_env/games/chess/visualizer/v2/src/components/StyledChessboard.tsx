@@ -1,7 +1,7 @@
 import { Chessboard, PieceRenderObject } from 'react-chessboard';
 import useChessStore from '../stores/useChessStore';
 
-const StyledChessboard = () => {
+export default function StyledChessboard() {
   const chess = useChessStore((state) => state.chess);
   const position = chess.fen();
 
@@ -38,6 +38,4 @@ const StyledChessboard = () => {
   };
 
   return <Chessboard options={{ position, pieces, lightSquareStyle, darkSquareStyle }} />;
-};
-
-export default StyledChessboard;
+}
