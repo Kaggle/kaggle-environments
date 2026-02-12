@@ -29,43 +29,35 @@ const SPEED_OPTIONS: SelectOption<number>[] = [
     label: 'Speed 0.5',
     value: 0.5,
     icon: 'speed_0_5',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 0.75',
     value: 0.75,
     icon: 'speed_0_75',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 1',
     value: 1,
     icon: '1x_mobiledata',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 1.5',
     value: 1.5,
     icon: 'speed_1_5',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 2',
     value: 2,
     icon: 'speed_2x',
-    valueLabel: <></>,
   },
 ];
-
-const IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT = '74px';
 
 const LogsContainer = styled('div')`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   min-width: 300px;
-
-  height: calc(100% - ${IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT});
+  height: 100%;
   min-height: 0;
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
@@ -76,7 +68,7 @@ const LogsContainer = styled('div')`
 
 const SidebarHeader = styled('div')`
   align-items: center;
-  background-color: ${(p) => p.theme.palette.background.default};
+  /* background-color: ${(p) => p.theme.palette.background.default}; */
   border-bottom: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
@@ -450,10 +442,17 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 onChange={(e) => onSpeedChange(e.target.value as number)}
                 aria-label="Change Playback Speed"
                 size="small"
+                sx={{
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: 'none',
+                  },
+                }}
               >
                 {SPEED_OPTIONS.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
-                    {option.label}
+                    <Icon aria-label={option.label} style={{ display: 'flex', height: '100%' }}>
+                      {option.icon}
+                    </Icon>
                   </MenuItem>
                 ))}
               </Select>
