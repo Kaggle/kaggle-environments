@@ -1,4 +1,7 @@
 import { createTheme } from '@mui/material/styles';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/700.css';
 
 // Custom breakpoints matching the Material design guidelines
 // See: https://carbon.googleplex.com/kaggle/pages/layout-breakpoints/principles
@@ -57,13 +60,46 @@ export const themeBreakpoints = {
 
 export const theme = createTheme({
   breakpoints: themeBreakpoints,
+  typography: {
+    fontFamily: 'Inter, sans-serif',
+    h1: {
+      fontSize: '36px',
+      lineHeight: '44px',
+      fontWeight: '700',
+    },
+    h2: {
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontWeight: '700',
+    },
+    h3: {
+      fontSize: '28px',
+      lineHeight: '36px',
+      fontWeight: '700',
+    },
+    h4: {
+      fontSize: '24px',
+      lineHeight: '32px',
+      fontWeight: '700',
+    },
+    h5: {
+      fontSize: '20px',
+      lineHeight: '24px',
+      fontWeight: '700',
+    },
+    h6: {
+      fontSize: '16px',
+      lineHeight: '20px',
+      fontWeight: '700',
+    },
+  },
   palette: {
     mode: 'dark',
     primary: {
-      main: '#90caf9',
+      main: '#ffffff',
     },
     secondary: {
-      main: '#ce93d8',
+      main: '#ffffff',
     },
     background: {
       default: '#121212',
@@ -75,6 +111,56 @@ export const theme = createTheme({
     },
     divider: 'rgba(255, 255, 255, 0.12)',
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          color: '#ffffff',
+          borderColor: '#ffffff',
+          textTransform: 'none',
+          borderRadius: '20px',
+          fontFamily: 'Inter',
+          padding: '0px 16px',
+          height: '36px',
+          fontSize: '14px',
+          lineHeight: '20px',
+          fontWeight: 700,
+          width: 'fit-content',
+        },
+        sizeSmall: {
+          height: '28px',
+          fontWeight: 400,
+          borderColor: 'rgb(189, 193, 198)',
+        },
+      },
+    },
+    MuiSlider: {
+      styleOverrides: {
+        root: {
+          marginBottom: 0,
+        },
+        rail: {
+          color: 'rgb(128, 134, 139)',
+        },
+        track: {
+          color: 'rgb(248, 249, 250)',
+          opacity: 1,
+        },
+        mark: {
+          display: 'none',
+        },
+        markLabel: {
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 2,
+        },
+        thumb: {
+          height: '12px',
+          width: '12px',
+        },
+      },
+    },
+  },
 });
 
 // Light theme variant for games that prefer light mode
@@ -83,14 +169,17 @@ export const lightTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      main: '#202124',
     },
     secondary: {
-      main: '#9c27b0',
+      main: '#202124',
     },
     background: {
       default: '#ffffff',
       paper: '#f5f5f5',
+    },
+    text: {
+      primary: '#202124',
     },
   },
 });

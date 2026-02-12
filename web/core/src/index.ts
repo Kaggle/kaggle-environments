@@ -37,8 +37,8 @@ export * from './ReasoningLogs';
 
 // Theme and utils
 export * from './theme';
-export { UserContent } from './UserContent';
-export type { UserContentProps } from './UserContent';
+export { UserContent } from './components/UserContent';
+export type { UserContentProps } from './components/UserContent';
 export * from './utils';
 
 // Episode asset utilities

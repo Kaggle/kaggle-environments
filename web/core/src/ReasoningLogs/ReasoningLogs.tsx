@@ -146,34 +146,8 @@ const LogsScroller = styled('div')`
   }
 `;
 
-/* Invert the colors we usually do for Sliders to make this look more like a playback (think Youtube) */
 const PlaybackSlider = styled(Slider)`
   margin-right: 4px;
-
-  && .MuiSlider-rail {
-    color: ${({ theme }) => theme.palette.text.secondary};
-  }
-
-  && .MuiSlider-track {
-    color: ${({ theme }) => theme.palette.text.primary};
-    opacity: 1;
-  }
-
-  && .MuiSlider-mark {
-    display: none;
-  }
-
-  && .MuiSlider-markLabel {
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2;
-  }
-
-  /* MUI slider adds a default margin-bottom of 20px when marks are used to accomodate them.
-  We use marks but move them up onto the slider line itself, so we don't need this margin.*/
-  &&& {
-    margin-bottom: 0;
-  }
 `;
 
 const MarkDot = styled('div')<{ $active?: boolean }>`
@@ -271,7 +245,6 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
     () => ({
       List: VirtuosoScrollerList,
       Item: VirtuosoListItem as React.ComponentType<any>,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
       Footer: () => (
         <div
           // This buffer is basically our bottom padding so that the list
