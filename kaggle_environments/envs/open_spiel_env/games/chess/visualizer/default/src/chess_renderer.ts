@@ -290,17 +290,11 @@ export function renderer(options: any) {
 
   _buildVisualizer(parent, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
 
-  if (!steps || steps.length === 0 || steps.length < step) {
-    _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
-    return;
-  }
+  const currentStep: ChessStep | null = steps && steps.length > step ? steps[step] : null;
 
-  const currentStep: ChessStep = steps[step];
-
-  if (!currentStep) {
-    _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
-    return;
-  }
-
-  _renderChessBoard(currentStep, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
+  // Defer rendering to next frame to ensure container is laid out
+  // This fixes the issue where clientHeight is 0 on initial render
+  requestAnimationFrame(() => {
+    _renderChessBoard(currentStep, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
+  });
 }

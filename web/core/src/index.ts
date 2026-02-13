@@ -1,5 +1,5 @@
+// Types
 export * from './types';
-export * from './transformers/repeated_poker/v2/poker-steps-types';
 export type { ChessPlayer, ChessStep } from './transformers/chess/chessReplayTypes';
 export type {
   ConnectFourPlayer,
@@ -13,13 +13,33 @@ export type {
   WerewolfProcessedReplay,
 } from './transformers/werewolf/werewolfReplayTypes';
 export type { GoStep } from './transformers/go/goReplayTypes';
-export * from './adapter';
-export * from './preact-adapter';
-export * from './legacy-adapter';
-export * from './types';
+export * from './transformers/repeated_poker/v2/poker-steps-types';
 
+// Adapters
+export * from './adapter';
+export * from './replay-adapter';
+
+// Player (legacy, still exported)
 export * from './replay-visualizer-factory';
+
+// Transformers and timing
 export * from './timing';
 export * from './transformers';
+
+// Components
 export * from './components';
+
+// Hooks
+export * from './hooks';
+
+// ReasoningLogs
+export * from './ReasoningLogs';
+
+// Theme and utils
+export * from './theme';
+export { UserContent } from './UserContent';
+export type { UserContentProps } from './UserContent';
+export * from './utils';
+
+// Episode asset utilities
 export * from './episodeAssetUtils';

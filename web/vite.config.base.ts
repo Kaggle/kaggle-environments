@@ -11,6 +11,17 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@kaggle-environments/core'],
   },
+  build: {
+    rollupOptions: {
+      // Suppress "use client" directive warnings from MUI
+      onwarn(warning, warn) {
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('"use client"')) {
+          return;
+        }
+        warn(warning);
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port,
@@ -23,7 +34,8 @@ export default defineConfig({
   },
   plugins: [
     tsconfigPaths(),
-    checker({ typescript: true }),
+    // Only run TypeScript checker in dev mode - production builds use explicit tsc
+    process.env.NODE_ENV !== 'production' && checker({ typescript: true }),
     // Inject CSS into JS bundle in production builds (matches dev behavior)
     cssInjectedByJsPlugin(),
     {
@@ -41,5 +53,5 @@ export default defineConfig({
         };
       },
     },
-  ],
+  ].filter(Boolean),
 });

@@ -1,4 +1,2 @@
-export * from './icons';
-export * from './SpeedSelector';
-export * from './StepSlider';
-export * from './PlayerControls';
+export * from './PlaybackControls';
+export * from './EpisodePlayer';

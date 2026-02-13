@@ -1,5 +1,5 @@
-import * as React from "react";
-import Markdown from "react-markdown";
+import * as React from 'react';
+import Markdown from 'react-markdown';
 
 export interface UserContentProps {
   markdown: string;
@@ -18,4 +18,4 @@ export const UserContent = React.forwardRef<HTMLDivElement, UserContentProps>(
   }
 );
 
-UserContent.displayName = "UserContent";
+UserContent.displayName = 'UserContent';
