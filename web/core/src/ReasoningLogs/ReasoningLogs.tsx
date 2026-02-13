@@ -1,15 +1,21 @@
-import { ReasoningStep } from "./ReasoningStep";
+import { ReasoningStep } from './ReasoningStep';
+import { BaseGameStep, InterestingEvent, ReplayMode } from '../types';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import * as React from 'react';
+import { Virtuoso, VirtuosoHandle, Components } from 'react-virtuoso';
+import { styled } from '@mui/material/styles';
 import {
-  BaseGameStep,
-  InterestingEvent,
-  ReplayMode,
-} from "@kaggle-environments/core";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import * as React from "react";
-import { useSearchParams } from "react-router";
-import { Virtuoso, VirtuosoHandle, Components } from "react-virtuoso";
-import { styled } from "@mui/material/styles";
-import { Button, CircularProgress, Icon, IconButton, List, MenuItem, Select, Slider, Tooltip, Typography } from "@mui/material";
+  Button,
+  CircularProgress,
+  Icon,
+  IconButton,
+  List,
+  MenuItem,
+  Select,
+  Slider,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 
 interface SelectOption<T> {
   label: string;
@@ -20,41 +26,41 @@ interface SelectOption<T> {
 
 const SPEED_OPTIONS: SelectOption<number>[] = [
   {
-    label: "Speed 0.5",
+    label: 'Speed 0.5',
     value: 0.5,
-    icon: "speed_0_5",
+    icon: 'speed_0_5',
     valueLabel: <></>,
   },
   {
-    label: "Speed 0.75",
+    label: 'Speed 0.75',
     value: 0.75,
-    icon: "speed_0_75",
+    icon: 'speed_0_75',
     valueLabel: <></>,
   },
   {
-    label: "Speed 1",
+    label: 'Speed 1',
     value: 1,
-    icon: "1x_mobiledata",
+    icon: '1x_mobiledata',
     valueLabel: <></>,
   },
   {
-    label: "Speed 1.5",
+    label: 'Speed 1.5',
     value: 1.5,
-    icon: "speed_1_5",
+    icon: 'speed_1_5',
     valueLabel: <></>,
   },
   {
-    label: "Speed 2",
+    label: 'Speed 2',
     value: 2,
-    icon: "speed_2x",
+    icon: 'speed_2x',
     valueLabel: <></>,
   },
 ];
 
-const IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT = "74px";
+const IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT = '74px';
 
 const LogsContainer = styled('div')`
-  border-left: 1px solid ${p => p.theme.palette.divider};
+  border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   min-width: 300px;
@@ -70,8 +76,8 @@ const LogsContainer = styled('div')`
 
 const SidebarHeader = styled('div')`
   align-items: center;
-  background-color: ${p => p.theme.palette.background.default};
-  border-bottom: 1px solid ${p => p.theme.palette.divider};
+  background-color: ${(p) => p.theme.palette.background.default};
+  border-bottom: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -79,7 +85,7 @@ const SidebarHeader = styled('div')`
   flex-shrink: 0;
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
-    border-top: 1px solid ${p => p.theme.palette.divider};
+    border-top: 1px solid ${(p) => p.theme.palette.divider};
     padding: 8px 16px;
   }
 `;
@@ -108,7 +114,7 @@ const SpacedListItem = styled('li')`
   list-style: none;
 
   /* Apply the gap here.
-    Virtuoso measures this element, so it will account for the extra space. 
+    Virtuoso measures this element, so it will account for the extra space.
     WARNING: if this is margin instead of padding it will cause Jitter
     */
   padding-top: 20px;
@@ -178,17 +184,14 @@ const MarkDot = styled('div')<{ $active?: boolean }>`
   cursor: pointer;
   border: 2px solid
     ${({ theme, $active }) =>
-    $active
-      ? theme.palette.mode === "dark"
-        ? theme.palette.common.white
-        : theme.palette.common.black
-      : theme.palette.background.default};
+      $active
+        ? theme.palette.mode === 'dark'
+          ? theme.palette.common.white
+          : theme.palette.common.black
+        : theme.palette.background.default};
   &:hover {
     border: 2px solid
-      ${({ theme }) =>
-    theme.palette.mode === "dark"
-      ? theme.palette.common.white
-      : theme.palette.common.black};
+      ${({ theme }) => (theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black)};
   }
 `;
 
@@ -200,25 +203,19 @@ const NoStepsContainer = styled('div')`
   justify-content: center;
 `;
 
-const VirtuosoScrollerList = React.forwardRef(
-  (props, ref: React.ForwardedRef<any>) => {
-    return <StepList {...props} ref={ref} />;
-  }
-);
+const VirtuosoScrollerList = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
+  return <StepList {...props} ref={ref} />;
+});
 
-const VirtuosoListItem = React.forwardRef(
-  (props, ref: React.ForwardedRef<any>) => {
-    return <SpacedListItem {...props} ref={ref} />;
-  }
-);
+const VirtuosoListItem = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
+  return <SpacedListItem {...props} ref={ref} />;
+});
 
-const Scroller = React.forwardRef(
-  ({ ...props }, ref: React.ForwardedRef<any>) => (
-    <LogsScroller ref={ref} {...props} />
-  )
-);
+const Scroller = React.forwardRef(({ ...props }, ref: React.ForwardedRef<any>) => (
+  <LogsScroller ref={ref} {...props} />
+));
 
-export interface ReasoningLogs {
+export interface ReasoningLogsProps {
   closePanel: () => void;
   onPlayChange: (playing?: boolean) => void;
   onSpeedChange: (modifier: number) => void;
@@ -234,7 +231,7 @@ export interface ReasoningLogs {
   interestingEvents?: InterestingEvent[];
 }
 
-export const ReasoningLogs: React.FC<ReasoningLogs> = ({
+export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   closePanel,
   onPlayChange,
   onSpeedChange,
@@ -256,16 +253,15 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
   const scrollerRef = React.useRef<HTMLElement | null>(null);
   const isAtBottomRef = React.useRef(true);
 
-  /* Users can enter a new step in a text field or with a slider- 
+  /* Users can enter a new step in a text field or with a slider-
   make sure we don't overwrite their input as the episode keeps streaming */
   const [isChangingStep, setIsChangingStep] = React.useState(false);
   const [userInputStep, setUserInputStep] = React.useState(currentStep);
 
-  const [searchParams] = useSearchParams();
   const [hasCopied, setHasCopied] = React.useState(false);
 
-  const isTablet = useMediaQuery(theme => theme.breakpoints.down('tablet'));
-  const showControls = replayMode !== "only-stream";
+  const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
+  const showControls = replayMode !== 'only-stream';
 
   const visibleSteps = React.useMemo(() => {
     return steps.slice(0, currentStep + 1);
@@ -281,12 +277,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
           // This buffer is basically our bottom padding so that the list
           // doesn't hug the bottom of the screen.
           style={{
-            height:
-              replayMode === "only-stream"
-                ? "80px"
-                : isTablet
-                  ? "16px"
-                  : "64px",
+            height: replayMode === 'only-stream' ? '80px' : isTablet ? '16px' : '64px',
           }}
         />
       ),
@@ -305,8 +296,8 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
             // 'start' puts the top of the step at the top of the container.
             // This is crucial for long steps so the user starts reading from the top.
             // If you prefer terminal-style "bottom locking", change this to 'end'.
-            align: "start",
-            behavior: "auto",
+            align: 'start',
+            behavior: 'auto',
           });
         }, 50);
       }
@@ -321,7 +312,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
         if (scrollerRef.current) {
           scrollerRef.current.scrollTo({
             top: scrollerRef.current.scrollHeight,
-            behavior: "smooth", // Smooth is fine here for the big "New Card" jump
+            behavior: 'smooth', // Smooth is fine here for the big "New Card" jump
           });
         }
       });
@@ -329,7 +320,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
   }, [visibleSteps.length]);
 
   React.useEffect(() => {
-    if (replayMode === "condensed") {
+    if (replayMode === 'condensed') {
       setExpandAll(false);
     }
     // Virtuoso's `followOutput` prop handles most auto-scrolling,
@@ -342,17 +333,12 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
     /* Pause the episode if the user is currently changing the step */
     if (isChangingStep && playing === true) {
       onPlayChange(false);
-    } else {
+    } else if (isChangingStep === false) {
+      // Only scroll when user finishes changing step, don't auto-play
       scrollLogs(true);
-      onPlayChange(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isChangingStep]);
-
-  /* Force scrolling if the episode ID or step param change */
-  React.useEffect(() => {
-    scrollLogs(true);
-  }, [scrollLogs, searchParams]);
 
   /* Only update the value we show in the slider and text field
   if the user is not currently changing it */
@@ -367,23 +353,22 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
     <LogsContainer>
       <SidebarHeader>
         <GameLogHeader>
-          <Typography variant="h6" component="h2">Game Log</Typography>
+          <Typography variant="h6" component="h2">
+            Game Log
+          </Typography>
           <div>
-            {replayMode !== "only-stream" && (
-              <IconButton
-                size={isTablet ? "small" : "medium"}
-                onClick={closePanel}
-                aria-label="Collapse Episodes"
-              >
-                <Icon>{isTablet ? "bottom_panel_close" : "right_panel_close"}</Icon>
+            {replayMode !== 'only-stream' && (
+              <IconButton size={isTablet ? 'small' : 'medium'} onClick={closePanel} aria-label="Collapse Episodes">
+                <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
               </IconButton>
             )}
-            {replayMode !== "only-stream" && !isTablet && (
+            {replayMode !== 'only-stream' && !isTablet && (
               <IconButton
                 size="medium"
                 onClick={() => {
-                  searchParams.set("step", currentStep.toString());
-                  const urlToCopy = `${window.location.origin}${window.location.pathname}?${searchParams.toString()}`;
+                  const urlParams = new URLSearchParams(window.location.search);
+                  urlParams.set('step', currentStep.toString());
+                  const urlToCopy = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
 
                   navigator.clipboard.writeText(urlToCopy);
                   setHasCopied(true);
@@ -393,7 +378,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 }}
                 aria-label="Share Episode"
               >
-                <Icon>{hasCopied ? "done" : "ios_share"}</Icon>
+                <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
               </IconButton>
             )}
           </div>
@@ -425,12 +410,8 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 >
                   <Icon>skip_previous</Icon>
                 </IconButton>
-                <IconButton
-                  size="large"
-                  aria-label={playing ? "Pause" : "Play"}
-                  onClick={() => onPlayChange()}
-                >
-                  <Icon>{playing ? "pause" : "play_arrow"}</Icon>
+                <IconButton size="large" aria-label={playing ? 'Pause' : 'Play'} onClick={() => onPlayChange()}>
+                  <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
                 <IconButton
                   size="large"
@@ -447,7 +428,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 </IconButton>
               </PlayerButtons>
               {totalSteps > 0 && currentStep > -1 && (
-                <Typography variant="body1" style={{ marginRight: "8px" }}>
+                <Typography variant="body1" style={{ marginRight: '8px' }}>
                   {currentStep + 1}/{totalSteps}
                 </Typography>
               )}
@@ -457,7 +438,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 min={1}
                 max={totalSteps > 0 ? totalSteps : 0}
                 onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
-                  if (typeof value === "number") {
+                  if (typeof value === 'number') {
                     onStepChange(value - 1);
                     setIsChangingStep(false);
                   }
@@ -465,7 +446,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 name="Change Step"
                 value={userInputStep}
                 onChange={(_: Event, value: number | number[]) => {
-                  if (typeof value === "number") {
+                  if (typeof value === 'number') {
                     setUserInputStep(value);
 
                     if (!isChangingStep) {
@@ -474,7 +455,7 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                   }
                 }}
                 valueLabelDisplay="auto"
-                marks={interestingEvents?.map(event => ({
+                marks={interestingEvents?.map((event) => ({
                   value: event.step + 1, // The slider is 1-indexed.
                   label: (
                     <Tooltip title={event.description} placement="top">
@@ -504,33 +485,29 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
                 ))}
               </Select>
             </PlayerControlsSection>
-            <PlayerControlsSection
-              style={{ justifyContent: "flex-start", marginTop: "8px" }}
-            >
+            <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={
-                  <Icon>{replayMode === "zen" ? "view_object_track" : "sensors"}</Icon>
-                }
+                startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
                 onClick={() => {
-                  if (replayMode === "zen") {
-                    setReplayMode("condensed");
+                  if (replayMode === 'zen') {
+                    setReplayMode('condensed');
                   } else {
-                    setReplayMode("zen");
+                    setReplayMode('zen');
                   }
                 }}
               >
-                {replayMode === "zen" ? "Log View" : "Streaming View"}
+                {replayMode === 'zen' ? 'Log View' : 'Streaming View'}
               </Button>
-              {replayMode === "condensed" && (
+              {replayMode === 'condensed' && (
                 <Button
                   variant="outlined"
                   size="small"
                   startIcon={<Icon>expand_all</Icon>}
                   onClick={() => setExpandAll(!expandAll)}
                 >
-                  {expandAll ? "Collapse" : "Expand"} All
+                  {expandAll ? 'Collapse' : 'Expand'} All
                 </Button>
               )}
             </PlayerControlsSection>
@@ -543,11 +520,11 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
           ref={virtuosoRef}
           data={visibleSteps}
           components={virtuosoComponents}
-          scrollerRef={ref => {
+          scrollerRef={(ref) => {
             scrollerRef.current = ref as HTMLElement;
           }}
           atBottomThreshold={50}
-          atBottomStateChange={isAtBottom => {
+          atBottomStateChange={(isAtBottom) => {
             isAtBottomRef.current = isAtBottom;
           }}
           // Automatically scrolls to bottom when new items are added if user hasn't scrolled up
@@ -557,8 +534,8 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
             return (
               <ReasoningStep
                 key={index}
-                expandByDefault={replayMode === "condensed" ? expandAll : true}
-                showExpandButton={replayMode === "condensed"}
+                expandByDefault={replayMode === 'condensed' ? expandAll : true}
+                showExpandButton={replayMode === 'condensed'}
                 step={turn}
                 stepNumber={index + 1}
                 scrollLogs={scrollLogs}
@@ -578,4 +555,4 @@ export const ReasoningLogs: React.FC<ReasoningLogs> = ({
       )}
     </LogsContainer>
   );
-}
+};
