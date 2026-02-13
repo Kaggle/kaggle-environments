@@ -7,8 +7,8 @@ const INPUT_CONSTANTS = {
   CITY: 'c',
   CITY_TILES: 'ct',
   ROADS: 'ccd',
-}
+};
 
 module.exports = {
   INPUT_CONSTANTS,
-}
+};

@@ -45,35 +45,35 @@ export class LightingManager {
     const nightPath = `${import.meta.env.BASE_URL}static/werewolf/hdri/rogland_clear_night_1k.hdr`;
 
     this.assetManager.loadHDR(dayPath).then((texture) => {
-        const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
-        this.dayEnvMap = envMap;
-        
-        // Optimize: Dispose raw HDRI texture immediately to free memory
-        texture.dispose();
+      const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+      this.dayEnvMap = envMap;
 
-        // Set initial if day
-        if (!this.scene.environment) this.scene.environment = envMap;
+      // Optimize: Dispose raw HDRI texture immediately to free memory
+      texture.dispose();
+
+      // Set initial if day
+      if (!this.scene.environment) this.scene.environment = envMap;
     });
 
     this.assetManager.loadHDR(nightPath).then((texture) => {
-        const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
-        this.nightEnvMap = envMap;
-        
-        // Optimize: Dispose raw HDRI texture immediately
-        texture.dispose();
+      const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+      this.nightEnvMap = envMap;
+
+      // Optimize: Dispose raw HDRI texture immediately
+      texture.dispose();
     });
   }
 
   update(phase) {
     // Switch Environment Map based on phase
     if (phase > 0.5 && this.nightEnvMap) {
-        if (this.scene.environment !== this.nightEnvMap) {
-            this.scene.environment = this.nightEnvMap;
-        }
+      if (this.scene.environment !== this.nightEnvMap) {
+        this.scene.environment = this.nightEnvMap;
+      }
     } else if (phase <= 0.5 && this.dayEnvMap) {
-        if (this.scene.environment !== this.dayEnvMap) {
-            this.scene.environment = this.dayEnvMap;
-        }
+      if (this.scene.environment !== this.dayEnvMap) {
+        this.scene.environment = this.dayEnvMap;
+      }
     }
 
     if (this.rimLight) {

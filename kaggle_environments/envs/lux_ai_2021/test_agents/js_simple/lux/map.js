@@ -23,10 +23,9 @@ class GameMap {
     const cell = this.getCell(x, y);
     cell.resource = {
       type: type,
-      amount: amount
-    }
+      amount: amount,
+    };
   }
-
 }
 
 class Cell {
@@ -80,12 +79,7 @@ class Position {
 
   /** Returns closest direction to targetPos, or null if staying put is best */
   directionTo(targetPos) {
-    const checkDirections = [
-      DIRECTIONS.NORTH,
-      DIRECTIONS.EAST,
-      DIRECTIONS.SOUTH,
-      DIRECTIONS.WEST,
-    ];
+    const checkDirections = [DIRECTIONS.NORTH, DIRECTIONS.EAST, DIRECTIONS.SOUTH, DIRECTIONS.WEST];
     let closestDirection = DIRECTIONS.CENTER;
     let closestDist = this.distanceTo(targetPos);
     checkDirections.forEach((dir) => {
@@ -104,4 +98,4 @@ module.exports = {
   GameMap,
   Cell,
   Position,
-}
+};

@@ -34,13 +34,13 @@ async function renderer(context) {
   const cellSize = (canvasSize - offset * 2) / 3;
 
   // Canvas Setup.
-  let canvas = parent.querySelector("canvas");
+  let canvas = parent.querySelector('canvas');
   if (!canvas) {
-    canvas = document.createElement("canvas");
+    canvas = document.createElement('canvas');
     parent.appendChild(canvas);
 
     if (interactive) {
-      canvas.addEventListener("click", evt => {
+      canvas.addEventListener('click', (evt) => {
         if (!isInteractive()) return;
         const rect = evt.target.getBoundingClientRect();
         const x = evt.clientX - rect.left - offset;
@@ -49,20 +49,15 @@ async function renderer(context) {
       });
     }
   }
-  canvas.style.cursor = isInteractive() ? "pointer" : "default";
+  canvas.style.cursor = isInteractive() ? 'pointer' : 'default';
 
   // Canvas setup and reset.
-  let c = canvas.getContext("2d");
+  let c = canvas.getContext('2d');
   canvas.width = canvasSize;
   canvas.height = canvasSize;
   c.clearRect(0, 0, canvas.width, canvas.height);
 
-  const drawStyle = ({
-    lineWidth = 1,
-    lineCap,
-    strokeStyle = "#FFF",
-    shadow,
-  }) => {
+  const drawStyle = ({ lineWidth = 1, lineCap, strokeStyle = '#FFF', shadow }) => {
     c.lineWidth = lineWidth;
     c.strokeStyle = strokeStyle;
     if (lineCap) c.lineCap = lineCap;
@@ -91,22 +86,13 @@ async function renderer(context) {
 
   // Draw the Grid.
   const gridFrame = step === 0 ? frame : 1;
-  const drawGridLine = ({
-    x1s = 0,
-    y1s = 0,
-    x2s,
-    y2s,
-    x1o = 0,
-    x2o = 0,
-    y1o = 0,
-    y2o = 0,
-  }) =>
+  const drawGridLine = ({ x1s = 0, y1s = 0, x2s, y2s, x1o = 0, x2o = 0, y1o = 0, y2o = 0 }) =>
     drawLine({
       x1: x1s * cellSize + x1o * unit,
       x2: (x2s || x1s) * cellSize + x2o * unit,
       y1: y1s * cellSize + y1o * unit,
       y2: (y2s || y1s) * cellSize + y2o * unit,
-      style: { strokeStyle: "#046BBF" },
+      style: { strokeStyle: '#046BBF' },
     });
 
   // Vertical.
@@ -139,9 +125,9 @@ async function renderer(context) {
         x2: col * cellSize + x2,
         y2: row * cellSize + y2,
         style: {
-          strokeStyle: "#00FFFF",
+          strokeStyle: '#00FFFF',
           lineWidth: 2,
-          lineCap: "round",
+          lineCap: 'round',
           shadow: { blur: 8 },
         },
       });
@@ -171,11 +157,7 @@ async function renderer(context) {
     const row = Math.floor(cell / 3);
     const col = cell % 3;
     const radius = cellSize / 4 + 1; // +1 is for optical illusion.
-    const gap =
-      (Math.acos((2 * (radius ^ 2) - (unit ^ 2)) / (2 * radius * radius)) /
-        180) *
-      Math.PI *
-      unit;
+    const gap = (Math.acos((2 * (radius ^ 2) - (unit ^ 2)) / (2 * radius * radius)) / 180) * Math.PI * unit;
     const x = cellSize * col + cellSize / 2 + offset;
     const y = cellSize * row + cellSize / 2 + offset;
 
@@ -188,29 +170,19 @@ async function renderer(context) {
         eAngle,
         style: {
           lineWidth: 2,
-          strokeStyle: "#FFF",
+          strokeStyle: '#FFF',
           shadow: { blur: 8 },
         },
       });
 
-    drawOArc(
-      -Math.PI / 2 + gap,
-      -Math.PI / 2 + gap + (Math.PI - gap * 2) * cellFrame
-    );
-    drawOArc(
-      Math.PI / 2 + gap,
-      Math.PI / 2 + gap + (Math.PI - gap * 2) * cellFrame
-    );
+    drawOArc(-Math.PI / 2 + gap, -Math.PI / 2 + gap + (Math.PI - gap * 2) * cellFrame);
+    drawOArc(Math.PI / 2 + gap, Math.PI / 2 + gap + (Math.PI - gap * 2) * cellFrame);
   };
 
   const board = environment.steps[step][0].observation.board;
 
   board.forEach((value, cell) => {
-    const cellFrame =
-      step <= 1 ||
-      environment.steps[step - 1][0].observation.board[cell] !== value
-        ? frame
-        : 1;
+    const cellFrame = step <= 1 || environment.steps[step - 1][0].observation.board[cell] !== value ? frame : 1;
     if (value === 1) drawX(cell, cellFrame);
     if (value === 2) drawO(cell, cellFrame);
   });
@@ -228,11 +200,7 @@ async function renderer(context) {
     [2, 4, 6, 18 / 19, 1 / 19, 1 / 19, 18 / 19],
   ];
   for (const check of checks) {
-    if (
-      board[check[0]] !== 0 &&
-      board[check[0]] === board[check[1]] &&
-      board[check[0]] === board[check[2]]
-    ) {
+    if (board[check[0]] !== 0 && board[check[0]] === board[check[1]] && board[check[0]] === board[check[2]]) {
       const x1 = check[3] * (cellSize * 3);
       const y1 = check[4] * (cellSize * 3);
       const winFrame = frame < 0.5 ? 0 : (frame - 0.5) / 0.5;
@@ -243,7 +211,7 @@ async function renderer(context) {
           x2: x1 + (check[5] * (cellSize * 3) - x1) * winFrame,
           y2: y1 + (check[6] * (cellSize * 3) - y1) * winFrame,
           style: {
-            strokeStyle: "#FFF",
+            strokeStyle: '#FFF',
             lineWidth: 3 * winFrame,
             shadow: { blur: 8 * winFrame },
           },
@@ -255,21 +223,21 @@ async function renderer(context) {
 
   // Upgrade the legend.
   if (agents.length && (!agents[0].color || !agents[0].image)) {
-    const getPieceImage = drawFn => {
-      const pieceCanvas = document.createElement("canvas");
+    const getPieceImage = (drawFn) => {
+      const pieceCanvas = document.createElement('canvas');
       parent.appendChild(pieceCanvas);
-      pieceCanvas.style.marginLeft = "10000px";
+      pieceCanvas.style.marginLeft = '10000px';
       pieceCanvas.width = cellSize + offset * 2;
       pieceCanvas.height = cellSize + offset * 2;
-      c = pieceCanvas.getContext("2d");
+      c = pieceCanvas.getContext('2d');
       drawFn(0, 1);
       const dataUrl = pieceCanvas.toDataURL();
       parent.removeChild(pieceCanvas);
       return dataUrl;
     };
 
-    agents.forEach(agent => {
-      agent.color = agent.index === 0 ? "#0FF" : "#FFF";
+    agents.forEach((agent) => {
+      agent.color = agent.index === 0 ? '#0FF' : '#FFF';
       agent.image = getPieceImage(agent.index === 0 ? drawX : drawO);
     });
     update({ agents });

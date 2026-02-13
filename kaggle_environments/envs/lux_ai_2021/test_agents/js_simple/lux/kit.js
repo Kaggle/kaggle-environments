@@ -3,17 +3,9 @@ const readline = require('readline');
 
 // Create parser and use ',' as the delimiter between commands being sent by the `Match` and `MatchEngine`
 const Parser = require('./parser');
-const {
-  GameMap
-} = require('./map');
-const {
-  INPUT_CONSTANTS
-} = require('./io');
-const {
-  Player,
-  City,
-  Unit,
-} = require('./game_objects');
+const { GameMap } = require('./map');
+const { INPUT_CONSTANTS } = require('./io');
+const { Player, City, Unit } = require('./game_objects');
 const GAME_CONSTANTS = require('./game_constants');
 const parse = new Parser(' ');
 
@@ -22,7 +14,6 @@ const parse = new Parser(' ');
  */
 class Agent {
   _setup() {
-
     // Prepare to read input
     const rl = readline.createInterface({
       input: process.stdin,
@@ -73,11 +64,10 @@ class Agent {
    * User should edit this according to their `Design`
    */
   async initialize() {
-
     // get agent ID
     const id = (await this.getLine()).nextInt();
     // get some other necessary initial input
-    let mapInfo = (await this.getLine());
+    let mapInfo = await this.getLine();
     let width = mapInfo.nextInt();
     let height = mapInfo.nextInt();
     const map = new GameMap(width, height);
@@ -114,7 +104,7 @@ class Agent {
     // TODO: this can be optimized. we only reset because some resources get removed
     this.gameState.map = new GameMap(this.gameState.map.width, this.gameState.map.height);
     while (true) {
-      let update = (await this.getLine());
+      let update = await this.getLine();
       if (update.str === INPUT_CONSTANTS.DONE) {
         break;
       }
@@ -143,7 +133,9 @@ class Agent {
           const wood = update.nextInt();
           const coal = update.nextInt();
           const uranium = update.nextInt();
-          this.gameState.players[team].units.push(new Unit(team, unittype, unitid, x, y, cooldown, wood, coal, uranium));
+          this.gameState.players[team].units.push(
+            new Unit(team, unittype, unitid, x, y, cooldown, wood, coal, uranium)
+          );
           break;
         }
         case INPUT_CONSTANTS.CITY: {
@@ -187,23 +179,23 @@ class Agent {
 
 const annotate = {
   circle: (x, y) => {
-    return `dc ${x} ${y}`
+    return `dc ${x} ${y}`;
   },
   x: (x, y) => {
-    return `dx ${x} ${y}`
+    return `dx ${x} ${y}`;
   },
   line: (x1, y1, x2, y2) => {
-    return `dl ${x1} ${y1} ${x2} ${y2}`
+    return `dl ${x1} ${y1} ${x2} ${y2}`;
   },
   text: (x1, y1, message, fontsize = 16) => {
-    return `dt ${x1} ${y1} ${fontsize} '${message}'`
+    return `dt ${x1} ${y1} ${fontsize} '${message}'`;
   },
   sidetext: (message) => {
-    return `dst '${message}'`
-  }
-}
+    return `dst '${message}'`;
+  },
+};
 
 module.exports = {
   Agent,
-  annotate
+  annotate,
 };
