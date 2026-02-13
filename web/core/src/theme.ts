@@ -134,9 +134,18 @@ export const theme = createTheme({
         },
       },
     },
+    MuiIcon: {
+      styleOverrides: {
+        root: {
+          height: '24px',
+        },
+      },
+    },
     MuiSlider: {
       styleOverrides: {
         root: {
+          height: '3px',
+          borderRadius: 0,
           marginBottom: 0,
         },
         rail: {
@@ -153,10 +162,6 @@ export const theme = createTheme({
           top: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 2,
-        },
-        thumb: {
-          height: '12px',
-          width: '12px',
         },
       },
     },

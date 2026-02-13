@@ -9,13 +9,13 @@ import {
   CircularProgress,
   Icon,
   IconButton,
-  List,
   MenuItem,
   Select,
   Slider,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { VirtuosoScrollerList, VirtuosoListItem, Scroller } from './VirtuosoComponents';
 
 interface SelectOption<T> {
   label: string;
@@ -99,45 +99,6 @@ const PlayerButtons = styled('div')`
   gap: 8px;
 `;
 
-const SpacedListItem = styled('li')`
-  /* Reset default li styles just in case */
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  /* Apply the gap here.
-    Virtuoso measures this element, so it will account for the extra space.
-    WARNING: if this is margin instead of padding it will cause Jitter
-    */
-  padding-top: 20px;
-  box-sizing: border-box;
-
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
-    padding-top: 8px;
-  }
-`;
-
-const StepList = styled(List)`
-  && {
-    margin: 0;
-    padding: 16px 24px;
-  }
-`;
-
-/* Hide all scrollbars- they get distracting when content is constantly scrolling */
-const LogsScroller = styled('div')`
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overflow-anchor: none;
-  scrollbar-gutter: stable;
-
-  &::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    background: transparent;
-  }
-`;
-
 const PlaybackSlider = styled(Slider)`
   margin-right: 4px;
 `;
@@ -169,17 +130,11 @@ const NoStepsContainer = styled('div')`
   justify-content: center;
 `;
 
-const VirtuosoScrollerList = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
-  return <StepList {...props} ref={ref} />;
-});
-
-const VirtuosoListItem = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
-  return <SpacedListItem {...props} ref={ref} />;
-});
-
-const Scroller = React.forwardRef(({ ...props }, ref: React.ForwardedRef<any>) => (
-  <LogsScroller ref={ref} {...props} />
-));
+const SpeedIcon = styled(Icon)`
+  display: flex;
+  height: 100%;
+  margin-right: 4px;
+`;
 
 export interface ReasoningLogsProps {
   closePanel: () => void;
@@ -400,6 +355,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             </PlayerControlsSection>
             <PlayerControlsSection>
               <PlaybackSlider
+                size="small"
                 min={1}
                 max={totalSteps > 0 ? totalSteps : 0}
                 onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
@@ -447,12 +403,15 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                     border: 'none',
                   },
                 }}
+                renderValue={(selected) => {
+                  const option = SPEED_OPTIONS.find((option) => option.value === selected);
+                  return option ? <SpeedIcon>{option.icon}</SpeedIcon> : '';
+                }}
               >
                 {SPEED_OPTIONS.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
-                    <Icon aria-label={option.label} style={{ display: 'flex', height: '100%' }}>
-                      {option.icon}
-                    </Icon>
+                    <SpeedIcon>{option.icon}</SpeedIcon>
+                    {option.label}
                   </MenuItem>
                 ))}
               </Select>
