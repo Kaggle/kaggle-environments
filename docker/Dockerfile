@@ -1,5 +1,5 @@
 # This is set in cloudbuild.yaml, but provide a default
-ARG BASE_IMAGE=gcr.io/kaggle-images/python:v163
+ARG BASE_IMAGE=gcr.io/kaggle-images/python:staging
 
 # ===== Base Stages =====
 FROM node:22-slim AS node_builder
