@@ -1,4 +1,4 @@
-import { getReadableActionsFromACPC } from "./repeatedPokerTransformerUtils.js";
+import { getReadableActionsFromACPC } from './repeatedPokerTransformerUtils.js';
 
 type TestCase = {
   name: string;
@@ -17,7 +17,7 @@ function runTest({ name, bettingString, expected, expectedError }: TestCase) {
     if (expectedError) {
       console.error(`❌ ${name}`);
       console.error(
-        `   Expected error containing "${expectedError}" but execution succeeded with ${JSON.stringify(result)}`,
+        `   Expected error containing "${expectedError}" but execution succeeded with ${JSON.stringify(result)}`
       );
       return;
     }
@@ -55,44 +55,44 @@ function runTest({ name, bettingString, expected, expectedError }: TestCase) {
 
 const testCases: TestCase[] = [
   {
-    name: "preflop raise-call sequence",
-    bettingString: "r5c",
-    expected: ["Raise 5", "Call 3"],
+    name: 'preflop raise-call sequence',
+    bettingString: 'r5c',
+    expected: ['Raise 5', 'Call 3'],
   },
   {
-    name: "multi-street action with fold",
-    bettingString: "r5c/cr11f",
-    expected: ["Raise 5", "Call 3", "Check", "Bet 6", "Fold"],
+    name: 'multi-street action with fold',
+    bettingString: 'r5c/cr11f',
+    expected: ['Raise 5', 'Call 3', 'Check', 'Bet 6', 'Fold'],
   },
   {
-    name: "check-check through two streets",
-    bettingString: "cc/cc",
-    expected: ["Call 1", "Check", "Check", "Check"],
+    name: 'check-check through two streets',
+    bettingString: 'cc/cc',
+    expected: ['Call 1', 'Check', 'Check', 'Check'],
   },
   {
-    name: "empty betting string",
-    bettingString: "",
+    name: 'empty betting string',
+    bettingString: '',
     expected: [],
   },
   {
-    name: "multi-raise same street",
-    bettingString: "r5r11",
-    expected: ["Raise 5", "Raise 11"],
+    name: 'multi-raise same street',
+    bettingString: 'r5r11',
+    expected: ['Raise 5', 'Raise 11'],
   },
   {
-    name: "invalid raise target throws",
-    bettingString: "r4r2",
-    expectedError: "Invalid raise target",
+    name: 'invalid raise target throws',
+    bettingString: 'r4r2',
+    expectedError: 'Invalid raise target',
   },
   {
-    name: "unknown betting token throws",
-    bettingString: "r4x",
-    expectedError: "Unknown betting token",
+    name: 'unknown betting token throws',
+    bettingString: 'r4x',
+    expectedError: 'Unknown betting token',
   },
   {
-    name: "full hand example",
-    bettingString: "r5c/cc/r11c/r122r200c",
-    expected: ["Raise 5", "Call 3", "Check", "Check", "Bet 6", "Call 6", "Bet 111", "Raise 189", "Call 78"],
+    name: 'full hand example',
+    bettingString: 'r5c/cc/r11c/r122r200c',
+    expected: ['Raise 5', 'Call 3', 'Check', 'Check', 'Bet 6', 'Call 6', 'Bet 111', 'Raise 189', 'Call 78'],
   },
 ];
 

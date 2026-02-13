@@ -32,23 +32,20 @@ function renderer({
   const unit = 8;
   const minCanvasSize = Math.min(height, width);
   const minOffset = minCanvasSize > 400 ? 30 : unit / 2;
-  const cellSize = Math.min(
-    (width - minOffset * 2) / columns,
-    (height - minOffset * 2) / rows
-  );
+  const cellSize = Math.min((width - minOffset * 2) / columns, (height - minOffset * 2) / rows);
   const cellInset = 0.8;
   const pieceScale = cellSize / 100;
   const xOffset = Math.max(0, (width - cellSize * columns) / 2);
   const yOffset = Math.max(0, (height - cellSize * rows) / 2);
 
   // Canvas Setup.
-  let canvas = parent.querySelector("canvas");
+  let canvas = parent.querySelector('canvas');
   if (!canvas) {
-    canvas = document.createElement("canvas");
+    canvas = document.createElement('canvas');
     parent.appendChild(canvas);
 
     if (interactive) {
-      canvas.addEventListener("click", evt => {
+      canvas.addEventListener('click', (evt) => {
         if (!isInteractive()) return;
         const rect = evt.target.getBoundingClientRect();
         const col = Math.floor((evt.clientX - rect.left - xOffset) / cellSize);
@@ -56,7 +53,7 @@ function renderer({
       });
     }
   }
-  canvas.style.cursor = isInteractive() ? "pointer" : "default";
+  canvas.style.cursor = isInteractive() ? 'pointer' : 'default';
 
   // Character Paths (based on 100x100 tiles).
   const kPath = new Path2D(
@@ -65,26 +62,22 @@ function renderer({
   const goose1Path = new Path2D(
     `M8.8,92.7c-4-18.5,4.7-37.2,20.7-46.2c0,0,2.7-1.4,3.4-1.9c2.2-1.6,3-2.1,3-5c0-5-2.1-7.2-2.1-7.2 c-3.9-3.3-6.3-8.2-6.3-13.7c0-10,8.1-18.1,18.1-18.1s18.1,8.1,18.1,18.1c0,6-1.5,32.7-2.3,38.8l-0.1,1`
   );
-  const goose2Path = new Path2D(
-    `M27.4,19L8.2,27.6c0,0-7.3,2.9,2.6,5c6.1,1.3,24,5.9,24,5.9l1,0.3`
-  );
-  const goose3Path = new Path2D(
-    `M63.7,99.6C52.3,99.6,43,90.3,43,78.9s9.3-20.7,20.7-20.7c10.6,0,34.4,0.1,35.8,9`
-  );
+  const goose2Path = new Path2D(`M27.4,19L8.2,27.6c0,0-7.3,2.9,2.6,5c6.1,1.3,24,5.9,24,5.9l1,0.3`);
+  const goose3Path = new Path2D(`M63.7,99.6C52.3,99.6,43,90.3,43,78.9s9.3-20.7,20.7-20.7c10.6,0,34.4,0.1,35.8,9`);
 
   // Canvas setup and reset.
-  let c = canvas.getContext("2d");
+  let c = canvas.getContext('2d');
   canvas.width = width;
   canvas.height = height;
-  c.fillStyle = "#000B2A";
+  c.fillStyle = '#000B2A';
   c.fillRect(0, 0, canvas.width, canvas.height);
 
-  const getRowCol = cell => [Math.floor(cell / columns), cell % columns];
+  const getRowCol = (cell) => [Math.floor(cell / columns), cell % columns];
 
   const getColor = (mark, opacity = 1) => {
     if (mark === 1) return `rgba(0,255,255,${opacity})`;
     if (mark === 2) return `rgba(255,255,255,${opacity})`;
-    return "#fff";
+    return '#fff';
   };
 
   const drawCellCircle = (cell, xFrame = 1, yFrame = 1, radiusOffset = 0) => {
@@ -101,7 +94,7 @@ function renderer({
   // Render the pieces.
   const board = environment.steps[step][0].observation.board;
 
-  const drawPiece = mark => {
+  const drawPiece = (mark) => {
     // Base Styles.
     const opacity = minCanvasSize < 300 ? 0.6 - minCanvasSize / 1000 : 0.1;
     c.fillStyle = getColor(mark, opacity);
@@ -161,24 +154,16 @@ function renderer({
     const [row, col] = getRowCol(i);
     if (board[i] === 0) continue;
     // Easing In.
-    let yFrame = Math.min(
-      (columns * Math.pow(frame, 3)) / Math.floor(i / columns),
-      1
-    );
+    let yFrame = Math.min((columns * Math.pow(frame, 3)) / Math.floor(i / columns), 1);
 
-    if (
-      step > 1 &&
-      environment.steps[step - 1][0].observation.board[i] === board[i]
-    ) {
+    if (step > 1 && environment.steps[step - 1][0].observation.board[i] === board[i]) {
       yFrame = 1;
     }
 
     c.save();
     c.translate(
       xOffset + cellSize * col + (cellSize - cellSize * cellInset) / 2,
-      yOffset +
-        yFrame * (cellSize * row) +
-        (cellSize - cellSize * cellInset) / 2
+      yOffset + yFrame * (cellSize * row) + (cellSize - cellSize * cellInset) / 2
     );
     c.scale(pieceScale * cellInset, pieceScale * cellInset);
     drawPiece(board[i]);
@@ -195,8 +180,8 @@ function renderer({
     yOffset + (cellSize * rows) / 2,
     bgRadius
   );
-  bgStyle.addColorStop(0, "#000B49");
-  bgStyle.addColorStop(1, "#000B2A");
+  bgStyle.addColorStop(0, '#000B49');
+  bgStyle.addColorStop(1, '#000B2A');
 
   // Render the board overlay.
   c.beginPath();
@@ -208,13 +193,13 @@ function renderer({
     c.closePath();
   }
   c.fillStyle = bgStyle;
-  c.fill("evenodd");
+  c.fill('evenodd');
 
   // Render the board overlay cell outlines.
   for (let i = 0; i < board.length; i++) {
     c.beginPath();
     drawCellCircle(i);
-    c.strokeStyle = "#0361B2";
+    c.strokeStyle = '#0361B2';
     c.lineWidth = 1;
     c.stroke();
     c.closePath();
@@ -224,18 +209,11 @@ function renderer({
     if (frame < 0.5) return;
     const lineFrame = (frame - 0.5) / 0.5;
     const x1 = xOffset + (fromCell % columns) * cellSize + cellSize / 2;
-    const x2 =
-      x1 +
-      lineFrame *
-        (xOffset + ((toCell % columns) * cellSize + cellSize / 2) - x1);
-    const y1 =
-      yOffset + Math.floor(fromCell / columns) * cellSize + cellSize / 2;
-    const y2 =
-      y1 +
-      lineFrame *
-        (yOffset + Math.floor(toCell / columns) * cellSize + cellSize / 2 - y1);
+    const x2 = x1 + lineFrame * (xOffset + ((toCell % columns) * cellSize + cellSize / 2) - x1);
+    const y1 = yOffset + Math.floor(fromCell / columns) * cellSize + cellSize / 2;
+    const y2 = y1 + lineFrame * (yOffset + Math.floor(toCell / columns) * cellSize + cellSize / 2 - y1);
     c.beginPath();
-    c.lineCap = "round";
+    c.lineCap = 'round';
     c.lineWidth = 4;
     c.strokeStyle = getColor(board[fromCell]);
     c.shadowBlur = 8;
@@ -252,7 +230,7 @@ function renderer({
     if (row < 0 || row >= rows || col < 0 || col >= columns) return -1;
     return col + row * columns;
   };
-  const makeNode = cell => {
+  const makeNode = (cell) => {
     const node = { cell, directions: [], value: board[cell] };
     for (let r = -1; r <= 1; r++) {
       for (let c = -1; c <= 1; c++) {
@@ -291,13 +269,13 @@ function renderer({
 
   // Upgrade the legend.
   if (agents.length && (!agents[0].color || !agents[0].image)) {
-    const getPieceImage = mark => {
-      const pieceCanvas = document.createElement("canvas");
+    const getPieceImage = (mark) => {
+      const pieceCanvas = document.createElement('canvas');
       parent.appendChild(pieceCanvas);
-      pieceCanvas.style.marginLeft = "10000px";
+      pieceCanvas.style.marginLeft = '10000px';
       pieceCanvas.width = 100;
       pieceCanvas.height = 100;
-      c = pieceCanvas.getContext("2d");
+      c = pieceCanvas.getContext('2d');
       c.translate(10, 10);
       c.scale(0.8, 0.8);
       drawPiece(mark);
@@ -306,7 +284,7 @@ function renderer({
       return dataUrl;
     };
 
-    agents.forEach(agent => {
+    agents.forEach((agent) => {
       agent.color = getColor(agent.index + 1);
       agent.image = getPieceImage(agent.index + 1);
     });

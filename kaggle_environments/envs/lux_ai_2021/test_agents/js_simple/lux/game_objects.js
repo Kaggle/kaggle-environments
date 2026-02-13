@@ -1,10 +1,8 @@
 /**
  * All game objects for access by user
  */
-const {
-  Position
-} = require("./map");
-const GAME_CONSTANTS = require("./game_constants");
+const { Position } = require('./map');
+const GAME_CONSTANTS = require('./game_constants');
 
 /**
  * holds all data related to a player
@@ -36,7 +34,7 @@ class City {
     this.lightUpkeep = lightUpkeep;
   }
   addCityTile(x, y, cooldown) {
-    const ct = new CityTile(this.team, this.cityid, x, y, cooldown)
+    const ct = new CityTile(this.team, this.cityid, x, y, cooldown);
     this.citytiles.push(ct);
     return ct;
   }
@@ -81,8 +79,8 @@ class Unit {
     this.cargo = {
       wood,
       coal,
-      uranium
-    }
+      uranium,
+    };
   }
   isWorker() {
     return this.type === GAME_CONSTANTS.UNIT_TYPES.WORKER;
@@ -104,7 +102,11 @@ class Unit {
   /** whether or not the unit can build where it is right now */
   canBuild(gameMap) {
     let cell = gameMap.getCellByPos(this.pos);
-    if (!cell.hasResource() && this.canAct() && (this.cargo.wood + this.cargo.coal + this.cargo.uranium) >= GAME_CONSTANTS.PARAMETERS.CITY_BUILD_COST) {
+    if (
+      !cell.hasResource() &&
+      this.canAct() &&
+      this.cargo.wood + this.cargo.coal + this.cargo.uranium >= GAME_CONSTANTS.PARAMETERS.CITY_BUILD_COST
+    ) {
       return true;
     }
     return false;
@@ -122,7 +124,7 @@ class Unit {
 
   /** return the command to transfer a resource from a source unit to a destination unit as specified by their ids or the units themselves */
   transfer(destUnit, resourceType, amount) {
-    let destID = typeof destUnit === "string" ? destUnit : destUnit.id;
+    let destID = typeof destUnit === 'string' ? destUnit : destUnit.id;
     return `t ${this.id} ${destID} ${resourceType} ${amount}`;
   }
 
@@ -142,4 +144,4 @@ module.exports = {
   City,
   Unit,
   CityTile,
-}
+};

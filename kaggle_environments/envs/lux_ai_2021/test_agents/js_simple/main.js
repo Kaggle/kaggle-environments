@@ -46,7 +46,7 @@ agent.initialize().then(async () => {
               closestDist = dist;
               closestResourceTile = cell;
             }
-          })
+          });
           if (closestResourceTile != null) {
             const dir = unit.pos.directionTo(closestResourceTile.pos);
             // move the unit in the direction towards the closest resource tile's position.
@@ -55,10 +55,10 @@ agent.initialize().then(async () => {
         } else {
           // if unit is a worker and there is no cargo space left, and we have cities, lets return to them
           if (player.cities.size > 0) {
-            const city = player.cities.values().next().value
+            const city = player.cities.values().next().value;
             let closestDist = 999999;
             let closestCityTile = null;
-            
+
             city.citytiles.forEach((citytile) => {
               const dist = citytile.pos.distanceTo(unit.pos);
               if (dist < closestDist) {
@@ -77,12 +77,12 @@ agent.initialize().then(async () => {
 
     // you can add debug annotations using the functions in the annotate object
     // actions.push(annotate.circle(0, 0))
-    
+
     /** AI Code Goes Above! **/
 
     /** Do not edit! **/
-    console.log(actions.join(","));
+    console.log(actions.join(','));
     // end turn
     agent.endTurn();
-    }
+  }
 });
