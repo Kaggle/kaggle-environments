@@ -8,6 +8,19 @@
 # This is significantly faster than the backend build since it skips Docker image build
 
 steps:
+  # Check code formatting
+  - id: "format-check"
+    name: "node:22"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        set -e
+        npm install -g pnpm
+        pnpm install
+        pnpm format-check
+    waitFor: ["-"]
+
   # Build visualizers to validate frontend changes
   - id: "build-all-visualizers"
     name: "node:22"

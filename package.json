@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "format": "prettier --write '**/*.{js,jsx,ts,tsx}' 'kaggle_environments/envs/**/visualizer/**/*.json'",
+    "format-check": "prettier --check '**/*.{js,jsx,ts,tsx}' 'kaggle_environments/envs/**/visualizer/**/*.json'"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
