@@ -72,7 +72,6 @@ const SidebarHeader = styled('div')`
   border-bottom: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
-  gap: 8px;
   padding: 16px;
   flex-shrink: 0;
 
@@ -92,6 +91,7 @@ const PlayerControlsSection = styled('div')`
 
 const GameLogHeader = styled(PlayerControlsSection)`
   height: 28px;
+  margin-bottom: 8px;
 `;
 
 const PlayerButtons = styled('div')`
@@ -101,6 +101,8 @@ const PlayerButtons = styled('div')`
 
 const PlaybackSlider = styled(Slider)`
   margin-right: 4px;
+  margin-top: 8px;
+  margin-bottom: 8px;
 `;
 
 const MarkDot = styled('div')<{ $active?: boolean }>`
@@ -276,9 +278,14 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           <Typography variant="h6" component="h2">
             Game Log
           </Typography>
-          <div>
+          <div style={{ display: 'flex' }}>
             {replayMode !== 'only-stream' && (
-              <IconButton size={isTablet ? 'small' : 'medium'} onClick={closePanel} aria-label="Collapse Episodes">
+              <IconButton
+                size={isTablet ? 'small' : 'medium'}
+                onClick={closePanel}
+                aria-label="Collapse Episodes"
+                style={{ padding: '6px' }}
+              >
                 <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
               </IconButton>
             )}
@@ -297,6 +304,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   }, 3000);
                 }}
                 aria-label="Share Episode"
+                style={{ padding: '6px' }}
               >
                 <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
               </IconButton>
@@ -418,7 +426,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             </PlayerControlsSection>
             <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
               <Button
-                variant="outlined"
+                variant="medium"
                 size="small"
                 startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
                 onClick={() => {
@@ -433,7 +441,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
               </Button>
               {replayMode === 'condensed' && (
                 <Button
-                  variant="outlined"
+                  variant="medium"
                   size="small"
                   startIcon={<Icon>expand_all</Icon>}
                   onClick={() => setExpandAll(!expandAll)}

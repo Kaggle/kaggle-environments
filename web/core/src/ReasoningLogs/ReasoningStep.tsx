@@ -328,7 +328,7 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
               setTimeout(() => scrollLogs(true), 250);
             }
           }}
-          variant="text"
+          variant="low"
         >
           {expanded ? 'Hide' : 'Show'} thinking
         </Button>
