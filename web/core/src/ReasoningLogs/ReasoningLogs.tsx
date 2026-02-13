@@ -68,7 +68,6 @@ const LogsContainer = styled('div')`
 
 const SidebarHeader = styled('div')`
   align-items: center;
-  /* background-color: ${(p) => p.theme.palette.background.default}; */
   border-bottom: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
