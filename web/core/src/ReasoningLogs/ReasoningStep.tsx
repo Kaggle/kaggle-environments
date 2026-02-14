@@ -10,7 +10,7 @@ import {
 import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
 import { styled, css, keyframes } from '@mui/material/styles';
-import { UserContent } from '../UserContent';
+import { UserContent } from '../components/UserContent';
 
 const MOBILE_CARD_HEIGHT = 100;
 const MAX_STREAMING_ONLY_CARD_HEIGHT = 550;
@@ -130,10 +130,6 @@ const DescriptionAndLabelMarkdown = styled(UserContent)<{
 `;
 
 const Avatar = styled('img')<{ $size: 'small' | 'medium' }>`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   height: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   border-radius: 50%;
@@ -293,7 +289,6 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
         </StepMeta>
         <DescriptionAndLabelMarkdown
           markdown={description.length > 0 ? description : label}
-          youtubePreviewOnly
           $useLargeFonts={useStreamingStyles}
         />
       </StepCard>
@@ -322,7 +317,7 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
           </PlayerStep>
         )}
       </StepMeta>
-      <DescriptionAndLabelMarkdown markdown={label} youtubePreviewOnly $useLargeFonts={useStreamingStyles} />
+      <DescriptionAndLabelMarkdown markdown={label} $useLargeFonts={useStreamingStyles} />
       {showExpandButton && description && (
         <Button
           startIcon={<Icon>{expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}</Icon>}
@@ -333,7 +328,7 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
               setTimeout(() => scrollLogs(true), 250);
             }
           }}
-          variant="text"
+          variant="low"
         >
           {expanded ? 'Hide' : 'Show'} thinking
         </Button>
@@ -343,7 +338,6 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
           <DescriptionAndLabelMarkdown
             style={{ marginTop: '16px' }}
             markdown={text}
-            youtubePreviewOnly
             $useLargeFonts={useStreamingStyles}
           />
         </ReasoningContent>
