@@ -1,4 +1,4 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 
 const ENERGY_TEXT = 'CGRWLPFDM A';
 const WIDTH = 750;
@@ -15,10 +15,12 @@ const posY = (index: number, len: number) => {
   return center + (height * (2 * index + 1 - len)) / len;
 };
 
-export function renderer(options: LegacyRendererOptions) {
-  const step = options.step;
-  const visList = (options.steps as any)[0][0].visualize;
-  const players = [options.playerNames[0] || 'Player 0', options.playerNames[1] || 'Player 1'];
+export function renderer(options: RendererOptions) {
+  const { replay, step, agents } = options;
+  const steps = replay.steps;
+  const visList = (steps as any)[0][0].visualize;
+  const playerNames = replay.info?.TeamNames || agents.map((a: any) => a?.name) || [];
+  const players = [playerNames[0] || 'Player 0', playerNames[1] || 'Player 1'];
 
   let canvas = options.parent.querySelector('canvas');
 
@@ -66,9 +68,7 @@ export function renderer(options: LegacyRendererOptions) {
         button.addEventListener('click', () => {
           for (let i = 0; i < visList.length; i++) {
             for (let j = 0; j < 2; j++) {
-              visList[i].current.players[j].ramainingTime = (options.steps as any)[i][
-                j
-              ].observation.remainingOverageTime;
+              visList[i].current.players[j].ramainingTime = (steps as any)[i][j].observation.remainingOverageTime;
             }
           }
           visList[0].ps = players;
@@ -102,7 +102,7 @@ export function renderer(options: LegacyRendererOptions) {
         ctx.fillStyle = '#fff';
         ctx.font = '30px sans-serif';
         ctx.fillText('No visualizer data.', 10, 100);
-        const error = (options.steps as any)[0][0].error;
+        const error = (steps as any)[0][0].error;
         if (error) {
           ctx.fillText(error, 10, 150);
         }
