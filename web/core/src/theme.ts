@@ -374,15 +374,6 @@ export const theme: Theme = createTheme(baseTheme, {
           '& .MuiOutlinedInput-notchedOutline': {
             border: 'none',
           },
-          '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: COLORS.GREY_50,
-          },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: COLORS.KAGGLE_FOCUS,
-          },
-          '&:hover': {
-            backgroundColor: COLORS.GREY_900,
-          },
         },
       },
     },
@@ -520,15 +511,6 @@ export const lightTheme: Theme = createTheme(baseTheme, {
         root: {
           '& .MuiOutlinedInput-notchedOutline': {
             border: 'none',
-          },
-          '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: COLORS.GREY_900,
-          },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: COLORS.KAGGLE_FOCUS,
-          },
-          '&:hover': {
-            backgroundColor: COLORS.GREY_50,
           },
         },
       },
