@@ -12,11 +12,12 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 BUILD_DIR="$ROOT_DIR/build"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# SKIP_GAMES: comma-separated list of patterns to skip deployment
+# SKIP_GAMES: comma-separated list of patterns to skip GCS deployment (but still include in manifest)
 # Patterns can be:
 #   - Game name only: "open_spiel_go" - skips all visualizers for that game
 #   - Game/visualizer: "open_spiel_chess/v2" - skips only that specific visualizer
 # Example: SKIP_GAMES="open_spiel_go,open_spiel_chess/v2" skips go entirely and only chess v2
+# Note: Skipped games are still added to manifest.json, they just aren't copied to the build directory
 SKIP_GAMES="${SKIP_GAMES:-}"
 
 # Function to check if a game/visualizer should be skipped
@@ -60,7 +61,8 @@ echo "--- Starting Artifact Collection ---"
 
 if [ -n "$SKIP_GAMES" ]; then
   echo "SKIP_GAMES is set: '$SKIP_GAMES'"
-  echo "Games matching these patterns will NOT be deployed."
+  echo "Games matching these patterns will NOT be copied to build directory (no GCS deployment)."
+  echo "They will still be added to manifest.json."
 fi
 
 # 1. Clean up previous build directory
@@ -90,9 +92,19 @@ while IFS= read -r line; do
       game_name="open_spiel_$game_name"
     fi
 
-    # Check if this game/visualizer should be skipped
+    # Add entry to the manifest (always, even if skipped from GCS deployment)
+    echo "  -> Updating manifest for '$game_name'"
+    manifest_json=$(echo "$manifest_json" | jq --arg game "$game_name" --arg viz "$visualizer_name" '
+      if .[$game] == null then
+        .[$game] = [$viz]
+      else
+        .[$game] += [$viz]
+      end
+    ')
+
+    # Check if this game/visualizer should be skipped from GCS deployment
     if should_skip_game "$game_name" "$visualizer_name"; then
-      echo "Skipping '$pkg_name': '$game_name/$visualizer_name' matches SKIP_GAMES pattern"
+      echo "Skipping GCS deployment for '$pkg_name': '$game_name/$visualizer_name' matches SKIP_GAMES pattern"
       continue
     fi
 
@@ -104,16 +116,6 @@ while IFS= read -r line; do
     # Create destination directory and copy artifacts
     mkdir -p "$dest_dir"
     cp -r "$source_dist"/* "$dest_dir/"
-
-    # Add entry to the manifest
-    echo "  -> Updating manifest for '$game_name'"
-    manifest_json=$(echo "$manifest_json" | jq --arg game "$game_name" --arg viz "$visualizer_name" '
-      if .[$game] == null then
-        .[$game] = [$viz]
-      else
-        .[$game] += [$viz]
-      end
-    ')
   else
     echo "Skipping '$pkg_name': No 'dist' directory found at '$source_dist'"
   fi
