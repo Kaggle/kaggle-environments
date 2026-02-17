@@ -251,7 +251,6 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
 
   const setPlayingState = useCallback(
     (playing: boolean) => {
-      console.log('[usePlayerController] setPlayingState called with:', playing);
       if (playing) {
         // Just set state, don't start scheduling
         dispatchWithNotify({ type: 'SET_PLAYING', playing: true });
