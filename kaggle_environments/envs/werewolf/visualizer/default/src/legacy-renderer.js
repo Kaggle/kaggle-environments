@@ -61,48 +61,85 @@ window.addEventListener('replayer-speed', (e) => {
 });
 
 export function renderer(context, parent) {
-  const { replay, step, height = 1000, width = 1500 } = context;
+  const { replay, step } = context;
+  const width = parent.clientWidth || 1500;
+  const height = parent.clientHeight || 1000;
   const environment = replay;
   const parentId = parent.id;
 
-  if (window.kaggleWerewolf && replay && replay.info) {
-    window.kaggleWerewolf.episodeId = replay.info.EpisodeId;
+  // Initialize audio state early (before any code that references it)
+  if (!window.kaggleWerewolf) {
+    window.kaggleWerewolf = {
+      audioQueue: [],
+      isAudioPlaying: false,
+      isAudioEnabled: false,
+      isPaused: false,
+      lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
+      audioPlayer: new Audio(),
+      playbackRate: 1,
+      allEvents: null,
+      audioContextActivated: false,
+      audioMapAttempted: false,
+      episodeId: null,
+    };
+  }
+  const audioState = window.kaggleWerewolf;
+
+  if (replay && replay.info) {
+    audioState.episodeId = replay.info.EpisodeId;
   }
 
   let playerNamesFor3D = [];
   let playerThumbnailsFor3D = {};
 
-  // Set audio context immediately
-  // POlyfill/Wrap setCurrentStep to handle audio-driven updates without stopping playback
-  // We MUST use direct synchronous control (unstable_replayerControls) if available,
-  // because the default postMessage approach is async and causes our isSystemMove flag
-  // to reset before the step update actually happens.
-  const originalSetCurrentStep = context.setCurrentStep;
-  context.setCurrentStep = (s) => {
-    if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = true;
-    try {
-      if (context.unstable_replayerControls) {
-        context.unstable_replayerControls.setStep(s);
-      } else if (originalSetCurrentStep) {
-        originalSetCurrentStep(s);
-      }
-    } finally {
-      if (window.kaggleWerewolf) window.kaggleWerewolf.isSystemMove = false;
-    }
-  };
-
-  // Override setPlaying to update the Visualizer UI state (Play/Pause button)
-  // The default implementation only posts a message which the visualizer ignores.
-  if (context.unstable_replayerControls && context.unstable_replayerControls.setPlaying) {
-    const originalSetPlaying = context.setPlaying;
-    context.setPlaying = (playing) => {
-      // Update UI
-      context.unstable_replayerControls.setPlaying(playing);
-      // Call original (postMessage) just in case
-      if (originalSetPlaying) originalSetPlaying(playing);
-    };
-  }
+  // Set audio context with playback controls
   setAudioContext(context);
+
+  // Register playback handlers to intercept play/pause for audio-driven playback
+  if (context.registerPlaybackHandlers) {
+    context.registerPlaybackHandlers({
+      onPlay: () => {
+        if (audioState.isAudioEnabled) {
+          // Audio is enabled - we take over playback
+          context.setPlaying(true);
+          let currentDisplayStep = window.wwCurrentStep || 0;
+          const newStepsLength = window.werewolfGamePlayer?.displayEvents?.length || 0;
+          if (!audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
+            currentDisplayStep = 0;
+            context.setStep(0);
+            window.wwCurrentStep = 0;
+          }
+          const allEventsIndex = window.werewolfGamePlayer?.displayStepToAllEventsIndex?.[currentDisplayStep];
+          if (allEventsIndex === undefined) {
+            context.setPlaying(false);
+            return;
+          }
+          audioState.isPaused = false;
+          playAudioFrom(allEventsIndex, true);
+        }
+        // If audio is not enabled, return without doing anything - default playback will happen
+      },
+      onPause: () => {
+        audioState.isPaused = true;
+        if (audioState.isAudioPlaying && audioState.audioPlayer) {
+          audioState.audioPlayer.pause();
+        }
+      },
+    });
+  }
+
+  // Detect user-initiated step changes (not from audio playback) and stop audio
+  // Audio playback sets isAudioPlaying = true and advances steps via setStep
+  // If the step changes unexpectedly (not adjacent to current), stop audio
+  const expectedStep = window.wwCurrentStep;
+  if (expectedStep !== undefined && step !== expectedStep && step !== expectedStep + 1) {
+    // Step jumped - likely user clicked slider, stop audio
+    if (audioState.isAudioPlaying) {
+      stopAndClearAudio(audioState, parentId);
+      audioState.isPaused = true;
+    }
+  }
+  window.wwCurrentStep = step;
 
   const systemEntryTypeSet = new Set([
     'moderator_announcement',
@@ -158,26 +195,7 @@ export function renderer(context, parent) {
     window.werewolfGamePlayer.initialized = true;
   }
 
-  // --- Audio State ---
-  // --- Audio State ---
-  const audioMap = window.AUDIO_MAP || {};
-  if (!window.kaggleWerewolf) {
-    window.kaggleWerewolf = {
-      audioQueue: [],
-      isAudioPlaying: false,
-      isAudioEnabled: false,
-      isPaused: false,
-      lastPlayedStep: parseInt(sessionStorage.getItem('ww_lastPlayedStep') || '-1', 10),
-      audioPlayer: new Audio(),
-      playbackRate: 1,
-      allEvents: null,
-      audioContextActivated: false,
-      audioMapAttempted: false, // flag to prevent spamming fetches
-      episodeId: null,
-    };
-  }
-  const audioState = window.kaggleWerewolf;
-
+  // --- Audio State (continued) ---
   // Ensure Episode ID is synchronized with replay data
   const episodeId = environment.id || (environment.info && environment.info.EpisodeId);
   if (episodeId) {
@@ -195,64 +213,6 @@ export function renderer(context, parent) {
   // Trigger audio map load if missing (fallback for runtime discovery from JSON)
   if (!window.AUDIO_MAP && episodeId) {
     tryLoadAudioMap(episodeId);
-  }
-
-  // --- Patch Controls ---
-  // Track which instance we patched to handle HMR correctly
-  const playerInstance = context.unstable_replayerControls?._replayerInstance;
-  const shouldPatchControls = playerInstance && window.werewolfPatchedInstance !== playerInstance;
-
-  if (shouldPatchControls) {
-    window.werewolfPatchedInstance = playerInstance;
-    const originalSetStep = playerInstance.setStep.bind(playerInstance);
-    const originalPlay = playerInstance.play.bind(playerInstance);
-    const originalPause = playerInstance.pause.bind(playerInstance);
-
-    playerInstance.setStep = (newStep) => {
-      // Only stop audio if this is a USER interaction (not a system auto-advance)
-      if (!audioState.isSystemMove) {
-        stopAndClearAudio(audioState, parentId);
-        audioState.isPaused = true;
-      }
-      const currentStep = window.wwCurrentStep || 0;
-      if (newStep !== currentStep + 1) {
-        resetThreeJsState();
-      }
-      window.wwCurrentStep = newStep;
-      originalSetStep(newStep);
-    };
-
-    playerInstance.play = (continuing) => {
-      if (audioState.isAudioEnabled) {
-        originalPause();
-        context.setPlaying(true); // Use adapter interface
-        // FIX: Use window.wwCurrentStep to get the LIVE step, not context.step (which is static)
-        let currentDisplayStep = window.wwCurrentStep || 0;
-        const newStepsLength = window.werewolfGamePlayer.displayEvents.length;
-        if (!continuing && !audioState.isPaused && currentDisplayStep === newStepsLength - 1) {
-          currentDisplayStep = 0;
-          originalSetStep(0);
-          window.wwCurrentStep = 0; // Ensure sync
-        }
-        const allEventsIndex = window.werewolfGamePlayer.displayStepToAllEventsIndex[currentDisplayStep];
-        if (allEventsIndex === undefined) {
-          context.setPlaying(false); // Use adapter interface
-          return;
-        }
-        playAudioFrom(allEventsIndex, true);
-      } else {
-        originalPlay(continuing);
-      }
-    };
-
-    playerInstance.pause = () => {
-      originalPause();
-      context.setPlaying(false); // Use adapter interface
-      audioState.isPaused = true;
-      if (audioState.isAudioPlaying) {
-        audioState.audioPlayer.pause();
-      }
-    };
   }
 
   // --- UI Setup ---
@@ -667,8 +627,8 @@ export function renderer(context, parent) {
     // 1. Find the corresponding display step
     const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[index];
     // 2. Jump slider
-    if (displayStep !== undefined && context.unstable_replayerControls) {
-      context.unstable_replayerControls.setStep(displayStep);
+    if (displayStep !== undefined && context.setStep) {
+      context.setStep(displayStep);
     }
     // 3. Play
     playAudioFrom(index, true);

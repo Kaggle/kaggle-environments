@@ -362,9 +362,9 @@ export function playNextInQueue(isContinuous = true) {
     const displayStep = window.werewolfGamePlayer.allEventsIndexToDisplayStep[event.allEventsIndex];
     console.debug(`DEBUG: [playNextInQueue] Found displayStep: ${displayStep} for event index ${event.allEventsIndex}`);
 
-    if (displayStep !== undefined && context.setCurrentStep) {
+    if (displayStep !== undefined && context.setStep) {
       console.debug(`DEBUG: [playNextInQueue] ### ADVANCING SLIDER TO ${displayStep} ###`);
-      context.setCurrentStep(displayStep);
+      context.setStep(displayStep);
 
       // Use a short timeout to allow the DOM to update after the step change
       setTimeout(() => {
@@ -391,7 +391,7 @@ export function playNextInQueue(isContinuous = true) {
       }, 50); // A small delay to ensure the re-render completes
     } else {
       console.error(
-        `DEBUG: [playNextInQueue] CRITICAL: FAILED to advance slider. displayStep: ${displayStep}, playerControls: ${!!context.unstable_replayerControls}`
+        `DEBUG: [playNextInQueue] CRITICAL: FAILED to advance slider. displayStep: ${displayStep}, setStep: ${!!context?.setStep}`
       );
     }
   }
