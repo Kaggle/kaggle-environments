@@ -85,7 +85,6 @@ const DescriptionAndLabelMarkdown = styled(UserContent)<{
   $useLargeFonts: boolean;
 }>`
   background-color: ${(p) => p.theme.palette.background.paper};
-  color: ${(p) => p.theme.palette.text.primary};
   max-width: 550px;
 
   ${(p) =>

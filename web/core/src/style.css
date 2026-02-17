@@ -1,7 +1,7 @@
 :root {
-  /* Color Scheme */
+  /* Color Scheme, with dark mode defaults */
   --background-color: #1c1d20;
-  --primary-text-color: rgba(255, 255, 255, 0.87);
+  --primary-text-color: #2e3033;
   --secondary-text-color: rgba(255, 255, 255, 0.6);
   --divider-color: #2f3136;
   --control-background-color: #2a2d31;
@@ -238,7 +238,9 @@ body,
   cursor: pointer;
   pointer-events: auto;
   opacity: 0.9;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
   z-index: 1;
 }
 
