@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -16,31 +16,45 @@ export type { UiMode } from './components/EpisodePlayer';
 export type ReplayTransformer<TSteps = BaseGameStep[]> = (replay: ReplayData, gameName: string) => ReplayData<TSteps>;
 
 /**
- * Options passed to legacy renderer functions.
+ * Playback control handlers that renderers can register to intercept playback actions.
+ * These are called before the default behavior, allowing renderers to take over playback.
+ */
+export interface PlaybackHandlers {
+  /**
+   * Called when play is triggered. If provided, default playback is skipped
+   * and the renderer is responsible for managing playback.
+   */
+  onPlay?: () => void;
+  /**
+   * Called when pause is triggered. If provided, the renderer can perform
+   * additional cleanup (e.g., stopping audio).
+   */
+  onPause?: () => void;
+}
+
+/**
+ * Options passed to renderer functions.
  * This interface is used by LegacyRendererWrapper to call existing game renderers.
  */
-export interface LegacyRendererOptions<TSteps = BaseGameStep[]> {
+export interface RendererOptions<TSteps = BaseGameStep[]> {
+  /** Container element to render into */
   parent: HTMLElement;
-  steps: TSteps;
-  playerNames: string[];
+  /** The full replay data (use replay.steps for step data) */
   replay: ReplayData<TSteps>;
+  /** Agent metadata for legend rendering */
   agents: any[];
+  /** Current step index */
   step: number;
-  width: number;
-  height: number;
-  setCurrentStep: (step: number) => void;
+  /** Jump to a specific step */
+  setStep: (step: number) => void;
+  /** Update the playing state (play/pause) */
   setPlaying: (playing?: boolean) => void;
-  // Generally not recommended: setAgents is a bit of a hack for older renderers
-  // that need to update the visualizer's state (e.g. agents for the legend).
-  setAgents?: (agents: any[]) => void;
-  unstable_replayerControls?: {
-    step: number;
-    setStep: (step: number) => void;
-    play: (continuing?: boolean) => void;
-    pause: () => void;
-    setPlaying: (playing: boolean) => void;
-    [key: string]: any;
-  };
+  /**
+   * Register handlers to intercept playback actions.
+   * Renderers that need to control playback (e.g., for audio-driven playback)
+   * can call this to register their handlers.
+   */
+  registerPlaybackHandlers: (handlers: PlaybackHandlers) => void;
 }
 
 /**
@@ -125,13 +139,10 @@ export interface PlaybackUiProps {
 }
 
 /**
- * Legacy renderer function signature.
+ * Renderer function signature.
  * This allows existing game renderers to work without modification.
  */
-export type RendererFn<TSteps = BaseGameStep[]> = (
-  options: LegacyRendererOptions<TSteps>,
-  container?: HTMLElement
-) => void;
+export type RendererFn<TSteps = BaseGameStep[]> = (options: RendererOptions<TSteps>, container?: HTMLElement) => void;
 
 /**
  * Options for ReplayAdapter.
@@ -187,6 +198,22 @@ export interface ReplayAdapterOptions<TSteps extends BaseGameStep[] = BaseGameSt
 }
 
 /**
+ * Props for the LegacyRendererWrapper component.
+ */
+interface LegacyRendererWrapperProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
+  renderer: RendererFn<TSteps>;
+  replay: ReplayData<TSteps>;
+  step: number;
+  agents: any[];
+  /** Callback to set the current step */
+  onSetStep?: (step: number) => void;
+  /** Callback to set playing state */
+  onSetPlaying?: (playing?: boolean) => void;
+  /** Callback to register playback handlers */
+  onRegisterPlaybackHandlers?: (handlers: PlaybackHandlers) => void;
+}
+
+/**
  * Internal React component that wraps a legacy DOM renderer.
  * This allows legacy renderers to work within the React-based EpisodePlayer.
  */
@@ -195,43 +222,72 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay,
   step,
   agents,
-}: {
-  renderer: RendererFn<TSteps>;
-  replay: ReplayData<TSteps>;
-  step: number;
-  agents: any[];
-}) {
+  onSetStep,
+  onSetPlaying,
+  onRegisterPlaybackHandlers,
+}: LegacyRendererWrapperProps<TSteps>) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // Track container size changes with ResizeObserver (debounced)
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Debounce resize events to avoid multiple rapid re-renders
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          setContainerSize((prev) => {
+            // Only update if size actually changed (avoid unnecessary re-renders)
+            if (prev.width !== Math.round(width) || prev.height !== Math.round(height)) {
+              return { width: Math.round(width), height: Math.round(height) };
+            }
+            return prev;
+          });
+        }
+      }, 250);
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // Track previous size to detect significant resize
+  const prevSizeRef = useRef({ width: 0, height: 0 });
 
   useEffect(() => {
-    if (!containerRef.current || !replay) return;
+    if (!containerRef.current || !replay || containerSize.width === 0) return;
 
-    const playerNames = replay.info?.TeamNames || agents.map((a) => a?.name || 'Player');
+    // Clear all canvases if size changed significantly (forces clean re-render)
+    const sizeChanged =
+      Math.abs(prevSizeRef.current.width - containerSize.width) > 10 ||
+      Math.abs(prevSizeRef.current.height - containerSize.height) > 10;
 
-    const options: LegacyRendererOptions<TSteps> = {
+    if (sizeChanged && prevSizeRef.current.width > 0) {
+      const canvases = containerRef.current.querySelectorAll('canvas');
+      canvases.forEach((canvas) => canvas.remove());
+    }
+    prevSizeRef.current = containerSize;
+
+    const options: RendererOptions<TSteps> = {
       parent: containerRef.current,
-      steps: replay.steps,
-      step,
-      playerNames,
       replay,
       agents,
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
-      // These are no-ops since EpisodePlayer manages state
-      setCurrentStep: () => {},
-      setPlaying: () => {},
-      setAgents: () => {},
-      unstable_replayerControls: {
-        step,
-        setStep: () => {},
-        play: () => {},
-        pause: () => {},
-        setPlaying: () => {},
-      },
+      step,
+      setStep: onSetStep ?? (() => {}),
+      setPlaying: onSetPlaying ?? (() => {}),
+      registerPlaybackHandlers: onRegisterPlaybackHandlers ?? (() => {}),
     };
 
     renderer(options, containerRef.current);
-  }, [renderer, replay, step, agents]);
+  }, [renderer, replay, step, agents, onSetStep, onSetPlaying, onRegisterPlaybackHandlers, containerSize]);
 
   return React.createElement('div', {
     ref: containerRef,
@@ -304,6 +360,9 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
           replay: props.replay,
           step: props.step,
           agents: props.agents,
+          onSetStep: props.onSetStep,
+          onSetPlaying: props.onSetPlaying,
+          onRegisterPlaybackHandlers: props.onRegisterPlaybackHandlers,
         });
     }
   }
