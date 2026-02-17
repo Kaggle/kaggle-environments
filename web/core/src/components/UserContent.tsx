@@ -5,10 +5,10 @@ import Markdown from 'react-markdown';
 const MarkdownContainer = styled('div')`
   color: ${(p) => p.theme.palette.text.primary};
 
-    font-size: 14px;
-    line-height: 22px;
+  font-size: 14px;
+  line-height: 22px;
 
- h1 {
+  h1 {
     font-size: 20px;
     line-height: 24px;
     margin: 32px 0 24px;
@@ -34,14 +34,13 @@ const MarkdownContainer = styled('div')`
     margin: 24px 0 8px;
   }
 
-    p {
-
+  p {
     margin: 0 0 16px;
     /* This is required to show line breaks between paragraphs
      for markdown content that gets converted to HTML by showdown */
     /* https://stackoverflow.com/a/1409742 */
     br {
-      content: " ";
+      content: ' ';
       display: block;
       height: 16px;
     }
@@ -57,7 +56,7 @@ const MarkdownContainer = styled('div')`
     margin-top: 0;
   }
 
-   ul,
+  ul,
   ol {
     padding-left: 16px;
   }
@@ -88,7 +87,7 @@ const MarkdownContainer = styled('div')`
       margin: 0 0 0 8px;
     }
   }
-`
+`;
 
 export interface UserContentProps {
   markdown: string;

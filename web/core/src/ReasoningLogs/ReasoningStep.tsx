@@ -61,7 +61,7 @@ const PlayerStep = styled('div')`
   width: 100%;
 `;
 
-const ReasoningContent = styled('div') <{ $replayMode: ReplayMode }>`
+const ReasoningContent = styled('div')<{ $replayMode: ReplayMode }>`
   border-top: 1px solid ${(p) => p.theme.palette.divider};
   max-height: ${(p) => (p.$replayMode === 'only-stream' ? MAX_STREAMING_ONLY_CARD_HEIGHT : MAX_CARD_HEIGHT)}px;
   overflow-y: scroll;
@@ -81,7 +81,7 @@ const ReasoningContent = styled('div') <{ $replayMode: ReplayMode }>`
   }
 `;
 
-const DescriptionAndLabelMarkdown = styled(UserContent) <{
+const DescriptionAndLabelMarkdown = styled(UserContent)<{
   $useLargeFonts: boolean;
 }>`
   background-color: ${(p) => p.theme.palette.background.paper};
@@ -128,7 +128,7 @@ const DescriptionAndLabelMarkdown = styled(UserContent) <{
     `}
 `;
 
-const Avatar = styled('img') <{ $size: 'small' | 'medium' }>`
+const Avatar = styled('img')<{ $size: 'small' | 'medium' }>`
   width: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   height: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   border-radius: 50%;

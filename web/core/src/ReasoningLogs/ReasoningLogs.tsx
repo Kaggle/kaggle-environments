@@ -104,7 +104,7 @@ const PlaybackSlider = styled(Slider)`
   margin-bottom: 8px;
 `;
 
-const MarkDot = styled('div') <{ $active?: boolean }>`
+const MarkDot = styled('div')<{ $active?: boolean }>`
   background-color: ${({ theme }) => theme.palette.primary.main};
   height: 10px;
   width: 10px;
@@ -112,11 +112,11 @@ const MarkDot = styled('div') <{ $active?: boolean }>`
   cursor: pointer;
   border: 2px solid
     ${({ theme, $active }) =>
-    $active
-      ? theme.palette.mode === 'dark'
-        ? theme.palette.common.white
-        : theme.palette.common.black
-      : theme.palette.background.default};
+      $active
+        ? theme.palette.mode === 'dark'
+          ? theme.palette.common.white
+          : theme.palette.common.black
+        : theme.palette.background.default};
   &:hover {
     border: 2px solid
       ${({ theme }) => (theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black)};
