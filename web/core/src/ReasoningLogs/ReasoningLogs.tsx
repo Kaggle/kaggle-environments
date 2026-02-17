@@ -9,13 +9,13 @@ import {
   CircularProgress,
   Icon,
   IconButton,
-  List,
   MenuItem,
   Select,
   Slider,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { VirtuosoScrollerList, VirtuosoListItem, Scroller } from './VirtuosoComponents';
 
 interface SelectOption<T> {
   label: string;
@@ -29,43 +29,35 @@ const SPEED_OPTIONS: SelectOption<number>[] = [
     label: 'Speed 0.5',
     value: 0.5,
     icon: 'speed_0_5',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 0.75',
     value: 0.75,
     icon: 'speed_0_75',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 1',
     value: 1,
     icon: '1x_mobiledata',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 1.5',
     value: 1.5,
     icon: 'speed_1_5',
-    valueLabel: <></>,
   },
   {
     label: 'Speed 2',
     value: 2,
     icon: 'speed_2x',
-    valueLabel: <></>,
   },
 ];
-
-const IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT = '74px';
 
 const LogsContainer = styled('div')`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
   min-width: 300px;
-
-  height: calc(100% - ${IMMERSIVE_SLIDER_PANEL_HEADER_HEIGHT});
+  height: 100%;
   min-height: 0;
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
@@ -76,11 +68,9 @@ const LogsContainer = styled('div')`
 
 const SidebarHeader = styled('div')`
   align-items: center;
-  background-color: ${(p) => p.theme.palette.background.default};
   border-bottom: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
-  gap: 8px;
   padding: 16px;
   flex-shrink: 0;
 
@@ -100,6 +90,7 @@ const PlayerControlsSection = styled('div')`
 
 const GameLogHeader = styled(PlayerControlsSection)`
   height: 28px;
+  margin-bottom: 8px;
 `;
 
 const PlayerButtons = styled('div')`
@@ -107,73 +98,10 @@ const PlayerButtons = styled('div')`
   gap: 8px;
 `;
 
-const SpacedListItem = styled('li')`
-  /* Reset default li styles just in case */
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  /* Apply the gap here.
-    Virtuoso measures this element, so it will account for the extra space.
-    WARNING: if this is margin instead of padding it will cause Jitter
-    */
-  padding-top: 20px;
-  box-sizing: border-box;
-
-  ${({ theme }) => theme.breakpoints.down('tablet')} {
-    padding-top: 8px;
-  }
-`;
-
-const StepList = styled(List)`
-  && {
-    margin: 0;
-    padding: 16px 24px;
-  }
-`;
-
-/* Hide all scrollbars- they get distracting when content is constantly scrolling */
-const LogsScroller = styled('div')`
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overflow-anchor: none;
-  scrollbar-gutter: stable;
-
-  &::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    background: transparent;
-  }
-`;
-
-/* Invert the colors we usually do for Sliders to make this look more like a playback (think Youtube) */
 const PlaybackSlider = styled(Slider)`
   margin-right: 4px;
-
-  && .MuiSlider-rail {
-    color: ${({ theme }) => theme.palette.text.secondary};
-  }
-
-  && .MuiSlider-track {
-    color: ${({ theme }) => theme.palette.text.primary};
-    opacity: 1;
-  }
-
-  && .MuiSlider-mark {
-    display: none;
-  }
-
-  && .MuiSlider-markLabel {
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2;
-  }
-
-  /* MUI slider adds a default margin-bottom of 20px when marks are used to accomodate them.
-  We use marks but move them up onto the slider line itself, so we don't need this margin.*/
-  &&& {
-    margin-bottom: 0;
-  }
+  margin-top: 8px;
+  margin-bottom: 8px;
 `;
 
 const MarkDot = styled('div')<{ $active?: boolean }>`
@@ -203,17 +131,11 @@ const NoStepsContainer = styled('div')`
   justify-content: center;
 `;
 
-const VirtuosoScrollerList = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
-  return <StepList {...props} ref={ref} />;
-});
-
-const VirtuosoListItem = React.forwardRef((props, ref: React.ForwardedRef<any>) => {
-  return <SpacedListItem {...props} ref={ref} />;
-});
-
-const Scroller = React.forwardRef(({ ...props }, ref: React.ForwardedRef<any>) => (
-  <LogsScroller ref={ref} {...props} />
-));
+const SpeedIcon = styled(Icon)`
+  display: flex;
+  height: 100%;
+  margin-right: 4px;
+`;
 
 export interface ReasoningLogsProps {
   closePanel: () => void;
@@ -271,7 +193,6 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
     () => ({
       List: VirtuosoScrollerList,
       Item: VirtuosoListItem as React.ComponentType<any>,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
       Footer: () => (
         <div
           // This buffer is basically our bottom padding so that the list
@@ -356,9 +277,14 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           <Typography variant="h6" component="h2">
             Game Log
           </Typography>
-          <div>
+          <div style={{ display: 'flex' }}>
             {replayMode !== 'only-stream' && (
-              <IconButton size={isTablet ? 'small' : 'medium'} onClick={closePanel} aria-label="Collapse Episodes">
+              <IconButton
+                size={isTablet ? 'small' : 'medium'}
+                onClick={closePanel}
+                aria-label="Collapse Episodes"
+                style={{ padding: '6px' }}
+              >
                 <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
               </IconButton>
             )}
@@ -377,6 +303,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   }, 3000);
                 }}
                 aria-label="Share Episode"
+                style={{ padding: '6px' }}
               >
                 <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
               </IconButton>
@@ -435,6 +362,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             </PlayerControlsSection>
             <PlayerControlsSection>
               <PlaybackSlider
+                size="small"
                 min={1}
                 max={totalSteps > 0 ? totalSteps : 0}
                 onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
@@ -477,9 +405,19 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 onChange={(e) => onSpeedChange(e.target.value as number)}
                 aria-label="Change Playback Speed"
                 size="small"
+                sx={{
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: 'none',
+                  },
+                }}
+                renderValue={(selected) => {
+                  const option = SPEED_OPTIONS.find((option) => option.value === selected);
+                  return option ? <SpeedIcon>{option.icon}</SpeedIcon> : '';
+                }}
               >
                 {SPEED_OPTIONS.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
+                    <SpeedIcon>{option.icon}</SpeedIcon>
                     {option.label}
                   </MenuItem>
                 ))}
@@ -487,7 +425,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             </PlayerControlsSection>
             <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
               <Button
-                variant="outlined"
+                variant="medium"
                 size="small"
                 startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
                 onClick={() => {
@@ -502,7 +440,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
               </Button>
               {replayMode === 'condensed' && (
                 <Button
-                  variant="outlined"
+                  variant="medium"
                   size="small"
                   startIcon={<Icon>expand_all</Icon>}
                   onClick={() => setExpandAll(!expandAll)}
