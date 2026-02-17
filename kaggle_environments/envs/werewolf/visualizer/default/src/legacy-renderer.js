@@ -99,8 +99,10 @@ export function renderer(context, parent) {
   if (context.registerPlaybackHandlers) {
     context.registerPlaybackHandlers({
       onPlay: () => {
+        console.log('[Werewolf onPlay] audioState.isAudioEnabled:', audioState.isAudioEnabled);
         if (audioState.isAudioEnabled) {
           // Audio is enabled - we take over playback
+          console.log('[Werewolf onPlay] calling context.setPlaying(true)');
           context.setPlaying(true);
           let currentDisplayStep = window.wwCurrentStep || 0;
           const newStepsLength = window.werewolfGamePlayer?.displayEvents?.length || 0;
@@ -112,12 +114,14 @@ export function renderer(context, parent) {
           const allEventsIndex = window.werewolfGamePlayer?.displayStepToAllEventsIndex?.[currentDisplayStep];
           if (allEventsIndex === undefined) {
             context.setPlaying(false);
-            return;
+            return true; // We handled it (even though we couldn't play)
           }
           audioState.isPaused = false;
           playAudioFrom(allEventsIndex, true);
+          return true; // We handled playback
         }
-        // If audio is not enabled, return without doing anything - default playback will happen
+        // Audio not enabled - return false to let default playback happen
+        return false;
       },
       onPause: () => {
         audioState.isPaused = true;

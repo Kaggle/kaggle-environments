@@ -21,13 +21,14 @@ export type ReplayTransformer<TSteps = BaseGameStep[]> = (replay: ReplayData, ga
  */
 export interface PlaybackHandlers {
   /**
-   * Called when play is triggered. If provided, default playback is skipped
-   * and the renderer is responsible for managing playback.
+   * Called when play is triggered.
+   * Return `true` to indicate the handler took over playback (default playback is skipped).
+   * Return `false` or `undefined` to allow default playback to proceed.
    */
-  onPlay?: () => void;
+  onPlay?: () => boolean | void;
   /**
-   * Called when pause is triggered. If provided, the renderer can perform
-   * additional cleanup (e.g., stopping audio).
+   * Called when pause is triggered. The renderer can perform
+   * additional cleanup (e.g., stopping audio). Default pause always runs after.
    */
   onPause?: () => void;
 }
@@ -47,8 +48,8 @@ export interface RendererOptions<TSteps = BaseGameStep[]> {
   step: number;
   /** Jump to a specific step */
   setStep: (step: number) => void;
-  /** Update the playing state (play/pause) */
-  setPlaying: (playing?: boolean) => void;
+  /** Update the playing state (true = playing, false = paused) */
+  setPlaying: (playing: boolean) => void;
   /**
    * Register handlers to intercept playback actions.
    * Renderers that need to control playback (e.g., for audio-driven playback)
@@ -198,22 +199,6 @@ export interface ReplayAdapterOptions<TSteps extends BaseGameStep[] = BaseGameSt
 }
 
 /**
- * Props for the LegacyRendererWrapper component.
- */
-interface LegacyRendererWrapperProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
-  renderer: RendererFn<TSteps>;
-  replay: ReplayData<TSteps>;
-  step: number;
-  agents: any[];
-  /** Callback to set the current step */
-  onSetStep?: (step: number) => void;
-  /** Callback to set playing state */
-  onSetPlaying?: (playing?: boolean) => void;
-  /** Callback to register playback handlers */
-  onRegisterPlaybackHandlers?: (handlers: PlaybackHandlers) => void;
-}
-
-/**
  * Internal React component that wraps a legacy DOM renderer.
  * This allows legacy renderers to work within the React-based EpisodePlayer.
  */
@@ -225,7 +210,7 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   onSetStep,
   onSetPlaying,
   onRegisterPlaybackHandlers,
-}: LegacyRendererWrapperProps<TSteps>) {
+}: GameRendererProps<TSteps> & { renderer: RendererFn<TSteps> }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 

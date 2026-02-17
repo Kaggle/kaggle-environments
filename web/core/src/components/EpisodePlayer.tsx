@@ -64,10 +64,10 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   agents: any[];
   /** Callback to set the current step */
   onSetStep?: (step: number) => void;
-  /** Callback to set playing state */
-  onSetPlaying?: (playing?: boolean) => void;
+  /** Callback to set playing state (true = playing, false = paused) */
+  onSetPlaying?: (playing: boolean) => void;
   /** Callback to register playback handlers (for renderers that need to intercept play/pause) */
-  onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => void; onPause?: () => void }) => void;
+  onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
 }
 
 const containerStyles: React.CSSProperties = {
@@ -236,18 +236,16 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           handlers.onPause?.();
           actions.pause();
         } else {
-          if (handlers.onPlay) {
-            // Custom play handler takes over - don't start default playback
-            handlers.onPlay();
-          } else {
+          // Call handler if registered; if it returns true, it handled playback
+          const handled = handlers.onPlay?.();
+          if (!handled) {
             actions.play();
           }
         }
       } else if (playing) {
-        if (handlers.onPlay) {
-          // Custom play handler takes over - don't start default playback
-          handlers.onPlay();
-        } else {
+        // Call handler if registered; if it returns true, it handled playback
+        const handled = handlers.onPlay?.();
+        if (!handled) {
           actions.play();
         }
       } else {
@@ -284,8 +282,8 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           replay={processedReplay}
           step={state.step}
           agents={currentAgents}
-          onSetStep={actions.setStep}
-          onSetPlaying={handlePlayChange}
+          onSetStep={actions.setStepOnly}
+          onSetPlaying={actions.setPlayingState}
           onRegisterPlaybackHandlers={handleRegisterPlaybackHandlers}
         />
       </div>
