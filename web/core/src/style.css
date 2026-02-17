@@ -1,7 +1,7 @@
 :root {
-  /* Color Scheme */
+  /* Color Scheme, with dark mode defaults */
   --background-color: #1c1d20;
-  --primary-text-color: rgba(255, 255, 255, 0.87);
+  --primary-text-color: #2E3033;
   --secondary-text-color: rgba(255, 255, 255, 0.6);
   --divider-color: #2f3136;
   --control-background-color: #2a2d31;

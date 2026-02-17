@@ -56,6 +56,7 @@ const COLORS = {
   GREY_800: '#3C4043',
   GREY_850: '#2E3033',
   GREY_900: '#202124',
+  GREY_950: '#1C1D20',
 };
 
 export const themeBreakpoints = {
@@ -273,12 +274,23 @@ export const theme: Theme = createTheme(baseTheme, {
       paper: '#1e1e1e',
     },
     text: {
-      primary: COLORS.KAGGLE_WHITE,
-      secondary: 'rgba(255, 255, 255, 0.7)',
+      primary: COLORS.GREY_200,
+      secondary: COLORS.GREY_400,
     },
-    divider: 'rgba(255, 255, 255, 0.12)',
+    divider: COLORS.GREY_800,
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        ':root': {
+          '--background-color': COLORS.GREY_950,
+          '--primary-text-color': COLORS.GREY_200,
+          '--secondary-text-color': COLORS.GREY_400,
+          '--divider-color': COLORS.GREY_800,
+          '--accent-color': COLORS.KAGGLE_FOCUS,
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
@@ -408,13 +420,24 @@ export const lightTheme: Theme = createTheme(baseTheme, {
     },
     background: {
       default: COLORS.KAGGLE_WHITE,
-      paper: '#f5f5f5',
+      paper: COLORS.KAGGLE_WHITE,
     },
     text: {
-      primary: COLORS.KAGGLE_BLACK,
+      primary: COLORS.GREY_900,
     },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        ':root': {
+          '--background-color': COLORS.KAGGLE_WHITE,
+          '--primary-text-color': COLORS.GREY_900,
+          '--secondary-text-color': COLORS.GREY_800,
+          '--divider-color': COLORS.GREY_300,
+          '--accent-color': COLORS.KAGGLE_FOCUS,
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
