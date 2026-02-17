@@ -104,7 +104,7 @@ const PlaybackSlider = styled(Slider)`
   margin-bottom: 8px;
 `;
 
-const MarkDot = styled('div')<{ $active?: boolean }>`
+const MarkDot = styled('div') <{ $active?: boolean }>`
   background-color: ${({ theme }) => theme.palette.primary.main};
   height: 10px;
   width: 10px;
@@ -112,11 +112,11 @@ const MarkDot = styled('div')<{ $active?: boolean }>`
   cursor: pointer;
   border: 2px solid
     ${({ theme, $active }) =>
-      $active
-        ? theme.palette.mode === 'dark'
-          ? theme.palette.common.white
-          : theme.palette.common.black
-        : theme.palette.background.default};
+    $active
+      ? theme.palette.mode === 'dark'
+        ? theme.palette.common.white
+        : theme.palette.common.black
+      : theme.palette.background.default};
   &:hover {
     border: 2px solid
       ${({ theme }) => (theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black)};
@@ -134,7 +134,6 @@ const NoStepsContainer = styled('div')`
 const SpeedIcon = styled(Icon)`
   display: flex;
   height: 100%;
-  margin-right: 4px;
 `;
 
 export interface ReasoningLogsProps {
@@ -405,14 +404,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 onChange={(e) => onSpeedChange(e.target.value as number)}
                 aria-label="Change Playback Speed"
                 size="small"
-                sx={{
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    border: 'none',
-                  },
-                }}
                 renderValue={(selected) => {
                   const option = SPEED_OPTIONS.find((option) => option.value === selected);
-                  return option ? <SpeedIcon>{option.icon}</SpeedIcon> : '';
+                  return option ? <SpeedIcon style={{ marginRight: '4px' }}>{option.icon}</SpeedIcon> : '';
                 }}
               >
                 {SPEED_OPTIONS.map((option) => (

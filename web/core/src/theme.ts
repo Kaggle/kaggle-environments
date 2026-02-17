@@ -44,11 +44,15 @@ declare module '@mui/material/Button' {
 const COLORS = {
   KAGGLE_BLACK: '#202124',
   KAGGLE_WHITE: '#FFFFFF',
+  KAGGLE_FOCUS: '#20BEFF',
   GREY_50: '#F8F9FA',
   GREY_100: '#F1F3F4',
+  GREY_200: '#E8EAED',
+  GREY_300: '#DADCE0',
   GREY_400: '#BDC1C6',
   GREY_500: '#9AA0A6',
   GREY_600: '#80868B',
+  GREY_700: '#5F6368',
   GREY_800: '#3C4043',
   GREY_850: '#2E3033',
   GREY_900: '#202124',
@@ -206,7 +210,10 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           fontSize: '14px',
-          height: '36px',
+          height: '32px',
+          '& .MuiIcon-root': {
+            marginRight: '16px',
+          },
         },
       },
     },
@@ -314,10 +321,56 @@ export const theme: Theme = createTheme(baseTheme, {
         },
       },
     },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: COLORS.GREY_850,
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            backgroundColor: COLORS.GREY_800,
+          },
+          '&.Mui-focusVisible': {
+            backgroundColor: COLORS.GREY_800,
+          },
+          '&.Mui-selected': {
+            backgroundColor: COLORS.GREY_700,
+            '&:hover': {
+              backgroundColor: COLORS.GREY_700,
+            },
+          },
+        },
+      },
+    },
     MuiSelect: {
       styleOverrides: {
         icon: {
-          color: COLORS.KAGGLE_WHITE,
+          color: COLORS.GREY_200,
+        },
+        select: {
+          color: COLORS.GREY_200,
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            border: 'none',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: COLORS.GREY_50,
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: COLORS.KAGGLE_FOCUS,
+          },
+          '&:hover': {
+            backgroundColor: COLORS.GREY_900,
+          },
         },
       },
     },
@@ -404,10 +457,56 @@ export const lightTheme: Theme = createTheme(baseTheme, {
         },
       },
     },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: COLORS.KAGGLE_WHITE,
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            backgroundColor: COLORS.GREY_200,
+          },
+          '&.Mui-focusVisible': {
+            backgroundColor: COLORS.GREY_200,
+          },
+          '&.Mui-selected': {
+            backgroundColor: COLORS.GREY_300,
+            '&:hover': {
+              backgroundColor: COLORS.GREY_300,
+            },
+          },
+        },
+      },
+    },
     MuiSelect: {
       styleOverrides: {
         icon: {
           color: COLORS.GREY_900,
+        },
+        select: {
+          color: COLORS.GREY_900,
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-notchedOutline': {
+            border: 'none',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: COLORS.GREY_900,
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: COLORS.KAGGLE_FOCUS,
+          },
+          '&:hover': {
+            backgroundColor: COLORS.GREY_50,
+          },
         },
       },
     },
