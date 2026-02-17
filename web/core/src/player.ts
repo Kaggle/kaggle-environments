@@ -19,13 +19,11 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   private agents: any[] = [];
   private step = 0;
   private mounted = false;
-  private showLegend = false;
   private hmrState?: any;
   private transformer?: (replay: ReplayData) => ReplayData;
 
   // --- Element references ---
   private viewer: HTMLElement;
-  private legend: HTMLElement;
 
   constructor(
     container: HTMLElement,
@@ -47,11 +45,7 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     this.viewer = document.createElement('div');
     this.viewer.className = 'viewer';
 
-    this.legend = document.createElement('div');
-    this.legend.className = 'legend';
-
     playerDiv.appendChild(this.viewer);
-    playerDiv.appendChild(this.legend);
     this.container.innerHTML = '';
     this.container.appendChild(playerDiv);
 
@@ -59,31 +53,31 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
   }
 
   private loadData() {
-    // 1. Restore basic HMR state (like UI toggles) if it exists.
-    if (this.hmrState) {
-      this.showLegend = this.hmrState.legend ?? false;
-    }
-
-    // 2. (PRIORITY 1) Check for replay data *within* HMR state.
+    // 1. (PRIORITY 1) Check for replay data *within* HMR state.
     if (this.hmrState?.replay) {
       const state = this.hmrState;
       this.setData(state.replay, state.agents);
-      this.renderLegend();
     }
 
-    // 3. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
+    // 2. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
     else if (import.meta.env?.DEV) {
       const replayFile = import.meta.env.VITE_REPLAY_FILE;
       if (replayFile) {
         fetch(replayFile)
           .then((res) => res.json())
           .then((data) => {
-            this.setData(data, data.info.Agents);
-            // TODO: Move to game-specific config
-            if (this.replay?.name === 'halite' || this.replay?.name === 'hungry_geese') {
-              this.showLegend = true;
+            // Create agents from available data if info.Agents doesn't exist
+            let agents = data.info?.Agents;
+            if (!agents && data.steps?.[0]) {
+              // Derive agent count from first step (each player has an entry)
+              const playerCount = Array.isArray(data.steps[0]) ? data.steps[0].length : 0;
+              const teamNames = data.info?.TeamNames || [];
+              agents = Array.from({ length: playerCount }, (_, i) => ({
+                index: i,
+                name: teamNames[i] || `Player ${i + 1}`,
+              }));
             }
-            this.renderLegend();
+            this.setData(data, agents);
           })
           .catch((err) => {
             console.error(`Error fetching ${replayFile}:`, err);
@@ -92,17 +86,15 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       } else {
         // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
         this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
-        this.renderLegend();
       }
     }
 
-    // 4. (PRIORITY 3) Production build (or not DEV) and no HMR data.
+    // 3. (PRIORITY 3) Production build (or not DEV) and no HMR data.
     else {
       this.viewer.innerHTML = '<div>Loading...</div>';
-      this.renderLegend();
     }
 
-    // 5. Add listener (always)
+    // 4. Add listener (always)
     window.addEventListener('message', this.handleMessage);
   }
 
@@ -115,13 +107,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
         this.hmrState[key] = value;
       }
     };
-
-    // Handle legend visibility
-    if (typeof event.data.legend === 'boolean') {
-      this.showLegend = event.data.legend;
-      updateHMRState('legend', this.showLegend);
-      this.renderLegend();
-    }
 
     let needsRender = false;
 
@@ -196,8 +181,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
       this.hmrState.agents = this.agents;
     }
 
-    this.renderLegend();
-
     // Forward to adapter for rendering
     if (this.replay) {
       this.adapter.render(this.step, this.replay, this.agents);
@@ -209,59 +192,6 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     if (this.hmrState) {
       this.hmrState.agents = this.agents;
     }
-    this.renderLegend();
-  }
-
-  private renderLegend() {
-    if (!this.showLegend || !this.agents || this.agents.length === 0) {
-      this.legend.style.display = 'none';
-      return;
-    }
-    this.legend.style.display = 'flex';
-    this.legend.innerHTML = ''; // Clear previous content
-
-    // Logic from player.html to group agents
-    const groupIntoSets = (arr: any[], num: number) => {
-      const sets: any[][] = [];
-      arr.forEach((a) => {
-        if (sets.length === 0 || sets[sets.length - 1].length === num) {
-          sets.push([]);
-        }
-        sets[sets.length - 1].push(a);
-      });
-      return sets;
-    };
-
-    const sortedAgents = [...this.agents];
-    if (typeof sortedAgents[0]?.index === 'number') {
-      sortedAgents.sort((a, b) => a.index - b.index);
-    }
-
-    const agentPairs = groupIntoSets(sortedAgents, 2);
-
-    agentPairs.forEach((agentList) => {
-      const ul = document.createElement('ul');
-      agentList.forEach((agent) => {
-        const li = document.createElement('li');
-        if (agent.id) {
-          li.title = `id: ${agent.id}`;
-        }
-        li.style.color = agent.color || '#FFF';
-
-        if (agent.image) {
-          const img = document.createElement('img');
-          img.src = agent.image;
-          li.appendChild(img);
-        }
-
-        const span = document.createElement('span');
-        span.textContent = agent.name;
-        li.appendChild(span);
-
-        ul.appendChild(li);
-      });
-      this.legend.appendChild(ul);
-    });
   }
 
   /**

@@ -52,49 +52,6 @@ body,
   height: 100%;
 }
 
-.legend {
-  background-color: var(--background-color);
-  font-family: sans-serif;
-  font-size: 14px;
-  min-height: 48px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.legend ul {
-  align-items: center;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.legend li {
-  align-items: center;
-  display: inline-flex;
-  transition: color 1s;
-  padding: 0 16px;
-}
-
-.legend span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.legend img {
-  height: 24px;
-  margin-left: 4px;
-  margin-right: 4px;
-  width: 24px;
-}
-
 .controls {
   display: flex;
   align-items: center;
