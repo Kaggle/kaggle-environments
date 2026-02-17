@@ -129,6 +129,19 @@ const baseTheme = createTheme({
   breakpoints: themeBreakpoints,
   typography: themeTypography,
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          WebkitFontSmoothing: 'auto',
+          MozOsxFontSmoothing: 'auto',
+        },
+        // Keep icons with antialiased rendering
+        '.MuiIcon-root, .MuiSvgIcon-root, .material-symbols-outlined': {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
@@ -201,6 +214,13 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: '8px',
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        select: {
+          padding: '0 32px 0 0',
         },
       },
     },
