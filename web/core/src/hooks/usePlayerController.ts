@@ -12,7 +12,6 @@ export interface ParentData {
   replay?: ReplayData;
   agents?: any[];
   parentHandlesUi: boolean;
-  theme?: 'dark' | 'light';
 }
 
 type Action =
@@ -306,9 +305,6 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
       }
       if (typeof data.parentHandlesUi === 'boolean') {
         setParentData({ parentHandlesUi: data.parentHandlesUi ?? false });
-      }
-      if (data.theme === 'light' || data.theme === 'dark') {
-        setParentData({ theme: data.theme });
       }
     };
 
