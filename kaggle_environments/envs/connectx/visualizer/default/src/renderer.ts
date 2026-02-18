@@ -1,4 +1,4 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 
 // Connectx uses raw step format (array of agent observations per step)
 type ConnectxStep = {
@@ -9,7 +9,7 @@ type ConnectxStep = {
   status: string;
 }[];
 
-type ConnectxOptions = LegacyRendererOptions<ConnectxStep[]>;
+type ConnectxOptions = RendererOptions<ConnectxStep[]>;
 
 // --- Constants and Drawing Paths (K, Goose) ---
 const kPath = new Path2D(
@@ -91,7 +91,8 @@ let animationFrameId: number | undefined;
 let resizeObserver: ResizeObserver | undefined;
 let prevStep = -1;
 
-export function renderer({ parent, steps, step, agents, replay }: ConnectxOptions) {
+export function renderer({ parent, step, agents, replay }: ConnectxOptions) {
+  const steps = replay.steps;
   // Setup DOM elements
   let container = parent.querySelector('.renderer-container') as HTMLDivElement;
   let canvas = parent.querySelector('canvas') as HTMLCanvasElement;

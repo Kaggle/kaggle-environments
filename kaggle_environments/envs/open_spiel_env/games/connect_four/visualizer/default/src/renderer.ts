@@ -1,7 +1,7 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 import type { ConnectFourStep, ReplayData } from '@kaggle-environments/core';
 
-type ConnectFourOptions = LegacyRendererOptions<ConnectFourStep[]>;
+type ConnectFourOptions = RendererOptions<ConnectFourStep[]>;
 
 // --- Constants and Drawing Paths (K, Goose) ---
 const kPath = new Path2D(
@@ -122,7 +122,8 @@ let animationFrameId: number | undefined;
 let resizeObserver: ResizeObserver | undefined;
 let prevStep = -1;
 
-export function renderer({ parent, steps, step, replay }: ConnectFourOptions) {
+export function renderer({ parent, step, replay }: ConnectFourOptions) {
+  const steps = replay.steps;
   // Setup DOM elements
   let container = parent.querySelector('.renderer-container') as HTMLDivElement;
   let legend = parent.querySelector('.player-legend') as HTMLDivElement;

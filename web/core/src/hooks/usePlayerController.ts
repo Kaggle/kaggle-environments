@@ -46,6 +46,18 @@ export interface PlayerActions {
   stepForward: () => void;
   stepBackward: () => void;
   restart: () => void;
+  /**
+   * Set playing state directly without starting/stopping playback scheduling.
+   * Use this for renderers that manage their own playback (e.g., audio-driven).
+   * For normal play/pause, use play() and pause() instead.
+   */
+  setPlayingState: (playing: boolean) => void;
+  /**
+   * Set the step without affecting playback state.
+   * Use this for programmatic step changes (e.g., audio-driven advancement)
+   * where you want to change the step but keep playing.
+   */
+  setStepOnly: (step: number) => void;
 }
 
 export interface UsePlayerControllerOptions {
@@ -197,6 +209,18 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
     [pause, dispatchWithNotify]
   );
 
+  /**
+   * Set the step without affecting playback state.
+   * Use this for programmatic step changes (e.g., audio-driven advancement)
+   * where you want to change the step but keep playing.
+   */
+  const setStepOnly = useCallback(
+    (step: number) => {
+      dispatchWithNotify({ type: 'SET_STEP', step });
+    },
+    [dispatchWithNotify]
+  );
+
   const setSpeed = useCallback(
     (speed: number) => {
       dispatchWithNotify({ type: 'SET_SPEED', speed });
@@ -225,6 +249,20 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
     dispatchWithNotify({ type: 'SET_STEP', step: 0 });
     play();
   }, [dispatchWithNotify, play]);
+
+  const setPlayingState = useCallback(
+    (playing: boolean) => {
+      if (playing) {
+        // Just set state, don't start scheduling
+        dispatchWithNotify({ type: 'SET_PLAYING', playing: true });
+      } else {
+        // Clear any existing timeout and set state
+        clearPlaybackTimeout();
+        dispatchWithNotify({ type: 'SET_PLAYING', playing: false });
+      }
+    },
+    [clearPlaybackTimeout, dispatchWithNotify]
+  );
 
   // --- Parent messaging (receive) ---
 
@@ -298,6 +336,8 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
     stepForward,
     stepBackward,
     restart,
+    setPlayingState,
+    setStepOnly,
   };
 
   return [state, actions, parentData];
