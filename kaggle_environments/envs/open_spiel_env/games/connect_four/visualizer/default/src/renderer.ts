@@ -118,54 +118,39 @@ const getPlayerNames = (replay: ReplayData<ConnectFourStep[]>): [string, string]
 };
 
 // State
-let animationFrameId: number | undefined;
-let resizeObserver: ResizeObserver | undefined;
 let prevStep = -1;
 
 export function renderer({ parent, step, replay }: ConnectFourOptions) {
   const steps = replay.steps;
-  // Setup DOM elements
-  let container = parent.querySelector('.renderer-container') as HTMLDivElement;
-  let legend = parent.querySelector('.player-legend') as HTMLDivElement;
-  let canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  let statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
 
-  if (!container) {
-    parent.innerHTML = `
-      <div class="renderer-container">
-        <div class="player-legend" style="display: flex; align-items: center; justify-content: center; gap: 32px; padding: 12px; color: white; font-family: sans-serif; font-size: 15px; flex-shrink: 0;"></div>
-        <canvas></canvas>
-        <div class="status-bar"></div>
-      </div>
-    `;
-    container = parent.querySelector('.renderer-container') as HTMLDivElement;
-    legend = parent.querySelector('.player-legend') as HTMLDivElement;
-    canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-    statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
-
-    // Populate legend
-    if (replay) {
-      const [player1Name, player2Name] = getPlayerNames(replay);
-      const player1Token = getTokenAsDataURL(1);
-      const player2Token = getTokenAsDataURL(2);
-      legend.innerHTML = `
-        <div class="legend-item" style="display: flex; align-items: center; gap: 8px;">
-          <img src="${player1Token}" style="width: 32px; height: 32px;" />
-          <span>${player1Name} <span style="opacity: 0.7;">(x)</span></span>
-        </div>
-        <div class="legend-item" style="display: flex; align-items: center; gap: 8px;">
-          <img src="${player2Token}" style="width: 32px; height: 32px;" />
-          <span>${player2Name} <span style="opacity: 0.7;">(o)</span></span>
-        </div>
-      `;
-    }
-  }
+  // Clear and rebuild on every render (core library calls renderer on resize)
+  parent.innerHTML = `
+    <div class="renderer-container">
+      <div class="player-legend" style="display: flex; align-items: center; justify-content: center; gap: 32px; padding: 12px; color: white; font-family: sans-serif; font-size: 15px; flex-shrink: 0;"></div>
+      <canvas></canvas>
+      <div class="status-bar"></div>
+    </div>
+  `;
+  const legend = parent.querySelector('.player-legend') as HTMLDivElement;
+  const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
+  const statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
 
   if (!canvas || !replay) return;
 
-  // Cleanup previous
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  if (resizeObserver) resizeObserver.disconnect();
+  // Populate legend
+  const [player1Name, player2Name] = getPlayerNames(replay);
+  const player1Token = getTokenAsDataURL(1);
+  const player2Token = getTokenAsDataURL(2);
+  legend.innerHTML = `
+    <div class="legend-item" style="display: flex; align-items: center; gap: 8px;">
+      <img src="${player1Token}" style="width: 32px; height: 32px;" />
+      <span>${player1Name} <span style="opacity: 0.7;">(x)</span></span>
+    </div>
+    <div class="legend-item" style="display: flex; align-items: center; gap: 8px;">
+      <img src="${player2Token}" style="width: 32px; height: 32px;" />
+      <span>${player2Name} <span style="opacity: 0.7;">(o)</span></span>
+    </div>
+  `;
 
   const isBackStep = step < prevStep;
   prevStep = step;
@@ -385,22 +370,15 @@ export function renderer({ parent, step, replay }: ConnectFourOptions) {
     }
   };
 
-  let start = Date.now();
+  const start = Date.now();
   const animate = () => {
     const frame = Math.min((Date.now() - start) / 500, 1);
     draw(frame);
     if (frame < 1) {
-      animationFrameId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
     }
   };
   animate();
-
-  resizeObserver = new ResizeObserver(() => {
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    start = Date.now();
-    animate();
-  });
-  resizeObserver.observe(canvas);
 
   // Update status bar
   const isLastStep = step === steps.length - 1;
@@ -408,16 +386,21 @@ export function renderer({ parent, step, replay }: ConnectFourOptions) {
     statusBar.innerHTML = '';
   } else {
     const finalStep = steps[step];
-    const winnerPlayer = finalStep.players.find((p) => p.reward === 1);
     let message = 'Game Over';
     let tokenUrl = null;
 
-    if (winnerPlayer) {
-      const winnerIndex = finalStep.players.indexOf(winnerPlayer);
-      tokenUrl = getTokenAsDataURL(winnerIndex + 1);
-      message = `Winner: ${winnerPlayer.name}`;
-    } else if (finalStep.players.every((p) => p.reward === 0)) {
-      message = 'Draw';
+    // Open Spiel format: winner info is in finalStep.winner or finalStep.boardState.winner
+    const boardWinner = finalStep.boardState?.winner; // 'x', 'o', or undefined/null for draw
+    const winnerText = finalStep.winner; // e.g., "O (Player Name) Wins!" or "Draw"
+
+    if (boardWinner === 'x') {
+      tokenUrl = getTokenAsDataURL(1);
+      message = winnerText || 'Winner: Player 1';
+    } else if (boardWinner === 'o') {
+      tokenUrl = getTokenAsDataURL(2);
+      message = winnerText || 'Winner: Player 2';
+    } else if (winnerText?.toLowerCase().includes('draw') || !boardWinner) {
+      message = winnerText || 'Draw';
     }
 
     statusBar.innerHTML = `${tokenUrl ? `<img src="${tokenUrl}" class="token" />` : ''}<span>${message}</span>`;
