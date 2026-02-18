@@ -47,8 +47,6 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   onPlayingChange?: (playing: boolean) => void;
   /** Callback when speed changes */
   onSpeedChange?: (speed: number) => void;
-  /** Callback when theme changes (received from parent via postMessage) */
-  onThemeChange?: (theme: 'dark' | 'light') => void;
   /** Container style */
   style?: React.CSSProperties;
   /** Container class name */
@@ -118,7 +116,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   onStepChange,
   onPlayingChange,
   onSpeedChange,
-  onThemeChange,
   style,
   className,
   skipTransform = false,
@@ -179,14 +176,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       setCurrentAgents(parentData.agents);
     }
   }, [parentData.agents]);
-
-  useEffect(() => {
-    console.log('[EpisodePlayer] parentData.theme changed:', parentData.theme);
-    if (parentData.theme) {
-      console.log('[EpisodePlayer] Calling onThemeChange with:', parentData.theme);
-      onThemeChange?.(parentData.theme);
-    }
-  }, [parentData.theme, onThemeChange]);
 
   // Calculate interesting events for the slider
   const interestingEvents = useMemo<InterestingEvent[]>(() => {

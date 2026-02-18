@@ -270,7 +270,6 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
     const handleMessage = (event: MessageEvent) => {
       const data = event.data;
       if (!data || typeof data !== 'object') return;
-      console.log('[usePlayerController] Received message:', data);
 
       // Handle playback state updates from parent
       if (typeof data.step === 'number') {
@@ -309,7 +308,6 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
         setParentData({ parentHandlesUi: data.parentHandlesUi ?? false });
       }
       if (data.theme === 'light' || data.theme === 'dark') {
-        console.log('[usePlayerController] Received theme:', data.theme);
         setParentData({ theme: data.theme });
       }
     };
