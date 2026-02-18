@@ -42,7 +42,7 @@ declare module '@mui/material/Button' {
 
 // Color constants
 const COLORS = {
-  KAGGLE_BLACK: '#202124',
+  KAGGLE_BLACK: '#202124', // intentionally the same as GREY_900
   KAGGLE_WHITE: '#FFFFFF',
   GREY_50: '#F8F9FA',
   GREY_100: '#F1F3F4',

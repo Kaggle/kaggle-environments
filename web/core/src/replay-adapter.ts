@@ -6,7 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { GameAdapter } from './adapter';
 import { BaseGameStep, ReplayData } from './types';
 import { EpisodePlayer, GameRendererProps, UiMode } from './components/EpisodePlayer';
-import { theme } from './theme';
+import { theme, lightTheme } from './theme';
 import { processEpisodeData } from './transformers';
 
 // Re-export UiMode for consumers
@@ -287,6 +287,8 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private transformedReplay: ReplayData<TSteps> | undefined;
   private currentAgents: any[] = [];
   private wrappedRenderer: React.ComponentType<GameRendererProps<TSteps>> | null = null;
+  private currentTheme: 'dark' | 'light' = 'dark';
+  private themeMessageHandler: ((event: MessageEvent) => void) | null = null;
 
   constructor(options: ReplayAdapterOptions<TSteps>) {
     if (!options.renderer && !options.GameRenderer) {
@@ -294,6 +296,23 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
     }
 
     this.options = options;
+
+    // Set up message listener immediately to catch theme from initial postMessage
+    this.themeMessageHandler = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.theme === 'light' || data.theme === 'dark') {
+        if (this.currentTheme !== data.theme) {
+          this.currentTheme = data.theme;
+          // Only re-render if we've already mounted
+          if (this.root) {
+            this.renderEpisodePlayer();
+          }
+        }
+      }
+    };
+    window.addEventListener('message', this.themeMessageHandler);
 
     // Wrap legacy renderer as a React component for EpisodePlayer
     if (options.renderer) {
@@ -382,6 +401,10 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   }
 
   unmount(): void {
+    if (this.themeMessageHandler) {
+      window.removeEventListener('message', this.themeMessageHandler);
+      this.themeMessageHandler = null;
+    }
     if (this.root) {
       this.root.unmount();
       this.root = null;
@@ -400,10 +423,29 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
     const RendererComponent = this.wrappedRenderer || GameRenderer;
     if (!RendererComponent) return;
 
+    // Select theme based on currentTheme preference received via postMessage
+    const selectedTheme = this.currentTheme === 'light' ? lightTheme : theme;
+
+    // Update CSS variables to match the theme (overrides hardcoded values in style.css)
+    const root = document.documentElement;
+    if (this.currentTheme === 'light') {
+      root.style.setProperty('--background-color', '#ffffff');
+      root.style.setProperty('--primary-text-color', 'rgba(0, 0, 0, 0.87)');
+      root.style.setProperty('--secondary-text-color', 'rgba(0, 0, 0, 0.6)');
+      root.style.setProperty('--divider-color', '#e0e0e0');
+      root.style.setProperty('--control-background-color', '#f5f5f5');
+    } else {
+      root.style.setProperty('--background-color', '#1c1d20');
+      root.style.setProperty('--primary-text-color', 'rgba(255, 255, 255, 0.87)');
+      root.style.setProperty('--secondary-text-color', 'rgba(255, 255, 255, 0.6)');
+      root.style.setProperty('--divider-color', '#2f3136');
+      root.style.setProperty('--control-background-color', '#2a2d31');
+    }
+
     this.root.render(
       React.createElement(
         ThemeProvider,
-        { theme },
+        { theme: selectedTheme },
         React.createElement(
           React.Fragment,
           null,
