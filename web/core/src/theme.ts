@@ -40,16 +40,6 @@ declare module '@mui/material/Button' {
   }
 }
 
-// Extend MUI Palette with Kaggle blue
-declare module '@mui/material/styles' {
-  interface Palette {
-    kaggleBlue: string;
-  }
-  interface PaletteOptions {
-    kaggleBlue?: string;
-  }
-}
-
 // Color constants
 const COLORS = {
   KAGGLE_BLACK: '#202124', // intentionally the same as GREY_900
@@ -288,7 +278,6 @@ export const theme: Theme = createTheme(baseTheme, {
       secondary: COLORS.GREY_400,
     },
     divider: COLORS.GREY_800,
-    kaggleBlue: COLORS.KAGGLE_BLUE,
   },
   components: {
     MuiCssBaseline: {
@@ -427,7 +416,7 @@ export const lightTheme: Theme = createTheme(baseTheme, {
     text: {
       primary: COLORS.GREY_900,
     },
-    kaggleBlue: COLORS.KAGGLE_BLUE,
+    divider: COLORS.GREY_300,
   },
   components: {
     MuiCssBaseline: {
