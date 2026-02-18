@@ -1,4 +1,4 @@
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
 
 const MAX_WIDTH = 960;
 const MAX_HEIGHT = 280;
@@ -10,11 +10,13 @@ const SIGN_ID_Y = 80;
 const RESULT_Y = 120;
 const SCORE_Y = 160;
 
-export function renderer(options: LegacyRendererOptions) {
-  const { steps, step, parent, replay, width = 400, height = 400 } = options;
+export function renderer(options: RendererOptions) {
+  const { step, parent, replay } = options;
+  const width = parent.clientWidth || 400;
+  const height = parent.clientHeight || 400;
 
   const environment = {
-    steps: steps,
+    steps: replay.steps,
     info: { TeamNames: replay.info?.TeamNames || ['Player 1', 'Player 2'] },
   };
 

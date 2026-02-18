@@ -12,19 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { LegacyRendererOptions } from '@kaggle-environments/core';
+import { RendererOptions, getStepData, getCanvas } from '@kaggle-environments/core';
 
-export function renderer({
-  agents,
-  replay,
-  height = 400,
-  parent,
-  step,
-  setAgents,
-  width = 400,
-}: LegacyRendererOptions) {
+/** Hungry Geese observation structure */
+interface HungryGeeseObservation {
+  geese: number[][];
+  food: number[];
+  index: number;
+  remainingOverageTime: number;
+  step?: number;
+}
+
+export function renderer({ agents, replay, parent, step }: RendererOptions) {
+  // Validate step data exists
+  const stepData = getStepData<HungryGeeseObservation>(replay, step);
+  if (!stepData || !stepData[0]?.observation) {
+    return;
+  }
+
   // Configuration.
   const { rows, columns } = replay.configuration as any;
+  const width = parent.clientWidth || 400;
+  const height = parent.clientHeight || 400;
 
   const colors = {
     orange: '#FFB345',
@@ -154,7 +163,7 @@ export function renderer({
     return [north, south, east, west];
   };
 
-  const { geese, food } = (replay.steps[step] as any)[0].observation;
+  const { geese, food } = stepData[0].observation;
 
   // Organize the geese positions for rendering.
   const geesePositions: any = {};
@@ -205,25 +214,10 @@ export function renderer({
   const xOffset = Math.max(0, (width - cellSize * columns) / 2);
   const yOffset = Math.max(0, (height - cellSize * rows) / 2);
 
-  // Helper Functions.
-  const getCanvas = (id: string, options: any = {}) => {
-    let canvas = document.querySelector<HTMLCanvasElement>('#' + id);
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      canvas.id = id;
-      canvas.width = options.width || width;
-      canvas.height = options.height || height;
-      canvas.style.cssText = `
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%; 
-        `;
-      parent.appendChild(canvas);
-    }
-    return [canvas, canvas.getContext('2d')];
-  };
+  // Helper function wrapping shared getCanvas with local parent
+  // Only pass dimensions when explicitly provided to avoid resizing existing canvases (like buffer)
+  const getCanvasLocal = (id: string, options?: { width?: number; height?: number }) =>
+    getCanvas(parent, id, options ?? {});
 
   const drawImage = (
     canvas: any,
@@ -248,12 +242,19 @@ export function renderer({
     ctx.restore();
   };
 
-  // First time setup
-  if (!parent.querySelector('#buffer')) {
-    const c = getCanvas('buffer', {
+  // First time setup or resize (buffer needs to be recreated when cellSize changes)
+  const existingBuffer = parent.querySelector('#buffer') as HTMLCanvasElement | null;
+  const needsBufferRecreate = !existingBuffer || existingBuffer.dataset.cellSize !== String(cellSize);
+  if (needsBufferRecreate) {
+    // Remove old buffer if it exists
+    existingBuffer?.remove();
+    const c = getCanvasLocal('buffer', {
       width: cellSize * (colors.players.length + 1),
       height: cellSize * 8,
     })[1] as CanvasRenderingContext2D;
+    // Store cellSize to detect when it changes
+    const bufferCanvas = parent.querySelector('#buffer') as HTMLCanvasElement;
+    bufferCanvas.dataset.cellSize = String(cellSize);
 
     const drawPath = (paths: string[], col: number, row: number, color = '#000') => {
       c.save();
@@ -297,8 +298,8 @@ export function renderer({
   }
 
   // Canvas setup and reset.
-  const [bufferCanvas] = getCanvas('buffer');
-  const [canvas, ctx] = getCanvas('hungry_geese');
+  const [bufferCanvas] = getCanvasLocal('buffer');
+  const [canvas, ctx] = getCanvasLocal('hungry_geese', { width, height });
   const c = ctx as CanvasRenderingContext2D;
   c.fillStyle = '#000B2A';
   c.fillRect(0, 0, (canvas as HTMLCanvasElement).width, (canvas as HTMLCanvasElement).height);
@@ -346,31 +347,72 @@ export function renderer({
     }
   }
 
-  // Upgrade the legend.
-  if (agents.length && (!agents[0].color || !agents[0].image)) {
-    agents.forEach((agent: any) => {
-      const [canvas, context] = getCanvas(`agent_${agent.index}`, {
-        width: 100,
-        height: 100,
-      });
-      const ctx = context as CanvasRenderingContext2D;
-      ctx.drawImage(
+  // Render player info in the corners if there's enough space
+  const boardWidth = cellSize * columns;
+  const boardHeight = cellSize * rows;
+  const sideSpace = Math.min(xOffset, (width - boardWidth) / 2);
+  const topBottomSpace = Math.min(yOffset, (height - boardHeight) / 2);
+
+  // Only show player info if we have reasonable space (at least 80px on sides or 40px top/bottom)
+  if (sideSpace >= 80 || topBottomSpace >= 40) {
+    const fontSize = Math.max(12, Math.min(16, Math.round(height / 30)));
+    const iconSize = fontSize * 1.8;
+    const padding = 8;
+    const lineHeight = fontSize + 4;
+
+    c.font = `normal ${fontSize}px sans-serif`;
+    c.textBaseline = 'top';
+
+    // Get goose lengths for each player
+    const gooseLengths = geese.map((goose: number[]) => goose.length);
+
+    agents.forEach((agent: any, idx: number) => {
+      const playerIndex = agent.index ?? idx;
+      const playerColor = colors.players[playerIndex];
+      const playerName = agent.name || `Player ${playerIndex + 1}`;
+      const gooseLength = gooseLengths[playerIndex] || 0;
+      const isActive = gooseLength > 0;
+
+      // Position based on player index (0: top-left, 1: top-right, 2: bottom-left, 3: bottom-right)
+      const isRight = playerIndex % 2 === 1;
+      const isBottom = playerIndex >= 2;
+
+      let x: number, y: number;
+      if (sideSpace >= 80) {
+        // Position on the sides
+        x = isRight ? xOffset + boardWidth + padding : padding;
+        y = isBottom ? yOffset + boardHeight - iconSize - lineHeight - padding : yOffset + padding;
+      } else {
+        // Position at top/bottom corners
+        x = isRight ? width - padding - iconSize - 100 : padding;
+        y = isBottom ? height - topBottomSpace + padding : padding;
+      }
+
+      // Draw goose icon from buffer
+      c.globalAlpha = isActive ? 1 : 0.3;
+      c.drawImage(
         bufferCanvas as CanvasImageSource,
-        cellSize * agent.index,
+        cellSize * playerIndex,
         cellSize * 3,
         cellSize,
         cellSize,
-        0,
-        0,
-        100,
-        100
+        x,
+        y,
+        iconSize,
+        iconSize
       );
-      agent.image = (canvas as HTMLCanvasElement).toDataURL();
-      parent.removeChild(canvas as Node);
-      agent.color = colors.players[agent.index];
+
+      // Draw player name
+      c.fillStyle = playerColor;
+      c.globalAlpha = isActive ? 1 : 0.4;
+      c.textAlign = 'left';
+      c.fillText(playerName, x + iconSize + 4, y + (iconSize - fontSize) / 2);
+
+      // Draw goose length
+      c.fillStyle = '#FFFFFF';
+      c.fillText(`Length: ${gooseLength}`, x, y + iconSize + 4);
+
+      c.globalAlpha = 1;
     });
-    if (setAgents) {
-      setAgents(agents);
-    }
   }
 }

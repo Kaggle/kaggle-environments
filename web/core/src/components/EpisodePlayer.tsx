@@ -63,6 +63,12 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   replay: ReplayData<TSteps>;
   step: number;
   agents: any[];
+  /** Callback to set the current step */
+  onSetStep?: (step: number) => void;
+  /** Callback to set playing state (true = playing, false = paused) */
+  onSetPlaying?: (playing: boolean) => void;
+  /** Callback to register playback handlers (for renderers that need to intercept play/pause) */
+  onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
 }
 
 const PlayerContainer = styled('div')`
@@ -138,6 +144,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Refs for custom playback handlers registered by renderers (e.g., for audio-driven playback)
+  const playbackHandlersRef = useRef<{ onPlay?: () => void; onPause?: () => void }>({});
 
   // Process replay data through transformer (skip if already transformed)
   const processedReplay = useMemo(() => {
@@ -233,17 +242,38 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     setCurrentAgents(agents);
   }, [agents]);
 
+  // Callback for renderers to register custom playback handlers
+  const handleRegisterPlaybackHandlers = useCallback((handlers: { onPlay?: () => void; onPause?: () => void }) => {
+    playbackHandlersRef.current = handlers;
+  }, []);
+
   const handlePlayChange = useCallback(
     (playing?: boolean) => {
+      const handlers = playbackHandlersRef.current;
       if (playing === undefined) {
-        actions.toggle();
+        // Toggle: check current state
+        if (state.playing) {
+          handlers.onPause?.();
+          actions.pause();
+        } else {
+          // Call handler if registered; if it returns true, it handled playback
+          const handled = handlers.onPlay?.();
+          if (!handled) {
+            actions.play();
+          }
+        }
       } else if (playing) {
-        actions.play();
+        // Call handler if registered; if it returns true, it handled playback
+        const handled = handlers.onPlay?.();
+        if (!handled) {
+          actions.play();
+        }
       } else {
+        handlers.onPause?.();
         actions.pause();
       }
     },
-    [actions]
+    [actions, state.playing]
   );
 
   const handleClosePanel = useCallback(() => {

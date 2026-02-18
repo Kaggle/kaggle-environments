@@ -86,13 +86,14 @@ steps:
     secretEnv: ["NPM_TOKEN"]
 
   # Step 7: Deploy visualizers to GCS (after visualizers built, independent of NPM publish)
+  # Note: No -d flag, so files are only added/updated, never deleted.
+  # This ensures skipped games (not in ./build) remain untouched in GCS.
   - id: "deploy-to-gcs"
     name: "gcr.io/cloud-builders/gcloud"
     entrypoint: "gsutil"
     args:
       - "-m"
       - "rsync"
-      - "-d"
       - "-r"
       - "./build"
       - "gs://$_BUCKET_NAME/episode-visualizers"

@@ -1,19 +1,9 @@
 :root {
-  /* Color Scheme */
-  --background-color: #1c1d20;
-  --primary-text-color: rgba(255, 255, 255, 0.87);
-  --secondary-text-color: rgba(255, 255, 255, 0.6);
-  --divider-color: #2f3136;
-  --control-background-color: #2a2d31;
-  --accent-color: #1ebeff;
   --disabled-opacity: 0.4;
 
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: var(--primary-text-color);
-  background-color: var(--background-color);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,49 +40,6 @@ body,
   left: 0;
   width: 100%;
   height: 100%;
-}
-
-.legend {
-  background-color: var(--background-color);
-  font-family: sans-serif;
-  font-size: 14px;
-  min-height: 48px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.legend ul {
-  align-items: center;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.legend li {
-  align-items: center;
-  display: inline-flex;
-  transition: color 1s;
-  padding: 0 16px;
-}
-
-.legend span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.legend img {
-  height: 24px;
-  margin-left: 4px;
-  margin-right: 4px;
-  width: 24px;
 }
 
 .controls {
@@ -238,7 +185,9 @@ body,
   cursor: pointer;
   pointer-events: auto;
   opacity: 0.9;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
   z-index: 1;
 }
 

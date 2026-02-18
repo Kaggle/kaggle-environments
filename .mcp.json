@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "node",
+      "args": [
+        "/git/kaggle-environments/node_modules/@playwright/mcp/cli.js",
+        "--browser",
+        "chromium",
+        "--isolated",
+        "--no-sandbox"
+      ]
+    }
+  }
+}

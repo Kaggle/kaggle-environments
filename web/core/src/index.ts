@@ -37,3 +37,6 @@ export * from './ReasoningLogs';
 
 // Episode asset utilities
 export * from './episodeAssetUtils';
+
+// Renderer utilities
+export * from './renderer-utils';

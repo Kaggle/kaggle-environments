@@ -56,7 +56,7 @@ const LogsContainer = styled('div')`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
-  min-width: 300px;
+  min-width: 330px;
   height: 100%;
   min-height: 0;
 
@@ -134,7 +134,6 @@ const NoStepsContainer = styled('div')`
 const SpeedIcon = styled(Icon)`
   display: flex;
   height: 100%;
-  margin-right: 4px;
 `;
 
 export interface ReasoningLogsProps {
@@ -405,14 +404,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 onChange={(e) => onSpeedChange(e.target.value as number)}
                 aria-label="Change Playback Speed"
                 size="small"
-                sx={{
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    border: 'none',
-                  },
-                }}
                 renderValue={(selected) => {
                   const option = SPEED_OPTIONS.find((option) => option.value === selected);
-                  return option ? <SpeedIcon>{option.icon}</SpeedIcon> : '';
+                  return option ? <SpeedIcon style={{ marginRight: '4px' }}>{option.icon}</SpeedIcon> : '';
                 }}
               >
                 {SPEED_OPTIONS.map((option) => (
