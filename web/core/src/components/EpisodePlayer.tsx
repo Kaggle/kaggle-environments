@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { styled } from '@mui/material/styles';
 import { usePlayerController } from '../hooks/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
@@ -64,37 +65,57 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   agents: any[];
 }
 
-const containerStyles: React.CSSProperties = {
-  display: 'flex',
-  width: '100%',
-  height: '100%',
-  overflow: 'hidden',
-};
+const PlayerContainer = styled('div')`
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 
-const visualizerContainerStyles: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-};
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    flex-direction: column;
+  }
+`;
 
-const reasoningLogsContainerStyles: React.CSSProperties = {
-  width: '400px',
-  flexShrink: 0,
-  height: '100%',
-  overflow: 'hidden',
-};
+const VisualizerContainer = styled('div')`
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
 
-const inlineControlsContainerStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '8px',
-  backgroundColor: '#1a1a1a',
-  flexShrink: 0,
-  position: 'relative',
-  zIndex: 10,
-};
+const ReasoningLogsContainer = styled('div')`
+  width: 330px;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    width: 100%;
+    height: 300px;
+    flex-shrink: 0;
+  }
+`;
+
+const InlineControlsContainer = styled('div')`
+  width: 100%;
+  padding: 8px;
+  background-color: ${({ theme }) => theme.palette.background.paper};
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+`;
+
+const LoadingContainer = styled('div')`
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  justify-content: center;
+  align-items: center;
+`;
 
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay: rawReplay,
@@ -102,7 +123,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   gameName,
   GameRenderer,
   ui = 'side-panel',
-  layout = 'side-by-side',
   initialStep = 0,
   initialPlaying = false,
   initialSpeed = 1,
@@ -232,28 +252,21 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   if (!processedReplay) {
     return (
-      <div
-        ref={containerRef}
-        className={className}
-        style={{ ...containerStyles, ...style, justifyContent: 'center', alignItems: 'center' }}
-      >
+      <LoadingContainer ref={containerRef} className={className} style={style}>
         <div>Loading...</div>
-      </div>
+      </LoadingContainer>
     );
   }
 
-  // For side-panel mode, use row/column layout. For inline, always column (game above controls).
-  const flexDirection = ui === 'side-panel' && layout !== 'stacked' ? 'row' : 'column';
-
   return (
-    <div ref={containerRef} className={className} style={{ ...containerStyles, flexDirection, ...style }}>
-      <div style={visualizerContainerStyles}>
+    <PlayerContainer ref={containerRef} className={className} style={style}>
+      <VisualizerContainer>
         <GameRenderer replay={processedReplay} step={state.step} agents={currentAgents} />
-      </div>
+      </VisualizerContainer>
 
       {/* Inline mode: PlaybackControls below the game (hidden if parent handles UI) */}
       {ui === 'inline' && !parentData.parentHandlesUi && (
-        <div style={inlineControlsContainerStyles}>
+        <InlineControlsContainer>
           <PlaybackControls
             playing={state.playing}
             currentStep={state.step}
@@ -262,12 +275,12 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             onPlayChange={handlePlayChange}
             onStepChange={actions.setStep}
           />
-        </div>
+        </InlineControlsContainer>
       )}
 
       {/* Side-panel mode: ReasoningLogs with controls (hidden if parent handles UI) */}
       {ui === 'side-panel' && showLogs && !parentData.parentHandlesUi && (
-        <div style={layout === 'stacked' ? { width: '100%', height: '300px' } : reasoningLogsContainerStyles}>
+        <ReasoningLogsContainer>
           <ReasoningLogs
             closePanel={handleClosePanel}
             onPlayChange={handlePlayChange}
@@ -283,10 +296,10 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             gameName={gameName}
             interestingEvents={interestingEvents}
           />
-        </div>
+        </ReasoningLogsContainer>
       )}
 
       {/* 'none' mode: No UI rendered */}
-    </div>
+    </PlayerContainer>
   );
 }
