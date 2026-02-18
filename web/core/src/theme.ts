@@ -40,11 +40,21 @@ declare module '@mui/material/Button' {
   }
 }
 
+// Extend MUI Palette with Kaggle blue
+declare module '@mui/material/styles' {
+  interface Palette {
+    kaggleBlue: string;
+  }
+  interface PaletteOptions {
+    kaggleBlue?: string;
+  }
+}
+
 // Color constants
 const COLORS = {
   KAGGLE_BLACK: '#202124', // intentionally the same as GREY_900
   KAGGLE_WHITE: '#FFFFFF',
-  KAGGLE_FOCUS: '#20BEFF',
+  KAGGLE_BLUE: '#20BEFF',
   GREY_50: '#F8F9FA',
   GREY_100: '#F1F3F4',
   GREY_200: '#E8EAED',
@@ -278,6 +288,7 @@ export const theme: Theme = createTheme(baseTheme, {
       secondary: COLORS.GREY_400,
     },
     divider: COLORS.GREY_800,
+    kaggleBlue: COLORS.KAGGLE_BLUE,
   },
   components: {
     MuiCssBaseline: {
@@ -287,7 +298,7 @@ export const theme: Theme = createTheme(baseTheme, {
           '--primary-text-color': COLORS.GREY_200,
           '--secondary-text-color': COLORS.GREY_400,
           '--divider-color': COLORS.GREY_800,
-          '--accent-color': COLORS.KAGGLE_FOCUS,
+          '--accent-color': COLORS.KAGGLE_BLUE,
         },
       },
     },
@@ -416,6 +427,7 @@ export const lightTheme: Theme = createTheme(baseTheme, {
     text: {
       primary: COLORS.GREY_900,
     },
+    kaggleBlue: COLORS.KAGGLE_BLUE,
   },
   components: {
     MuiCssBaseline: {
@@ -425,7 +437,7 @@ export const lightTheme: Theme = createTheme(baseTheme, {
           '--primary-text-color': COLORS.GREY_900,
           '--secondary-text-color': COLORS.GREY_800,
           '--divider-color': COLORS.GREY_300,
-          '--accent-color': COLORS.KAGGLE_FOCUS,
+          '--accent-color': COLORS.KAGGLE_BLUE,
         },
       },
     },

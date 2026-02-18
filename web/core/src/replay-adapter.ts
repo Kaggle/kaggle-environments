@@ -226,7 +226,7 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       timeoutId = setTimeout(() => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
-          setContainerSize((prev) => {
+          setContainerSize((prev: { width: number; height: number }) => {
             // Only update if size actually changed (avoid unnecessary re-renders)
             if (prev.width !== Math.round(width) || prev.height !== Math.round(height)) {
               return { width: Math.round(width), height: Math.round(height) };
@@ -469,22 +469,6 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
 
     // Select theme based on currentTheme preference received via postMessage
     const selectedTheme = this.currentTheme === 'light' ? lightTheme : theme;
-
-    // Update CSS variables to match the theme (overrides hardcoded values in style.css)
-    const root = document.documentElement;
-    if (this.currentTheme === 'light') {
-      root.style.setProperty('--background-color', '#ffffff');
-      root.style.setProperty('--primary-text-color', 'rgba(0, 0, 0, 0.87)');
-      root.style.setProperty('--secondary-text-color', 'rgba(0, 0, 0, 0.6)');
-      root.style.setProperty('--divider-color', '#e0e0e0');
-      root.style.setProperty('--control-background-color', '#f5f5f5');
-    } else {
-      root.style.setProperty('--background-color', '#1c1d20');
-      root.style.setProperty('--primary-text-color', 'rgba(255, 255, 255, 0.87)');
-      root.style.setProperty('--secondary-text-color', 'rgba(255, 255, 255, 0.6)');
-      root.style.setProperty('--divider-color', '#2f3136');
-      root.style.setProperty('--control-background-color', '#2a2d31');
-    }
 
     this.root.render(
       React.createElement(
