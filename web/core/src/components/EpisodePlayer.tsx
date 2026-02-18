@@ -87,7 +87,7 @@ const visualizerContainerStyles: React.CSSProperties = {
 };
 
 const reasoningLogsContainerStyles: React.CSSProperties = {
-  width: '400px',
+  width: '330px',
   flexShrink: 0,
   height: '100%',
   overflow: 'hidden',

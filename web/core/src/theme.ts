@@ -42,9 +42,9 @@ declare module '@mui/material/Button' {
 
 // Color constants
 const COLORS = {
-  KAGGLE_BLACK: '#202124',
+  KAGGLE_BLACK: '#202124', // intentionally the same as GREY_900
   KAGGLE_WHITE: '#FFFFFF',
-  KAGGLE_FOCUS: '#20BEFF',
+  KAGGLE_BLUE: '#20BEFF',
   GREY_50: '#F8F9FA',
   GREY_100: '#F1F3F4',
   GREY_200: '#E8EAED',
@@ -287,7 +287,7 @@ export const theme: Theme = createTheme(baseTheme, {
           '--primary-text-color': COLORS.GREY_200,
           '--secondary-text-color': COLORS.GREY_400,
           '--divider-color': COLORS.GREY_800,
-          '--accent-color': COLORS.KAGGLE_FOCUS,
+          '--accent-color': COLORS.KAGGLE_BLUE,
         },
       },
     },
@@ -416,6 +416,7 @@ export const lightTheme: Theme = createTheme(baseTheme, {
     text: {
       primary: COLORS.GREY_900,
     },
+    divider: COLORS.GREY_300,
   },
   components: {
     MuiCssBaseline: {
@@ -425,7 +426,7 @@ export const lightTheme: Theme = createTheme(baseTheme, {
           '--primary-text-color': COLORS.GREY_900,
           '--secondary-text-color': COLORS.GREY_800,
           '--divider-color': COLORS.GREY_300,
-          '--accent-color': COLORS.KAGGLE_FOCUS,
+          '--accent-color': COLORS.KAGGLE_BLUE,
         },
       },
     },

@@ -56,7 +56,7 @@ const LogsContainer = styled('div')`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
-  min-width: 300px;
+  min-width: 330px;
   height: 100%;
   min-height: 0;
 

@@ -38,7 +38,7 @@ export function renderer(options: RendererOptions<ChessStep[]>) {
       boxSizing: 'border-box',
       width: '100%',
       height: '100%',
-      fontFamily: "'Inter', sans-serif",
+      backgroundColor: '#202124',
     });
     parentElement.appendChild(currentRendererContainer);
 

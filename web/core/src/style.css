@@ -1,19 +1,9 @@
 :root {
-  /* Color Scheme, with dark mode defaults */
-  --background-color: #1c1d20;
-  --primary-text-color: #2e3033;
-  --secondary-text-color: rgba(255, 255, 255, 0.6);
-  --divider-color: #2f3136;
-  --control-background-color: #2a2d31;
-  --accent-color: #1ebeff;
   --disabled-opacity: 0.4;
 
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: var(--primary-text-color);
-  background-color: var(--background-color);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

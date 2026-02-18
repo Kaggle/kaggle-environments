@@ -6,7 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { GameAdapter } from './adapter';
 import { BaseGameStep, ReplayData } from './types';
 import { EpisodePlayer, GameRendererProps, UiMode } from './components/EpisodePlayer';
-import { theme } from './theme';
+import { theme, lightTheme } from './theme';
 import { processEpisodeData } from './transformers';
 
 // Re-export UiMode for consumers
@@ -226,7 +226,7 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       timeoutId = setTimeout(() => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
-          setContainerSize((prev) => {
+          setContainerSize((prev: { width: number; height: number }) => {
             // Only update if size actually changed (avoid unnecessary re-renders)
             if (prev.width !== Math.round(width) || prev.height !== Math.round(height)) {
               return { width: Math.round(width), height: Math.round(height) };
@@ -328,6 +328,8 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private transformedReplay: ReplayData<TSteps> | undefined;
   private currentAgents: any[] = [];
   private wrappedRenderer: React.ComponentType<GameRendererProps<TSteps>> | null = null;
+  private currentTheme: 'dark' | 'light' = 'dark';
+  private themeMessageHandler: ((event: MessageEvent) => void) | null = null;
 
   constructor(options: ReplayAdapterOptions<TSteps>) {
     if (!options.renderer && !options.GameRenderer) {
@@ -335,6 +337,23 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
     }
 
     this.options = options;
+
+    // Set up message listener immediately to catch theme from initial postMessage
+    this.themeMessageHandler = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.theme === 'light' || data.theme === 'dark') {
+        if (this.currentTheme !== data.theme) {
+          this.currentTheme = data.theme;
+          // Only re-render if we've already mounted
+          if (this.root) {
+            this.renderEpisodePlayer();
+          }
+        }
+      }
+    };
+    window.addEventListener('message', this.themeMessageHandler);
 
     // Wrap legacy renderer as a React component for EpisodePlayer
     if (options.renderer) {
@@ -426,6 +445,10 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   }
 
   unmount(): void {
+    if (this.themeMessageHandler) {
+      window.removeEventListener('message', this.themeMessageHandler);
+      this.themeMessageHandler = null;
+    }
     if (this.root) {
       this.root.unmount();
       this.root = null;
@@ -444,10 +467,13 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
     const RendererComponent = this.wrappedRenderer || GameRenderer;
     if (!RendererComponent) return;
 
+    // Select theme based on currentTheme preference received via postMessage
+    const selectedTheme = this.currentTheme === 'light' ? lightTheme : theme;
+
     this.root.render(
       React.createElement(
         ThemeProvider,
-        { theme },
+        { theme: selectedTheme },
         React.createElement(
           React.Fragment,
           null,
