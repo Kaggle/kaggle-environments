@@ -87,34 +87,22 @@ const getTokenAsDataURL = (mark: number): string => {
 };
 
 // State
-let animationFrameId: number | undefined;
-let resizeObserver: ResizeObserver | undefined;
 let prevStep = -1;
 
 export function renderer({ parent, step, agents, replay }: ConnectxOptions) {
   const steps = replay.steps;
-  // Setup DOM elements
-  let container = parent.querySelector('.renderer-container') as HTMLDivElement;
-  let canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  let statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
 
-  if (!container) {
-    parent.innerHTML = `
-      <div class="renderer-container">
-        <canvas></canvas>
-        <div class="status-bar"></div>
-      </div>
-    `;
-    container = parent.querySelector('.renderer-container') as HTMLDivElement;
-    canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-    statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
-  }
+  // Clear and rebuild on every render (core library calls renderer on resize)
+  parent.innerHTML = `
+    <div class="renderer-container">
+      <canvas></canvas>
+      <div class="status-bar"></div>
+    </div>
+  `;
+  const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
+  const statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
 
   if (!canvas || !replay) return;
-
-  // Cleanup previous
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  if (resizeObserver) resizeObserver.disconnect();
 
   const isBackStep = step < prevStep;
   prevStep = step;
@@ -323,22 +311,15 @@ export function renderer({ parent, step, agents, replay }: ConnectxOptions) {
     }
   };
 
-  let start = Date.now();
+  const start = Date.now();
   const animate = () => {
     const frame = Math.min((Date.now() - start) / 500, 1);
     draw(frame);
     if (frame < 1) {
-      animationFrameId = requestAnimationFrame(animate);
+      requestAnimationFrame(animate);
     }
   };
   animate();
-
-  resizeObserver = new ResizeObserver(() => {
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    start = Date.now();
-    animate();
-  });
-  resizeObserver.observe(canvas);
 
   // Update status bar
   const isLastStep = step === steps.length - 1;

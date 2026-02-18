@@ -16,6 +16,6 @@ createReplayVisualizer(
   new ReplayAdapter({
     gameName: 'open_spiel_connect_four',
     renderer: renderer as any,
-    ui: 'inline',
+    ui: 'side-panel',
   })
 );
