@@ -35,6 +35,7 @@ declare module '@mui/material/styles' {
 // Extend MUI Button variants
 declare module '@mui/material/Button' {
   interface ButtonPropsVariantOverrides {
+    high: true;
     medium: true;
     low: true;
   }
@@ -299,6 +300,19 @@ export const theme: Theme = createTheme(baseTheme, {
       },
       variants: [
         {
+          props: { variant: 'high' },
+          style: {
+            backgroundColor: COLORS.KAGGLE_WHITE,
+            color: COLORS.GREY_900,
+            border: 'none',
+            '&:hover': {
+              backgroundColor: COLORS.KAGGLE_WHITE,
+              border: 'none',
+              boxShadow: '0 2px 3px 0 rgba(0, 0, 0, 0.3), 0 6px 10px 4px rgba(0, 0, 0, 0.15)',
+            },
+          },
+        },
+        {
           props: { variant: 'medium' },
           style: {
             backgroundColor: 'transparent',
@@ -437,6 +451,19 @@ export const lightTheme: Theme = createTheme(baseTheme, {
         },
       },
       variants: [
+        {
+          props: { variant: 'high' },
+          style: {
+            backgroundColor: COLORS.KAGGLE_BLACK,
+            color: COLORS.KAGGLE_WHITE,
+            border: 'none',
+            '&:hover': {
+              backgroundColor: COLORS.KAGGLE_BLACK,
+              border: 'none',
+              boxShadow: '0 2px 3px 0 rgba(60, 64, 67, 0.3), 0 6px 10px 4px rgba(60, 64, 67, 0.15)',
+            },
+          },
+        },
         {
           props: { variant: 'medium' },
           style: {

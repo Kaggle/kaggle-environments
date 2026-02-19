@@ -6,6 +6,7 @@ import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
+import { Button, Icon, useMediaQuery, useTheme } from '@mui/material';
 
 /**
  * UI mode for playback controls and ReasoningLogs.
@@ -100,7 +101,7 @@ const ReasoningLogsContainer = styled('div')`
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     width: 100%;
-    height: 300px;
+    height: 40%;
     flex-shrink: 0;
   }
 `;
@@ -121,6 +122,17 @@ const LoadingContainer = styled('div')`
   overflow: hidden;
   justify-content: center;
   align-items: center;
+`;
+
+const GameLogButton = styled(Button)`
+  margin: 8px 24px 0;
+  position: fixed;
+  bottom: 24px;
+  z-index: 1;
+
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    margin: 12px;
+  }
 `;
 
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
@@ -144,6 +156,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { breakpoints } = useTheme();
+  const isTablet = useMediaQuery(breakpoints.down('tablet'));
 
   // Refs for custom playback handlers registered by renderers (e.g., for audio-driven playback)
   const playbackHandlersRef = useRef<{ onPlay?: () => void; onPause?: () => void }>({});
@@ -291,7 +306,14 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   return (
     <PlayerContainer ref={containerRef} className={className} style={style}>
       <VisualizerContainer>
-        <GameRenderer replay={processedReplay} step={state.step} agents={currentAgents} />
+        <GameRenderer
+          replay={processedReplay}
+          step={state.step}
+          agents={currentAgents}
+          onSetStep={actions.setStepOnly}
+          onSetPlaying={actions.setPlayingState}
+          onRegisterPlaybackHandlers={handleRegisterPlaybackHandlers}
+        />
       </VisualizerContainer>
 
       {/* Inline mode: PlaybackControls below the game (hidden if parent handles UI) */}
@@ -309,27 +331,37 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       )}
 
       {/* Side-panel mode: ReasoningLogs with controls (hidden if parent handles UI) */}
-      {ui === 'side-panel' && showLogs && !parentData.parentHandlesUi && (
-        <ReasoningLogsContainer>
-          <ReasoningLogs
-            closePanel={handleClosePanel}
-            onPlayChange={handlePlayChange}
-            onSpeedChange={actions.setSpeed}
-            onStepChange={actions.setStep}
-            playing={state.playing}
-            replayMode={state.replayMode}
-            setReplayMode={actions.setReplayMode}
-            speedModifier={state.speed}
-            totalSteps={totalSteps}
-            steps={processedReplay.steps}
-            currentStep={state.step}
-            gameName={gameName}
-            interestingEvents={interestingEvents}
-          />
-        </ReasoningLogsContainer>
+      {ui === 'side-panel' && !parentData.parentHandlesUi && (
+        showLogs ? (
+          <ReasoningLogsContainer>
+            <ReasoningLogs
+              closePanel={handleClosePanel}
+              onPlayChange={handlePlayChange}
+              onSpeedChange={actions.setSpeed}
+              onStepChange={actions.setStep}
+              playing={state.playing}
+              replayMode={state.replayMode}
+              setReplayMode={actions.setReplayMode}
+              speedModifier={state.speed}
+              totalSteps={totalSteps}
+              steps={processedReplay.steps}
+              currentStep={state.step}
+              gameName={gameName}
+              interestingEvents={interestingEvents}
+            />
+          </ReasoningLogsContainer>
+        ) : (
+          <GameLogButton
+            variant="high"
+            onClick={() => setShowLogs(true)}
+            startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'right_panel_open'}</Icon>}
+          >
+            Game Log
+          </GameLogButton>
+        )
       )}
 
       {/* 'none' mode: No UI rendered */}
-    </PlayerContainer>
+    </PlayerContainer >
   );
 }

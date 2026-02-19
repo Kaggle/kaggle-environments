@@ -274,6 +274,7 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     renderer(options, containerRef.current);
   }, [renderer, replay, step, agents, onSetStep, onSetPlaying, onRegisterPlaybackHandlers, containerSize]);
 
+  // eslint-disable-next-line react-hooks/refs
   return React.createElement('div', {
     ref: containerRef,
     className: 'game-renderer-isolation',
