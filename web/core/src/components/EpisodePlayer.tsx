@@ -72,9 +72,9 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
 }
 
-const PlayerContainer = styled('div')`
+const PlayerContainer = styled('div')<{ $uiMode?: UiMode }>`
   display: flex;
-  flex-direction: row;
+  flex-direction: ${({ $uiMode }) => ($uiMode === 'inline' ? 'column' : 'row')};
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -302,7 +302,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   }
 
   return (
-    <PlayerContainer ref={containerRef} className={className} style={style}>
+    <PlayerContainer ref={containerRef} className={className} style={style} $uiMode={ui}>
       <VisualizerContainer>
         <GameRenderer
           replay={processedReplay}
