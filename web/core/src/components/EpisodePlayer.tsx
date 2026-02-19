@@ -354,7 +354,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           <GameLogButton
             variant="high"
             onClick={() => setShowLogs(true)}
-            startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'right_panel_open'}</Icon>}
+            startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'left_panel_open'}</Icon>}
           >
             Game Log
           </GameLogButton>
