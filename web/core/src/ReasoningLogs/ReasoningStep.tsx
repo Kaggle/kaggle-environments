@@ -311,7 +311,9 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
           </PlayerStep>
         ) : (
           <PlayerStep>
-            <Typography variant="subtitle1">{player?.name ?? 'System'}</Typography>
+            <Typography variant="subtitle1" component="p">
+              {player?.name ?? 'System'}
+            </Typography>
             <Typography variant="body1">{stepNumber}</Typography>
           </PlayerStep>
         )}

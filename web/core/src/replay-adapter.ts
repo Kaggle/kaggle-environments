@@ -274,6 +274,7 @@ function LegacyRendererWrapper<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     renderer(options, containerRef.current);
   }, [renderer, replay, step, agents, onSetStep, onSetPlaying, onRegisterPlaybackHandlers, containerSize]);
 
+  // eslint-disable-next-line react-hooks/refs
   return React.createElement('div', {
     ref: containerRef,
     className: 'game-renderer-isolation',
@@ -461,7 +462,7 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private renderEpisodePlayer(): void {
     if (!this.root) return;
 
-    const { gameName, GameRenderer, ui = 'side-panel', layout = 'side-by-side', initialSpeed = 1 } = this.options;
+    const { gameName, GameRenderer, ui = 'side-panel', initialSpeed = 1 } = this.options;
 
     // Use the wrapped legacy renderer or the provided React component
     const RendererComponent = this.wrappedRenderer || GameRenderer;
@@ -485,11 +486,9 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
             gameName,
             GameRenderer: RendererComponent as React.ComponentType<GameRendererProps<BaseGameStep[]>>,
             ui: typeof ui === 'string' ? ui : 'side-panel', // Pass ui mode (ignore custom components for now)
-            layout,
             initialSpeed,
             // Signal that replay is already transformed
             skipTransform: true,
-            style: { width: '100%', height: '100%' },
           })
         )
       )

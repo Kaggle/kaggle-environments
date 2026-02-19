@@ -1,10 +1,12 @@
 import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { styled } from '@mui/material/styles';
 import { usePlayerController } from '../hooks/usePlayerController';
 import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types';
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
+import { Button, Icon, useMediaQuery } from '@mui/material';
 
 /**
  * UI mode for playback controls and ReasoningLogs.
@@ -70,37 +72,68 @@ export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[
   onRegisterPlaybackHandlers?: (handlers: { onPlay?: () => boolean | void; onPause?: () => void }) => void;
 }
 
-const containerStyles: React.CSSProperties = {
-  display: 'flex',
-  width: '100%',
-  height: '100%',
-  overflow: 'hidden',
-};
+const PlayerContainer = styled('div')<{ $uiMode?: UiMode }>`
+  display: flex;
+  flex-direction: ${({ $uiMode }) => ($uiMode === 'inline' ? 'column' : 'row')};
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 
-const visualizerContainerStyles: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  minHeight: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-};
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    flex-direction: column;
+  }
+`;
 
-const reasoningLogsContainerStyles: React.CSSProperties = {
-  width: '330px',
-  flexShrink: 0,
-  height: '100%',
-  overflow: 'hidden',
-};
+const VisualizerContainer = styled('div')`
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
 
-const inlineControlsContainerStyles: React.CSSProperties = {
-  width: '100%',
-  padding: '8px',
-  backgroundColor: '#1a1a1a',
-  flexShrink: 0,
-  position: 'relative',
-  zIndex: 10,
-};
+const ReasoningLogsContainer = styled('div')`
+  flex: 0 0 25%;
+  min-width: 330px;
+  height: 100%;
+  overflow: hidden;
+
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    flex: none;
+    width: 100%;
+    height: 40%;
+  }
+`;
+
+const InlineControlsContainer = styled('div')`
+  width: 100%;
+  padding: 8px;
+  background-color: ${({ theme }) => theme.palette.background.paper};
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+`;
+
+const LoadingContainer = styled('div')`
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  justify-content: center;
+  align-items: center;
+`;
+
+const GameLogButton = styled(Button)`
+  margin: 8px 24px 0;
+  position: fixed;
+  bottom: 24px;
+  z-index: 1;
+
+  ${({ theme }) => theme.breakpoints.down('tablet')} {
+    margin: 12px;
+  }
+`;
 
 export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   replay: rawReplay,
@@ -108,7 +141,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   gameName,
   GameRenderer,
   ui = 'side-panel',
-  layout = 'side-by-side',
   initialStep = 0,
   initialPlaying = false,
   initialSpeed = 1,
@@ -124,6 +156,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
   const containerRef = useRef<HTMLDivElement>(null);
+  const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
 
   // Refs for custom playback handlers registered by renderers (e.g., for audio-driven playback)
   const playbackHandlersRef = useRef<{ onPlay?: () => void; onPause?: () => void }>({});
@@ -262,22 +295,15 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   if (!processedReplay) {
     return (
-      <div
-        ref={containerRef}
-        className={className}
-        style={{ ...containerStyles, ...style, justifyContent: 'center', alignItems: 'center' }}
-      >
+      <LoadingContainer ref={containerRef} className={className} style={style}>
         <div>Loading...</div>
-      </div>
+      </LoadingContainer>
     );
   }
 
-  // For side-panel mode, use row/column layout. For inline, always column (game above controls).
-  const flexDirection = ui === 'side-panel' && layout !== 'stacked' ? 'row' : 'column';
-
   return (
-    <div ref={containerRef} className={className} style={{ ...containerStyles, flexDirection, ...style }}>
-      <div style={visualizerContainerStyles}>
+    <PlayerContainer ref={containerRef} className={className} style={style} $uiMode={ui}>
+      <VisualizerContainer>
         <GameRenderer
           replay={processedReplay}
           step={state.step}
@@ -286,11 +312,11 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           onSetPlaying={actions.setPlayingState}
           onRegisterPlaybackHandlers={handleRegisterPlaybackHandlers}
         />
-      </div>
+      </VisualizerContainer>
 
       {/* Inline mode: PlaybackControls below the game (hidden if parent handles UI) */}
       {ui === 'inline' && !parentData.parentHandlesUi && (
-        <div className="playback-controls-container" style={inlineControlsContainerStyles}>
+        <InlineControlsContainer>
           <PlaybackControls
             playing={state.playing}
             currentStep={state.step}
@@ -299,31 +325,41 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
             onPlayChange={handlePlayChange}
             onStepChange={actions.setStep}
           />
-        </div>
+        </InlineControlsContainer>
       )}
 
       {/* Side-panel mode: ReasoningLogs with controls (hidden if parent handles UI) */}
-      {ui === 'side-panel' && showLogs && !parentData.parentHandlesUi && (
-        <div style={layout === 'stacked' ? { width: '100%', height: '300px' } : reasoningLogsContainerStyles}>
-          <ReasoningLogs
-            closePanel={handleClosePanel}
-            onPlayChange={handlePlayChange}
-            onSpeedChange={actions.setSpeed}
-            onStepChange={actions.setStep}
-            playing={state.playing}
-            replayMode={state.replayMode}
-            setReplayMode={actions.setReplayMode}
-            speedModifier={state.speed}
-            totalSteps={totalSteps}
-            steps={processedReplay.steps}
-            currentStep={state.step}
-            gameName={gameName}
-            interestingEvents={interestingEvents}
-          />
-        </div>
-      )}
+      {ui === 'side-panel' &&
+        !parentData.parentHandlesUi &&
+        (showLogs ? (
+          <ReasoningLogsContainer>
+            <ReasoningLogs
+              closePanel={handleClosePanel}
+              onPlayChange={handlePlayChange}
+              onSpeedChange={actions.setSpeed}
+              onStepChange={actions.setStep}
+              playing={state.playing}
+              replayMode={state.replayMode}
+              setReplayMode={actions.setReplayMode}
+              speedModifier={state.speed}
+              totalSteps={totalSteps}
+              steps={processedReplay.steps}
+              currentStep={state.step}
+              gameName={gameName}
+              interestingEvents={interestingEvents}
+            />
+          </ReasoningLogsContainer>
+        ) : (
+          <GameLogButton
+            variant="high"
+            onClick={() => setShowLogs(true)}
+            startIcon={<Icon>{isTablet ? 'bottom_panel_open' : 'left_panel_open'}</Icon>}
+          >
+            Game Log
+          </GameLogButton>
+        ))}
 
       {/* 'none' mode: No UI rendered */}
-    </div>
+    </PlayerContainer>
   );
 }

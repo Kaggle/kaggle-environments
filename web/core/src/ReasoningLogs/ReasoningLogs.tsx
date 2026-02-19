@@ -56,12 +56,14 @@ const LogsContainer = styled('div')`
   border-left: 1px solid ${(p) => p.theme.palette.divider};
   display: flex;
   flex-direction: column;
+  flex: 0 0 30%;
   min-width: 330px;
   height: 100%;
   min-height: 0;
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
     border-left: none;
+    flex: none;
     height: 100%;
   }
 `;
@@ -314,7 +316,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             <PlayerControlsSection>
               <PlayerButtons>
                 <IconButton
-                  size="large"
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Restart"
                   onClick={() => {
                     onPlayChange(/* playing= */ true);
@@ -324,7 +326,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   <Icon>refresh</Icon>
                 </IconButton>
                 <IconButton
-                  size="large"
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
@@ -336,11 +338,15 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 >
                   <Icon>skip_previous</Icon>
                 </IconButton>
-                <IconButton size="large" aria-label={playing ? 'Pause' : 'Play'} onClick={() => onPlayChange()}>
+                <IconButton
+                  size={isTablet ? 'medium' : 'large'}
+                  aria-label={playing ? 'Pause' : 'Play'}
+                  onClick={() => onPlayChange()}
+                >
                   <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
                 <IconButton
-                  size="large"
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
@@ -417,32 +423,34 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 ))}
               </Select>
             </PlayerControlsSection>
-            <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
-              <Button
-                variant="medium"
-                size="small"
-                startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
-                onClick={() => {
-                  if (replayMode === 'zen') {
-                    setReplayMode('condensed');
-                  } else {
-                    setReplayMode('zen');
-                  }
-                }}
-              >
-                {replayMode === 'zen' ? 'Log View' : 'Streaming View'}
-              </Button>
-              {replayMode === 'condensed' && (
+            {!isTablet && (
+              <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
                 <Button
                   variant="medium"
                   size="small"
-                  startIcon={<Icon>expand_all</Icon>}
-                  onClick={() => setExpandAll(!expandAll)}
+                  startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
+                  onClick={() => {
+                    if (replayMode === 'zen') {
+                      setReplayMode('condensed');
+                    } else {
+                      setReplayMode('zen');
+                    }
+                  }}
                 >
-                  {expandAll ? 'Collapse' : 'Expand'} All
+                  {replayMode === 'zen' ? 'Log View' : 'Streaming View'}
                 </Button>
-              )}
-            </PlayerControlsSection>
+                {replayMode === 'condensed' && (
+                  <Button
+                    variant="medium"
+                    size="small"
+                    startIcon={<Icon>expand_all</Icon>}
+                    onClick={() => setExpandAll(!expandAll)}
+                  >
+                    {expandAll ? 'Collapse' : 'Expand'} All
+                  </Button>
+                )}
+              </PlayerControlsSection>
+            )}
           </>
         )}
       </SidebarHeader>
