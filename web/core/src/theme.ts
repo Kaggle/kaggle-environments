@@ -128,6 +128,12 @@ const themeTypography = {
     lineHeight: '20px',
     fontWeight: '400',
   },
+  // subtitle1 == subhead in kaggle material
+  subtitle1: {
+    fontSize: '16px',
+    lineHeight: '24px',
+    fontWeight: '600',
+  },
 };
 
 // Base theme with structural (non-color) styles

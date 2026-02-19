@@ -6,7 +6,7 @@ import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
-import { Button, Icon, useMediaQuery, useTheme } from '@mui/material';
+import { Button, Icon, useMediaQuery } from '@mui/material';
 
 /**
  * UI mode for playback controls and ReasoningLogs.
@@ -94,15 +94,15 @@ const VisualizerContainer = styled('div')`
 `;
 
 const ReasoningLogsContainer = styled('div')`
-  width: 330px;
-  flex-shrink: 0;
+  flex: 0 0 25%;
+  min-width: 330px;
   height: 100%;
   overflow: hidden;
 
   ${({ theme }) => theme.breakpoints.down('tablet')} {
+    flex: none;
     width: 100%;
     height: 40%;
-    flex-shrink: 0;
   }
 `;
 
@@ -156,9 +156,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
   const [showLogs, setShowLogs] = useState(ui === 'side-panel');
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const { breakpoints } = useTheme();
-  const isTablet = useMediaQuery(breakpoints.down('tablet'));
+  const isTablet = useMediaQuery((theme) => theme.breakpoints.down('tablet'));
 
   // Refs for custom playback handlers registered by renderers (e.g., for audio-driven playback)
   const playbackHandlersRef = useRef<{ onPlay?: () => void; onPause?: () => void }>({});
