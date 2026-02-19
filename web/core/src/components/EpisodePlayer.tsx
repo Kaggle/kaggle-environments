@@ -329,8 +329,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
       )}
 
       {/* Side-panel mode: ReasoningLogs with controls (hidden if parent handles UI) */}
-      {ui === 'side-panel' && !parentData.parentHandlesUi && (
-        showLogs ? (
+      {ui === 'side-panel' &&
+        !parentData.parentHandlesUi &&
+        (showLogs ? (
           <ReasoningLogsContainer>
             <ReasoningLogs
               closePanel={handleClosePanel}
@@ -356,10 +357,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
           >
             Game Log
           </GameLogButton>
-        )
-      )}
+        ))}
 
       {/* 'none' mode: No UI rendered */}
-    </PlayerContainer >
+    </PlayerContainer>
   );
 }

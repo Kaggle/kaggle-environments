@@ -106,7 +106,7 @@ const PlaybackSlider = styled(Slider)`
   margin-bottom: 8px;
 `;
 
-const MarkDot = styled('div') <{ $active?: boolean }>`
+const MarkDot = styled('div')<{ $active?: boolean }>`
   background-color: ${({ theme }) => theme.palette.primary.main};
   height: 10px;
   width: 10px;
@@ -114,11 +114,11 @@ const MarkDot = styled('div') <{ $active?: boolean }>`
   cursor: pointer;
   border: 2px solid
     ${({ theme, $active }) =>
-    $active
-      ? theme.palette.mode === 'dark'
-        ? theme.palette.common.white
-        : theme.palette.common.black
-      : theme.palette.background.default};
+      $active
+        ? theme.palette.mode === 'dark'
+          ? theme.palette.common.white
+          : theme.palette.common.black
+        : theme.palette.background.default};
   &:hover {
     border: 2px solid
       ${({ theme }) => (theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black)};
@@ -316,7 +316,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
             <PlayerControlsSection>
               <PlayerButtons>
                 <IconButton
-                  size={isTablet ? "medium" : "large"}
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Restart"
                   onClick={() => {
                     onPlayChange(/* playing= */ true);
@@ -326,7 +326,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   <Icon>refresh</Icon>
                 </IconButton>
                 <IconButton
-                  size={isTablet ? "medium" : "large"}
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Previous Step"
                   onClick={() => {
                     if (currentStep > 0) {
@@ -338,11 +338,15 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 >
                   <Icon>skip_previous</Icon>
                 </IconButton>
-                <IconButton size={isTablet ? "medium" : "large"} aria-label={playing ? 'Pause' : 'Play'} onClick={() => onPlayChange()}>
+                <IconButton
+                  size={isTablet ? 'medium' : 'large'}
+                  aria-label={playing ? 'Pause' : 'Play'}
+                  onClick={() => onPlayChange()}
+                >
                   <Icon>{playing ? 'pause' : 'play_arrow'}</Icon>
                 </IconButton>
                 <IconButton
-                  size={isTablet ? "medium" : "large"}
+                  size={isTablet ? 'medium' : 'large'}
                   aria-label="Next Step"
                   onClick={() => {
                     if (currentStep < totalSteps - 1) {
@@ -419,32 +423,34 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 ))}
               </Select>
             </PlayerControlsSection>
-            {!isTablet && <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
-              <Button
-                variant="medium"
-                size="small"
-                startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
-                onClick={() => {
-                  if (replayMode === 'zen') {
-                    setReplayMode('condensed');
-                  } else {
-                    setReplayMode('zen');
-                  }
-                }}
-              >
-                {replayMode === 'zen' ? 'Log View' : 'Streaming View'}
-              </Button>
-              {replayMode === 'condensed' && (
+            {!isTablet && (
+              <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
                 <Button
                   variant="medium"
                   size="small"
-                  startIcon={<Icon>expand_all</Icon>}
-                  onClick={() => setExpandAll(!expandAll)}
+                  startIcon={<Icon>{replayMode === 'zen' ? 'view_object_track' : 'sensors'}</Icon>}
+                  onClick={() => {
+                    if (replayMode === 'zen') {
+                      setReplayMode('condensed');
+                    } else {
+                      setReplayMode('zen');
+                    }
+                  }}
                 >
-                  {expandAll ? 'Collapse' : 'Expand'} All
+                  {replayMode === 'zen' ? 'Log View' : 'Streaming View'}
                 </Button>
-              )}
-            </PlayerControlsSection>}
+                {replayMode === 'condensed' && (
+                  <Button
+                    variant="medium"
+                    size="small"
+                    startIcon={<Icon>expand_all</Icon>}
+                    onClick={() => setExpandAll(!expandAll)}
+                  >
+                    {expandAll ? 'Collapse' : 'Expand'} All
+                  </Button>
+                )}
+              </PlayerControlsSection>
+            )}
           </>
         )}
       </SidebarHeader>
