@@ -35,12 +35,7 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     // Only run TypeScript checker in dev mode - production builds use explicit tsc
-    process.env.NODE_ENV !== 'production' && checker({
-      typescript: {
-        tsconfigPath: './tsconfig.json',
-        buildMode: false,
-      },
-    }),
+    process.env.NODE_ENV !== 'production' && checker({ typescript: true }),
     // Inject CSS into JS bundle in production builds (matches dev behavior)
     cssInjectedByJsPlugin(),
     {
