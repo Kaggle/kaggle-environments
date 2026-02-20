@@ -426,9 +426,6 @@ importers:
       '@emotion/styled':
         specifier: ^11.0.0
         version: 11.14.1(@emotion/react@11.14.0(@types/react@18.3.28)(react@18.3.1))(@types/react@18.3.28)(react@18.3.1)
-      '@fontsource/inter':
-        specifier: ^5.2.8
-        version: 5.2.8
       '@mui/material':
         specifier: ^5.0.0 || ^6.0.0
         version: 6.5.0(@emotion/react@11.14.0(@types/react@18.3.28)(react@18.3.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@18.3.28)(react@18.3.1))(@types/react@18.3.28)(react@18.3.1))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
