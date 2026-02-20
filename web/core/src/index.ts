@@ -40,3 +40,6 @@ export * from './episodeAssetUtils';
 
 // Renderer utilities
 export * from './renderer-utils';
+
+// Theme and fonts
+export { loadInterFont } from './theme';

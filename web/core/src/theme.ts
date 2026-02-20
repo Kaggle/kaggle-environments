@@ -1,7 +1,44 @@
 import { createTheme, Theme } from '@mui/material/styles';
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/700.css';
+
+// System font stack that closely matches Inter's appearance
+const SYSTEM_FONT_STACK = [
+  'Inter',
+  '-apple-system',
+  'BlinkMacSystemFont',
+  '"Segoe UI"',
+  'Roboto',
+  '"Helvetica Neue"',
+  'Arial',
+  'sans-serif',
+  '"Apple Color Emoji"',
+  '"Segoe UI Emoji"',
+  '"Segoe UI Symbol"',
+].join(', ');
+
+// Google Fonts URL for Inter (weights 400, 500, 700)
+const GOOGLE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap';
+
+/**
+ * Loads the Inter font from Google Fonts CDN.
+ * Call this early in your application to ensure fonts are loaded.
+ * Falls back gracefully to system fonts if loading fails.
+ */
+export function loadInterFont(): void {
+  if (typeof document === 'undefined') return;
+
+  // Check if already loaded
+  const existingLink = document.querySelector(`link[href="${GOOGLE_FONTS_URL}"]`);
+  if (existingLink) return;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = GOOGLE_FONTS_URL;
+  link.crossOrigin = 'anonymous';
+  document.head.appendChild(link);
+}
+
+// Auto-load fonts when this module is imported
+loadInterFont();
 
 // Custom breakpoints matching the Material design guidelines
 // See: https://carbon.googleplex.com/kaggle/pages/layout-breakpoints/principles
@@ -87,7 +124,7 @@ export const themeBreakpoints = {
 };
 
 const themeTypography = {
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: SYSTEM_FONT_STACK,
   h1: {
     fontSize: '36px',
     lineHeight: '44px',
@@ -159,7 +196,7 @@ const baseTheme = createTheme({
         root: {
           textTransform: 'none',
           borderRadius: '20px',
-          fontFamily: 'Inter',
+          fontFamily: SYSTEM_FONT_STACK,
           padding: '0px 16px 0px 12px',
           height: '36px',
           width: 'fit-content',
