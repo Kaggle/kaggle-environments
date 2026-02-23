@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Renderer Test</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+            color: #1a202c;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .board-section {
+            margin: 40px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .board-container {
+            width: 100%;
+            min-height: 600px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #3182ce;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2c5aa0;
+        }
+        button.active {
+            background: #2d3748;
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        .description {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Go Renderer Test</h1>
+        <p style="text-align: center; color: #718096; margin-bottom: 40px;">
+            Testing the Go board renderer with different board sizes and game states
+        </p>
+
+        <div class="controls">
+            <button onclick="showEmptyBoard(9)" class="active" id="btn-empty-9">Empty 9×9</button>
+            <button onclick="showGameInProgress(9)" id="btn-game-9">9×9 Game</button>
+            <button onclick="showEmptyBoard(13)" id="btn-empty-13">Empty 13×13</button>
+            <button onclick="showGameInProgress(13)" id="btn-game-13">13×13 Game</button>
+            <button onclick="showEmptyBoard(19)" id="btn-empty-19">Empty 19×19</button>
+            <button onclick="showGameInProgress(19)" id="btn-game-19">19×19 Game</button>
+        </div>
+        
+        <div class="controls">
+            <label for="boardSize">Board Size: </label>
+            <input type="range" id="boardSize" min="400" max="1200" value="800" step="50">
+            <span id="sizeValue">800px</span>
+        </div>
+        
+
+        <div class="board-section">
+            <div id="go-board" class="board-container"></div>
+        </div>
+    </div>
+
+    <script src="go_renderer.js"></script>
+    <script>
+        let currentRenderer = null;
+
+        function setActiveButton(buttonId) {
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(buttonId).classList.add('active');
+        }
+
+        function createEmptyBoard(size) {
+            const board_grid = [];
+            const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
+            
+            for (let row = size; row >= 1; row--) { // Go rows are numbered from top to bottom
+                const rowData = [];
+                for (let col = 0; col < size; col++) {
+                    const coordinate = columns[col] + row;
+                    rowData.push({ [coordinate]: "." });
+                }
+                board_grid.push(rowData);
+            }
+
+            return {
+                board_size: size,
+                komi: 7.5,
+                current_player_to_move: "B",
+                move_number: 1,
+                previous_move_a1: null,
+                board_grid: board_grid
+            };
+        }
+
+        function createGameInProgress(size) {
+            const gameState = createEmptyBoard(size);
+            const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'];
+            
+            // Add some sample moves based on board size
+            let moves = [];
+            if (size === 9) {
+                moves = [
+                    { coord: 'D4', color: 'B' },
+                    { coord: 'F6', color: 'W' },
+                    { coord: 'C5', color: 'B' },
+                    { coord: 'G5', color: 'W' },
+                    { coord: 'E3', color: 'B' },
+                    { coord: 'E7', color: 'W' },
+                    { coord: 'F4', color: 'B' }
+                ];
+                gameState.move_number = 8;
+                gameState.previous_move_a1 = 'F4';
+                gameState.current_player_to_move = 'W';
+            } else if (size === 13) {
+                moves = [
+                    { coord: 'D4', color: 'B' },
+                    { coord: 'J10', color: 'W' },
+                    { coord: 'J4', color: 'B' },
+                    { coord: 'D10', color: 'W' },
+                    { coord: 'G7', color: 'B' },
+                    { coord: 'F6', color: 'W' },
+                    { coord: 'H8', color: 'B' },
+                    { coord: 'G6', color: 'W' },
+                    { coord: 'F7', color: 'B' }
+                ];
+                gameState.move_number = 10;
+                gameState.previous_move_a1 = 'F7';
+                gameState.current_player_to_move = 'W';
+            } else if (size === 19) {
+                moves = [
+                    { coord: 'D4', color: 'B' },
+                    { coord: 'Q16', color: 'W' },
+                    { coord: 'P4', color: 'B' },
+                    { coord: 'D16', color: 'W' },
+                    { coord: 'C14', color: 'B' },
+                    { coord: 'R14', color: 'W' },
+                    { coord: 'O17', color: 'B' },
+                    { coord: 'F17', color: 'W' },
+                    { coord: 'K10', color: 'B' },
+                    { coord: 'Q3', color: 'W' },
+                    { coord: 'R6', color: 'B' }
+                ];
+                gameState.move_number = 12;
+                gameState.previous_move_a1 = 'R6';
+                gameState.current_player_to_move = 'W';
+            }
+
+            // Place the moves on the board
+            moves.forEach(move => {
+                const { coord, color } = move;
+                const col_letter = coord[0];
+                const row_num = parseInt(coord.slice(1));
+                
+                const col_index = columns.indexOf(col_letter);
+                const row_index = size - row_num; // Convert Go row numbering to array index
+                
+                if (row_index >= 0 && row_index < size && col_index >= 0 && col_index < size) {
+                    gameState.board_grid[row_index][col_index][coord] = color;
+                }
+            });
+
+            return gameState;
+        }
+
+        function renderBoard(gameState) {
+            const boardContainer = document.getElementById('go-board');
+            
+            // Clear previous renderer
+            boardContainer.innerHTML = '';
+            
+            // Create mock environment structure
+            const mockEnvironment = {
+                steps: {
+                    0: [
+                        {},  // Player agents would go here
+                        {    // Game master agent (last one)
+                            observation: {
+                                observation_string: JSON.stringify(gameState)
+                            }
+                        }
+                    ]
+                }
+            };
+
+            const maxBoardSize = parseInt(document.getElementById('boardSize').value);
+            const options = {
+                environment: mockEnvironment,
+                step: 0,
+                parent: boardContainer,
+                interactive: false,
+                isInteractive: false,
+                maxBoardSize: maxBoardSize
+            };
+
+            // Call the renderer
+            renderer(options);
+        }
+
+        function showEmptyBoard(size) {
+            setActiveButton(`btn-empty-${size}`);
+            const gameState = createEmptyBoard(size);
+            renderBoard(gameState);
+        }
+
+        function showGameInProgress(size) {
+            setActiveButton(`btn-game-${size}`);
+            const gameState = createGameInProgress(size);
+            renderBoard(gameState);
+        }
+
+        // Board size slider functionality
+        document.getElementById('boardSize').addEventListener('input', function(e) {
+            document.getElementById('sizeValue').textContent = e.target.value + 'px';
+            // Re-render current board with new size
+            const activeButton = document.querySelector('button.active');
+            if (activeButton) {
+                activeButton.click();
+            }
+        });
+
+
+        // Initialize with empty 9x9 board
+        window.addEventListener('load', () => {
+            showEmptyBoard(9);
+        });
+    </script>
+</body>
+</html>
