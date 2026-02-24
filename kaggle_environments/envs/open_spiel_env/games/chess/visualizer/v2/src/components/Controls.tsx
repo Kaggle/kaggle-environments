@@ -2,10 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import {
   createReplayVisualizer,
-  processEpisodeData,
-  LegacyAdapter,
-  LegacyRendererOptions,
-  ReplayData,
+  ReplayAdapter,
+  RendererOptions,
   ChessPlayer,
   ChessStep,
 } from '@kaggle-environments/core';
@@ -16,8 +14,8 @@ export default function Controls() {
   const setState = useChessStore((state) => state.setState);
 
   useEffect(() => {
-    const renderer = (options: LegacyRendererOptions<ChessStep[]>) => {
-      const step = options.steps.at(options.step);
+    const renderer = (options: RendererOptions<ChessStep[]>) => {
+      const step = options.replay.steps.at(options.step);
       const player = step!.players.find((player: ChessPlayer) => player.isTurn);
 
       if (player) {
@@ -40,10 +38,11 @@ export default function Controls() {
     };
 
     const container = containerRef.current!;
-    const adapter = new LegacyAdapter<ChessStep[]>(renderer);
-    const transformer = (replay: ReplayData) => processEpisodeData(replay, 'open_spiel_chess');
+    const gameName = 'open_spiel_chess';
+    const ui = 'inline';
+    const adapter = new ReplayAdapter<ChessStep[]>({ gameName, renderer, ui });
 
-    createReplayVisualizer(container, adapter, { transformer });
+    createReplayVisualizer(container, adapter);
   }, [setState]);
 
   return <div id="controls" ref={containerRef} />;
