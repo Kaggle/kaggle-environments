@@ -2122,6 +2122,66 @@ class GameSetEvaluator:
         _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
         return fig
 
+
+    def plot_pairwise_winrates(self, output_path: Union[str, List[str]] = "pairwise_winrates.html"):
+        """Plots a heatmap of pairwise winrates between all distinct agents."""
+        import plotly.graph_objects as go
+        import numpy as np
+        import pandas as pd
+        from collections import defaultdict
+
+        all_agents = sorted(list(self.metrics.keys()))
+        counts = defaultdict(int)
+        wins = defaultdict(int)
+
+        for g in self.games:
+            team_v = [p.agent.display_name for p in g.players if p.role.team == Team.VILLAGERS]
+            team_w = [p.agent.display_name for p in g.players if p.role.team == Team.WEREWOLVES]
+
+            for v in team_v:
+                for w in team_w:
+                    counts[(v, w)] += 1
+                    counts[(w, v)] += 1
+                    if g.winner_team == Team.VILLAGERS:
+                        wins[(v, w)] += 1
+                    elif g.winner_team == Team.WEREWOLVES:
+                        wins[(w, v)] += 1
+
+        n = len(all_agents)
+        matrix = np.full((n, n), np.nan)
+        
+        for i, a in enumerate(all_agents):
+            for j, b in enumerate(all_agents):
+                if a == b:
+                    matrix[i, j] = 0.5  # Self vs Self trivially tied
+                    continue
+                if counts[(a, b)] > 0:
+                    matrix[i, j] = wins[(a, b)] / counts[(a, b)]
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=matrix,
+                x=all_agents,
+                y=all_agents,
+                colorscale="Viridis",
+                zmin=0,
+                zmax=1,
+                hovertemplate="Row: %{y}<br>Col: %{x}<br>WR: %{z:.2f}<extra></extra>"
+            )
+        )
+
+        fig.update_layout(
+            title="Pairwise Head-to-Head Winrates (Row vs Column)",
+            xaxis_title="Opponent Agent",
+            yaxis_title="Agent",
+            width=800,
+            height=800,
+            font=dict(family="Inter, sans-serif")
+        )
+
+        _save_figure(fig, output_path, width=800, height=800)
+        return fig
+
     def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
         if self.gte_game is None:
             print("GTE evaluation has not been run. Please run .evaluate() first.")
