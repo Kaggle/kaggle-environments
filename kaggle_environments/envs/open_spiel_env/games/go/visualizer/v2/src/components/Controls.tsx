@@ -16,7 +16,11 @@ export default function Controls() {
         const colorAndMove = step!.boardState.previous_move_a1!;
         const [, move] = colorAndMove.split(' ');
 
-        move === 'PASS' ? go.pass() : go.play(move);
+        if (move === 'PASS') {
+          go.pass();
+        } else {
+          go.play(move);
+        }
       }
 
       // Check against game state captured by OpenSpiel. Matches.
@@ -40,7 +44,7 @@ export default function Controls() {
     const adapter = new ReplayAdapter({ gameName, renderer, ui });
 
     createReplayVisualizer(container, adapter);
-  }, []);
+  }, [setState]);
 
   return <div id="controls" ref={containerRef} />;
 }
