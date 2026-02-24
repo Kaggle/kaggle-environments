@@ -9,24 +9,41 @@ export default function Controls() {
 
   useEffect(() => {
     const renderer = (options: RendererOptions<GoStep[]>) => {
-      const step = options.replay.steps.at(options.step);
-
-      console.log(options.step);
-
-      const board = step!.boardState.board!;
-      const size = step?.boardState.board_size!;
-
+      const size = options.replay.configuration.openSpielGameParameters.board_size;
       const go = new Game({ boardSize: size });
 
-      for (let x = 0; x < size; x++) {
-        for (let y = 0; y < size; y++) {
-          const color = board[x][y];
+      for (let i = 0; i <= options.step; i++) {
+        const step = options.replay.steps.at(i);
+        const colorAndMove = step!.boardState.previous_move_a1!;
+        const move = colorAndMove.split(' ')[1]!;
 
-          if (color === '.') continue;
+        if (move === 'PASS') {
+          go.pass();
+        } else {
+          const index: { [key: string]: number } = {
+            '1': 0,
+            '2': 1,
+            '3': 2,
+            '4': 3,
+            '5': 4,
+            '6': 5,
+            '7': 6,
+            '8': 7,
+            '9': 8,
+            'a': 0,
+            'b': 1,
+            'c': 2,
+            'd': 3,
+            'e': 4,
+            'f': 5,
+            'g': 6,
+            'h': 7,
+            'j': 8,
+          };
 
-          if (go.currentPlayer() !== (color === 'B' ? 'black' : 'white')) go.pass();
-
-          console.log(go.playAt(x, y));
+          const x = index[move.charAt(0)];
+          const y = index[move.charAt(1)];
+          go.playAt(x, y);
         }
       }
 
