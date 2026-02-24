@@ -4,7 +4,6 @@ import pathlib
 import pokerkit  # noqa: F401
 import pyspiel
 from absl.testing import absltest
-from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import make
 from kaggle_environments.envs.open_spiel_env import open_spiel_env
@@ -16,8 +15,7 @@ TEST_REPEATED_POKER_GAME_STRING = open_spiel_env.DEFAULT_REPEATED_POKER_GAME_STR
 
 
 # Expected that not all pyspiel registered games can be registered as Kaggle
-# envs (e.g. does not yet support simultaneous move games), but should register
-# at least this many
+# envs, but should register at least this many
 _REGISTERED_GAMES_THRESHOLD = 50
 
 
