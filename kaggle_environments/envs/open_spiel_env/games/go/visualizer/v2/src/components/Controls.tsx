@@ -22,6 +22,10 @@ export default function Controls() {
       // Check against game state captured by OpenSpiel. Matches.
       // console.log(options.replay.steps.at(options.step)?.boardState.board);
 
+      const step = options.replay.steps.at(options.step);
+      const player = step!.players.find((player) => player.isTurn);
+      console.log(player?.thoughts);
+
       setState(go);
     };
 
