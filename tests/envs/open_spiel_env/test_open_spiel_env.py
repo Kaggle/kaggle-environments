@@ -4,6 +4,7 @@ import pathlib
 import pokerkit  # noqa: F401
 import pyspiel
 from absl.testing import absltest
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import make
 from kaggle_environments.envs.open_spiel_env import open_spiel_env

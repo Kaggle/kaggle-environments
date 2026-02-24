@@ -13,7 +13,9 @@ import warnings
 from typing import Any, Callable
 
 import numpy as np
+import pokerkit  # noqa: F401
 import pyspiel
+from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
 from kaggle_environments import core, utils
 
