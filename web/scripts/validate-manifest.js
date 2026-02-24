@@ -15,6 +15,36 @@ const ROOT_DIR = path.resolve(__dirname, '../..');
 const MANIFEST_PATH = path.join(ROOT_DIR, 'build', 'manifest.json');
 const BUILD_DIR = path.join(ROOT_DIR, 'build');
 
+// SKIP_GAMES patterns - games matching these are in manifest but not deployed
+const SKIP_GAMES = process.env.SKIP_GAMES || '';
+
+/**
+ * Check if a game/visualizer should be skipped from directory validation.
+ * Mirrors the logic in collect-artifacts.sh
+ */
+function shouldSkipGame(gameName, vizName) {
+  if (!SKIP_GAMES) return false;
+
+  const patterns = SKIP_GAMES.split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const pattern of patterns) {
+    if (pattern.includes('/')) {
+      // Pattern is game/visualizer - must match both
+      const [patternGame, patternViz] = pattern.split('/');
+      if (gameName.includes(patternGame) && vizName === patternViz) {
+        return true;
+      }
+    } else {
+      // Pattern is game only - skip all visualizers for matching games
+      if (gameName.includes(pattern)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function fail(message) {
   console.error(`❌ Manifest validation failed: ${message}`);
   process.exit(1);
@@ -22,6 +52,11 @@ function fail(message) {
 
 function validateManifest() {
   console.log('--- Validating manifest.json ---');
+
+  if (SKIP_GAMES) {
+    console.log(`SKIP_GAMES is set: '${SKIP_GAMES}'`);
+    console.log('Directory existence checks will be skipped for matching games.');
+  }
 
   // Check build directory exists
   if (!fs.existsSync(BUILD_DIR)) {
@@ -87,7 +122,11 @@ function validateManifest() {
     }
 
     // Verify the visualizer directory actually exists in build/
+    // (skip this check for games that are in manifest but not deployed)
     for (const viz of visualizers) {
+      if (shouldSkipGame(gameName, viz)) {
+        continue; // Skipped games won't have directories in build/
+      }
       const vizDir = path.join(BUILD_DIR, gameName, viz);
       if (!fs.existsSync(vizDir)) {
         fail(`Visualizer directory missing for ${gameName}/${viz}: ${vizDir}`);
@@ -99,7 +138,20 @@ function validateManifest() {
   console.log(`✅ Manifest validation passed`);
   console.log(`   Found ${gameNames.length} game(s):`);
   for (const gameName of gameNames.sort()) {
-    console.log(`     - ${gameName}: [${manifest[gameName].join(', ')}]`);
+    const visualizers = manifest[gameName];
+    const skippedViz = visualizers.filter((v) => shouldSkipGame(gameName, v));
+    const deployedViz = visualizers.filter((v) => !shouldSkipGame(gameName, v));
+
+    if (skippedViz.length === visualizers.length) {
+      // All visualizers are skipped
+      console.log(`     - ${gameName}: [${visualizers.join(', ')}] (skipped from GCS)`);
+    } else if (skippedViz.length > 0) {
+      // Some visualizers are skipped
+      console.log(`     - ${gameName}: [${deployedViz.join(', ')}] (skipped: ${skippedViz.join(', ')})`);
+    } else {
+      // No visualizers are skipped
+      console.log(`     - ${gameName}: [${visualizers.join(', ')}]`);
+    }
   }
 }
 

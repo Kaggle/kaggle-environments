@@ -1,12 +1,4 @@
-import { GoStep } from '@kaggle-environments/core';
-
-interface GoRendererOptions {
-  environment: any;
-  step: number;
-  steps: GoStep[];
-  parent: any;
-  maxBoardSize?: number;
-}
+import { GoStep, RendererOptions } from '@kaggle-environments/core';
 
 // --- Constants ---
 const DEFAULT_BOARD_SIZE = 19;
@@ -85,8 +77,10 @@ function getBoardConfig(boardSize: number) {
  * it is a clone of the original go.js, there's always a chance something broke
  * along the way. Code is meant to be deleted- do it if you need to!
  * */
-export function renderer(options: GoRendererOptions) {
-  const { step, steps, parent, maxBoardSize = 800 } = options;
+export function renderer(options: RendererOptions<GoStep[]>) {
+  const { step, replay, parent } = options;
+  const steps = replay.steps;
+  const maxBoardSize = 800;
 
   let currentBoardSvgElement: SVGSVGElement | null = null;
   let currentStatusTextElement: HTMLElement | null = null;

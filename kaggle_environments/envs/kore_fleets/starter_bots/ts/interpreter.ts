@@ -17,14 +17,14 @@ interface Agent {
   name: string;
   status: 'ACTIVE' | 'DONE';
   reward: number;
-  tickFunc: (board:Board) => void; 
+  tickFunc: (board: Board) => void;
 }
 
 const tickFuncMapping = {
   'miner': MinerTick,
   'do_nothing': DoNothingTick,
   'bot': BotTick,
-}
+};
 
 const MODE_STEP = 'step' as const;
 const MODE_RUN = 'run' as const;
@@ -51,7 +51,7 @@ if (myArgs.length < 3) {
 }
 
 const mode = myArgs[0];
-if(mode !== MODE_STEP && mode !== MODE_RUN) {
+if (mode !== MODE_STEP && mode !== MODE_RUN) {
   console.log('Mode must be either step or run. Example:');
   console.log(example);
   process.exit(1);
@@ -73,11 +73,13 @@ if (agentNames.length !== 2) {
 }
 
 // validate agent names for step mode
-if(mode === MODE_STEP) {
+if (mode === MODE_STEP) {
   for (let i = 0; i < agentNames.length; i++) {
     const agentName = agentNames[i];
-    if(!tickFuncMapping[agentName]) {
-      console.log(`Agent ${agentName} tick function mapping does not exit. Define the mapping in interpreter.js -> tickFuncMapping.`);
+    if (!tickFuncMapping[agentName]) {
+      console.log(
+        `Agent ${agentName} tick function mapping does not exit. Define the mapping in interpreter.js -> tickFuncMapping.`
+      );
       console.log(example);
       process.exit(1);
     }
@@ -90,7 +92,7 @@ const userResultfilename = myArgs[5] || DEFAULT_RESULT_FILE_NAME;
 
 console.log(`Running ${episodes} episodes with agents: ${agentNames.join(' ')}`);
 
-if(mode === MODE_RUN) {
+if (mode === MODE_RUN) {
   runAgent(episodes, agentNames, () => {
     // post processing
     console.log('run done');
@@ -124,7 +126,7 @@ function initEnv(agents: Agent[]): Promise<Board> {
       console.error(`stderr: ${data}`);
       reject(data);
     });
-  
+
     kaggle.on('close', (code) => {
       console.log(`init complete`);
       const result = processResult(resultFilename);
@@ -137,7 +139,7 @@ function initEnv(agents: Agent[]): Promise<Board> {
 }
 
 // mimic the interpreter function in kore_fleets.py
-function boardTick(board:Board, agents: Agent[]) {
+function boardTick(board: Board, agents: Agent[]) {
   const players = board.players;
 
   // Remove players with invalid status or insufficient potential.
@@ -149,25 +151,25 @@ function boardTick(board:Board, agents: Agent[]) {
     const fleets = player.fleets;
     const canSpawn = shipyards.length > 0 && playerKore >= board.configuration.spawnCost;
 
-    if(agent.status === 'ACTIVE' && shipyards.length === 0 && fleets.length === 0) {
+    if (agent.status === 'ACTIVE' && shipyards.length === 0 && fleets.length === 0) {
       agent.status = 'DONE';
       agent.reward = board.step - board.configuration.episodeSteps - 1;
     }
-    if(agent.status === 'ACTIVE' && playerKore === 0 && fleets.length === 0 && !canSpawn) {
+    if (agent.status === 'ACTIVE' && playerKore === 0 && fleets.length === 0 && !canSpawn) {
       agent.status = 'DONE';
       agent.reward = board.step - board.configuration.episodeSteps - 1;
     }
-    if(agent.status !== 'ACTIVE' && agent.status !== 'DONE') {
+    if (agent.status !== 'ACTIVE' && agent.status !== 'DONE') {
       // TODO: handle this
     }
   }
 
   // Check if done (< 2 players and num_agents > 1)
-  const activeAgents = agents.filter(agent => agent.status === 'ACTIVE').length;
-  if(agents.length > 1 && activeAgents < 2) {
+  const activeAgents = agents.filter((agent) => agent.status === 'ACTIVE').length;
+  if (agents.length > 1 && activeAgents < 2) {
     for (let i = 0; i < agents.length; i++) {
       const agent = agents[i];
-      if(agent.status === 'ACTIVE') {
+      if (agent.status === 'ACTIVE') {
         agent.status = 'DONE';
       }
     }
@@ -176,20 +178,20 @@ function boardTick(board:Board, agents: Agent[]) {
   // Update Rewards
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i];
-    if(agent.status === 'ACTIVE') {
+    if (agent.status === 'ACTIVE') {
       agent.reward = players[i].kore;
-    } else if(agent.status !== 'DONE') {
+    } else if (agent.status !== 'DONE') {
       agent.reward = 0;
     }
   }
 
   let end = true;
-  if(board.step >= board.configuration.episodeSteps - 1) {
+  if (board.step >= board.configuration.episodeSteps - 1) {
     return true;
   }
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i];
-    if(agent.status === 'ACTIVE') {
+    if (agent.status === 'ACTIVE') {
       end = false;
     }
   }
@@ -223,7 +225,7 @@ async function stepAgent(episodes: number, agentsNames: string[], callback: Func
     });
 
     let gameBoard = await initEnv(agents);
-    while(!boardTick(gameBoard, agents)) {
+    while (!boardTick(gameBoard, agents)) {
       // console.log(gameBoard.step);
       for (let i = 0; i < agents.length; i++) {
         const agent = agents[i];
@@ -232,9 +234,9 @@ async function stepAgent(episodes: number, agentsNames: string[], callback: Func
         gameBoard.currentPlayerId = i;
         agent.tickFunc(gameBoard);
 
-        gameBoard.currentPlayer.shipyards.forEach(shipyard => {
+        gameBoard.currentPlayer.shipyards.forEach((shipyard) => {
           // console.log(gameBoard.currentPlayerId, shipyard.position.toString(), shipyard.nextAction);
-        })
+        });
       }
       gameBoard.currentPlayerId = episodeMainAgentIndex;
       if (gameBoard.step % 100 === 0) {
@@ -253,7 +255,7 @@ async function stepAgent(episodes: number, agentsNames: string[], callback: Func
     );
     console.log(agents[episodeMainAgentIndex].name, agents[episodeMainAgentIndex].reward);
     console.log(agents[episodeOpponentAgentIndex].name, agents[episodeOpponentAgentIndex].reward);
-    if(agents[episodeMainAgentIndex].reward > agents[episodeOpponentAgentIndex].reward) {
+    if (agents[episodeMainAgentIndex].reward > agents[episodeOpponentAgentIndex].reward) {
       wins++;
     }
 

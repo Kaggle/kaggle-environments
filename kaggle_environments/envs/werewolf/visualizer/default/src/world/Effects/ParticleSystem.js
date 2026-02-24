@@ -2,7 +2,7 @@ export class ParticleSystem {
   constructor(scene, THREE) {
     this.scene = scene;
     this.THREE = THREE;
-    
+
     this.particles = null;
     this.particleMaterial = null;
 
