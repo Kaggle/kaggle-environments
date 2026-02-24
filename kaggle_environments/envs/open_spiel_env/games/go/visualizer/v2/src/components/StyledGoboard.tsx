@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import useGoStore from '../stores/useGoStore';
 
 export default function StyledGoboard() {
   const go = useGoStore((state) => state.go);
 
-  console.log(go.score());
-  console.log(go.isOver());
+  useEffect(() => {
+    console.log(go.score());
+    console.log(go.isOver());
+  }, [go]);
 
   return <div id="board"></div>;
 }
