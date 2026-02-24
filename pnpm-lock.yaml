@@ -360,6 +360,9 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+      tenuki:
+        specifier: ^0.3.1
+        version: 0.3.1
       zustand:
         specifier: ^5.0.10
         version: 5.0.11(@types/react@18.3.28)(react@18.3.1)
@@ -3094,6 +3097,10 @@ packages:
   table@6.9.0:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
     engines: {node: '>=10.0.0'}
+
+  tenuki@0.3.1:
+    resolution: {integrity: sha512-4obVv+CHn0QXrtHEZOYXE69xweUAae/iHfEz6oqM+dKTcdL8b0G44knfjLtepu4UHdwW0OzxurXDXoZKzKOIIQ==}
+    engines: {node: '>=6.0.0'}
 
   three@0.118.3:
     resolution: {integrity: sha512-ijECXrNzDkHieoeh2H69kgawTGH8DiamhR4uBN8jEM7VHSKvfTdEvOoHsA8Aq7dh7PHAxhlqBsN5arBI3KixSw==}
@@ -6398,6 +6405,8 @@ snapshots:
       slice-ansi: 4.0.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
+
+  tenuki@0.3.1: {}
 
   three@0.118.3: {}
 
