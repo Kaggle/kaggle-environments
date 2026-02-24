@@ -2004,6 +2004,124 @@ class GameSetEvaluator:
         _save_figure(fig, output_path, width=900, height=600)
         return fig
 
+
+    def plot_tournament_graph(self, output_path: Union[str, List[str]] = "tournament_graph.html"):
+        """Plots a directed tournament graph where directed edges indicate the margin of victory."""
+        import networkx as nx
+        import plotly.graph_objects as go
+        from collections import defaultdict
+
+        all_agents = sorted(list(self.metrics.keys()))
+        votes = defaultdict(int)
+
+        for g in self.games:
+            team_v = {p.agent.display_name for p in g.players if p.role.team == Team.VILLAGERS}
+            team_w = {p.agent.display_name for p in g.players if p.role.team == Team.WEREWOLVES}
+
+            winner_names = team_v if g.winner_team == Team.VILLAGERS else team_w
+            loser_names = team_w if g.winner_team == Team.VILLAGERS else team_v
+
+            for w in winner_names:
+                for l in loser_names:
+                    votes[(w, l)] += 1
+
+        G = nx.DiGraph()
+        G.add_nodes_from(all_agents)
+
+        for a in all_agents:
+            for b in all_agents:
+                if a == b:
+                    continue
+                margin = votes[(a, b)] - votes[(b, a)]
+                if margin > 0:
+                    G.add_edge(a, b, weight=margin)
+
+        pos = nx.circular_layout(G)
+
+        edge_x = []
+        edge_y = []
+        annotations = []
+
+        for u, v, d in G.edges(data=True):
+            x0, y0 = pos[u]
+            x1, y1 = pos[v]
+            
+            # Draw line
+            edge_x.extend([x0, x1, None])
+            edge_y.extend([y0, y1, None])
+            
+            # Arrow and text
+            annotations.append(
+                dict(
+                    ax=x0, ay=y0, axref='x', ayref='y',
+                    x=x1, y=y1, xref='x', yref='y',
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1.5,
+                    arrowwidth=2,
+                    arrowcolor='#a3a3a3',
+                    opacity=0.8,
+                    text=f"{d['weight']}",
+                    hovertext=f"{u} -> {v}: {d['weight']}",
+                    font=dict(size=10, color="#ffffff"),
+                    bgcolor="#2c3e50",
+                    bordercolor="#ffffff",
+                    borderwidth=1,
+                    borderpad=3
+                )
+            )
+
+        edge_trace = go.Scatter(
+            x=edge_x, y=edge_y,
+            line=dict(width=1, color='#888'),
+            hoverinfo='none',
+            mode='lines'
+        )
+
+        node_x = []
+        node_y = []
+        node_text = []
+
+        for node in G.nodes():
+            x, y = pos[node]
+            node_x.append(x)
+            node_y.append(y)
+            node_text.append(node)
+
+        node_trace = go.Scatter(
+            x=node_x, y=node_y,
+            mode='markers+text',
+            hoverinfo='text',
+            text=node_text,
+            textposition="top center",
+            marker=dict(
+                showscale=False,
+                colorscale='YlGnBu',
+                size=30,
+                color='#1f77b4',
+                line_width=2,
+                line_color='#ffffff')
+        )
+
+        fig = go.Figure(data=[edge_trace, node_trace],
+                     layout=go.Layout(
+                        title=dict(text='Tournament Graph (Directed Edge Indicates Win Margin)', font=dict(size=18, family="Inter, sans-serif")),
+                        showlegend=False,
+                        hovermode='closest',
+                        margin=dict(b=40,l=40,r=40,t=60),
+                        annotations=annotations,
+                        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                        width=1000,
+                        height=800,
+                        plot_bgcolor="#f8f9fa",
+                        font=dict(family="Inter, sans-serif")
+                        )
+                     )
+
+        _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
+        return fig
+
     def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
         if self.gte_game is None:
             print("GTE evaluation has not been run. Please run .evaluate() first.")
