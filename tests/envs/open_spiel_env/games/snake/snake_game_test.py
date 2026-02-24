@@ -2,7 +2,7 @@
 
 from absl.testing import absltest
 
-from kaggle_environments.envs.open_spiel_env.games.snake import snake as snake
+from kaggle_environments.envs.open_spiel_env.games.snake import snake_game as snake
 
 import pyspiel
 
