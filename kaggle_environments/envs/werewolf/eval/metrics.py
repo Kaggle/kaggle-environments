@@ -1,6 +1,7 @@
 import argparse
 import functools
 import hashlib
+import math
 import multiprocessing
 import os
 import pickle
@@ -594,9 +595,9 @@ class GameSetEvaluator:
                 total_delta = k * (result_v - expected_v)
 
                 # Distribute points
-                # Each member gets equal share of the team's total gain/loss
-                v_change = total_delta / len(villager_agents)
-                w_change = -total_delta / len(werewolf_agents)
+                # Each member gets the team's total gain/loss
+                v_change = total_delta
+                w_change = -total_delta
 
                 for agent in villager_agents:
                     elos[agent] += v_change
@@ -641,9 +642,11 @@ class GameSetEvaluator:
                 # rate() returns updated rating objects in the same structure as input
                 try:
                     new_ratings = model.rate(teams)
+                    
                     flat_ratings = [r for team in new_ratings for r in team]
                     for r in flat_ratings:
                         current_ratings[r.name] = r
+
                 except Exception:
                     # Fallback for degenerate cases (e.g. empty teams)
                     pass
@@ -677,9 +680,9 @@ class GameSetEvaluator:
             total_delta = k * (result_v - expected_v)
 
             # Distribute points
-            # Each member gets equal share of the team's total gain/loss
-            v_change = total_delta / len(v_indices)
-            w_change = -total_delta / len(w_indices)
+            # Each member gets the team's total gain/loss
+            v_change = total_delta
+            w_change = -total_delta
             for i in v_indices:
                 elos[i] += v_change
             for i in w_indices:
@@ -872,7 +875,6 @@ class GameSetEvaluator:
             results = list(tqdm(executor.map(worker, samples_iterator), total=num_samples, desc="OpenSkill Bootstrap"))
 
         bootstrapped_mus = defaultdict(list)
-        default_mu = self.openskill_model.rating().mu
 
         for sample_ratings_list in results:
             for i, mu in enumerate(sample_ratings_list):
@@ -2230,65 +2232,6 @@ class GameSetEvaluator:
                 
         print(f"Saving wide-format metrics to {output_path}")
         final_df.to_csv(output_path)
-
-    def save_metrics_csv(self, output_path: str = "metrics.csv"):
-        """Saves the metrics to a CSV file in a wide format with deltas.
-
-        Format: Index=Agent, Columns=Metric, {Metric} 95 CI lower delta, {Metric} 95 CI upper delta
-        """
-        df = self._prepare_plot_data()
-        
-        # Calculate deltas (Mean - Lower, Upper - Mean). 
-        # In _prepare_plot_data, CI95 is symmetric (1.96 * std).
-        # User wants lower_delta to be negative (e.g. -0.05) and upper_delta to be positive (e.g. +0.05)
-        df["lower_delta"] = -df["CI95"]
-        df["upper_delta"] = df["CI95"]
-
-        # Rename metrics if needed (already handled "OpenSkill" in _prepare_plot_data)
-        
-        # Disambiguate Role-Specific metrics
-        def disambiguate_metric(row):
-            cat = row["category"]
-            met = row["metric"]
-            if cat == "Role-Specific Win Rate":
-                return f"WinRate {met}"
-            elif cat == "Role-Specific KSR":
-                return f"KSR {met}"
-            elif cat == "Win-Dependent KSR":
-                return f"WD-KSR {met}"
-            return met
-        
-        if "category" in df.columns:
-            df["metric"] = df.apply(disambiguate_metric, axis=1)
-
-        # Pivot
-        # Use pivot_table to handle potential duplicates (though unlikely with disambiguation)
-        pivot_df = df.pivot_table(index="agent", columns="metric", values=["value", "lower_delta", "upper_delta"], aggfunc="mean")
-        
-        final_df = pd.DataFrame(index=pivot_df.index)
-        
-        # Determine column order
-        present_metrics = sorted(df["metric"].unique())
-        priority_order = ["GTE Rating", "Elo", "OpenSkill"]
-        
-        sorted_metrics = []
-        for pm in priority_order:
-            if pm in present_metrics:
-                sorted_metrics.append(pm)
-                present_metrics.remove(pm)
-        sorted_metrics.extend(present_metrics)
-        
-        for metric in sorted_metrics:
-            if ("value", metric) in pivot_df.columns:
-                final_df[metric] = pivot_df[("value", metric)]
-            if ("lower_delta", metric) in pivot_df.columns:
-                final_df[f"{metric} 95 CI lower delta"] = pivot_df[("lower_delta", metric)]
-            if ("upper_delta", metric) in pivot_df.columns:
-                final_df[f"{metric} 95 CI upper delta"] = pivot_df[("upper_delta", metric)]
-                
-        print(f"Saving wide-format metrics to {output_path}")
-        final_df.to_csv(output_path)
-
 
     def save_metrics_json(self, output_path: str = "metrics.json"):
         """Saves global stats and agent metrics to a JSON file."""
