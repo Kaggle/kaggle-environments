@@ -9,8 +9,10 @@ export default function Controls() {
 
   useEffect(() => {
     const renderer = (options: RendererOptions<GoStep[]>) => {
-      const size = options.replay.configuration.openSpielGameParameters.board_size;
-      const go = new Game({ boardSize: size });
+      const boardSize = options.replay.configuration.openSpielGameParameters.board_size;
+      const element = document.getElementById('board');
+      element!.innerHTML = '';
+      const go = new Game({ boardSize, element });
 
       for (let i = 0; i <= options.step; i++) {
         const step = options.replay.steps.at(i);

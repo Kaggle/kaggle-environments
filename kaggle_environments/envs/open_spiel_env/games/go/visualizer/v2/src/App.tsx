@@ -5,7 +5,6 @@ import './App.css';
 function App() {
   return (
     <div className="container">
-      Go Visualizer
       <StyledGoboard />
       <Controls />
     </div>

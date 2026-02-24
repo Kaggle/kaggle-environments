@@ -9,3 +9,8 @@
   margin-top: 1em;
   height: 3em;
 }
+
+#board {
+  min-width: 70vh;
+  min-height: 70vh;
+}
