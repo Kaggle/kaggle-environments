@@ -1857,6 +1857,75 @@ class GameSetEvaluator:
             margin=dict(l=120, r=50),
         )
 
+        import re
+        import numpy as np
+        
+        if output_path:
+            paths = [output_path] if isinstance(output_path, str) else output_path
+            for path in paths:
+                base, ext = os.path.splitext(path)
+                for cat in present_categories:
+                    safe_cat = re.sub(r'[^a-zA-Z0-9_\-]', '_', cat.strip())
+                    row_output_html = f"{base}_{safe_cat}.html"
+                    row_output_png = f"{base}_{safe_cat}.png"
+                    
+                    cat_metrics = category_metrics_map[cat]
+                    row_titles = np.pad(cat_metrics, (0, max_cols - len(cat_metrics)), constant_values="").tolist()
+                    
+                    row_fig = make_subplots(
+                        rows=1,
+                        cols=max_cols,
+                        subplot_titles=row_titles,
+                        horizontal_spacing=0.04,
+                    )
+                    
+                    for col_idx, metric in enumerate(cat_metrics):
+                        metric_data = df[(df["category"] == cat) & (df["metric"] == metric)]
+                        
+                        if cat == "Ratings":
+                            sorted_agents_by_value = metric_data.sort_values("value", ascending=True)["agent"].tolist()
+                            row_fig.update_xaxes(
+                                categoryorder="array", categoryarray=sorted_agents_by_value, row=1, col=col_idx + 1
+                            )
+                        else:
+                            row_fig.update_xaxes(
+                                categoryorder="array", categoryarray=all_agents_sorted, row=1, col=col_idx + 1
+                            )
+
+                        row_fig.add_trace(
+                            go.Bar(
+                                name=metric,
+                                x=metric_data["agent"],
+                                y=metric_data["value"],
+                                error_y=dict(type="data", array=metric_data["CI95"]),
+                                marker_color=metric_data["agent"].map(agent_color_map),
+                                showlegend=False,
+                                hovertemplate="<b>%{x}</b><br>%{y:.2f} ± %{error_y.array:.2f}<extra></extra>",
+                            ),
+                            row=1,
+                            col=col_idx + 1,
+                        )
+
+                        if cat == "Ratings":
+                            row_fig.update_yaxes(matches=None, row=1, col=col_idx + 1)
+                        else:
+                            row_fig.update_yaxes(range=[0, 1.05] if cat != "Cost" else None, row=1, col=col_idx + 1)
+                        row_fig.update_xaxes(tickangle=45, row=1, col=col_idx + 1)
+                        
+                    row_fig.update_layout(
+                        title_text=f"{cat} Metrics",
+                        title_font_size=20,
+                        title_x=0.01,
+                        height=400,
+                        width=250 * max_cols if max_cols > 2 else 1000,
+                        font=dict(family="Inter, sans-serif"),
+                        showlegend=False,
+                        margin=dict(l=120, r=50),
+                    )
+                    
+                    _save_figure(row_fig, row_output_html, width=row_fig.layout.width, height=row_fig.layout.height)
+                    _save_figure(row_fig, row_output_png, width=row_fig.layout.width, height=row_fig.layout.height)
+
         _save_figure(fig, output_path, width=fig.layout.width, height=fig.layout.height)
         return fig
 
