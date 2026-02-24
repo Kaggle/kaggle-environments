@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
+import { useRef, useEffect } from 'react';
+import { createRenderer } from 'jgoboard';
 import useGoStore from '../stores/useGoStore';
 
 export default function StyledGoboard() {
+  const elem = useRef(null);
   const go = useGoStore((state) => state.go);
 
   useEffect(() => {
-    console.log(go.score());
-    console.log(go.isOver());
+    const options = {
+      board: go.board,
+      theme: 'kaya-large',
+      interactions: { enabled: false },
+    };
+
+    const renderer = createRenderer(elem.current, options);
+
+    return () => renderer.destroy();
   }, [go]);
 
-  return <div id="board"></div>;
+  return <div ref={elem}></div>;
 }

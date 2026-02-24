@@ -1,14 +1,14 @@
 import { create } from 'zustand';
-import { Game } from 'tenuki';
+import { createGame, GameState } from 'jgoboard';
 
 interface GoStore {
-  go: Game;
-  setState: (go: Game) => void;
+  go: GameState;
+  setState: (go: GameState) => void;
 }
 
 const useGoStore = create<GoStore>((set) => ({
-  go: new Game({ boardSize: 9 }),
-  setState: (go: Game) => set({ go }),
+  go: createGame({ size: 9 }),
+  setState: (go: GameState) => set({ go }),
 }));
 
 export default useGoStore;
