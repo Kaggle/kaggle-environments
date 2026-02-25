@@ -815,6 +815,9 @@ class GameSetEvaluator:
                 std = float(np.std(values, ddof=1))
                 self.metrics[agent].elo_std = std
                 agent_stds[agent] = std
+                
+                # UPDATE MEANS
+                self.metrics[agent].elo = float(np.mean(values))
 
         # Save to cache
         try:
@@ -887,6 +890,10 @@ class GameSetEvaluator:
                 std = float(np.std(values, ddof=1))
                 self.metrics[agent].openskill_mu_std = std
                 agent_stds[agent] = std
+                
+                # UPDATE MEANS
+                if self.metrics[agent].openskill_rating:
+                    self.metrics[agent].openskill_rating.mu = float(np.mean(values))
 
         # Save to cache
         try:
