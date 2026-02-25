@@ -2058,24 +2058,36 @@ class GameSetEvaluator:
             edge_x.extend([x0, x1, None])
             edge_y.extend([y0, y1, None])
             
-            # Arrow and text
+            # Arrow
             annotations.append(
                 dict(
                     ax=x0, ay=y0, axref='x', ayref='y',
                     x=x1, y=y1, xref='x', yref='y',
                     showarrow=True,
-                    arrowhead=2,
-                    arrowsize=1.5,
-                    arrowwidth=2,
+                    arrowhead=4,
+                    arrowsize=1.0,
+                    arrowwidth=1.5,
                     arrowcolor='#a3a3a3',
                     opacity=0.8,
+                    text=""
+                )
+            )
+            # Text at midpoint
+            annotations.append(
+                dict(
+                    x=(x0 + x1) / 2,
+                    y=(y0 + y1) / 2,
+                    xref='x',
+                    yref='y',
                     text=f"{d['weight']}",
                     hovertext=f"{u} -> {v}: {d['weight']}",
+                    showarrow=False,
                     font=dict(size=10, color="#ffffff"),
                     bgcolor="#2c3e50",
                     bordercolor="#ffffff",
                     borderwidth=1,
-                    borderpad=3
+                    borderpad=3,
+                    opacity=0.9
                 )
             )
 
