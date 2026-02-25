@@ -2174,25 +2174,30 @@ class GameSetEvaluator:
         for i, a in enumerate(all_agents):
             for j, b in enumerate(all_agents):
                 if a == b:
-                    matrix[i, j] = 0.5  # Self vs Self trivially tied
+                    matrix[i, j] = 0.0  # Self vs Self trivially tied
                     continue
                 if counts[(a, b)] > 0:
-                    matrix[i, j] = wins[(a, b)] / counts[(a, b)]
+                    # Difference between (Row vs Col) Win Rate and (Col vs Row) Win Rate
+                    row_wr = wins[(a, b)] / counts[(a, b)]
+                    col_wr = wins[(b, a)] / counts[(b, a)]
+                    matrix[i, j] = row_wr - col_wr
 
+        # Use a diverging colormap centered at 0 because it's a win rate difference
         fig = go.Figure(
             data=go.Heatmap(
                 z=matrix,
                 x=all_agents,
                 y=all_agents,
-                colorscale="Viridis",
-                zmin=0,
-                zmax=1,
-                hovertemplate="Row: %{y}<br>Col: %{x}<br>WR: %{z:.2f}<extra></extra>"
+                colorscale="RdBu",
+                zmid=0.0,
+                zmin=-1.0,
+                zmax=1.0,
+                hovertemplate="Row: %{y}<br>Col: %{x}<br>WR Difference: %{z:.2f}<extra></extra>"
             )
         )
 
         fig.update_layout(
-            title="Pairwise Head-to-Head Winrates (Row vs Column)",
+            title="Pairwise Head-to-Head Win Rate Differences (Row - Column)",
             xaxis_title="Opponent Agent",
             yaxis_title="Agent",
             width=800,
