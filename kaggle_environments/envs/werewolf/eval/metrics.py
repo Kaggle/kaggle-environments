@@ -2011,7 +2011,8 @@ class GameSetEvaluator:
         import plotly.graph_objects as go
         from collections import defaultdict
 
-        all_agents = sorted(list(self.metrics.keys()))
+        all_agents = list(self.metrics.keys())
+        all_agents.sort(key=lambda x: getattr(self.metrics[x], 'gte_rating', (0.0, 0.0))[0], reverse=True)
         votes = defaultdict(int)
 
         for g in self.games:
@@ -2130,7 +2131,8 @@ class GameSetEvaluator:
         import pandas as pd
         from collections import defaultdict
 
-        all_agents = sorted(list(self.metrics.keys()))
+        all_agents = list(self.metrics.keys())
+        all_agents.sort(key=lambda x: getattr(self.metrics[x], 'gte_rating', (0.0, 0.0))[0], reverse=True)
         counts = defaultdict(int)
         wins = defaultdict(int)
 
