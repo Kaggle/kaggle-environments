@@ -2,7 +2,7 @@ export class AssetManager {
   constructor(loadingManager, modules) {
     this.loadingManager = loadingManager;
     this.THREE = modules.THREE;
-    
+
     // Initialize loaders
     this.textureLoader = new this.THREE.TextureLoader(this.loadingManager);
     this.fbxLoader = new modules.FBXLoader(this.loadingManager);
@@ -34,7 +34,7 @@ export class AssetManager {
         (error) => {
           console.error(`[AssetManager] Error loading ${url}:`, error);
           // We remove the failed promise from cache so it can be retried
-          this.cache.delete(url); 
+          this.cache.delete(url);
           reject(error);
         }
       );
@@ -59,23 +59,23 @@ export class AssetManager {
   loadHDR(url) {
     return this._load(this.rgbeLoader, url);
   }
-  
+
   /**
    * Helper to load a batch of textures concurrently
    * @param {Object} urlsMap - Key-Value pairs of { name: url }
    * @returns {Promise<Object>} - Promise resolving to { name: texture }
    */
   async loadTextures(urlsMap) {
-      const keys = Object.keys(urlsMap);
-      const promises = keys.map(key => this.loadTexture(urlsMap[key]));
-      
-      const textures = await Promise.all(promises);
-      
-      const result = {};
-      keys.forEach((key, index) => {
-          result[key] = textures[index];
-      });
-      return result;
+    const keys = Object.keys(urlsMap);
+    const promises = keys.map((key) => this.loadTexture(urlsMap[key]));
+
+    const textures = await Promise.all(promises);
+
+    const result = {};
+    keys.forEach((key, index) => {
+      result[key] = textures[index];
+    });
+    return result;
   }
 
   getToonGradientMap() {
@@ -84,7 +84,7 @@ export class AssetManager {
     // Create a 3-tone gradient map
     const colors = new Uint8Array([0, 128, 255]); // 3 tones: black/shadow, mid, bright
     // Or maybe 0, 128, 255 for standard 3-step. Let's try 3 steps.
-    
+
     // Using DataTexture
     const texture = new this.THREE.DataTexture(colors, 3, 1, this.THREE.RedFormat);
     texture.minFilter = this.THREE.NearestFilter;

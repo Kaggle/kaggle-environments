@@ -81,9 +81,7 @@ export function createNameReplacer(
       if (format === 'text' && displayName === characterName) return null;
 
       // Replacement text depends on format
-      const replacement = format === 'html'
-        ? createPlayerCapsule(player)
-        : displayName;
+      const replacement = format === 'html' ? createPlayerCapsule(player) : displayName;
 
       // Robust regex that handles edge cases better than simple \b word boundaries
       // - (^|[^\w.-]) - Start of string OR preceded by non-word/dot/hyphen character
@@ -91,10 +89,7 @@ export function createNameReplacer(
       // - (?![\w-]) - Not followed by word char or hyphen
       const escapedName = characterName.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
       // Update: Handle optional "Player" prefix (e.g. "PlayerKai") by consuming it (non-capturing group)
-      const regex = new RegExp(
-        `(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w-])`,
-        'g'
-      );
+      const regex = new RegExp(`(^|[^\\w.-])(?:Player\\s*)?(${escapedName})(\\.?)(?![\\w-])`, 'g');
 
       return { replacement, regex };
     })
@@ -117,4 +112,3 @@ export function createNameReplacer(
     return newText;
   };
 }
-

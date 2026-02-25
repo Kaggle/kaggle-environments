@@ -1,4 +1,4 @@
-import { getCommunityCardsFromACPC } from "./repeatedPokerTransformerUtils.js";
+import { getCommunityCardsFromACPC } from './repeatedPokerTransformerUtils.js';
 
 type TestCase = {
   name: string;
@@ -13,9 +13,7 @@ function runTest({ name, acpcState, expected, expectedError }: TestCase) {
 
     if (expectedError) {
       console.error(`❌ ${name}`);
-      console.error(
-        `   Expected error containing "${expectedError}" but execution succeeded with "${result}"`,
-      );
+      console.error(`   Expected error containing "${expectedError}" but execution succeeded with "${result}"`);
       return;
     }
 
@@ -52,54 +50,54 @@ function runTest({ name, acpcState, expected, expectedError }: TestCase) {
 
 const testCases: TestCase[] = [
   {
-    name: "preflop - no community cards",
-    acpcState: "STATE:0:r5c:AsKs|QhJh",
-    expected: "",
+    name: 'preflop - no community cards',
+    acpcState: 'STATE:0:r5c:AsKs|QhJh',
+    expected: '',
   },
   {
-    name: "flop dealt",
-    acpcState: "STATE:0:r5c:6cKd|AsJc/7hQh6d",
-    expected: "7hQh6d",
+    name: 'flop dealt',
+    acpcState: 'STATE:0:r5c:6cKd|AsJc/7hQh6d',
+    expected: '7hQh6d',
   },
   {
-    name: "turn dealt",
-    acpcState: "STATE:0:r5c:6cKd|AsJc/7hQh6d/2h",
-    expected: "7hQh6d2h",
+    name: 'turn dealt',
+    acpcState: 'STATE:0:r5c:6cKd|AsJc/7hQh6d/2h',
+    expected: '7hQh6d2h',
   },
   {
-    name: "river dealt - full board",
-    acpcState: "STATE:0:r5c:6cKd|AsJc/7hQh6d/2h/9s",
-    expected: "7hQh6d2h9s",
+    name: 'river dealt - full board',
+    acpcState: 'STATE:0:r5c:6cKd|AsJc/7hQh6d/2h/9s',
+    expected: '7hQh6d2h9s',
   },
   {
-    name: "empty ACPC state",
-    acpcState: "",
-    expected: "",
+    name: 'empty ACPC state',
+    acpcState: '',
+    expected: '',
   },
   {
-    name: "multi-street with betting",
-    acpcState: "STATE:0:r5c/cr11f:6cKd|AsJc/7hQh6d/2h",
-    expected: "7hQh6d2h",
+    name: 'multi-street with betting',
+    acpcState: 'STATE:0:r5c/cr11f:6cKd|AsJc/7hQh6d/2h',
+    expected: '7hQh6d2h',
   },
   {
-    name: "complex full hand",
-    acpcState: "STATE:0:r5c/cc/r11c/r122r200c:AsKs|QhJh/7h8h9h/Ts/Js",
-    expected: "7h8h9hTsJs",
+    name: 'complex full hand',
+    acpcState: 'STATE:0:r5c/cc/r11c/r122r200c:AsKs|QhJh/7h8h9h/Ts/Js',
+    expected: '7h8h9hTsJs',
   },
   {
-    name: "malformed state - too few parts",
-    acpcState: "STATE:0:r5c",
-    expected: "",
+    name: 'malformed state - too few parts',
+    acpcState: 'STATE:0:r5c',
+    expected: '',
   },
   {
-    name: "no player delimiter in cards",
-    acpcState: "STATE:0:r5c:AsKsQhJh",
-    expected: "",
+    name: 'no player delimiter in cards',
+    acpcState: 'STATE:0:r5c:AsKsQhJh',
+    expected: '',
   },
   {
-    name: "player cards only, no community cards after delimiter",
-    acpcState: "STATE:0:r5c:6cKd|AsJc",
-    expected: "",
+    name: 'player cards only, no community cards after delimiter',
+    acpcState: 'STATE:0:r5c:6cKd|AsJc',
+    expected: '',
   },
 ];
 

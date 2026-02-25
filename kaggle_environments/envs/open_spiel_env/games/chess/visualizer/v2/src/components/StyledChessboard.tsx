@@ -1,4 +1,4 @@
-import { Chessboard, PieceRenderObject } from 'react-chessboard';
+import { Chessboard } from 'react-chessboard';
 import useChessStore from '../stores/useChessStore';
 
 export default function StyledChessboard() {
@@ -6,7 +6,7 @@ export default function StyledChessboard() {
   const position = chess.fen();
 
   const style = { width: '100%', height: '100%' };
-  const pieces: PieceRenderObject = {
+  const pieces = {
     wP: () => <img src="./images/wP.png" style={style} />,
     wK: () => <img src="./images/wK.png" style={style} />,
     wQ: () => <img src="./images/wQ.png" style={style} />,
@@ -37,5 +37,16 @@ export default function StyledChessboard() {
     backgroundColor: 'transparent',
   };
 
-  return <Chessboard options={{ position, pieces, lightSquareStyle, darkSquareStyle }} />;
+  return (
+    // Div with style needed only for the React 18 compatible
+    // version of react-chessboard.
+    <div style={{ aspectRatio: '1', minHeight: '400px' }}>
+      <Chessboard
+        position={position}
+        customDarkSquareStyle={darkSquareStyle}
+        customLightSquareStyle={lightSquareStyle}
+        customPieces={pieces}
+      />
+    </div>
+  );
 }
