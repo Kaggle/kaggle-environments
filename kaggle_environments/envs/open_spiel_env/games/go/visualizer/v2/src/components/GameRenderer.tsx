@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createGame } from 'jgoboard';
-import StyledGoboard from './StyledGoboard';
+import StyledBoard from './StyledBoard';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import useGoStore from '../stores/useGoStore';
 
@@ -38,5 +38,5 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     setState(go);
   }, [options]);
 
-  return <StyledGoboard />;
+  return <StyledBoard />;
 }

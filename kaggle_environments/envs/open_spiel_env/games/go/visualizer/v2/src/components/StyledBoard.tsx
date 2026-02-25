@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { createRenderer } from 'jgoboard';
 import useGoStore from '../stores/useGoStore';
 
-export default function StyledGoboard() {
+export default function StyledBoard() {
   const elem = useRef(null);
   const go = useGoStore((state) => state.go);
 

@@ -15,11 +15,9 @@
 }
 
 #board {
-  margin: 2em 5em;
-}
+  margin: 0 auto 0 auto;
+  padding: 1em;
 
-.viewer {
-  text-align: center;
 }
 
 .viewer canvas {
