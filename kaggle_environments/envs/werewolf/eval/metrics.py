@@ -1796,7 +1796,7 @@ class GameSetEvaluator:
             row_titles=present_categories,
             subplot_titles=plot_titles,
             vertical_spacing=0.1,
-            horizontal_spacing=0.04,
+            horizontal_spacing=0.1,
         )
 
         # Create a consistent color map for all agents and a default sorting order
@@ -1858,7 +1858,7 @@ class GameSetEvaluator:
             title_font_size=24,
             title_x=0.01,
             height=350 * len(present_categories),
-            width=250 * max_cols if max_cols > 2 else 1000,
+            width=350 * max_cols if max_cols > 2 else 1000,
             font=dict(family="Inter, sans-serif"),
             showlegend=False,
             margin=dict(l=120, r=50),
