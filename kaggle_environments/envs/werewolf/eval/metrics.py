@@ -595,9 +595,9 @@ class GameSetEvaluator:
                 total_delta = k * (result_v - expected_v)
 
                 # Distribute points
-                # Each member gets the team's total gain/loss
-                v_change = total_delta
-                w_change = -total_delta
+                # Each member gets equal share of the team's total gain/loss
+                v_change = total_delta / len(villager_agents)
+                w_change = -total_delta / len(werewolf_agents)
 
                 for agent in villager_agents:
                     elos[agent] += v_change
@@ -680,9 +680,9 @@ class GameSetEvaluator:
             total_delta = k * (result_v - expected_v)
 
             # Distribute points
-            # Each member gets the team's total gain/loss
-            v_change = total_delta
-            w_change = -total_delta
+            # Each member gets equal share of the team's total gain/loss
+            v_change = total_delta / len(v_indices)
+            w_change = -total_delta / len(w_indices)
             for i in v_indices:
                 elos[i] += v_change
             for i in w_indices:
