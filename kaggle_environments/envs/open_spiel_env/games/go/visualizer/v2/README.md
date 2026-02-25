@@ -5,9 +5,9 @@ framework and `zustand` for state management.
 
 _Note: Potentially useful libraries: JGoBoard, Tenuki, WGo.js_
 
-_Note: Currently using JGoBoard for both the chess gamestate and board rendering 
-and although it's released under a CC licence, it's the NC (Non Commercial) 
-version which isn't a fit for Kaggle. The renderer will be a custom React 
+_Note: Currently using JGoBoard for both the chess gamestate and board rendering
+and although it's released under a CC licence, it's the NC (Non Commercial)
+version which isn't a fit for Kaggle. The renderer will be a custom React
 component, but the gamestate element will need replacing._
 
 `pnpm install`
