@@ -310,7 +310,9 @@ export function renderer(options: RendererOptions): void {
     const scaleY = parentHeight / baseHeight;
     const scale = Math.min(scaleX, scaleY);
 
-    elements.gameLayout.style.transform = `scale(${scale})`;
+    // The game layout is absolutely positioned at top: 50%, left: 50%
+    // so we need to translate(-50%, -50%) to center it, then apply the scale
+    elements.gameLayout.style.transform = `translate(-50%, -50%) scale(${scale})`;
   }
 
   // Helper to find the shortest unique name by skipping common prefixes
@@ -1160,14 +1162,9 @@ export function renderer(options: RendererOptions): void {
     _renderLegendUI(options.replay.steps as RepeatedPokerStep[], options.step ?? 0, options.setStep);
   }
 
-  // Apply initial scale
+  // Apply scale based on current container size.
+  // Note: The core library (LegacyRendererWrapper) already handles resize detection
+  // and calls this renderer function when the container size changes, so we don't
+  // need our own ResizeObserver here.
   _applyScale(parent);
-
-  // Watch for container size changes and reapply scale
-  if (typeof ResizeObserver !== 'undefined') {
-    const resizeObserver = new ResizeObserver(() => {
-      _applyScale(parent);
-    });
-    resizeObserver.observe(parent);
-  }
 }
