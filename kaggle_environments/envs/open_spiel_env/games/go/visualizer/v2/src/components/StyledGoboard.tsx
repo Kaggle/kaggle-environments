@@ -9,7 +9,39 @@ export default function StyledGoboard() {
   useEffect(() => {
     const options = {
       board: go.board,
-      theme: 'kaya-large',
+      theme: {
+        margin: {
+          color: 'transparent',
+          normal: 0,
+          clipped: 0,
+        },
+        boardShadow: {
+          color: 'transparent',
+        },
+        padding: {
+          normal: 20,
+          clipped: 10,
+        },
+        grid: {
+          color: 'transparent',
+          x: 50,
+          y: 50,
+        },
+        coordinates: {
+          top: true,
+          right: true,
+          bottom: true,
+          left: true,
+          color: 'transparent',
+          font: 'normal 12px sans-serif',
+        },
+        textures: {
+          black: 'images/black.png',
+          white: 'images/white.png',
+          shadow: 'images/shadow.png',
+          board: 'images/board.jpg',
+        },
+      },
       interactions: { enabled: false },
     };
 
