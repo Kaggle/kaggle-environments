@@ -2189,7 +2189,7 @@ class GameSetEvaluator:
                 zmid=0.5,
                 zmin=0.0,
                 zmax=1.0,
-                text=matrix,
+                text=np.around(matrix, 2),
                 texttemplate="%{text:.2f}",
                 textfont={"size": 10},
                 hovertemplate="Row: %{y}<br>Col: %{x}<br>Win Rate: %{z:.2f}<extra></extra>"
@@ -2200,12 +2200,12 @@ class GameSetEvaluator:
             title="Pairwise Head-to-Head Win Rates (Row vs Column)",
             xaxis_title="Opponent Agent",
             yaxis_title="Agent",
-            width=800,
-            height=800,
+            width=900,
+            height=900,
             font=dict(family="Inter, sans-serif")
         )
 
-        _save_figure(fig, output_path, width=800, height=800)
+        _save_figure(fig, output_path, width=900, height=900)
         return fig
 
     def plot_gte_evaluation(self, output_path: Union[str, List[str]] = "gte_evaluation.html"):
