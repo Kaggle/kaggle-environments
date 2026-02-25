@@ -2623,3 +2623,5 @@ if __name__ == '__main__':
     evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
     evaluator.plot_gte_metrics_analysis([str(output_dir / "gte_metrics.html"), str(output_dir / "gte_metrics.png")])
     evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
+    evaluator.plot_tournament_graph([str(output_dir / "tournament_graph.html"), str(output_dir / "tournament_graph.png")])
+    evaluator.plot_pairwise_winrates([str(output_dir / "pairwise_winrates.html"), str(output_dir / "pairwise_winrates.png")])
