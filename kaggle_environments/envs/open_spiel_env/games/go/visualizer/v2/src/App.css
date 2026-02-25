@@ -1,0 +1,16 @@
+#root {
+  max-width: 80vh;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+#legend {
+  margin-top: 1em;
+  height: 3em;
+}
+
+canvas {
+  max-width: 70vh !important;
+  max-height: 70vh !important;
+}
