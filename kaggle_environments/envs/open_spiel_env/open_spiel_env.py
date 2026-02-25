@@ -45,6 +45,18 @@ for proxy_file in GAMES_DIR.glob("**/*_proxy.py"):
     except Exception as e:  # pylint: disable=broad-exception-caught
         _log.debug(f"  - FAILED to import proxy from {proxy_file.name}: {e}")
 
+# --- Import custom games ---
+_log.debug("Auto-importing custom OpenSpiel games...")
+GAMES_DIR = pathlib.Path(__file__).parent / "games"
+for game_file in GAMES_DIR.glob("**/*_game.py"):
+    try:
+        relative_path = proxy_file.relative_to(GAMES_DIR.parent)
+        module_path = str(relative_path.with_suffix("")).replace(os.path.sep, ".")
+        importlib.import_module("." + module_path, package=__package__)
+        _log.debug(f"  - Imported: {module_path}")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        _log.debug(f"  - FAILED to import game from {game_file.name}: {e}")
+
 
 # --- Constants ---
 # TODO(jhtschultz): Make this configurable per-game. For instance, in poker, a
