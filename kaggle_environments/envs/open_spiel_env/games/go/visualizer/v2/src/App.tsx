@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import GameRenderer from './components/GameRenderer';
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
+import GameRenderer from './components/GameRenderer';
 import './App.css';
 
 function App() {
