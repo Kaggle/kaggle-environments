@@ -1,0 +1,36 @@
+name: Go v2 Visualizer
+
+on:
+  pull_request:
+    branches:
+      - go-v2/main
+
+jobs:
+  test-and-build:
+    name: Test + Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./kaggle_environments/envs/open_spiel_env/games/go/visualizer/v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Lint
+        run: |
+          pnpm lint
+
+      - name: Format
+        run: |
+          pnpm format
+
+      - name: Build
+        run: |
+          pnpm build

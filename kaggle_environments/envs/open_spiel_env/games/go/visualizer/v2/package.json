@@ -1,0 +1,34 @@
+{
+  "name": "@kaggle-environments/open-spiel-go-v2-visualizer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && node ./scripts/build.js",
+    "preview": "vite preview",
+    "tsc": "tsc -b",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "download-replays": "node ./scripts/download.js"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "eslint-plugin-react-refresh": "^0.5.0",
+    "globals": "^17.3.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@kaggle-environments/core": "workspace:*",
+    "jgoboard": "^5.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tenuki": "^0.3.1",
+    "zustand": "^5.0.10"
+  }
+}
