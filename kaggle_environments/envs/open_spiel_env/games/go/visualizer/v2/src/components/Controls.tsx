@@ -40,7 +40,7 @@ export default function Controls() {
 
     const container = containerRef.current!;
     const gameName = 'open_spiel_go';
-    const ui = 'inline';
+    const ui = 'side-panel';
     const adapter = new ReplayAdapter({ gameName, renderer, ui });
 
     createReplayVisualizer(container, adapter);
