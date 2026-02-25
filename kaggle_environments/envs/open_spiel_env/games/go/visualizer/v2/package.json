@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "download-replays": "node ./scripts/download.js"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

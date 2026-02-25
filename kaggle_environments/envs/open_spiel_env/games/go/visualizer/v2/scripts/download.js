@@ -52,10 +52,7 @@ const list = await kaggleApi(
   '/i/competitions.EpisodeService/ListEpisodes',
   JSON.stringify({
     ids: [],
-    benchmarkTaskVersionFilter: {
-      benchmarkModelVersionId: 57,
-      benchmarkTaskVersionId: 396,
-    },
+    submissionId: 50557974,
     successfulOnly: true,
   })
 );
@@ -85,6 +82,11 @@ for (const id of downloads) {
       episodeId: id,
     })
   );
+
+  if (replay.error) {
+    console.log(id, replay.error);
+    break;
+  }
 
   console.log(replay.info.TeamNames);
 
