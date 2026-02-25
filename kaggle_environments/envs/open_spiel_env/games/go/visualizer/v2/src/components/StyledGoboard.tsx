@@ -50,5 +50,5 @@ export default function StyledGoboard() {
     return () => renderer.destroy();
   }, [go]);
 
-  return <div ref={elem}></div>;
+  return <div id="board" ref={elem} />;
 }
