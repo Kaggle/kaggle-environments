@@ -95,6 +95,7 @@ export const chessTransformer = (environment: any) => {
         actionDisplayText: player.action?.actionString ?? '',
         thoughts: player.action?.thoughts ?? '',
         reward: player.reward,
+        generateReturns: player.action?.generate_returns ?? null,
       };
     });
 
@@ -125,6 +126,7 @@ export const chessTransformer = (environment: any) => {
         actionDisplayText: '',
         thoughts: '',
         reward: 0,
+        generateReturns: null,
       },
     ],
     isTerminal: true,
