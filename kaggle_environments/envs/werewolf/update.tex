@@ -1,0 +1,814 @@
+\documentclass{article}
+\usepackage{adjustbox}
+\usepackage{svg}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{makecell}
+\usepackage{caption}
+\usepackage{adjustbox}
+\usepackage{textcomp}
+\usepackage{graphicx}
+\graphicspath{ {./plots/} }
+\usepackage{natbib}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{pifont}
+\usepackage{makecell}
+\usepackage{tabularx}       
+\usepackage{threeparttable}  
+\usepackage{subcaption}
+\DeclareRobustCommand{\cmark}{\checkmark}
+\DeclareRobustCommand{\xmark}{\ding{55}}
+
+
+
+\title{Game Arena: Strategic AI Evaluation in Competitive Environments}
+\author{Game Arena Team}
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+We introduce Game Arena, an open, evolving benchmark and dataset for evaluating the strategic and interactive capabilities of large language models(LLMs) through competitive gameplay. Game Arena operationalizes evaluation as repeated head-to-head interactions between agents in structured game environments, producing rich behavioral datasets rather than static prediction targets.
+
+In this paper, we release and document the first three benchmark environments: Chess, Poker, and Werewolf. These environments span perfect-information, imperfect-information, and multiplayer settings, enabling systematic study of planning, adaptation, strategic reasoning, and robustness under uncertainty.
+
+For each game, we provide detailed descriptions of the environment, agent harness, all obtained logs, evaluation protocols, and empirical results from large-scale model games.
+
+Game Arena is hosted on the Kaggle platform and uses a proven infrastructure that ensures repeatability, transparency, and long-term maintenance.
+
+Although this article presents results for a fixed set of games, Game Arena was designed as a continuously expandable benchmark: new games, variants, and evaluation systems are actively added without the need to redefine the underlying structure.
+
+%We describe the core components of the arena design, including competition setup, game and model selection, environment specification, the interaction harness, and user-facing interfaces. We further outline a roadmap for community contribution that supports the addition of new games and progressively more flexible harnesses, positioning Game Arena as a platform for evaluating increasingly agentic behavior.
+%Using this framework, we report results for recent frontier LLMs, evaluating both gameplay reliability and playing strength across text-based and multimodal input settings.
+
+\end{abstract}
+
+Evaluating the capabilities of large language models (LLMs) has become one of the central challenges of modern AI research. Standardized static benchmarks such as MMLU~\citep{hendryckstest2021}, GSM8K~\citep{cobbe2021gsm8k}, and HellaSwag~\citep{zellers2019hellaswag} have served as foundational tools for measuring progress in knowledge recall, mathematical reasoning, and commonsense inference. However, as frontier models approach saturation on these fixed test sets, their ability to discriminate meaningfully between systems diminishes~\citep{white2024livebench}. Compounding this problem, the static nature of these benchmarks makes them vulnerable to data contamination---test items leak into training corpora, inflating performance estimates beyond what genuine capability would warrant~\citep{white2024livebench, kapoor2024agents}. Together, saturation and contamination erode confidence in static benchmarks as reliable measures of continued progress.
+
+In response, the community has turned to dynamic, preference-based evaluation. Chatbot Arena~\citep{chiang2024chatbot} pioneered crowdsourced pairwise comparisons, collecting hundreds of thousands of human votes to rank models via Bradley-Terry coefficients~\citep{bradley1952rank}. MT-Bench~\citep{zheng2023judging} introduced the LLM-as-a-judge paradigm, using strong models to evaluate weaker ones on multi-turn conversations, while Arena-Hard~\citep{li2024crowdsourced} automated much of this pipeline to reduce cost and latency. These approaches successfully resist contamination by generating fresh evaluation instances. Yet they introduce a different limitation: the inherent subjectivity of human preference judgments, which can be noisy, inconsistent across annotator pools, and susceptible to biases such as verbosity preference or sycophancy detection failure.
+
+Games offer a compelling alternative that sidesteps both contamination and subjectivity. Unlike static question-answer pairs, each game constitutes a unique strategic interaction, rendering memorization ineffective. Unlike preference judgments, games produce unambiguous outcomes---wins, losses, and draws---that require no subjective interpretation. Moreover, games possess a natural scaling property: difficulty increases with the strength of the opponent, ensuring that the benchmark remains discriminative even as models improve. The value of games as testbeds for artificial intelligence has deep historical roots, from Deep Blue's landmark victory in chess~\citep{campbell2002deepblue} to AlphaGo's mastery of Go~\citep{silver2016alphago, silver2017mastering}, AlphaZero's self-taught superhuman play across chess, shogi, and Go~\citep{silver2018alphazero}, and Cicero's human-level performance in the natural-language negotiation game Diplomacy~\citep{bakhtin2022cicero}. In imperfect-information settings, Libratus~\citep{brown2018libratus} and Pluribus~\citep{brown2019pluribus} demonstrated superhuman poker play through counterfactual regret minimization. These milestones have consistently shown that game mastery requires a rich constellation of cognitive abilities---strategic planning, opponent modeling, adaptation under uncertainty, and long-horizon reasoning---with direct parallels to real-world decision-making.
+
+A growing body of recent work has begun to explore games specifically as benchmarks for LLMs. AgentBench~\citep{liu2023agentbench} evaluates LLM agents across eight interactive environments, including game-like tasks, revealing significant performance gaps between commercial and open-source models. SmartPlay~\citep{wu2024smartplay} tests six distinct games ranging from Rock-Paper-Scissors to Minecraft, probing spatial reasoning and long-term planning. GTBench~\citep{duan2024gtbench} frames evaluation through the lens of game theory, covering ten strategic tasks spanning complete- to incomplete-information settings and revealing that LLMs fail in deterministic games yet remain competitive in probabilistic scenarios. PokerBench~\citep{zhuang2025pokerbench} focuses on poker decision-making, compiling 11,000 scenarios with game-theory-optimal solutions to assess LLMs' grasp of strategic play. Game Reasoning Arena~\citep{cipolinakun2025gamereasoningarena} leverages the OpenSpiel framework to benchmark LLMs across multiple classical games while capturing detailed reasoning traces. PokerBattle~\citep{pavlov2025pokerbattle}, an online experiment in which nine LLMs competed in approximately 3,800 hands of no-limit hold'em, offered early empirical evidence that model scale and reasoning capability correlate with poker performance. These studies consistently show that even strong models struggle in complete-information deterministic games and in settings requiring sophisticated belief modeling.
+
+Games are also attractive as \emph{evergreen} benchmarks. The combinatorial richness of gameplay resists rote memorization and stress-tests a model's ability to handle out-of-distribution scenarios. Moreover, different game classes isolate distinct cognitive demands: perfect-information games such as chess test deterministic search and planning, while imperfect-information games such as poker require probabilistic reasoning, opponent modeling, and risk management---capabilities with direct parallels to real-world decision-making under uncertainty (e.g., financial trading, clinical trial design). This diversity makes games a natural substrate for multi-faceted evaluation of strategic intelligence.
+
+However, existing game benchmarks are typically released as fixed datasets or isolated evaluations. They are not designed for continuous evaluation, flexible onboarding of new games, or large-scale head-to-head competition across heterogeneous environments~\citep{cipolinakun2025gamereasoningarena}. Many also lack the statistical rigor needed for reliable conclusions: benchmarks may report results from only a few thousand interactions, far below the threshold required for significance in high-variance games. As a result, they offer limited support for longitudinal analysis of progress, saturation, and overfitting.
+
+\paragraph{Game Arena: An Evolving Benchmark.}
+
+%We introduce \emph{Game Arena}, a benchmark and dataset that reframes competitive gameplay as a first-class evaluation object. 
+Game Arena treats games not as demos or one-off experiments, but as
+data-generating processes that produce structured logs of actions, states,
+outcomes, and metadata, coupled with a standardized evaluation harness for
+reproducible comparison across models and time.
+
+In this paper, we release three benchmark environments spanning diverse
+information and interaction regimes: Chess, a perfect-information deterministic
+game evaluated in both a free-form and a fixed-opening setting; Poker
+(heads-up no-limit Texas Hold'em), an imperfect-information stochastic game;
+and Werewolf, a multiplayer, partially observable social-deduction game. For
+each environment, we provide detailed descriptions of game mechanics, agent
+interfaces, dataset structure, and evaluation protocols, along with empirical
+results from large-scale model matchups. Across environments, we prioritize
+statistical rigor---employing variance-reduction techniques, large sample sizes
+(e.g., 900{,}000 hands in the poker benchmark alone), and domain-expert
+consultation to ensure that reported rankings reflect genuine capability
+differences rather than noise.
+
+Crucially, Game Arena is designed as an evolving benchmark rather than a fixed
+leaderboard. New games, variants, and evaluation methodologies can be added
+without redefining the core framework or invalidating prior results. This
+data-centric design enables longitudinal analysis of model behavior and
+supports research into benchmark design itself, including issues of
+memorization, contamination, and strategic generalization.
+
+\subsection{Contributions}
+This paper makes the following contributions:
+\begin{enumerate}
+    \item We release a publicly available benchmark and dataset for evaluating strategic and interactive AI systems through competitive gameplay.
+    \item We introduce three game environments spanning diverse information and interaction regimes: Chess, a perfect-information deterministic game evaluated in both free-form and fixed-opening settings; Poker (heads-up no-limit Texas Hold'em), an imperfect-information stochastic game; and Werewolf, a multiplayer, partially observable social-deduction game.
+    \item We provide an open and reproducible evaluation harness, with fully executable code and datasets accessible at submission time.
+    \item We report empirical results from large-scale model matchups, demonstrating how the benchmark supports statistically grounded comparative analysis beyond single-score evaluation.
+    \item We present a framework for continuous benchmark evolution, enabling the addition of new games, variants, and evaluation protocols without redefining the core benchmark structure.
+\end{enumerate}
+
+\section{Methods}
+\label{sec:methods}
+
+Game Arena evaluates LLMs through repeated head-to-head gameplays. Models interact with their opponents in a dynamic fashion under pre-defined environment. The trajectories of actions, states, outcomes, and reasoning traces are recorded and used for evaluation and analysis.
+
+We design the environments under consistent standards: First, in every game, we used a uniform text-based harness: at each decision point, each model receives a description of the current game state in natural language and is required to return a single action in a prescribed format. When a model produces an invalid response, the harness permits a small number of retries with minimum feedback. Full prompt templates are given in Appendix~\ref{app:prompts}). Second, in all games, we aim to produce decisive outcomes including wins, losses, draws or chip counts, which are not influenced by subjective interpretation. This can efficiently reduce the noise inherent in preference-based evaluation and automate the data collection process. Third, since the game outcomes are stochastic, we deployed techniques to reduce variance in each environment and provide bootstrapped confidence intervals for evaluation.
+
+
+The three launch environments cover differences in information structure and interaction complexity, as shown in the Table~\ref{tab:env_comparison}: Chess (complete information, determinism, two-player game), Poker (incomplete information, randomness, two-player game), and Werewolf (incomplete information, randomness, eight-player game, support for natural language communication). The remainder of this section will present each environment, the common evaluation framework, and the set of models.
+
+\begin{table}[t]
+\centering
+\caption{Comparison of Game Arena environments along key evaluation dimensions.}
+\label{tab:env_comparison}
+\begin{adjustbox}{width=\linewidth,center} % This line scales the table to fit
+\begin{tabular}{lccc}
+\toprule
+& \textbf{Chess} & \textbf{Poker} & \textbf{Werewolf} \\
+\midrule
+Information structure & Perfect & Imperfect & Imperfect + asymmetric \\
+Stochasticity & Deterministic & Stochastic & Stochastic \\
+Players per game & 2 & 2 & 8 \\
+Communication channel & None & None & Natural language \\
+Primary cognitive demand & Planning, search & Belief updating, risk & Deception, social inference \\
+Primary metric & Elo (Bradley--Terry) & BB/100 & Game-theoretic eval. \\
+Evaluation scale & 40 games/pair & 20{,}000 hands/pair & $\sim$31{,}500 total games \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+
+
+
+\subsection{Chess}
+\label{sec:chess_methods}
+
+Chess is a classic example of a game with complete information, which isolates deterministic search, long-term planning, and legal reasoning with full visibility. All games are recorded in PGN (Portable Game Notation) format and follow the standard FIDE (International Chess Federation) rules, including pawn capture, castling, the 50-move rule, etc. Legality is enforced by the environment at every ply. Each pair of models plays 40 games while maintaining color balance (20 games with white pieces and 20 games with black pieces) to neutralize the advantage of the first move.
+
+In each turn, the model receives the current position in Forsythe Edwards notation (FEN) format and a complete move history in PGN format, and the model is required to return a move in standard algebraic notation (SAN). We provide both representations because some models struggle to parse FEN reliably, but they perform well when provided with move text. Besides, we think the complete game history provides contextual information that helps the model adapt to specific opponent styles, even though the optimal move depends only on the current position. The harness does not provide a list of valid moves as hints, so the model must independently infer their validity of the board state. Minor variations in SAN are normalized. If the model proposes an invalid move, the harness simply responds that the move is invalid and asks the model to retry. Diagnostic information (e.g., why the move is invalid and what alternatives exist) is intentionally hidden. This allows the model to recover solely based on reasoning within the allowed limit of three retries. If the fourth try fails, the game ends. We refer to each retry event as a “rethink” and track the frequency of rethinking as a diagnostic metric for the reliability of the interaction (Section~\ref{sec:chess_results}).
+
+To reduce reliance on narrow openings and explore adaptability in opening game structure, we also introduce a second evaluation mode called "Chess Openings." Each game starts with one of the 20 most popular two-move openings from the Lichess dataset, allowing the model to adapt and make inferences across a wider range of more realistic opening scenarios. All other rules and interface details are identical to the free-form setting (hereafter \emph{Chess-Text}). Finally, to locate where the differences in game performance occurred, we used Stockfish to annotate and score each position, converted the win/draw/loss estimates calculated by the engine by position into win probabilities, normalized each position during the game, and then averaged these trajectories.
+
+\subsection{Poker}
+\label{sec:poker_methods}
+
+
+We used heads-up no-limit Texas Hold'em (HU-NLHE) to evaluate the model. HU-NLHE is a variant where superhuman AI has been demonstrated. ~\citep{brown2018libratus} and is also the standard format for rigorous poker evaluation  in computer poker research. This two-player format eliminates the interference of multi-player pots, thus better showcasing the individual skill of the model. We consulted domain experts during the design process, who also confirmed that high-volume heads-up matches reliably measure poker ability. Players start each hand with 100 big blinds, and the chips are reset between hands. The game follows the standard HU-NLHE structure: each player receives two hole cards, with a maximum of five community cards, and four rounds of betting (pre-flop, flop, turn, and river). Players can bet as long as they have remaining chips. A hand ends when a player folds or showdown reached.
+
+At each decision point, the model receives a detailed text description of the private cards, community cards, the complete betting history of the current hand in addition to chip stack size and player position. These descriptions follow the format of the standard PokerStars hand history (We provided an example in the Appendix~\ref{app:poker_prompt}). We chose this format because it is informative, and well-represented in LLM training corpus. We verified from the model outputs that all evaluated models correctly understood and followed the game format. For each round containing 100 hands (see below), the model also receives a complete history of all previous hands, enabling the analysis of the opponent within round. Similar to chess, we do not provide hints for legal actions. The model needs to choose among different options (fold, check, call, bet/raise). Illegal action triggers retrying and a second illegal action results in either checking when there is no pending bet or folding. Each action has a 60-second time limit.
+
+We consulted professional poker players to develop the system prompt, which instructs the model to maximize expected value. The model should default to a game-theoretic optimal strategy, and deviate only to exploit opponent tendencies. The model is asked to provide a clear reasoning trace, using fundamental poker concepts such as range advantage, pot odds, and fold equity before its action. This prompt clarifies the objective. Without it, some models tend to play conservatively or make "entertaining" responses that do not reflect their true strength. The reasoning process also aids in post-game analysis. In pilot testing, the model often omits strategy explanations unless explicitly requested.
+
+Because poker outcomes are inherently high-variance, we need rigorous experiment design. In this study, we applied three complementary variance reduction techniques. First, \emph{-mirroring}: we pre-shuffled the deck and played each deal independently for both players. This significantly reduced the variance introduced by luck and we were able to directly compare how different models handled the same situations. Hand mirroring is standard practice in computer poker tournaments, but to our knowledge, it has never been used in LLM poker benchmarking before. Second, \emph{batching}: we divided the hands into batches of 100 hands, within each batch, the model can review all earlier hands to adapt to the opponent, and we reset the history between batches to control context length. Third, \emph{hand revealing} : we accelerated the feedback loop for opponent modeling by revealing both players' hole cards after each hand (regardless of showdown). Each pair play consists of 20{,}000 hands (10{,}000 individual deals $\times$ 2 hand mirroring), yielding approximately 00{,}000 hands across the full ten-model round-robin ($\binom{10}{2}=45$ matchups) and 180{,}000 hands per model. In comparison, PokerBattle~\citep{pavlov2025pokerbattle} reports approximately ${\sim}3{,}800$ hands per model, while PokerBench~\citep{zhuang2025pokerbench} reports fewer than 2{,}000 hands in its evaluation.
+
+
+\subsection{Werewolf}
+\label{sec:werewolf_methods}
+
+Werewolf is a multiplayer, general-sum social-deduction game with acute information asymmetry.
+Our implementation of Werewolf features eight players. Each participant is secretly assigned one of the following roles: two Werewolves, one Seer, one Doctor, and four Villagers—forming two opposing teams with fundamentally different strategic profiles. The informed minority (werewolves) must deceive and divide the majority through natural language persuasion, while the uninformed majority, aided by the Seer's private investigations and the Doctor's protective measures, must argue to identify threats and eliminate them through democratic voting
+This interaction between deception, persuasion, deductive reasoning, and coalition building makes Werewolf a challenging test of strategic communication that complements the silent, two-player settings of Chess and Poker.
+
+The game is led by a moderator who navigates between night phases (private role-related actions) and day phases (public discussion followed by elimination by majority vote).  All game information is maintained in a centralized state object, and players interact via structured action objects (votes, chat messages, role-specific abilities). A modular protocol system allows the discussion format (e.g., circular vs. parallel) and voting rules (e.g., sequential vs. simultaneous) to be swapped as interchangeable plugins, enabling controlled exploration of the impact of social interaction mechanisms on game balance. We conducted a comprehensive balance analysis (Appendix ~\ref{app:werewolf_balance}) to confirm that the initial configuration: a classic game for eight players with round-robin discussion and sequential voting generates useful insights.
+
+At each decision point, each agent receives all observations collected so far, containing both public and private information. Harness is a ReAct~\citep{yao2023react} system that uses a prompting framework in which the model receives a system prompt (instructing it to optimize the victory of the \emph{team} rather than striving for individual survival), a chronological log of all observed events, and a task description specific to the given phase. The model returns a JSON object containing separate fields for private deliberations and public actions, ensuring that information resulting from internal deliberations does not leak to other agents. The reliability of the results is managed through lenient JSON parsing (\texttt{pyjson5}), exponential retries in case of overflow with context failure, and a rule-based security filter that protects against aggressive or inappropriate language use.
+
+\subsection{Evaluation Framework}
+\label{sec:eval_framework}
+
+Because the three environments differ in outcome structure, each uses a domain-appropriate primary metric. For Chess, model strength is quantified via Elo-style ratings derived from the Bradley--Terry model~\citep{bradley1952rank} fitted to all pairwise match outcomes (draws scored as 0.5). Since Elo is identifiable only up to an additive constant, we anchor the scale by setting the lowest-rated model to 0. We report 95\% confidence intervals from bootstrap resampling and provide an approximate external calibration by matching models against multiple Stockfish skill levels and interpolating against reference human Elo mappings; this calibration grows less reliable outside the engine calibration range.
+
+For Poker, performance is measured in big blinds won per 100 hands (BB/100), the standard metric that normalizes returns across stack sizes and game length. Each model's BB/100 aggregates net winnings across all ${\sim}180{,}000$ hands, with confidence intervals obtained via block bootstrap over episodes to account for within-episode correlation. Bootstrapped win-rate distributions are additionally reported for all pairwise matchups.
+
+For Werewolf, raw win rates conflate individual skill with role-assignment luck because the game is team-based and asymmetric. We therefore employ a game-theoretic evaluation (GTE) framework that decomposes each model's overall skill into role-specific contributions (Werewolf, Seer, Doctor, Villager), estimating per-model, per-role parameters from the distribution of outcomes across ${\sim}31{,}000$ games. Confidence intervals are computed via bootstrap; the full GTE formulation is given in Appendix~\ref{app:gte}.
+
+In all three environments, every model pair is evaluated under identical conditions in a full round-robin, with outcomes logged at the finest available granularity (per-move for chess, per-hand for poker, per-game for Werewolf). While summary rankings and bracketed tournaments are provided for public communication, all analyses in this paper are grounded in the comprehensive round-robin data.
+
+
+\subsection{Models}
+\label{sec:models}
+
+We evaluate ten frontier language models spanning five providers: GPT-5.2, GPT-5~mini, and o3 (OpenAI); Claude Opus~4.5, Claude Sonnet~4.5, and Claude Haiku~4.5 (Anthropic); Gemini~3 Pro Preview and Gemini~3 Flash Preview (Google); Grok~4 and Grok~4.1 Fast Reasoning (xAI); and DeepSeek~V3.2 (DeepSeek). All models are accessed through public API endpoints using each provider's default sampling settings and generation limits, with no fine-tuning, tool augmentation, or retrieval. Per-turn token counts and inference costs are reported alongside gameplay results to support cost--performance analysis.
+
+\subsection{Reproducibility}
+\label{sec:reproducibility}
+
+All environment implementations, agent harnesses, prompt templates, and evaluation scripts are open-sourced. The complete dataset of gameplay trajectories---including per-action logs, model outputs, reasoning traces where available, and metadata---is publicly released alongside this paper and hosted on Kaggle. 
+
+
+\section{Results}
+
+
+\subsection{Chess}
+
+\begin{table}[t]
+\centering
+\small % Matches the font density of the other paper tables
+\setlength{\tabcolsep}{4pt} % Tightens horizontal spacing to prevent overflow
+\caption{Chess Text Performance}
+\label{tab:chess_text_elo_table}
+\begin{tabular}{r l c r r}
+\toprule
+\textbf{\#} & \textbf{Model} & \makecell{\textbf{Game Arena}\\\textbf{(Internal) Elo}} & \makecell{\textbf{Avg. Tokens}\\\textbf{/ Turn}} & \makecell{\textbf{Avg. Cost}\\\textbf{/ Turn}} \\
+\midrule
+1  & Gemini 3 Pro Preview    & 1325 {\scriptsize (-108/+103)} & 7777  & 9.42\textcent  \\
+1  & Gemini 3 Flash Preview  & 1297 {\scriptsize (-92/+108)}  & 9278  & 2.80\textcent  \\
+3  & o3                      & 1009 {\scriptsize (-81/+98)}   & 11796 & 9.52\textcent  \\
+3  & GPT-5.2                 & 933 {\scriptsize (-84/+85)}    & 10409 & 14.65\textcent \\
+5  & Grok 4                  & 773 {\scriptsize (-72/+95)}    & 24513 & 37.08\textcent \\
+6  & Grok 4.1 Fast Reasoning & 632 {\scriptsize (-76/+93)}    & 12589 & 0.64\textcent  \\
+7  & GPT-5 mini              & 525 {\scriptsize (-100/+78)}   & 6140  & 1.24\textcent  \\
+8  & Claude Opus 4.5         & 236 {\scriptsize (-73/+87)}    & 8083  & 20.43\textcent \\
+8  & Claude Sonnet 4.5       & 189 {\scriptsize (-65/+88)}    & 8366  & 12.68\textcent \\
+8 & Claude Haiku 4.5      & 122 {\scriptsize (-72/+89)}    & 8994  & 4.54\textcent  \\
+11 & DeepSeek V3.2           & 0 {\scriptsize (-0/+0)}        & 1869  & 0.33\textcent  \\
+\bottomrule
+\end{tabular}
+\end{table}
+Table~\ref{tab:chess_text_elo_table} shows internal Game Arena Elo ratings for Chess-Text, based on head-to-head match results. These results are also summarized in Figure~\ref{fig:text_combined}. Since Elo ratings are only meaningful up to an additive constant, we set the lowest-performing model, DeepSeek V3.2, to 0 and report all other ratings relative to it. The performance levels are clearly divided: Gemini 3 Pro Preview (1325; $-108/+103$) and Gemini 3 Flash Preview (1297; $-92/+108$) make up the top tier, matching their consistently high win rates shown in the heatmap in Figure~\ref{fig:text_combined}. The second tier includes o3 (1009; $-81/+98$) and GPT-5.2 (933; $-84/+85$), which remain competitive but show greater performance variability compared to the Gemini series models.
+The remaining models lagged significantly behind: Grok 4 Grok 4 (773; $-72/+95$), Grok 4.1 Fast Reasoning (632; $-76/+93$) and GPT-5 mini  GPT-5 mini (525; $-100/+78$) were in the middle of the table, and the Claude 4.5 series brought up the rear: its Opus variant scored 236, Sonnet 189, and Haiku 122.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\columnwidth]{final_plots/chess/text_combined.png}
+    \caption{Chess Text Benchmarks. Left: Pairwise win-rate heatmap across models. Right: Bootstrapped win-rate distribution (95\% CI).}
+    \label{fig:text_combined}
+\end{figure}
+
+
+
+
+We used the Stockfish engine to identify where agents' performance differences arise. Specifically, for each position, Stockfish's win/loss predictions were converted into estimated win probabilities, and after normalising for game progress, the average of these paths was calculated. Figure~\ref{fig:stockfish_text_plot} (left) shows that in the early stages, the models are roughly balanced, but in the middle of the game, their velocity paths quickly diverge. The strongest models, Gemini 3 Pro and Gemini 3 Flash, gradually gain an advantage, achieving a high probability of winning in the endgame. In contrast, weaker models, such as DeepSeek V3.2 and Claude 4.5 variants, show a uniform decline, indicating a systematic tendency to lose position as complexity increases. Mid-range models, including o3 and GPT-5.2, improve over time but stabilise at a moderate probability of winning, suggesting that they avoid direct mistakes in the early stages but are less consistent in converting or maintaining their advantage in the later stages of the game. Figure~\ref{fig:stockfish_text_plot} (right) further illustrates that Gemini 3 Pro's advantage grows against almost all opponents during the game, approaching a near-certain victory in the final stages of most matches. The main exception is Gemini 3 Flash, where the probability of winning remains close to equilibrium with greater volatility. Overall, this temporal dynamics is consistent with the Elo ratings given in Table~\ref{tab:chess_text_elo_table} and shows that the main differences between the models appear after the opening phase, due to the higher quality of decisions made in the middle and endgame compared to the initial move selection.
+
+
+
+
+
+
+
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.1\columnwidth]{final_plots/chess/stockfish_chess_text.png}
+    \caption{Analysis of Stockfish engine evaluations Left: average win probablity over the course of game(chess text benchmark). Right: Gemini 3 Pro preview win probability v.s. each opponent(chess text benchmark).}
+    \label{fig:stockfish_text_plot}
+\end{figure}
+
+
+
+
+
+
+Additionally, we measured interaction reliability through ‘rethinking’, i.e. forced retries caused by incorrect/illegal/erroneous move formatting. Figure~\ref{fig:chess_rethink_text} summarises this behaviour using two heat maps for the player and the opponent: (left) percentage of rethinks in the first half of the game, (right) average number of rethinks per game. The frequency of rethinking depends on the model and is closely related to the overall strength of the game. The best-performing Gemini model shows the minimum number of rethinks against all opponents (typically less than  $<0.2$ per game), while GPT-5.2 shows consistent stability (typically well below 1 rethink per game). Mid-tier models such as Grok 4 and Grok 4.1 Rapid Reasoning Edition and o3 occasionally re-evaluate (approximately $\sim$0.5--1.7 per game times per game). In contrast, weaker models rely heavily on re-evaluation: DeepSeek V3.2 and Claude Haiku 4.5 often reconstruct more than five times per game, reaching double-digit values in most games, indicating a significantly higher percentage of ineffective operations.
+Weaker models also show systematic temporal trends in their re-evaluations. In games with a high number of re-evaluations, only a small fraction of re-evaluations occur early in the game (typically around $\approx$10--20\%), suggesting that errors are concentrated in later stages where positional constraints and validity/accuracy requirements are more stringent (e.g., generating moves in the endgame). This pattern is consistent with the analysis of Stockfish's path shown in Figure \ref{fig:stockfish_plot}: weaker models not only get stuck in unfavourable positions, but also show a significant increase in interaction error rates as the game progresses.
+
+
+
+\begin{figure}[H]
+    \centering
+    % Left Panel: Rethink Percentage
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_text_rethink_perc.png}
+    \end{minipage}
+    \hfill
+    % Right Panel: Rethink Count
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_text_rethink_count.png}
+    \end{minipage}
+
+    \vspace{8pt} % Consistent spacing with your example
+    \caption{Analysis of rethink behavior in Chess Text tasks. Left: Percentage of rethinking chances used in the first half of the game. Right: Mean rethink count per turn, segmented by model performance.}
+    \label{fig:chess_rethink_text}
+\end{figure}
+
+
+To test early-game adaptability beyond the regular Chess-Text setup, we introduce a Chess-Openings variant of the benchmark. Each game starts from one of 20 popular two-ply openings taken from Lichess. This approach reduces dependence on a limited default repertoire, like repeatedly using the same defense, and encourages models to handle a wider variety of realistic early-game positions. As shown in Figure~\ref{fig:elo_cost_plot}, the overall ranking and cost patterns are similar to those in Chess-Text. Detailed analysis of chess openings is provided in the appendix.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\columnwidth]{final_plots/chess/chess_elo_cost.png}
+    \caption{Chess Model Benchmarks. Comparison of model performance (Game Arena Internal Elo) against average inference cost per turn (USD).}
+    \label{fig:elo_cost_plot}
+\end{figure}
+
+
+
+
+\subsection{Poker}
+
+We evaluated ten large language models playing heads-up No-Limit Hold'em (HUNL) in a round-robin tournament, with each model playing approximately 180,000 hands in total (approximately 20,000 per matchup). Performance is measured in big blinds won per 100 hands (BB/100), the standard metric for poker win rates. Table~\ref{tab:poker_stats} reports aggregate statistics per model, sorted by BB/100. Figure~\ref{fig:bootstrap} presents bootstrapped distributions of BB/100 to quantify uncertainty in the rankings, and Figure~\ref{fig:h2h_heatmap} shows pairwise match win rates.
+
+The ten models separate into three performance tiers. The top tier comprises GPT-5.2 (+46.6~BB/100), o3 (+29.7~BB/100), and Grok~4 (+27.1~BB/100), all of which achieved win rates substantially above the break-even line. The middle tier includes Claude Opus~4.5 (+17.6~BB/100), Claude Sonnet~4.5 (+12.8~BB/100), and Gemini~3 Flash Preview (+5.5~BB/100), which were profitable but at more moderate rates. The bottom tier consists of four losing models: DeepSeek~V3.2 ($-$10.1~BB/100), Gemini~3 Pro Preview ($-$15.2~BB/100), Grok~4.1 Fast Reasoning ($-$19.2~BB/100), and GPT-5~mini ($-$94.9~BB/100).
+
+GPT-5.2 was the clear top performer, with a BB/100 roughly 17 points above the next-best model (o3). At the other extreme, GPT-5~mini's loss rate of $-$94.9~BB/100 is roughly five times worse than the next-weakest model, representing a catastrophic level of play in which it lost nearly one full big blind per hand on average.
+
+The bootstrapped win-rate distributions (Figure~\ref{fig:bootstrap}) confirm that the overall ranking is statistically robust. GPT-5.2 is clearly separated from the rest of the field, and GPT-5.2 and o3 show no overlap in their distributions with middle- or bottom-tier models. Grok~4's distribution is largely separated from the middle tier, though its lower tail approaches the upper tail of Claude Opus~4.5, suggesting that the boundary between the top and middle tiers is sharpest at the top. Within the middle tier, the distributions of Claude Opus~4.5 and Claude Sonnet~4.5 overlap in their tails, suggesting that the performance difference between these two models, while consistent in point estimate, is less definitive. Among the bottom-tier losers, DeepSeek~V3.2, Gemini~3 Pro Preview, and Grok~4.1 Fast Reasoning show partially overlapping distributions, indicating that their relative ordering is less certain. GPT-5~mini's distribution is entirely isolated, confirming its status as a clear outlier.
+
+\begin{table}[t]
+\centering
+\caption{Aggregate poker statistics for all models, sorted by win rate (BB/100). VPIP = voluntarily put money in pot. Att To Steal = button open-raise frequency. Call/Fold/3Bet BB v SB = big blind response frequencies when facing a button raise.}
+\label{tab:poker_stats}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrr}
+\toprule
+\textbf{Player} & \textbf{Hands} & \textbf{BB/100} & \textbf{VPIP} & \textbf{Att To Steal (SB)} & \textbf{Call BB v SB} & \textbf{Fold BB v SB} & \textbf{3Bet BB v SB} \\
+\midrule
+GPT-5.2              & 180,000 &   46.56 & 96.42 & 91.75 & 57.04 &  7.59 & 35.37 \\
+o3                   & 180,000 &   29.69 & 88.90 & 87.36 & 43.83 & 21.91 & 34.25 \\
+Grok 4               & 180,000 &   27.11 & 92.04 & 95.02 & 30.79 & 12.53 & 56.68 \\
+Claude Opus 4.5      & 179,936 &   17.62 & 82.92 & 87.71 & 64.91 & 22.79 & 12.30 \\
+Claude Sonnet 4.5    & 180,000 &   12.83 & 87.29 & 88.61 & 69.26 & 14.44 & 16.30 \\
+Gemini 3 Flash Prev. & 180,000 &    5.49 & 69.08 & 72.39 & 49.84 & 34.18 & 15.98 \\
+DeepSeek V3.2        & 179,936 & $-$10.05 & 78.59 & 79.43 & 47.05 & 24.18 & 28.78 \\
+Gemini 3 Pro Prev.   & 180,000 & $-$15.17 & 55.16 & 52.78 & 50.22 & 43.78 &  6.00 \\
+Grok 4.1 Fast Reas.  & 180,000 & $-$19.19 & 81.18 & 83.76 & 45.47 & 23.48 & 31.06 \\
+GPT-5 mini           & 180,000 & $-$94.87 & 89.58 & 98.27 & 60.98 & 20.76 & 18.26 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{final_plots/poker/poker_bootstrap.png}
+\caption{Bootstrapped distributions of win rates (BB/100) for all ten models. Dashed red line indicates break-even (0~BB/100). Dashed black lines within each violin denote the quartiles and median. Models are ordered by mean BB/100 from bottom (lowest) to top (highest).}
+\label{fig:bootstrap}
+\end{figure}
+
+%\subsection{Head-to-Head Results}
+
+Figure~\ref{fig:h2h_heatmap} presents the pairwise win rates for all model pairs, showing the percentage of games won by the row model against the column model.
+
+GPT-5.2 was the only model to hold a winning record against every opponent, with win rates ranging from 57\% to 76\%. o3 won or drew eight of its nine pairings, losing only to GPT-5.2 (42\%) and splitting evenly with Claude Sonnet~4.5 (50\%). Grok~4 posted the single most dominant pairwise result---a 90\% win rate against GPT-5~mini---yet held a winning record in only three of its nine pairings, indicating that its high BB/100 was driven by large margins in favorable matchups rather than consistent victories across the field.
+
+At the bottom of the field, GPT-5~mini managed winning records against only Gemini~3 Flash Preview (55\%) and Gemini~3 Pro Preview (65\%), while losing the remaining seven pairings by wide margins. Among the middle-tier models, Claude Opus~4.5 beat Claude Sonnet~4.5 59\% of the time; both Claude models lost to GPT-5.2 (Opus 42\%, Sonnet 40\%) but were competitive against o3 (Opus 48\%, Sonnet 50\%).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{final_plots/poker/poker_heatmap.png}
+\caption{Head-to-head match win rates (row model vs.\ column model). Models are sorted alphabetically. Cell values represent the percentage of matches won by the row model. Blue shading indicates win rates above 50\%; red indicates below 50\%. Diagonal cells (self vs.\ self) are excluded.}
+\label{fig:h2h_heatmap}
+\end{figure}
+
+%\subsection{Pre-Flop Strategy Analysis}
+
+To better understand the strategic differences underlying these performance outcomes, we analyzed each model's pre-flop behavior. Figure~\ref{fig:preflop_heatmaps} displays per-hand pre-flop range heatmaps decomposed into three components: button (SB) raise-first-in (RFI) frequency, big blind fold-to-steal frequency, and big blind 3-bet-versus-steal frequency. Table~\ref{tab:poker_stats} reports the corresponding aggregate pre-flop statistics.
+
+%\subsubsection{Button Play (SB Open-Raise)}
+
+Models exhibited a wide spread in open-raising frequency from the button, ranging from 52.8\% (Gemini~3 Pro Preview) to 98.3\% (GPT-5~mini). Six of the ten models attempted to steal with over 85\% of hands, reflecting a general tendency among LLMs toward loose-aggressive button play in heads-up poker.
+
+GPT-5~mini opened nearly every hand dealt (98.3\%), yet achieved the worst win rate in the field by a large margin ($-$94.9~BB/100), indicating that an indiscriminate opening range without corresponding postflop competence is severely punished. By contrast, GPT-5.2 combined a wide but slightly more selective open range (91.7\%) with the highest win rate (+46.6~BB/100). Grok~4, the third-highest winner (+27.1~BB/100), also opened very wide (95.0\%), suggesting that high steal frequency can be profitable when supported by sound postflop play and appropriate sizing.
+
+At the other extreme, Gemini~3 Pro Preview opened only 52.8\% of button hands---the tightest range in the field---and folded the big blind at the highest rate (43.8\%). This conservative approach yielded a significantly negative win rate ($-$15.2~BB/100), demonstrating that excessive pre-flop tightness forfeits equity in heads-up play.
+
+%\subsubsection{Big Blind Defense}
+
+The three columns of Figure~\ref{fig:preflop_heatmaps} allow a direct comparison of how each model distributes its big blind defense between calling and 3-betting.
+
+Grok~4 stood out with the most aggressive 3-betting strategy, re-raising 56.7\% of the time when facing a button open---over 20 percentage points higher than the next most aggressive 3-bettor (GPT-5.2 at 35.4\%). Its correspondingly low call rate (30.8\%) indicates a highly polarized defense strategy that favors re-raising over flat-calling. This approach proved effective, producing the third-highest win rate. The heatmap confirms that Grok~4's 3-bet range extends deep into suited connectors and medium pairs, well beyond the premium hands that typically comprise a 3-bet range.
+
+Both Claude models adopted the opposite approach: a flat-calling-heavy defense. Claude Opus~4.5 called 64.9\% and 3-bet only 12.3\%; Claude Sonnet~4.5 called 69.3\% and 3-bet 16.3\%. Despite the low 3-bet frequencies, both models achieved solidly positive win rates (+17.6 and +12.8~BB/100, respectively), suggesting that their postflop play compensates for the reduced pre-flop aggression. Their fold-to-steal rates (22.8\% and 14.4\%) indicate firm but not exploitably passive defense.
+
+GPT-5.2 and o3 balanced calling and 3-betting more evenly (GPT-5.2: 57.0\% call, 35.4\% 3-bet; o3: 43.8\% call, 34.3\% 3-bet), with notably low fold-to-steal rates (7.6\% and 21.9\%, respectively). GPT-5.2's 7.6\% fold rate is the lowest in the field, meaning it defended the big blind against virtually all steal attempts.
+
+Gemini~3 Pro Preview folded the big blind 43.8\% of the time---the highest fold rate---while 3-betting at just 6.0\%, the lowest in the field. The heatmaps show its fold range extends into many hands that other models routinely defend, including suited one-gappers and lower suited connectors. This passive defense likely contributes substantially to its negative win rate, as it concedes significant equity preflop.
+
+\subsubsection{VPIP}
+
+Overall voluntarily-put-money-in-pot (VPIP) rates ranged from 55.2\% (Gemini~3 Pro Preview) to 96.4\% (GPT-5.2). Five of the six winning models maintained VPIP above 82\%, the exception being Gemini~3 Flash Preview (69.1\% VPIP, +5.5~BB/100), which achieved marginal profitability despite a relatively tight overall range. Among the losing models, VPIP showed greater variance. Notably, GPT-5~mini's high VPIP (89.6\%) did not translate to profitability, reinforcing that volume of play without strategic coherence is counterproductive.
+
+\subsubsection{Relationship Between Pre-Flop Aggression and Win Rate}
+
+The results do not support a simple linear relationship between pre-flop aggression and profitability. GPT-5.2 (most profitable) and GPT-5~mini (least profitable) both maintain wide opening ranges and high VPIP, yet their outcomes diverge by over 140~BB/100. Similarly, Grok~4 and Grok~4.1 Fast Reasoning both open wide from the button (95.0\% and 83.8\%) but achieve opposite results (+27.1 and $-$19.2~BB/100). These contrasts indicate that pre-flop range selection is a necessary but insufficient determinant of overall performance, suggesting that postflop decision-making may account for much of the variance in outcomes.
+
+
+\clearpage % Forces the image to start on a new page
+
+\begin{center}
+    \includegraphics[width=\linewidth, height=0.9\textheight, keepaspectratio]{final_plots/poker/preflops.png}
+\end{center}
+
+\clearpage % This forces the caption to the next page
+
+
+\captionof{figure}{Pre-flop range heatmaps for all ten models, ordered by BB/100 (highest to lowest, top to bottom). Each row corresponds to one model. \textbf{Left column:} Button (SB) raise-first-in percentage per hand (green = high RFI). \textbf{Middle column:} Big blind fold-to-steal percentage per hand (red = high fold rate). \textbf{Right column:} Big blind 3-bet-versus-steal percentage per hand (blue = high 3-bet rate). In each 13$\times$13 grid, the diagonal represents pocket pairs, cells above the diagonal represent suited hands, and cells below represent offsuit hands. Rows and columns are ordered A through 2.}
+\label{fig:preflop_heatmaps}
+
+\clearpage % Ensures the text following the caption starts fresh
+
+\setlength{\parindent}{1.5em} 
+\setlength{\parskip}{0pt} 
+
+\subsection{Werewolf}
+
+\begin{figure}
+[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/gte.png}
+\caption{Leaderboard results evaluated by Game Theoretic Evaluation with 95\% confidence intervals using 31,472 match-ups. Overall player skill rating is broken down into the contributions of individual roles. The displacements of the colored bars add up to the win rate contribution marked by the black diamonds.}
+\label{fig:werewolf_gte}
+\end{figure}
+
+\begin{figure}
+[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/pareto_frontier.png}
+\caption{Pareto frontier of Werewolf.}
+\label{fig:werewolf_pareto}
+\end{figure}
+
+\subsubsection{Game Theoretic Evaluation}
+In the Werewolf benchmark, models were evaluated across 31,472 full games. To ensure a robust assessment of capabilities in a multiplayer, asymmetric environment, match participants were sampled with replacement. This sampling strategy guarantees exposure to a highly diverse set of strategy profile combinations, forcing models to adapt to heterogeneous team compositions and opponent behaviors. Statistical significance of the agent separation was established using 1,000 bootstrap samples.
+
+Evaluating skill in asymmetric, imperfect-information social deduction games presents unique methodological challenges. Conventional evaluation metrics such as overall win rate, role-specific win rates, and custom behavioral proxies like Key Survival Rate (KSR) are inherently biased. They systematically conflate an individual agent's skill with the structural base win rates of the assigned roles and the compounding variance of team composition. Furthermore, traditional rating algorithms like Elo and OpenSkill, while foundational for symmetric or two-player games, exhibit notable discrepancies when applied to Werewolf. As detailed in the supplementary metrics analysis, Elo and OpenSkill compress the capability distribution and fail to properly isolate a specific model's strategic impact. This occurs because these systems cannot accurately decouple an individual's marginal value-add from the inherent imbalances of the multi-agent roles.
+
+Consequently, we rely on Game Theoretic Evaluation (GTE), which rigorously isolates each model's performance into role-specific contributions. We additionally verified the interaction matrix for non-transitive, cyclic dominance (i.e., rock-paper-scissors dynamics) (See \ref{app:werewolf_transitivity} for detail). While no significant cyclic scenarios were detected within this specific model pool, the GTE framework is mathematically designed to remain robust and yield correct evaluations even when such cycles occur.
+
+Performance under the GTE framework is sharply stratified, as illustrated in Figure \ref{fig:werewolf_gte}. The key findings are:
+
+Top Tier: Gemini 3 Pro Preview and Gemini 3 Flash Preview achieve the highest net ratings. They are the only models to demonstrate balanced, positive win-rate contributions across both the informed minority (Werewolf) and uninformed majority (Villager, Seer, Doctor) roles.
+
+Role-Specific Deficits: Distinct strategic weaknesses emerge in the mid-tier. For example, Claude Sonnet 4.5 and Grok 4.1 fast reasoning exhibit substantial negative contributions when assigned the Seer role, suggesting a persistent difficulty in effectively communicating private investigative information without drawing fatal suspicion.
+
+Bottom Tier: GPT-5 mini anchors the bottom of the field, displaying severe negative contributions across all four roles. Its particularly poor performance as a doctor and Werewolf indicates systemic weaknesses in both collaborative social deduction and deceptive persuasion.
+
+\subsubsection{Pareto Frontier}
+Figure \ref{fig:werewolf_pareto} maps the cost-performance landscape. The Pareto frontier is cleanly defined by three models: Grok 4.1 Fast Reasoning anchors the low-cost extreme, Gemini 3 Flash Preview provides a massive upward leap in GTE rating for a minimal cost increase, and Gemini 3 Pro Preview establishes the maximum-performance boundary. Several models, notably Claude Opus 4.5 and Grok 4, are strictly dominated in this environment; they occupy regions of the space that are significantly more expensive per game while yielding substantially lower strategic performance than the frontier models.
+
+\subsubsection{Ranking Consistency across Methods}
+
+\begin{figure}
+[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/metrics_Ratings.png}
+\caption{Ratings of group Elo, OpenSkill, and Game Theoretic Eval (GTE). The means and 95\% confidence intervals were derived from 1,000 bootstrap iterations across the 31,472 match-ups. Even though the relative ranking and trends stays the same across the three methods, Game Theoretic Eval had tighter confidence interval and was more discriminative, while Elo and OpenSkill had trouble separating the top 5 players.}
+\label{fig:werewolf_ratings}
+\end{figure}
+
+To contextualize the effectiveness of the Game Theoretic Evaluation (GTE) framework, we benchmarked it against two established competitive rating systems: a group Elo implementation and an OpenSkill model utilizing the Plackett-Luce algorithm.The Elo baseline calculates expected win probabilities derived from the mean rating of each competing team. It applies a zero-sum rating delta (using $K=32$) that is distributed among team members and normalized by team size, ensuring robust convergence even across highly asymmetric team structures (e.g., 6 Villagers vs. 2 Werewolves). The OpenSkill model similarly evaluates each team holistically but employs an agent-centric aggregation logic. Specifically, it sums the mean ($\mu$) and variance ($\sigma^{2}$) updates for agents controlling multiple players, which preserves rating stability in high-density, multi-role scenarios. To mitigate sequence dependence and rigorously establish statistical significance, both baseline metrics were computed using 1,000 bootstrap iterations to derive mean ratings and 95\% confidence intervals.
+
+The relative macro-rankings of the models proved highly consistent across group Elo, OpenSkill, and GTE. However, GTE demonstrates superior discriminative resolution. While the data shows Gemini 3 Pro Preview holding the definitive top rank across all three metrics, group Elo and OpenSkill struggle to differentiate mid-tier performance, frequently producing overlapping confidence intervals for models like Claude Opus 4.5 and Claude Sonnet 4.5. In contrast, the GTE framework successfully isolates their role-specific strategic value, resulting in a cleaner, statistically significant separation between the two Claude variants.
+
+\subsubsection{Heuristic Metrics}
+
+To provide a comprehensive behavioral analysis, we additionally tracked several heuristic metrics, including Key Survival Rate (KSR), Identification Precision (IRP), Voting Success Score (VSS), Margin of Win, and Speed of Win. While these metrics offer interesting observational perspectives on agent tendencies, our analysis reveals that they are insufficiently informative---and occasionally misleading---when utilized as primary proxies for overall model performance.
+
+The limitations of these heuristics stem from the inherent strategic dynamics of multiplayer social deduction:
+
+\begin{itemize}
+    \item \textbf{Key Survival Rate (KSR):} Because KSR evaluates the survival likelihood of critical roles such as the Seer or Werewolves, it fails to perfectly align with the overarching goal of maximizing team win probability. For instance, KSR hovers around 0.5 for most evaluated players. A strict survival metric fundamentally penalizes sophisticated plays, as the strategic sacrifice of a key role is occasionally the optimal move to secure a team victory.
+    \item \textbf{Identification Precision (IRP) and Voting Success Score (VSS):} As demonstrated in our evaluations, IRP hovers around 0.65 for all players, while VSS remains uniformly high, approaching 1.0 across the pool. This lack of discriminative variance occurs because capable models quickly learn to converge on a consensus target during the discussion phase to avoid broadcasting their identity or leaking private knowledge. Consequently, the final vote largely reflects group conformity rather than private deductive accuracy. Even when a model correctly deduces an opponent's hidden role internally, it may strategically cast a different vote to maintain cover.
+    \item \textbf{Dominance Metrics:} Metrics designed to measure the decisiveness of a victory, such as Margin of Win and Speed of Win, show minimal variation across the model pool, further highlighting their inability to cleanly separate strategic capabilities.
+\end{itemize}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.8\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{final_plots/werewolf/metrics_Overall.png}
+        \caption{Key Role Survival Rate (KSR) and Win Rate}
+        \label{fig:metrics_overall}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.8\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{final_plots/werewolf/metrics_Voting_Accuracy.png}
+        \caption{Identification Precision (IRP) and Voting Success Score (VSS)}
+        \label{fig:metrics_voting}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.8\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{final_plots/werewolf/metrics_Dominance_Metrics.png}
+        \caption{Margin of Win and Speed of Win}
+        \label{fig:metrics_dominance}
+    \end{subfigure}
+    \caption{Heuristic metrics across evaluated models, demonstrating the limited discriminative variance of heuristics versus ranking methods. The 95\% confidence interval and mean is computed from 1,000 boostrap samples across the 31,472 match-ups.}
+    \label{fig:heuristic_metrics}
+\end{figure}
+
+
+Because these heuristics are heavily skewed by game structure and consensus incentives, they fail to isolate true capability. This reinforces our reliance on the Game Theoretic Evaluation (GTE) framework as the definitive, unbiased measure of agent skill.
+
+
+
+
+
+
+
+\setlength{\parskip}{0pt} 
+We introduced Game Arena, an open, evolving benchmark and dataset for evaluating the strategic and interactive capabilities of large language models through repeated head-to-head gameplay. Unlike static test sets, Game Arena treats evaluation as a data-generating process: models interact under enforced rules, producing rich trajectories of actions, states, outcomes, and (when available) reasoning traces. We released three launch environments spanning complementary interaction regimes: deterministic perfect-information chess (including an openings-randomized variant), stochastic imperfect-information heads-up no-limit poker with variance reduction via duplicate play and episodic batching, and multiplayer asymmetric social deduction in Werewolf evaluated through a role-decomposed game-theoretic framework.
+Across large-scale round-robin matchups, we find that model strength is sharply stratified within each environment, but not consistent across environments, underscoring that “strategic capability” is inherently multi-faceted. By pairing outcome metrics with diagnostic analyses—including temporal localization of advantage accumulation, interaction reliability via invalid-action retries, interpretable strategic-style statistics, and role-specific skill decomposition—Game Arena supports comparative evaluation that is both statistically grounded and behaviorally informative.
+Game Arena is designed to evolve: new games, variants, and evaluation regimes can be added without changing the core framework. We release the evaluation harness and trajectory datasets to support reproducible benchmarking and downstream research on strategic generalization, robustness, and benchmark design itself. We hope Game Arena serves as shared infrastructure for studying interactive intelligence as models and deployment settings continue to change.
+
+\section{Limitations and Future Direction}
+
+Game Arena introduces a dynamic, head-to-head evaluation system for LLMs designed to mitigate performance saturation and enable continual benchmarking as the model landscape evolves. While this work establishes the core evaluation framework and a foundation for generalizable game-based assessment, several limitations remain and motivate important directions for future research.
+
+\paragraph{Adaptive scheduling and compute allocation.}
+Our current implementation allocates a fixed number of games to each model pair. This design is simple and reproducible, but it is compute-inefficient: some matchups are highly lopsided and quickly become well-resolved, whereas closely matched pairs require substantially more games to separate their ranks with confidence. A key next step is to develop an adaptive scheduler that reallocates compute dynamically based on uncertainty and decision value---prioritizing ambiguous matchups, de-emphasizing resolved ones, and providing principled stopping criteria (e.g., declaring an effective tie within a predefined margin). Such a scheduler would improve sample efficiency while maintaining statistical rigor.
+
+\paragraph{Continual benchmarking under model churn.}
+The model ecosystem changes rapidly: new models are introduced frequently, while older models may be retired or become unavailable. This creates discontinuities that complicate longitudinal comparisons and can fragment the underlying match graph. Future work should focus on protocols for integrating new entrants (including ``cold-start'' evaluation), maintaining graph connectivity, and updating rankings in a way that preserves comparability over time, even as individual nodes enter and leave the system.
+
+\paragraph{Consolidated rating across heterogeneous games.}
+Game Arena currently reports game-specific primary metrics (e.g., Elo-style ratings for chess, bb/100 for poker, and balanced win rate for Werewolf) because different games naturally emphasize different notions of skill and outcome structure. However, this makes it harder to interpret performance holistically across the benchmark suite. We plan to develop a consolidated meta-rating, grounded in Bradley--Terry-style models, that enables cross-game comparison while respecting heterogeneity in objectives and variance. This direction becomes more challenging as we expand beyond two-player settings: multi-agent games introduce collaboration, coalition formation, and deception, raising open questions about fair credit assignment to individual models and how to aggregate team outcomes into model-level ratings.
+
+\paragraph{Expanding the game suite and diagnostic evaluation.}
+This paper presents an initial pilot with three representative games. Scaling Game Arena into a broader evaluation suite will require incorporating additional games that probe distinct aspects of model capability, including long-horizon planning, negotiation, theory-of-mind reasoning, strategic deception, and mixed-motive cooperation. Alongside expanding the game set, we aim to develop evaluation summaries that are both interpretable and diagnostic, teasing apart different tenets of LLM competence rather than collapsing performance into a single opaque score.
+
+
+\bibliography{references}
+\bibliographystyle{unsrt}
+
+
+
+
+\appendix
+\setlength{\parindent}{1.5em} 
+\setlength{\parskip}{0pt}    
+\section{Appendices}
+
+
+\captionsetup[table]{name=Appendix Table, labelsep=colon}
+\setcounter{table}{0}
+\begin{table}[t]
+\centering
+\caption{Chess opening benchmark}
+\label{tab:chess_opening_elo_table}
+\begin{adjustbox}{width=\textwidth, center}
+\begin{tabular}{r l r r r}
+\toprule
+\textbf{\#} & \textbf{Model} & \makecell[r]{\textbf{Game Arena (Internal) Elo}\\\textbf{Chess Text (Chess Opening)}} & \makecell[r]{\textbf{Avg. Output Tokens}\\\textbf{Chess Text (Chess Opening)}} & \makecell[r]{\textbf{Avg. Inference Cost}\\\textbf{Chess Text (Chess Opening))}} \\
+\midrule
+1 & Gemini 3 Pro Preview & 1325 (1253) & 7777 (8092) & 9.42\textcent (9.79\textcent) \\
+1 & Gemini 3 Flash Preview & 1297 (1263) & 9278 (9621) & 2.80\textcent (2.91\textcent) \\
+3 & o3 & 1009 (934) & 11796 (12400) & 9.52\textcent (10.01\textcent) \\
+3 & GPT-5.2 & 933 (889) & 10409 (10945) & 14.65\textcent (15.40\textcent) \\
+5 & Grok 4 & 773 (739) & 24513 (25211) & 37.08\textcent (38.12\textcent) \\
+6 & Grok 4.1 Fast Reasoning & 632 (635) & 12589 (12974) & 0.64\textcent (0.66\textcent) \\
+7 & GPT-5 mini & 525 (484) & 6140 (6302) & 1.24\textcent (1.27\textcent) \\
+8 & Claude Opus 4.5 & 236 (252) & 8083 (8536) & 20.43\textcent (21.57\textcent) \\
+8 & Claude Sonnet 4.5 & 189 (228) & 8366 (8772) & 12.68\textcent (13.29\textcent) \\
+8/10 & Claude Haiku 4.5 & 122 (102) & 8994 (9615) & 4.54\textcent (4.85\textcent) \\
+11 & DeepSeek V3.2 & 0 (0) & 1869 (1958) & 0.33\textcent (0.35\textcent) \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+
+\captionsetup[figure]{name=Appendix Figure, labelsep=colon}
+\setcounter{figure}{0}
+
+
+\begin{figure}[H]
+    \centering
+    % Left Image Minipage
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_opening_winrate_heatmap.png}
+    \end{minipage}
+    \hfill
+    % Right Image Minipage
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_opening_bootstrapping.png}
+    \end{minipage}
+
+    \vspace{8pt} % Adjusts the gap between images and caption
+    \caption{Chess Opening Benchmarks. Left: Pairwise win-rate heatmap across models. Right: Bootstrapped win-rate distribution (95\% CI) showing Gemini 3 variants leading in performance stability.}
+    \label{fig:opening_combined}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.1\columnwidth]{final_plots/chess/stockfish_chess_opening.png}
+    \caption{Analysis of Stockfish engine evaluations Left: average win probablity over the course of game(chess text benchmark). Right: Gemini 3 Pro preview win probability v.s. each opponent(chess text benchmark).}
+    \label{fig:stockfish_opening_plot}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % Left Panel: Rethink Percentage
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_opening_rethink_perc.png}
+    \end{minipage}
+    \hfill
+    % Right Panel: Rethink Count
+    \begin{minipage}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth, trim={0 5pt 0 5pt}, clip]{final_plots/chess/chess_opening_rethink_count.png}
+    \end{minipage}
+
+    \vspace{8pt}
+    \caption{Analysis of rethink behavior in Chess Opening tasks. Left: Percentage of rethinking chances used in the first half of the game. Right: Mean rethink count per turn, segmented by model performance.}
+    \label{fig:chess_rethink_openings}
+\end{figure}
+
+
+\subsection{Chess-Openings vs.\ Chess-Text}
+\label{sec:appendix_chess_openings_vs_text}
+
+We include \emph{Chess-Openings} as a robustness check on \emph{Chess-Text}: instead of starting from the standard initial position, each game is initialized from one of 20 popular two-ply openings, reducing reliance on any single default repertoire and forcing models to condition on a broader set of realistic early-game structures. Appendix Table~\ref{tab:chess_opening_elo_table} compares the two modes directly, including Game Arena internal Elo as well as average output tokens and estimated inference cost per turn.
+
+Overall, the performance rankings of chess openings are not significantly different from those of chess texts: Gemini 3 Pro Preview and Gemini 3 Flash Preview continue to dominate, followed by o3 and GPT-5.2, then Grok 4 / Grok 4.1 Fast Reasoning and GPT-5 mini, with various variants of Claude 4.5 and DeepSeek V3.2 at the bottom. The differences in Elo ratings are not significant relative to the gaps between tiers, suggesting that the ranking of chess texts is not entirely dependent on the model repeatedly selecting favorable, familiar openings. Appendix Figure ~\ref{fig:opening_combined} further supports this conclusion: the pairwise win structure and bootstrapping win distribution are similar to the chess text settings.
+
+
+Randomized openings also preserve the qualitative temporal dynamics observed in Chess-Text. Analysis of the Stockfish annotations (see Appendix Figure ~\ref{fig:stockfish_opening_plot}) shows that the models are nearly equivalent in the opening phase, but diverge in the middlegame: strong models gradually accumulate an advantage, while weaker models gradually fall behind as complexity increases. Finally, the reliability of the interactions is independent of the game scheme. Appendix Figure ~\ref{fig:chess_rethink_openings} shows that the rethink rate is related to model strength (the Gemini model has a rethink rate close to zero, while weaker models have a higher rethink rate), and weaker models focus more on regaining position in the endgame, corresponding to the higher requirements for legitimacy and accuracy in constrained positions. In conclusion, these results indicate that even with the diversification of opening structures due to the introduction of chess openings, the main divergent factors in the chess games we referenced—the quality of middlegame and endgame decisions and the reliability of interactions—remain.
+% ============================================================
+
+\subsection{Werewolf Game-Balance Analysis}
+\label{app:werewolf_balance}
+
+% TODO: Hann, please insert game-balance experimental results here.
+% - Configurations tested (role distributions, discussion/voting
+%   protocol variants)
+% - Villager vs. Werewolf win rates under each configuration
+% - How the 8-player launch configuration was validated as balanced
+% - Sensitivity to protocol changes (round-robin vs. parallel
+%   discussion, sequential vs. simultaneous voting)
+
+\begin{table}[htbp]
+\centering
+\small % Reduces overall font size
+\setlength{\tabcolsep}{4pt} % Tightens horizontal space between columns
+\caption{Villager Win Rate by Game Mechanics Configurations (500 games/condition)}
+\label{tab:mechanics_compact_ci}
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{p{0.38\textwidth} c c c c}
+\hline
+\textbf{Mechanic} \textit{(Options)} & \textbf{1. Standard} & \textbf{2. No Doc Self} & \textbf{3. Fixed Order} & \textbf{4. Balanced} \\ \hline
+\textbf{Discussion Order} \newline \scriptsize{\textit{[fixed, random first, rotate]}} & Random first & Random first & Fixed & Rotate \\ 
+\textbf{Vote Order (Day \& Night)} \newline \scriptsize{\textit{[fixed, random first, rotate]}} & Random first & Random first & Fixed & Rotate \\ 
+\textbf{Tie Break (Day \& Night)} \newline \scriptsize{\textit{[random exile, no tie break]}} & Random exile & Random exile & No tie break & No tie break \\ 
+\textbf{Doctor Self Save} \newline \scriptsize{\textit{[allowed, disabled]}} & Allowed & Disabled & Disabled & Disabled \\ 
+\textbf{Doctor Consecutive Save} \newline \scriptsize{\textit{[allowed, disabled]}} & Allowed & Allowed & Allowed & Disabled \\ \hline
+\textbf{Villager Win Rate (95\% CI)} & \textbf{0.734 $\pm$ 0.039} & \textbf{0.724 $\pm$ 0.039} & \textbf{0.606 $\pm$ 0.043} & \textbf{0.567 $\pm$ 0.043} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+In social deduction environments, structural game balance fundamentally dictates strategic depth. Highly asymmetric win probabilities often indicate the presence of degenerate, monotonic strategies where agents can deterministically exploit the ruleset rather than engaging in dynamic persuasion and deception. Pilot testing revealed that the standard 8-player Werewolf configuration is heavily skewed toward the Villager team. Under standard rules, an optimal, exploitative strategy quickly emerges: the Seer publicly reveals their identity immediately, and the Doctor protects them consecutively every night. This creates an impenetrable informational advantage and a strategic impasse for the Werewolves.
+
+To foster a rich diversity of world states and force models to rely on strategic communication, we iteratively adjusted the ruleset. Because computing the exact Nash equilibrium for a natural-language, imperfect-information multiplayer game is computationally intractable, we utilized model self-play as an empirical proxy for game balance. In this regime, a single high-capability model (Gemini 3 Pro Preview) concurrently controlled all eight pseudonymized agents over 500 simulated games per rule configuration. While baseline win rates inevitably fluctuate depending on the specific model or strategy profile used for self-play, this method provides a reliable comparative signal for the impact of structural rule changes.
+
+We evaluated the impact of several rule modifications on the Villager win rate.  As illustrated in our ablation study, the standard ruleset yields a baseline Villager win rate of 73.4\%. Merely disabling the Doctor's ability to self-save had a negligible effect, reducing the win rate only marginally to 72.4\%. To dismantle the dominant Seer-Doctor exploit and balance the game, we implemented the following four modifications to establish the official Game Arena Werewolf rules: (1) no Doctor self-save, (2) no Doctor consecutive saves, (3) peaceful ties: Any voting tie—whether during the daytime village vote or the nighttime Werewolf vote—results in no elimination, (4) Rotational Order: The first speaker and the first voter rotate each round to eliminate positional bias. Implementing this complete suite of balanced rule modifications successfully suppressed the Villager win rate to 56.7\%. This calibrated environment prevents deterministic exploits and ensures a rigorous, dynamic evaluation of the models' interactive capabilities.
+
+% ============================================================
+
+\subsection{Werewolf Alternative Ranking \& Transitivity Analysis}
+\label{app:werewolf_transitivity}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.1\columnwidth]{final_plots/werewolf/tournament_graph.png}
+    \caption{Tournament graph. Each edge defines the delta of votes between two models. In this instance of model line-up, we found there were no cycles in the graph.}
+    \label{fig:werewolf_tournament_graph}
+\end{figure}
+
+We analyze the dataset by assembling binary votes across all games and roles, where the condition $score[a] > score[b]$ constitutes a win for model $a$ and a loss for model $b$. These binary outcomes serve as the primary input for both Elo rating calculations and various pairwise voting methods derived from Voting-as-Evaluation (VasE). To evaluate the relationships between models, a tournament graph is constructed by drawing directed edges from model $a$ to model $b$ whenever the win differential $\delta(a,b) = N(a,b) - N(b,a) > 0$. In this formulation, $N(a,b)$ denotes the total number of votes where model $a$ defeats model $b$. A positive $\delta(a,b)$ indicates that model $a$ has secured more victories against $b$ than $b$ has against $a$, with the graph's edge weights explicitly representing this differential. 
+
+Notably, the resulting tournament graph contains no cycles; the ranking relationships are entirely transitive among all agents based on their win rates, which presents an optimal or ``nice'' condition for Elo rating systems. Furthermore, Copeland voting is employed to define a score, $CS(a)$, for each model $a$. This score is mathematically defined as $1 \times (\text{number of models } b \text{ where } \delta(a,b) > 0) + \frac{1}{2} \times (\text{number of models } b \text{ where } \delta(a,b) = 0)$. Ultimately, the rankings produced by these alternative methods are fully consistent with the official rankings reported on the Kaggle Game Arena site.
+
+% ============================================================
+\subsubsection{Coop Analysis}
+
+% TODO: Hann, insert Kate's experimental results here.
+% ============================================================
+
+\subsection{Game-Theoretic Evaluation (GTE) for Werewolf}
+\label{app:gte}
+
+% TODO: Hann, please insert 
+% - Statistical model: per-model, per-role skill parameters
+% - How team composition is controlled for (combinatorial
+%   structure of 8-player, mixed-role games)
+% - Decomposition of overall skill into role-specific
+%   contributions (as shown in the GTE figure)
+% - Bootstrap procedure for 95% confidence intervals
+% - Assumptions and limitations
+
+
+% ============================================================
+
+\subsection{Pre-Flop Strategy Analysis}
+\label{app:preflop_methodology}
+
+The pre-flop range heatmaps in Figure~\ref{fig:preflop_heatmaps} are constructed by aggregating, for each model, all hands in which the model occupied the relevant position (button for raise-first-in; big blind for fold-to-steal and 3-bet-versus-steal) across the full round-robin. The action frequency is computed for each of the 169 strategically distinct starting hands (13 pocket pairs, 78 suited, 78 offsuit) and displayed as a $13 \times 13$ grid in which the diagonal represents pocket pairs, cells above the diagonal represent suited hands, and cells below represent offsuit hands; rows and columns are ordered A through 2. Because each model plays approximately 180{,}000 hands (${\sim}$90{,}000 per position), even moderately rare holdings are observed hundreds of times, yielding stable frequency estimates across the grid.
+
+
+\section{Prompt Templates and Design Rationale}
+\label{app:prompts}
+
+All Game Arena environments share a common prompting philosophy: provide the model with a complete description of the game state, make the objective unambiguous, require step-by-step reasoning before a final answer, and keep everything else as minimal and neutral as possible so that observed behavior reflects the model's own capabilities rather than artifacts of prompt engineering. This appendix documents the exact templates, representative examples, and key design decisions for each game.
+
+\subsection{Chess}
+\label{app:chess_prompt}
+
+The chess prompt follows a shared template used across all Game Arena harnesses. At each turn, the model sees:
+
+\begin{verbatim}
+Let's play chess. The current game state in Forsyth-Edwards
+Notation (FEN) notation is:
+{fen}
+The moves played so far are:
+{pgn_movetext}
+You are playing as player {color}.
+It is now your turn. Play your strongest move. The move
+MUST be legal. Reason step by step to come up with your
+move, then output your final answer in the format
+"Final Answer: X" where X is your chosen move in standard
+algebraic notation (SAN).
+\end{verbatim}
+
+When a rethink is triggered---that is, the model's previous output was illegal or malformed---the harness appends a single line stating that the move was not legal and asking the model to try again. No further information is given: no explanation of \emph{why} the move was illegal, no indication of which pieces are pinned or attacked, and no list of legal alternatives.
+
+A representative prompt delivered to a model playing Black in a late endgame is shown below:
+
+\begin{verbatim}
+Let's play chess. The current game state in Forsyth-Edwards
+Notation (FEN) notation is:
+8/8/8/1p3r2/8/5k1K/8/8 b - - 7 54
+The moves played so far are:
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6
+6. Bg5 e6 7. f4 Be7 8. Qf3 Qc7 9. O-O-O Nbd7 10. Bxf6
+Nxf6 11. Nd5 exd5 12. exd5 Bg4 13. Qb3 Bxd1 14. Kxd1
+O-O 15. Qc4 Qxc4 16. Bxc4 Ng4 17. Ke2 Bf6 18. c3
+Rfe8+ 19. Kf3 Re3+ 20. Kxg4 Bxd4 21. cxd4 Re4 22. Rd1
+h5+ 23. Kf5 Rae8 24. Bd3 Rxd4 25. Bc2 Rxd1 26. Bxd1
+Re1 27. Bxh5 Rb1 28. b3 g6+ 29. Bxg6 fxg6+ 30. Kxg6
+Rb2 31. f5 Rxg2+ 32. Kf6 Rxh2 33. Ke7 Rxa2 34. Kxd6
+Kf7 35. Ke5 Re2+ 36. Kd6 Kf6 37. Kc7 Kxf5 38. Kb6
+Re7 39. d6 Rd7 40. Kc5 Ke5 41. Kb6 Kxd6 42. b4 Rh7
+43. b5 axb5 44. Kxb5 Kc7 45. Kc5 Rh5+ 46. Kd4 Kd6
+47. Ke4 Kc5 48. Kf4 Kd4 49. Kg4 Re5 50. Kf4 b5
+51. Kg4 Ke3 52. Kh3 Kf3 53. Kh4 Rf5 54. Kh3
+You are playing as player Black.
+It is now your turn. Play your strongest move. The move
+MUST be legal. Reason step by step to come up with your
+move, then output your final answer in the format
+"Final Answer: X" where X is your chosen move in standard
+algebraic notation (SAN).
+\end{verbatim}
+
+Several design choices merit explanation. The prompt includes both the FEN string and the full PGN movetext because some models---particularly those available when the benchmark was first introduced---struggled to parse FEN reliably but handled the movetext well. Including the move history also provides context for how the game has progressed: even though the optimal move depends only on the current position, the game history may help the model adapt to a specific opponent's style. The instruction to ``play your strongest move'' makes the optimization target unambiguous; without it, a model might reasonably interpret the task as playing a friendly or entertaining game. Finally, instructing the model to reason step-by-step before answering elicits chain-of-thought traces that tend to improve move quality and provide post-hoc interpretability.
+
+
+\subsection{Poker}
+\label{app:poker_prompt}
+
+The poker harness communicates game state using a format adapted from the PokerStars hand history standard. This widely recognized convention is unambiguous, information-complete, and likely well-represented in model training data, ensuring that formatting artifacts do not confound the evaluation of strategic reasoning. Within each 100-hand episode, the model receives the cumulative history of all prior hands followed by the current hand in progress, enabling within-episode opponent modeling.
+
+A complete hand as presented to the model is shown below:
+
+\begin{verbatim}
+Hand #13: Hold'em No Limit (1/2)
+Table '' 2-max (USD) Seat #1 is the button
+Seat 1: GPT-5 mini (200 in chips)
+Seat 2: Claude Sonnet 4.5 (200 in chips)
+GPT-5 mini: posts small blind 1
+Claude Sonnet 4.5: posts big blind 2
+*** HOLE CARDS ***
+Dealt to GPT-5 mini [Tc Th]
+Dealt to Claude Sonnet 4.5 [4c Qc]
+GPT-5 mini: raises 4 to 6
+Claude Sonnet 4.5: calls 4
+*** FLOP *** [Qs 7d 6s]
+Claude Sonnet 4.5: checks
+GPT-5 mini: bets 4
+Claude Sonnet 4.5: calls 4
+*** TURN *** [Qs 7d 6s] [Ad]
+Claude Sonnet 4.5: checks
+GPT-5 mini: checks
+*** RIVER *** [Qs 7d 6s] [Ad] [4s]
+Claude Sonnet 4.5: bets 10
+GPT-5 mini: calls 10
+*** SHOWDOWN ***
+Claude Sonnet 4.5: shows [4c Qc]
+Claude Sonnet 4.5 collected 40.0 from pot
+*** SUMMARY ***
+Total pot 40 | Rake 0
+Board [Qs 7d 6s Ad 4s]
+Seat 1: GPT-5 mini (button) (small blind) showed [Tc Th]
+  and lost
+Seat 2: Claude Sonnet 4.5 (big blind) showed [4c Qc]
+  and won (40.0)
+\end{verbatim}
+
+
+In addition to the hand history, the model receives a system prompt developed in consultation with poker professionals. It instructs the model to maximize expected value using game-theory-optimal play as a baseline, to deviate from GTO when it identifies exploitable tendencies in the opponent's observed play, and to produce an explicit reasoning trace grounded in core poker concepts (range advantage, pot odds, fold equity, position) before declaring an action. This framing was chosen to eliminate ambiguity about the objective (EV maximization, not entertainment or risk-averse survival) and to produce interpretable traces for post-hoc analysis---pilot experiments showed that without the reasoning-trace instruction, models frequently omit strategic justification entirely.
+
+As in chess, the harness does not enumerate legal actions; the model must infer from the game state what options are available (fold, check, call, raise, and the range of legal bet sizes). Providing the full within-episode hand history allows models to identify and exploit opponent patterns (e.g., excessive folding to 3-bets, or predictable sizing), a core component of expert-level heads-up play. The 100-hand episode length balances this adaptability against context-window constraints.
+
+
+\subsection{Werewolf}
+\label{app:werewolf_prompt}
+
+The Werewolf harness uses a ReAct-style prompting framework in which, at each decision point, the model receives a composite prompt assembled from four components: (1)~a system prompt defining the game rules, the model's assigned role, and the team-victory objective---explicitly targeting \emph{team} victory rather than individual survival, a distinction that matters strategically because, e.g., a Villager may need to sacrifice themselves to expose a Werewolf; (2)~the current public and role-specific private state (who is alive, prior vote outcomes, the Seer's investigation results, etc.); (3)~a chronological memory log of all observed events and the model's own prior reasoning, accumulated across the game; and (4)~a phase-specific task instruction appropriate to the current game phase (e.g., ``Submit your vote for elimination,'' ``Write a message to the group,'' or ``Choose a player to investigate'').
+
+The model returns a JSON object with two fields: a private \texttt{reasoning} field (not visible to other players, used for analysis) and a public \texttt{action} field (the chat message, vote, or role ability to be executed). This separation ensures that internal deliberation does not inadvertently leak information. Output reliability is managed through lenient JSON parsing (\texttt{pyjson5}), exponential-backoff retries with intelligent context truncation on overflow, and a rule-based safety filter for violent or inappropriate language.
+
+
+
+
+\bibliographystyle{plainnat} % Or your preferred style like 'unsrtnat'
+\bibliography{references, references2}
+
+\end{document}
