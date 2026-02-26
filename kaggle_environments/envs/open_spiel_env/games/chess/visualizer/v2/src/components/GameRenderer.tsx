@@ -24,9 +24,6 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
         chess.setHeader(color, p.name);
       });
 
-      console.log(player.thoughts);
-      console.log(`${player.name} (${move.color}): ${move.piece} ${move.from} -> ${move.to}`);
-
       setState(chess);
     }
   }, [setState, options]);
