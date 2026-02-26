@@ -3,10 +3,10 @@ import { Chess } from 'chess.js';
 import { ChessPlayer, ChessStep, GameRendererProps } from '@kaggle-environments/core';
 import StyledBoard from '../components/StyledBoard';
 import Legend from './Legend';
-import useGoStore from '../stores/useChessStore';
+import useChessStore from '../stores/useChessStore';
 
 export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
-  const setState = useGoStore((state) => state.setState);
+  const setState = useChessStore((state) => state.setState);
 
   useEffect(() => {
     const step = options.replay.steps.at(options.step);
