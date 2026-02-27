@@ -27,3 +27,33 @@
   margin-top: 1em;
   height: 3em;
 }
+
+meter {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  height: 2.5em;
+  margin: 0;
+  padding: 0;
+  background-color: #2a2d31;
+}
+
+meter::-webkit-meter-bar {
+  height: 100%;
+  background: none;
+  background-color: #000;
+}
+
+meter::-webkit-meter-inner-element {
+  height: 100%;
+}
+
+meter::-webkit-meter-optimum-value {
+  background: #f0ede7;
+  transition: width 2s ease-in-out;
+}
+
+meter::-moz-meter-bar {
+  background: #f0ede7;
+}

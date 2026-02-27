@@ -1,2 +1,4 @@
 /dist
-/replays
+/replays/
+/public/scripts
+/data

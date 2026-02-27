@@ -3,6 +3,8 @@ import { Chess } from 'chess.js';
 import { ChessPlayer, ChessStep, GameRendererProps } from '@kaggle-environments/core';
 import StyledBoard from '../components/StyledBoard';
 import Legend from '../components/Legend';
+import Meter from '../components/Meter';
+import Openings from '../components/Openings';
 import GameOver from '../components/GameOver';
 import useChessStore from '../stores/useChessStore';
 
@@ -31,8 +33,10 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
 
   return (
     <div id="renderer">
+      <Meter />
       <StyledBoard />
       <Legend />
+      <Openings />
       <GameOver />
     </div>
   );
