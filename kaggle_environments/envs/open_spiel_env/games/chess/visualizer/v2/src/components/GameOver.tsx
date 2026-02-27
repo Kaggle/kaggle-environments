@@ -1,8 +1,8 @@
-import useChessStore from '../stores/useChessStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function GameOver() {
-  const chess = useChessStore((state) => state.chess);
-  const options = useChessStore((state) => state.options);
+  const chess = useGameStore((state) => state.game);
+  const options = useGameStore((state) => state.options);
 
   if (!chess.isGameOver()) return;
 

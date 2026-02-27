@@ -27,7 +27,7 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
         game.setHeader(color, p.name);
       });
 
-      setState(game);
+      setState(game, options);
     }
   }, [setState, options]);
 
