@@ -19,6 +19,7 @@ function kaggleApi(path, data) {
       headers: {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(data),
+        'cookie': process.env.REPLAY_DOWNLOAD_COOKIE,
         // "accept-encoding": "gzip",
       },
     };
@@ -52,7 +53,7 @@ const list = await kaggleApi(
   '/i/competitions.EpisodeService/ListEpisodes',
   JSON.stringify({
     ids: [],
-    submissionId: 50557974,
+    submissionId: process.env.REPLAY_DOWNLOAD_SUB_ID,
     successfulOnly: true,
   })
 );
@@ -62,7 +63,17 @@ const downloads = [];
 
 shuffle(list.episodes);
 
-for (const episode of list.episodes) {
+// Temp fix to filter out KataGo replays
+const noKataGo = (episode) => {
+  for (const agent of episode.agents) {
+    const sub = list.submissions.find((item) => item.id === agent.submissionId);
+    const team = list.teams.find((item) => item.id === sub.teamId);
+    if (team.teamName.includes('KataGo')) return false;
+  }
+  return true;
+};
+
+for (const episode of list.episodes.filter(noKataGo)) {
   for (const agent of episode.agents) {
     const sub = list.submissions.find((item) => item.id === agent.submissionId);
     const team = list.teams.find((item) => item.id === sub.teamId);
