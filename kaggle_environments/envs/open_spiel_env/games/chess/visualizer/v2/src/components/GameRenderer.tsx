@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { ChessPlayer, ChessStep, GameRendererProps } from '@kaggle-environments/core';
 import StyledBoard from '../components/StyledBoard';
-import Legend from './Legend';
+import Legend from '../components/Legend';
+import Openings from '../components/Openings';
 import useChessStore from '../stores/useChessStore';
 
 export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
@@ -32,6 +33,7 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
     <div id="renderer">
       <StyledBoard />
       <Legend />
+      <Openings />
     </div>
   );
 }
