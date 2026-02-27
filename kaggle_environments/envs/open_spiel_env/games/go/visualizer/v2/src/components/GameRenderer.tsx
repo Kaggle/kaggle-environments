@@ -2,26 +2,26 @@ import { useEffect } from 'react';
 import { createGame } from 'jgoboard';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import StyledBoard from '../components/StyledBoard';
-import useGoStore from '../stores/useGoStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
-  const setState = useGoStore((state) => state.setState);
+  const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
-    const go = createGame({ size: 9 });
+    const game = createGame({ size: 9 });
 
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
       const [, move] = step!.boardState.previous_move_a1!.split(' ');
 
       if (move === 'PASS') {
-        go.pass();
+        game.pass();
       } else {
-        go.play(move);
+        game.play(move);
       }
     }
 
-    setState(go);
+    setState(game);
   }, [setState, options]);
 
   return <StyledBoard />;
