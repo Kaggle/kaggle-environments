@@ -1,9 +1,9 @@
 import { Chessboard } from 'react-chessboard';
-import useChessStore from '../stores/useChessStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function StyledBoard() {
-  const chess = useChessStore((state) => state.chess);
-  const position = chess.fen();
+  const game = useGameStore((state) => state.game);
+  const position = game.fen();
 
   const style = { width: '100%', height: '100%' };
   const pieces = {
