@@ -11,7 +11,7 @@ export default function Openings() {
   useEffect(() => {
     const opening = openings.find((opening) => chess.fen().includes(opening.fen));
 
-    if (opening) console.log(`*** ${opening.name} ***`);
+    if (opening) console.log('Opening:', opening.name);
   }, [chess]);
 
   return null;
