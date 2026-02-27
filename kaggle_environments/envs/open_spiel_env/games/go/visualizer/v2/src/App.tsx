@@ -1,14 +1,21 @@
-import Controls from './components/Controls';
-import StyledGoboard from './components/StyledGoboard';
+import { useEffect, useRef } from 'react';
+import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
+import GameRenderer from './components/GameRenderer';
 import './App.css';
 
 function App() {
-  return (
-    <div className="container">
-      <StyledGoboard />
-      <Controls />
-    </div>
-  );
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current!;
+    const gameName = 'open_spiel_go';
+    const ui = 'side-panel';
+    const adapter = new ReplayAdapter({ gameName, GameRenderer, ui });
+
+    createReplayVisualizer(container, adapter);
+  });
+
+  return <div id="container" ref={containerRef} />;
 }
 
 export default App;

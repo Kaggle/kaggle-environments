@@ -2,25 +2,23 @@ import { useRef, useEffect } from 'react';
 import { createRenderer } from 'jgoboard';
 import useGoStore from '../stores/useGoStore';
 
-export default function StyledGoboard() {
-  const elem = useRef(null);
+export default function StyledBoard() {
+  const boardRef = useRef(null);
   const go = useGoStore((state) => state.go);
 
   useEffect(() => {
+    const target = boardRef.current;
     const options = {
       board: go.board,
       theme: {
         margin: {
           color: 'transparent',
-          normal: 0,
-          clipped: 0,
         },
         boardShadow: {
           color: 'transparent',
         },
         padding: {
           normal: 20,
-          clipped: 10,
         },
         grid: {
           color: 'transparent',
@@ -33,7 +31,7 @@ export default function StyledGoboard() {
           bottom: true,
           left: true,
           color: 'transparent',
-          font: 'normal 12px sans-serif',
+          font: 'sans-serif',
         },
         textures: {
           black: 'images/black.png',
@@ -45,10 +43,10 @@ export default function StyledGoboard() {
       interactions: { enabled: false },
     };
 
-    const renderer = createRenderer(elem.current, options);
+    const renderer = createRenderer(target, options);
 
     return () => renderer.destroy();
   }, [go]);
 
-  return <div ref={elem}></div>;
+  return <div id="board" ref={boardRef} />;
 }
