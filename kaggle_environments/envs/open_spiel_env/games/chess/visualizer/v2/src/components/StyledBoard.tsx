@@ -1,7 +1,7 @@
 import { Chessboard } from 'react-chessboard';
 import useChessStore from '../stores/useChessStore';
 
-export default function StyledChessboard() {
+export default function StyledBoard() {
   const chess = useChessStore((state) => state.chess);
   const position = chess.fen();
 
@@ -38,15 +38,11 @@ export default function StyledChessboard() {
   };
 
   return (
-    // Div with style needed only for the React 18 compatible
-    // version of react-chessboard.
-    <div style={{ aspectRatio: '1', minHeight: '400px' }}>
-      <Chessboard
-        position={position}
-        customDarkSquareStyle={darkSquareStyle}
-        customLightSquareStyle={lightSquareStyle}
-        customPieces={pieces}
-      />
-    </div>
+    <Chessboard
+      position={position}
+      customDarkSquareStyle={darkSquareStyle}
+      customLightSquareStyle={lightSquareStyle}
+      customPieces={pieces}
+    />
   );
 }
