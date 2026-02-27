@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import useChessStore from '../stores/useChessStore';
 
 export default function Meter() {
-  const workerRef = useRef<Worker>(null);
+  const workerRef = useRef<Worker | null>(null);
   const chess = useChessStore((state) => state.chess);
   const [percent, setPercent] = useState(0);
 
