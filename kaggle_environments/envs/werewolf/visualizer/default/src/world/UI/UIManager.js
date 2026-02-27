@@ -126,7 +126,9 @@ export class UIManager {
     const textToProcess = applyTranscriptOverrides(message || '');
 
     // 1. Get Replacer
-    const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+    const replacer =
+      window.werewolfGamePlayer &&
+      (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
     let finalHtml = '';
 
     if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
@@ -148,7 +150,9 @@ export class UIManager {
 
     if (reasoning) {
       let finalReasoningHtml = '';
-      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+      const replacer =
+        window.werewolfGamePlayer &&
+        (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
 
       if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
         const rText = replacer.replaceToPlaceholders(reasoning);
@@ -232,7 +236,7 @@ export class UIManager {
   }
 
   displayModeratorAnnouncement(message, isAction = false) {
-    // Reuse displaySubtitle logic but add moderator class? 
+    // Reuse displaySubtitle logic but add moderator class?
     // Or reimplement structure since moderator mode has specific styling.
     // Let's reimplement structure for consistent scrolling.
 
@@ -248,7 +252,9 @@ export class UIManager {
       // System / Narrator messages.
       const textToProcess = applyTranscriptOverrides(message || '');
       // Use Phased Replacement
-      const replacer = window.werewolfGamePlayer && (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
+      const replacer =
+        window.werewolfGamePlayer &&
+        (window.werewolfGamePlayer.htmlPlayerIdReplacer || window.werewolfGamePlayer.playerIdReplacer);
       let finalHtml = '';
 
       if (replacer && replacer.replaceToPlaceholders && replacer.expandPlaceholders) {
@@ -281,8 +287,16 @@ export class UIManager {
       const upBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.up');
       const downBtn = this.subtitleContainer.querySelector('.subtitle-scroll-btn.down');
       const scrollStep = 20;
-      if (upBtn) upBtn.onclick = (e) => { e.stopPropagation(); if (wrapper) wrapper.scrollTop -= scrollStep; };
-      if (downBtn) downBtn.onclick = (e) => { e.stopPropagation(); if (wrapper) wrapper.scrollTop += scrollStep; };
+      if (upBtn)
+        upBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (wrapper) wrapper.scrollTop -= scrollStep;
+        };
+      if (downBtn)
+        downBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (wrapper) wrapper.scrollTop += scrollStep;
+        };
     }
 
     if (wrapper) {
@@ -330,7 +344,7 @@ export class UIManager {
 
         // Check if steps are updating
         const lastUpdate = (window.werewolfThreeJs && window.werewolfThreeJs.lastStepUpdateTime) || 0;
-        const isStepping = (performance.now() - lastUpdate) < 1000;
+        const isStepping = performance.now() - lastUpdate < 1000;
 
         const timeSinceMessage = performance.now() - (this.lastMessageTime || 0);
 

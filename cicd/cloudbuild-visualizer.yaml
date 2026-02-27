@@ -24,7 +24,7 @@
 steps:
   # Step 1: Build dependencies (core and common) and the target visualizer
   - id: "build-visualizer"
-    name: "gcr.io/cloud-builders/npm"
+    name: "node:22"
     entrypoint: "bash"
     args:
       - "-c"

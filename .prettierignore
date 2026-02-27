@@ -2,3 +2,7 @@ pnpm-lock.yaml
 **/pnpm-lock.yaml
 *.md
 **/*.md
+node_modules
+**/node_modules
+dist
+**/dist
