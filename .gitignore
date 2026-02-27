@@ -163,11 +163,24 @@ replay.html
 __MACOSX/
 *.DS_Store
 
-.claude
-.gemini
-
 # Playwright
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Claude CLI logs (keep local settings private, but share skills, commands, and MCP config)
+.claude/*
+!.claude/skills/
+!.claude/settings.json
+*/.claude/*
+# Allow shared skills, commands, and settings to be committed
+!.claude/skills/
+!.claude/skills/**
+!.claude/commands/
+!.claude/commands/**
+!.claude/settings.json
+
+# Gemini CLI logs
+.gemini
+*/.gemini/*
