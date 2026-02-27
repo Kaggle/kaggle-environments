@@ -5,10 +5,10 @@ import StyledBoard from '../components/StyledBoard';
 import Legend from '../components/Legend';
 import Meter from '../components/Meter';
 import Openings from '../components/Openings';
-import useChessStore from '../stores/useChessStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
-  const setState = useChessStore((state) => state.setState);
+  const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
     const step = options.replay.steps.at(options.step);
@@ -17,16 +17,16 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
     if (player) {
       const history = options.replay.info!.stateHistory;
       const fen = history.at(options.step);
-      const chess = new Chess(fen);
-      const move = chess.move(player.actionDisplayText!);
+      const game = new Chess(fen);
+      const move = game.move(player.actionDisplayText!);
 
       step!.players.forEach((p) => {
         const opposite = { w: 'b', b: 'w' };
         const color = p.isTurn ? move.color : opposite[move.color];
-        chess.setHeader(color, p.name);
+        game.setHeader(color, p.name);
       });
 
-      setState(chess);
+      setState(game);
     }
   }, [setState, options]);
 

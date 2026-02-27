@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import useChessStore from '../stores/useChessStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function Meter() {
   const workerRef = useRef<Worker | null>(null);
-  const chess = useChessStore((state) => state.chess);
+  const game = useGameStore((state) => state.game);
   const [percent, setPercent] = useState(0);
 
   useEffect(() => {
@@ -20,17 +20,17 @@ export default function Meter() {
         const match = event.data.match(/score cp (-?\d+)/);
         if (match) {
           let percent = Math.round(50 + 50 * (2 / (1 + Math.exp(-0.00368208 * Number(match.at(1)))) - 1));
-          if (chess.turn() == 'b') percent = 100 - percent;
+          if (game.turn() == 'b') percent = 100 - percent;
           console.log(`score w ${percent}% / b ${100 - percent}%`);
           setPercent(percent);
         }
       };
 
       workerRef.current.postMessage('stop');
-      workerRef.current.postMessage(`position fen ${chess.fen()}`);
+      workerRef.current.postMessage(`position fen ${game.fen()}`);
       workerRef.current.postMessage('go depth 1');
     }
-  }, [chess, setPercent]);
+  }, [game, setPercent]);
 
   return <meter value={percent} min="0" max="100" />;
 }
