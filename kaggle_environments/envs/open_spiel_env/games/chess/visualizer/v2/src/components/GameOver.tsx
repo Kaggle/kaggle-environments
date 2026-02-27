@@ -37,26 +37,28 @@ export default function GameOver() {
       };
     }
 
-    const ret = JSON.parse(player!.generateReturns![0]);
+    player!.generateReturns!.forEach((json) => {
+      const ret = JSON.parse(json);
 
-    const modelName: string = ret.model ?? ret.request_for_logging.model;
-    const promptTokens: number = ret.prompt_tokens ?? 0;
-    let generationTokens: number = ret.generation_tokens ?? 0;
-    const reasoningTokens: number = ret.reasoning_tokens ?? 0;
-    let totalTokens: number = ret.total_tokens ?? 0;
+      const modelName: string = ret.model ?? ret.request_for_logging.model;
+      const promptTokens: number = ret.prompt_tokens ?? 0;
+      let generationTokens: number = ret.generation_tokens ?? 0;
+      const reasoningTokens: number = ret.reasoning_tokens ?? 0;
+      let totalTokens: number = ret.total_tokens ?? 0;
 
-    if (modelName.includes('grok') || modelName.includes('gemini')) {
-      generationTokens = totalTokens - promptTokens;
-    }
+      if (modelName.includes('grok') || modelName.includes('gemini')) {
+        generationTokens = totalTokens - promptTokens;
+      }
 
-    if (totalTokens === 0) {
-      totalTokens = promptTokens + generationTokens + reasoningTokens;
-    }
+      if (totalTokens === 0) {
+        totalTokens = promptTokens + generationTokens + reasoningTokens;
+      }
 
-    tokens[name].promptTokens += promptTokens;
-    tokens[name].generationTokens += generationTokens;
-    tokens[name].reasoningTokens += reasoningTokens;
-    tokens[name].totalTokens += totalTokens;
+      tokens[name].promptTokens += promptTokens;
+      tokens[name].generationTokens += generationTokens;
+      tokens[name].reasoningTokens += reasoningTokens;
+      tokens[name].totalTokens += totalTokens;
+    });
   });
 
   console.log(tokens);
