@@ -5,6 +5,7 @@ import StyledBoard from '../components/StyledBoard';
 import Legend from '../components/Legend';
 import Meter from '../components/Meter';
 import Openings from '../components/Openings';
+import GameOver from '../components/GameOver';
 import useGameStore from '../stores/useGameStore';
 
 export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
@@ -20,13 +21,13 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
       const game = new Chess(fen);
       const move = game.move(player.actionDisplayText!);
 
-      step!.players.forEach((p) => {
+      step!.players.map((p) => {
         const opposite = { w: 'b', b: 'w' };
         const color = p.isTurn ? move.color : opposite[move.color];
         game.setHeader(color, p.name);
       });
 
-      setState(game);
+      setState(game, options);
     }
   }, [setState, options]);
 
@@ -36,6 +37,7 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
       <StyledBoard />
       <Legend />
       <Openings />
+      <GameOver />
     </div>
   );
 }

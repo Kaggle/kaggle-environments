@@ -32,5 +32,5 @@ export default function Meter() {
     }
   }, [game, setPercent]);
 
-  return <meter value={percent} min="0" max="100" />;
+  return <meter value={percent} min="10" max="90" />;
 }
