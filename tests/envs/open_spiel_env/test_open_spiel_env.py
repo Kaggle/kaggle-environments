@@ -486,5 +486,152 @@ class OpenSpielEnvTest(absltest.TestCase):
         self.assertEqual(len(obs.legalActions), 9)  # All 9 squares available
 
 
+    # --- Simultaneous move game tests ---
+
+    def test_goofspiel_agent_playthrough(self):
+        open_spiel_env._register_game_envs(
+            ["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"]
+        )
+        env = make("open_spiel_goofspiel", debug=True)
+        env.run(["random", "random"])
+        json = env.toJSON()
+        self.assertEqual(json["name"], "open_spiel_goofspiel")
+        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+        # Both players should have rewards (total_points mode).
+        self.assertEqual(len(json["rewards"]), 2)
+        self.assertTrue(all(r is not None for r in json["rewards"]))
+
+    def test_goofspiel_manual_playthrough(self):
+        open_spiel_env._register_game_envs(
+            ["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"]
+        )
+        env = make("open_spiel_goofspiel", debug=True)
+        env.reset()
+        # Initial setup step.
+        env.step([{"submission": -1}, {"submission": -1}])
+        # After setup, both players should be ACTIVE (simultaneous node).
+        self.assertEqual(env.state[0]["status"], "ACTIVE")
+        self.assertEqual(env.state[1]["status"], "ACTIVE")
+        # Play all 4 rounds: both players submit actions each step.
+        # With descending point order and 4 cards, there are 4 bidding rounds.
+        # Legal actions are card indices (0-3 initially).
+        for _ in range(4):
+            if env.done:
+                break
+            env.step([{"submission": 0}, {"submission": 0}])
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+
+    def test_simultaneous_invalid_action(self):
+        open_spiel_env._register_game_envs(
+            ["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"]
+        )
+        env = make("open_spiel_goofspiel", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        # Submit an invalid action (999 is not a legal bid).
+        env.step([{"submission": 999}, {"submission": 0}])
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+        # Player 0 submitted invalid, so gets the penalty.
+        self.assertEqual(json["rewards"][0], open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+        self.assertEqual(json["rewards"][1], -open_spiel_env.DEFAULT_INVALID_ACTION_REWARD)
+
+    def test_matching_pennies_manual(self):
+        open_spiel_env._register_game_envs(["matching_pennies_3p"])
+        env = make("open_spiel_matching_pennies_3p", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}, {"submission": -1}])  # Setup.
+        # All 3 players should be ACTIVE.
+        for pid in range(3):
+            self.assertEqual(env.state[pid]["status"], "ACTIVE")
+        # All play Heads (action 0).
+        env.step([{"submission": 0}, {"submission": 0}, {"submission": 0}])
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertTrue(all([status == "DONE" for status in json["statuses"]]))
+        self.assertEqual(len(json["rewards"]), 3)
+
+    def test_repeated_prisoners_dilemma_agent_playthrough(self):
+        """Test repeated Prisoner's Dilemma with random agents for 10 rounds."""
+        env = make(
+            "open_spiel_repeated_game",
+            {"openSpielGameParameters": {"num_repetitions": 10}},
+            debug=True,
+        )
+        env.run(["random", "random"])
+        json = env.toJSON()
+        self.assertEqual(json["name"], "open_spiel_repeated_game")
+        self.assertTrue(all(s == "DONE" for s in json["statuses"]))
+        self.assertEqual(len(json["rewards"]), 2)
+        self.assertTrue(all(r is not None for r in json["rewards"]))
+
+    def test_repeated_prisoners_dilemma_mutual_cooperate(self):
+        """Both players cooperate every round. Expected reward: 5 * 10 = 50 each."""
+        env = make(
+            "open_spiel_repeated_game",
+            {"openSpielGameParameters": {"num_repetitions": 10}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        for _ in range(10):
+            self.assertFalse(env.done)
+            self.assertEqual(env.state[0]["status"], "ACTIVE")
+            self.assertEqual(env.state[1]["status"], "ACTIVE")
+            env.step([{"submission": 0}, {"submission": 0}])  # Both cooperate.
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertEqual(json["rewards"], [50.0, 50.0])
+
+    def test_repeated_prisoners_dilemma_mutual_defect(self):
+        """Both players defect every round. Expected reward: 1 * 10 = 10 each."""
+        env = make(
+            "open_spiel_repeated_game",
+            {"openSpielGameParameters": {"num_repetitions": 10}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        for _ in range(10):
+            env.step([{"submission": 1}, {"submission": 1}])  # Both defect.
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertEqual(json["rewards"], [10.0, 10.0])
+
+    def test_repeated_prisoners_dilemma_asymmetric(self):
+        """P0 always cooperates, P1 always defects. P0 gets 0, P1 gets 100."""
+        env = make(
+            "open_spiel_repeated_game",
+            {"openSpielGameParameters": {"num_repetitions": 10}},
+            debug=True,
+        )
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        for _ in range(10):
+            env.step([{"submission": 0}, {"submission": 1}])  # P0 cooperate, P1 defect.
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertEqual(json["rewards"], [0.0, 100.0])
+
+    def test_simultaneous_agent_error(self):
+        open_spiel_env._register_game_envs(
+            ["goofspiel(num_cards=4,points_order=descending,returns_type=total_points)"]
+        )
+        env = make("open_spiel_goofspiel", debug=True)
+        env.reset()
+        env.step([{"submission": -1}, {"submission": -1}])  # Setup step.
+        env.step([
+            {"submission": open_spiel_env.AGENT_ERROR_ACTION},
+            {"submission": 0},
+        ])
+        self.assertTrue(env.done)
+        json = env.toJSON()
+        self.assertEqual(json["rewards"], [None, None])
+        self.assertEqual(json["statuses"], ["ERROR", "ERROR"])
+
+
 if __name__ == "__main__":
     absltest.main()

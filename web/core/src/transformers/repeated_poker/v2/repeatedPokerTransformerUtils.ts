@@ -274,7 +274,7 @@ const createPlayerActionStep = (
     const waitingActionDisplay = callAmount === 0 ? '' : `${callAmount} to call`;
     const chipStack = STARTING_STACK_SIZE - afterJson.player_contributions[id];
     const isAllIn = chipStack === 0;
-    
+
     let actionDisplayText: string;
     if (isAllIn) {
       actionDisplayText = ALL_IN_STRING;
@@ -283,7 +283,7 @@ const createPlayerActionStep = (
     } else {
       actionDisplayText = waitingActionDisplay;
     }
-    
+
     return {
       id,
       name: agents[id].Name,
@@ -593,7 +593,7 @@ const generatePreFlopStepSequence: StepGenerator = (remainingRawSteps, agents, s
       : {
           ...player,
           actionDisplayText: '',
-          isTurn: false
+          isTurn: false,
         }
   );
   const bbPostStep: RepeatedPokerStep = {
@@ -690,7 +690,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
     // --- Visual Step 1: The "Deal" Step ---
     const dealStepPlayers: RepeatedPokerStepPlayer[] = [0, 1].map((id) => {
       const chipStack = STARTING_STACK_SIZE - stateBeforeAction.current_universal_poker_json.player_contributions[id];
-      
+
       return {
         id,
         name: agents[id].Name,
@@ -705,7 +705,7 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
         isDealer: preDealStep.dealer === id,
         isTurn: false,
         isWinner: false,
-      }
+      };
     });
 
     const dealStep: RepeatedPokerStep = {
@@ -815,7 +815,8 @@ const generateCommunityCardStepSequence: StepGenerator = (remainingRawSteps, age
               isDealer: preDealStep.dealer === id,
               isTurn: false,
               isWinner: false,
-          }}),
+            };
+          }),
         });
 
         lastProcessedBoardLength = currentBoardLen;

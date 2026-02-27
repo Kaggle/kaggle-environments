@@ -15,8 +15,8 @@
     "download-replays": "node ./scripts/download.js"
   },
   "devDependencies": {
-    "@types/react": "^19.2.10",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.1.2",
     "eslint-plugin-react-refresh": "^0.5.0",
     "globals": "^17.3.0",
@@ -26,9 +26,9 @@
   "dependencies": {
     "@kaggle-environments/core": "workspace:*",
     "chess.js": "^1.4.0",
-    "react": "^19.2.4",
-    "react-chessboard": "^5.8.6",
-    "react-dom": "^19.2.4",
+    "react": "^18.2.0",
+    "react-chessboard": "^4.0.0",
+    "react-dom": "^18.2.0",
     "zustand": "^5.0.10"
   }
 }

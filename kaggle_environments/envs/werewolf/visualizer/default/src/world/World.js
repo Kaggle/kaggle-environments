@@ -10,7 +10,7 @@ import { PostProcessing } from './Effects/PostProcessing.js';
 import { UIManager } from './UI/UIManager.js';
 import { VoteVisuals } from './Visuals/VoteVisuals.js';
 
-const DEFAULT_CAMERA_POSITION = { x: -19.26, y: 20.41, z: 42.90 };
+const DEFAULT_CAMERA_POSITION = { x: -19.26, y: 20.41, z: 42.9 };
 const MOBILE_CAMERA_POSITION = { x: -20.99, y: 69.87, z: 47.97 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 8, z: 0 };
 
@@ -32,16 +32,31 @@ export class World {
     this.lightingManager = new LightingManager(scene, this.THREE, renderer, this.assetManager);
     this.terrainManager = new TerrainManager(scene, this.THREE, this.assetManager);
     this.propsManager = new PropsManager(scene, this.THREE, modules.VolumetricFire, camera);
-    this.characterManager = new CharacterManager(scene, this.THREE, modules.SkeletonUtils, modules.CSS2DObject, this.assetManager);
+    this.characterManager = new CharacterManager(
+      scene,
+      this.THREE,
+      modules.SkeletonUtils,
+      modules.CSS2DObject,
+      this.assetManager
+    );
     // this.particleSystem = new ParticleSystem(scene, this.THREE);
-    
+
     this.postProcessing = new PostProcessing(
-        scene, camera, renderer, options.width, options.height, this.THREE,
-        modules.EffectComposer, modules.RenderPass, modules.UnrealBloomPass, modules.ShaderPass, modules.FilmPass
+      scene,
+      camera,
+      renderer,
+      options.width,
+      options.height,
+      this.THREE,
+      modules.EffectComposer,
+      modules.RenderPass,
+      modules.UnrealBloomPass,
+      modules.ShaderPass,
+      modules.FilmPass
     );
 
     this.uiManager = new UIManager(modules.CSS2DObject, options.width, options.height, camera, options.parent);
-    
+
     // Groups for visuals
     this.votingArcsGroup = new this.THREE.Group();
     this.votingArcsGroup.name = 'votingArcs';
@@ -86,15 +101,33 @@ export class World {
   }
 
   // Compatibility Getters for skyControlFunctions.js
-  get _sky() { return this.skySystem.sky; }
-  get _sunLight() { return this.skySystem.sunLight; }
-  get _moonLight() { return this.skySystem.moonLight; }
-  get _ambientLight() { return this.lightingManager.ambientLight; }
-  get _renderer() { return this.sceneManager.renderer; }
-  get _bloomPass() { return this.postProcessing.bloomPass; }
-  get _clouds() { return this.skySystem.clouds; }
-  get _godRayIntensity() { return this.skySystem.godRayIntensity; }
-  set _godRayIntensity(v) { this.skySystem.godRayIntensity = v; }
+  get _sky() {
+    return this.skySystem.sky;
+  }
+  get _sunLight() {
+    return this.skySystem.sunLight;
+  }
+  get _moonLight() {
+    return this.skySystem.moonLight;
+  }
+  get _ambientLight() {
+    return this.lightingManager.ambientLight;
+  }
+  get _renderer() {
+    return this.sceneManager.renderer;
+  }
+  get _bloomPass() {
+    return this.postProcessing.bloomPass;
+  }
+  get _clouds() {
+    return this.skySystem.clouds;
+  }
+  get _godRayIntensity() {
+    return this.skySystem.godRayIntensity;
+  }
+  set _godRayIntensity(v) {
+    this.skySystem.godRayIntensity = v;
+  }
 
   updatePhase(phase, currentEventIndex) {
     if (!window.werewolfGamePlayer || !window.werewolfGamePlayer.allEvents) return;
@@ -151,9 +184,9 @@ export class World {
 
   updateSceneForPhase(phaseValue) {
     if (this.sceneManager.renderer) {
-        this.sceneManager.renderer.toneMappingExposure = 0.5 + (0.3 - phaseValue * 0.2);
+      this.sceneManager.renderer.toneMappingExposure = 0.5 + (0.3 - phaseValue * 0.2);
     }
-    
+
     // Check if we are transitioning from Night to Day (Rewinding)
     // Target is Day (< 0.5) but we are still in Night values (>= 0.5)
     let isRewinding = false;
@@ -163,15 +196,17 @@ export class World {
 
     this.skySystem.updateSkySystem(phaseValue, isRewinding);
     this.lightingManager.update(phaseValue);
-    
+
     if (this.sceneManager.scene.fog) {
-        if (phaseValue < 0.5) { // Strict Day Check
-            this.sceneManager.scene.fog.color.setHex(0x87ceeb);
-            this.sceneManager.scene.fog.density = 0.015;
-        } else { // Night
-            this.sceneManager.scene.fog.color.setHex(0x000000);
-            this.sceneManager.scene.fog.density = 0.005;
-        }
+      if (phaseValue < 0.5) {
+        // Strict Day Check
+        this.sceneManager.scene.fog.color.setHex(0x87ceeb);
+        this.sceneManager.scene.fog.density = 0.015;
+      } else {
+        // Night
+        this.sceneManager.scene.fog.color.setHex(0x000000);
+        this.sceneManager.scene.fog.density = 0.005;
+      }
     }
 
     this.postProcessing.update(0, phaseValue); // Time updated in RAF
@@ -215,20 +250,20 @@ export class World {
   }
 
   resetCameraView() {
-      // User preferred "perfect" position
+    // User preferred "perfect" position
     const targetPos = this.currentLayoutKey === 'mobile' ? MOBILE_CAMERA_POSITION : DEFAULT_CAMERA_POSITION;
     const endPos = new this.THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
-      const endTarget = new this.THREE.Vector3(DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z);
+    const endTarget = new this.THREE.Vector3(DEFAULT_CAMERA_TARGET.x, DEFAULT_CAMERA_TARGET.y, DEFAULT_CAMERA_TARGET.z);
 
-      this.cameraAnimation = {
-          startTime: performance.now(),
-          duration: 1200,
-          startPos: this.sceneManager.camera.position.clone(),
-          endPos: endPos,
-          startTarget: this.sceneManager.controls.target.clone(),
-          endTarget: endTarget,
-          ease: (t) => 1 - Math.pow(1 - t, 3),
-      };
+    this.cameraAnimation = {
+      startTime: performance.now(),
+      duration: 1200,
+      startPos: this.sceneManager.camera.position.clone(),
+      endPos: endPos,
+      startTarget: this.sceneManager.controls.target.clone(),
+      endTarget: endTarget,
+      ease: (t) => 1 - Math.pow(1 - t, 3),
+    };
   }
 
   startRenderLoop() {
@@ -240,8 +275,8 @@ export class World {
 
       // Shadow Optimization (5 FPS max)
       if (now - this.lastShadowUpdate > 200) {
-          this.sceneManager.renderer.shadowMap.needsUpdate = true;
-          this.lastShadowUpdate = now;
+        this.sceneManager.renderer.shadowMap.needsUpdate = true;
+        this.lastShadowUpdate = now;
       }
 
       if (this.phaseTransition) {
@@ -251,7 +286,7 @@ export class World {
           this.updateSceneForPhase(this.phaseTransition.current);
         }
       }
-      
+
       // Default to Night Start (0.5) if no phase transition set yet
       const phaseValue = this.phaseTransition ? this.phaseTransition.current : 0.5;
 
@@ -260,14 +295,14 @@ export class World {
 
       // Camera Animation
       if (this.cameraAnimation) {
-          const anim = this.cameraAnimation;
-          const elapsed = now - anim.startTime;
-          let progress = Math.min(elapsed / anim.duration, 1.0);
-          const easedProgress = anim.ease(progress);
-          this.sceneManager.camera.position.lerpVectors(anim.startPos, anim.endPos, easedProgress);
-          this.sceneManager.controls.target.lerpVectors(anim.startTarget, anim.endTarget, easedProgress);
-          this.sceneManager.controls.update();
-          if (progress >= 1.0) this.cameraAnimation = null;
+        const anim = this.cameraAnimation;
+        const elapsed = now - anim.startTime;
+        let progress = Math.min(elapsed / anim.duration, 1.0);
+        const easedProgress = anim.ease(progress);
+        this.sceneManager.camera.position.lerpVectors(anim.startPos, anim.endPos, easedProgress);
+        this.sceneManager.controls.target.lerpVectors(anim.startTarget, anim.endTarget, easedProgress);
+        this.sceneManager.controls.update();
+        if (progress >= 1.0) this.cameraAnimation = null;
       }
 
       this.propsManager.update(time * 0.001);
@@ -285,12 +320,12 @@ export class World {
   }
 
   resize(width, height) {
-      this.options.width = width;
-      this.options.height = height;
-      this.sceneManager.resize(width, height);
-      this.postProcessing.resize(width, height);
-      this.uiManager.width = width;
-      this.uiManager.height = height;
+    this.options.width = width;
+    this.options.height = height;
+    this.sceneManager.resize(width, height);
+    this.postProcessing.resize(width, height);
+    this.uiManager.width = width;
+    this.uiManager.height = height;
 
     // Responsive Camera Adjustment
     const isMobile = width < 900;

@@ -1,8 +1,13 @@
-import { ChessStep } from '@kaggle-environments/core';
+import { ChessStep, RendererOptions } from '@kaggle-environments/core';
 import { DARK_SQUARE_COLOR, DEFAULT_NUM_COLS, DEFAULT_NUM_ROWS, LIGHT_SQUARE_COLOR, PIECE_IMAGES_SRC } from './consts';
 
-export function renderer(options: any) {
-  const { steps, step, parent, playerNames, width = 400, height = 400, viewer } = options;
+export function renderer(options: RendererOptions<ChessStep[]>) {
+  const { replay, step, parent } = options;
+  const steps = replay.steps;
+  const playerNames = replay.info?.TeamNames || [];
+  const width = parent.clientWidth || 400;
+  const height = parent.clientHeight || 400;
+  const viewer = false; // Legacy flag, no longer used
 
   let currentBoardElement: HTMLElement | null = null;
   let currentStatusTextElement: HTMLParagraphElement | null = null;
@@ -33,7 +38,7 @@ export function renderer(options: any) {
       boxSizing: 'border-box',
       width: '100%',
       height: '100%',
-      fontFamily: "'Inter', sans-serif",
+      backgroundColor: '#202124',
     });
     parentElement.appendChild(currentRendererContainer);
 
@@ -290,17 +295,11 @@ export function renderer(options: any) {
 
   _buildVisualizer(parent, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
 
-  if (!steps || steps.length === 0 || steps.length < step) {
-    _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
-    return;
-  }
+  const currentStep: ChessStep | null = steps && steps.length > step ? steps[step] : null;
 
-  const currentStep: ChessStep = steps[step];
-
-  if (!currentStep) {
-    _renderChessBoard(null, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
-    return;
-  }
-
-  _renderChessBoard(currentStep, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
+  // Defer rendering to next frame to ensure container is laid out
+  // This fixes the issue where clientHeight is 0 on initial render
+  requestAnimationFrame(() => {
+    _renderChessBoard(currentStep, DEFAULT_NUM_ROWS, DEFAULT_NUM_COLS);
+  });
 }

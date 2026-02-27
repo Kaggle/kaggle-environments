@@ -4,7 +4,7 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer, LegacyRendererOptions } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer, RendererOptions } from '@kaggle-environments/core';
 import { acpcCardToDisplay, calculateMatchStats, CardSuit, PlayerStats, suitSVGs } from './components/utils';
 import {
   Chart,
@@ -42,7 +42,7 @@ interface PokerTableElements {
   legend: HTMLElement | null;
 }
 
-export function renderer(options: LegacyRendererOptions): void {
+export function renderer(options: RendererOptions): void {
   const chipImages: Record<number, string> = {
     1: poker_chip_1,
     5: poker_chip_5,
@@ -433,7 +433,7 @@ export function renderer(options: LegacyRendererOptions): void {
   function _renderLegendUI(
     steps: RepeatedPokerStep[],
     currentStepIndex: number,
-    setCurrentStep: (step: number) => void
+    setStep: (step: number) => void
   ): void {
     if (!elements.legend || !steps || !steps[currentStepIndex]) return;
 
@@ -499,7 +499,7 @@ export function renderer(options: LegacyRendererOptions): void {
           const row = document.createElement('div');
           row.className = 'legend-row';
           row.role = 'button';
-          row.onclick = () => setCurrentStep(hand.stepIndex);
+          row.onclick = () => setStep(hand.stepIndex);
 
           const handCell = document.createElement('div');
           handCell.className = 'legend-cell';
@@ -681,7 +681,7 @@ export function renderer(options: LegacyRendererOptions): void {
         canvasContainer.appendChild(canvas);
         body.appendChild(canvasContainer);
 
-        const graphData = _extractGraphData(options.steps as RepeatedPokerStep[]);
+        const graphData = _extractGraphData(options.replay.steps as RepeatedPokerStep[]);
 
         new Chart(canvas, {
           type: 'line',
@@ -765,11 +765,11 @@ export function renderer(options: LegacyRendererOptions): void {
         historyContainer.appendChild(hHeader);
 
         const { completedHands } = _deriveLeaderboardData(
-          options.steps as RepeatedPokerStep[],
-          options.steps.length - 1
+          options.replay.steps as RepeatedPokerStep[],
+          options.replay.steps.length - 1
         );
         const handsMap = new Map<number, RepeatedPokerStep>();
-        (options.steps as RepeatedPokerStep[]).forEach((s) => {
+        (options.replay.steps as RepeatedPokerStep[]).forEach((s) => {
           if (s.stepType !== 'game-over') handsMap.set(s.currentHandIndex, s);
         });
 
@@ -782,7 +782,7 @@ export function renderer(options: LegacyRendererOptions): void {
 
             const row = document.createElement('div');
             row.className = 'history-row clickable-row';
-            row.onclick = () => options.setCurrentStep(h.stepIndex);
+            row.onclick = () => options.setStep(h.stepIndex);
 
             // Result Logic
             const players = step.players as RepeatedPokerStepPlayer[];
@@ -863,7 +863,7 @@ export function renderer(options: LegacyRendererOptions): void {
 
       // --- TAB 3: STATS ---
       else if (currentTab === 'Stats') {
-        const stats = calculateMatchStats(options.steps as RepeatedPokerStep[]);
+        const stats = calculateMatchStats(options.replay.steps as RepeatedPokerStep[]);
         const statsContainer = document.createElement('div');
         statsContainer.className = 'stats-container';
 
@@ -875,8 +875,10 @@ export function renderer(options: LegacyRendererOptions): void {
           // Helper to calc percent
           const getVal = (pStats: PlayerStats) => {
             if (!isPct) return String(pStats[key]);
-            const totalHands = _deriveLeaderboardData(options.steps as RepeatedPokerStep[], options.steps.length - 1)
-              .completedHands.length;
+            const totalHands = _deriveLeaderboardData(
+              options.replay.steps as RepeatedPokerStep[],
+              options.replay.steps.length - 1
+            ).completedHands.length;
             const den = denKey ? pStats[denKey] : totalHands;
             return den > 0 ? `${((pStats[key] / den) * 100).toFixed(1)}%` : '0.0%';
           };
@@ -1149,13 +1151,13 @@ export function renderer(options: LegacyRendererOptions): void {
     return;
   }
 
-  const currentStep = options.steps[options.step ?? 0] as RepeatedPokerStep;
+  const currentStep = options.replay.steps[options.step ?? 0] as RepeatedPokerStep;
 
   if (currentStep.stepType === 'game-over') {
     _renderFinalScreenUI(currentStep);
   } else {
     _renderPokerTableUI(currentStep);
-    _renderLegendUI(options.steps as RepeatedPokerStep[], options.step ?? 0, options.setCurrentStep);
+    _renderLegendUI(options.replay.steps as RepeatedPokerStep[], options.step ?? 0, options.setStep);
   }
 
   // Apply initial scale

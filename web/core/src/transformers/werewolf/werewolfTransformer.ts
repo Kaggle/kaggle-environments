@@ -230,7 +230,7 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
     kaggleStep: 0,
     phase: 'night',
     day: 0,
-    data: {}
+    data: {},
   };
 
   allEvents.push(introEvent);
@@ -282,24 +282,29 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
       // Buffer until next phase start or game end
       while (j < allRawEvents.length) {
         const nextE = allRawEvents[j];
-        if (j > i && (
-          nextE.event_name === 'day_start' ||
-          nextE.event_name === 'night_start' ||
-          (nextE.description && (nextE.description.includes('Day') || nextE.description.includes('Night')) && nextE.description.includes('begins')) ||
-          nextE.dataType === 'GameEndResultsDataEntry'
-        )) {
+        if (
+          j > i &&
+          (nextE.event_name === 'day_start' ||
+            nextE.event_name === 'night_start' ||
+            (nextE.description &&
+              (nextE.description.includes('Day') || nextE.description.includes('Night')) &&
+              nextE.description.includes('begins')) ||
+            nextE.dataType === 'GameEndResultsDataEntry')
+        ) {
           break;
         }
         phaseBuffer.push(nextE);
         j++;
       }
 
-      console.log(`[WerewolfTransformer] ${isNight ? 'Night' : 'Day'} block found at index ${i}, length ${phaseBuffer.length}`);
+      console.log(
+        `[WerewolfTransformer] ${isNight ? 'Night' : 'Day'} block found at index ${i}, length ${phaseBuffer.length}`
+      );
 
       // Phase-specific buckets
       const buckets = {
         start: [] as any[], // Phase start, moderator announcements
-        chat: [] as any[],  // Discussion / Chat
+        chat: [] as any[], // Discussion / Chat
         werewolf_wake: [] as any[],
         werewolf_vote: [] as any[],
         doctor_wake: [] as any[],
@@ -308,8 +313,8 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         seer_inspect: [] as any[],
         day_vote: [] as any[],
         result: [] as any[], // Eliminations, exile results, save results
-        end: [] as any[],   // Phase end dividers
-        other: [] as any[]
+        end: [] as any[], // Phase end dividers
+        other: [] as any[],
       };
 
       phaseBuffer.forEach((e: any) => {
@@ -319,11 +324,13 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         const txt = desc.toLowerCase();
 
         // Eliminations and results (End of phase usually)
-        if (dt === 'DayExileElectedDataEntry' ||
+        if (
+          dt === 'DayExileElectedDataEntry' ||
           dt === 'WerewolfNightEliminationDataEntry' ||
           dt === 'DoctorSaveDataEntry' ||
           en === 'elimination' ||
-          en === 'heal_result') {
+          en === 'heal_result'
+        ) {
           buckets.result.push(e);
         }
         // Day Votes
@@ -331,46 +338,53 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
           buckets.day_vote.push(e);
         }
         // Werewolf Actions
-        else if (dt === 'WerewolfNightVoteDataEntry' || (en === 'vote_result' && dt === 'WerewolfNightEliminationElectedDataEntry')) {
+        else if (
+          dt === 'WerewolfNightVoteDataEntry' ||
+          (en === 'vote_result' && dt === 'WerewolfNightEliminationElectedDataEntry')
+        ) {
           buckets.werewolf_vote.push(e);
-        }
-        else if (en === 'vote_request' && txt.includes('werewolf')) {
+        } else if (en === 'vote_request' && txt.includes('werewolf')) {
           buckets.werewolf_wake.push(e);
         }
         // Doctor Actions
         else if (dt === 'DoctorHealActionDataEntry') {
           buckets.doctor_save.push(e);
-        }
-        else if (en === 'heal_request' || txt.includes('doctor')) {
+        } else if (en === 'heal_request' || txt.includes('doctor')) {
           buckets.doctor_wake.push(e);
         }
         // Seer Actions
-        else if (dt === 'SeerInspectActionDataEntry' || dt === 'SeerInspectResultDataEntry' || en === 'inspect_result') {
+        else if (
+          dt === 'SeerInspectActionDataEntry' ||
+          dt === 'SeerInspectResultDataEntry' ||
+          en === 'inspect_result'
+        ) {
           buckets.seer_inspect.push(e);
-        }
-        else if (en === 'inspect_request' || txt.includes('seer')) {
+        } else if (en === 'inspect_request' || txt.includes('seer')) {
           buckets.seer_wake.push(e);
         }
         // Chat/Discussion
         else if (dt === 'ChatDataEntry') {
           buckets.chat.push(e);
         }
-          // Phase Starts
-        else if (en === 'night_start' || en === 'day_start' || (desc.includes('begins') && (desc.includes('Day') || desc.includes('Night')))) {
+        // Phase Starts
+        else if (
+          en === 'night_start' ||
+          en === 'day_start' ||
+          (desc.includes('begins') && (desc.includes('Day') || desc.includes('Night')))
+        ) {
           if (en === 'night_start' && currentDay === 0) {
             e.event_name = 'moderator_announcement';
           }
           buckets.start.push(e);
         }
-          // End dividers
+        // End dividers
         else if (en === 'phase_divider' && desc.includes('END')) {
           buckets.end.push(e);
         }
-          // Moderator announcements
+        // Moderator announcements
         else if (en === 'moderator_announcement') {
           buckets.start.push(e);
-        }
-        else {
+        } else {
           buckets.other.push(e);
         }
       });
@@ -389,7 +403,7 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
         ...buckets.day_vote,
         ...buckets.result,
         ...buckets.end,
-        ...buckets.other
+        ...buckets.other,
       ];
 
       reorderedBuffer.forEach(processEvent);
@@ -419,61 +433,60 @@ export const werewolfTransformer = (processedReplay: any): WerewolfProcessedRepl
     if (processedEventFingerprints.has(eventFingerprint)) return;
     processedEventFingerprints.add(eventFingerprint);
 
-
     const isVisibleDataType = visibleEventDataTypes.has(dataType);
     const isVisibleEntryType = systemEntryTypeSet.has(event.event_name);
 
     if (!isVisibleDataType && !isVisibleEntryType) return;
 
-  // Replace character names with display names in the event description
-  if (event.description) {
-    event.originalDescription = event.description;
-    event.description = replaceNames(event.description);
-  }
+    // Replace character names with display names in the event description
+    if (event.description) {
+      event.originalDescription = event.description;
+      event.description = replaceNames(event.description);
+    }
 
-  allEvents.push(event);
-  eventToKaggleStep.push(kaggleStep);
+    allEvents.push(event);
+    eventToKaggleStep.push(kaggleStep);
 
-  if (dataType !== 'PhaseDividerDataEntry') {
-    const stepData = originalSteps[kaggleStep];
+    if (dataType !== 'PhaseDividerDataEntry') {
+      const stepData = originalSteps[kaggleStep];
 
-    // Get the actor for this event
-    const actorId = getActorId(event);
-    const actorConfig = actorId ? playerConfigMap.get(actorId) : undefined;
+      // Get the actor for this event
+      const actorId = getActorId(event);
+      const actorConfig = actorId ? playerConfigMap.get(actorId) : undefined;
 
-    // Build a players array with the active player marked with isTurn
-    const players: WerewolfPlayer[] = [];
+      // Build a players array with the active player marked with isTurn
+      const players: WerewolfPlayer[] = [];
 
-    if (actorId) {
+      if (actorId) {
         const displayName = actorConfig?.display_name || actorId;
-          const rawThoughts = event.data?.reasoning || '';
-          const thoughts = replaceNames(rawThoughts);
+        const rawThoughts = event.data?.reasoning || '';
+        const thoughts = replaceNames(rawThoughts);
 
-          const activePlayer: WerewolfPlayer = {
-            name: displayName,
-            isTurn: true,
-            thumbnail: actorConfig?.thumbnail,
-            thoughts,
-            actionDisplayText: getActionDisplayText(event, replaceNames),
-          };
-          players.push(activePlayer);
+        const activePlayer: WerewolfPlayer = {
+          name: displayName,
+          isTurn: true,
+          thumbnail: actorConfig?.thumbnail,
+          thoughts,
+          actionDisplayText: getActionDisplayText(event, replaceNames),
+        };
+        players.push(activePlayer);
       }
 
-    const werewolfStep: WerewolfStep = {
-          step: currentDisplayStep,
-          players,
-          visualizerEvent: event,
-          originalStepData: stepData,
+      const werewolfStep: WerewolfStep = {
+        step: currentDisplayStep,
+        players,
+        visualizerEvent: event,
+        originalStepData: stepData,
       };
 
-    newSteps.push(werewolfStep);
+      newSteps.push(werewolfStep);
 
-    displayStepToAllEventsIndex.push(allEventsIndex);
-    allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
-    currentDisplayStep++;
+      displayStepToAllEventsIndex.push(allEventsIndex);
+      allEventsIndexToDisplayStep[allEventsIndex] = currentDisplayStep;
+      currentDisplayStep++;
+    }
+    allEventsIndex++;
   }
-  allEventsIndex++;
-}
 
   processedReplay.steps = newSteps;
   processedReplay.isTransformed = true;

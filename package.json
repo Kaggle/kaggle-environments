@@ -11,16 +11,24 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "format": "prettier --write '**/*.{js,jsx,ts,tsx}' 'kaggle_environments/envs/**/visualizer/**/*.json'",
+    "format-check": "prettier --check '**/*.{js,jsx,ts,tsx}' 'kaggle_environments/envs/**/visualizer/**/*.json'"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
+    "@fontsource/inter": "^5.2.8",
+    "@playwright/mcp": "^0.0.68",
     "@playwright/test": "^1.50.0",
     "@types/node": "^25.2.1",
+    "@vitejs/plugin-react": "^4.0.0",
     "eslint": "^9.37.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-playwright": "^2.5.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "glob": "^13.0.1",
+    "globals": "^15.12.0",
     "pnpm": "^9.0.0",
     "postcss-styled-syntax": "^0.7.1",
     "prettier": "^3.6.2",
@@ -36,6 +44,8 @@
   },
   "dependencies": {
     "lefthook": "^2.0.16",
-    "marked": "^17.0.1"
+    "marked": "^17.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
