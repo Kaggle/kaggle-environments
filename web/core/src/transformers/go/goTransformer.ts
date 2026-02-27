@@ -57,18 +57,18 @@ function deriveWinner(step: GoReplayStep[]): string {
 
 export const goTransformer = (environment: any): GoStep[] => {
   const goReplay = environment as GoReplay;
+  const agents = environment.info.TeamNames;
 
   const goSteps: GoStep[] = [];
 
   goReplay.steps.forEach((step, index) => {
     const stepPlayers: BaseGamePlayer[] = step.map((player, playerIndex) => {
       const actionString = player.action?.actionString ?? '';
-      const [colorCode, move] = actionString.split(' ');
-      const colorName = colorCode === 'W' ? 'White' : 'Black';
+      const [, move] = actionString.split(' ');
 
       return {
         id: playerIndex,
-        name: colorName,
+        name: agents[playerIndex],
         thumbnail: '',
         isTurn: player.action?.submission !== undefined && player.action.submission !== -1,
         actionDisplayText: move ?? '',
