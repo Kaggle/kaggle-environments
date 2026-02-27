@@ -18,7 +18,7 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
       const chess = new Chess(fen);
       const move = chess.move(player.actionDisplayText!);
 
-      step!.players.map((p) => {
+      step!.players.forEach((p) => {
         const opposite = { w: 'b', b: 'w' };
         const color = p.isTurn ? move.color : opposite[move.color];
         chess.setHeader(color, p.name);
