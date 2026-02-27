@@ -1,10 +1,10 @@
 import { useRef, useEffect } from 'react';
 import { createRenderer } from 'jgoboard';
-import useGoStore from '../stores/useGoStore';
+import useGameStore from '../stores/useGameStore';
 
 export default function StyledBoard() {
   const boardRef = useRef(null);
-  const go = useGoStore((state) => state.go);
+  const go = useGameStore((state) => state.game);
 
   useEffect(() => {
     const target = boardRef.current;
