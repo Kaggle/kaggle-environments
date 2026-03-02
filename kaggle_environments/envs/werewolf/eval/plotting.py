@@ -203,7 +203,7 @@ def plot_metrics(evaluator, output_path: Union[str, List[str]] = "metrics.html")
         else None
     )
 
-    title_text = f"Agent Performance Metrics<br><sup>Total Games: {len(evaluator.games)} | Bootstrap Samples: Elo={getattr(self, 'elo_samples', 'N/A')}, OpenSkill={getattr(self, 'openskill_samples', 'N/A')}</sup>"
+    title_text = f"Agent Performance Metrics<br><sup>Total Games: {len(evaluator.games)} | Bootstrap Samples: Elo={getattr(evaluator, 'elo_samples', 'N/A')}, OpenSkill={getattr(evaluator, 'openskill_samples', 'N/A')}</sup>"
     fig.update_layout(
         title_text=title_text,
         title_font_size=24,
@@ -351,7 +351,7 @@ def plot_pareto_frontier(evaluator, output_path: Union[str, List[str]] = "pareto
     )
 
     fig.update_layout(
-        title=f"Cost-Performance Pareto Frontier (GTE)<br><sup>Total Games: {len(evaluator.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
+        title=f"Cost-Performance Pareto Frontier (GTE)<br><sup>Total Games: {len(evaluator.games)} | GTE Bootstrap Samples: {getattr(evaluator, 'gte_samples', 'N/A')}</sup>",
         xaxis_title="Average Cost per Game ($)",
         yaxis_title="GTE Overall Rating",
         template="plotly_white",
@@ -670,7 +670,7 @@ def plot_gte_evaluation(evaluator, output_path: Union[str, List[str]] = "gte_eva
         barmode="relative",
         height=max(600, n_items * 40),
         width=1300,
-        title_text=f"Game Theoretic Evaluation: Agent Ratings<br><sup>Total Games: {len(evaluator.games)} | GTE Bootstrap Samples: {getattr(self, 'gte_samples', 'N/A')}</sup>",
+        title_text=f"Game Theoretic Evaluation: Agent Ratings<br><sup>Total Games: {len(evaluator.games)} | GTE Bootstrap Samples: {getattr(evaluator, 'gte_samples', 'N/A')}</sup>",
         title_font_size=24,
         bargap=0.15,
         legend=dict(yanchor="top", y=1, xanchor="left", x=1.02, orientation="v", tracegroupgap=20),
@@ -695,7 +695,7 @@ def plot_gte_evaluation(evaluator, output_path: Union[str, List[str]] = "gte_eva
 
 def plot_gte_metrics_analysis(evaluator, output_path: Union[str, List[str]] = "gte_metrics.html"):
     """Plots GTE Metric analysis: Weights (Marginals) and Ratings (Payoffs)."""
-    if not hasattr(self, "gte_game") or evaluator.gte_game is None:
+    if not hasattr(evaluator, "gte_game") or evaluator.gte_game is None:
         print("GTE evaluation not run or failed. Skipping metric analysis plot.")
         return None
 
@@ -836,8 +836,7 @@ def plot_metrics_paper(evaluator, output_path="metrics.png"):
                     order = all_agents_sorted
                     if cat == "Ratings": order = metric_data.sort_values("value")["agent"].tolist()
                     palette_colors = [agent_color_map[a] for a in order]
-                    sns.barplot(data=metric_data, x="agent", y="value", order=order, palette=palette_colors, ax=ax,
-                                edgecolor='black', linewidth=0.5)
+                    sns.barplot(data=metric_data, x="agent", y="value", hue="agent", order=order, palette=palette_colors, ax=ax, edgecolor='black', linewidth=0.5, legend=False)
                     for j, agent in enumerate(order):
                         agent_data = metric_data[metric_data["agent"] == agent]
                         if not agent_data.empty:
@@ -975,9 +974,9 @@ def plot_pairwise_winrates_paper(evaluator, output_path="pairwise_winrates.png")
 
     poker_violin_color = "#2A9D8F"
     plot_df_rows = []
-    if getattr(self, "gte_bootstrapped_agent_ratings", None) is not None:
+    if getattr(evaluator, "gte_bootstrapped_agent_ratings", None) is not None:
         samples = evaluator.gte_bootstrapped_agent_ratings
-        if getattr(self, "gte_game", None) and getattr(evaluator.gte_game, "actions", None) and len(
+        if getattr(evaluator, "gte_game", None) and getattr(evaluator.gte_game, "actions", None) and len(
                 evaluator.gte_game.actions) > 1:
             gte_agents = evaluator.gte_game.actions[1]
             for agent_name in all_agents:
@@ -1006,7 +1005,7 @@ def plot_pairwise_winrates_paper(evaluator, output_path="pairwise_winrates.png")
 
 
 def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
-    if getattr(self, "gte_game", None) is None: return None
+    if getattr(evaluator, "gte_game", None) is None: return None
     game = evaluator.gte_game
     if game and getattr(game, "actions", None) and len(game.actions) > 1:
         agents = game.actions[1]
@@ -1036,7 +1035,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
         lefts += np.array(contribs)
     # Draw horizontal violin plot for Net Rating bootstrap samples
     plot_df_rows = []
-    if getattr(self, "gte_bootstrapped_agent_ratings", None) is not None:
+    if getattr(evaluator, "gte_bootstrapped_agent_ratings", None) is not None:
         samples = evaluator.gte_bootstrapped_agent_ratings
         for agent in sorted_agents:
             agent_idx = list(agents).index(agent)
@@ -1077,7 +1076,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
 
 
 def plot_gte_metrics_analysis_paper(evaluator, output_path="gte_metrics.png"):
-    if not hasattr(self, "gte_game") or getattr(self, "gte_game", None) is None: return None
+    if not hasattr(evaluator, "gte_game") or getattr(evaluator, "gte_game", None) is None: return None
     if not getattr(evaluator.gte_game, "actions", None) or len(evaluator.gte_game.actions) < 2: return None
 
     tasks = evaluator.gte_tasks
