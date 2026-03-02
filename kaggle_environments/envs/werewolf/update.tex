@@ -159,11 +159,9 @@ Because poker outcomes are inherently high-variance, we need rigorous experiment
 \subsection{Werewolf}
 \label{sec:werewolf_methods}
 
-Werewolf is a multiplayer, general-sum social-deduction game with acute information asymmetry.
-Our implementation of Werewolf features eight players. Each participant is secretly assigned one of the following roles: two Werewolves, one Seer, one Doctor, and four Villagers—forming two opposing teams with fundamentally different strategic profiles. The informed minority (werewolves) must deceive and divide the majority through natural language persuasion, while the uninformed majority, aided by the Seer's private investigations and the Doctor's protective measures, must argue to identify threats and eliminate them through democratic voting
-This interaction between deception, persuasion, deductive reasoning, and coalition building makes Werewolf a challenging test of strategic communication that complements the silent, two-player settings of Chess and Poker.
+Werewolf is a multiplayer, general-sum social-deduction game with acute information asymmetry. Our implementation of Werewolf features eight players. Each participant is secretly assigned one of the following roles: two Werewolves, one Seer, one Doctor, and four Villagers—forming two opposing teams with fundamentally different strategic profiles. The informed minority (Werewolves) must deceive and divide the majority through natural language persuasion, while the uninformed majority, aided by the Seer's private investigations and the Doctor's protective measures, must argue to identify threats and eliminate them through democratic voting. While Werewolf has countless variations in the literature, Game Arena deliberately utilizes this classic rule set. Increasing rule complexity often has the opposing effect of artificially constraining emergent gameplay, analogous to how the elegant rules of Go yield deeper strategic spaces than other boardgames with heavier mechanics. This setup ensures that complexity naturally emerges from the players' mixed strategies and social dynamics rather than from intricate rule additions. By navigating this ambiguity and varying levels of trust, agents must exercise critical ``soft skills'' such as negotiation, coalition building, and the capacity to detect or engage in strategic deception. Consequently, this dynamic environment serves as a uniquely challenging benchmark for evaluating natural language manipulation and agent safety, fundamentally complementing the silent, two-player settings of Chess and Poker.
 
-The game is led by a moderator who navigates between night phases (private role-related actions) and day phases (public discussion followed by elimination by majority vote).  All game information is maintained in a centralized state object, and players interact via structured action objects (votes, chat messages, role-specific abilities). A modular protocol system allows the discussion format (e.g., circular vs. parallel) and voting rules (e.g., sequential vs. simultaneous) to be swapped as interchangeable plugins, enabling controlled exploration of the impact of social interaction mechanisms on game balance. We conducted a comprehensive balance analysis (Appendix ~\ref{app:werewolf_balance}) to confirm that the initial configuration: a classic game for eight players with round-robin discussion and sequential voting generates useful insights.
+The game is led by a moderator who navigates between night phases (private role-related actions) and day phases (public discussion followed by elimination by majority vote). Internally, the environment maintains an authoritative, append-only log of \texttt{Event} records. Each state transition and player interaction (e.g., votes, chat messages, role-specific abilities) is encapsulated within a structured event object that strictly defines its visibility permissions. Information asymmetry is subsequently enforced by a centralized event bus, which filters and dispatches these records to individual agents based on their specific access privileges (e.g., distinguishing between public discussion and private faction communications). A modular protocol system allows the discussion format (e.g., circular vs. parallel) and voting rules (e.g., sequential vs. simultaneous) to be swapped as interchangeable plugins, enabling controlled exploration of the impact of social interaction mechanisms on game balance. We conducted a comprehensive balance analysis (Appendix ~\ref{app:werewolf_balance}) to ensure that our selected configuration of game rules is well-balanced, allowing interesting strategic dynamics to naturally emerge.
 
 At each decision point, each agent receives all observations collected so far, containing both public and private information. Harness is a ReAct~\citep{yao2023react} system that uses a prompting framework in which the model receives a system prompt (instructing it to optimize the victory of the \emph{team} rather than striving for individual survival), a chronological log of all observed events, and a task description specific to the given phase. The model returns a JSON object containing separate fields for private deliberations and public actions, ensuring that information resulting from internal deliberations does not leak to other agents. The reliability of the results is managed through lenient JSON parsing (\texttt{pyjson5}), exponential retries in case of overflow with context failure, and a rule-based security filter that protects against aggressive or inappropriate language use.
 
@@ -414,15 +412,13 @@ The results do not support a simple linear relationship between pre-flop aggress
 \label{fig:werewolf_pareto}
 \end{figure}
 
-In the Werewolf benchmark, models were evaluated across 31,472 full games, with match participants sampled with replacement to ensure exposure to diverse team compositions and strategy profiles. Evaluating skill in asymmetric, imperfect-information social deduction games presents unique challenges. Conventional evaluation metrics (e.g., overall win rates) and traditional rating algorithms (e.g., Elo~\citep{elo1978rating} and OpenSkill~\citep{herbrich2006trueskill, minka2018trueskill}) systematically conflate an individual agent's skill with the structural base win rates of assigned roles and team variance. We therefore rely on Game Theoretic Evaluation (GTE)~\citep{liu2025re}, which rigorously isolates each model's performance into role-specific contributions.
+In the Werewolf benchmark, models were evaluated across 31,472 full games, with match participants sampled with replacement to ensure exposure to diverse team compositions and strategy profiles. Evaluating skill in a multiplayer, general-sum social deduction game with asymmetric, imperfect-information presents unique challenges. While traditional rating algorithms like Elo~\citep{elo1978rating} and OpenSkill~\citep{herbrich2006trueskill, minka2018trueskill} are highly effective in the symmetric environments they were designed for, applying them directly to multi-agent settings with asymmetric role abilities and team sizes routinely conflates an individual agent's core skill with the structural base win rates of their randomly assigned roles. Because this environment requires specific modeling to account for such structural variance, we utilize Game Theoretic Evaluation (GTE)~\citep{liu2025re}, which rigorously isolates each model's performance into role-specific contributions.
 
 To contextualize GTE's effectiveness, we benchmarked it against group Elo and OpenSkill (Figure~\ref{fig:werewolf_ratings}). While the relative macro-rankings remain highly consistent across methods, GTE demonstrates superior discriminative resolution. Group Elo and OpenSkill struggle to differentiate mid-tier performance---frequently producing overlapping confidence intervals---whereas the GTE framework successfully isolates role-specific strategic value, resulting in a cleaner, statistically significant separation between models.
 
 Performance under the GTE framework is sharply stratified (Figure~\ref{fig:werewolf_gte}). At the top tier, Gemini 3 Pro Preview and Gemini 3 Flash Preview achieve the highest net ratings, demonstrating balanced, positive win-rate contributions across both the informed minority (Werewolf) and uninformed majority (Villager, Seer, Doctor) roles. In the mid-tier, distinct strategic weaknesses emerge; for example, Claude Sonnet 4.5 and Grok 4.1 Fast Reasoning exhibit substantial negative contributions when assigned the Seer role, suggesting difficulty in communicating private information without drawing suspicion. At the bottom tier, GPT-5 mini displays severe negative contributions across all roles, indicating systemic weaknesses in both collaborative deduction and deceptive persuasion.
 
-Mapping these capabilities to cost (Figure~\ref{fig:werewolf_pareto}) reveals a clean Pareto frontier anchored by three models: Grok 4.1 Fast Reasoning (low-cost), Gemini 3 Flash Preview (massive performance leap for minimal cost increase), and Gemini 3 Pro Preview (maximum performance). Models such as Claude Opus 4.5 and Grok 4 are strictly dominated, yielding lower strategic performance while being significantly more expensive per game.
-
-Figure \ref{fig:werewolf_pareto} maps the cost-performance landscape. The Pareto frontier is cleanly defined by three models: Grok 4.1 Fast Reasoning anchors the low-cost extreme, Gemini 3 Flash Preview provides a massive upward leap in GTE rating for a minimal cost increase, and Gemini 3 Pro Preview establishes the maximum-performance boundary. Several models, notably Claude Opus 4.5 and Grok 4, are strictly dominated in this environment; they occupy regions of the space that are significantly more expensive per game while yielding substantially lower strategic performance than the frontier models.
+Mapping these capabilities to cost (Figure~\ref{fig:werewolf_pareto}) reveals a clean Pareto frontier anchored by three models: Grok 4.1 Fast Reasoning (low-cost), Gemini 3 Flash Preview (substantial performance leap for minimal cost increase), and Gemini 3 Pro Preview (maximum performance). This frontier highlights the optimal trade-offs between average inference cost per game and overall strategic capability within the evaluated pool.
 
 \begin{figure}
 [p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/metrics_Ratings.png}
@@ -555,6 +551,29 @@ Overall, the performance rankings of chess openings are not significantly differ
 Randomized openings also preserve the qualitative temporal dynamics observed in Chess-Text. Analysis of the Stockfish annotations (see Appendix Figure ~\ref{fig:stockfish_opening_plot}) shows that the models are nearly equivalent in the opening phase, but diverge in the middlegame: strong models gradually accumulate an advantage, while weaker models gradually fall behind as complexity increases. Finally, the reliability of the interactions is independent of the game scheme. Appendix Figure ~\ref{fig:chess_rethink_openings} shows that the rethink rate is related to model strength (the Gemini model has a rethink rate close to zero, while weaker models have a higher rethink rate), and weaker models focus more on regaining position in the endgame, corresponding to the higher requirements for legitimacy and accuracy in constrained positions. In conclusion, these results indicate that even with the diversification of opening structures due to the introduction of chess openings, the main divergent factors in the chess games we referenced—the quality of middlegame and endgame decisions and the reliability of interactions—remain.
 % ============================================================
 
+\subsection{Werewolf Game Rules and Balanced Configuration}
+\label{app:werewolf_rules}
+
+The Werewolf evaluation environment in Game Arena utilizes a specific, deliberately balanced variant of the classic social deduction game, configured to foster complex strategic interactions without relying on overly intricate mechanics. The standard match comprises eight players randomly assigned to two opposing factions: the informed minority (the Werewolf team) and the uninformed majority (the Village team).
+
+\subsubsection{Roles and Objectives}
+The eight-player pool is partitioned into two Werewolves, one Seer, one Doctor, and four Villagers. The Werewolves' objective is to eliminate members of the Village until their numbers are equal, thereby securing a majority. Conversely, the Village team aims to identify and sequentially exile all Werewolves. With the exception of the Werewolves, who possess shared knowledge of their faction members, all other players start the game with no information regarding the identities of their peers.
+
+\subsubsection{Game Phases and Action Protocols}
+The game alternates between a private ``Night'' phase and a public ``Day'' phase. 
+During the Night phase, roles with specialized abilities act in a strict sequence:
+\begin{enumerate}
+    \item \textbf{Doctor:} The Doctor silently selects one player to protect from elimination. To prevent degenerate survival strategies, the Doctor is strictly prohibited from targeting themselves (\textit{no self-save}) and may not protect the same player in consecutive nights.
+    \item \textbf{Seer:} The Seer selects one player to investigate, learning the exact secret role of that target.
+    \item \textbf{Werewolves:} The Werewolves coordinate to select a target for elimination. In the balanced configuration, this is executed via sequential voting, where each Werewolf votes with full visibility of their partner's prior vote. The first voter rotates each night. If the vote results in a tie, no elimination occurs (\textit{no elected} tie-breaker).
+\end{enumerate}
+
+Following the Night, the Day phase commences with the moderator publicly announcing any eliminations that occurred. The eliminated player is removed from the game, and their secret role is fully revealed to all surviving participants. The surviving players then engage in public deliberation. To ensure equitable participation and structured debate, the discussion follows a Round-Robin protocol constrained to a maximum of two full cycles. The order in which players speak rotates systematically each day.
+
+After the discussion concludes, the Day phase culminates in the Exile Vote. Similar to the Night phase, the village conducts a sequential vote, with the voting order rotating each day, to select a player for execution. If a plurality target is successfully chosen, that player is exiled, and their role is publicly disclosed. In the event of a tied vote, no player is exiled for that day (\textit{no elected} tie-breaker). The game then loops back to the Night phase, continuing this cycle until either the Village successfully purges all Werewolves or the Werewolves achieve numeric parity with the Village.
+
+% ============================================================
+
 \subsection{Werewolf Game-Balance Analysis}
 \label{app:werewolf_balance}
 
@@ -601,13 +620,59 @@ We evaluated the impact of several rule modifications on the Villager win rate. 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.1\columnwidth]{final_plots/werewolf/tournament_graph.png}
-    \caption{Tournament graph. Each edge defines the delta of votes between two models. In this instance of model line-up, we found there were no cycles in the graph.}
+    \caption{Tournament graph illustrating the pairwise win margins between the eight evaluated models. A directed edge from model $A$ to model $B$ indicates that $A$ achieved more pairwise victories against $B$, with the edge label quantifying the net vote differential $\delta(A,B)$. Notably, the resulting graph is perfectly transitive and contains no cycles, establishing a clean, unambiguous dominance hierarchy among the models.}
     \label{fig:werewolf_tournament_graph}
 \end{figure}
 
-We analyze the dataset by assembling binary votes across all games and roles, where the condition $score[a] > score[b]$ constitutes a win for model $a$ and a loss for model $b$. These binary outcomes serve as the primary input for both Elo rating calculations and various pairwise voting methods derived from Voting-as-Evaluation (VasE). To evaluate the relationships between models, a tournament graph is constructed by drawing directed edges from model $a$ to model $b$ whenever the win differential $\delta(a,b) = N(a,b) - N(b,a) > 0$. In this formulation, $N(a,b)$ denotes the total number of votes where model $a$ defeats model $b$. A positive $\delta(a,b)$ indicates that model $a$ has secured more victories against $b$ than $b$ has against $a$, with the graph's edge weights explicitly representing this differential. 
+To analyze the relative capabilities of the agents, we ground our methodology in the Voting-as-Evaluation (VasE) framework~\citep{lanctot2023evaluating}. The VasE framework reinterprets multi-agent evaluation as a social choice problem, mapping distinct game scenarios to ``voters'' and the models under evaluation to ``candidates''. Under this paradigm, we aggregate binary pairwise comparisons across all match-ups and roles: whenever model $a$ achieves a higher match score than model $b$ in a specific assignment, that configuration acts as a voter casting a ballot for candidate $a$. These head-to-head outcomes form the foundational input for our Elo rating calculations and alternative ranked voting metrics.
 
-Notably, the resulting tournament graph contains no cycles; the ranking relationships are entirely transitive among all agents based on their win rates, which presents an optimal or ``nice'' condition for Elo rating systems. Furthermore, Copeland voting is employed to define a score, $CS(a)$, for each model $a$. This score is mathematically defined as $1 \times (\text{number of models } b \text{ where } \delta(a,b) > 0) + \frac{1}{2} \times (\text{number of models } b \text{ where } \delta(a,b) = 0)$. Ultimately, the rankings produced by these alternative methods are fully consistent with the official rankings reported on the Kaggle Game Arena site.
+To visualize the pairwise dominance relationships between the candidate models, we construct a tournament graph (Figure~\ref{fig:werewolf_tournament_graph}) featuring directed edges from $a$ to $b$ wherever the win differential $\delta(a,b) = N(a,b) - N(b,a) > 0$. Here, $N(a,b)$ represents the total number of pairwise victories model $a$ holds against $b$, and the edge weights explicitly display this net differential. This approach mirrors the initial tallying step of the Ranked Pairs voting method~\citep{tideman1987independence}.
+
+Crucially, the resulting tournament graph is completely acyclic. This strict transitivity establishes a clean dominance hierarchy among the models, providing an optimal condition for converging Elo rating algorithms and eliminating the need for complex cycle-resolution heuristics. Using these pairwise margins, we also evaluate the models using Copeland's method~\citep{copeland1951reasonable}, computing a Copeland score, $CS(a)$, defined mathematically as $1 \times |\{b : \delta(a,b) > 0\}| + 0.5 \times |\{b : \delta(a,b) = 0\}|$. This score simply tallies the number of pairwise matchups a candidate wins (scoring 1) or ties (scoring 0.5). Additionally, we establish the explicit Ranked Pairs outcome by progressively removing sources from the graph to establish a ranking sequence.
+
+As detailed in Table~\ref{tab:alternative_rankings}, the rankings produced by these alternative voting-based methods and the dataset-derived Elo ratings remain perfectly consistent with both the official Game Theoretic Evaluation rankings and the leaderboard reported on the Kaggle Game Arena site.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{l c c c}
+        \hline
+        \textbf{Model} & \textbf{Elo Rating} & \textbf{Copeland Score} & \textbf{Ranked Pairs Rank} \\
+        \hline
+        Gemini 3 Pro Preview & 151 & 7.0 & 1 \\
+        Gemini 3 Flash Preview & 124 & 6.0 & 2 \\
+        GPT-5.2 & 122 & 5.0 & 3 \\
+        Claude Opus 4.5 & 110 & 4.0 & 4 \\
+        Claude Sonnet 4.5 & 96 & 3.0 & 5 \\
+        Grok 4.1 Fast Reasoning & 50 & 2.0 & 6 \\
+        Grok 4 & 39 & 1.0 & 7 \\
+        GPT-5 mini & 0 & 0.0 & 8 \\
+        \hline
+    \end{tabular}
+    \vspace{2mm}
+    \caption{Comparison of alternative ranking metrics derived from the pairwise win margin dataset. The models are identically ordered across Elo, Copeland's method, and Ranked Pairs.}
+    \label{tab:alternative_rankings}
+\end{table}
+
+\subsubsection{Group Elo Implementation for Multiplayer Matches}
+To compute the Elo ratings referenced in our transitivity analysis, we adapt the standard pairwise Elo rating system to accommodate the asymmetric, multi-agent team structure of Werewolf. In each match, the agents are partitioned into two opposing factions: the Villagers ($V$) and the Werewolves ($W$). 
+
+First, we establish a collective team rating by computing the mean Elo rating of the constituent agents for each faction:
+\begin{align*}
+R_V &= \frac{1}{|V|} \sum_{a \in V} R_a \\
+R_W &= \frac{1}{|W|} \sum_{a \in W} R_a
+\end{align*}
+Using these aggregated team ratings, the expected win probability for the Villagers, $E_V$, is strictly calculated via the standard logistic curve:
+$$E_V = \frac{1}{1 + 10^{(R_W - R_V)/400}}$$
+
+Following the conclusion of the match, the actual outcome for the Villager team is denoted as $S_V \in \{0, 1\}$ (where $1$ indicates a Villager victory and $0$ indicates a Werewolf victory). The total rating points to be exchanged between the two factions is then determined using a base $K$-factor of 32:
+$$\Delta = 32 \times (S_V - E_V)$$
+
+To ensure the system remains zero-sum while fairly crediting individual participation, this total rating delta is distributed equally among the members of each respective team. Because the factions are asymmetric in size (typically $6$ Villagers and $2$ Werewolves), the individual rating updates for each agent $a$ are explicitly scaled by the inverse of their faction's precise size:
+\begin{align*}
+R_a &\leftarrow R_a + \frac{\Delta}{|V|} \quad \text{for } a \in V \\
+R_a &\leftarrow R_a - \frac{\Delta}{|W|} \quad \text{for } a \in W
+\end{align*}
+This group Elo formulation tracks cumulative strategic performance while robustly controlling for variable team sizes and multi-role configurations.
 
 % ============================================================
 \subsubsection{Coop Analysis}
@@ -627,60 +692,51 @@ Notably, the resulting tournament graph contains no cycles; the ranking relation
 % - Bootstrap procedure for 95% confidence intervals
 % - Assumptions and limitations
 
-% redescribe King-of-the-hill game setup in the context of Werewolf
-\textbf{Game-Theoretic Evaluation, The King-of-the-Hill Meta-Game:}
-To conduct a robust evaluation of Werewolf agents that goes beyond simple average win rates, we employ a game-theoretic evaluation framework known as the ``king-of-the-hill'' meta-game~\cite{liu2025re}. Traditional leaderboards often aggregate performance across all scenarios equally, which can allow agents to achieve high rankings by excelling at frequent but unchallenging tasks while failing at critical ones. Our approach casts evaluation as a competitive interaction between strategic entities, aiming to identify agents that are not only strong on average but also robust across the most discriminative and challenging game roles.
+\textbf{Game-Theoretic Evaluation: The King-of-the-Hill Meta-Game}
+To conduct a robust evaluation of Werewolf agents that extends beyond simple average win rates, we employ a game-theoretic framework formulated as a ``king-of-the-hill'' meta-game~\citep{liu2025re}. While traditional leaderboards aggregate performance across all scenarios equally---allowing agents to achieve high rankings by excelling at frequent but unchallenging tasks---our approach casts evaluation as a competitive interaction. This isolates agents that are not only strong on average, but distinctly robust across the most challenging, discriminative game roles.
 
 \textbf{Meta-Game Formulation:}
-We formulate the evaluation process as a three-player, zero-sum-like meta-game. The players and their respective action sets are defined as follows:
+We map the evaluation process into a three-player, zero-sum-esque meta-game. The players and their respective action sets are defined as follows:
 \begin{itemize}
-    \item \textbf{The Role Player ($P_{\text{role}}$):} Represents the evaluation arbiter. Its action is to select a role $a_{\text{role}} \in \mathcal{A}_{\text{role}}$ (e.g., Seer, Werewolf, Villager) to serve as the current test case.
-    \item \textbf{The King Agent ($P_{\text{king}}$):} Represents the incumbent top-performing agent. Its action is to select an agent policy $a_{\text{king}} \in \mathcal{A}_{\text{agent}}$ to defend its title.
-    \item \textbf{The Rebel Agent ($P_{\text{rebel}}$):} Represents the challenger. Its action is to select an agent policy $a_{\text{rebel}} \in \mathcal{A}_{\text{agent}}$ to attempt to dethrone the King.
+    \item \textbf{The Role Player ($P_{\text{role}}$):} Acts as the evaluation arbiter, selecting a role $a_{\text{role}} \in \mathcal{A}_{\text{role}}$ (e.g., Seer, Werewolf, Villager) to serve as the test case.
+    \item \textbf{The King Agent ($P_{\text{king}}$):} The incumbent top-performing agent, selecting a policy $a_{\text{king}} \in \mathcal{A}_{\text{agent}}$ to defend its superiority.
+    \item \textbf{The Rebel Agent ($P_{\text{rebel}}$):} The challenger, selecting a policy $a_{\text{rebel}} \in \mathcal{A}_{\text{agent}}$ in an attempt to dethrone the King.
 \end{itemize}
 
-The core of this evaluation lies in the payoff functions, which are derived from the empirical performance of agents in specific roles. Let $v(a_{\text{agent}}, a_{\text{role}}) \in [0, 1]$ denote the empirical win rate of an agent when playing a specific role. This metric is calculated by aggregating binary game outcomes over all recorded matches:
-$$v(a_{\text{agent}}, a_{\text{role}}) = \frac{\text{Total Wins}(a_{\text{agent}}, a_{\text{role}})}{\text{Total Games Played}(a_{\text{agent}}, a_{\text{role}})}$$
+The core of this evaluation relies on payoff functions derived from empirical win rates. Let $\hat{v}(a_{\text{agent}}, a_{\text{role}}) \in [0, 1]$ denote the win probability of an agent occupying a specific role, calculated by aggregating binary outcomes over all recorded match-ups:
+$$ \hat{v}(a_{\text{agent}}, a_{\text{role}}) = \frac{\text{Total Wins}(a_{\text{agent}}, a_{\text{role}})}{\text{Total Games Played}(a_{\text{agent}}, a_{\text{role}})} $$
 
-The utility functions for the three players are designed to align their strategic incentives with the goals of rigorous evaluation:
+The utility functions cleanly align the players' strategic incentives with rigorous evaluation:
 \begin{align*}
-u_{\text{king}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) &= v(a_{\text{king}}, a_{\text{role}}) - v(a_{\text{rebel}}, a_{\text{role}}) \\
+u_{\text{king}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) &= \hat{v}(a_{\text{king}}, a_{\text{role}}) - \hat{v}(a_{\text{rebel}}, a_{\text{role}}) \\
 u_{\text{rebel}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) &= -u_{\text{king}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) \\
-u_{\text{role}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) &= |u_{\text{king}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}})|
+u_{\text{role}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) &= \left| u_{\text{king}}(a_{\text{role}}, a_{\text{king}}, a_{\text{rebel}}) \right|
 \end{align*}
 
-In this setup, the \textbf{King} and \textbf{Rebel} play a zero-sum game relative to each other for any given role. The King strives to maximize its performance margin over the Rebel, while the Rebel strives to minimize this margin (or maximize its own advantage). 
-
-Crucially, the \textbf{Role} player is not a passive environment but a strategic actor incentivized to select roles that maximize the absolute performance disparity between the King and Rebel. This strategic objective ensures that the evaluation focuses purely on \textit{discriminative} roles—those that effectively distinguish between agent capabilities—rather than ``easy'' roles where most agents achieve similar win rates.
+In this dynamic, the \textbf{King} and \textbf{Rebel} play a zero-sum game conditioned on the role: the King strives to maximize its performance margin over the Rebel, while the Rebel strives to minimize it. Concurrently, the \textbf{Role} player acts not as a passive environment, but as an adversary incentivized to select roles that maximize the absolute performance disparity between King and Rebel. This ensures the focus remains on \textit{discriminative} roles rather than uninformative scenarios where all agents exhibit similar baseline win rates.
 
 \textbf{Equilibrium Resolution via Quantal Response:}
-To derive a final ranking from this meta-game, we solve for its equilibrium. A standard Nash Equilibrium, which assumes perfect rationality, might focus exclusively on a single, most-discriminative role, rendering the evaluation overly sensitive to statistical noise in that specific role's match outcomes.
+To resolve a definitive ranking, we calculate the meta-game's equilibrium. Relying on a standard Nash Equilibrium (assuming perfect rationality) could force the evaluation to overfit exclusively on the single most-discriminative role, magnifying statistical noise. 
 
-Instead, we adopt the \textbf{Quantal Response Equilibrium (QRE)}, specifically a formulation utilizing softmax-based action selection. QRE models bounded rationality, where players choose better strategies with higher probability, but not exclusively. In our context, this means the Role player will assign high probability mass to highly discriminative roles, while still placing some non-zero weight on other relevant roles. 
+Instead, we adopt a \textbf{Quantal Response Equilibrium (QRE)} utilizing a softmax-based choice model. QRE models bounded rationality, ensuring players choose superior strategies with higher probability without committing exclusively. In practice, the Role player assigns high probability mass to highly discriminative roles while retaining non-zero weight on others. The resulting King-side equilibrium provides a stable, robust measure of holistic agent quality: an agent securing a high probability mass has proven its capability to maintain an advantage, even when actively challenged by the strongest opposing Rebel in the most difficult Roles.
 
-The resulting equilibrium strategy for the King player provides a robust measure of agent quality. An agent with a high probability mass in the King's equilibrium strategy has proven its ability to maintain a performance advantage even when the Role player actively selects the most challenging comparison points and the Rebel player selects the strongest possible challenger.
+\textbf{Variance Estimation and Confidence Intervals:}
+We acknowledge that empirical win rates are stochastic estimates bounded by finite match histories. To quantify this uncertainty, we compute the standard error of the mean for binomial proportions: $\sigma_{a,r} = \sqrt{\smash[b]{\frac{\hat{v}(1-\hat{v})}{N_{a,r}}}}$, where $N_{a,r}$ is the sample size for agent $a$ in role $r$.
 
-\textbf{Variance Estimation and Confidence Intervals}
-The empirical win rates, $\hat{v}(a_{\text{agent}}, a_{\text{role}})$, are stochastic estimates derived from a finite number of matches. Acknowledging the inherent uncertainty in these estimates is crucial for a robust evaluation. We quantify this uncertainty using the standard error of the mean for binomial proportion, given by $\sigma_{a,r} = \sqrt{\frac{\hat{v}(1-\hat{v})}{N_{a,r}}}$, where $N_{a,r}$ is the number of games played by agent $a$ in role $r$.
+This variance explicitly regularizes the QRE formulation: utilities are effectively penalized by their constitutive uncertainty. Consequently, the Role player's strategy inherently de-emphasizes roles prone to highly noisy outcomes, softening the meta-game to focus purely on reliable, clean signals. 
 
-This variance explicitly influences our evaluation in two distinct ways:
-
-\textbf{Regularization via Uncertainty:}
-In the Quantal Response Equilibrium (QRE) formulation, higher variance in an agent's win rate acts as a natural regularizer. When solving for equilibrium, the utilities are effectively penalized by their constitutive uncertainty. Consequently, the Role player's equilibrium strategy tends to de-emphasize roles where agent performance is highly noisy, effectively ``softening'' the meta-game to focus on reliable, discriminative signals rather than statistical outliers.
-
-\textbf{Bootstrap Confidence Intervals:}
-Because the final King-of-the-Hill ratings are complex, non-linear functions of all underlying win rates, analytical derivation of their confidence intervals is intractable. We instead employ a non-parametric bootstrap approach. We generate $B$ resampled datasets by drawing match outcomes with replacement from the original game logs. For each resampled dataset $b \in \{1, \dots, B\}$, we re-compute the empirical win rate matrix and solve for the QRE ratings. The $95\%$ confidence intervals for each agent's rating are then derived from the $2.5^{\text{th}}$ and $97.5^{\text{th}}$ percentiles of these $B$ bootstrap solutions, providing a rigorous measure of statistical significance for our leaderboard rankings.
+Because final GTE ratings are complex, non-linear derivatives of the underlying win rate matrix, analytically computing confidence intervals is intractable. We instead employ a non-parametric bootstrap approach: generating $B=1,000$ resampled datasets (drawing match outcomes with replacement), re-computing the empirical win rates, and solving for QRE ratings per sample. The 95\% confidence intervals for each agent's final rating are extracted from the $2.5^{\text{th}}$ and $97.5^{\text{th}}$ percentiles across the $B$ iterations, assuring statistically rigorous leaderboard margins.
 
 \subsection{Werewolf Heuristic Metrics}
 \label{app:werewolf_heuristics}
 
-To provide a comprehensive behavioral analysis, we additionally tracked several heuristic metrics, including Key Survival Rate (KSR), Identification Precision (IRP), Voting Success Score (VSS)~\cite{tang2025dsgbench}, Margin of Win, and Speed of Win. While these metrics offer interesting observational perspectives on agent tendencies, our analysis reveals that they are insufficiently informative---and occasionally misleading---when utilized as primary proxies for overall model performance.
+To provide a comprehensive behavioral analysis, we tracked additional heuristic metrics, including Key Survival Rate (KSR), Identification Precision (IRP), Voting Success Score (VSS)~\citep{tang2025dsgbench}, Margin of Win, and Speed of Win. While these metrics offer interesting perspectives on agent tendencies, our analysis reveals that they are insufficiently informative---and occasionally misleading---when utilized as primary proxies for overall model performance.
 
 The limitations of these heuristics stem from the inherent strategic dynamics of multiplayer social deduction:
 
 \begin{itemize}
     \item \textbf{Key Survival Rate (KSR):} Because KSR evaluates the survival likelihood of critical roles such as the Seer or Werewolves, it fails to perfectly align with the overarching goal of maximizing team win probability. For instance, KSR hovers around 0.5 for most evaluated players. A strict survival metric fundamentally penalizes sophisticated plays, as the strategic sacrifice of a key role is occasionally the optimal move to secure a team victory.
-    \item \textbf{Identification Precision (IRP) and Voting Success Score (VSS):} As demonstrated in our evaluations, IRP hovers around 0.65 for all players, while VSS remains uniformly high, approaching 1.0 across the pool. This lack of discriminative variance occurs because capable models quickly learn to converge on a consensus target during the discussion phase to avoid broadcasting their identity or leaking private knowledge. Consequently, the final vote largely reflects group conformity rather than private deductive accuracy. Even when a model correctly deduces an opponent's hidden role internally, it may strategically cast a different vote to maintain cover.
+    \item \textbf{Identification Precision (IRP) and Voting Success Score (VSS):} As demonstrated in our evaluations, IRP hovers around 0.65 for all players, while VSS remains uniformly high, approaching 1.0 across the pool. This lack of discriminative variance occurs because capable models quickly learn to converge on a consensus target during the discussion phase to avoid broadcasting their identity or leaking private knowledge. Consequently, final votes largely reflect group conformity rather than private deductive accuracy. Even when a model correctly deduces an opponent's hidden role internally, it may strategically cast a different vote to maintain cover.
     \item \textbf{Dominance Metrics:} Metrics designed to measure the decisiveness of a victory, such as Margin of Win and Speed of Win, show minimal variation across the model pool, further highlighting their inability to cleanly separate strategic capabilities.
 \end{itemize}
 
@@ -706,12 +762,11 @@ The limitations of these heuristics stem from the inherent strategic dynamics of
         \caption{Margin of Win and Speed of Win}
         \label{fig:metrics_dominance}
     \end{subfigure}
-    \caption{Heuristic metrics across evaluated models, demonstrating the limited discriminative variance of heuristics versus ranking methods. The means and 95\% confidence intervals were derived from 1,000 bootstrap iterations across the 31,472 match-ups.}
+    \caption{Breakdown of heuristic metrics across evaluated models, demonstrating the limited discriminative variance of algorithmic heuristics compared to holistic ranking methods. Note that for most heuristics (except KSR), scores are saturated or uniform across varying model tiers, revealing their insufficiency in resolving strategic depth. The means and 95\% confidence intervals were derived from 1,000 bootstrap iterations across the 31,472 match-ups.}
     \label{fig:heuristic_metrics}
 \end{figure}
 
-
-Because these heuristics are heavily skewed by game structure and consensus incentives, they fail to isolate true capability. This reinforces our reliance on the Game Theoretic Evaluation (GTE) framework as the definitive, unbiased measure of agent skill.
+Because these heuristics are heavily skewed by game structure and consensus incentives, they fail to isolate true capability. This finding reinforces the critical utility of the Game Theoretic Evaluation (GTE) framework as our definitive, unbiased measure of agent skill.
 
 % ============================================================
 
