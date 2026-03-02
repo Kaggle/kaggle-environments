@@ -180,6 +180,45 @@ def _get_color_discrete_sequence(n):
     return colors
 
 
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.gridspec import GridSpec
+import networkx as nx
+
+# Shared, consistent styling
+plt.rcParams.update({
+    "font.size": 11,
+    "axes.titlesize": 12,
+    "axes.labelsize": 11,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 10,
+})
+sns.set_style("white")
+
+def _save_figure_mpl(fig, output_path, width=None, height=None):
+    if not output_path: return
+    if isinstance(output_path, (list, tuple)):
+        for path in output_path: _save_figure_mpl(fig, path, width, height)
+        return
+    import os
+    ext = os.path.splitext(output_path)[1].lower()
+    try:
+        if ext == ".html":
+            output_path = output_path.replace(".html", ".png")
+        if width and height:
+            fig.set_size_inches(width / 100.0, height / 100.0)
+        fig.savefig(output_path, bbox_inches="tight", dpi=300)
+        print(f"Saved chart to {output_path}")
+        plt.close(fig)
+    except Exception as e:
+        print(f"Error saving to {output_path}: {e}")
+
+def _get_color_discrete_sequence_mpl(n):
+    colors = ["#0d9488", "#4338ca", "#e11d48", "#d97706", "#0891b2", "#059669"]
+    if n > len(colors): return sns.color_palette("husl", n).as_hex()
+    return colors
 LightGame = namedtuple("LightGame", ["players", "winner_team", "irp_results", "vss_results", "player_durations"])
 
 
@@ -1117,7 +1156,7 @@ class GameSetEvaluator:
         # Hash the tasks string to avoid long filenames
         tasks_hash = hashlib.md5(tasks_str.encode()).hexdigest()
 
-        cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}.pkl"
+        cache_key = f"gte_{self.git_hash}_{self.input_hash}_{self.seed}_{num_samples}_{tasks_hash}_v3.pkl"
         cache_path = self.cache_dir / cache_key
 
         if cache_path.exists():
@@ -1149,6 +1188,7 @@ class GameSetEvaluator:
                 self.gte_marginals = cache_data.get('gte_marginals')
                 self.gte_contributions_raw = cache_data.get('gte_contributions_raw')
                 self.gte_metric_contributions_raw = cache_data.get('gte_metric_contributions_raw')
+                self.gte_bootstrapped_agent_ratings = cache_data.get('gte_bootstrapped_agent_ratings')
 
                 agent_metrics_cache = cache_data['agent_metrics']
                 for agent_name, m_cache in agent_metrics_cache.items():
@@ -1306,6 +1346,7 @@ class GameSetEvaluator:
         m2r_contributions_mean = np.mean(m2r_contributions, axis=0)
         m2r_contributions_std = np.std(m2r_contributions, axis=0)
 
+        self.gte_bootstrapped_agent_ratings = np.array(list(zip(*ratings))[1]) if len(list(zip(*ratings))) > 1 else None
         self.gte_ratings = (ratings_mean, ratings_std)
         self.gte_joint = (joints_mean, None)
         self.gte_marginals = (marginals_mean, marginals_std)
@@ -1342,6 +1383,7 @@ class GameSetEvaluator:
                 "gte_marginals": self.gte_marginals,
                 "gte_contributions_raw": self.gte_contributions_raw,
                 "gte_metric_contributions_raw": self.gte_metric_contributions_raw,
+                "gte_bootstrapped_agent_ratings": getattr(self, "gte_bootstrapped_agent_ratings", None),
                 "agent_metrics": agent_metrics_cache,
             }
             with open(cache_path, "wb") as f:
@@ -2450,6 +2492,263 @@ class GameSetEvaluator:
         _save_figure(fig, output_path, width=1000, height=fig.layout.height)
         return fig
 
+
+    def plot_metrics_paper(self, output_path="metrics.png"):
+        df = self._prepare_plot_data()
+        category_order = ["Overall", "Voting Accuracy", "Win-Dependent Metrics", "Dominance Metrics", "Role-Specific Win Rate", "Role-Specific KSR", "Win-Dependent KSR", "Ratings", "Cost"]
+        present_categories = [cat for cat in category_order if cat in df["category"].unique()]
+        agent_gte_ratings = {name: metrics.gte_rating[0] for name, metrics in self.metrics.items()}
+        all_agents_sorted = sorted(agent_gte_ratings, key=agent_gte_ratings.get)
+        colors = _get_color_discrete_sequence_mpl(len(all_agents_sorted))
+        agent_color_map = {agent: colors[i % len(colors)] for i, agent in enumerate(all_agents_sorted)}
+
+        import re
+        if output_path:
+            paths = [output_path] if isinstance(output_path, str) else output_path
+            for path in paths:
+                base, ext = os.path.splitext(path)
+                for cat in present_categories:
+                    cat_df = df[df["category"] == cat]
+                    metrics_in_cat = sorted(cat_df["metric"].unique())
+                    if cat == "Ratings":
+                        metrics_in_cat = sorted(metrics_in_cat, key=lambda x: 0 if x == "Elo" else 1)
+                    
+                    safe_cat = re.sub(r'[^a-zA-Z0-9_\\-]', '_', cat.strip())
+                    row_output_png = f"{base}_{safe_cat}.png"
+                    
+                    fig, axes = plt.subplots(1, len(metrics_in_cat), figsize=(4 * len(metrics_in_cat), 5), squeeze=False)
+                    axes = axes.flatten()
+                    for i, metric in enumerate(metrics_in_cat):
+                        ax = axes[i]
+                        metric_data = cat_df[cat_df["metric"] == metric]
+                        order = all_agents_sorted
+                        if cat == "Ratings": order = metric_data.sort_values("value")["agent"].tolist()
+                        palette_colors = [agent_color_map[a] for a in order]
+                        sns.barplot(data=metric_data, x="agent", y="value", order=order, palette=palette_colors, ax=ax, edgecolor='black', linewidth=0.5)
+                        for j, agent in enumerate(order):
+                            agent_data = metric_data[metric_data["agent"] == agent]
+                            if not agent_data.empty:
+                                val = agent_data["value"].values[0]
+                                err = agent_data["CI95"].values[0]
+                                ax.errorbar(j, val, yerr=err, color='black', capsize=3)
+                        # Remove title to rely on paper caption
+                        ax.set_xlabel("")
+                        ax.set_ylabel(metric)
+                        ax.tick_params(axis='x', rotation=45)
+                        if cat != "Cost" and cat != "Ratings": ax.set_ylim(0, 1.05)
+                    fig.tight_layout()
+                    _save_figure_mpl(fig, row_output_png)
+        return None
+
+    def plot_pareto_frontier_paper(self, output_path="pareto_frontier.png"):
+        data = []
+        for agent_name, metrics in self.metrics.items():
+            gte_mean, _ = getattr(metrics, 'gte_rating', (0.0, 0.0))
+            avg_cost, _ = metrics.get_avg_cost()
+            if avg_cost <= 0: continue
+            data.append({"agent": agent_name, "gte_rating": gte_mean, "cost": avg_cost})
+        if not data: return None
+
+        df = pd.DataFrame(data)
+        sorted_df = df.sort_values(by=["cost", "gte_rating"], ascending=[True, False])
+        frontier_points = []
+        current_max_rating = -float("inf")
+        for index, row in sorted_df.iterrows():
+            if row["gte_rating"] > current_max_rating:
+                frontier_points.append(row)
+                current_max_rating = row["gte_rating"]
+        frontier_df = pd.DataFrame(frontier_points)
+
+        fig, ax = plt.subplots(figsize=(9, 6))
+        sns.scatterplot(data=df, x="cost", y="gte_rating", s=100, color="#6366F1", ax=ax, zorder=3)
+        ax.plot(frontier_df["cost"], frontier_df["gte_rating"], color="#10B981", linestyle="--", linewidth=2, zorder=2, label="Pareto Frontier")
+        for i, row in df.iterrows(): ax.text(row["cost"], row["gte_rating"] + 0.02, row["agent"], ha='center', va='bottom', fontsize=9)
+        # No titles as requested
+        ax.set_xlabel("Average Cost per Game ($)")
+        ax.set_ylabel("GTE Overall Rating")
+        ax.legend()
+        ax.grid(True, linestyle="--", alpha=0.5)
+        _save_figure_mpl(fig, output_path)
+        return fig
+
+    def plot_tournament_graph_paper(self, output_path="tournament_graph.png"):
+        all_agents = list(self.metrics.keys())
+        all_agents.sort(key=lambda x: getattr(self.metrics[x], 'gte_rating', (0.0, 0.0))[0], reverse=True)
+        from collections import defaultdict
+        votes = defaultdict(int)
+
+        for g in self.games:
+            team_v = {p.agent.display_name for p in g.players if p.role.team == Team.VILLAGERS}
+            team_w = {p.agent.display_name for p in g.players if p.role.team == Team.WEREWOLVES}
+            winner_names = team_v if g.winner_team == Team.VILLAGERS else team_w
+            loser_names = team_w if g.winner_team == Team.VILLAGERS else team_v
+            for w in winner_names:
+                for l in loser_names: votes[(w, l)] += 1
+
+        G = nx.DiGraph()
+        G.add_nodes_from(all_agents)
+        for a in all_agents:
+            for b in all_agents:
+                if a == b: continue
+                margin = votes[(a, b)] - votes[(b, a)]
+                if margin > 0: G.add_edge(a, b, weight=margin)
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        pos = nx.circular_layout(G)
+        nx.draw_networkx_nodes(G, pos, ax=ax, node_color="#1f77b4", node_size=2000, edgecolors="white", linewidths=2)
+        nx.draw_networkx_labels(G, pos, ax=ax, font_size=9, font_color="black")
+        edge_labels = {}
+        for u, v, d in G.edges(data=True):
+            nx.draw_networkx_edges(G, pos, edgelist=[(u,v)], ax=ax, arrowstyle="->", arrowsize=20, edge_color="#a3a3a3", alpha=0.8)
+            edge_labels[(u, v)] = d['weight']
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=ax, font_size=8, label_pos=0.3)
+        # No title
+        ax.axis("off")
+        _save_figure_mpl(fig, output_path)
+        return fig
+
+    def plot_pairwise_winrates_paper(self, output_path="pairwise_winrates.png"):
+        """Plots a combined heatmap of pairwise winrates and bootstrapped GTE distributions."""
+        all_agents = list(self.metrics.keys())
+        all_agents.sort(key=lambda x: getattr(self.metrics[x], 'gte_rating', (0.0, 0.0))[0], reverse=True)
+        from collections import defaultdict
+        counts = defaultdict(int)
+        wins = defaultdict(int)
+
+        for g in self.games:
+            team_v = [p.agent.display_name for p in g.players if p.role.team == Team.VILLAGERS]
+            team_w = [p.agent.display_name for p in g.players if p.role.team == Team.WEREWOLVES]
+            for v in team_v:
+                for w in team_w:
+                    counts[(v, w)] += 1
+                    counts[(w, v)] += 1
+                    if g.winner_team == Team.VILLAGERS: wins[(v, w)] += 1
+                    elif g.winner_team == Team.WEREWOLVES: wins[(w, v)] += 1
+
+        n = len(all_agents)
+        win_rate_matrix = pd.DataFrame(np.nan, index=all_agents, columns=all_agents)
+        for i, a in enumerate(all_agents):
+            for j, b in enumerate(all_agents):
+                if a == b: continue
+                if counts[(a, b)] > 0: win_rate_matrix.loc[a, b] = wins[(a, b)] / counts[(a, b)]
+
+        order = all_agents
+        win_rate_ord = win_rate_matrix.reindex(index=order, columns=order)
+        diag_mask = np.eye(len(order), dtype=bool)
+
+        fig = plt.figure(figsize=(16, 7), constrained_layout=True)
+        gs = GridSpec(1, 2, figure=fig, width_ratios=[1.15, 1.0])
+
+        ax_hm = fig.add_subplot(gs[0, 0])
+        ax_vi = fig.add_subplot(gs[0, 1])
+
+        sns.heatmap(win_rate_ord, ax=ax_hm, mask=diag_mask, annot=True, fmt=".0%", cmap="RdBu", vmin=0, vmax=1, center=0.5, linewidths=0.3, linecolor="white", cbar_kws={"shrink": 0.9, "label": "Win rate"}, annot_kws={"size": 8})
+        # Removing titles as requested
+        ax_hm.set_xlabel("Opponent")
+        ax_hm.set_ylabel("Player")
+        ax_hm.set_xticklabels(ax_hm.get_xticklabels(), rotation=40, ha="right", rotation_mode="anchor")
+        ax_hm.tick_params(axis="x", pad=6)
+        ax_hm.tick_params(axis="y", rotation=0)
+
+        poker_violin_color = "#2A9D8F"
+        plot_df_rows = []
+        if getattr(self, "gte_bootstrapped_agent_ratings", None) is not None:
+            samples = self.gte_bootstrapped_agent_ratings
+            if getattr(self, "gte_game", None) and getattr(self.gte_game, "actions", None) and len(self.gte_game.actions) > 1:
+                gte_agents = self.gte_game.actions[1]
+                for agent_name in all_agents:
+                    if agent_name in gte_agents:
+                        idx = list(gte_agents).index(agent_name)
+                        for val in samples[:, idx]: plot_df_rows.append({"Model": agent_name, "Bootstrapped GTE": val})
+
+        if plot_df_rows:
+            plot_df = pd.DataFrame(plot_df_rows)
+            sns.violinplot(data=plot_df, x="Bootstrapped GTE", y="Model", order=order, ax=ax_vi, inner="quartile", linewidth=1, cut=0, scale="width", color=poker_violin_color)
+            ax_vi.axvline(0, linestyle="--", linewidth=1)
+            # Removing title
+            ax_vi.set_xlabel("Bootstrapped GTE Rating")
+            ax_vi.set_ylabel("")
+            ax_vi.grid(axis="x", alpha=0.25)
+            xmax = np.percentile(plot_df["Bootstrapped GTE"], 99)
+            xmin = np.percentile(plot_df["Bootstrapped GTE"], 1)
+            pad = 0.1 * (xmax - xmin + 1e-9)
+            ax_vi.set_xlim(xmin - pad, xmax + pad)
+        else:
+            ax_vi.text(0.5, 0.5, "No GTE Bootstrap Samples Available", ha="center", va="center")
+        
+        _save_figure_mpl(fig, output_path, width=1600, height=700)
+        return fig
+
+    def plot_gte_evaluation_paper(self, output_path="gte_evaluation.png"):
+        if getattr(self, "gte_game", None) is None: return None
+        game = self.gte_game
+        if game and getattr(game, "actions", None) and len(game.actions) > 1: agents = game.actions[1]
+        else: agents = sorted(list(self.metrics.keys()))
+
+        tasks = self.gte_tasks
+        ratings_mean = self.gte_ratings[0][1]
+        ratings_std = self.gte_ratings[1][1]
+        r2m_contributions_mean = self.gte_contributions_raw[0]
+
+        agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
+        sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
+
+        fig, ax = plt.subplots(figsize=(12, max(6, len(agents)*0.6)))
+        y_pos = np.arange(len(sorted_agents))
+        lefts = np.zeros(len(sorted_agents))
+        colors = _get_color_discrete_sequence_mpl(len(tasks))
+        
+        for j, task in enumerate(tasks):
+            task_idx = tasks.index(task)
+            contribs = []
+            for agent in sorted_agents:
+                agent_idx = list(agents).index(agent)
+                contribs.append(r2m_contributions_mean[agent_idx, task_idx])
+            ax.barh(y_pos, contribs, left=lefts, color=colors[j], label=task, edgecolor="white", height=0.6)
+            lefts += np.array(contribs)
+            
+        ratings_sorted = [agent_rating_map[a] for a in sorted_agents]
+        std_sorted = [ratings_std[list(agents).index(a)] for a in sorted_agents]
+        ax.errorbar(ratings_sorted, y_pos, xerr=np.array(std_sorted)*1.96, fmt="D", color="black", capsize=3, label="Net Rating")
+        
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(sorted_agents)
+        ax.set_xlabel("Win Rate Contribution (and Net Rating)")
+        # Removing title
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
+        fig.tight_layout()
+        _save_figure_mpl(fig, output_path)
+        return fig
+
+    def plot_gte_metrics_analysis_paper(self, output_path="gte_metrics.png"):
+        if not hasattr(self, "gte_game") or getattr(self, "gte_game", None) is None: return None
+        if not getattr(self.gte_game, "actions", None) or len(self.gte_game.actions) < 2: return None
+
+        tasks = self.gte_tasks
+        metric_weights_mean = self.gte_marginals[0][0]
+        metric_weights_std = self.gte_marginals[1][0]
+        metric_ratings_mean = self.gte_ratings[0][0]
+        metric_ratings_std = self.gte_ratings[1][0]
+
+        weights_df = pd.DataFrame({"metric": tasks, "weight": metric_weights_mean, "CI95": metric_weights_std * 1.96})
+        ratings_df = pd.DataFrame({"metric": tasks, "rating": metric_ratings_mean, "CI95": metric_ratings_std * 1.96})
+
+        weights_df = weights_df.sort_values("weight", ascending=True)
+        sorted_tasks = weights_df["metric"].tolist()
+        ratings_df = ratings_df.set_index("metric").reindex(sorted_tasks).reset_index()
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, max(8, len(tasks)*0.8)))
+        ax1.barh(weights_df["metric"], weights_df["weight"], color="#3b82f6", xerr=weights_df["CI95"], capsize=3, edgecolor="black")
+        ax1.set_xlabel("Marginal Probability")
+        
+        ratings_df_sorted = ratings_df.sort_values("rating", ascending=True)
+        ax2.errorbar(ratings_df_sorted["rating"], ratings_df_sorted["metric"], xerr=ratings_df_sorted["CI95"], fmt="D", color="#ef4444", capsize=3)
+        ax2.set_xlabel("Nash Value (Rating)")
+        # Removing titles
+        fig.tight_layout()
+        _save_figure_mpl(fig, output_path)
+        return fig
+
     def save_metrics_csv(self, output_path: str = "metrics.csv"):
         """Saves the metrics to a CSV file in a wide format with deltas.
 
@@ -2608,8 +2907,10 @@ if __name__ == '__main__':
     parser.add_argument("--elo-samples", type=int, default=100, help="Number of bootstrap samples for Elo (default: 100).")
     parser.add_argument("--openskill-samples", type=int, default=100, help="Number of bootstrap samples for OpenSkill (default: 100).")
     
-    parser.add_argument("--csv-output", help="Path to save metrics as CSV (default: <output_prefix>/<gte_tasks>/metrics.csv).")
-    parser.add_argument("--json-output", help="Path to save metrics as JSON (default: <output_prefix>/<gte_tasks>/metrics.json).")
+    parser.add_argument("--csv-output", help="Path to save metrics as CSV.")
+    parser.add_argument("--json-output", help="Path to save metrics as JSON.")
+    parser.add_argument("--plot-backend", choices=["plotly", "seaborn"], default="plotly", help="Which plotting backend to use (default: plotly).")
+
 
     args = parser.parse_args()
 
@@ -2632,22 +2933,31 @@ if __name__ == '__main__':
     # Determine output directory
     task_subdir = args.gte_tasks if isinstance(args.gte_tasks, str) else "custom_tasks"
     output_base_dir = Path(args.output_prefix) if args.output_prefix else Path(".")
-    output_dir = output_base_dir / task_subdir
+    output_dir = output_base_dir / task_subdir / args.plot_backend
     os.makedirs(output_dir, exist_ok=True)
 
-    # Save CSV (default to metrics.csv in output_dir)
+    # Save CSV
     csv_path = args.csv_output if args.csv_output else str(output_dir / "metrics.csv")
     evaluator.save_metrics_csv(csv_path)
 
-    # Save JSON (default to metrics.json in output_dir)
+    # Save JSON
     json_path = args.json_output if args.json_output else str(output_dir / "metrics.json")
     evaluator.save_metrics_json(json_path)
 
     # Save plots
-    print(f"\nSaving plots to {output_dir}...")
-    evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
-    evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
-    evaluator.plot_gte_metrics_analysis([str(output_dir / "gte_metrics.html"), str(output_dir / "gte_metrics.png")])
-    evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
-    evaluator.plot_tournament_graph([str(output_dir / "tournament_graph.html"), str(output_dir / "tournament_graph.png")])
-    evaluator.plot_pairwise_winrates([str(output_dir / "pairwise_winrates.html"), str(output_dir / "pairwise_winrates.png")])
+    print(f"\nSaving {args.plot_backend} plots to {output_dir}...")
+    if args.plot_backend == "plotly":
+        evaluator.plot_metrics([str(output_dir / "metrics.html"), str(output_dir / "metrics.png")])
+        evaluator.plot_gte_evaluation([str(output_dir / "gte.html"), str(output_dir / "gte.png")])
+        evaluator.plot_gte_metrics_analysis([str(output_dir / "gte_metrics.html"), str(output_dir / "gte_metrics.png")])
+        evaluator.plot_pareto_frontier([str(output_dir / "pareto.html"), str(output_dir / "pareto.png")])
+        evaluator.plot_tournament_graph([str(output_dir / "tournament_graph.html"), str(output_dir / "tournament_graph.png")])
+        evaluator.plot_pairwise_winrates([str(output_dir / "pairwise_winrates.html"), str(output_dir / "pairwise_winrates.png")])
+    elif args.plot_backend == "seaborn":
+        evaluator.plot_metrics_paper([str(output_dir / "metrics.png"), str(output_dir / "metrics.pdf")])
+        evaluator.plot_gte_evaluation_paper([str(output_dir / "gte.png"), str(output_dir / "gte.pdf")])
+        evaluator.plot_gte_metrics_analysis_paper([str(output_dir / "gte_metrics.png"), str(output_dir / "gte_metrics.pdf")])
+        evaluator.plot_pareto_frontier_paper([str(output_dir / "pareto.png"), str(output_dir / "pareto.pdf")])
+        evaluator.plot_tournament_graph_paper([str(output_dir / "tournament_graph.png"), str(output_dir / "tournament_graph.pdf")])
+        evaluator.plot_pairwise_winrates_paper([str(output_dir / "pairwise_winrates.png"), str(output_dir / "pairwise_winrates.pdf")])
+
