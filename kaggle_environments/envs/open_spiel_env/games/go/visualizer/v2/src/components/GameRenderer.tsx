@@ -8,7 +8,10 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
-    const game = new Game({ boardSize: 9 });
+    const parameters = options.replay.configuration.openSpielGameParameters;
+    const boardSize = parameters.board_size;
+    const komi = parameters.komi;
+    const game = new Game({ boardSize, komi });
 
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
