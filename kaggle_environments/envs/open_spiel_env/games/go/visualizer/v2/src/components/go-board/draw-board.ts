@@ -1,10 +1,5 @@
 import { Container, Graphics, Sprite, type Spritesheet } from 'pixi.js';
-import {
-  LINE_COLOR,
-  STAR_POINTS_9,
-  getCellSize,
-  gridToPixel,
-} from './constants.ts';
+import { LINE_COLOR, STAR_POINTS_9, getCellSize, gridToPixel } from './constants.ts';
 
 const TILE_SIZE = 128;
 const TILE_MARGIN = 2;
@@ -15,7 +10,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   const cell = getCellSize(boardSize);
 
   // Tile each cell — anchor at margin boundary so strokes align with intersections
-  const tileDisplaySize = cell * TILE_SIZE / TILE_INNER;
+  const tileDisplaySize = (cell * TILE_SIZE) / TILE_INNER;
   for (let r = 0; r < boardSize - 1; r++) {
     for (let c = 0; c < boardSize - 1; c++) {
       const { x, y } = gridToPixel(r, c, boardSize);

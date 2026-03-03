@@ -39,7 +39,7 @@ export function createStonePair(
   col: number,
   value: Exclude<CellValue, '.'>,
   boardSize: number,
-  sheet: Spritesheet,
+  sheet: Spritesheet
 ): StonePair {
   const cell = getCellSize(boardSize);
   const stoneSize = cell * 0.88;

@@ -5,7 +5,7 @@ type CellValue = '.' | 'B' | 'W';
 
 export default function StyledBoard() {
   const game = useGameStore((state) => state.game);
-  
+
   const state = game.currentState();
   const size = game.boardSize;
   const step = state.moveNumber - 1;
@@ -27,17 +27,17 @@ export default function StyledBoard() {
     lastPlayed = {
       row: state.playedPoint.y,
       col: state.playedPoint.x,
-    }
+    };
   }
 
-  const captures = { 
-    black: state.blackStonesCaptured, 
+  const captures = {
+    black: state.blackStonesCaptured,
     white: state.whiteStonesCaptured,
-  }
+  };
 
   return (
     <div id="board">
-      <GoBoard boardSize={game.boardSize} grid={grid} step={step} lastPlayed={lastPlayed} captures={captures}/>
+      <GoBoard boardSize={game.boardSize} grid={grid} step={step} lastPlayed={lastPlayed} captures={captures} />
     </div>
   );
 }

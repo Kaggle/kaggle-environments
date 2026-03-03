@@ -1,7 +1,14 @@
 import gsap from 'gsap';
 import { Container, Sprite, type Spritesheet } from 'pixi.js';
 import type { Captures } from './middleman.ts';
-import { BOARD_PX, POT_AREA_HEIGHT, POT_MAX_PRISONERS, POT_PRISONER_SIZE, POT_SCATTER_RADIUS, POT_SIZE } from './constants.ts';
+import {
+  BOARD_PX,
+  POT_AREA_HEIGHT,
+  POT_MAX_PRISONERS,
+  POT_PRISONER_SIZE,
+  POT_SCATTER_RADIUS,
+  POT_SIZE,
+} from './constants.ts';
 import { animatePotPoof } from './animate-stones.ts';
 
 const POT_Y = BOARD_PX + POT_AREA_HEIGHT / 2;
@@ -66,9 +73,12 @@ export class Pots {
         potStoneLayer.addChild(sprite);
 
         prisoners.push({
-          sprite, shadow,
-          restScaleX: sprite.scale.x, restScaleY: sprite.scale.y,
-          shadowRestScaleX: shadow.scale.x, shadowRestScaleY: shadow.scale.y,
+          sprite,
+          shadow,
+          restScaleX: sprite.scale.x,
+          restScaleY: sprite.scale.y,
+          shadowRestScaleX: shadow.scale.x,
+          shadowRestScaleY: shadow.scale.y,
         });
       }
       return prisoners;
@@ -83,7 +93,7 @@ export class Pots {
   }
 
   reset(): void {
-    this.potEffectsLayer.removeChildren().forEach(c => c.destroy());
+    this.potEffectsLayer.removeChildren().forEach((c) => c.destroy());
     for (const p of this.left) {
       p.sprite.scale.set(p.restScaleX, p.restScaleY);
       p.shadow.scale.set(p.shadowRestScaleX, p.shadowRestScaleY);
@@ -134,20 +144,24 @@ export class Pots {
         const delay = Math.random() * 0.15;
         info.sprite.scale.set(0, 0);
         info.shadow.scale.set(0, 0);
-        anims.push(gsap.to(info.sprite.scale, {
-          x: info.restScaleX,
-          y: info.restScaleY,
-          duration: 0.4,
-          delay,
-          ease: 'elastic.out(1, 0.4)',
-        }));
-        anims.push(gsap.to(info.shadow.scale, {
-          x: info.shadowRestScaleX,
-          y: info.shadowRestScaleY,
-          duration: 0.4,
-          delay,
-          ease: 'elastic.out(1, 0.4)',
-        }));
+        anims.push(
+          gsap.to(info.sprite.scale, {
+            x: info.restScaleX,
+            y: info.restScaleY,
+            duration: 0.4,
+            delay,
+            ease: 'elastic.out(1, 0.4)',
+          })
+        );
+        anims.push(
+          gsap.to(info.shadow.scale, {
+            x: info.shadowRestScaleX,
+            y: info.shadowRestScaleY,
+            duration: 0.4,
+            delay,
+            ease: 'elastic.out(1, 0.4)',
+          })
+        );
         anims.push(animatePotPoof(info.sprite.x, info.sprite.y, sheet, potEffectsLayer));
       };
       for (let i = prevLeft; i < leftCount; i++) animatePrisoner(left[i]);

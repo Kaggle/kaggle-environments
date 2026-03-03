@@ -4,7 +4,7 @@ import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 
 interface GameStore {
   game: Game;
-  options: GameRendererProps<GoStep[]> | null,
+  options: GameRendererProps<GoStep[]> | null;
   setState: (game: Game, options: GameRendererProps<GoStep[]>) => void;
 }
 

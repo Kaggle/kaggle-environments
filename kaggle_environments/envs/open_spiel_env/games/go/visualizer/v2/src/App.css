@@ -14,7 +14,7 @@
 }
 
 div:has(> #board) {
-  background-image: url('/images/paper.webp');
+  background-image: url("/images/paper.webp");
   background-size: cover;
   background-position: center;
 }

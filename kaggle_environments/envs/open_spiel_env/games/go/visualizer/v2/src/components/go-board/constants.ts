@@ -6,9 +6,11 @@ export const LINE_WIDTH = 1;
 
 /** Star point (hoshi) positions for a 9×9 board */
 export const STAR_POINTS_9: [number, number][] = [
-  [2, 2], [2, 6],
+  [2, 2],
+  [2, 6],
   [4, 4],
-  [6, 2], [6, 6],
+  [6, 2],
+  [6, 6],
 ];
 
 export function getCellSize(boardSize: number): number {
@@ -16,11 +18,7 @@ export function getCellSize(boardSize: number): number {
 }
 
 /** Map a board intersection (row, col) to pixel coordinates */
-export function gridToPixel(
-  row: number,
-  col: number,
-  boardSize: number,
-): { x: number; y: number } {
+export function gridToPixel(row: number, col: number, boardSize: number): { x: number; y: number } {
   const cell = getCellSize(boardSize);
   return {
     x: BOARD_PADDING + col * cell,
@@ -35,14 +33,15 @@ export const POT_PRISONER_SIZE = 32;
 export const POT_SCATTER_RADIUS = 30;
 export const POT_MAX_PRISONERS = 30;
 
-const NEIGHBOR_DELTAS = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+const NEIGHBOR_DELTAS = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+] as const;
 
 /** Return orthogonal neighbors within board bounds */
-export function getNeighbors(
-  row: number,
-  col: number,
-  boardSize: number,
-): { row: number; col: number }[] {
+export function getNeighbors(row: number, col: number, boardSize: number): { row: number; col: number }[] {
   const neighbors: { row: number; col: number }[] = [];
   for (const [dr, dc] of NEIGHBOR_DELTAS) {
     const r = row + dr;

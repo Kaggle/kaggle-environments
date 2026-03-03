@@ -64,4 +64,3 @@ export function tenukiToString(game: Game) {
 
   return output;
 }
-

@@ -5,10 +5,7 @@ export interface GridDiff {
   removed: { row: number; col: number }[];
 }
 
-export function diffGrids(
-  prev: CellValue[][] | null,
-  next: CellValue[][],
-): GridDiff {
+export function diffGrids(prev: CellValue[][] | null, next: CellValue[][]): GridDiff {
   const added: GridDiff['added'] = [];
   const removed: GridDiff['removed'] = [];
 

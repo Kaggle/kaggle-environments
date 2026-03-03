@@ -103,8 +103,6 @@ declare module 'tenuki' {
     boardSize: number;
     /** Number of handicap stones */
     handicapStones: number;
-    /** Renderer instance */
-    renderer: any;
     /** Callbacks for game events */
     callbacks: {
       postRender: () => void;

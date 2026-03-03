@@ -1,95 +1,86 @@
-{"frames": {
-
-"black-active-marker.png":
 {
-	"frame": {"x":0,"y":914,"w":176,"h":178},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":176,"h":178},
-	"sourceSize": {"w":176,"h":178}
-},
-"black.png":
-{
-	"frame": {"x":0,"y":0,"w":256,"h":256},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":256},
-	"sourceSize": {"w":256,"h":256}
-},
-"board-tile.png":
-{
-	"frame": {"x":0,"y":1274,"w":128,"h":128},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
-},
-"pot.png":
-{
-	"frame": {"x":0,"y":516,"w":242,"h":242},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":3,"y":11,"w":242,"h":242},
-	"sourceSize": {"w":256,"h":256}
-},
-"puff1.png":
-{
-	"frame": {"x":130,"y":1274,"w":125,"h":103},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":2,"w":125,"h":103},
-	"sourceSize": {"w":127,"h":105}
-},
-"puff2.png":
-{
-	"frame": {"x":0,"y":760,"w":179,"h":152},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":1,"w":179,"h":152},
-	"sourceSize": {"w":181,"h":153}
-},
-"puff3.png":
-{
-	"frame": {"x":130,"y":1379,"w":97,"h":81},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":1,"w":97,"h":81},
-	"sourceSize": {"w":99,"h":83}
-},
-"shadow.png":
-{
-	"frame": {"x":0,"y":1404,"w":128,"h":128},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":128},
-	"sourceSize": {"w":128,"h":128}
-},
-"white-active-marker.png":
-{
-	"frame": {"x":0,"y":1094,"w":176,"h":178},
-	"rotated": false,
-	"trimmed": false,
-	"spriteSourceSize": {"x":0,"y":0,"w":176,"h":178},
-	"sourceSize": {"w":176,"h":178}
-},
-"white.png":
-{
-	"frame": {"x":0,"y":258,"w":255,"h":256},
-	"rotated": false,
-	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":0,"w":255,"h":256},
-	"sourceSize": {"w":256,"h":256}
-}},
-"animations": {
-	"puff": ["puff1.png","puff2.png","puff3.png"]
-},
-"meta": {
-	"app": "https://www.codeandweb.com/texturepacker",
-	"version": "1.1",
-	"image": "sprites.png",
-	"format": "RGBA8888",
-	"size": {"w":256,"h":1532},
-	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:270f78b0e566cde12daa720b4e2fb46d:c2c42fadbb5bac12d785dac72d00a1f7:1eabdf11f75e3a4fe3147baf7b5be24b$"
-}
+  "frames": {
+    "black-active-marker.png": {
+      "frame": { "x": 0, "y": 914, "w": 176, "h": 178 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
+      "sourceSize": { "w": 176, "h": 178 }
+    },
+    "black.png": {
+      "frame": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "board-tile.png": {
+      "frame": { "x": 0, "y": 1274, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 }
+    },
+    "pot.png": {
+      "frame": { "x": 0, "y": 516, "w": 242, "h": 242 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 3, "y": 11, "w": 242, "h": 242 },
+      "sourceSize": { "w": 256, "h": 256 }
+    },
+    "puff1.png": {
+      "frame": { "x": 130, "y": 1274, "w": 125, "h": 103 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 2, "w": 125, "h": 103 },
+      "sourceSize": { "w": 127, "h": 105 }
+    },
+    "puff2.png": {
+      "frame": { "x": 0, "y": 760, "w": 179, "h": 152 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 1, "w": 179, "h": 152 },
+      "sourceSize": { "w": 181, "h": 153 }
+    },
+    "puff3.png": {
+      "frame": { "x": 130, "y": 1379, "w": 97, "h": 81 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 1, "w": 97, "h": 81 },
+      "sourceSize": { "w": 99, "h": 83 }
+    },
+    "shadow.png": {
+      "frame": { "x": 0, "y": 1404, "w": 128, "h": 128 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
+      "sourceSize": { "w": 128, "h": 128 }
+    },
+    "white-active-marker.png": {
+      "frame": { "x": 0, "y": 1094, "w": 176, "h": 178 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
+      "sourceSize": { "w": 176, "h": 178 }
+    },
+    "white.png": {
+      "frame": { "x": 0, "y": 258, "w": 255, "h": 256 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 255, "h": 256 },
+      "sourceSize": { "w": 256, "h": 256 }
+    }
+  },
+  "animations": {
+    "puff": ["puff1.png", "puff2.png", "puff3.png"]
+  },
+  "meta": {
+    "app": "https://www.codeandweb.com/texturepacker",
+    "version": "1.1",
+    "image": "sprites.png",
+    "format": "RGBA8888",
+    "size": { "w": 256, "h": 1532 },
+    "scale": "1",
+    "smartupdate": "$TexturePacker:SmartUpdate:270f78b0e566cde12daa720b4e2fb46d:c2c42fadbb5bac12d785dac72d00a1f7:1eabdf11f75e3a4fe3147baf7b5be24b$"
+  }
 }

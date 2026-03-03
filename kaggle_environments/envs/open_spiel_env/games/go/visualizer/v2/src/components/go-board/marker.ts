@@ -40,7 +40,7 @@ export class Marker {
   update(
     lastPlayed: { row: number; col: number } | null,
     stoneMap: StoneMap,
-    isSingleStep: boolean,
+    isSingleStep: boolean
   ): gsap.core.Animation[] {
     const anims: gsap.core.Animation[] = [];
     const { sprite, sheet, stoneLayer, restScaleX, restScaleY } = this;
@@ -49,9 +49,7 @@ export class Marker {
     const lastPair = lastPlayedKey ? stoneMap.get(lastPlayedKey) : undefined;
 
     if (lastPair) {
-      sprite.texture = sheet.textures[
-        lastPair.value === 'B' ? 'black-active-marker.png' : 'white-active-marker.png'
-      ];
+      sprite.texture = sheet.textures[lastPair.value === 'B' ? 'black-active-marker.png' : 'white-active-marker.png'];
       sprite.position.set(lastPair.stoneRest.x, lastPair.stoneRest.y);
       sprite.visible = true;
       stoneLayer.addChild(sprite);
@@ -60,17 +58,25 @@ export class Marker {
         sprite.scale.set(restScaleX * MARKER_POP_SCALE, restScaleY * MARKER_POP_SCALE);
         sprite.rotation = MARKER_POP_ROTATION;
         const tl = gsap.timeline();
-        tl.to(sprite.scale, {
-          x: restScaleX,
-          y: restScaleY,
-          duration: MARKER_SCALE_DURATION,
-          ease: 'elastic.out(1, 0.4)',
-        }, 0);
-        tl.to(sprite, {
-          rotation: 0,
-          duration: MARKER_ROTATION_DURATION,
-          ease: 'elastic.out(1, 0.3)',
-        }, 0);
+        tl.to(
+          sprite.scale,
+          {
+            x: restScaleX,
+            y: restScaleY,
+            duration: MARKER_SCALE_DURATION,
+            ease: 'elastic.out(1, 0.4)',
+          },
+          0
+        );
+        tl.to(
+          sprite,
+          {
+            rotation: 0,
+            duration: MARKER_ROTATION_DURATION,
+            ease: 'elastic.out(1, 0.3)',
+          },
+          0
+        );
         anims.push(tl);
       } else {
         sprite.scale.set(restScaleX, restScaleY);

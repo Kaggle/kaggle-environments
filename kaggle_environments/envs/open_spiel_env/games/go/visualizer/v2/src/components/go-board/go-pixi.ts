@@ -54,7 +54,10 @@ export class GoPixi {
       autoDensity: true,
     });
 
-    if (this.destroyed) { app.destroy(true, { children: true }); return; }
+    if (this.destroyed) {
+      app.destroy(true, { children: true });
+      return;
+    }
 
     this.container.appendChild(app.canvas);
 
@@ -62,7 +65,10 @@ export class GoPixi {
     const sheet = new Spritesheet(texture, spritesData);
     await sheet.parse();
 
-    if (this.destroyed) { app.destroy(true, { children: true }); return; }
+    if (this.destroyed) {
+      app.destroy(true, { children: true });
+      return;
+    }
 
     this.sheet = sheet;
 
@@ -109,7 +115,7 @@ export class GoPixi {
     for (const pair of this.stoneMap.values()) resetPair(pair);
     this.marker!.reset();
     // Clean up any lingering particle sprites from killed animations
-    layers.effects.removeChildren().forEach(c => c.destroy());
+    layers.effects.removeChildren().forEach((c) => c.destroy());
     this.pots!.reset();
 
     const isSingleStep = Math.abs(step - this.prevStep) === 1;

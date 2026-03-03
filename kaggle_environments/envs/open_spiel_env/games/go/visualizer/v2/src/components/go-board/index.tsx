@@ -20,7 +20,10 @@ export function GoBoard({ boardSize, grid, step, lastPlayed, captures }: Props) 
     const pixi = new GoPixi(containerRef.current!, boardSize);
     pixiRef.current = pixi;
     pixi.init();
-    return () => { pixi.destroy(); pixiRef.current = null; };
+    return () => {
+      pixi.destroy();
+      pixiRef.current = null;
+    };
   }, [boardSize]);
 
   // Forward props

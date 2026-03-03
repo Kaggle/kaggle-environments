@@ -19,9 +19,9 @@ const CAPTURE_PARTICLE_DURATION = 0.45;
 const CAPTURE_PARTICLE_MAX_SCALE = 0.18;
 const CAPTURE_PARTICLE_STAGGER = 0.03;
 // Per-invocation variation ranges (multiply base values)
-const CAPTURE_SPREAD_JITTER = 0.3;     // ±30% on spread
-const CAPTURE_DURATION_JITTER = 0.2;   // ±20% on particle duration
-const CAPTURE_SHRINK_JITTER = 0.25;    // ±25% on shrink duration
+const CAPTURE_SPREAD_JITTER = 0.3; // ±30% on spread
+const CAPTURE_DURATION_JITTER = 0.2; // ±20% on particle duration
+const CAPTURE_SHRINK_JITTER = 0.25; // ±25% on shrink duration
 
 // Pot poof (prisoner reveal)
 const POT_POOF_PARTICLE_COUNT = 4;
@@ -53,25 +53,37 @@ export function animateStoneDrop(pair: StonePair): gsap.core.Timeline {
   pair.stone.scale.set(restSx * DROP_SCALE, restSy * DROP_SCALE);
   pair.stone.alpha = 0;
 
-  tl.to(pair.stone, {
-    alpha: 1,
-    duration: DROP_FADE_DURATION,
-    ease: 'power2.out',
-  }, 0);
-  tl.to(pair.stone.scale, {
-    x: restSx,
-    y: restSy,
-    duration: DROP_SCALE_DURATION,
-    ease: 'elastic.out(1, 0.4)',
-  }, 0);
+  tl.to(
+    pair.stone,
+    {
+      alpha: 1,
+      duration: DROP_FADE_DURATION,
+      ease: 'power2.out',
+    },
+    0
+  );
+  tl.to(
+    pair.stone.scale,
+    {
+      x: restSx,
+      y: restSy,
+      duration: DROP_SCALE_DURATION,
+      ease: 'elastic.out(1, 0.4)',
+    },
+    0
+  );
 
   // Stone: rotational wobble on landing
   pair.stone.rotation = DROP_ROTATION;
-  tl.to(pair.stone, {
-    rotation: 0,
-    duration: DROP_ROTATION_DURATION,
-    ease: 'elastic.out(1, 0.25)',
-  }, DROP_ROTATION_DELAY);
+  tl.to(
+    pair.stone,
+    {
+      rotation: 0,
+      duration: DROP_ROTATION_DURATION,
+      ease: 'elastic.out(1, 0.25)',
+    },
+    DROP_ROTATION_DELAY
+  );
 
   // Shadow: matches stone scale, but starts offset further away
   // (stone "up high" casts shadow further from light source)
@@ -82,34 +94,42 @@ export function animateStoneDrop(pair: StonePair): gsap.core.Timeline {
   pair.shadow.x = shadowRestX - SHADOW_LIFT_OFFSET;
   pair.shadow.y = shadowRestY + SHADOW_LIFT_OFFSET;
 
-  tl.to(pair.shadow, {
-    alpha: 1,
-    duration: DROP_FADE_DURATION,
-    ease: 'power2.out',
-  }, 0);
-  tl.to(pair.shadow, {
-    x: shadowRestX,
-    y: shadowRestY,
-    duration: DROP_SCALE_DURATION,
-    ease: 'elastic.out(1, 0.4)',
-  }, 0);
-  tl.to(pair.shadow.scale, {
-    x: shadowRestSx,
-    y: shadowRestSy,
-    duration: DROP_SCALE_DURATION,
-    ease: 'elastic.out(1, 0.4)',
-  }, 0);
+  tl.to(
+    pair.shadow,
+    {
+      alpha: 1,
+      duration: DROP_FADE_DURATION,
+      ease: 'power2.out',
+    },
+    0
+  );
+  tl.to(
+    pair.shadow,
+    {
+      x: shadowRestX,
+      y: shadowRestY,
+      duration: DROP_SCALE_DURATION,
+      ease: 'elastic.out(1, 0.4)',
+    },
+    0
+  );
+  tl.to(
+    pair.shadow.scale,
+    {
+      x: shadowRestSx,
+      y: shadowRestSy,
+      duration: DROP_SCALE_DURATION,
+      ease: 'elastic.out(1, 0.4)',
+    },
+    0
+  );
 
   return tl;
 }
 
 const PUFF_TEXTURES = ['puff1.png', 'puff2.png', 'puff3.png'] as const;
 
-export function animateCapture(
-  pair: StonePair,
-  sheet: Spritesheet,
-  effectsLayer: Container,
-): gsap.core.Timeline {
+export function animateCapture(pair: StonePair, sheet: Spritesheet, effectsLayer: Container): gsap.core.Timeline {
   const tl = gsap.timeline();
   const { stone, shadow, stoneRest } = pair;
   const particles: Sprite[] = [];
@@ -121,28 +141,44 @@ export function animateCapture(
   const spread = CAPTURE_PARTICLE_SPREAD * jitter(CAPTURE_SPREAD_JITTER);
 
   // Shrink + fade stone and shadow
-  tl.to(stone, {
-    alpha: 0,
-    duration: shrinkDur,
-    ease: 'power2.in',
-  }, 0);
-  tl.to(stone.scale, {
-    x: 0,
-    y: 0,
-    duration: shrinkDur,
-    ease: 'power2.in',
-  }, 0);
-  tl.to(shadow, {
-    alpha: 0,
-    duration: shrinkDur,
-    ease: 'power2.in',
-  }, 0);
-  tl.to(shadow.scale, {
-    x: 0,
-    y: 0,
-    duration: shrinkDur,
-    ease: 'power2.in',
-  }, 0);
+  tl.to(
+    stone,
+    {
+      alpha: 0,
+      duration: shrinkDur,
+      ease: 'power2.in',
+    },
+    0
+  );
+  tl.to(
+    stone.scale,
+    {
+      x: 0,
+      y: 0,
+      duration: shrinkDur,
+      ease: 'power2.in',
+    },
+    0
+  );
+  tl.to(
+    shadow,
+    {
+      alpha: 0,
+      duration: shrinkDur,
+      ease: 'power2.in',
+    },
+    0
+  );
+  tl.to(
+    shadow.scale,
+    {
+      x: 0,
+      y: 0,
+      duration: shrinkDur,
+      ease: 'power2.in',
+    },
+    0
+  );
 
   // Spawn puff particles
   for (let i = 0; i < CAPTURE_PARTICLE_COUNT; i++) {
@@ -163,33 +199,49 @@ export function animateCapture(
     const stagger = i * CAPTURE_PARTICLE_STAGGER;
 
     // Scale up then down
-    tl.to(puff.scale, {
-      x: peakScale,
-      y: peakScale,
-      duration: particleDur * 0.4,
-      ease: 'power2.out',
-    }, stagger);
-    tl.to(puff.scale, {
-      x: 0,
-      y: 0,
-      duration: particleDur * 0.6,
-      ease: 'power2.in',
-    }, stagger + particleDur * 0.4);
+    tl.to(
+      puff.scale,
+      {
+        x: peakScale,
+        y: peakScale,
+        duration: particleDur * 0.4,
+        ease: 'power2.out',
+      },
+      stagger
+    );
+    tl.to(
+      puff.scale,
+      {
+        x: 0,
+        y: 0,
+        duration: particleDur * 0.6,
+        ease: 'power2.in',
+      },
+      stagger + particleDur * 0.4
+    );
 
     // Move outward
-    tl.to(puff, {
-      x: targetX,
-      y: targetY,
-      duration: particleDur,
-      ease: 'power2.out',
-    }, stagger);
+    tl.to(
+      puff,
+      {
+        x: targetX,
+        y: targetY,
+        duration: particleDur,
+        ease: 'power2.out',
+      },
+      stagger
+    );
 
     // Fade out
-    tl.to(puff, {
-      alpha: 0,
-      duration: particleDur * 0.5,
-      ease: 'power2.in',
-    }, stagger + particleDur * 0.5);
+    tl.to(
+      puff,
+      {
+        alpha: 0,
+        duration: particleDur * 0.5,
+        ease: 'power2.in',
+      },
+      stagger + particleDur * 0.5
+    );
   }
 
   // Cleanup on complete
@@ -205,12 +257,7 @@ export function animateCapture(
   return tl;
 }
 
-export function animatePotPoof(
-  x: number,
-  y: number,
-  sheet: Spritesheet,
-  container: Container,
-): gsap.core.Timeline {
+export function animatePotPoof(x: number, y: number, sheet: Spritesheet, container: Container): gsap.core.Timeline {
   const tl = gsap.timeline();
   const particles: Sprite[] = [];
 
@@ -231,28 +278,47 @@ export function animatePotPoof(
     const peakScale = POT_POOF_MAX_SCALE * (0.5 + Math.random() * 0.5);
     const stagger = i * POT_POOF_STAGGER;
 
-    tl.to(puff.scale, {
-      x: peakScale, y: peakScale,
-      duration: POT_POOF_DURATION * 0.4,
-      ease: 'power2.out',
-    }, stagger);
-    tl.to(puff.scale, {
-      x: 0, y: 0,
-      duration: POT_POOF_DURATION * 0.6,
-      ease: 'power2.in',
-    }, stagger + POT_POOF_DURATION * 0.4);
+    tl.to(
+      puff.scale,
+      {
+        x: peakScale,
+        y: peakScale,
+        duration: POT_POOF_DURATION * 0.4,
+        ease: 'power2.out',
+      },
+      stagger
+    );
+    tl.to(
+      puff.scale,
+      {
+        x: 0,
+        y: 0,
+        duration: POT_POOF_DURATION * 0.6,
+        ease: 'power2.in',
+      },
+      stagger + POT_POOF_DURATION * 0.4
+    );
 
-    tl.to(puff, {
-      x: targetX, y: targetY,
-      duration: POT_POOF_DURATION,
-      ease: 'power2.out',
-    }, stagger);
+    tl.to(
+      puff,
+      {
+        x: targetX,
+        y: targetY,
+        duration: POT_POOF_DURATION,
+        ease: 'power2.out',
+      },
+      stagger
+    );
 
-    tl.to(puff, {
-      alpha: 0,
-      duration: POT_POOF_DURATION * 0.5,
-      ease: 'power2.in',
-    }, stagger + POT_POOF_DURATION * 0.5);
+    tl.to(
+      puff,
+      {
+        alpha: 0,
+        duration: POT_POOF_DURATION * 0.5,
+        ease: 'power2.in',
+      },
+      stagger + POT_POOF_DURATION * 0.5
+    );
   }
 
   tl.call(() => {
@@ -265,11 +331,7 @@ export function animatePotPoof(
   return tl;
 }
 
-export function animateNeighborShockwave(
-  pair: StonePair,
-  dx: number,
-  dy: number,
-): gsap.core.Timeline {
+export function animateNeighborShockwave(pair: StonePair, dx: number, dy: number): gsap.core.Timeline {
   const tl = gsap.timeline();
   const origX = pair.stoneRest.x;
   const origY = pair.stoneRest.y;
@@ -277,32 +339,48 @@ export function animateNeighborShockwave(
   const shadowOrigY = pair.shadowRest.y;
 
   // Push stone away from source
-  tl.to(pair.stone, {
-    x: origX + dx * SHOCKWAVE_PUSH_DISTANCE,
-    y: origY + dy * SHOCKWAVE_PUSH_DISTANCE,
-    duration: SHOCKWAVE_PUSH_DURATION,
-    ease: 'power2.out',
-  }, SHOCKWAVE_PUSH_DELAY);
-  tl.to(pair.stone, {
-    x: origX,
-    y: origY,
-    duration: SHOCKWAVE_RETURN_DURATION,
-    ease: 'elastic.out(1, 0.45)',
-  }, SHOCKWAVE_RETURN_DELAY);
+  tl.to(
+    pair.stone,
+    {
+      x: origX + dx * SHOCKWAVE_PUSH_DISTANCE,
+      y: origY + dy * SHOCKWAVE_PUSH_DISTANCE,
+      duration: SHOCKWAVE_PUSH_DURATION,
+      ease: 'power2.out',
+    },
+    SHOCKWAVE_PUSH_DELAY
+  );
+  tl.to(
+    pair.stone,
+    {
+      x: origX,
+      y: origY,
+      duration: SHOCKWAVE_RETURN_DURATION,
+      ease: 'elastic.out(1, 0.45)',
+    },
+    SHOCKWAVE_RETURN_DELAY
+  );
 
   // Shadow follows with slight lag
-  tl.to(pair.shadow, {
-    x: shadowOrigX + dx * SHOCKWAVE_PUSH_DISTANCE,
-    y: shadowOrigY + dy * SHOCKWAVE_PUSH_DISTANCE,
-    duration: SHOCKWAVE_PUSH_DURATION,
-    ease: 'power2.out',
-  }, SHOCKWAVE_SHADOW_PUSH_DELAY);
-  tl.to(pair.shadow, {
-    x: shadowOrigX,
-    y: shadowOrigY,
-    duration: SHOCKWAVE_SHADOW_RETURN_DURATION,
-    ease: 'elastic.out(1, 0.45)',
-  }, SHOCKWAVE_SHADOW_RETURN_DELAY);
+  tl.to(
+    pair.shadow,
+    {
+      x: shadowOrigX + dx * SHOCKWAVE_PUSH_DISTANCE,
+      y: shadowOrigY + dy * SHOCKWAVE_PUSH_DISTANCE,
+      duration: SHOCKWAVE_PUSH_DURATION,
+      ease: 'power2.out',
+    },
+    SHOCKWAVE_SHADOW_PUSH_DELAY
+  );
+  tl.to(
+    pair.shadow,
+    {
+      x: shadowOrigX,
+      y: shadowOrigY,
+      duration: SHOCKWAVE_SHADOW_RETURN_DURATION,
+      ease: 'elastic.out(1, 0.45)',
+    },
+    SHOCKWAVE_SHADOW_RETURN_DELAY
+  );
 
   return tl;
 }
