@@ -1044,7 +1044,12 @@ def plot_pairwise_winrates_paper(evaluator, output_path="pairwise_winrates.png")
     return fig
 
 
-def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
+
+def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contributions.png"):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
     if getattr(evaluator, "gte_game", None) is None: return None
     game = evaluator.gte_game
     if game and getattr(game, "actions", None) and len(game.actions) > 1:
@@ -1054,13 +1059,13 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
 
     tasks = evaluator.gte_tasks
     ratings_mean = evaluator.gte_ratings[0][1]
-    ratings_std = evaluator.gte_ratings[1][1]
     r2m_contributions_mean = evaluator.gte_contributions_raw[0]
 
     agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
     sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x], reverse=True)
 
-    fig, ax = plt.subplots(figsize=(12, max(6, len(agents) * 0.6)))
+    fig, ax = plt.subplots(figsize=(10, max(6, len(agents) * 0.6)), constrained_layout=True)
+    
     y_pos = np.arange(len(sorted_agents))
     lefts = np.zeros(len(sorted_agents))
     for j, task in enumerate(tasks):
@@ -1069,9 +1074,44 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
         for agent in sorted_agents:
             agent_idx = list(agents).index(agent)
             contribs.append(r2m_contributions_mean[agent_idx, task_idx])
-        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.4, alpha=0.6)
+        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.6, alpha=1.0)
         lefts += np.array(contribs)
-    # Draw horizontal violin plot for Net Rating bootstrap samples
+        
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(sorted_agents)
+    if not ax.yaxis_inverted():
+        ax.invert_yaxis()
+    ax.set_xlabel("Role Win Rate Contribution")
+    ax.grid(axis="x", alpha=0.25, linestyle="--")
+    # Position legend below the bar chart
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=min(len(tasks), 4))
+
+    _save_figure_mpl(fig, output_path)
+    return fig
+
+
+def plot_gte_overall_rating_paper(evaluator, output_path="gte_overall_rating.png"):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    
+    if getattr(evaluator, "gte_game", None) is None: return None
+    game = evaluator.gte_game
+    if game and getattr(game, "actions", None) and len(game.actions) > 1:
+        agents = game.actions[1]
+    else:
+        agents = sorted(list(evaluator.metrics.keys()))
+
+    ratings_mean = evaluator.gte_ratings[0][1]
+    ratings_std = evaluator.gte_ratings[1][1]
+
+    agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
+    sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x], reverse=True)
+    
+    fig, ax = plt.subplots(figsize=(8, max(6, len(agents) * 0.6)), constrained_layout=True)
+    y_pos = np.arange(len(sorted_agents))
+
     plot_df_rows = []
     if getattr(evaluator, "gte_bootstrapped_agent_ratings", None) is not None:
         samples = evaluator.gte_bootstrapped_agent_ratings
@@ -1093,7 +1133,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
             cut=0,
             scale="width",
             color="#2A9D8F",
-            alpha=0.85,
+            alpha=1.0,
             zorder=10
         )
         ax.axvline(0, linestyle="--", linewidth=1, color="black", alpha=0.5)
@@ -1102,18 +1142,25 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
         std_sorted = [ratings_std[list(agents).index(a)] for a in sorted_agents]
         ax.errorbar(ratings_sorted, y_pos, xerr=np.array(std_sorted) * 1.96, fmt="D", color="black", capsize=3,
                     label="Net Rating")
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(sorted_agents)
+        if not ax.yaxis_inverted():
+            ax.invert_yaxis()
 
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(sorted_agents)
-    if not ax.yaxis_inverted():
-        ax.invert_yaxis()
-    ax.set_xlabel("Win Rate Contribution (and Net Rating)")
+    ax.set_ylabel("")
+    ax.set_xlabel("Bootstrapped Net Rating")
     ax.grid(axis="x", alpha=0.25, linestyle="--")
-    # Removing title
-    ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    fig.tight_layout()
+
     _save_figure_mpl(fig, output_path)
     return fig
+
+
+def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
+    # Backward compatibility wrapper that saves both plots with suffixes
+    import os
+    base, ext = os.path.splitext(output_path)
+    plot_gte_role_contributions_paper(evaluator, f"{base}_contributions{ext}")
+    plot_gte_overall_rating_paper(evaluator, f"{base}_ratings{ext}") 
 
 
 def plot_gte_metrics_analysis_paper(evaluator, output_path="gte_metrics.png"):
