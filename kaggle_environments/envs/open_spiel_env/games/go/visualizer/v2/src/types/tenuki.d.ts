@@ -69,8 +69,8 @@ declare module 'tenuki' {
     playAt(y: number, x: number, color: string): BoardState;
     playPass(color: string): BoardState;
     intersectionAt(y: number, x: number): Intersection;
-    libertiesAt(x: number, y: number): number;
-    inAtari(x: number, y: number): true | false;
+    libertiesAt(y: number, x: number): number;
+    inAtari(y: number, x: number): true | false;
   }
 
   /**

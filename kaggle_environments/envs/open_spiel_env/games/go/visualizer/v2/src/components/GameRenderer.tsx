@@ -12,15 +12,37 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
-      const [, move] = step!.boardState.previous_move_a1!.split(' ');
+      const [color, move] = step!.boardState.previous_move_a1!.split(' ');
 
       if (move === 'PASS') {
         game.pass();
       } else {
-        const row: { [property: string]: number } = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, j: 9 };
-        const y = row[move.charAt(0)] - 1;
-        const x = parseInt(move.charAt(1)) - 1;
-        game.playAt(x, y);
+        const index: { [property: string]: number } = {
+          'a': 0,
+          'b': 1,
+          'c': 2,
+          'd': 3,
+          'e': 4,
+          'f': 5,
+          'g': 6,
+          'h': 7,
+          'j': 8,
+          '1': 8,
+          '2': 7,
+          '3': 6,
+          '4': 5,
+          '5': 4,
+          '6': 3,
+          '7': 2,
+          '8': 1,
+          '9': 0,
+        };
+        const x = index[move.charAt(0)];
+        const y = index[move.charAt(1)];
+
+        console.log(color, move, game.coordinatesFor(y, x));
+
+        game.playAt(y, x);
       }
     }
 

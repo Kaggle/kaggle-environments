@@ -20,21 +20,18 @@ export function tenukiToString(game: Game) {
     nl: '\n',
   };
 
-  let output = '  ';
+  const col = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j'];
+  const row = ['9', '8', '7', '6', '5', '4', '3', '2', '1'];
 
-  for (let x = 0; x < size; x++) {
-    output += `${x}`.padEnd(2);
-  }
-
-  output += chars.nl;
+  let output = '';
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       if (x === 0) {
-        output += `${y} `.padStart(2);
+        output += `${row[y]} `.padStart(2);
       }
 
-      const color = state.intersectionAt(x, y).value!;
+      const color = state.intersectionAt(y, x).value!;
 
       if (color !== 'empty') {
         output += chars[color];
@@ -58,6 +55,11 @@ export function tenukiToString(game: Game) {
     }
 
     output += chars.nl;
+  }
+
+  output += '  ';
+  for (let x = 0; x < size; x++) {
+    output += col[x].padEnd(2);
   }
 
   return output;
