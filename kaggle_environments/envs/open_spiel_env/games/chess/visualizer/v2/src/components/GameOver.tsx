@@ -12,9 +12,6 @@ export default function GameOver() {
       generationTokens: number;
       reasoningTokens: number;
       totalTokens: number;
-      inputCost: number;
-      outputCost: number;
-      totalCost: number;
     };
   } = {};
 
@@ -31,9 +28,6 @@ export default function GameOver() {
         generationTokens: 0,
         reasoningTokens: 0,
         totalTokens: 0,
-        inputCost: 0,
-        outputCost: 0,
-        totalCost: 0,
       };
     }
 
