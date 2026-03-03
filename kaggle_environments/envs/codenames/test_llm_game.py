@@ -1,4 +1,5 @@
 import os
+import json
 from kaggle_environments import make
 
 def run_llm_game():
@@ -40,6 +41,21 @@ def run_llm_game():
         print("WINNER: Team Blue 🟦")
     else:
         print("Result: Tie or Error")
+
+    # Save replay data for the visualizer
+    replay_dir = os.path.join(dir_path, "visualizer", "default", "replays")
+    os.makedirs(replay_dir, exist_ok=True)
+    replay_path = os.path.join(replay_dir, "test-replay.json")
+    
+    with open(replay_path, "w") as f:
+        json.dump(env.toJSON(), f)
+    print(f"Saved replay to {replay_path}")
+
+    # Also save HTML render if needed
+    html = env.render(mode="html")
+    with open(os.path.join(dir_path, "codenames_replay.html"), "w") as f:
+        f.write(html)
+    print("Saved HTML render to codenames_replay.html")
 
 if __name__ == "__main__":
     run_llm_game()

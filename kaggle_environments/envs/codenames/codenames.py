@@ -199,11 +199,12 @@ with open(json_path) as json_file:
 
 
 def html_renderer():
-    js_path = path.abspath(path.join(dir_path, "visualizer", "codenames.js"))
-    if not path.exists(js_path):
-        return "visualizer/codenames.js not found."
-    with open(js_path, encoding="utf-8") as js_file:
-        return js_file.read()
+    """Reads the built web visualizer output and serves it for rendering."""
+    jspath = path.join(dir_path, "visualizer", "default", "dist", "index.html")
+    if path.exists(jspath):
+        with open(jspath, encoding="utf-8") as f:
+            return f.read()
+    return ""
 
 from .agents import random_agent
 agents = {"random": random_agent}
