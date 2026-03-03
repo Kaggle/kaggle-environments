@@ -61,5 +61,9 @@ export default function StyledBoard() {
     
   }, [game]);
 
-  return <GoBoard boardSize={game.boardSize} grid={grid} step={step} lastPlayed={lastPlayed} captures={captures}/>;
+  return (
+    <div id="board">
+      <GoBoard boardSize={game.boardSize} grid={grid} step={step} lastPlayed={lastPlayed} captures={captures}/>
+    </div>
+  );
 }

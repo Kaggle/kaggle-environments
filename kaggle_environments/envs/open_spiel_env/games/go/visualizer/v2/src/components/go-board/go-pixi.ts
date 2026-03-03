@@ -1,5 +1,5 @@
 import { Application, Assets, Container, Spritesheet } from 'pixi.js';
-import type { CellValue, Captures } from '../../replay/middleman.ts';
+import type { CellValue, Captures } from './middleman.ts';
 import { BOARD_PX, POT_AREA_HEIGHT, getNeighbors } from './constants.ts';
 import { drawBoard } from './draw-board.ts';
 import { diffGrids } from './diff-grid.ts';

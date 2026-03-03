@@ -1,4 +1,4 @@
-import type { CellValue } from '../../replay/middleman.ts';
+import type { CellValue } from './middleman.ts';
 
 export interface GridDiff {
   added: { row: number; col: number; value: 'B' | 'W' }[];

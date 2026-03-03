@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { Container, Sprite, type Spritesheet } from 'pixi.js';
-import type { Captures } from '../../replay/middleman.ts';
+import type { Captures } from './middleman.ts';
 import { BOARD_PX, POT_AREA_HEIGHT, POT_MAX_PRISONERS, POT_PRISONER_SIZE, POT_SCATTER_RADIUS, POT_SIZE } from './constants.ts';
 import { animatePotPoof } from './animate-stones.ts';
 
