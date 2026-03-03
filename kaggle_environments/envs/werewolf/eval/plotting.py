@@ -1100,9 +1100,8 @@ def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contribut
         
     ax.set_yticks(y_pos)
     ax.set_yticklabels(sorted_agents)
-    ax.set_ylim(-0.6, len(sorted_agents) - 0.4)
-    if not ax.yaxis_inverted():
-        ax.invert_yaxis()
+    # Set limits to be inverted: Top=-0.6 (index 0), Bottom=N-0.4 (index N)
+    ax.set_ylim(len(sorted_agents) - 0.4, -0.6)
     ax.set_xlabel("Role Win Rate Contribution")
     ax.grid(axis="x", alpha=0.25, linestyle="--")
     # Position legend below the bar chart
@@ -1174,12 +1173,11 @@ def plot_gte_overall_rating_paper(evaluator, output_path="gte_overall_rating.png
                     label="Net Rating")
         ax.set_yticks(y_pos)
         ax.set_yticklabels(sorted_agents)
-        if not ax.yaxis_inverted():
-            ax.invert_yaxis()
-    
-    # Add explicit ylim to match gte_contributions plot
-    ax.set_ylim(-0.6, len(sorted_agents) - 0.4)
 
+    # Add explicit ylim to match gte_contributions plot
+    # Set limits to be inverted: Top=-0.6 (index 0), Bottom=N-0.4 (index N)
+    ax.set_ylim(len(sorted_agents) - 0.4, -0.6)
+    
     ax.set_ylabel("")
     ax.set_xlabel("Bootstrapped Net Rating")
     ax.grid(axis="x", alpha=0.25, linestyle="--")
