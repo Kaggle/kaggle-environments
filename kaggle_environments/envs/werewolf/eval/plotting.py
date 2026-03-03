@@ -72,13 +72,58 @@ def _save_figure(fig: "go.Figure", output_path: Union[str, List[str], None], wid
         print(f"Error saving to {output_path} (did you install 'kaleido'?): {e}")
 
 
-def _get_color_discrete_sequence(n):
-    """Returns a sophisticated color palette."""
-    # Custom palette: Teal, Indigo, Rose, Amber, Cyan, Emerald
-    colors = ["#0d9488", "#4338ca", "#e11d48", "#d97706", "#0891b2", "#059669"]
-    if n > len(colors):
-        return px.colors.qualitative.Bold
-    return colors
+import hashlib
+import re
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+def _canonical_name(name: str) -> str:
+    return re.sub(r"\s+", " ", str(name).strip())
+
+def _make_big_palette():
+    cols = []
+    import seaborn as sns
+    cols.extend(sns.color_palette("colorblind", 10))
+    cols.extend(sns.color_palette("husl", 10))
+    for cmap_name in ["tab20", "tab20b", "tab20c"]:
+        cmap = plt.get_cmap(cmap_name)
+        cols.extend([cmap(i) for i in range(cmap.N)])
+    return [mcolors.to_hex(c) for c in cols]
+
+_COLOR_PALETTE = _make_big_palette()
+
+import seaborn as sns
+_deep = sns.color_palette("deep").as_hex()
+_MODEL_TO_COLOR = {
+    _canonical_name("WinRate-Villager"): _deep[0], # Blue
+    _canonical_name("WinRate-Doctor"): _deep[1],   # Orange
+    _canonical_name("WinRate-Seer"): _deep[2],     # Green
+    _canonical_name("WinRate-Werewolf"): _deep[3], # Red
+    _canonical_name("Voting"): _deep[4],           # Purple
+    _canonical_name("Overall"): _deep[5],          # Brown
+}
+_USED_COLOR_IDX = set()
+
+def get_model_color(name: str):
+    """Return a stable, collision-free color for name (Hex string)."""
+    key = _canonical_name(name)
+    if key in _MODEL_TO_COLOR:
+        return _MODEL_TO_COLOR[key]
+
+    h = hashlib.md5(key.encode("utf-8")).hexdigest()
+    idx = int(h[:8], 16) % len(_COLOR_PALETTE)
+
+    start = idx
+    while idx in _USED_COLOR_IDX:
+        idx = (idx + 1) % len(_COLOR_PALETTE)
+        if idx == start:
+            hue = (int(h[:8], 16) % 360) / 360.0
+            _MODEL_TO_COLOR[key] = mcolors.to_hex(mcolors.hsv_to_rgb((hue, 0.65, 0.85)))
+            return _MODEL_TO_COLOR[key]
+
+    _USED_COLOR_IDX.add(idx)
+    _MODEL_TO_COLOR[key] = _COLOR_PALETTE[idx]
+    return _MODEL_TO_COLOR[key]
 
 
 def _save_figure_mpl(fig, output_path, width=None, height=None):
@@ -98,11 +143,6 @@ def _save_figure_mpl(fig, output_path, width=None, height=None):
         plt.close(fig)
     except Exception as e:
         print(f"Error saving to {output_path}: {e}")
-
-
-def _get_color_discrete_sequence_mpl(n):
-    if n <= 10: return sns.color_palette("colorblind", n).as_hex()
-    return sns.color_palette("husl", n).as_hex()
 
 
 def plot_metrics(evaluator, output_path: Union[str, List[str]] = "metrics.html"):
@@ -154,8 +194,7 @@ def plot_metrics(evaluator, output_path: Union[str, List[str]] = "metrics.html")
     agent_gte_ratings = {name: metrics.gte_rating[0] for name, metrics in evaluator.metrics.items()}
     all_agents_sorted = sorted(agent_gte_ratings, key=agent_gte_ratings.get)
 
-    colors = _get_color_discrete_sequence(len(all_agents_sorted))
-    agent_color_map = {agent: colors[i % len(colors)] for i, agent in enumerate(all_agents_sorted)}
+    agent_color_map = {agent: get_model_color(agent) for agent in all_agents_sorted}
 
     for row_idx, cat in enumerate(present_categories):
         metrics = category_metrics_map[cat]
@@ -636,7 +675,6 @@ def plot_gte_evaluation(evaluator, output_path: Union[str, List[str]] = "gte_eva
     fig = go.Figure()
 
     # Contributions
-    colors = _get_color_discrete_sequence(len(tasks))
     for i, metric in enumerate(tasks):
         subset = data[data["metric"] == metric]
         fig.add_trace(
@@ -647,7 +685,7 @@ def plot_gte_evaluation(evaluator, output_path: Union[str, List[str]] = "gte_eva
                 orientation="h",
                 legendgroup="metrics",
                 legendgrouptitle_text="Metrics",
-                marker_color=colors[i % len(colors)],
+                marker_color=get_model_color(metric),
                 hovertemplate=f"<b>Metric: {metric}</b><br>Contrib: %{{x:.2%}}<extra></extra>",
             )
         )
@@ -811,8 +849,7 @@ def plot_metrics_paper(evaluator, output_path="metrics.png"):
     present_categories = [cat for cat in category_order if cat in df["category"].unique()]
     agent_gte_ratings = {name: metrics.gte_rating[0] for name, metrics in evaluator.metrics.items()}
     all_agents_sorted = sorted(agent_gte_ratings, key=agent_gte_ratings.get)
-    colors = _get_color_discrete_sequence_mpl(len(all_agents_sorted))
-    agent_color_map = {agent: colors[i % len(colors)] for i, agent in enumerate(all_agents_sorted)}
+    agent_color_map = {agent: get_model_color(agent) for agent in all_agents_sorted}
 
     import re
     if output_path:
@@ -1023,15 +1060,13 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
     fig, ax = plt.subplots(figsize=(12, max(6, len(agents) * 0.6)))
     y_pos = np.arange(len(sorted_agents))
     lefts = np.zeros(len(sorted_agents))
-    colors = _get_color_discrete_sequence_mpl(len(tasks))
-
     for j, task in enumerate(tasks):
         task_idx = tasks.index(task)
         contribs = []
         for agent in sorted_agents:
             agent_idx = list(agents).index(agent)
             contribs.append(r2m_contributions_mean[agent_idx, task_idx])
-        ax.barh(y_pos, contribs, left=lefts, color=colors[j], label=task, edgecolor="white", height=0.6)
+        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.4)
         lefts += np.array(contribs)
     # Draw horizontal violin plot for Net Rating bootstrap samples
     plot_df_rows = []
