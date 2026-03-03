@@ -62,6 +62,10 @@ declare module 'tenuki' {
     pass: boolean;
     koPoint: { y: number; x: number } | null;
     intersections: Intersection[];
+    playedPoint: { y: number; x: number } | null;
+    capturedPositions: Intersection[];
+    blackStonesCaptured: number;
+    whiteStonesCaptured: number;
     previousMove(): BoardState | null;
     nextColor(): 'black' | 'white';
     xCoordinateFor(x: number): string;

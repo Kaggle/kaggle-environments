@@ -12,7 +12,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
-      const [color, move] = step!.boardState.previous_move_a1!.split(' ');
+      const [, move] = step!.boardState.previous_move_a1!.split(' ');
 
       if (move === 'PASS') {
         game.pass();
@@ -39,14 +39,11 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
         };
         const x = index[move.charAt(0)];
         const y = index[move.charAt(1)];
-
-        console.log(color, move, game.coordinatesFor(y, x));
-
         game.playAt(y, x);
       }
     }
 
-    setState(game);
+    setState(game, options);
   }, [setState, options]);
 
   return <StyledBoard />;
