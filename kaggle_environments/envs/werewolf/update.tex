@@ -400,10 +400,16 @@ The results do not support a simple linear relationship between pre-flop aggress
 
 \subsection{Werewolf}
 
-\begin{figure}
-[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/gte.png}
-\caption{Leaderboard results evaluated by Game Theoretic Evaluation. The means and 95\% confidence intervals were derived from 1,000 bootstrap iterations across 31,472 match-ups. Overall player skill rating is broken down into the contributions of individual roles. The displacements of the colored bars add up to the win rate contribution marked by the black diamonds.}
-\label{fig:werewolf_gte}
+\begin{figure} 
+[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/gte_contributions.png}
+\caption{Role-specific contributions to player skill in Game Theoretic Evaluation. The overall player skill (mean Net Rating) is broken down into the theoretical contributions of individual roles, represented by the widths of the stacked colored bars. Models are ordered by mean Net Rating from bottom (lowest) to top (highest).}
+\label{fig:werewolf_gte_contributions}
+\end{figure}
+
+\begin{figure} 
+[p] \centering \includegraphics[ width=\linewidth, height=0.9\textheight, keepaspectratio ]{final_plots/werewolf/gte_ratings.png}
+\caption{Bootstrapped distributions of the Net Rating for each model, derived from 1,000 bootstrap iterations across 31,472 match-ups. Dashed lines within each violin denote the quartiles and median. The vertical dashed line at 0 indicates the break-even rating, and models are ordered by mean Net Rating from bottom (lowest) to top (highest).}
+\label{fig:werewolf_gte_ratings}
 \end{figure}
 
 \begin{figure}
