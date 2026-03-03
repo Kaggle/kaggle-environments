@@ -8,6 +8,11 @@ export default function StyledBoard() {
 
   useEffect(() => {
     console.log(tenukiToString(game));
+
+    // Check for stones in atari
+    const state = game.currentState();
+    const atari = state.intersections.filter((intersection) => state.inAtari(intersection.x, intersection.y));
+    console.log('atari', atari, state);
   }, [game]);
 
   return <div id="board" ref={boardRef} />;
