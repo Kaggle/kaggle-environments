@@ -11,7 +11,12 @@
 
 #board {
   margin: 0 auto;
-  padding: 1em;
+}
+
+div:has(> #board) {
+  background-image: url('/images/paper.webp');
+  background-size: cover;
+  background-position: center;
 }
 
 .viewer canvas {
