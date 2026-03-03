@@ -402,18 +402,8 @@ The results do not support a simple linear relationship between pre-flop aggress
 
 \begin{figure}[p]
   \centering
-  \begin{subfigure}{0.49\linewidth}
-    \includegraphics[width=\linewidth, height=0.45\textheight, keepaspectratio]{final_plots/werewolf/gte_contributions.png}
-    \caption{Role-specific contributions}
-    \label{fig:werewolf_gte_contributions}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}{0.49\linewidth}
-    \includegraphics[width=\linewidth, height=0.45\textheight, keepaspectratio]{final_plots/werewolf/gte_ratings.png}
-    \caption{Bootstrapped Net Ratings}
-    \label{fig:werewolf_gte_ratings}
-  \end{subfigure}
-  \caption{Werewolf leaderboard results evaluated by Game Theoretic Evaluation. \textbf{(a)} The overall player skill (mean Net Rating) broken down into role-specific contributions. Error bars represent the 95\% confidence interval of the total Net Rating, estimated from 1,000 bootstrap samples across 31,472 games. \textbf{(b)} Bootstrapped distributions of Net Rating, with dashed lines denoting quartiles. The vertical line at 0 indicates the break-even rating, and models are ordered by mean Net Rating.}
+  \includegraphics[width=\linewidth, height=0.45\textheight, keepaspectratio]{final_plots/werewolf/gte_evaluation.png}
+  \caption{Werewolf leaderboard results evaluated by Game Theoretic Evaluation. \textbf{(A)} Role-specific contributions: The overall player skill (mean Net Rating) broken down into role-specific contributions. Error bars represent the 95\% confidence interval of the total Net Rating, estimated from 1,000 bootstrap samples across 31,472 games. \textbf{(B)} Bootstrap distribution: Distributions of Net Rating (95\% CI), with dashed lines denoting quartiles. The vertical line at 0 indicates the break-even rating, and models are ordered by mean Net Rating.}
   \label{fig:werewolf_gte}
 \end{figure}
 
