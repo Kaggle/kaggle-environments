@@ -5,7 +5,6 @@ type CellValue = '.' | 'B' | 'W';
 
 export default function StyledBoard() {
   const game = useGameStore((state) => state.game);
-
   const state = game.currentState();
   const size = game.boardSize;
   const step = state.moveNumber - 1;
@@ -14,10 +13,9 @@ export default function StyledBoard() {
   for (let y = 0; y < size; y++) {
     const line: CellValue[] = [];
     for (let x = 0; x < size; x++) {
-      const value = state.intersectionAt(y, x).value;
-      if (value === 'black') line.push('B');
-      if (value === 'white') line.push('W');
-      if (value === 'empty') line.push('.');
+      const value = state.intersectionAt(y, x).value!;
+      const cells: { [key: string]: CellValue } = { 'black': 'B', 'white': 'W', 'empty': '.' };
+      line.push(cells[value]);
     }
     grid.push(line);
   }

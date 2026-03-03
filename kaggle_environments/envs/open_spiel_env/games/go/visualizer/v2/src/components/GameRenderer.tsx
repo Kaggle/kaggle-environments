@@ -17,7 +17,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
       if (move === 'PASS') {
         game.pass();
       } else {
-        const index: { [property: string]: number } = {
+        const index: { [key: string]: number } = {
           'a': 0,
           'b': 1,
           'c': 2,
