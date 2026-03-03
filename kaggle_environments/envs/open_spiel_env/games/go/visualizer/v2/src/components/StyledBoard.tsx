@@ -1,17 +1,14 @@
-import { useEffect } from 'react';
 import useGameStore from '../stores/useGameStore';
-import { tenukiToString } from '../utils/tenukiToString';
 import { GoBoard } from '../components/go-board';
 
 type CellValue = '.' | 'B' | 'W';
 
 export default function StyledBoard() {
   const game = useGameStore((state) => state.game);
-  const options = useGameStore((state) => state.options);
-
+  
   const state = game.currentState();
   const size = game.boardSize;
-  const step = options?.step!;
+  const step = state.moveNumber - 1;
 
   const grid: CellValue[][] = [];
   for (let y = 0; y < size; y++) {
@@ -37,29 +34,6 @@ export default function StyledBoard() {
     black: state.blackStonesCaptured, 
     white: state.whiteStonesCaptured,
   }
-
-  useEffect(() => {
-    console.log(tenukiToString(game));
-
-    // // Check for stones in atari
-    // const state = game.currentState();
-    // const atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-    // atari.forEach(item => {
-    //   console.log('atari', game.coordinatesFor(item.y, item.x));
-    // });
-
-    // // Check for territories
-    // const territories = game._scorer.territory(game);
-
-    // territories.white.forEach((item: {x: number, y: number}) => {
-    //   console.log('territory', 'W', game.coordinatesFor(item.y, item.x));
-    // })
-
-    // territories.black.forEach((item: {x: number, y: number}) => {
-    //   console.log('territory', 'B', game.coordinatesFor(item.y, item.x));
-    // })
-    
-  }, [game]);
 
   return (
     <div id="board">
