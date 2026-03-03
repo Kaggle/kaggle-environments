@@ -1069,7 +1069,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
         for agent in sorted_agents:
             agent_idx = list(agents).index(agent)
             contribs.append(r2m_contributions_mean[agent_idx, task_idx])
-        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.4)
+        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.4, alpha=0.6)
         lefts += np.array(contribs)
     # Draw horizontal violin plot for Net Rating bootstrap samples
     plot_df_rows = []
@@ -1093,7 +1093,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
             cut=0,
             scale="width",
             color="#2A9D8F",
-            alpha=0.4,
+            alpha=0.85,
             zorder=10
         )
         ax.axvline(0, linestyle="--", linewidth=1, color="black", alpha=0.5)
