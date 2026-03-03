@@ -1157,10 +1157,14 @@ def plot_gte_overall_rating_paper(evaluator, output_path="gte_overall_rating.png
 
 def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
     # Backward compatibility wrapper that saves both plots with suffixes
+    # If output_path is a list, process each path
+    paths = [output_path] if isinstance(output_path, str) else output_path
+    
     import os
-    base, ext = os.path.splitext(output_path)
-    plot_gte_role_contributions_paper(evaluator, f"{base}_contributions{ext}")
-    plot_gte_overall_rating_paper(evaluator, f"{base}_ratings{ext}") 
+    for path in paths:
+        base, ext = os.path.splitext(path)
+        plot_gte_role_contributions_paper(evaluator, f"{base}_contributions{ext}")
+        plot_gte_overall_rating_paper(evaluator, f"{base}_ratings{ext}") 
 
 
 def plot_gte_metrics_analysis_paper(evaluator, output_path="gte_metrics.png"):
