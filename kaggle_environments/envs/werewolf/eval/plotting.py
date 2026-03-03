@@ -1072,6 +1072,9 @@ def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contribut
     for j, task in enumerate(tasks):
         task_idx = tasks.index(task)
         contribs = []
+        for agent in sorted_agents:
+            agent_idx = list(agents).index(agent)
+            contribs.append(r2m_contributions_mean[agent_idx, task_idx])
         ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.6, alpha=1.0)
         lefts += np.array(contribs)
         
@@ -1084,7 +1087,7 @@ def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contribut
         agent_idx = list(agents).index(agent)
         total_errors.append(ratings_std[agent_idx] * 1.96)
         
-    ax.errorbar(lefts, y_pos, xerr=total_errors, fmt='none', ecolor='black', capsize=3, elinewidth=1.5)
+    ax.errorbar(lefts, y_pos, xerr=total_errors, fmt='D', color='black', ecolor='black', capsize=3, elinewidth=1.5, markeredgecolor='white', markeredgewidth=1.5)
         
     ax.set_yticks(y_pos)
     ax.set_yticklabels(sorted_agents)
