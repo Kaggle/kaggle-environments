@@ -1108,6 +1108,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
     if not ax.yaxis_inverted():
         ax.invert_yaxis()
     ax.set_xlabel("Win Rate Contribution (and Net Rating)")
+    ax.grid(axis="x", alpha=0.25, linestyle="--")
     # Removing title
     ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
     fig.tight_layout()
