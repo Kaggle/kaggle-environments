@@ -84,31 +84,33 @@ def process_action(state, config):
             
     # GUESSER TURN
     elif current_turn in [1, 3]:
-        # action is an int (0-24) or -1 (pass)
-        if not isinstance(action, int) or action < -1 or action > 24:
+        # action is an int (0-24) or -1 (pass) OR a dict with "guess": int
+        guess_val = action.get("guess") if isinstance(action, dict) else action
+        
+        if not isinstance(guess_val, int) or guess_val < -1 or guess_val > 24:
             active_agent.status = "INVALID"
             end_game(winner="blue" if current_turn == 1 else "red")
             return
             
         # Pass
-        if action == -1:
+        if guess_val == -1:
             for s in state:
                 s.observation.clue = ""
                 s.observation.guesses_remaining = 0
                 s.observation.current_turn = 2 if current_turn == 1 else 0
         else:
             # Check if already revealed
-            if state[0].observation.revealed[action]:
+            if state[0].observation.revealed[guess_val]:
                 active_agent.status = "INVALID"
                 end_game(winner="blue" if current_turn == 1 else "red")
                 return
                 
             # Reveal
             for s in state:
-                s.observation.revealed[action] = True
+                s.observation.revealed[guess_val] = True
             
             roles = state[0].observation.roles
-            guessed_role = roles[action]
+            guessed_role = roles[guess_val]
             team_color = "red" if current_turn == 1 else "blue"
             
             # Assassin check

@@ -289,11 +289,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   const { replay, step } = options;
   const [spymasterView, setSpymasterView] = useState(false);
 
-  // The structure of replay.steps is a nested array.
-  // Each index of replay.steps represents a time step in the game.
-  // The inner array has 4 items, one for each agent slot.
-  // We care about the state tracked inherently by Agent 0's observation.
-  const currentEnvStep = replay.steps[step] as any;
+  const currentStepData = replay.steps[step] as any;
+  const currentEnvStep = Array.isArray(currentStepData) ? currentStepData : currentStepData.rawAgents;
 
   // Access global environment state via the first agent's observation
   const state: GameState = currentEnvStep[0].observation;
@@ -302,8 +299,6 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     console.log("State or words missing, initializing...");
     return <div style={{ color: "white", padding: 20 }}>Initializing...</div>;
   }
-
-  console.log("Rendering GameRenderer at step:", step, "State:", state);
 
   // Calculate remaining unrevealed words for each team for the scoreboard
   const redRemaining = state.roles.filter((r, i) => r === "red" && !state.revealed[i]).length;
@@ -314,22 +309,27 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
   // We iterate through all history up to current step
   for (let i = 1; i <= step; i++) {
-    const pastStep = replay.steps[i] as any;
+    const pastStepData = replay.steps[i] as any;
+    const pastStep = Array.isArray(pastStepData) ? pastStepData : pastStepData.rawAgents;
+
     // Find who moved in this step. The easiest way is to look at the actions.
     const agent0Act = pastStep[0].action;
-    const agent1Act = pastStep[1].action;
+    const agent1ActRaw = pastStep[1].action;
     const agent2Act = pastStep[2].action;
-    const agent3Act = pastStep[3].action;
+    const agent3ActRaw = pastStep[3].action;
+
+    // Handle either dicts {"guess": 1} or directly number (1)
+    const agent1Act = (typeof agent1ActRaw === "object" && agent1ActRaw !== null && 'guess' in agent1ActRaw) ? agent1ActRaw.guess : agent1ActRaw;
+    const agent3Act = (typeof agent3ActRaw === "object" && agent3ActRaw !== null && 'guess' in agent3ActRaw) ? agent3ActRaw.guess : agent3ActRaw;
 
     // Check whose turn it wasn't. The action at replay.steps[i] was produced given the observation at replay.steps[i-1].
-    const prevTurn = i > 0 ? (replay.steps[i - 1] as any) : null;
+    const prevTurnData = i > 0 ? (replay.steps[i - 1] as any) : null;
+    const prevTurn = prevTurnData ? (Array.isArray(prevTurnData) ? prevTurnData : prevTurnData.rawAgents) : null;
     const currentTurnVal = prevTurn ? prevTurn[0].observation.current_turn : -1;
     const agent0IsActive = currentTurnVal === 0;
     const agent1IsActive = currentTurnVal === 1;
     const agent2IsActive = currentTurnVal === 2;
     const agent3IsActive = currentTurnVal === 3;
-
-    console.log(`Step ${i}: currentTurnVal in prev step was ${currentTurnVal}. Acts: 0:${JSON.stringify(agent0Act)}, 1:${agent1Act}, 2:${JSON.stringify(agent2Act)}, 3:${agent3Act}`);
 
     if (agent0IsActive && agent0Act !== null && typeof agent0Act === "object" && 'clue' in agent0Act) {
       logEntries.push(
@@ -357,9 +357,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         );
       } else {
         // Find the role in the preceding step's state before it was revealed
-        const prevStep = replay.steps[i - 1] as any;
-        const word = prevStep[0].observation.words[agent1Act];
-        const actualRole = prevStep[0].observation.roles[agent1Act];
+        const word = prevTurn[0].observation.words[agent1Act];
+        const actualRole = prevTurn[0].observation.roles[agent1Act];
         logEntries.push(
           <ChatBubble key={`s${i}-1`} team="red" isSpymaster={false}>
             <ActorName>Red Guesser</ActorName>
@@ -377,9 +376,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
           </ChatBubble>
         );
       } else {
-        const prevStep = replay.steps[i - 1] as any;
-        const word = prevStep[0].observation.words[agent3Act];
-        const actualRole = prevStep[0].observation.roles[agent3Act];
+        const word = prevTurn[0].observation.words[agent3Act];
+        const actualRole = prevTurn[0].observation.roles[agent3Act];
         logEntries.push(
           <ChatBubble key={`s${i}-3`} team="blue" isSpymaster={false}>
             <ActorName>Blue Guesser</ActorName>

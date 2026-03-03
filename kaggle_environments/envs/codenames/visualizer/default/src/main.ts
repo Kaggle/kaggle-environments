@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from "@kaggle-environments/core";
 import { GameRenderer } from "./renderer";
+import { codenamesTransformer } from "./codenamesTransformer";
 
 /**
  * Main entry point for the Vite application.
@@ -15,7 +16,8 @@ if (app) {
     new ReplayAdapter({
       gameName: "codenames",
       GameRenderer: GameRenderer,
-      ui: "inline",
+      transformer: codenamesTransformer,
+      ui: "side-panel",
     })
   );
 }

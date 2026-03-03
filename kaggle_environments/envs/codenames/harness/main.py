@@ -41,9 +41,9 @@ class LLMCodenamesAgent:
             status = "Revealed" if revealed[i] else "Hidden"
             prompt += f"- {words[i]}: {roles[i].upper()} ({status})\n"
             
-        prompt += "\nProvide a single-word clue that connects multiple of your unrevealed words, and the number of words it connects.\n"
+        prompt += "\nThink step-by-step about which unrevealed words you can connect with a single-word clue. Provide your reasoning in a 'thinking' key.\n"
         prompt += 'You MUST format your response as valid JSON like this:\n'
-        prompt += '{"clue": "ANIMAL", "number": 2}\n'
+        prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
         
         try:
@@ -62,11 +62,18 @@ class LLMCodenamesAgent:
             if content.endswith("```"):
                 content = content[:-3]
                 
-            action = json.loads(content.strip())
+            action = json.loads(content.strip(), strict=False)
+            
+            if "thinking" in action:
+                print(f"Reasoning: {action['thinking']}")
+                
             if "clue" not in action or "number" not in action:
                 raise ValueError("JSON missing 'clue' or 'number' keys")
                 
-            return action
+            result = {"clue": action["clue"], "number": action["number"]}
+            if "thinking" in action:
+                result["thinking"] = action["thinking"]
+            return result
         except Exception as e:
             # We must fail loudly per the harness rules
             raise ValueError(f"Failed to parse Spymaster response from model. Error: {e}. Raw response: {content if 'content' in locals() else 'None'}")
@@ -87,9 +94,12 @@ class LLMCodenamesAgent:
             if not revealed[i]:
                 prompt += f"{i}: {words[i]}\n"
                 
-        prompt += "\nRespond ONLY with the integer index of the ONE word you want to guess right now.\n"
-        prompt += "If you want to end your turn without guessing, respond with -1.\n"
-        prompt += "Output just the number and nothing else."
+        prompt += "\nThink step-by-step about which unrevealed word matches the clue best. Provide your reasoning in a 'thinking' key.\n"
+        prompt += "Then provide the integer index of the ONE word you want to guess right now in a 'guess' key.\n"
+        prompt += "If you want to end your turn without guessing, set 'guess' to -1.\n"
+        prompt += "You MUST format your response as valid JSON like this:\n"
+        prompt += '{"thinking": "The clue is ANIMAL. Cat is at index 4, so I will guess 4...", "guess": 4}\n'
+        prompt += "Do not include any other text or markdown formatting outside of the JSON block."
         
         try:
             print(f"[{team.upper()} GUESSER] Calling model {self.model_name}...")
@@ -100,9 +110,27 @@ class LLMCodenamesAgent:
             )
             print(f"[{team.upper()} GUESSER] Received response.")
             content = response.choices[0].message.content.strip()
-            return int(content)
+            
+            # Clean possible markdown format
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+                
+            action = json.loads(content.strip(), strict=False)
+            
+            if "thinking" in action:
+                print(f"Reasoning: {action['thinking']}")
+                
+            if "guess" not in action:
+                raise ValueError("JSON missing 'guess' key")
+                
+            result = {"guess": int(action["guess"])}
+            if "thinking" in action:
+                result["thinking"] = action["thinking"]
+            return result
         except Exception as e:
-            raise ValueError(f"Failed to parse Guesser response as integer. Error: {e}. Raw response: {content if 'content' in locals() else 'None'}")
+            raise ValueError(f"Failed to parse Guesser response as JSON/integer. Error: {e}. Raw response: {content if 'content' in locals() else 'None'}")
 
 agent = LLMCodenamesAgent()
 
