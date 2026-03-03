@@ -92,15 +92,18 @@ def _make_big_palette():
 
 _COLOR_PALETTE = _make_big_palette()
 
-import seaborn as sns
-_deep = sns.color_palette("deep").as_hex()
 _MODEL_TO_COLOR = {
-    _canonical_name("WinRate-Villager"): _deep[0], # Blue
-    _canonical_name("WinRate-Doctor"): _deep[1],   # Orange
-    _canonical_name("WinRate-Seer"): _deep[2],     # Green
-    _canonical_name("WinRate-Werewolf"): _deep[3], # Red
-    _canonical_name("Voting"): _deep[4],           # Purple
-    _canonical_name("Overall"): _deep[5],          # Brown
+    # Good Guy Team (Cool, calming blues/cyans)
+    _canonical_name("WinRate-Villager"): "#4A81BF", # Solid Blue
+    _canonical_name("WinRate-Seer"): "#78B2D4",     # Lighter Sky Blue
+    _canonical_name("WinRate-Doctor"): "#13A699",   # Vibrant Teal
+    
+    # Bad Guy Team (Aggressive, striking reds)
+    _canonical_name("WinRate-Werewolf"): "#D94F53", # Flat Carmine Red
+    
+    # Neutral/Mechanics
+    _canonical_name("Voting"): "#F28E2B",           # Muted Orange
+    _canonical_name("Overall"): "#95A5A6",          # Slate Grey
 }
 _USED_COLOR_IDX = set()
 
@@ -621,7 +624,7 @@ def plot_gte_evaluation(evaluator, output_path: Union[str, List[str]] = "gte_eva
     r2m_contributions_mean = evaluator.gte_contributions_raw[0]
 
     agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
-    sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
+    sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x], reverse=True)
 
     game = evaluator.gte_game
     rating_player = 1  # Agents
@@ -1055,7 +1058,7 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
     r2m_contributions_mean = evaluator.gte_contributions_raw[0]
 
     agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
-    sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x])
+    sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x], reverse=True)
 
     fig, ax = plt.subplots(figsize=(12, max(6, len(agents) * 0.6)))
     y_pos = np.arange(len(sorted_agents))
@@ -1102,6 +1105,8 @@ def plot_gte_evaluation_paper(evaluator, output_path="gte_evaluation.png"):
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(sorted_agents)
+    if not ax.yaxis_inverted():
+        ax.invert_yaxis()
     ax.set_xlabel("Win Rate Contribution (and Net Rating)")
     # Removing title
     ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
