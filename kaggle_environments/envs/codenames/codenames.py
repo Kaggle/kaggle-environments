@@ -1,0 +1,209 @@
+import json
+import random
+from os import path
+
+def initialize_game(state, config):
+    board_size = config.board_size
+    red_words = config.red_words
+    blue_words = config.blue_words
+    
+    # Load words
+    dir_path = path.dirname(__file__)
+    words_path = path.abspath(path.join(dir_path, "words.txt"))
+    with open(words_path, "r") as f:
+        all_words = [line.strip().upper() for line in f.readlines() if line.strip()]
+        
+    sampled_words = random.sample(all_words, board_size)
+    
+    # Assign roles
+    roles = ["red"] * red_words + ["blue"] * blue_words + ["assassin"] * 1
+    roles += ["neutral"] * (board_size - len(roles))
+    random.shuffle(roles)
+    
+    revealed = [False] * board_size
+    
+    for agent_state in state:
+        agent_state.observation.words = sampled_words
+        agent_state.observation.roles = roles[:]
+        agent_state.observation.revealed = revealed[:]
+        agent_state.observation.current_turn = 0
+        agent_state.observation.clue = ""
+        agent_state.observation.guesses_remaining = 0
+
+def update_visibility(state):
+    # Mask roles for guessers (agents 1 and 3)
+    roles = state[0].observation.roles
+    revealed = state[0].observation.revealed
+    
+    for i in range(4):
+        if i in [1, 3]:  # Guessers
+            # Guessers only see roles of revealed cards
+            masked_roles = [roles[j] if revealed[j] else "Unknown" for j in range(25)]
+            state[i].observation.roles = masked_roles
+        else:
+            state[i].observation.roles = roles[:]
+
+def process_action(state, config):
+    current_turn = state[0].observation.current_turn
+    active_agent = state[current_turn]
+    action = active_agent.action
+    
+    # helper to end game
+    def end_game(winner=None):
+        for i in range(4):
+            state[i].status = "DONE"
+            if winner == "red":
+                state[i].reward = 1 if i in [0, 1] else 0
+            elif winner == "blue":
+                state[i].reward = 1 if i in [2, 3] else 0
+            else:
+                state[i].reward = 0
+
+    # Handle Agent Failure / Invalid Action
+    if action is None:
+        active_agent.status = "INVALID"
+        end_game(winner="blue" if current_turn in [0, 1] else "red")
+        return
+
+    # SPYMASTER TURN
+    if current_turn in [0, 2]:
+        if not isinstance(action, dict) or "clue" not in action or "number" not in action:
+            active_agent.status = "INVALID"
+            end_game(winner="blue" if current_turn == 0 else "red")
+            return
+            
+        # Update state
+        for s in state:
+            s.observation.clue = str(action["clue"])
+            s.observation.guesses_remaining = int(action["number"]) + 1
+            s.observation.current_turn = 1 if current_turn == 0 else 3
+            
+        # Set agent statuses
+        for i in range(4):
+            state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
+            
+    # GUESSER TURN
+    elif current_turn in [1, 3]:
+        # action is an int (0-24) or -1 (pass)
+        if not isinstance(action, int) or action < -1 or action > 24:
+            active_agent.status = "INVALID"
+            end_game(winner="blue" if current_turn == 1 else "red")
+            return
+            
+        # Pass
+        if action == -1:
+            for s in state:
+                s.observation.clue = ""
+                s.observation.guesses_remaining = 0
+                s.observation.current_turn = 2 if current_turn == 1 else 0
+        else:
+            # Check if already revealed
+            if state[0].observation.revealed[action]:
+                active_agent.status = "INVALID"
+                end_game(winner="blue" if current_turn == 1 else "red")
+                return
+                
+            # Reveal
+            for s in state:
+                s.observation.revealed[action] = True
+            
+            roles = state[0].observation.roles
+            guessed_role = roles[action]
+            team_color = "red" if current_turn == 1 else "blue"
+            
+            # Assassin check
+            if guessed_role == "assassin":
+                end_game(winner="blue" if team_color == "red" else "red")
+                return
+                
+            # Neutral or Opponent word
+            if guessed_role != team_color:
+                for s in state:
+                    s.observation.clue = ""
+                    s.observation.guesses_remaining = 0
+                    s.observation.current_turn = 2 if current_turn == 1 else 0
+            else:
+                # Correct guess
+                for s in state:
+                    s.observation.guesses_remaining -= 1
+                    
+                if state[0].observation.guesses_remaining <= 0:
+                    for s in state:
+                        s.observation.clue = ""
+                        s.observation.guesses_remaining = 0
+                        s.observation.current_turn = 2 if current_turn == 1 else 0
+
+        # Win condition check
+        revealed = state[0].observation.revealed
+        roles = state[0].observation.roles
+        red_left = sum(1 for i in range(25) if roles[i] == "red" and not revealed[i])
+        blue_left = sum(1 for i in range(25) if roles[i] == "blue" and not revealed[i])
+        
+        if red_left == 0:
+            end_game(winner="red")
+            return
+        elif blue_left == 0:
+            end_game(winner="blue")
+            return
+
+        # Next turn setup if not done
+        if state[0].status != "DONE":
+            for i in range(4):
+                state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
+
+def interpreter(state, env):
+    # Initialization
+    if len(state[0].observation.get("words", [])) == 0:
+         initialize_game(state, env.configuration)
+         for i in range(4):
+             state[i].status = "ACTIVE" if i == 0 else "INACTIVE"
+         update_visibility(state)
+         return state
+             
+    if env.done:
+        return state
+
+    process_action(state, env.configuration)
+    update_visibility(state)
+    
+    return state
+
+
+def renderer(state, env):
+    words = state[0].observation.words
+    revealed = state[0].observation.revealed
+    roles = state[0].observation.roles
+    
+    out = ""
+    for r in range(5):
+        row_str = ""
+        for c in range(5):
+            idx = r * 5 + c
+            w = words[idx]
+            if revealed[idx]:
+                w = f"[{roles[idx].upper()[0]}] {w}"
+            else:
+                w = f"({roles[idx].upper()[0]}) {w}"
+            row_str += f"{w:<15}"
+        out += row_str + "\n"
+    
+    out += f"\nTurn: {state[0].observation.current_turn}\n"
+    out += f"Clue: {state[0].observation.clue} ({state[0].observation.guesses_remaining} remaining)\n"
+    return out
+
+
+dir_path = path.dirname(__file__)
+json_path = path.abspath(path.join(dir_path, "codenames.json"))
+with open(json_path) as json_file:
+    specification = json.load(json_file)
+
+
+def html_renderer():
+    js_path = path.abspath(path.join(dir_path, "visualizer", "codenames.js"))
+    if not path.exists(js_path):
+        return "visualizer/codenames.js not found."
+    with open(js_path, encoding="utf-8") as js_file:
+        return js_file.read()
+
+from .agents import random_agent
+agents = {"random": random_agent}
