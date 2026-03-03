@@ -143,7 +143,7 @@ declare module 'tenuki' {
     isIllegalAt(y: number, x: number): boolean;
 
     /** Get territory for each player (only after game is over) */
-    territory(): { black: [], white: [] };
+    territory(): { black: []; white: [] };
 
     /** Mark a stone at (y, x) as dead during scoring */
     markDeadAt(y: number, x: number, options?: RenderOptions): boolean;

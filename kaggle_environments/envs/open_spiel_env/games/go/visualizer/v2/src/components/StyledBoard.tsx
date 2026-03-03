@@ -1,5 +1,4 @@
 import { useRef, useEffect } from 'react';
-// import { createRenderer } from 'jgoboard';
 import useGameStore from '../stores/useGameStore';
 
 export default function StyledBoard() {
@@ -7,46 +6,66 @@ export default function StyledBoard() {
   const game = useGameStore((state) => state.game);
 
   useEffect(() => {
-    const target = boardRef.current;
-    console.log(target);
-    // const options = {
-    //   board: game.board,
-    //   theme: {
-    //     margin: {
-    //       color: 'transparent',
-    //     },
-    //     boardShadow: {
-    //       color: 'transparent',
-    //     },
-    //     padding: {
-    //       normal: 20,
-    //     },
-    //     grid: {
-    //       color: 'transparent',
-    //       x: 50,
-    //       y: 50,
-    //     },
-    //     coordinates: {
-    //       top: true,
-    //       right: true,
-    //       bottom: true,
-    //       left: true,
-    //       color: 'transparent',
-    //       font: 'sans-serif',
-    //     },
-    //     textures: {
-    //       black: 'images/black.png',
-    //       white: 'images/white.png',
-    //       shadow: 'images/shadow.png',
-    //       board: 'images/board.jpg',
-    //     },
-    //   },
-    //   interactions: { enabled: false },
-    // };
+    const state = game.currentState();
+    const size = game.boardSize;
 
-    // const renderer = createRenderer(target, options);
+    const chars: { [param: string]: string } = {
+      black: '●',
+      white: '○',
+      tl: '┌',
+      tm: '┬',
+      tr: '┐',
+      ml: '├',
+      mm: '┼',
+      mr: '┤',
+      bl: '└',
+      bm: '┴',
+      br: '┘',
+      hl: '─',
+      nl: '\n',
+    };
 
-    // return () => renderer.destroy();
+    let output = '  ';
+
+    for (let x = 0; x < size; x++) {
+      output += `${x}`.padEnd(2);
+    }
+
+    output += chars.nl;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (x === 0) {
+          output += `${y} `.padStart(2);
+        }
+
+        const color = state.intersectionAt(x, y).value!;
+
+        if (color !== 'empty') {
+          output += chars[color];
+        }
+
+        if (color === 'empty') {
+          let row = 'm';
+          if (y === 0) row = 't';
+          if (y === size - 1) row = 'b';
+
+          let col = 'm';
+          if (x === 0) col = 'l';
+          if (x === size - 1) col = 'r';
+
+          output += chars[row + col];
+        }
+
+        if (x < size - 1) {
+          output += chars.hl;
+        }
+      }
+
+      output += chars.nl;
+    }
+
+    console.log(output);
   }, [game]);
 
   return <div id="board" ref={boardRef} />;

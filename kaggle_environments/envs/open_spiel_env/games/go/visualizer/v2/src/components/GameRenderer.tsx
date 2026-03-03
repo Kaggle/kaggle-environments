@@ -4,8 +4,6 @@ import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import StyledBoard from '../components/StyledBoard';
 import useGameStore from '../stores/useGameStore';
 
-
-
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const setState = useGameStore((state) => state.setState);
 
@@ -38,9 +36,15 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
     const state = game.currentState();
 
-    console.log('atari', state.intersections.filter(intersection => state.inAtari(intersection.x, intersection.y)));
+    console.log(
+      'atari',
+      state.intersections.filter((intersection) => state.inAtari(intersection.x, intersection.y))
+    );
 
-    console.log('atari', state.intersections.filter(intersection => state.inAtari(intersection.x, intersection.y)));
+    console.log(
+      'atari',
+      state.intersections.filter((intersection) => state.inAtari(intersection.x, intersection.y))
+    );
 
     // console.log(game.territory());
 
