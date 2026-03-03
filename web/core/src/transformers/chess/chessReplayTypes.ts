@@ -2,6 +2,7 @@ import { BaseGamePlayer, BaseGameStep } from '../../types';
 
 export interface ChessPlayer extends BaseGamePlayer {
   reward: number | null;
+  generateReturns: string[] | null;
 }
 
 export interface FenState {

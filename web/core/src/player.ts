@@ -60,35 +60,32 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
     }
 
     // 2. (PRIORITY 2) No HMR replay data. Check for VITE_REPLAY_FILE in dev mode.
-    else if (import.meta.env?.DEV) {
+    else if (import.meta.env.VITE_REPLAY_FILE) {
       const replayFile = import.meta.env.VITE_REPLAY_FILE;
-      if (replayFile) {
-        fetch(replayFile)
-          .then((res) => res.json())
-          .then((data) => {
-            // Create agents from available data if info.Agents doesn't exist
-            let agents = data.info?.Agents;
-            if (!agents && data.steps?.[0]) {
-              // Derive agent count from first step (each player has an entry)
-              const playerCount = Array.isArray(data.steps[0]) ? data.steps[0].length : 0;
-              const teamNames = data.info?.TeamNames || [];
-              agents = Array.from({ length: playerCount }, (_, i) => ({
-                index: i,
-                name: teamNames[i] || `Player ${i + 1}`,
-              }));
-            }
-            this.setData(data, agents);
-          })
-          .catch((err) => {
-            console.error(`Error fetching ${replayFile}:`, err);
-            this.viewer.innerHTML = `<div>Error loading ${replayFile}</div>`;
-          });
-      } else {
-        // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
-        this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
-      }
+      fetch(replayFile)
+        .then((res) => res.json())
+        .then((data) => {
+          // Create agents from available data if info.Agents doesn't exist
+          let agents = data.info?.Agents;
+          if (!agents && data.steps?.[0]) {
+            // Derive agent count from first step (each player has an entry)
+            const playerCount = Array.isArray(data.steps[0]) ? data.steps[0].length : 0;
+            const teamNames = data.info?.TeamNames || [];
+            agents = Array.from({ length: playerCount }, (_, i) => ({
+              index: i,
+              name: teamNames[i] || `Player ${i + 1}`,
+            }));
+          }
+          this.setData(data, agents);
+        })
+        .catch((err) => {
+          console.error(`Error fetching ${replayFile}:`, err);
+          this.viewer.innerHTML = `<div>Error loading ${replayFile}</div>`;
+        });
+    } else if (import.meta.env?.DEV) {
+      // Dev mode, but no HMR data and no replayFile. Wait for postMessage.
+      this.viewer.innerHTML = '<div>Waiting for replay data...</div>';
     }
-
     // 3. (PRIORITY 3) Production build (or not DEV) and no HMR data.
     else {
       this.viewer.innerHTML = '<div>Loading...</div>';
