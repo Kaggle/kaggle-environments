@@ -1145,8 +1145,6 @@ def plot_gte_overall_rating_paper(evaluator, output_path="gte_overall_rating.png
             cut=0,
             scale="width",
             color="#2A9D8F",
-            alpha=1.0,
-            zorder=10
         )
         ax.axvline(0, linestyle="--", linewidth=1, color="black", alpha=0.5)
     else:
