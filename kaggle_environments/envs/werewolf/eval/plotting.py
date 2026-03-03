@@ -1059,8 +1059,8 @@ def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contribut
 
     tasks = evaluator.gte_tasks
     ratings_mean = evaluator.gte_ratings[0][1]
+    ratings_std = evaluator.gte_ratings[1][1]
     r2m_contributions_mean = evaluator.gte_contributions_raw[0]
-    rater_contributions_std = evaluator.gte_contributions_raw[1]
 
     agent_rating_map = {agent: ratings_mean[i] for i, agent in enumerate(agents)}
     sorted_agents = sorted(agents, key=lambda x: agent_rating_map[x], reverse=True)
@@ -1072,15 +1072,19 @@ def plot_gte_role_contributions_paper(evaluator, output_path="gte_role_contribut
     for j, task in enumerate(tasks):
         task_idx = tasks.index(task)
         contribs = []
-        contribs_errors = []
-        for agent in sorted_agents:
-            agent_idx = list(agents).index(agent)
-            contribs.append(r2m_contributions_mean[agent_idx, task_idx])
-            contribs_errors.append(rater_contributions_std[agent_idx, task_idx] * 1.96)
-        
-        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.6, alpha=1.0,
-                xerr=contribs_errors, capsize=2, error_kw={'elinewidth': 1, 'ecolor': 'black', 'alpha': 0.7})
+        ax.barh(y_pos, contribs, left=lefts, color=get_model_color(task), label=task, edgecolor="white", height=0.6, alpha=1.0)
         lefts += np.array(contribs)
+        
+    # Add error bar for the total sum (Net Rating)
+    # The 'lefts' array now holds the total sum of contributions (Net Rating)
+    # expected_net_rating = lefts
+    # We use ratings_std for the error bar of the sum
+    total_errors = []
+    for agent in sorted_agents:
+        agent_idx = list(agents).index(agent)
+        total_errors.append(ratings_std[agent_idx] * 1.96)
+        
+    ax.errorbar(lefts, y_pos, xerr=total_errors, fmt='none', ecolor='black', capsize=3, elinewidth=1.5)
         
     ax.set_yticks(y_pos)
     ax.set_yticklabels(sorted_agents)
