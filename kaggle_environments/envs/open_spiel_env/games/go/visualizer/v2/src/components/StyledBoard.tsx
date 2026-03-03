@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { createRenderer } from 'jgoboard';
+// import { createRenderer } from 'jgoboard';
 import useGameStore from '../stores/useGameStore';
 
 export default function StyledBoard() {

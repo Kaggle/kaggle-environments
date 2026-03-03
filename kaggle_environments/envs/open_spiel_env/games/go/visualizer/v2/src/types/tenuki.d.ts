@@ -44,7 +44,7 @@ declare module 'tenuki' {
    * Intersection on the board representing a position
    */
   export interface Intersection {
-    stone: string | null;
+    value: string | null;
     y: number;
     x: number;
     isKoPoint(): boolean;
@@ -69,6 +69,8 @@ declare module 'tenuki' {
     playAt(y: number, x: number, color: string): BoardState;
     playPass(color: string): BoardState;
     intersectionAt(y: number, x: number): Intersection;
+    libertiesAt(x: number, y: number): number;
+    inAtari(x: number, y: number): true | false;
   }
 
   /**
@@ -140,6 +142,9 @@ declare module 'tenuki' {
     /** Check if a move at (y, x) is illegal */
     isIllegalAt(y: number, x: number): boolean;
 
+    /** Get territory for each player (only after game is over) */
+    territory(): { black: [], white: [] };
+
     /** Mark a stone at (y, x) as dead during scoring */
     markDeadAt(y: number, x: number, options?: RenderOptions): boolean;
 
@@ -163,6 +168,8 @@ declare module 'tenuki' {
 
     /** Get all moves in the game */
     previousMoves(): BoardState[];
+
+    _scorer: Scorer;
   }
 
   /**
