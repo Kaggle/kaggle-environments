@@ -30,6 +30,20 @@ export default memo(function GameBoard() {
     white: state.whiteStonesCaptured,
   };
 
+  const scorer = game._scorer.territory(game);
+  const territory = {
+    black: scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+    white: scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+  };
+
+  console.log('territory', territory);
+
+  const atari = state.intersections
+    .filter((intersection) => state.inAtari(intersection.y, intersection.x) && state.nextColor() === intersection.value)
+    .map((intersection) => ({ row: intersection.y, col: intersection.x }));
+
+  console.log('atari', atari);
+
   return (
     <div id="board">
       <GoBoard boardSize={size} grid={grid} step={step} lastPlayed={played} captures={captures} />
