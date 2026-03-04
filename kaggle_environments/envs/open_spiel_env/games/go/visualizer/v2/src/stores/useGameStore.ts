@@ -1,14 +1,17 @@
 import { create } from 'zustand';
-import { createGame, GameState } from 'jgoboard';
+import { Game } from 'tenuki';
+import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 
 interface GameStore {
-  game: GameState;
-  setState: (go: GameState) => void;
+  game: Game;
+  options: GameRendererProps<GoStep[]> | null;
+  setState: (game: Game, options: GameRendererProps<GoStep[]>) => void;
 }
 
 const useGameStore = create<GameStore>((set) => ({
-  game: createGame({ size: 9 }),
-  setState: (game: GameState) => set({ game }),
+  game: new Game({ boardSize: 9 }),
+  options: null,
+  setState: (game: Game, options: GameRendererProps<GoStep[]>) => set({ game, options }),
 }));
 
 export default useGameStore;
