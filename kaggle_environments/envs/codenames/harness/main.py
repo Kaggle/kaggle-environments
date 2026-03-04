@@ -175,11 +175,15 @@ def agent_fn(obs, config):
             }
             
         model_name = os.environ["MODEL_NAME"]
-        if not "/" in model_name:
-            if "gemini" in model_name.lower():
+        
+        # When using Kaggle's proxy, all models route through OpenAI interface
+        if os.environ.get("MODEL_PROXY_URL") != "dummy_url":
+            # The proxy expects openai/ prefixes, e.g., google/gemini-3-pro-preview -> openai/google/gemini-3-pro-preview
+            model_name = f"openai/{model_name}"
+        else:
+            # Special handling for local testing (Google AI Studio)
+            if "gemini" in model_name.lower() and not model_name.startswith("gemini/"):
                 model_name = f"gemini/{model_name}"
-            else:
-                model_name = f"openai/{model_name}"
             
         _AGENT_OBJECT = LLMCodenamesAgent(model_name=model_name, litellm_kwargs=litellm_kwargs)
         _SETUP_COMPLETE = True
