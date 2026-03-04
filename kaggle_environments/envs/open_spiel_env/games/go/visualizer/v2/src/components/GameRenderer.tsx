@@ -13,7 +13,8 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     // const boardSize = parameters.board_size;
     const boardSize = options.replay.steps[0].boardState.board_size;
     const komi = parameters.komi;
-    const game = new Game({ boardSize, komi });
+    const scoring = 'equivalence'; // AGA Rules
+    const game = new Game({ boardSize, komi, scoring });
 
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
