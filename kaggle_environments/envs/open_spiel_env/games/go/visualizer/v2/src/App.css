@@ -11,7 +11,12 @@
 
 #board {
   margin: 0 auto;
-  padding: 1em;
+}
+
+div:has(> #board) {
+  background-image: url("/images/paper.webp");
+  background-size: cover;
+  background-position: center;
 }
 
 .viewer canvas {
@@ -19,5 +24,4 @@
   width: 100% !important;
   height: auto !important;
   max-width: 500px;
-  aspect-ratio: 1 / 1;
 }
