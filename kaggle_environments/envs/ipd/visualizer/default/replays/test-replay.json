@@ -140,28 +140,28 @@
     ],
     [
       {
-        "action": 1,
-        "reward": 37,
+        "action": 0,
+        "reward": 36,
         "observation": { "lastOpponentAction": 1, "step": 9 },
         "status": "ACTIVE"
       },
       {
         "action": 1,
-        "reward": 37,
-        "observation": { "lastOpponentAction": 1, "step": 9 },
+        "reward": 46,
+        "observation": { "lastOpponentAction": 0, "step": 9 },
         "status": "ACTIVE"
       }
     ],
     [
       {
         "action": 0,
-        "reward": 42,
+        "reward": 41,
         "observation": { "lastOpponentAction": 0, "step": 10 },
         "status": "DONE"
       },
       {
         "action": 0,
-        "reward": 42,
+        "reward": 51,
         "observation": { "lastOpponentAction": 0, "step": 10 },
         "status": "DONE"
       }

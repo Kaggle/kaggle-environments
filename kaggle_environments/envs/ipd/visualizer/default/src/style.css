@@ -269,6 +269,55 @@
   filter: grayscale(100%);
 }
 
+/* ── Crown Icon (winner only) ─────────────────── */
+.crown-icon {
+  width: 40px;
+  height: 40px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.6);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  z-index: 10;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
+}
+
+.ipd-cell[data-phase="winner"] .crown-icon {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Winner: colorized, green accent */
+.ipd-cell[data-phase="winner"] .goose-frame {
+  border-color: #20BEFF;
+  transform: scale(1.08);
+  box-shadow: 0 0 60px rgba(34, 197, 94, 0.3);
+}
+
+.ipd-cell[data-phase="winner"] .goose-image {
+  filter: grayscale(0%);
+}
+
+.ipd-cell[data-phase="winner"] .suspect-name {
+  color: #20BEFF;
+  font-weight: 700;
+}
+
+.ipd-cell[data-phase="winner"] .action-glow {
+  opacity: 0.6;
+  background: radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.15) 0%, transparent 70%);
+}
+
+/* Loser: grayscale, muted */
+.ipd-cell[data-phase="loser"] .goose-frame {
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: scale(1);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+.ipd-cell[data-phase="loser"] .goose-image {
+  filter: grayscale(100%);
+}
+
 /* ── Action Glow (phase-driven) ──────────────── */
 .action-glow {
   position: absolute;
@@ -363,7 +412,7 @@
 
 .gain-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.3);
   text-transform: uppercase;
   text-align: center;
@@ -372,7 +421,7 @@
 
 .gain-value {
   font-family: 'JetBrains Mono', monospace;
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: clamp(36px, 5vw, 52px);
   font-weight: 900;
   color: #fff;
   line-height: 1;
@@ -428,7 +477,7 @@
 }
 
 .reward-icon-leading {
-  color: #22c55e;
+  color: #20BEFF;
 }
 
 .reward-value {
@@ -440,7 +489,7 @@
 }
 
 .reward-leading {
-  color: #22c55e;
+  color: #20BEFF;
 }
 
 /* ── Observation Log (Footer) ──────────────────── */

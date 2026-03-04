@@ -21,6 +21,15 @@ const EYE_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const FINGERPRINT_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/></svg>`;
 const LOCK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 const AWARD_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`;
+const CROWN_SVG = `<svg viewBox="0 0 24 24" fill="#20BEFF" stroke="#20BEFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4l3 12h14l3-12-6 7-4-9-4 9-6-7z"/><path d="M5 16h14v2H5z"/></svg>`;
+
+// ── Preload all goose images into browser cache ──
+for (const moods of Object.values(GOOSE_IMAGES)) {
+  for (const src of Object.values(moods)) {
+    const img = new Image();
+    img.src = src;
+  }
+}
 
 // ── Animation state (module-level) ──
 let pendingTimers: ReturnType<typeof setTimeout>[] = [];
@@ -117,6 +126,7 @@ function buildSkeleton(parent: HTMLElement): void {
           </div>
         </div>
 
+        <div class="crown-icon crown-icon-0">${CROWN_SVG}</div>
         <div class="goose-frame">
           <img class="goose-image" src="${GOOSE_IMAGES[0].idle}" alt="Suspect 0" />
         </div>
@@ -157,6 +167,7 @@ function buildSkeleton(parent: HTMLElement): void {
           </div>
         </div>
 
+        <div class="crown-icon crown-icon-1">${CROWN_SVG}</div>
         <div class="goose-frame">
           <img class="goose-image" src="${GOOSE_IMAGES[1].idle}" alt="Suspect 1" />
         </div>
@@ -300,8 +311,8 @@ export function renderer(context: RendererOptions) {
     }
     if (divider0) divider0.style.display = 'none';
     if (divider1) divider1.style.display = 'none';
-    if (lock0) lock0.style.display = '';
-    if (lock1) lock1.style.display = '';
+    if (lock0) lock0.style.visibility = '';
+    if (lock1) lock1.style.visibility = '';
     gainOverlay0?.classList.remove('gain-visible');
     gainOverlay1?.classList.remove('gain-visible');
     setObsText('Awaiting deliberation\u2026', true);
@@ -319,13 +330,13 @@ export function renderer(context: RendererOptions) {
       actionText0.classList.add('action-visible');
     }
     if (divider0) divider0.style.display = 'block';
-    if (lock0) lock0.style.display = 'none';
+    if (lock0) lock0.style.visibility = 'hidden';
     if (actionText1) {
       actionText1.textContent = ACTION_NAMES[a1];
       actionText1.classList.add('action-visible');
     }
     if (divider1) divider1.style.display = 'block';
-    if (lock1) lock1.style.display = 'none';
+    if (lock1) lock1.style.visibility = 'hidden';
     if (gainValue0) gainValue0.textContent = `+${roundS0}`;
     if (gainValue1) gainValue1.textContent = `+${roundS1}`;
     gainOverlay0?.classList.add('gain-visible');
@@ -333,6 +344,16 @@ export function renderer(context: RendererOptions) {
     updateScores(cumS0, cumS1);
     setObsText(getOutcomeText(p0Name, p1Name, a0, a1), false);
   };
+
+  // ══════════════════════════════════════════════════
+  // Initial state (step 0 — before any moves)
+  // ══════════════════════════════════════════════════
+  if (step <= 0) {
+    phaseCurrent.textContent = '00';
+    resetCells();
+    updateScores(0, 0);
+    return;
+  }
 
   // ══════════════════════════════════════════════════
   // Final state (last slider position)
@@ -344,10 +365,14 @@ export function renderer(context: RendererOptions) {
     const [lastA0, lastA1] = getStepActions(lastStepData);
     const [finalS0, finalS1] = computeScores(steps, steps.length - 1);
 
-    cell0.setAttribute('data-phase', 'idle');
-    cell1.setAttribute('data-phase', 'idle');
-    if (img0) img0.src = GOOSE_IMAGES[0].idle;
-    if (img1) img1.src = GOOSE_IMAGES[1].idle;
+    const p0Wins = finalS0 > finalS1;
+    const p1Wins = finalS1 > finalS0;
+    const tied = finalS0 === finalS1;
+
+    cell0.setAttribute('data-phase', tied ? 'idle' : p0Wins ? 'winner' : 'loser');
+    cell1.setAttribute('data-phase', tied ? 'idle' : p1Wins ? 'winner' : 'loser');
+    if (img0) img0.src = GOOSE_IMAGES[0][tied ? 'idle' : p0Wins ? 'joyful' : 'upset'];
+    if (img1) img1.src = GOOSE_IMAGES[1][tied ? 'idle' : p1Wins ? 'joyful' : 'upset'];
     gainOverlay0?.classList.remove('gain-visible');
     gainOverlay1?.classList.remove('gain-visible');
 
@@ -356,16 +381,20 @@ export function renderer(context: RendererOptions) {
       actionText0.classList.add('action-visible');
     }
     if (divider0) divider0.style.display = 'block';
-    if (lock0) lock0.style.display = 'none';
+    if (lock0) lock0.style.visibility = 'hidden';
     if (actionText1) {
       actionText1.textContent = ACTION_NAMES[lastA1];
       actionText1.classList.add('action-visible');
     }
     if (divider1) divider1.style.display = 'block';
-    if (lock1) lock1.style.display = 'none';
+    if (lock1) lock1.style.visibility = 'hidden';
 
     updateScores(finalS0, finalS1);
-    setObsText(getOutcomeText(p0Name, p1Name, lastA0, lastA1), false);
+
+    const outcomeMsg = tied
+      ? `Game over. It's a tie — both players scored ${finalS0}.`
+      : `Game over. ${p0Wins ? p0Name : p1Name} wins with ${Math.max(finalS0, finalS1)} points.`;
+    setObsText(outcomeMsg, false);
     return;
   }
 
@@ -391,7 +420,7 @@ export function renderer(context: RendererOptions) {
     resetCells();
     updateScores(prevS0, prevS1);
 
-    // Phase 1: P1 speaks (200ms)
+    // Phase 1: P1 speaks (150ms)
     pendingTimers.push(
       setTimeout(() => {
         cell0.setAttribute('data-phase', 'speaking');
@@ -401,11 +430,11 @@ export function renderer(context: RendererOptions) {
           actionText0.classList.add('action-visible');
         }
         if (divider0) divider0.style.display = 'block';
-        if (lock0) lock0.style.display = 'none';
-      }, 200)
+        if (lock0) lock0.style.visibility = 'hidden';
+      }, 150)
     );
 
-    // Phase 2: P1 returns to idle, P2 speaks (1100ms)
+    // Phase 2: P1 returns to idle, P2 speaks (650ms)
     pendingTimers.push(
       setTimeout(() => {
         // P1 goes back to idle
@@ -420,11 +449,11 @@ export function renderer(context: RendererOptions) {
           actionText1.classList.add('action-visible');
         }
         if (divider1) divider1.style.display = 'block';
-        if (lock1) lock1.style.display = 'none';
-      }, 1100)
+        if (lock1) lock1.style.visibility = 'hidden';
+      }, 650)
     );
 
-    // Phase 3: Result reveal (2000ms)
+    // Phase 3: Result reveal (1200ms) — leaves ~1s visible before next step
     pendingTimers.push(
       setTimeout(() => {
         // Both return to grayscale with reaction images
@@ -440,7 +469,7 @@ export function renderer(context: RendererOptions) {
 
         updateScores(cumS0, cumS1);
         setObsText(getOutcomeText(p0Name, p1Name, p0Action, p1Action), false);
-      }, 2000)
+      }, 1200)
     );
   } else {
     // Same step re-render: show final state instantly
