@@ -53,9 +53,9 @@ def process_action(state, config):
         for i in range(4):
             state[i].status = "DONE"
             if winner == "red":
-                state[i].reward = 1 if i in [0, 1] else 0
+                state[i].reward = 1 if i in [0, 1] else -1
             elif winner == "blue":
-                state[i].reward = 1 if i in [2, 3] else 0
+                state[i].reward = 1 if i in [2, 3] else -1
             else:
                 state[i].reward = 0
 
