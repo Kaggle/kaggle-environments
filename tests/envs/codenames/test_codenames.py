@@ -16,9 +16,11 @@ def test_codenames_completes():
     # Assert that the game ended properly and a winner was declared (rewards should be assigned)
     rewards = [agent.reward for agent in env.state]
     
-    # There should always be a winning team, so some reward must be > 0.
-    # A team wins if they guess all words OR if the other team hits the assassin.
-    assert sum(rewards) > 0
+    # Under the new logic, winning team gets +1, losing team gets -1. 
+    # The sum of all rewards should be 0, and max should be 1.
+    assert sum(rewards) == 0
+    assert max(rewards) == 1
+    assert min(rewards) == -1
 
     print("Game successfully finished with rewards:", rewards)
     
