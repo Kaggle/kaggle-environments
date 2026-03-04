@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
-import StyledBoard from '../components/StyledBoard';
+import GameBoard from '../components/GameBoard';
 import useGameStore from '../stores/useGameStore';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
@@ -30,7 +30,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     }
 
     setState(game, options);
-  }, [setState, options]);
+  }, [options, setState]);
 
-  return <StyledBoard />;
+  return <GameBoard />;
 }
