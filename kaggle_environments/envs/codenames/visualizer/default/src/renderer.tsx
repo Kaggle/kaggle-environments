@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import type { GameRendererProps } from "@kaggle-environments/core";
+import React, { useState, useEffect } from 'react';
+import type { GameRendererProps } from '@kaggle-environments/core';
 // We import emotion styled components since @kaggle-environments/core provides it
-import styled from "@emotion/styled";
+import styled from '@emotion/styled';
 
 // Define the styled components for our modern sleek visualizer
 const AppContainer = styled.div`
@@ -11,7 +11,11 @@ const AppContainer = styled.div`
   height: calc(100vh - 60px);
   background-color: #121212;
   color: #ffffff;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
   overflow: hidden;
 `;
 
@@ -51,7 +55,7 @@ const Title = styled.h1`
 `;
 
 const ToggleButton = styled.button<{ active: boolean }>`
-  background-color: ${(props: { active: boolean }) => (props.active ? "#4caf50" : "#333")};
+  background-color: ${(props: { active: boolean }) => (props.active ? '#4caf50' : '#333')};
   color: white;
   border: none;
   border-radius: 20px;
@@ -62,7 +66,7 @@ const ToggleButton = styled.button<{ active: boolean }>`
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${(props: { active: boolean }) => (props.active ? "#45a049" : "#444")};
+    background-color: ${(props: { active: boolean }) => (props.active ? '#45a049' : '#444')};
     transform: scale(1.05);
   }
 `;
@@ -72,10 +76,11 @@ const ScoreBoard = styled.div`
   gap: 16px;
 `;
 
-const TeamScore = styled.div<{ team: "red" | "blue" }>`
-  background-color: ${(props: { team: "red" | "blue" }) => (props.team === "red" ? "rgba(244, 67, 54, 0.2)" : "rgba(33, 150, 243, 0.2)")};
-  color: ${(props: { team: "red" | "blue" }) => (props.team === "red" ? "#ff8a80" : "#82b1ff")};
-  border: 1px solid ${(props: { team: "red" | "blue" }) => (props.team === "red" ? "#f44336" : "#2196f3")};
+const TeamScore = styled.div<{ team: 'red' | 'blue' }>`
+  background-color: ${(props: { team: 'red' | 'blue' }) =>
+    props.team === 'red' ? 'rgba(244, 67, 54, 0.2)' : 'rgba(33, 150, 243, 0.2)'};
+  color: ${(props: { team: 'red' | 'blue' }) => (props.team === 'red' ? '#ff8a80' : '#82b1ff')};
+  border: 1px solid ${(props: { team: 'red' | 'blue' }) => (props.team === 'red' ? '#f44336' : '#2196f3')};
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: bold;
@@ -92,53 +97,47 @@ const Grid = styled.div`
   margin: auto;
 `;
 
-
-
-const getCardBackgroundColor = (
-  role: string,
-  revealed: boolean,
-  spymasterView: boolean
-) => {
+const getCardBackgroundColor = (role: string, revealed: boolean, spymasterView: boolean) => {
   if (revealed) {
     switch (role) {
-      case "red":
-        return "#f44336"; // Material Red 500
-      case "blue":
-        return "#2196f3"; // Material Blue 500
-      case "assassin":
-        return "#212121"; // Dark Grey
-      case "neutral":
+      case 'red':
+        return '#f44336'; // Material Red 500
+      case 'blue':
+        return '#2196f3'; // Material Blue 500
+      case 'assassin':
+        return '#212121'; // Dark Grey
+      case 'neutral':
       default:
-        return "#e0e0e0"; // Light Grey
+        return '#e0e0e0'; // Light Grey
     }
   }
 
   if (spymasterView) {
     switch (role) {
-      case "red":
-        return "rgba(244, 67, 54, 0.3)";
-      case "blue":
-        return "rgba(33, 150, 243, 0.3)";
-      case "assassin":
-        return "rgba(33, 33, 33, 0.5)";
-      case "neutral":
+      case 'red':
+        return 'rgba(244, 67, 54, 0.3)';
+      case 'blue':
+        return 'rgba(33, 150, 243, 0.3)';
+      case 'assassin':
+        return 'rgba(33, 33, 33, 0.5)';
+      case 'neutral':
       default:
-        return "rgba(224, 224, 224, 0.3)";
+        return 'rgba(224, 224, 224, 0.3)';
     }
   }
 
-  return "#424242"; // Default unrevealed dark grey
+  return '#424242'; // Default unrevealed dark grey
 };
 
 const getCardColor = (role: string, revealed: boolean) => {
   if (revealed) {
-    if (role === "neutral") return "#000000";
-    return "#ffffff";
+    if (role === 'neutral') return '#000000';
+    return '#ffffff';
   }
-  return "#ffffff";
+  return '#ffffff';
 };
 
-const CardContainer = styled.div<{ revealed: boolean, spymasterView: boolean, role: string }>`
+const CardContainer = styled.div<{ revealed: boolean; spymasterView: boolean; role: string }>`
   perspective: 1000px;
   width: 100%;
   height: 100%;
@@ -149,7 +148,7 @@ const CardContainer = styled.div<{ revealed: boolean, spymasterView: boolean, ro
   border: ${(props) =>
     !props.revealed && props.spymasterView
       ? `2px dashed ${getCardBackgroundColor(props.role, true, false)}`
-      : "2px solid transparent"};
+      : '2px solid transparent'};
 `;
 
 const CardInner = styled.div<{ revealed: boolean }>`
@@ -157,9 +156,9 @@ const CardInner = styled.div<{ revealed: boolean }>`
   width: 100%;
   height: 100%;
   text-align: center;
-  transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
-  transform: ${(props) => (props.revealed ? "rotateY(180deg) scale(0.95)" : "rotateY(0deg) scale(1)")};
+  transform: ${(props) => (props.revealed ? 'rotateY(180deg) scale(0.95)' : 'rotateY(0deg) scale(1)')};
 `;
 
 const CardFace = styled.div`
@@ -176,13 +175,13 @@ const CardFace = styled.div`
   font-weight: 700;
   text-transform: uppercase;
   word-break: break-word;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 `;
 
-const CardFront = styled(CardFace) <{ role: string, spymasterView: boolean }>`
+const CardFront = styled(CardFace)<{ role: string; spymasterView: boolean }>`
   background-color: ${(props) => getCardBackgroundColor(props.role, false, props.spymasterView)};
   color: #ffffff;
-  
+
   /* Subtle shine effect */
   overflow: hidden;
   &::before {
@@ -206,11 +205,11 @@ const CardFront = styled(CardFace) <{ role: string, spymasterView: boolean }>`
   }
 `;
 
-const CardBack = styled(CardFace) <{ role: string, revealed: boolean, spymasterView: boolean }>`
+const CardBack = styled(CardFace)<{ role: string; revealed: boolean; spymasterView: boolean }>`
   background-color: ${(props) => getCardBackgroundColor(props.role, true, props.spymasterView)};
   color: ${(props) => getCardColor(props.role, true)};
   transform: rotateY(180deg);
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 `;
 
 const LogHeader = styled.div`
@@ -228,7 +227,7 @@ const LogContent = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  
+
   /* Custom scrollbar */
   &::-webkit-scrollbar {
     width: 8px;
@@ -245,25 +244,27 @@ const LogContent = styled.div`
   }
 `;
 
-interface ChatBubbleProps { team: "red" | "blue" | "system", isSpymaster: boolean }
+interface ChatBubbleProps {
+  team: 'red' | 'blue' | 'system';
+  isSpymaster: boolean;
+}
 const ChatBubble = styled.div<ChatBubbleProps>`
   max-width: 85%;
   align-self: ${(props: ChatBubbleProps) =>
-    props.team === "system" ? "center" :
-      props.team === "red" ? "flex-start" : "flex-end"};
+    props.team === 'system' ? 'center' : props.team === 'red' ? 'flex-start' : 'flex-end'};
   background-color: ${(props: ChatBubbleProps) => {
-    if (props.team === "system") return "#333";
-    if (props.team === "red") return props.isSpymaster ? "#b71c1c" : "#f44336";
-    return props.isSpymaster ? "#0d47a1" : "#2196f3";
+    if (props.team === 'system') return '#333';
+    if (props.team === 'red') return props.isSpymaster ? '#b71c1c' : '#f44336';
+    return props.isSpymaster ? '#0d47a1' : '#2196f3';
   }};
   color: white;
   padding: 12px 16px;
   border-radius: 16px;
-  border-bottom-left-radius: ${(props: ChatBubbleProps) => props.team === "red" ? "4px" : "16px"};
-  border-bottom-right-radius: ${(props: ChatBubbleProps) => props.team === "blue" ? "4px" : "16px"};
+  border-bottom-left-radius: ${(props: ChatBubbleProps) => (props.team === 'red' ? '4px' : '16px')};
+  border-bottom-right-radius: ${(props: ChatBubbleProps) => (props.team === 'blue' ? '4px' : '16px')};
   font-size: 14px;
   line-height: 1.4;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 `;
 
 const ActorName = styled.div`
@@ -296,13 +297,13 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   const state: GameState = currentEnvStep[0].observation;
 
   if (!state || !state.words) {
-    console.log("State or words missing, initializing...");
-    return <div style={{ color: "white", padding: 20 }}>Initializing...</div>;
+    console.log('State or words missing, initializing...');
+    return <div style={{ color: 'white', padding: 20 }}>Initializing...</div>;
   }
 
   // Calculate remaining unrevealed words for each team for the scoreboard
-  const redRemaining = state.roles.filter((r, i) => r === "red" && !state.revealed[i]).length;
-  const blueRemaining = state.roles.filter((r, i) => r === "blue" && !state.revealed[i]).length;
+  const redRemaining = state.roles.filter((r, i) => r === 'red' && !state.revealed[i]).length;
+  const blueRemaining = state.roles.filter((r, i) => r === 'blue' && !state.revealed[i]).length;
 
   // Build the game log dynamically up to the current step
   const logEntries: React.ReactNode[] = [];
@@ -319,8 +320,14 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const agent3ActRaw = pastStep[3].action;
 
     // Handle either dicts {"guess": 1} or directly number (1)
-    const agent1Act = (typeof agent1ActRaw === "object" && agent1ActRaw !== null && 'guess' in agent1ActRaw) ? agent1ActRaw.guess : agent1ActRaw;
-    const agent3Act = (typeof agent3ActRaw === "object" && agent3ActRaw !== null && 'guess' in agent3ActRaw) ? agent3ActRaw.guess : agent3ActRaw;
+    const agent1Act =
+      typeof agent1ActRaw === 'object' && agent1ActRaw !== null && 'guess' in agent1ActRaw
+        ? agent1ActRaw.guess
+        : agent1ActRaw;
+    const agent3Act =
+      typeof agent3ActRaw === 'object' && agent3ActRaw !== null && 'guess' in agent3ActRaw
+        ? agent3ActRaw.guess
+        : agent3ActRaw;
 
     // Check whose turn it wasn't. The action at replay.steps[i] was produced given the observation at replay.steps[i-1].
     const prevTurnData = i > 0 ? (replay.steps[i - 1] as any) : null;
@@ -331,7 +338,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     const agent2IsActive = currentTurnVal === 2;
     const agent3IsActive = currentTurnVal === 3;
 
-    if (agent0IsActive && agent0Act !== null && typeof agent0Act === "object" && 'clue' in agent0Act) {
+    if (agent0IsActive && agent0Act !== null && typeof agent0Act === 'object' && 'clue' in agent0Act) {
       logEntries.push(
         <ChatBubble key={`s${i}-0`} team="red" isSpymaster={true}>
           <ActorName>Red Spymaster</ActorName>
@@ -339,7 +346,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         </ChatBubble>
       );
     }
-    if (agent2IsActive && agent2Act !== null && typeof agent2Act === "object" && 'clue' in agent2Act) {
+    if (agent2IsActive && agent2Act !== null && typeof agent2Act === 'object' && 'clue' in agent2Act) {
       logEntries.push(
         <ChatBubble key={`s${i}-2`} team="blue" isSpymaster={true}>
           <ActorName>Blue Spymaster</ActorName>
@@ -347,7 +354,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         </ChatBubble>
       );
     }
-    if (agent1IsActive && agent1Act !== null && typeof agent1Act === "number") {
+    if (agent1IsActive && agent1Act !== null && typeof agent1Act === 'number') {
       if (agent1Act === -1) {
         logEntries.push(
           <ChatBubble key={`s${i}-1-pass`} team="red" isSpymaster={false}>
@@ -367,7 +374,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
         );
       }
     }
-    if (agent3IsActive && agent3Act !== null && typeof agent3Act === "number") {
+    if (agent3IsActive && agent3Act !== null && typeof agent3Act === 'number') {
       if (agent3Act === -1) {
         logEntries.push(
           <ChatBubble key={`s${i}-3-pass`} team="blue" isSpymaster={false}>
@@ -390,7 +397,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
   // Scroll to bottom effect (Hack because we don't have a direct ref easily accessible across rerenders here)
   useEffect(() => {
-    const logContainer = document.getElementById("log-content");
+    const logContainer = document.getElementById('log-content');
     if (logContainer) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
@@ -405,11 +412,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             <TeamScore team="red">Red: {redRemaining}</TeamScore>
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
           </ScoreBoard>
-          <ToggleButton
-            active={spymasterView}
-            onClick={() => setSpymasterView(!spymasterView)}
-          >
-            {spymasterView ? "👁 Spymaster View" : "👓 Guesser View"}
+          <ToggleButton active={spymasterView} onClick={() => setSpymasterView(!spymasterView)}>
+            {spymasterView ? '👁 Spymaster View' : '👓 Guesser View'}
           </ToggleButton>
         </TopBar>
 
@@ -436,12 +440,21 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
       <LogPane>
         <LogHeader>
-          Mission Log {state.current_turn === 0 ? "🟥 Spymaster" : state.current_turn === 1 ? "🟥 Guesser" : state.current_turn === 2 ? "🟦 Spymaster" : "🟦 Guesser"}
+          Mission Log{' '}
+          {state.current_turn === 0
+            ? '🟥 Spymaster'
+            : state.current_turn === 1
+              ? '🟥 Guesser'
+              : state.current_turn === 2
+                ? '🟦 Spymaster'
+                : '🟦 Guesser'}
         </LogHeader>
         <LogContent id="log-content">
           {logEntries.length === 0 ? (
             <div style={{ opacity: 0.5, textAlign: 'center', marginTop: 20 }}>
-              {step === 0 ? "Game starting. Press Play or the right arrow key to advance..." : "Waiting for communications..."}
+              {step === 0
+                ? 'Game starting. Press Play or the right arrow key to advance...'
+                : 'Waiting for communications...'}
             </div>
           ) : (
             logEntries

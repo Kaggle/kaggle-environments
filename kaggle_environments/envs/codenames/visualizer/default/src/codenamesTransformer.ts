@@ -1,4 +1,4 @@
-import { BaseGameStep, ReplayData } from "@kaggle-environments/core";
+import { BaseGameStep, ReplayData } from '@kaggle-environments/core';
 
 export interface CodenamesStep extends BaseGameStep {
   rawAgents: any[];
@@ -16,8 +16,8 @@ export const codenamesTransformer = (environment: ReplayData, _gameName: string)
     const players = stepAgents.map((agent: any, idx: number) => {
       const action = agent.action;
 
-      let thoughts = "";
-      let actionDisplayText = "";
+      let thoughts = '';
+      let actionDisplayText = '';
       let isTurn = currentTurnVal === idx;
 
       if (typeof action === 'object' && action !== null) {
@@ -38,10 +38,10 @@ export const codenamesTransformer = (environment: ReplayData, _gameName: string)
 
       // If they passed but were not expected to move, clear the text
       if (!isTurn && action === 0) {
-        actionDisplayText = "";
+        actionDisplayText = '';
       }
 
-      const roleNames = ["Red Spymaster", "Red Guesser", "Blue Spymaster", "Blue Guesser"];
+      const roleNames = ['Red Spymaster', 'Red Guesser', 'Blue Spymaster', 'Blue Guesser'];
       const baseName = roleNames[idx] || `Agent ${idx}`;
       const teamName = environment.info?.TeamNames?.[idx];
       const displayName = teamName ? `${baseName} (${teamName})` : baseName;
@@ -52,19 +52,19 @@ export const codenamesTransformer = (environment: ReplayData, _gameName: string)
         thumbnail: '',
         isTurn: isTurn,
         actionDisplayText,
-        thoughts
+        thoughts,
       };
     });
 
     transformedSteps.push({
       step: index,
       players,
-      rawAgents: stepAgents
+      rawAgents: stepAgents,
     });
   });
 
   return {
     ...environment,
-    steps: transformedSteps
+    steps: transformedSteps,
   };
 };
