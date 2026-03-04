@@ -1,11 +1,14 @@
 import { memo } from 'react';
-import useGameStore from '../stores/useGameStore';
 import { GoBoard } from '../components/go-board';
+import useGameStore from '../stores/useGameStore';
+import { tenukiLogger } from '../utils/tenukiLogger';
 
 type CellValue = '.' | 'B' | 'W';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
+
+  tenukiLogger(game);
 
   const state = game.currentState();
   const size = game.boardSize;

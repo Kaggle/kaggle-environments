@@ -1,6 +1,8 @@
 import { Game } from 'tenuki';
 
-export function tenukiToString(game: Game) {
+export function tenukiLogger(game: Game) {
+  if (import.meta.env.DEV === false) return;
+
   const state = game.currentState();
   const size = game.boardSize;
 
@@ -62,5 +64,5 @@ export function tenukiToString(game: Game) {
     output += col[x].padEnd(2);
   }
 
-  return output;
+  console.log(output);
 }
