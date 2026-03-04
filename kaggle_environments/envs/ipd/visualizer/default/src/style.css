@@ -278,7 +278,7 @@
   transition: opacity 0.5s ease, transform 0.5s ease;
   z-index: 10;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
+  filter: drop-shadow(0 0 8px rgba(32, 190, 255, 0.5));
 }
 
 .ipd-cell[data-phase="winner"] .crown-icon {
@@ -290,7 +290,7 @@
 .ipd-cell[data-phase="winner"] .goose-frame {
   border-color: #20BEFF;
   transform: scale(1.08);
-  box-shadow: 0 0 60px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 60px rgba(32, 190, 255, 0.3);
 }
 
 .ipd-cell[data-phase="winner"] .goose-image {
@@ -304,7 +304,7 @@
 
 .ipd-cell[data-phase="winner"] .action-glow {
   opacity: 0.6;
-  background: radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(32, 190, 255, 0.15) 0%, transparent 70%);
 }
 
 /* Loser: grayscale, muted */
