@@ -1,20 +1,13 @@
-import { useEffect } from 'react';
+import { useMemo } from 'react';
 import useGameStore from '../stores/useGameStore';
 import { GoBoard } from '../components/go-board';
-import { useState } from 'react';
 
 type CellValue = '.' | 'B' | 'W';
 
 export default function StyledBoard() {
   const game = useGameStore((state) => state.game);
 
-  const [size, setSize] = useState(0);
-  const [step, setStep] = useState(0);
-  const [grid, setGrid] = useState<CellValue[][]>([]);
-  const [played, setPlayed] = useState<{row: number, col: number} | null>(null);
-  const [captures, setCaptures] = useState({black: 0, white: 0});
-
-  useEffect(() => {
+  const { size, step, grid, played, captures } = useMemo(() => {
     const state = game.currentState();
     const size = game.boardSize;
     const step = state.moveNumber;
@@ -38,13 +31,9 @@ export default function StyledBoard() {
       white: state.whiteStonesCaptured,
     };
 
-    setSize(size);
-    setStep(step);
-    setGrid(grid);
-    setPlayed(played);
-    setCaptures(captures);
-  }, [game, setSize, setStep, setGrid, setPlayed, setCaptures]);
-  
+    return { size, step, grid, played, captures };
+  }, [game]);
+
   return (
     <div id="board">
       <GoBoard boardSize={size} grid={grid} step={step} lastPlayed={played} captures={captures} />
