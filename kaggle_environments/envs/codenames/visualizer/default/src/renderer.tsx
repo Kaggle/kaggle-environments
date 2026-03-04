@@ -405,7 +405,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   }, [step]);
 
   // Check for game over
-  const isGameOver = currentEnvStep[0].status === "DONE";
+  const isGameOver = currentEnvStep[0].status === 'DONE';
   let winnerText: React.ReactNode = null;
 
   if (isGameOver) {
@@ -435,15 +435,15 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       }
     } else {
       if (state.reward === 1 || currentEnvStep[0].reward === 1) {
-        winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
+        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
       } else if (currentEnvStep[2].reward === 1) {
-        winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
+        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
       } else if (redRemaining === 0) {
-        winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
+        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
       } else if (blueRemaining === 0) {
-        winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
+        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
       } else {
-        winnerText = "GAME OVER";
+        winnerText = 'GAME OVER';
       }
     }
   }
@@ -452,9 +452,7 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     <AppContainer>
       <BoardPane>
         <TopBar>
-          <Title>
-            {isGameOver ? winnerText : "CODENAMES"}
-          </Title>
+          <Title>{isGameOver ? winnerText : 'CODENAMES'}</Title>
           <ScoreBoard>
             <TeamScore team="red">Red: {redRemaining}</TeamScore>
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
@@ -488,8 +486,8 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
       <LogPane>
         <LogHeader>
           {isGameOver
-            ? "Results"
-            : `Mission Log ${state.current_turn === 0 ? "🟥 Spymaster" : state.current_turn === 1 ? "🟥 Guesser" : state.current_turn === 2 ? "🟦 Spymaster" : "🟦 Guesser"}`}
+            ? 'Results'
+            : `Mission Log ${state.current_turn === 0 ? '🟥 Spymaster' : state.current_turn === 1 ? '🟥 Guesser' : state.current_turn === 2 ? '🟦 Spymaster' : '🟦 Guesser'}`}
         </LogHeader>
         <LogContent id="log-content">
           {logEntries.length === 0 ? (
@@ -502,7 +500,16 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             logEntries
           )}
           {isGameOver && (
-            <div style={{ textAlign: "center", marginTop: 20, padding: 20, background: "#333", borderRadius: 8, fontWeight: "bold" }}>
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: 20,
+                padding: 20,
+                background: '#333',
+                borderRadius: 8,
+                fontWeight: 'bold',
+              }}
+            >
               {winnerText}
             </div>
           )}
