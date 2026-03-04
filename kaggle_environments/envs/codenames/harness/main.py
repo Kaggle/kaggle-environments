@@ -7,14 +7,9 @@ litellm.drop_params = True
 litellm.set_verbose = True
 
 class LLMCodenamesAgent:
-    def __init__(self, model_name=None):
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-        except ImportError:
-            pass
-            
-        self.model_name = model_name or os.environ.get("MODEL_NAME", "gemini/gemini-2.5-flash")
+    def __init__(self, model_name=None, litellm_kwargs=None):
+        self.model_name = model_name
+        self.litellm_kwargs = litellm_kwargs or {}
 
     def __call__(self, obs, config):
         turn = obs.current_turn
@@ -46,37 +41,48 @@ class LLMCodenamesAgent:
         prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
         
-        try:
-            print(f"[{team.upper()} SPYMASTER] Calling model {self.model_name}...")
-            response = litellm.completion(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1
-            )
-            print(f"[{team.upper()} SPYMASTER] Received response.")
-            content = response.choices[0].message.content.strip()
-            
-            # Clean possible markdown format
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.endswith("```"):
-                content = content[:-3]
+        messages = [{"role": "user", "content": prompt}]
+        last_error = None
+        for attempt in range(3):
+            try:
+                print(f"[{team.upper()} SPYMASTER] Calling model {self.model_name} (Attempt {attempt+1}/3)...")
+                response = litellm.completion(
+                    model=self.model_name,
+                    messages=messages,
+                    reasoning_effort="high",
+                    **self.litellm_kwargs
+                )
+                print(f"[{team.upper()} SPYMASTER] Received response.")
+                content = response.choices[0].message.content.strip()
                 
-            action = json.loads(content.strip(), strict=False)
-            
-            if "thinking" in action:
-                print(f"Reasoning: {action['thinking']}")
+                # Clean possible markdown format
+                clean_content = content
+                if clean_content.startswith("```json"):
+                    clean_content = clean_content[7:]
+                if clean_content.endswith("```"):
+                    clean_content = clean_content[:-3]
+                    
+                action = json.loads(clean_content.strip(), strict=False)
                 
-            if "clue" not in action or "number" not in action:
-                raise ValueError("JSON missing 'clue' or 'number' keys")
+                if "thinking" in action:
+                    print(f"Reasoning: {action['thinking']}")
+                    
+                if "clue" not in action or "number" not in action:
+                    raise ValueError("JSON missing 'clue' or 'number' keys")
+                    
+                result = {"clue": action["clue"], "number": action["number"]}
+                if "thinking" in action:
+                    result["thinking"] = action["thinking"]
+                return result
+            except Exception as e:
+                last_error = e
+                print(f"[{team.upper()} SPYMASTER] Parse failed on attempt {attempt+1}: {e}")
+                err_msg = f"Your previous response failed to parse or was invalid. Error: {e}.\nRaw response:\n{content if 'content' in locals() else 'None'}\nPlease correct your response and format it as valid JSON strictly adhering to the original instructions."
+                messages.append({"role": "assistant", "content": content if 'content' in locals() else ""})
+                messages.append({"role": "user", "content": err_msg})
                 
-            result = {"clue": action["clue"], "number": action["number"]}
-            if "thinking" in action:
-                result["thinking"] = action["thinking"]
-            return result
-        except Exception as e:
-            # We must fail loudly per the harness rules
-            raise ValueError(f"Failed to parse Spymaster response from model. Error: {e}. Raw response: {content if 'content' in locals() else 'None'}")
+        # We must fail loudly per the harness rules if it fails after retries
+        raise ValueError(f"Failed to parse Spymaster response from model after retries. Last Error: {last_error}. Raw response: {content if 'content' in locals() else 'None'}")
 
     def guesser_turn(self, obs, config):
         words = obs.words
@@ -101,38 +107,81 @@ class LLMCodenamesAgent:
         prompt += '{"thinking": "The clue is ANIMAL. Cat is at index 4, so I will guess 4...", "guess": 4}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
         
-        try:
-            print(f"[{team.upper()} GUESSER] Calling model {self.model_name}...")
-            response = litellm.completion(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1
-            )
-            print(f"[{team.upper()} GUESSER] Received response.")
-            content = response.choices[0].message.content.strip()
-            
-            # Clean possible markdown format
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.endswith("```"):
-                content = content[:-3]
+        messages = [{"role": "user", "content": prompt}]
+        last_error = None
+        for attempt in range(3):
+            try:
+                print(f"[{team.upper()} GUESSER] Calling model {self.model_name} (Attempt {attempt+1}/3)...")
+                response = litellm.completion(
+                    model=self.model_name,
+                    messages=messages,
+                    reasoning_effort="high",
+                    **self.litellm_kwargs
+                )
+                print(f"[{team.upper()} GUESSER] Received response.")
+                content = response.choices[0].message.content.strip()
                 
-            action = json.loads(content.strip(), strict=False)
-            
-            if "thinking" in action:
-                print(f"Reasoning: {action['thinking']}")
+                # Clean possible markdown format
+                clean_content = content
+                if clean_content.startswith("```json"):
+                    clean_content = clean_content[7:]
+                if clean_content.endswith("```"):
+                    clean_content = clean_content[:-3]
+                    
+                action = json.loads(clean_content.strip(), strict=False)
                 
-            if "guess" not in action:
-                raise ValueError("JSON missing 'guess' key")
+                if "thinking" in action:
+                    print(f"Reasoning: {action['thinking']}")
+                    
+                if "guess" not in action:
+                    raise ValueError("JSON missing 'guess' key")
+                    
+                result = {"guess": int(action["guess"])}
+                if "thinking" in action:
+                    result["thinking"] = action["thinking"]
+                return result
+            except Exception as e:
+                last_error = e
+                print(f"[{team.upper()} GUESSER] Parse failed on attempt {attempt+1}: {e}")
+                err_msg = f"Your previous response failed to parse or was invalid. Error: {e}.\nRaw response:\n{content if 'content' in locals() else 'None'}\nPlease correct your response and format it as valid JSON strictly adhering to the original instructions."
+                messages.append({"role": "assistant", "content": content if 'content' in locals() else ""})
+                messages.append({"role": "user", "content": err_msg})
                 
-            result = {"guess": int(action["guess"])}
-            if "thinking" in action:
-                result["thinking"] = action["thinking"]
-            return result
-        except Exception as e:
-            raise ValueError(f"Failed to parse Guesser response as JSON/integer. Error: {e}. Raw response: {content if 'content' in locals() else 'None'}")
+        raise ValueError(f"Failed to parse Guesser response as JSON/integer after retries. Last Error: {last_error}. Raw response: {content if 'content' in locals() else 'None'}")
 
-agent = LLMCodenamesAgent()
+_AGENT_OBJECT = None
+_SETUP_COMPLETE = False
 
 def agent_fn(obs, config):
-    return agent(obs, config)
+    global _AGENT_OBJECT, _SETUP_COMPLETE
+    
+    if not _SETUP_COMPLETE:
+        if "MODEL_NAME" not in os.environ:
+            raise ValueError("MODEL_NAME was not specified as an environment variable. Agent cannot be configured.")
+            
+        if "MODEL_PROXY_KEY" not in os.environ:
+            raise ValueError(
+                "MODEL_PROXY_KEY was not specified as an environment variable. Model proxy cannot function correctly."
+            )
+            
+        if "MODEL_PROXY_URL" not in os.environ:
+            raise ValueError("MODEL_PROXY_URL was not injected. Agent cannot run.")
+            
+        litellm_kwargs = {}
+        if os.environ["MODEL_PROXY_URL"] != "dummy_url":
+            litellm_kwargs = {
+                "api_base": f"{os.environ['MODEL_PROXY_URL']}/openapi",
+                "api_key": os.environ["MODEL_PROXY_KEY"],
+            }
+            
+        model_name = os.environ["MODEL_NAME"]
+        if not "/" in model_name:
+            if "gemini" in model_name.lower():
+                model_name = f"gemini/{model_name}"
+            else:
+                model_name = f"openai/{model_name}"
+            
+        _AGENT_OBJECT = LLMCodenamesAgent(model_name=model_name, litellm_kwargs=litellm_kwargs)
+        _SETUP_COMPLETE = True
+
+    return _AGENT_OBJECT(obs, config)
