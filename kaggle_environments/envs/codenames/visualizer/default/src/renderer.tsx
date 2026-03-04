@@ -409,16 +409,42 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
   let winnerText: React.ReactNode = null;
 
   if (isGameOver) {
-    if (state.reward === 1 || currentEnvStep[0].reward === 1) {
-      winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
-    } else if (currentEnvStep[2].reward === 1) {
-      winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
-    } else if (redRemaining === 0) {
-      winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
-    } else if (blueRemaining === 0) {
-      winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
+    // Check if the game ended due to the assassin being picked
+    const assassinIndex = state.roles.findIndex((role) => role === 'assassin');
+    const assassinRevealed = assassinIndex !== -1 && state.revealed[assassinIndex];
+
+    if (assassinRevealed) {
+      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+        winnerText = (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+            <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>
+            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+              (Blue team picked the Assassin)
+            </span>
+          </div>
+        );
+      } else if (currentEnvStep[2].reward === 1) {
+        winnerText = (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+            <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>
+            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+              (Red team picked the Assassin)
+            </span>
+          </div>
+        );
+      }
     } else {
-      winnerText = "GAME OVER";
+      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+        winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
+      } else if (currentEnvStep[2].reward === 1) {
+        winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
+      } else if (redRemaining === 0) {
+        winnerText = <span style={{ color: "#f44336" }}>🟥 RED TEAM WINS! 🟥</span>;
+      } else if (blueRemaining === 0) {
+        winnerText = <span style={{ color: "#2196f3" }}>🟦 BLUE TEAM WINS! 🟦</span>;
+      } else {
+        winnerText = "GAME OVER";
+      }
     }
   }
 
