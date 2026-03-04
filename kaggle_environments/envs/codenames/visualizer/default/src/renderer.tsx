@@ -284,6 +284,7 @@ interface GameState {
   current_turn: number;
   clue?: string;
   guesses_remaining?: number;
+  reward?: number;
 }
 
 export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererProps) => {
@@ -403,11 +404,55 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
     }
   }, [step]);
 
+  // Check for game over
+  const isGameOver = currentEnvStep[0].status === 'DONE';
+  let winnerText: React.ReactNode = null;
+
+  if (isGameOver) {
+    // Check if the game ended due to the assassin being picked
+    const assassinIndex = state.roles.findIndex((role) => role === 'assassin');
+    const assassinRevealed = assassinIndex !== -1 && state.revealed[assassinIndex];
+
+    if (assassinRevealed) {
+      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+        winnerText = (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+            <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>
+            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+              (Blue team picked the Assassin)
+            </span>
+          </div>
+        );
+      } else if (currentEnvStep[2].reward === 1) {
+        winnerText = (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+            <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>
+            <span style={{ fontSize: '14px', color: '#aaaaaa', marginTop: '4px', fontWeight: 'normal' }}>
+              (Red team picked the Assassin)
+            </span>
+          </div>
+        );
+      }
+    } else {
+      if (state.reward === 1 || currentEnvStep[0].reward === 1) {
+        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
+      } else if (currentEnvStep[2].reward === 1) {
+        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
+      } else if (redRemaining === 0) {
+        winnerText = <span style={{ color: '#f44336' }}>🟥 RED TEAM WINS! 🟥</span>;
+      } else if (blueRemaining === 0) {
+        winnerText = <span style={{ color: '#2196f3' }}>🟦 BLUE TEAM WINS! 🟦</span>;
+      } else {
+        winnerText = 'GAME OVER';
+      }
+    }
+  }
+
   return (
     <AppContainer>
       <BoardPane>
         <TopBar>
-          <Title>CODENAMES</Title>
+          <Title>{isGameOver ? winnerText : 'CODENAMES'}</Title>
           <ScoreBoard>
             <TeamScore team="red">Red: {redRemaining}</TeamScore>
             <TeamScore team="blue">Blue: {blueRemaining}</TeamScore>
@@ -423,13 +468,13 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
               key={index}
               role={state.roles[index]}
               revealed={state.revealed[index]}
-              spymasterView={spymasterView}
+              spymasterView={spymasterView || isGameOver}
             >
-              <CardInner revealed={state.revealed[index]}>
-                <CardFront role={state.roles[index]} spymasterView={spymasterView}>
+              <CardInner revealed={state.revealed[index] || isGameOver}>
+                <CardFront role={state.roles[index]} spymasterView={spymasterView || isGameOver}>
                   {word}
                 </CardFront>
-                <CardBack role={state.roles[index]} revealed={true} spymasterView={spymasterView}>
+                <CardBack role={state.roles[index]} revealed={true} spymasterView={spymasterView || isGameOver}>
                   {word}
                 </CardBack>
               </CardInner>
@@ -440,14 +485,9 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
 
       <LogPane>
         <LogHeader>
-          Mission Log{' '}
-          {state.current_turn === 0
-            ? '🟥 Spymaster'
-            : state.current_turn === 1
-              ? '🟥 Guesser'
-              : state.current_turn === 2
-                ? '🟦 Spymaster'
-                : '🟦 Guesser'}
+          {isGameOver
+            ? 'Results'
+            : `Mission Log ${state.current_turn === 0 ? '🟥 Spymaster' : state.current_turn === 1 ? '🟥 Guesser' : state.current_turn === 2 ? '🟦 Spymaster' : '🟦 Guesser'}`}
         </LogHeader>
         <LogContent id="log-content">
           {logEntries.length === 0 ? (
@@ -458,6 +498,20 @@ export const GameRenderer: React.FC<GameRendererProps> = (options: GameRendererP
             </div>
           ) : (
             logEntries
+          )}
+          {isGameOver && (
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: 20,
+                padding: 20,
+                background: '#333',
+                borderRadius: 8,
+                fontWeight: 'bold',
+              }}
+            >
+              {winnerText}
+            </div>
           )}
         </LogContent>
       </LogPane>

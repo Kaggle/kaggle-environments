@@ -73,6 +73,7 @@ class LLMCodenamesAgent:
                 result = {"clue": action["clue"], "number": action["number"]}
                 if "thinking" in action:
                     result["thinking"] = action["thinking"]
+                result["prompt"] = prompt
                 return result
             except Exception as e:
                 last_error = e
@@ -139,6 +140,7 @@ class LLMCodenamesAgent:
                 result = {"guess": int(action["guess"])}
                 if "thinking" in action:
                     result["thinking"] = action["thinking"]
+                result["prompt"] = prompt
                 return result
             except Exception as e:
                 last_error = e
