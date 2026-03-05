@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { Sprite, type Container, type Spritesheet } from 'pixi.js';
+import type { GridPos } from '../types/game.ts';
 import { getCellSize } from './constants.ts';
 import { posKey, type StoneMap } from './stone-map.ts';
 
@@ -37,11 +38,7 @@ export class Marker {
     this.sprite.rotation = 0;
   }
 
-  update(
-    lastPlayed: { row: number; col: number } | null,
-    stoneMap: StoneMap,
-    isSingleStep: boolean
-  ): gsap.core.Animation[] {
+  update(lastPlayed: GridPos | null, stoneMap: StoneMap, isSingleStep: boolean): gsap.core.Animation[] {
     const anims: gsap.core.Animation[] = [];
     const { sprite, sheet, stoneLayer, restScaleX, restScaleY } = this;
 
