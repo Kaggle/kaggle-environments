@@ -1,5 +1,5 @@
 import { Sprite, type Spritesheet } from 'pixi.js';
-import type { CellValue } from './middleman.ts';
+import type { CellValue } from '../types/game.ts';
 import { getCellSize, gridToPixel } from './constants.ts';
 
 export interface RestState {
