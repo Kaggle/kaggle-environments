@@ -1,5 +1,5 @@
 {
-  "name": "@kaggle-environments/ipd-visualizer",
+  "name": "@kaggle-environments/open-spiel-repeated-game-ipd-visualizer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
