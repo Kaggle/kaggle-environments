@@ -52,6 +52,10 @@
     "guesses_remaining": {
       "description": "The number of guesses the Guesser has left based on the Spymaster's clue.",
       "type": "integer"
+    },
+    "clue_number": {
+      "description": "The original number associated with the Spymaster's clue.",
+      "type": "integer"
     }
   },
   "action": {

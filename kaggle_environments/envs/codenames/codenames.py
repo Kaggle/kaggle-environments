@@ -40,6 +40,7 @@ def initialize_game(state, config):
         agent_state.observation.current_turn = 0 if starting_team == "red" else 2
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
+        agent_state.observation.clue_number = 0
 
 def update_visibility(state):
     # Mask roles for guessers (agents 1 and 3)
@@ -87,6 +88,7 @@ def process_action(state, config):
         for s in state:
             s.observation.clue = str(action["clue"])
             s.observation.guesses_remaining = int(action["number"]) + 1
+            s.observation.clue_number = int(action["number"])
             s.observation.current_turn = 1 if current_turn == 0 else 3
             
         # Set agent statuses
@@ -105,6 +107,11 @@ def process_action(state, config):
             
         # Pass
         if guess_val == -1:
+            if state[0].observation.guesses_remaining == state[0].observation.clue_number + 1:
+                active_agent.status = "INVALID"
+                end_game(winner="blue" if current_turn == 1 else "red")
+                return
+                
             for s in state:
                 s.observation.clue = ""
                 s.observation.guesses_remaining = 0
