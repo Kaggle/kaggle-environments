@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { Container, Sprite, type Spritesheet } from 'pixi.js';
-import type { Captures } from './middleman.ts';
+import type { Captures } from '../types/game.ts';
 import {
   BOARD_PX,
   POT_AREA_HEIGHT,

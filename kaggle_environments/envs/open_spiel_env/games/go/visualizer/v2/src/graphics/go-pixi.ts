@@ -1,5 +1,5 @@
 import { Application, Assets, Container, Spritesheet } from 'pixi.js';
-import type { CellValue, Captures } from './middleman.ts';
+import type { CellValue, Captures } from '../types/game.ts';
 import { BOARD_PX, POT_AREA_HEIGHT, getNeighbors } from './constants.ts';
 import { drawBoard } from './draw-board.ts';
 import { diffGrids } from './diff-grid.ts';
@@ -7,8 +7,8 @@ import { createStonePair, posKey, resetPair, type StoneMap } from './stone-map.t
 import { animateCapture, animateNeighborShockwave, animateStoneDrop } from './animate-stones.ts';
 import { Marker } from './marker.ts';
 import { Pots } from './pots.ts';
-import spritesData from '../../graphics/sprites/sprites.json';
-import spritesPng from '../../graphics/sprites/sprites.png';
+import spritesData from './sprites/sprites.json';
+import spritesPng from './sprites/sprites.png';
 
 export interface GoPixiProps {
   grid: CellValue[][];
