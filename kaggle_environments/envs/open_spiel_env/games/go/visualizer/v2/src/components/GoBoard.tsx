@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { CellValue, Captures, GridPos } from '../types/game.ts';
+import type { CellValue, Captures, GridPos, Territory } from '../types/game.ts';
 import { BOARD_PX, POT_AREA_HEIGHT } from '../graphics/constants.ts';
 import { GoPixi } from '../graphics/go-pixi.ts';
 
@@ -10,9 +10,10 @@ interface Props {
   lastPlayed: GridPos | null;
   captures: Captures;
   atari: GridPos[];
+  territory: Territory;
 }
 
-export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari }: Props) {
+export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, territory }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<GoPixi | null>(null);
 
@@ -29,8 +30,8 @@ export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari }: 
 
   // Forward props
   useEffect(() => {
-    pixiRef.current?.update({ grid, step, lastPlayed, captures, atari });
-  }, [grid, step, lastPlayed, captures, atari]);
+    pixiRef.current?.update({ grid, step, lastPlayed, captures, atari, territory });
+  }, [grid, step, lastPlayed, captures, atari, territory]);
 
   return <div ref={containerRef} style={{ width: BOARD_PX, height: BOARD_PX + POT_AREA_HEIGHT }} />;
 }
