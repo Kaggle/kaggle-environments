@@ -1,3 +1,5 @@
+import type { GridPos } from '../types/game.ts';
+
 export const BOARD_PX = 512;
 export const BOARD_PADDING = 28;
 
@@ -41,8 +43,8 @@ const NEIGHBOR_DELTAS = [
 ] as const;
 
 /** Return orthogonal neighbors within board bounds */
-export function getNeighbors(row: number, col: number, boardSize: number): { row: number; col: number }[] {
-  const neighbors: { row: number; col: number }[] = [];
+export function getNeighbors(row: number, col: number, boardSize: number): GridPos[] {
+  const neighbors: GridPos[] = [];
   for (const [dr, dc] of NEIGHBOR_DELTAS) {
     const r = row + dr;
     const c = col + dc;

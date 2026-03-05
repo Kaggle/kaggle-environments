@@ -30,6 +30,11 @@ const POT_POOF_DURATION = 0.35;
 const POT_POOF_MAX_SCALE = 0.2;
 const POT_POOF_STAGGER = 0.02;
 
+// Atari shiver animation
+const ATARI_SHIVER_OFFSET = 0.6;
+const ATARI_SHIVER_DURATION = 0.06;
+const ATARI_SHIVER_STAGGER_MAX = 0.3;
+
 // Shockwave animation
 const SHOCKWAVE_PUSH_DISTANCE = 4;
 const SHOCKWAVE_PUSH_DURATION = 0.12;
@@ -327,6 +332,32 @@ export function animatePotPoof(x: number, y: number, sheet: Spritesheet, contain
       p.destroy();
     }
   });
+
+  return tl;
+}
+
+export function animateAtariWobble(pair: StonePair): gsap.core.Timeline {
+  const tl = gsap.timeline({
+    repeat: -1,
+    yoyo: true,
+    delay: Math.random() * ATARI_SHIVER_STAGGER_MAX,
+  });
+
+  const { x: sx, y: sy } = pair.stoneRest;
+  const { x: shx, y: shy } = pair.shadowRest;
+
+  // Rapid, tight positional jitter — trembling rather than swaying
+  tl.fromTo(
+    pair.stone,
+    { x: sx - ATARI_SHIVER_OFFSET, y: sy - ATARI_SHIVER_OFFSET * 0.5 },
+    { x: sx + ATARI_SHIVER_OFFSET, y: sy + ATARI_SHIVER_OFFSET * 0.5, duration: ATARI_SHIVER_DURATION, ease: 'none' }
+  );
+  tl.fromTo(
+    pair.shadow,
+    { x: shx - ATARI_SHIVER_OFFSET, y: shy - ATARI_SHIVER_OFFSET * 0.5 },
+    { x: shx + ATARI_SHIVER_OFFSET, y: shy + ATARI_SHIVER_OFFSET * 0.5, duration: ATARI_SHIVER_DURATION, ease: 'none' },
+    0
+  );
 
   return tl;
 }
