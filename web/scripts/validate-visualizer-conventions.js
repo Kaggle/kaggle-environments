@@ -61,6 +61,27 @@ function isEnvVisualizerPath(pkgPath) {
 // Validation rules
 // ---------------------------------------------------------------------------
 
+// Allowlist of known standalone (non-OpenSpiel) game directories under envs/.
+// If you are adding a NEW game visualizer, consider whether it belongs here or
+// under envs/open_spiel_env/games/<game>/visualizer/ instead.
+// Only add to this list if the game has its own Python environment (not OpenSpiel).
+const KNOWN_STANDALONE_GAME_DIRS = new Set([
+  'cabt',
+  'chess',
+  'codenames',
+  'connectx',
+  'halite',
+  'hungry_geese',
+  'kore_fleets',
+  'llm_20_questions',
+  'lux_ai_2021',
+  'lux_ai_s2',
+  'lux_ai_s3',
+  'mab',
+  'rps',
+  'werewolf',
+]);
+
 const errors = [];
 
 function fail(pkg, message) {
@@ -133,6 +154,39 @@ function ruleOpenSpielGameDirMatchesRegistration(pkg, registeredShortNames) {
       `Game directory "${gameDir}" does not match any registered OpenSpiel game short_name. ` +
         `Registered games: [${[...registeredShortNames].sort().join(', ')}]. ` +
         `The directory name must match the OpenSpiel game's short_name.`
+    );
+  }
+}
+
+/**
+ * Rule 5: Standalone game directories (under envs/<game>/) must be in the
+ *         KNOWN_STANDALONE_GAME_DIRS allowlist. This prevents accidentally
+ *         placing an OpenSpiel game visualizer outside of open_spiel_env/games/.
+ *
+ *         If you are adding a genuinely new standalone game, add its directory
+ *         name to the allowlist above. If this is an OpenSpiel game, move it
+ *         to kaggle_environments/envs/open_spiel_env/games/<game>/visualizer/.
+ */
+function ruleStandaloneGameDirAllowlist(pkg) {
+  if (isOpenSpielPath(pkg.path) || !isEnvVisualizerPath(pkg.path)) return;
+
+  // Extract the game directory: envs/<game_dir>/visualizer/<variant>/
+  const rel = path.relative(ROOT_DIR, pkg.path);
+  const parts = rel.split(path.sep);
+  const envsIdx = parts.indexOf('envs');
+  if (envsIdx === -1 || envsIdx + 1 >= parts.length) return;
+  const gameDir = parts[envsIdx + 1];
+
+  if (gameDir === 'open_spiel_env') return; // Handled by other rules
+
+  if (!KNOWN_STANDALONE_GAME_DIRS.has(gameDir)) {
+    fail(
+      pkg,
+      `Game directory "${gameDir}" is not in the standalone game allowlist. ` +
+        `If this is a new standalone (non-OpenSpiel) game, add "${gameDir}" to ` +
+        `KNOWN_STANDALONE_GAME_DIRS in validate-visualizer-conventions.js. ` +
+        `If this is an OpenSpiel game, move it to ` +
+        `kaggle_environments/envs/open_spiel_env/games/<game>/visualizer/ instead.`
     );
   }
 }
@@ -213,6 +267,7 @@ function main() {
     ruleVisualizerSuffix(pkg);
     ruleOpenSpielPrefix(pkg);
     ruleNonOpenSpielNoPrefix(pkg);
+    ruleStandaloneGameDirAllowlist(pkg);
     if (registeredShortNames) {
       ruleOpenSpielGameDirMatchesRegistration(pkg, registeredShortNames);
     }
