@@ -22,15 +22,14 @@ export function tenukiLogger(game: Game) {
     nl: '\n',
   };
 
-  const col = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j'];
-  const row = ['9', '8', '7', '6', '5', '4', '3', '2', '1'];
+  const col = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'];
 
   let output = '';
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       if (x === 0) {
-        output += `${row[y]} `.padStart(2);
+        output += `${size - y} `.padStart(3);
       }
 
       const color = state.intersectionAt(y, x).value!;
@@ -59,7 +58,7 @@ export function tenukiLogger(game: Game) {
     output += chars.nl;
   }
 
-  output += '  ';
+  output += '   ';
   for (let x = 0; x < size; x++) {
     output += col[x].padEnd(2);
   }
