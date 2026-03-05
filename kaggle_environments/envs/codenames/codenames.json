@@ -15,12 +15,12 @@
     "red_words": {
       "type": "integer",
       "default": 9,
-      "description": "Number of cards assigned to the red team."
+      "description": "Number of cards assigned to the starting team."
     },
     "blue_words": {
       "type": "integer",
       "default": 8,
-      "description": "Number of cards assigned to the blue team."
+      "description": "Number of cards assigned to the second team."
     },
     "actTimeout": {
       "type": "number",

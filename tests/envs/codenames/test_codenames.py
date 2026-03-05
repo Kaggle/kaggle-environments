@@ -26,3 +26,21 @@ def test_codenames_completes():
     
 if __name__ == "__main__":
     test_codenames_completes()
+
+def test_random_start_counts():
+    env = make("codenames")
+    roles = env.state[0].observation.roles
+    red_count = sum(1 for r in roles if r == "red")
+    blue_count = sum(1 for r in roles if r == "blue")
+    
+    # One team must have 9, the other must have 8
+    assert (red_count == 9 and blue_count == 8) or (red_count == 8 and blue_count == 9)
+    
+    # The starting team is determined by who has 9 words
+    turn = env.state[0].observation.current_turn
+    if red_count == 9:
+        assert turn == 0
+    else:
+        assert turn == 2
+
+test_random_start_counts()

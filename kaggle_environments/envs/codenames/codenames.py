@@ -15,8 +15,19 @@ def initialize_game(state, config):
         
     sampled_words = random.sample(all_words, board_size)
     
+    # Determine playing order and word counts
+    starting_team = random.choice(["red", "blue"])
+    if starting_team == "red":
+        red_count = red_words
+        blue_count = blue_words
+    else:
+        # Swap so blue gets the extra word (assuming defaults 9 and 8)
+        # We assume red_words represents the starting team's word count
+        red_count = blue_words
+        blue_count = red_words
+    
     # Assign roles
-    roles = ["red"] * red_words + ["blue"] * blue_words + ["assassin"] * 1
+    roles = ["red"] * red_count + ["blue"] * blue_count + ["assassin"] * 1
     roles += ["neutral"] * (board_size - len(roles))
     random.shuffle(roles)
     
@@ -26,7 +37,7 @@ def initialize_game(state, config):
         agent_state.observation.words = sampled_words
         agent_state.observation.roles = roles[:]
         agent_state.observation.revealed = revealed[:]
-        agent_state.observation.current_turn = 0
+        agent_state.observation.current_turn = 0 if starting_team == "red" else 2
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
 
