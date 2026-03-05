@@ -7,6 +7,7 @@ import Meter from '../components/Meter';
 import Openings from '../components/Openings';
 import GameOver from '../components/GameOver';
 import useGameStore from '../stores/useGameStore';
+import Hero from './Hero';
 
 export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
   const setState = useGameStore((state) => state.setState);
@@ -38,6 +39,7 @@ export default function GameRenderer(options: GameRendererProps<ChessStep[]>) {
       <Legend />
       <Openings />
       <GameOver />
+      <Hero />
     </div>
   );
 }

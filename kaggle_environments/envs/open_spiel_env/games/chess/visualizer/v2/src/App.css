@@ -57,3 +57,12 @@ meter::-webkit-meter-optimum-value {
 meter::-moz-meter-bar {
   background: #f0ede7;
 }
+
+#hero {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  width: 480px;
+  height: 600px;
+  background-color: #f0ede7;
+}

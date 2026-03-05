@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@kaggle-environments/core": "workspace:*",
+    "@rive-app/react-canvas": "^4.27.0",
+    "@rive-app/webgl2": "^2.35.0",
     "chess.js": "^1.4.0",
     "react": "^18.2.0",
     "react-chessboard": "^4.0.0",
