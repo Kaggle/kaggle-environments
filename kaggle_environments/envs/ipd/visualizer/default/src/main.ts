@@ -12,7 +12,7 @@ if (app) {
     new ReplayAdapter({
       gameName: 'ipd',
       renderer: renderer,
-      ui: 'inline',
+      ui: 'side-panel',
     })
   );
 }
