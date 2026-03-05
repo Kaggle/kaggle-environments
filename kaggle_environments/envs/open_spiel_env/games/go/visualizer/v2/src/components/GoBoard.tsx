@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import type { CellValue, Captures } from './middleman.ts';
-import { BOARD_PX, POT_AREA_HEIGHT } from './constants.ts';
-import { GoPixi } from './go-pixi.ts';
+import type { CellValue, Captures } from '../types/game.ts';
+import { BOARD_PX, POT_AREA_HEIGHT } from '../graphics/constants.ts';
+import { GoPixi } from '../graphics/go-pixi.ts';
 
 interface Props {
   boardSize: number;

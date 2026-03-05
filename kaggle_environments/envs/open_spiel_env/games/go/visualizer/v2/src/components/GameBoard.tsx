@@ -1,9 +1,8 @@
 import { memo } from 'react';
-import { GoBoard } from '../components/go-board';
+import { CellValue } from '../types/game.ts';
+import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
 import { tenukiLogger } from '../utils/tenukiLogger';
-
-type CellValue = '.' | 'B' | 'W';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
