@@ -1,10 +1,10 @@
 import { Application, Assets, Container, Spritesheet } from 'pixi.js';
-import type { CellValue, Captures } from '../types/game.ts';
+import type { CellValue, Captures, GridPos } from '../types/game.ts';
 import { BOARD_PX, POT_AREA_HEIGHT, getNeighbors } from './constants.ts';
 import { drawBoard } from './draw-board.ts';
 import { diffGrids } from './diff-grid.ts';
 import { createStonePair, posKey, resetPair, type StoneMap } from './stone-map.ts';
-import { animateCapture, animateNeighborShockwave, animateStoneDrop } from './animate-stones.ts';
+import { animateAtariWobble, animateCapture, animateNeighborShockwave, animateStoneDrop } from './animate-stones.ts';
 import { Marker } from './marker.ts';
 import { Pots } from './pots.ts';
 import spritesData from './sprites/sprites.json';
@@ -13,8 +13,9 @@ import spritesPng from './sprites/sprites.png';
 export interface GoPixiProps {
   grid: CellValue[][];
   step: number;
-  lastPlayed: { row: number; col: number } | null;
+  lastPlayed: GridPos | null;
   captures: Captures;
+  atari: GridPos[];
 }
 
 export class GoPixi {
@@ -104,7 +105,7 @@ export class GoPixi {
       return;
     }
 
-    const { grid, step, lastPlayed, captures } = props;
+    const { grid, step, lastPlayed, captures, atari } = props;
     const sheet = this.sheet!;
     const layers = this.layers!;
     const { boardSize } = this;
@@ -169,6 +170,14 @@ export class GoPixi {
 
     // Update prisoner sprites in pots
     this.activeAnims.push(...this.pots!.update(captures, isSingleStep));
+
+    // Wobble stones in atari
+    for (const { row, col } of atari) {
+      const pair = this.stoneMap.get(posKey(row, col));
+      if (pair) {
+        this.activeAnims.push(animateAtariWobble(pair));
+      }
+    }
 
     // Store for next diff
     this.prevGrid = grid;
