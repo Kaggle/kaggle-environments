@@ -86,9 +86,10 @@ def process_action(state, config):
             
         # Update state
         for s in state:
+            clue_num = int(action["number"])
             s.observation.clue = str(action["clue"])
-            s.observation.guesses_remaining = int(action["number"]) + 1
-            s.observation.clue_number = int(action["number"])
+            s.observation.clue_number = clue_num
+            s.observation.guesses_remaining = 25 if clue_num <= 0 else clue_num + 1
             s.observation.current_turn = 1 if current_turn == 0 else 3
             
         # Set agent statuses
@@ -107,7 +108,9 @@ def process_action(state, config):
             
         # Pass
         if guess_val == -1:
-            if state[0].observation.guesses_remaining == state[0].observation.clue_number + 1:
+            clue_num = state[0].observation.clue_number
+            expected_remaining = 25 if clue_num <= 0 else clue_num + 1
+            if state[0].observation.guesses_remaining == expected_remaining:
                 active_agent.status = "INVALID"
                 end_game(winner="blue" if current_turn == 1 else "red")
                 return
