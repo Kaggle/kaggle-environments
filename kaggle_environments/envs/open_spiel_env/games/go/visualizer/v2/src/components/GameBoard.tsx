@@ -41,15 +41,13 @@ export default memo(function GameBoard() {
     white: scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
   };
 
-  // @ts-expect-error no unused vars
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _atari = state.intersections
-    .filter((intersection) => state.inAtari(intersection.y, intersection.x) && state.nextColor() === intersection.value)
+  const atari = state.intersections
+    .filter((intersection) => state.inAtari(intersection.y, intersection.x))
     .map((intersection) => ({ row: intersection.y, col: intersection.x }));
 
   return (
     <div id="board">
-      <GoBoard boardSize={size} grid={grid} step={step} lastPlayed={played} captures={captures} />
+      <GoBoard boardSize={size} grid={grid} step={step} lastPlayed={played} captures={captures} atari={atari} />
     </div>
   );
 });

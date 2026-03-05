@@ -1,8 +1,8 @@
-import type { CellValue } from '../types/game.ts';
+import type { CellValue, GridPos } from '../types/game.ts';
 
 export interface GridDiff {
-  added: { row: number; col: number; value: 'B' | 'W' }[];
-  removed: { row: number; col: number }[];
+  added: (GridPos & { value: 'B' | 'W' })[];
+  removed: GridPos[];
 }
 
 export function diffGrids(prev: CellValue[][] | null, next: CellValue[][]): GridDiff {
