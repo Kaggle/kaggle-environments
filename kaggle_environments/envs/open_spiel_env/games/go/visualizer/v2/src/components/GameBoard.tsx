@@ -33,10 +33,9 @@ export default memo(function GameBoard() {
   };
 
   const scorer = game._scorer.territory(game);
-
   const territory = {
-    black: scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
-    white: scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+    black: step === 1 ? [] : scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+    white: step === 1 ? [] : scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
   };
 
   const atari = state.intersections
