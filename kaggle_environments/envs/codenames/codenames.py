@@ -63,7 +63,8 @@ def process_action(state, config):
     # helper to end game
     def end_game(winner=None):
         for i in range(4):
-            state[i].status = "DONE"
+            if state[i].status != "INVALID":
+                state[i].status = "DONE"
             if winner == "red":
                 state[i].reward = 1 if i in [0, 1] else -1
             elif winner == "blue":
@@ -84,7 +85,48 @@ def process_action(state, config):
             end_game(winner="blue" if current_turn == 0 else "red")
             return
             
-        # Update state
+        # Clue validation
+        normalized_clue = str(action["clue"]).strip().upper()
+        words = state[0].observation.words
+        revealed = state[0].observation.revealed
+        roles = state[0].observation.roles
+        opponent_team = "blue" if current_turn == 0 else "red"
+        
+        is_invalid_clue = False
+        for i in range(25):
+            if not revealed[i]:
+                unrevealed_word = words[i].upper()
+                if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
+                    is_invalid_clue = True
+                    break
+                    
+        if is_invalid_clue:
+            # Penalty: Reveal a random opponent word and pass turn
+            opponent_unrevealed = [i for i in range(25) if not revealed[i] and roles[i] == opponent_team]
+            if opponent_unrevealed:
+                to_reveal = random.choice(opponent_unrevealed)
+                for s in state:
+                    s.observation.revealed[to_reveal] = True
+            
+            for s in state:
+                s.observation.clue = ""
+                s.observation.guesses_remaining = 0
+                s.observation.current_turn = 2 if current_turn == 0 else 0
+                
+            # Check if penalty won the game for opponent
+            red_left = sum(1 for i in range(25) if roles[i] == "red" and not state[0].observation.revealed[i])
+            blue_left = sum(1 for i in range(25) if roles[i] == "blue" and not state[0].observation.revealed[i])
+            
+            if red_left == 0:
+                end_game(winner="red")
+            elif blue_left == 0:
+                end_game(winner="blue")
+            else:
+                for i in range(4):
+                    state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
+            return
+            
+        # Update state normally
         for s in state:
             clue_num = int(action["number"])
             s.observation.clue = str(action["clue"])
