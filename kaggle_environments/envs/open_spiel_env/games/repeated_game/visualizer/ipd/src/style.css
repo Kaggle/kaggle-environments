@@ -1,0 +1,588 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cinzel:wght@400;700&family=JetBrains+Mono:wght@400;500;700;900&display=swap');
+
+/* ── Reset & Base ──────────────────────────────── */
+.ipd-root {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+.ipd-root *,
+.ipd-root *::before,
+.ipd-root *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Main Layout ───────────────────────────────── */
+.ipd-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 70%),
+    #000;
+}
+
+/* ── Header ────────────────────────────────────── */
+.ipd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 32px;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.ipd-title {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 400;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.ipd-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  margin-top: 8px;
+}
+
+.ipd-subtitle svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+
+/* ── Phase Counter ─────────────────────────────── */
+.ipd-phase {
+  text-align: right;
+}
+
+.ipd-phase-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.2);
+  margin-bottom: 4px;
+}
+
+.ipd-phase-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(24px, 3.5vw, 36px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ipd-phase-total {
+  color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Interrogation Cells Grid ──────────────────── */
+.ipd-cells {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.ipd-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  gap: 24px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: inset 0 0 150px rgba(0, 0, 0, 1);
+}
+
+/* ── Prison Bars Overlay ───────────────────────── */
+.bars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 45px,
+    rgba(255, 255, 255, 0.15) 45px,
+    rgba(255, 255, 255, 0.15) 48px
+  );
+}
+
+/* ── Spotlight ─────────────────────────────────── */
+.ipd-spotlight {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1000px;
+  height: 800px;
+  opacity: 0.4;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Suspect Label ─────────────────────────────── */
+.suspect-label {
+  position: absolute;
+  top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 5;
+}
+
+.suspect-label-left {
+  left: 24px;
+}
+
+.suspect-label-right {
+  right: 24px;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.suspect-label-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.2;
+}
+
+.suspect-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.suspect-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Goose Frame ───────────────────────────────── */
+.goose-frame {
+  position: relative;
+  width: clamp(140px, 18vw, 240px);
+  height: clamp(140px, 18vw, 240px);
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+  /* Smooth transitions for scale/border — no animation property here */
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+/* Dotted/static overlay on goose frame — visible when NOT speaking */
+.goose-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+  background-size: 6px 6px;
+  opacity: 0.6;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Hide dotted overlay when speaking (active/colorized) */
+.ipd-cell[data-phase="speaking"] .goose-frame::after {
+  opacity: 0;
+}
+
+.goose-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%);
+  transition: filter 0.5s ease;
+}
+
+/* ── Phase-based cell states ─────────────────── */
+
+/* Waiting: grayscale, normal size */
+.ipd-cell[data-phase="waiting"] .goose-image {
+  filter: grayscale(100%);
+}
+
+/* Idle: grayscale, normal size */
+.ipd-cell[data-phase="idle"] .goose-image {
+  filter: grayscale(100%);
+}
+
+/* Speaking: colorized, enlarged with pulse */
+.ipd-cell[data-phase="speaking"] .goose-frame {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.12);
+  box-shadow: 0 0 60px rgba(255, 255, 255, 0.2);
+  /* Only animate box-shadow for smooth pulse — scale/border handled by transition */
+  animation: speaking-pulse 1.2s ease-in-out infinite;
+}
+
+.ipd-cell[data-phase="speaking"] .goose-image {
+  filter: grayscale(0%);
+}
+
+/* Result: GRAYSCALE — only speaking phase is in color */
+.ipd-cell[data-phase="result"] .goose-frame {
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+.ipd-cell[data-phase="result"] .goose-image {
+  filter: grayscale(100%);
+}
+
+/* ── Crown Icon (winner only) ─────────────────── */
+.crown-icon {
+  width: 40px;
+  height: 40px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.6);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  z-index: 10;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(32, 190, 255, 0.5));
+}
+
+.ipd-cell[data-phase="winner"] .crown-icon {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Winner: colorized, green accent */
+.ipd-cell[data-phase="winner"] .goose-frame {
+  border-color: #20BEFF;
+  transform: scale(1.08);
+  box-shadow: 0 0 60px rgba(32, 190, 255, 0.3);
+}
+
+.ipd-cell[data-phase="winner"] .goose-image {
+  filter: grayscale(0%);
+}
+
+.ipd-cell[data-phase="winner"] .suspect-name {
+  color: #20BEFF;
+  font-weight: 700;
+}
+
+.ipd-cell[data-phase="winner"] .action-glow {
+  opacity: 0.6;
+  background: radial-gradient(circle at 50% 50%, rgba(32, 190, 255, 0.15) 0%, transparent 70%);
+}
+
+/* Loser: grayscale, muted */
+.ipd-cell[data-phase="loser"] .goose-frame {
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: scale(1);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+.ipd-cell[data-phase="loser"] .goose-image {
+  filter: grayscale(100%);
+}
+
+/* ── Action Glow (phase-driven) ──────────────── */
+.action-glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ipd-cell[data-phase="speaking"] .action-glow {
+  opacity: 1;
+}
+
+.ipd-cell[data-phase="result"] .action-glow {
+  opacity: 0.4;
+}
+
+/* ── Action Text ───────────────────────────────── */
+.action-text-container {
+  z-index: 10;
+  text-align: center;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(24px, 3.5vw, 40px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(40px) scale(0.9);
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-text.action-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.action-divider {
+  height: 1px;
+  width: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 8px auto 0;
+  animation: flicker 6s infinite;
+}
+
+/* ── Lock Icon (unrevealed) ────────────────────── */
+.lock-icon {
+  opacity: 0.05;
+  width: 48px;
+  height: 48px;
+}
+
+/* ── Gain Overlay ──────────────────────────────── */
+.gain-overlay {
+  position: absolute;
+  top: 72px;
+  z-index: 15;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.gain-overlay.gain-visible {
+  opacity: 1;
+}
+
+.gain-overlay-left {
+  right: 24px;
+  transform: translateX(-20px);
+}
+
+.gain-overlay-right {
+  left: 24px;
+  transform: translateX(20px);
+}
+
+.gain-overlay-left.gain-visible {
+  transform: translateX(0);
+}
+
+.gain-overlay-right.gain-visible {
+  transform: translateX(0);
+}
+
+.gain-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.gain-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  text-align: center;
+}
+
+/* ── Accumulated Reward ────────────────────────── */
+.reward-container {
+  position: absolute;
+  bottom: 24px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reward-left {
+  left: 24px;
+}
+
+.reward-right {
+  right: 24px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.reward-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.reward-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reward-right .reward-value-row {
+  flex-direction: row-reverse;
+}
+
+.reward-icon {
+  width: 20px;
+  height: 20px;
+  transition: color 0.5s ease;
+}
+
+.reward-icon-default {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.reward-icon-leading {
+  color: #20BEFF;
+}
+
+.reward-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(28px, 3.5vw, 40px);
+  font-weight: 700;
+  transition: color 0.5s ease;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.reward-leading {
+  color: #20BEFF;
+}
+
+/* ── Observation Log (Footer) ──────────────────── */
+.ipd-footer {
+  padding: 12px 32px;
+  background: #000;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 20;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 52px;
+}
+
+.observation-log {
+  flex: 1;
+  min-width: 0;
+}
+
+.observation-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  margin-bottom: 4px;
+}
+
+.observation-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  line-height: 1.5;
+  transition: color 0.4s ease;
+}
+
+/* Muted text when in waiting state */
+.footer-waiting .observation-text {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.security-badge {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.security-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.security-tag {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* ── Animations ────────────────────────────────── */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+  85% { opacity: 0.9; }
+}
+
+/* Only animate box-shadow for the pulse — scale and border-color
+   are handled by the CSS transition on .goose-frame for smoothness */
+@keyframes speaking-pulse {
+  0%, 100% {
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 80px rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in 0.4s ease forwards;
+}

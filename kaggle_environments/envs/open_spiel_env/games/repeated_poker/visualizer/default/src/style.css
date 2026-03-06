@@ -46,7 +46,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  /* Use absolute positioning so this element doesn't affect parent sizing.
+     CSS transforms only affect visual rendering, not layout - so a 1000x1000
+     element scaled to 0.5 would still occupy 1000x1000 in document flow
+     if using relative positioning, preventing the parent from shrinking. */
+  position: absolute;
+  top: 50%;
+  left: 50%;
   transform-origin: center center;
 }
 
