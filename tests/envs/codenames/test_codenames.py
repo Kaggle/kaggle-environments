@@ -24,9 +24,6 @@ def test_codenames_completes():
     assert min(rewards) == -1
 
     print("Game successfully finished with rewards:", rewards)
-    
-if __name__ == "__main__":
-    test_codenames_completes()
 
 def test_random_start_counts():
     env = make("codenames")
@@ -60,15 +57,33 @@ def test_minimum_one_guess():
     assert state[guesser_turn].status == "INVALID"
     assert env.done
 
-def test_unlimited_clues():
+def test_unlimited_clues_require_one_guess():
     env = make("codenames")
     state = env.reset()
     turn = state[0].observation.current_turn
     
-    env.step([{"clue": "UNLIMITED", "number": 0} if i == turn else None for i in range(4)])
+    # Try with 0 clue
+    env.step([{"clue": "ZERO", "number": 0} if i == turn else None for i in range(4)])
     state = env.state
-    
     assert state[0].observation.guesses_remaining == 25
+    
+    guesser_turn = state[0].observation.current_turn
+    env.step([-1 if i == guesser_turn else None for i in range(4)])
+    assert env.state[guesser_turn].status == "INVALID"
+
+def test_infinity_clues_require_one_guess():
+    env = make("codenames")
+    state = env.reset()
+    turn = state[0].observation.current_turn
+    
+    # Try with -1 (infinity) clue
+    env.step([{"clue": "UNLIMITED", "number": -1} if i == turn else None for i in range(4)])
+    state = env.state
+    assert state[0].observation.guesses_remaining == 25
+    
+    guesser_turn = state[0].observation.current_turn
+    env.step([-1 if i == guesser_turn else None for i in range(4)])
+    assert env.state[guesser_turn].status == "INVALID"
 
 def test_clue_validation():
     env = make("codenames")
@@ -87,8 +102,11 @@ def test_clue_validation():
     assert opp_after == opp_before - 1
     assert state[0].observation.current_turn == (2 if turn == 0 else 0)
 
-test_random_start_counts()
-test_minimum_one_guess()
-test_unlimited_clues()
-test_clue_validation()
-print("All Codenames rule tests passed!")
+if __name__ == "__main__":
+    test_codenames_completes()
+    test_random_start_counts()
+    test_minimum_one_guess()
+    test_unlimited_clues_require_one_guess()
+    test_infinity_clues_require_one_guess()
+    test_clue_validation()
+    print("All Codenames rule tests passed!")

@@ -4,8 +4,8 @@ from os import path
 
 def initialize_game(state, config):
     board_size = config.board_size
-    red_words = config.red_words
-    blue_words = config.blue_words
+    starting_team_words = config.starting_team_words
+    second_team_words = config.second_team_words
     
     # Load words
     dir_path = path.dirname(__file__)
@@ -18,13 +18,11 @@ def initialize_game(state, config):
     # Determine playing order and word counts
     starting_team = random.choice(["red", "blue"])
     if starting_team == "red":
-        red_count = red_words
-        blue_count = blue_words
+        red_count = starting_team_words
+        blue_count = second_team_words
     else:
-        # Swap so blue gets the extra word (assuming defaults 9 and 8)
-        # We assume red_words represents the starting team's word count
-        red_count = blue_words
-        blue_count = red_words
+        red_count = second_team_words
+        blue_count = starting_team_words
     
     # Assign roles
     roles = ["red"] * red_count + ["blue"] * blue_count + ["assassin"] * 1
@@ -152,6 +150,7 @@ def process_action(state, config):
         if guess_val == -1:
             clue_num = state[0].observation.clue_number
             expected_remaining = 25 if clue_num <= 0 else clue_num + 1
+            # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
             if state[0].observation.guesses_remaining == expected_remaining:
                 active_agent.status = "INVALID"
                 end_game(winner="blue" if current_turn == 1 else "red")
