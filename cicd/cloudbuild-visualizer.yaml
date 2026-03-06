@@ -56,12 +56,12 @@ steps:
   # Step 2: Deploy the visualizer to GCS
   - id: "deploy-to-gcs"
     name: "gcr.io/cloud-builders/gcloud"
-    entrypoint: "gsutil"
+    entrypoint: "gcloud"
     args:
-      - "-m"
+      - "storage"
       - "rsync"
-      - "-d"
-      - "-r"
+      - "--delete-unmatched-destination-objects"
+      - "--recursive"
       - "./${_VISUALIZER_PATH}/dist"
       - "gs://${_BUCKET_NAME}/episode-visualizers/${_GAME_NAME}/${_VISUALIZER_NAME}/"
     waitFor: ["build-visualizer"]
