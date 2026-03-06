@@ -14,7 +14,7 @@ export default memo(function ScorePanel() {
 
   const state = game.currentState();
   const scorer = game._scorer.territory(game);
-  const komi = game.score().white - scorer.white.length - state.whiteStonesCaptured;
+  const komi = game._scorer._komi;
   const activeColor = state.nextColor();
 
   const agents = options?.agents ?? [];
@@ -22,7 +22,11 @@ export default memo(function ScorePanel() {
   const whiteName = agents[1]?.Name ?? 'White';
 
   const rows: ScoreRow[] = [
-    { label: 'Territory', black: scorer.black.length, white: scorer.white.length },
+    {
+      label: 'Territory',
+      black: game.moveNumber() === 1 ? 0 : scorer.black.length,
+      white: game.moveNumber() === 1 ? 0 : scorer.white.length,
+    },
     { label: 'Prisoners', black: state.blackStonesCaptured, white: state.whiteStonesCaptured },
     { label: 'Komi', black: 0, white: komi },
   ];
