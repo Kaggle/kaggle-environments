@@ -1,8 +1,10 @@
 import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
 import { GoBoard } from './GoBoard';
+import { DebugPanel } from './DebugPanel';
 import useGameStore from '../stores/useGameStore';
 import { tenukiLogger } from '../utils/tenukiLogger';
+import styles from './GameBoard.module.css';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
@@ -44,15 +46,18 @@ export default memo(function GameBoard() {
 
   return (
     <div id="board">
-      <GoBoard
-        boardSize={size}
-        grid={grid}
-        step={step}
-        lastPlayed={played}
-        captures={captures}
-        atari={atari}
-        territory={territory}
-      />
+      <div className={styles.boardAnchor}>
+        <GoBoard
+          boardSize={size}
+          grid={grid}
+          step={step}
+          lastPlayed={played}
+          captures={captures}
+          atari={atari}
+          territory={territory}
+        />
+      </div>
+      <DebugPanel />
     </div>
   );
 });

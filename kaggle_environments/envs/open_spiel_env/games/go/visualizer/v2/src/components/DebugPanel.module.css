@@ -1,0 +1,20 @@
+.trigger {
+  display: block;
+  margin-inline: auto;
+  anchor-name: --debug-trigger;
+}
+
+.panel {
+  inset: unset;
+  margin: 0;
+  position-anchor: --debug-trigger;
+  bottom: anchor(top);
+  left: anchor(center);
+  translate: -50% 0;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
