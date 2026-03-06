@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../types/popover.d.ts" />
 import { useEffect, useRef } from 'react';
-import { useRive, Layout, Fit, Alignment } from '@rive-app/react-canvas';
+import { useRive, Layout, Fit, Alignment } from '@rive-app/react-webgl2';
 import styles from './RivePopover.module.css';
 
 interface RivePopoverProps {

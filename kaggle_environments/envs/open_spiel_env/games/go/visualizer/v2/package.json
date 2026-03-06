@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@kaggle-environments/core": "workspace:*",
-    "@rive-app/react-canvas": "^4.27.0",
+    "@rive-app/react-webgl2": "^4.27.0",
     "gsap": "^3.14.2",
     "pixi.js": "^8.16.0",
     "react": "^18.2.0",

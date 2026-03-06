@@ -388,7 +388,7 @@ importers:
       '@kaggle-environments/core':
         specifier: workspace:*
         version: link:../../../../../../../web/core
-      '@rive-app/react-canvas':
+      '@rive-app/react-webgl2':
         specifier: ^4.27.0
         version: 4.27.0(react@18.3.1)
       gsap:
@@ -1096,13 +1096,13 @@ packages:
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
-  '@rive-app/canvas@2.35.0':
-    resolution: {integrity: sha512-aBFgoM11X/YgpSKZDxOvt3P9EZz8siJ+AZ5aevwaiLwu9K1nHSumXDCdmJPp+9FWhW9Ssk9Le14BptnlCR1m7w==}
-
-  '@rive-app/react-canvas@4.27.0':
-    resolution: {integrity: sha512-3Mprp0sSe9KgRsMpvBhPgBVj2ZIHDTgQTGGvncsozAVkH1imF6Rl5VMNT/+7WWKRIXebpeLLSEGJ6RCegugEmw==}
+  '@rive-app/react-webgl2@4.27.0':
+    resolution: {integrity: sha512-OxIRJiTPJtvPDeUWXfXIx2WZ/6OqaTFWTaS9OE0oekHz80yT9kl41MEUZw7GlgY4l4Pzke7bkn8xEeVnDgPFIg==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
+
+  '@rive-app/webgl2@2.35.0':
+    resolution: {integrity: sha512-T6fIVmsn9KiN0pMKOvuODhpnOzJHnhFU6injYmVkzsxKn+VIDhTC0FvR2vr520tR+JsZUBy04KUn61cxZCnUgA==}
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -4045,12 +4045,12 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
-  '@rive-app/canvas@2.35.0': {}
-
-  '@rive-app/react-canvas@4.27.0(react@18.3.1)':
+  '@rive-app/react-webgl2@4.27.0(react@18.3.1)':
     dependencies:
-      '@rive-app/canvas': 2.35.0
+      '@rive-app/webgl2': 2.35.0
       react: 18.3.1
+
+  '@rive-app/webgl2@2.35.0': {}
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
