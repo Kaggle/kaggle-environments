@@ -1,9 +1,17 @@
-import { Container, Graphics, Sprite, type Spritesheet } from 'pixi.js';
-import { LINE_COLOR, STAR_POINTS_9, getCellSize, gridToPixel } from './constants.ts';
+import { Container, Graphics, Sprite, Text, TextStyle, type Spritesheet } from 'pixi.js';
+import { BOARD_PADDING, BOARD_PX, LINE_COLOR, STAR_POINTS_9, getCellSize, gridToPixel } from './constants.ts';
 
 const TILE_SIZE = 128;
 const TILE_MARGIN = 2;
-const TILE_INNER = TILE_SIZE - 2 * TILE_MARGIN; // 124
+const TILE_INNER = TILE_SIZE - 2 * TILE_MARGIN;
+
+const STAR_RADIUS_RATIO = 0.08;
+
+const COL_LETTERS = 'ABCDEFGHJKLMNOPQRST';
+const LABEL_COLOR = 0x000000;
+const LABEL_MAX_FONT_SIZE = 11;
+const LABEL_FONT_SIZE_RATIO = 0.38;
+const LABEL_OFFSET_RATIO = 0.45;
 
 export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   const container = new Container();
@@ -24,7 +32,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   }
 
   // Star points (hoshi)
-  const starRadius = cell * 0.08;
+  const starRadius = cell * STAR_RADIUS_RATIO;
   const stars = boardSize === 9 ? STAR_POINTS_9 : [];
   const sg = new Graphics();
   for (const [row, col] of stars) {
@@ -33,6 +41,38 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   }
   sg.fill(LINE_COLOR);
   container.addChild(sg);
+
+  // Row & column labels
+  const labelOffset = BOARD_PADDING * LABEL_OFFSET_RATIO;
+  const labelStyle = new TextStyle({
+    fontFamily: 'sans-serif',
+    fontSize: Math.min(LABEL_MAX_FONT_SIZE, BOARD_PADDING * LABEL_FONT_SIZE_RATIO),
+    fill: LABEL_COLOR,
+  });
+
+  // Column letters (A–T, skipping I) — top and bottom
+  for (let col = 0; col < boardSize; col++) {
+    const { x } = gridToPixel(0, col, boardSize);
+    for (const y of [labelOffset, BOARD_PX - labelOffset]) {
+      const label = new Text({ text: COL_LETTERS[col], style: labelStyle });
+      label.anchor.set(0.5);
+      label.position.set(x, y);
+      container.addChild(label);
+    }
+  }
+
+  // Row numbers (1 at bottom, N at top) — left and right
+  for (let row = 0; row < boardSize; row++) {
+    const { y } = gridToPixel(row, 0, boardSize);
+    for (const x of [labelOffset, BOARD_PX - labelOffset]) {
+      const label = new Text({ text: String(boardSize - row), style: labelStyle });
+      label.anchor.set(0.5);
+      label.position.set(x, y);
+      container.addChild(label);
+    }
+  }
+
+  container.cacheAsTexture(true);
 
   return container;
 }
