@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
 import { GoBoard } from './GoBoard';
-import { DebugPanel } from './DebugPanel';
 import useGameStore from '../stores/useGameStore';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
@@ -57,7 +56,6 @@ export default memo(function GameBoard() {
           territory={territory}
         />
       </div>
-      <DebugPanel />
     </div>
   );
 });
