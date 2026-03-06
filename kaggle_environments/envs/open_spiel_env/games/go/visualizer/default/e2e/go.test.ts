@@ -18,7 +18,7 @@ test.describe('Go Visualizer', () => {
     const komiText = page.getByText(/Komi/);
     await expect(komiText).toBeVisible();
 
-    const playerText = page.locator('p').filter({ hasText: /Black|White/ });
+    const playerText = page.locator('p').filter({ hasText: /jhtschultz-1|jhtschultz-2/ });
     await expect(playerText.first()).toBeVisible();
   });
 
