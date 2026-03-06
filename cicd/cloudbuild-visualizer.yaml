@@ -20,6 +20,12 @@
 #   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/chess/visualizer/v2"
 #   _GAME_NAME: "open_spiel_chess"
 #   _VISUALIZER_NAME: "v2"
+#
+# Open Spiel Repeated Game (IPD) visualizer:
+#   _VISUALIZER_PACKAGE: "@kaggle-environments/open-spiel-repeated-game-ipd-visualizer"
+#   _VISUALIZER_PATH: "kaggle_environments/envs/open_spiel_env/games/repeated_game/visualizer/ipd"
+#   _GAME_NAME: "open_spiel_repeated_game"
+#   _VISUALIZER_NAME: "ipd"
 
 steps:
   # Step 1: Build dependencies (core and common) and the target visualizer

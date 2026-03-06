@@ -254,6 +254,12 @@ class TestOpenSpielEnvironments:
                     "open_spiel_connect_four" not in get_available_environments(), reason="OpenSpiel not available"
                 ),
             ),
+            pytest.param(
+                "open_spiel_snake",
+                marks=pytest.mark.skipif(
+                    "open_spiel_snake" not in get_available_environments(), reason="OpenSpiel not available"
+                ),
+            ),
         ],
     )
     def test_open_spiel_episode(self, env_name: str):

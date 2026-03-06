@@ -22,17 +22,17 @@
   "info": {
     "Agents": [
       {
-        "Name": "jhtschultz",
+        "Name": "jhtschultz-1",
         "ThumbnailUrl": "https://storage.googleapis.com/kaggle-organizations/855/thumbnail.png"
       },
       {
-        "Name": "jhtschultz",
+        "Name": "jhtschultz-2",
         "ThumbnailUrl": "https://storage.googleapis.com/kaggle-organizations/855/thumbnail.png"
       }
     ],
     "EpisodeId": 74260527,
     "LiveVideoPath": null,
-    "TeamNames": ["jhtschultz", "jhtschultz"],
+    "TeamNames": ["jhtschultz-1", "jhtschultz-2"],
     "actionHistory": [
       "40",
       "30",
