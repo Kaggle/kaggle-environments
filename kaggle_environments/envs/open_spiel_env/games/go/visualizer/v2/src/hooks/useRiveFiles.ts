@@ -6,21 +6,20 @@ interface RiveEntry {
   buffer: ArrayBuffer | null;
 }
 
-const rivePaths = Object.keys(import.meta.glob('/public/rive/*.riv')).map((path) => {
-  const file = path.replace('/public', '');
-  const name = file.replace('/rive/', '').replace('.riv', '');
-  return { name, file };
-});
+const RIVE_FILES = [
+  { name: 'kaggle_knight', file: '/rive/kaggle_knight.riv' },
+  { name: 'kaggle_queen', file: '/rive/kaggle_queen.riv' },
+];
 
 export function useRiveFiles(): RiveEntry[] {
   const [entries, setEntries] = useState<RiveEntry[]>(() =>
-    rivePaths.map(({ name, file }) => ({ name, file, buffer: null }))
+    RIVE_FILES.map(({ name, file }) => ({ name, file, buffer: null }))
   );
 
   useEffect(() => {
     const load = async () => {
       const buffers = await Promise.all(
-        rivePaths.map(async ({ file }) => ({
+        RIVE_FILES.map(async ({ file }) => ({
           file,
           buffer: await fetch(file).then((res) => res.arrayBuffer()),
         }))
