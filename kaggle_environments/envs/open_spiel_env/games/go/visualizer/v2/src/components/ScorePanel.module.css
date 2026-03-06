@@ -1,0 +1,130 @@
+.panel {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  padding: 12px 0;
+  color: black;
+  font-family: "Google Sans", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.8;
+  border: 1px solid;
+  background: #fff;
+}
+
+.table tr:first-child td {
+  padding-top: 10px;
+}
+
+.table tr:last-child td {
+  padding-bottom: 10px;
+}
+
+.cellBlack {
+  text-align: right;
+  padding: 0 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 14ch;
+}
+
+.cellLabel {
+  text-align: center;
+  padding: 0 8px;
+}
+
+.cellWhite {
+  text-align: left;
+  padding: 0 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 14ch;
+}
+
+.player {
+  --offset-x: 3.5ch;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid;
+  translate: 0 -50%;
+}
+
+.playerBlack {
+  composes: player;
+  justify-self: end;
+  transform: translateX(var(--offset-x));
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease;
+}
+
+.playerBlack.active {
+  background: #a8d8f0;
+  transform: translateX(var(--offset-x)) rotate(-2deg) scale(1.05);
+}
+
+.playerWhite {
+  composes: player;
+  justify-self: start;
+  transform: translateX(calc(var(--offset-x) * -1));
+  transition:
+    transform 0.3s ease,
+    background 0.3s ease;
+
+  .stone {
+    order: 1;
+  }
+}
+
+.playerWhite.active {
+  background: #a8d8f0;
+  transform: translateX(calc(var(--offset-x) * -1)) rotate(2deg) scale(1.05);
+}
+
+.playerName {
+  font-weight: 400;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stone {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stoneBlack {
+  composes: stone;
+  background-color: black;
+}
+
+.stoneWhite {
+  composes: stone;
+  background-color: white;
+  border: 1px solid;
+}
+
+@media (max-width: 600px) {
+  .player {
+    padding-block: 6px;
+  }
+
+  .table tr:first-child td {
+    padding-top: 6px;
+  }
+
+  .table tr:last-child td {
+    padding-bottom: 6px;
+  }
+}
