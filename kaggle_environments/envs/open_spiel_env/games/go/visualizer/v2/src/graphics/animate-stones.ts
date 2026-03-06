@@ -30,6 +30,9 @@ const POT_POOF_DURATION = 0.35;
 const POT_POOF_MAX_SCALE = 0.2;
 const POT_POOF_STAGGER = 0.02;
 
+// Territory marker animation
+const TERRITORY_SCALE_DURATION = 0.2;
+
 // Atari shiver animation
 const ATARI_SHIVER_OFFSET = 0.6;
 const ATARI_SHIVER_DURATION = 0.06;
@@ -334,6 +337,29 @@ export function animatePotPoof(x: number, y: number, sheet: Spritesheet, contain
   });
 
   return tl;
+}
+
+export function animateTerritoryIn(sprite: Sprite, restScaleX: number, restScaleY: number): gsap.core.Tween {
+  sprite.scale.set(0, 0);
+  return gsap.to(sprite.scale, {
+    x: restScaleX,
+    y: restScaleY,
+    duration: TERRITORY_SCALE_DURATION,
+    ease: 'back.out(2)',
+  });
+}
+
+export function animateTerritoryOut(sprite: Sprite, container: Container): gsap.core.Tween {
+  return gsap.to(sprite.scale, {
+    x: 0,
+    y: 0,
+    duration: TERRITORY_SCALE_DURATION,
+    ease: 'power2.in',
+    onComplete: () => {
+      container.removeChild(sprite);
+      sprite.destroy();
+    },
+  });
 }
 
 export function animateAtariWobble(pair: StonePair): gsap.core.Timeline {
