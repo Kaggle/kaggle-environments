@@ -1,11 +1,18 @@
 {
   "frames": {
     "black-active-marker.png": {
-      "frame": { "x": 0, "y": 914, "w": 176, "h": 178 },
+      "frame": { "x": 0, "y": 909, "w": 176, "h": 178 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
       "sourceSize": { "w": 176, "h": 178 }
+    },
+    "black-territory.png": {
+      "frame": { "x": 176, "y": 909, "w": 80, "h": 80 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 4, "w": 80, "h": 80 },
+      "sourceSize": { "w": 84, "h": 84 }
     },
     "black.png": {
       "frame": { "x": 0, "y": 0, "w": 256, "h": 256 },
@@ -15,59 +22,66 @@
       "sourceSize": { "w": 256, "h": 256 }
     },
     "board-tile.png": {
-      "frame": { "x": 0, "y": 1274, "w": 128, "h": 128 },
+      "frame": { "x": 0, "y": 1265, "w": 128, "h": 128 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
       "sourceSize": { "w": 128, "h": 128 }
     },
     "pot.png": {
-      "frame": { "x": 0, "y": 516, "w": 242, "h": 242 },
+      "frame": { "x": 0, "y": 512, "w": 244, "h": 244 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 3, "y": 11, "w": 242, "h": 242 },
+      "spriteSourceSize": { "x": 2, "y": 10, "w": 244, "h": 244 },
       "sourceSize": { "w": 256, "h": 256 }
     },
     "puff1.png": {
-      "frame": { "x": 130, "y": 1274, "w": 125, "h": 103 },
+      "frame": { "x": 0, "y": 1393, "w": 126, "h": 104 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 2, "w": 125, "h": 103 },
+      "spriteSourceSize": { "x": 0, "y": 1, "w": 126, "h": 104 },
       "sourceSize": { "w": 127, "h": 105 }
     },
     "puff2.png": {
-      "frame": { "x": 0, "y": 760, "w": 179, "h": 152 },
+      "frame": { "x": 0, "y": 756, "w": 180, "h": 153 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 1, "w": 179, "h": 152 },
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 153 },
       "sourceSize": { "w": 181, "h": 153 }
     },
     "puff3.png": {
-      "frame": { "x": 130, "y": 1379, "w": 97, "h": 81 },
+      "frame": { "x": 126, "y": 1393, "w": 98, "h": 83 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 1, "w": 97, "h": 81 },
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 98, "h": 83 },
       "sourceSize": { "w": 99, "h": 83 }
     },
     "shadow.png": {
-      "frame": { "x": 0, "y": 1404, "w": 128, "h": 128 },
+      "frame": { "x": 128, "y": 1265, "w": 128, "h": 128 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
       "sourceSize": { "w": 128, "h": 128 }
     },
     "white-active-marker.png": {
-      "frame": { "x": 0, "y": 1094, "w": 176, "h": 178 },
+      "frame": { "x": 0, "y": 1087, "w": 176, "h": 178 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
       "sourceSize": { "w": 176, "h": 178 }
     },
-    "white.png": {
-      "frame": { "x": 0, "y": 258, "w": 255, "h": 256 },
+    "white-territory.png": {
+      "frame": { "x": 176, "y": 989, "w": 80, "h": 80 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 255, "h": 256 },
+      "spriteSourceSize": { "x": 0, "y": 4, "w": 80, "h": 80 },
+      "sourceSize": { "w": 84, "h": 84 }
+    },
+    "white.png": {
+      "frame": { "x": 0, "y": 256, "w": 256, "h": 256 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
       "sourceSize": { "w": 256, "h": 256 }
     }
   },
@@ -79,8 +93,8 @@
     "version": "1.1",
     "image": "sprites.png",
     "format": "RGBA8888",
-    "size": { "w": 256, "h": 1532 },
+    "size": { "w": 256, "h": 1497 },
     "scale": "1",
-    "smartupdate": "$TexturePacker:SmartUpdate:270f78b0e566cde12daa720b4e2fb46d:c2c42fadbb5bac12d785dac72d00a1f7:1eabdf11f75e3a4fe3147baf7b5be24b$"
+    "smartupdate": "$TexturePacker:SmartUpdate:290ee57030c4a4e6dbbce71482734df0:893b1be461ec0dfb8db7c2d339c133f2:1eabdf11f75e3a4fe3147baf7b5be24b$"
   }
 }
