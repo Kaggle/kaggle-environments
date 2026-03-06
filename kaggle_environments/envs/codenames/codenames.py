@@ -4,8 +4,8 @@ from os import path
 
 def initialize_game(state, config):
     board_size = config.board_size
-    red_words = config.red_words
-    blue_words = config.blue_words
+    starting_team_words = config.starting_team_words
+    second_team_words = config.second_team_words
     
     # Load words
     dir_path = path.dirname(__file__)
@@ -15,8 +15,17 @@ def initialize_game(state, config):
         
     sampled_words = random.sample(all_words, board_size)
     
+    # Determine playing order and word counts
+    starting_team = random.choice(["red", "blue"])
+    if starting_team == "red":
+        red_count = starting_team_words
+        blue_count = second_team_words
+    else:
+        red_count = second_team_words
+        blue_count = starting_team_words
+    
     # Assign roles
-    roles = ["red"] * red_words + ["blue"] * blue_words + ["assassin"] * 1
+    roles = ["red"] * red_count + ["blue"] * blue_count + ["assassin"] * 1
     roles += ["neutral"] * (board_size - len(roles))
     random.shuffle(roles)
     
@@ -26,9 +35,10 @@ def initialize_game(state, config):
         agent_state.observation.words = sampled_words
         agent_state.observation.roles = roles[:]
         agent_state.observation.revealed = revealed[:]
-        agent_state.observation.current_turn = 0
+        agent_state.observation.current_turn = 0 if starting_team == "red" else 2
         agent_state.observation.clue = ""
         agent_state.observation.guesses_remaining = 0
+        agent_state.observation.clue_number = 0
 
 def update_visibility(state):
     # Mask roles for guessers (agents 1 and 3)
@@ -51,7 +61,8 @@ def process_action(state, config):
     # helper to end game
     def end_game(winner=None):
         for i in range(4):
-            state[i].status = "DONE"
+            if state[i].status != "INVALID":
+                state[i].status = "DONE"
             if winner == "red":
                 state[i].reward = 1 if i in [0, 1] else -1
             elif winner == "blue":
@@ -72,10 +83,53 @@ def process_action(state, config):
             end_game(winner="blue" if current_turn == 0 else "red")
             return
             
-        # Update state
+        # Clue validation
+        normalized_clue = str(action["clue"]).strip().upper()
+        words = state[0].observation.words
+        revealed = state[0].observation.revealed
+        roles = state[0].observation.roles
+        opponent_team = "blue" if current_turn == 0 else "red"
+        
+        is_invalid_clue = False
+        for i in range(25):
+            if not revealed[i]:
+                unrevealed_word = words[i].upper()
+                if unrevealed_word in normalized_clue or normalized_clue in unrevealed_word:
+                    is_invalid_clue = True
+                    break
+                    
+        if is_invalid_clue:
+            # Penalty: Reveal a random opponent word and pass turn
+            opponent_unrevealed = [i for i in range(25) if not revealed[i] and roles[i] == opponent_team]
+            if opponent_unrevealed:
+                to_reveal = random.choice(opponent_unrevealed)
+                for s in state:
+                    s.observation.revealed[to_reveal] = True
+            
+            for s in state:
+                s.observation.clue = ""
+                s.observation.guesses_remaining = 0
+                s.observation.current_turn = 2 if current_turn == 0 else 0
+                
+            # Check if penalty won the game for opponent
+            red_left = sum(1 for i in range(25) if roles[i] == "red" and not state[0].observation.revealed[i])
+            blue_left = sum(1 for i in range(25) if roles[i] == "blue" and not state[0].observation.revealed[i])
+            
+            if red_left == 0:
+                end_game(winner="red")
+            elif blue_left == 0:
+                end_game(winner="blue")
+            else:
+                for i in range(4):
+                    state[i].status = "ACTIVE" if i == state[0].observation.current_turn else "INACTIVE"
+            return
+            
+        # Update state normally
         for s in state:
+            clue_num = int(action["number"])
             s.observation.clue = str(action["clue"])
-            s.observation.guesses_remaining = int(action["number"]) + 1
+            s.observation.clue_number = clue_num
+            s.observation.guesses_remaining = 25 if clue_num <= 0 else clue_num + 1
             s.observation.current_turn = 1 if current_turn == 0 else 3
             
         # Set agent statuses
@@ -94,6 +148,14 @@ def process_action(state, config):
             
         # Pass
         if guess_val == -1:
+            clue_num = state[0].observation.clue_number
+            expected_remaining = 25 if clue_num <= 0 else clue_num + 1
+            # 0 ("zero") and -1 ("infinity") clues both give unlimited guesses but STILL require at least 1 guess
+            if state[0].observation.guesses_remaining == expected_remaining:
+                active_agent.status = "INVALID"
+                end_game(winner="blue" if current_turn == 1 else "red")
+                return
+                
             for s in state:
                 s.observation.clue = ""
                 s.observation.guesses_remaining = 0

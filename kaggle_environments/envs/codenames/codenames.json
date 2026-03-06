@@ -12,15 +12,15 @@
       "default": 25,
       "description": "Number of spaces on the board (5x5 grid)."
     },
-    "red_words": {
+    "starting_team_words": {
       "type": "integer",
       "default": 9,
-      "description": "Number of cards assigned to the red team."
+      "description": "Number of cards assigned to the starting team."
     },
-    "blue_words": {
+    "second_team_words": {
       "type": "integer",
       "default": 8,
-      "description": "Number of cards assigned to the blue team."
+      "description": "Number of cards assigned to the second team."
     },
     "actTimeout": {
       "type": "number",
@@ -52,10 +52,14 @@
     "guesses_remaining": {
       "description": "The number of guesses the Guesser has left based on the Spymaster's clue.",
       "type": "integer"
+    },
+    "clue_number": {
+      "description": "The original number associated with the Spymaster's clue.",
+      "type": "integer"
     }
   },
   "action": {
-    "description": "For Spymasters: a clue string formatted like 'word, 2' or a dict. For Guessers: the index (0-24) to guess, or -1 to pass.",
+    "description": "For Spymasters: a clue string formatted like 'word, 2' or a dict. Number can be 0 (unlimited guesses, 0 related words, 1 min guess) or -1 (unlimited guesses, infinity related words, 1 min guess). For Guessers: the index (0-24) to guess, or -1 to pass.",
     "type": [
       "string",
       "integer",

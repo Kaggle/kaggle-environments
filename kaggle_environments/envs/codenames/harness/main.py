@@ -37,6 +37,7 @@ class LLMCodenamesAgent:
             prompt += f"- {words[i]}: {roles[i].upper()} ({status})\n"
             
         prompt += "\nThink step-by-step about which unrevealed words you can connect with a single-word clue. Provide your reasoning in a 'thinking' key.\n"
+        prompt += "Note: A clue number of 0 means 'unlimited guesses, but 0 words relate to this clue' (often used to help guessers avoid the assassin or opponent words). A clue number of -1 means 'infinity' (unlimited guesses, for when you want them to guess remaining words from previous clues).\n"
         prompt += 'You MUST format your response as valid JSON like this:\n'
         prompt += '{"thinking": "I see CAT and DOG, so ANIMAL connects 2 words...", "clue": "ANIMAL", "number": 2}\n'
         prompt += "Do not include any other text or markdown formatting outside of the JSON block."
@@ -93,8 +94,13 @@ class LLMCodenamesAgent:
         turn = obs.current_turn
         team = "red" if turn == 1 else "blue"
         
+        clue_number = obs.clue_number
         prompt = f"You are the {team.upper()} Guesser in Codenames.\n"
-        prompt += f"The clue from your Spymaster is: '{clue}' for {remaining} words.\n\n"
+        prompt += f"The clue from your Spymaster is: '{clue}' for {clue_number} words. (You have {remaining} guesses remaining this turn.)\n\n"
+        if clue_number == 0:
+            prompt += "A clue number of 0 means NONE of your remaining words relate to this clue (often used to point out the assassin). You get unlimited guesses, but you MUST still make at least one guess.\n\n"
+        elif clue_number == -1:
+            prompt += "A clue number of -1 means 'Infinity'. You get unlimited guesses based on this clue and previous clues. You must make at least one guess.\n\n"
         prompt += "Here are the unrevealed words on the board you can choose from:\n"
         
         for i in range(25):
