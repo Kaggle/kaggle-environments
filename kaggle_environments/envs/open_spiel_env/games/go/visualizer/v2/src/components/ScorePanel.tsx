@@ -27,7 +27,7 @@ export default memo(function ScorePanel() {
       black: game.moveNumber() === 1 ? 0 : scorer.black.length,
       white: game.moveNumber() === 1 ? 0 : scorer.white.length,
     },
-    { label: 'Prisoners', black: state.blackStonesCaptured, white: state.whiteStonesCaptured },
+    { label: 'Prisoners', black: state.whiteStonesCaptured, white: state.blackStonesCaptured },
     { label: 'Komi', black: 0, white: komi },
   ];
 
