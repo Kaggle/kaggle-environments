@@ -33,12 +33,9 @@ export default memo(function GameBoard() {
   };
 
   const scorer = game._scorer.territory(game);
-
-  // @ts-expect-error no unused vars
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const territory = {
-    black: scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
-    white: scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+    black: step === 1 ? [] : scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
+    white: step === 1 ? [] : scorer.white.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
   };
 
   const atari = state.intersections
@@ -47,7 +44,15 @@ export default memo(function GameBoard() {
 
   return (
     <div id="board">
-      <GoBoard boardSize={size} grid={grid} step={step} lastPlayed={played} captures={captures} atari={atari} />
+      <GoBoard
+        boardSize={size}
+        grid={grid}
+        step={step}
+        lastPlayed={played}
+        captures={captures}
+        atari={atari}
+        territory={territory}
+      />
     </div>
   );
 });
