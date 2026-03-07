@@ -19,6 +19,15 @@ div:has(> #board) {
   background-position: center;
 }
 
+#board {
+  color: black;
+}
+
+#board button {
+  font: inherit;
+  color: inherit;
+}
+
 .viewer canvas {
   position: relative !important;
   width: 100% !important;
