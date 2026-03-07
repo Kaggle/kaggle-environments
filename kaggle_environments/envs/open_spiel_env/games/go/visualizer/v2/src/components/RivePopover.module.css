@@ -1,0 +1,93 @@
+.popover {
+  color: black;
+  padding: 0;
+  background-image: url("/images/paper.webp");
+  background-size: cover;
+  background-position: center;
+  overflow: visible;
+  box-shadow: -1rem 1rem;
+  border: 0.25rem solid;
+
+  inset: unset;
+  margin: 0;
+  position-anchor: --board;
+  top: anchor(center);
+  left: anchor(left);
+  width: anchor-size(width);
+  translate: 0 -50%;
+
+  /* Enter/exit transitions */
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity 0.35s ease-out,
+    scale 0.35s ease-out,
+    display 0.35s allow-discrete,
+    overlay 0.35s allow-discrete;
+
+  /* Exit state — subtler than entry (less movement, quicker) */
+  &:not(:popover-open) {
+    opacity: 0;
+    scale: 0.98;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-in;
+  }
+
+  /* Entry state */
+  @starting-style {
+    opacity: 0;
+    scale: 0.97;
+  }
+
+  &::backdrop {
+    background: rgb(0 0 0 / 0.8);
+    transition:
+      opacity 0.35s ease-out,
+      display 0.35s allow-discrete,
+      overlay 0.35s allow-discrete;
+  }
+
+  &:not(:popover-open)::backdrop {
+    opacity: 0;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-in;
+  }
+
+  @starting-style {
+    &::backdrop {
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    transition: none;
+  }
+}
+
+.content {
+  display: grid;
+
+  & > * {
+    grid-area: 1 / 1;
+  }
+}
+
+.canvas {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.closeButton {
+  justify-self: end;
+  align-self: start;
+  position: relative;
+  margin: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: black;
+}
