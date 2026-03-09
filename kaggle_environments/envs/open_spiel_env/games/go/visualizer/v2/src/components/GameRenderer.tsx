@@ -3,6 +3,7 @@ import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
+import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
 
@@ -15,7 +16,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     // const boardSize = parameters.board_size;
     const boardSize = options.replay.steps[0].boardState.board_size;
     const komi = parameters.komi;
-    const scoring = 'area'; // Tromp-Tailor Rules
+    const scoring = 'equivalence'; // Tromp-Tailor Rules
     const game = new Game({ boardSize, komi, scoring });
 
     for (let i = 0; i <= options.step; i++) {
@@ -60,6 +61,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     <>
       <GameBoard />
       <ScorePanel />
+      <GameOverModal />
       <DebugPanel />
     </>
   );
