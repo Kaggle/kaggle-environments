@@ -189,6 +189,22 @@
                 <key>scale9FromFile</key>
                 <false/>
             </struct>
+            <key type="filename">../originals/black-territory.png</key>
+            <key type="filename">../originals/white-territory.png</key>
+            <struct type="IndividualSpriteSettings">
+                <key>pivotPoint</key>
+                <point_f>0,0</point_f>
+                <key>spriteScale</key>
+                <double>1</double>
+                <key>scale9Enabled</key>
+                <false/>
+                <key>scale9Borders</key>
+                <rect>21,21,42,42</rect>
+                <key>scale9Paddings</key>
+                <rect>21,21,42,42</rect>
+                <key>scale9FromFile</key>
+                <false/>
+            </struct>
             <key type="filename">../originals/black.png</key>
             <key type="filename">../originals/shadow.png</key>
             <key type="filename">../originals/white.png</key>

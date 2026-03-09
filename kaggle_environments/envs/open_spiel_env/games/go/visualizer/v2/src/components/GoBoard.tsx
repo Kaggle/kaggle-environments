@@ -11,9 +11,10 @@ interface Props {
   captures: Captures;
   atari: GridPos[];
   territory: Territory;
+  reducedMotion: boolean;
 }
 
-export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, territory }: Props) {
+export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, territory, reducedMotion }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<GoPixi | null>(null);
 
@@ -30,8 +31,8 @@ export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, te
 
   // Forward props
   useEffect(() => {
-    pixiRef.current?.update({ grid, step, lastPlayed, captures, atari, territory });
-  }, [grid, step, lastPlayed, captures, atari, territory]);
+    pixiRef.current?.update({ grid, step, lastPlayed, captures, atari, territory, reducedMotion });
+  }, [grid, step, lastPlayed, captures, atari, territory, reducedMotion]);
 
   return <div ref={containerRef} style={{ width: BOARD_PX, height: BOARD_PX + POT_AREA_HEIGHT }} />;
 }
