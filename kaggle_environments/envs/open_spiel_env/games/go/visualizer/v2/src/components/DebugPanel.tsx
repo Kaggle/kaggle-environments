@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { RivePopover } from './RivePopover';
 import { useRiveFiles } from '../hooks/useRiveFiles';
+import usePreferences from '../stores/usePreferences';
 import styles from './DebugPanel.module.css';
 
 const PANEL_ID = 'debug-panel';
@@ -12,6 +13,8 @@ export function DebugPanel() {
   const [active, setActive] = useState<string | null>(null);
   const close = useCallback(() => setActive(null), []);
 
+  const { showTerritory, showAnimations, reducedMotion, toggle } = usePreferences();
+
   const activeEntry = riveFiles.find((e) => e.file === active);
 
   return (
@@ -20,6 +23,29 @@ export function DebugPanel() {
         Debug
       </button>
       <div id={PANEL_ID} popover="auto" className={styles.panel}>
+        <fieldset>
+          <legend>Preferences</legend>
+          <ul className={styles.list}>
+            <li>
+              <label>
+                <input type="checkbox" checked={showTerritory} onChange={() => toggle('showTerritory')} />
+                Live Territory
+              </label>
+            </li>
+            <li>
+              <label>
+                <input type="checkbox" checked={showAnimations} onChange={() => toggle('showAnimations')} />
+                Popover Animations
+              </label>
+            </li>
+            <li>
+              <label>
+                <input type="checkbox" checked={reducedMotion} onChange={() => toggle('reducedMotion')} />
+                Reduced Motion
+              </label>
+            </li>
+          </ul>
+        </fieldset>
         <fieldset>
           <legend>Rive animations</legend>
           <ul className={styles.list}>
@@ -33,7 +59,9 @@ export function DebugPanel() {
           </ul>
         </fieldset>
       </div>
-      {activeEntry?.buffer && <RivePopover key={active} buffer={activeEntry.buffer} onClose={close} />}
+      {showAnimations && activeEntry?.buffer && (
+        <RivePopover key={active} buffer={activeEntry.buffer} onClose={close} />
+      )}
     </>
   );
 }
