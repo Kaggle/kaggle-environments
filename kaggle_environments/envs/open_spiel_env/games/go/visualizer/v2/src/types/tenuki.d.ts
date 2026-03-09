@@ -59,11 +59,11 @@ declare module 'tenuki' {
    */
   export interface BoardState {
     moveNumber: number;
-    pass: boolean;
+    pass: boolean | undefined;
     koPoint: { y: number; x: number } | null;
     intersections: Intersection[];
     playedPoint: { y: number; x: number } | null;
-    capturedPositions: Intersection[];
+    capturedPositions: Intersection[] | undefined;
     blackStonesCaptured: number;
     whiteStonesCaptured: number;
     previousMove(): BoardState | null;
@@ -168,10 +168,11 @@ declare module 'tenuki' {
     /** Undo the last move */
     undo(): boolean;
 
-    /** Get all moves in the game */
-    previousMoves(): BoardState[];
-
+    /** Scorer **/
     _scorer: Scorer;
+
+    /** Move history **/
+    _moves: GameState[];
   }
 
   /**
