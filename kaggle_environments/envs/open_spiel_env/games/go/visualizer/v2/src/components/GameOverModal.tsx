@@ -7,10 +7,10 @@ export default memo(function GameOverModal() {
 
   if (game.isOver()) {
     const state = game.currentState();
-    const score = game.score();
-    
-    const winner = score.black > score.white ? 'black' : score.black > score.white ? 'white' : 'draw';
-    const points = score;
+    const step = options?.replay.steps[options.step];
+
+    const winner = step!.players.find((player) => player.reward === 1)!.id === 0 ? 'black' : 'white';
+    const points = game.score();
     const captured = { white: state.blackStonesCaptured, black: state.whiteStonesCaptured };
     const passes = { white: state.whitePassStones, black: state.blackPassStones };
 
@@ -48,7 +48,7 @@ export default memo(function GameOverModal() {
       });
     });
 
-    const timePerMove = { 
+    const timePerMove = {
       'black': Math.round(durations.black.reduce((a, b) => a + b) / durations.black.length),
       'white': Math.round(durations.white.reduce((a, b) => a + b) / durations.white.length),
     };
