@@ -4,22 +4,25 @@
   margin: 0;
   padding: 0.5rem;
   cursor: pointer;
-  transition: box-shadow 200ms;
+  transition:
+    box-shadow 100ms,
+    scale 200ms;
   color: #050001;
   border: 2px solid;
   border-radius: 99ch;
-  background-color: #F1F1F1;
-  box-shadow: -0.25rem 0.25rem 0 #000000;
+  background-color: #f1f1f1;
+  box-shadow: -0.125rem 0.125rem 0 #000000;
   inset: unset;
   position-anchor: --board;
   appearance: none;
 
   &:hover {
-    box-shadow: -0.125rem 0.125rem 0 #000000;
+    scale: 1.03;
   }
 
   &:active {
     box-shadow: 0 0 #000000;
+    scale: 0.97;
   }
 }
 
@@ -32,6 +35,6 @@
   text-align: left;
   color: inherit;
   border: 0.125rem solid;
-  background: white;
+  background: #f1f1f1;
   translate: 0.5rem -50%;
 }

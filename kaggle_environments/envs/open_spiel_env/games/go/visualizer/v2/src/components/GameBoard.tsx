@@ -51,7 +51,7 @@ export default memo(function GameBoard() {
 
   return (
     <div id="board">
-      <div>
+      <div className={styles.boardControls}>
         <div hidden>
           <UiSvgFilter />
         </div>

@@ -9,20 +9,35 @@ export function FeatureToggles() {
       <ul>
         <li>
           <label>
-            <input type="checkbox" checked={showTerritory} onChange={() => toggle('showTerritory')} />
             Live Territory
+            <input
+              type="checkbox"
+              className={styles.switch}
+              checked={showTerritory}
+              onChange={() => toggle('showTerritory')}
+            />
           </label>
         </li>
         <li>
           <label>
-            <input type="checkbox" checked={showAnimations} onChange={() => toggle('showAnimations')} />
             Popover Animations
+            <input
+              type="checkbox"
+              className={styles.switch}
+              checked={showAnimations}
+              onChange={() => toggle('showAnimations')}
+            />
           </label>
         </li>
         <li>
           <label>
-            <input type="checkbox" checked={reducedMotion} onChange={() => toggle('reducedMotion')} />
             Reduced Motion
+            <input
+              type="checkbox"
+              className={styles.switch}
+              checked={reducedMotion}
+              onChange={() => toggle('reducedMotion')}
+            />
           </label>
         </li>
       </ul>
