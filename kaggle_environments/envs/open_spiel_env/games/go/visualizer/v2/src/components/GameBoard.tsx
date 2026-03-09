@@ -6,7 +6,6 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
-import { UiSvgFilter } from './UiSvgFilter.tsx';
 import { WithPopover } from './WithPopover.tsx';
 
 export default memo(function GameBoard() {
@@ -52,9 +51,6 @@ export default memo(function GameBoard() {
   return (
     <div id="board">
       <div className={styles.boardControls}>
-        <div hidden>
-          <UiSvgFilter />
-        </div>
         <WithPopover id="info" icon="info">
           <p>
             Go is the ancient two-player game in which players attempt to control more territory on a grid by
