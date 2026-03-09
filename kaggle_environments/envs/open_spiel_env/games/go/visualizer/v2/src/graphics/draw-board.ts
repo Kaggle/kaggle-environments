@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Text, TextStyle, type Spritesheet } from 'pixi.js';
-import { BOARD_PADDING, BOARD_PX, LINE_COLOR, STAR_POINTS_9, getCellSize, gridToPixel } from './constants.ts';
+import { BOARD_PADDING, BOARD_PX, LINE_COLOR, getStarPoints, getCellSize, gridToPixel } from './constants.ts';
 
 const TILE_SIZE = 128;
 const TILE_MARGIN = 2;
@@ -33,7 +33,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
 
   // Star points (hoshi)
   const starRadius = cell * STAR_RADIUS_RATIO;
-  const stars = boardSize === 9 ? STAR_POINTS_9 : [];
+  const stars = getStarPoints(boardSize);
   const sg = new Graphics();
   for (const [row, col] of stars) {
     const { x, y } = gridToPixel(row, col, boardSize);
