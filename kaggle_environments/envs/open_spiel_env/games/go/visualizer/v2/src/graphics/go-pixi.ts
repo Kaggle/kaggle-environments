@@ -25,6 +25,7 @@ export interface GoPixiProps {
   captures: Captures;
   atari: GridPos[];
   territory: Territory;
+  reducedMotion: boolean;
 }
 
 export class GoPixi {
@@ -38,10 +39,12 @@ export class GoPixi {
   private pots: Pots | null = null;
 
   private stoneMap: StoneMap = new Map();
-  private prevTerritoryMap = new Map<string, string>();
+  private prevTerritoryMap = new Map<string, { row: number; col: number; tex: string }>();
+  private territorySprites = new Map<string, Sprite>();
   private prevGrid: CellValue[][] | null = null;
   private prevStep = 0;
   private activeAnims: gsap.core.Animation[] = [];
+  private atariAnims: gsap.core.Animation[] = [];
 
   private initialized = false;
   private destroyed = false;
@@ -111,28 +114,76 @@ export class GoPixi {
     }
   }
 
+  private killAnimations(): void {
+    for (const anim of this.activeAnims) anim.kill();
+    for (const anim of this.atariAnims) anim.kill();
+    this.activeAnims = [];
+    this.atariAnims = [];
+  }
+
+  private resetScene(): void {
+    this.killAnimations();
+    for (const pair of this.stoneMap.values()) resetPair(pair);
+    this.marker?.reset();
+    if (this.layers) {
+      for (const c of this.layers.effects.removeChildren()) c.destroy();
+    }
+    this.pots?.reset();
+  }
+
+  private updateTerritory(territory: Territory, isSingleStep: boolean, sheet: Spritesheet, layer: Container): void {
+    const size = getCellSize(this.boardSize) * 0.3;
+
+    // Build desired state: key → { row, col, texName }
+    const next = new Map<string, { row: number; col: number; tex: string }>();
+    for (const { row, col } of territory.black) next.set(posKey(row, col), { row, col, tex: 'black-territory.png' });
+    for (const { row, col } of territory.white) next.set(posKey(row, col), { row, col, tex: 'white-territory.png' });
+
+    // Remove sprites that are gone or changed color
+    for (const [key, { tex }] of this.prevTerritoryMap) {
+      if (next.get(key)?.tex === tex) continue;
+      const sprite = this.territorySprites.get(key);
+      if (!sprite) continue;
+      this.territorySprites.delete(key);
+      if (isSingleStep) {
+        this.activeAnims.push(animateTerritoryOut(sprite, layer));
+      } else {
+        layer.removeChild(sprite);
+        sprite.destroy();
+      }
+    }
+
+    // Add sprites that are new or changed color
+    for (const [key, { row, col, tex }] of next) {
+      if (this.prevTerritoryMap.get(key)?.tex === tex) continue;
+      const sprite = new Sprite(sheet.textures[tex]);
+      sprite.anchor.set(0.5);
+      const pos = gridToPixel(row, col, this.boardSize);
+      sprite.position.set(pos.x, pos.y);
+      sprite.width = size;
+      sprite.height = size;
+      layer.addChild(sprite);
+      this.territorySprites.set(key, sprite);
+      if (isSingleStep) {
+        this.activeAnims.push(animateTerritoryIn(sprite, sprite.scale.x, sprite.scale.y));
+      }
+    }
+
+    this.prevTerritoryMap = next;
+  }
+
   update(props: GoPixiProps): void {
-    if (!this.initialized) {
+    if (!this.initialized || !this.sheet || !this.layers || !this.marker || !this.pots) {
       this.pendingProps = props;
       return;
     }
 
-    const { grid, step, lastPlayed, captures, atari, territory } = props;
-    const sheet = this.sheet!;
-    const layers = this.layers!;
-    const { boardSize } = this;
+    const { grid, step, lastPlayed, captures, atari, territory, reducedMotion } = props;
+    const { sheet, layers, marker, pots, boardSize } = this;
 
-    // Kill in-flight animations and reset all sprites to rest state
-    for (const anim of this.activeAnims) anim.kill();
-    this.activeAnims = [];
-    for (const pair of this.stoneMap.values()) resetPair(pair);
-    this.marker!.reset();
-    // Clean up any lingering particle sprites from killed animations
-    layers.effects.removeChildren().forEach((c) => c.destroy());
-    layers.territory.removeChildren().forEach((c) => c.destroy());
-    this.pots!.reset();
+    this.resetScene();
 
-    const isSingleStep = Math.abs(step - this.prevStep) === 1;
+    const isSingleStep = !reducedMotion && Math.abs(step - this.prevStep) === 1;
     const { added, removed } = diffGrids(this.prevGrid, grid);
 
     // Remove captured stones
@@ -141,16 +192,13 @@ export class GoPixi {
       const pair = this.stoneMap.get(key);
       if (pair) {
         this.stoneMap.delete(key);
+        layers.shadow.removeChild(pair.shadow);
+        layers.stone.removeChild(pair.stone);
         if (isSingleStep) {
-          layers.shadow.removeChild(pair.shadow);
-          layers.stone.removeChild(pair.stone);
           layers.effects.addChild(pair.shadow);
           layers.effects.addChild(pair.stone);
-          const tl = animateCapture(pair, sheet, layers.effects);
-          this.activeAnims.push(tl);
+          this.activeAnims.push(animateCapture(pair, sheet, layers.effects));
         } else {
-          layers.shadow.removeChild(pair.shadow);
-          layers.stone.removeChild(pair.stone);
           pair.shadow.destroy();
           pair.stone.destroy();
         }
@@ -165,85 +213,41 @@ export class GoPixi {
       this.stoneMap.set(posKey(row, col), pair);
 
       if (isSingleStep) {
-        const tl = animateStoneDrop(pair);
-        this.activeAnims.push(tl);
+        this.activeAnims.push(animateStoneDrop(pair));
 
         for (const n of getNeighbors(row, col, boardSize)) {
           const neighborPair = this.stoneMap.get(posKey(n.row, n.col));
           if (neighborPair) {
-            const tw = animateNeighborShockwave(neighborPair, n.col - col, n.row - row);
-            this.activeAnims.push(tw);
+            this.activeAnims.push(animateNeighborShockwave(neighborPair, n.col - col, n.row - row));
           }
         }
       }
     }
 
-    // Position active-move marker on last-played stone
-    this.activeAnims.push(...this.marker!.update(lastPlayed, this.stoneMap, isSingleStep));
+    this.activeAnims.push(...marker.update(lastPlayed, this.stoneMap, isSingleStep));
+    this.activeAnims.push(...pots.update(captures, isSingleStep));
+    this.updateTerritory(territory, isSingleStep, sheet, layers.territory);
 
-    // Update prisoner sprites in pots
-    this.activeAnims.push(...this.pots!.update(captures, isSingleStep));
-
-    // Territory markers
-    const territorySize = getCellSize(boardSize) * 0.3;
-    const nextTerritoryMap = new Map<string, string>();
-
-    const placeTerritory = (positions: GridPos[], texName: string) => {
-      for (const { row, col } of positions) {
-        const key = posKey(row, col);
-        nextTerritoryMap.set(key, texName);
-        const sprite = new Sprite(sheet.textures[texName]);
-        sprite.anchor.set(0.5);
-        const { x, y } = gridToPixel(row, col, boardSize);
-        sprite.position.set(x, y);
-        sprite.width = territorySize;
-        sprite.height = territorySize;
-        layers.territory.addChild(sprite);
-        if (isSingleStep && !this.prevTerritoryMap.has(key)) {
-          this.activeAnims.push(animateTerritoryIn(sprite, sprite.scale.x, sprite.scale.y));
-        }
-      }
-    };
-    placeTerritory(territory.black, 'black-territory.png');
-    placeTerritory(territory.white, 'white-territory.png');
-
-    // Animate out removed territory markers via effects layer
-    if (isSingleStep) {
-      for (const [key, texName] of this.prevTerritoryMap) {
-        if (!nextTerritoryMap.has(key)) {
-          const [r, c] = key.split(',').map(Number);
-          const sprite = new Sprite(sheet.textures[texName]);
-          sprite.anchor.set(0.5);
-          const { x, y } = gridToPixel(r, c, boardSize);
-          sprite.position.set(x, y);
-          sprite.width = territorySize;
-          sprite.height = territorySize;
-          layers.territory.addChild(sprite);
-          this.activeAnims.push(animateTerritoryOut(sprite, layers.territory));
+    // Wobble stones in atari (tracked separately — these loop infinitely)
+    if (!reducedMotion) {
+      for (const { row, col } of atari) {
+        const pair = this.stoneMap.get(posKey(row, col));
+        if (pair) {
+          this.atariAnims.push(animateAtariWobble(pair));
         }
       }
     }
-    this.prevTerritoryMap = nextTerritoryMap;
 
-    // Wobble stones in atari
-    for (const { row, col } of atari) {
-      const pair = this.stoneMap.get(posKey(row, col));
-      if (pair) {
-        this.activeAnims.push(animateAtariWobble(pair));
-      }
-    }
-
-    // Store for next diff
     this.prevGrid = grid;
     this.prevStep = step;
   }
 
   destroy(): void {
     this.destroyed = true;
-    for (const anim of this.activeAnims) anim.kill();
-    this.activeAnims = [];
+    this.resetScene();
     this.stoneMap = new Map();
     this.prevTerritoryMap = new Map();
+    this.territorySprites = new Map();
     this.prevGrid = null;
     this.pendingProps = null;
     this.sheet = null;

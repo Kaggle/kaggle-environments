@@ -4,16 +4,39 @@ export const BOARD_PX = 512;
 export const BOARD_PADDING = 28;
 
 export const LINE_COLOR = 0x1a1a1a;
-export const LINE_WIDTH = 1;
 
-/** Star point (hoshi) positions for a 9×9 board */
-export const STAR_POINTS_9: [number, number][] = [
-  [2, 2],
-  [2, 6],
-  [4, 4],
-  [6, 2],
-  [6, 6],
-];
+/** Star point (hoshi) positions per board size */
+const STAR_POINTS: Record<number, [number, number][]> = {
+  9: [
+    [2, 2],
+    [2, 6],
+    [4, 4],
+    [6, 2],
+    [6, 6],
+  ],
+  13: [
+    [3, 3],
+    [3, 9],
+    [6, 6],
+    [9, 3],
+    [9, 9],
+  ],
+  19: [
+    [3, 3],
+    [3, 9],
+    [3, 15],
+    [9, 3],
+    [9, 9],
+    [9, 15],
+    [15, 3],
+    [15, 9],
+    [15, 15],
+  ],
+};
+
+export function getStarPoints(boardSize: number): [number, number][] {
+  return STAR_POINTS[boardSize] ?? [];
+}
 
 export function getCellSize(boardSize: number): number {
   return (BOARD_PX - BOARD_PADDING * 2) / (boardSize - 1);
