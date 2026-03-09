@@ -1,5 +1,4 @@
-import { GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
-import { BaseGamePlayer } from '../../types';
+import { GoPlayer, GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
 
 function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string }): string {
   if (action?.generate_returns?.[0]) {
@@ -62,7 +61,7 @@ export const goTransformer = (environment: any): GoStep[] => {
   const goSteps: GoStep[] = [];
 
   goReplay.steps.forEach((step, index) => {
-    const stepPlayers: BaseGamePlayer[] = step.map((player, playerIndex) => {
+    const stepPlayers: GoPlayer[] = step.map((player, playerIndex): GoPlayer => {
       const actionString = player.action?.actionString ?? '';
       const [, move] = actionString.split(' ');
 
@@ -73,6 +72,8 @@ export const goTransformer = (environment: any): GoStep[] => {
         isTurn: player.action?.submission !== undefined && player.action.submission !== -1,
         actionDisplayText: move ?? '',
         thoughts: parseThoughts(player.action),
+        reward: player.reward,
+        generateReturns: player.action?.generate_returns ?? null,
       };
     });
 
