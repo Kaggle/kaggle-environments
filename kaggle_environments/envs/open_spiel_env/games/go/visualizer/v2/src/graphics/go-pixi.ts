@@ -39,7 +39,7 @@ export class GoPixi {
   private pots: Pots | null = null;
 
   private stoneMap: StoneMap = new Map();
-  private prevTerritoryMap = new Map<string, string>();
+  private prevTerritoryMap = new Map<string, { row: number; col: number; tex: string }>();
   private territorySprites = new Map<string, Sprite>();
   private prevGrid: CellValue[][] | null = null;
   private prevStep = 0;
@@ -131,58 +131,45 @@ export class GoPixi {
     this.pots?.reset();
   }
 
-  private updateTerritory(
-    territory: Territory,
-    isSingleStep: boolean,
-    sheet: Spritesheet,
-    layers: NonNullable<GoPixi['layers']>
-  ): void {
-    const territorySize = getCellSize(this.boardSize) * 0.3;
-    const nextTerritoryMap = new Map<string, string>();
-    const nextTerritorySprites = new Map<string, Sprite>();
+  private updateTerritory(territory: Territory, isSingleStep: boolean, sheet: Spritesheet, layer: Container): void {
+    const size = getCellSize(this.boardSize) * 0.3;
 
-    const place = (positions: GridPos[], texName: string) => {
-      for (const { row, col } of positions) {
-        const key = posKey(row, col);
-        nextTerritoryMap.set(key, texName);
+    // Build desired state: key → { row, col, texName }
+    const next = new Map<string, { row: number; col: number; tex: string }>();
+    for (const { row, col } of territory.black) next.set(posKey(row, col), { row, col, tex: 'black-territory.png' });
+    for (const { row, col } of territory.white) next.set(posKey(row, col), { row, col, tex: 'white-territory.png' });
 
-        const existing = this.territorySprites.get(key);
-        if (existing && this.prevTerritoryMap.get(key) === texName) {
-          nextTerritorySprites.set(key, existing);
-          this.territorySprites.delete(key);
-        } else {
-          if (existing) {
-            layers.territory.removeChild(existing);
-            existing.destroy();
-            this.territorySprites.delete(key);
-          }
-          const sprite = new Sprite(sheet.textures[texName]);
-          sprite.anchor.set(0.5);
-          const { x, y } = gridToPixel(row, col, this.boardSize);
-          sprite.position.set(x, y);
-          sprite.width = territorySize;
-          sprite.height = territorySize;
-          layers.territory.addChild(sprite);
-          nextTerritorySprites.set(key, sprite);
-          if (isSingleStep) {
-            this.activeAnims.push(animateTerritoryIn(sprite, sprite.scale.x, sprite.scale.y));
-          }
-        }
-      }
-    };
-    place(territory.black, 'black-territory.png');
-    place(territory.white, 'white-territory.png');
-
-    for (const [, sprite] of this.territorySprites) {
+    // Remove sprites that are gone or changed color
+    for (const [key, { tex }] of this.prevTerritoryMap) {
+      if (next.get(key)?.tex === tex) continue;
+      const sprite = this.territorySprites.get(key);
+      if (!sprite) continue;
+      this.territorySprites.delete(key);
       if (isSingleStep) {
-        this.activeAnims.push(animateTerritoryOut(sprite, layers.territory));
+        this.activeAnims.push(animateTerritoryOut(sprite, layer));
       } else {
-        layers.territory.removeChild(sprite);
+        layer.removeChild(sprite);
         sprite.destroy();
       }
     }
-    this.prevTerritoryMap = nextTerritoryMap;
-    this.territorySprites = nextTerritorySprites;
+
+    // Add sprites that are new or changed color
+    for (const [key, { row, col, tex }] of next) {
+      if (this.prevTerritoryMap.get(key)?.tex === tex) continue;
+      const sprite = new Sprite(sheet.textures[tex]);
+      sprite.anchor.set(0.5);
+      const pos = gridToPixel(row, col, this.boardSize);
+      sprite.position.set(pos.x, pos.y);
+      sprite.width = size;
+      sprite.height = size;
+      layer.addChild(sprite);
+      this.territorySprites.set(key, sprite);
+      if (isSingleStep) {
+        this.activeAnims.push(animateTerritoryIn(sprite, sprite.scale.x, sprite.scale.y));
+      }
+    }
+
+    this.prevTerritoryMap = next;
   }
 
   update(props: GoPixiProps): void {
@@ -239,7 +226,7 @@ export class GoPixi {
 
     this.activeAnims.push(...marker.update(lastPlayed, this.stoneMap, isSingleStep));
     this.activeAnims.push(...pots.update(captures, isSingleStep));
-    this.updateTerritory(territory, isSingleStep, sheet, layers);
+    this.updateTerritory(territory, isSingleStep, sheet, layers.territory);
 
     // Wobble stones in atari (tracked separately — these loop infinitely)
     if (!reducedMotion) {
