@@ -1,60 +1,115 @@
 import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
+import styles from './GameOverModal.module.css';
+
+function formatDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+function avg(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+interface StatRow {
+  label: string;
+  black: string | number;
+  white: string | number;
+}
 
 export default memo(function GameOverModal() {
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
 
-  if (game.isOver()) {
-    const state = game.currentState();
-    const step = options?.replay.steps[options.step];
+  if (!game.isOver() || !options) return null;
 
-    const winner = step!.players.find((player) => player.reward === 1)!.id === 0 ? 'black' : 'white';
-    const points = game.score();
-    const captured = { white: state.blackStonesCaptured, black: state.whiteStonesCaptured };
-    const passes = { white: state.whitePassStones, black: state.blackPassStones };
+  const state = game.currentState();
+  const step = options.replay.steps[options.step];
 
-    const tokens = { black: 0, white: 0 };
-    const durations: { [key: string]: number[] } = { black: [], white: [] };
-    options?.replay.steps.forEach((step) => {
-      const player = step.players.find((player) => player.generateReturns);
+  const winnerPlayer = step.players.find((player) => player.reward === 1);
+  const winnerColor = winnerPlayer?.id === 0 ? 'black' : 'white';
+  const teamNames = options.replay.info?.TeamNames as string[] | undefined;
+  const blackName = teamNames?.[0] ?? 'Black';
+  const whiteName = teamNames?.[1] ?? 'White';
+  const winnerName = winnerColor === 'black' ? blackName : whiteName;
 
-      if (!player) return;
+  const points = game.score();
+  const captured = { black: state.whiteStonesCaptured, white: state.blackStonesCaptured };
+  const passes = { black: state.blackPassStones, white: state.whitePassStones };
 
-      player!.generateReturns!.forEach((json) => {
-        const ret = JSON.parse(json);
+  const tokens = { black: 0, white: 0 };
+  const durations: { black: number[]; white: number[] } = { black: [], white: [] };
 
-        const modelName: string = ret.model ?? ret.request_for_logging.model;
-        const promptTokens: number = ret.prompt_tokens ?? 0;
-        let generationTokens: number = ret.generation_tokens ?? 0;
-        const reasoningTokens: number = ret.reasoning_tokens ?? 0;
-        let totalTokens: number = ret.total_tokens ?? 0;
+  for (const replayStep of options.replay.steps) {
+    const player = replayStep.players.find((p) => p.generateReturns);
+    if (!player?.generateReturns) continue;
 
-        if (modelName.includes('grok') || modelName.includes('gemini')) {
-          generationTokens = totalTokens - promptTokens;
-        }
+    for (const json of player.generateReturns) {
+      const ret = JSON.parse(json);
+      const modelName: string = ret.model ?? ret.request_for_logging?.model ?? '';
+      const promptTokens: number = ret.prompt_tokens ?? 0;
+      let generationTokens: number = ret.generation_tokens ?? 0;
+      const reasoningTokens: number = ret.reasoning_tokens ?? 0;
+      let totalTokens: number = ret.total_tokens ?? 0;
 
-        if (totalTokens === 0) {
-          totalTokens = promptTokens + generationTokens + reasoningTokens;
-        }
+      if (modelName.includes('grok') || modelName.includes('gemini')) {
+        generationTokens = totalTokens - promptTokens;
+      }
+      if (totalTokens === 0) {
+        totalTokens = promptTokens + generationTokens + reasoningTokens;
+      }
 
-        if (player.id) {
-          tokens.white += totalTokens;
-          durations.white.push(ret.duration_success_only_secs);
-        } else {
-          tokens.black += totalTokens;
-          durations.black.push(ret.duration_success_only_secs);
-        }
-      });
-    });
-
-    const timePerMove = {
-      'black': Math.round(durations.black.reduce((a, b) => a + b) / durations.black.length),
-      'white': Math.round(durations.white.reduce((a, b) => a + b) / durations.white.length),
-    };
-
-    console.log('game over', winner, points, captured, passes, tokens, timePerMove);
+      const color = player.id ? 'white' : 'black';
+      tokens[color] += totalTokens;
+      durations[color].push(ret.duration_success_only_secs ?? 0);
+    }
   }
 
-  return null;
+  const totalMoves = options.replay.steps.length;
+  const allDurations = [...durations.black, ...durations.white];
+  const gameDuration = allDurations.reduce((a, b) => a + b, 0);
+
+  const rows: StatRow[] = [
+    { label: 'Stones Captured', black: captured.black, white: captured.white },
+    { label: 'Point Total', black: points.black, white: points.white },
+    { label: 'No. of Passes', black: passes.black, white: passes.white },
+    { label: 'Tokens Used', black: tokens.black.toLocaleString(), white: tokens.white.toLocaleString() },
+    {
+      label: 'Avg. Time per Move',
+      black: `${Math.round(avg(durations.black))}s`,
+      white: `${Math.round(avg(durations.white))}s`,
+    },
+  ];
+
+  return (
+    <div className={styles.modal}>
+      <div className={styles.winner}>Winner is {winnerName}!</div>
+      <div className={styles.meta}>
+        Game Duration: {formatDuration(gameDuration)}
+        <br />
+        Total Moves: {totalMoves}
+      </div>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th />
+            <th>Player 1 : {blackName}</th>
+            <th>Player 2 : {whiteName}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td className={styles.labelCell}>{row.label}</td>
+              <td className={styles.valueCell}>{row.black}</td>
+              <td className={styles.valueCell}>{row.white}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 });
