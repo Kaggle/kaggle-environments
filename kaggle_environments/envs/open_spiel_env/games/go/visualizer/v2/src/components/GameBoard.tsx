@@ -2,11 +2,14 @@ import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
 import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
+  const showTerritory = usePreferences((state) => state.showTerritory);
+  const reducedMotion = usePreferences((state) => state.reducedMotion);
 
   tenukiLogger(game);
 
@@ -14,11 +17,11 @@ export default memo(function GameBoard() {
   const size = game.boardSize;
   const step = state.moveNumber;
 
+  const cells: Record<string, CellValue> = { black: 'B', white: 'W', empty: '.' };
   const grid: CellValue[][] = Array.from({ length: size }, () => new Array(size));
-  state.intersections.forEach((item) => {
-    const cells: { [key: string]: CellValue } = { 'black': 'B', 'white': 'W', 'empty': '.' };
-    grid[item.y][item.x] = cells[item.value!];
-  });
+  for (const item of state.intersections) {
+    grid[item.y][item.x] = cells[item.value ?? 'empty'];
+  }
 
   let played = null;
   if (state.playedPoint) {
@@ -53,7 +56,8 @@ export default memo(function GameBoard() {
           lastPlayed={played}
           captures={captures}
           atari={atari}
-          territory={territory}
+          territory={showTerritory ? territory : { black: [], white: [] }}
+          reducedMotion={reducedMotion}
         />
       </div>
     </div>

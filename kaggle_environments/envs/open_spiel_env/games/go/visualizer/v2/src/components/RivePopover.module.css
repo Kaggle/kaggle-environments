@@ -66,6 +66,10 @@
   }
 }
 
+:global([data-reduced-motion]) .popover {
+  transition: none;
+}
+
 .content {
   display: grid;
 
