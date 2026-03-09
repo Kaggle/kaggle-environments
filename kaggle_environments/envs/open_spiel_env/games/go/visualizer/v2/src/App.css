@@ -20,7 +20,11 @@ div:has(> #board) {
 }
 
 #board {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   color: black;
+  font-family: 'Google Sans', sans-serif;
 }
 
 #board button {
@@ -28,9 +32,21 @@ div:has(> #board) {
   color: inherit;
 }
 
+#board svg {
+  display: block;
+}
+
+:where(#board .grid-pile) {
+  display: grid;
+}
+
+:where(#board .grid-pile > *) {
+  grid-area: 1 / 1;
+}
+
 .viewer canvas {
   position: relative !important;
   width: 100% !important;
   height: auto !important;
-  max-width: 500px;
+  max-width: 512px;
 }
