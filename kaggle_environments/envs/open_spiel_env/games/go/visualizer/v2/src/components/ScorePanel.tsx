@@ -17,9 +17,8 @@ export default memo(function ScorePanel() {
   const komi = game._scorer._komi;
   const activeColor = state.nextColor();
 
-  const agents = options?.agents ?? [];
-  const blackName = agents[0]?.Name ?? 'Black';
-  const whiteName = agents[1]?.Name ?? 'White';
+  const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
+  const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
 
   const rows: ScoreRow[] = [
     {
