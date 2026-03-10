@@ -5,8 +5,6 @@ import useGameStore from '../stores/useGameStore';
 export default memo(function HeroAnimationModal() {
   const game = useGameStore((state) => state.game);
 
-  const state = game.currentState();
-
   function isLadder(game: Game) {
     const history = game._moves;
 
@@ -58,12 +56,81 @@ export default memo(function HeroAnimationModal() {
     return true;
   }
 
+  const isMonkeyJump = (game: Game) => {
+    const history = game._moves;
+
+    if (history.length < 5) {
+      return false;
+    }
+
+    if (history.at(-1).pass) {
+      return false;
+    }
+
+    const state = game.currentState();
+    const point = state.playedPoint!;
+    const color = state.color;
+    const max = game.boardSize - 1;
+
+    if (point.x !== 0 && point.y !== 0 && point.x !== max && point.y !== max) {
+      return false;
+    }
+
+    if (
+      (point.x < 3 && point.y < 3) ||
+      (point.x < 3 && point.y > max - 3) ||
+      (point.x > max - 3 && point.y < 3) ||
+      (point.x > max - 3 && point.y > max - 3)
+    ) {
+      return false;
+    }
+
+    let dy, dx, ey, ex;
+    if (point.x === 0 && point.y <= max / 2) [dy, dx, ey, ex] = [0, 1, 0, -1];
+    if (point.x === 0 && point.y > max / 2) [dy, dx, ey, ex] = [0, 1, 0, 1];
+    if (point.y === 0 && point.x <= max / 2) [dy, dx, ey, ex] = [1, 0, -1, 0];
+    if (point.y === 0 && point.x > max / 2) [dy, dx, ey, ex] = [1, 0, 1, 0];
+    if (point.x === max && point.y <= max / 2) [dy, dx, ey, ex] = [0, -1, 0, -1];
+    if (point.x === max && point.y > max / 2) [dy, dx, ey, ex] = [0, -1, 0, 1];
+    if (point.y === max && point.x <= max / 2) [dy, dx, ey, ex] = [-1, 0, -1, 0];
+    if (point.y === max && point.x > max / 2) [dy, dx, ey, ex] = [-1, 0, 1, 0];
+
+    let neighbors = [];
+    neighbors.push(...state.neighborsFor(point.y + dx! * 2, point.x + dy! * 2));
+    neighbors.push(...state.neighborsFor(point.y + dx!, point.x + dy!));
+    neighbors.push(...state.neighborsFor(point.y, point.x));
+    neighbors.push(...state.neighborsFor(point.y - dx!, point.x - dy!));
+    neighbors.push(...state.neighborsFor(point.y - dx! * 2, point.x - dy! * 2));
+    neighbors = [...new Set(neighbors)];
+    neighbors = neighbors.filter((intersection) => intersection.isEmpty());
+    if (neighbors.length !== 11) {
+      return false;
+    }
+
+    const sameColor = state
+      .groupAt(point.y + ey! - 3 * ex!, point.x - 3 * ey! + ex!)
+      .filter((intersection) => intersection.isOccupiedWith(color) === true);
+    if (sameColor.length < 2) {
+      return false;
+    }
+
+    const oppColor = state
+      .groupAt(point.y + 2 * ex! + 2 * ey!, point.x - 2 * ex! - 2 * ey!)
+      .filter((intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false);
+    if (oppColor.length < 2) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const state = game.currentState();
+
   const isPass = state.pass === true;
   const isDoublePass = state.pass === true && game._moves.at(-2).pass === true;
   const isLossOfADragon = state.capturedPositions !== undefined && state.capturedPositions.length > 6;
-  const isMonkeyJump = false;
 
-  console.log('hero animation', isLadder(game), isPass, isDoublePass, isLossOfADragon, isMonkeyJump);
+  console.log('hero animation', isLadder(game), isPass, isDoublePass, isLossOfADragon, isMonkeyJump(game));
 
   return null;
 });
