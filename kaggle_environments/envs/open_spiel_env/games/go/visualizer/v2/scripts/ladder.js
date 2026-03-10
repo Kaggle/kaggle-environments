@@ -83,9 +83,6 @@ for (const episode of list.episodes) {
   console.log(replay.info.TeamNames);
 
   const boardSize = JSON.parse(replay.info.stateHistory[0]).board_size;
-
-  console.log(boardSize);
-
   const game = new Game({ boardSize });
   let download = false;
 
@@ -127,51 +124,167 @@ for (const episode of list.episodes) {
               return false;
             }
 
-            let state = game._moves.at(-1);
-            let atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-            if (atari.length !== 5) {
+            // *** Version #1 ***
+
+            // let state = game._moves.at(-1);
+            // let atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
+            // if (atari.length !== 5) {
+            //   return false;
+            // }
+
+            // state = game._moves.at(-3);
+            // atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
+            // if (atari.length !== 4) {
+            //   return false;
+            // }
+
+            // state = game._moves.at(-5);
+            // atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
+            // if (atari.length !== 3) {
+            //   return false;
+            // }
+
+            // state = game._moves.at(-7);
+            // atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
+            // if (atari.length !== 2) {
+            //   return false;
+            // }
+
+            // state = game._moves.at(-9);
+            // atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
+            // if (atari.length !== 1) {
+            //   return false;
+            // }
+
+            // const dy = game._moves.at(-5).playedPoint.y - game._moves.at(-9).playedPoint.y;
+            // const dx = game._moves.at(-5).playedPoint.x - game._moves.at(-9).playedPoint.x;
+
+            // if (dy === 0 || dx === 0 || Math.abs(dy) !== Math.abs(dx)) {
+            //   return false;
+            // }
+
+            // const py = game._moves.at(-9).playedPoint.y + 2 * dy;
+            // const px = game._moves.at(-9).playedPoint.x + 2 * dx;
+
+            // if (game._moves.at(-1).playedPoint.y !== py || game._moves.at(-1).playedPoint.x !== px) {
+            //   return false;
+            // }
+
+            // *** Version #2 ***
+
+            // let state = game.currentState();
+            // const group = state.groupAt(state.playedPoint.y, state.playedPoint.x);
+
+            // if (group.length !== 6) {
+            //   return false;
+            // }
+
+            // const dy = game._moves.at(-5).playedPoint.y - state.playedPoint.y;
+            // const dx = game._moves.at(-5).playedPoint.x - state.playedPoint.x;
+
+            // if (Math.abs(dy) !== 1 || Math.abs(dx) !== 1) {
+            //   return false;
+            // }
+
+            // const py = state.playedPoint.y + 2 * dy;
+            // const px = state.playedPoint.x + 2 * dx;
+
+            // if (game._moves.at(-9).playedPoint.y !== py || game._moves.at(-9).playedPoint.x !== px) {
+            //   return false;
+            // }
+
+            // const p2y = game._moves.at(-3).playedPoint.y + dy;
+            // const p2x = game._moves.at(-3).playedPoint.x + dx;
+
+            // if (game._moves.at(-7).playedPoint.y !== p2y || game._moves.at(-7).playedPoint.x !== p2x) {
+            //   return false;
+            // }
+
+            // for (let i = -1; i >= -9; i = i - 2) {
+            //   if (
+            //     group.some(
+            //       (intersection) =>
+            //         intersection.y === game._moves.at(i).playedPoint.y &&
+            //         intersection.x === game._moves.at(i).playedPoint.x
+            //     ) === false
+            //   ) {
+            //     return false;
+            //   }
+            // }
+
+            // let neighbors = [];
+            // group.forEach((point) => {
+            //   neighbors.push(...state.neighborsFor(point.y, point.x));
+            // });
+
+            // neighbors = [...new Set(neighbors)];
+
+            // for (let i = 1; i <= 5; i++) {
+            //   const atari = group.filter((intersection) =>
+            //     game._moves.at(-2 * i).inAtari(intersection.y, intersection.x)
+            //   );
+            //   if (atari.length !== 6 - i) {
+            //     return false;
+            //   }
+            // }
+
+            // *** Version #3 ***
+
+            const history = game._moves;
+
+            if (
+              history.at(-1).pass ||
+              history.at(-3).pass ||
+              history.at(-5).pass ||
+              history.at(-7).pass ||
+              history.at(-9).pass
+            ) {
               return false;
             }
 
-            state = game._moves.at(-3);
-            atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-            if (atari.length !== 4) {
+            const d1y = history.at(-3).playedPoint.y - history.at(-1).playedPoint.y;
+            const d1x = history.at(-3).playedPoint.x - history.at(-1).playedPoint.x;
+            const d2y = history.at(-5).playedPoint.y - history.at(-3).playedPoint.y;
+            const d2x = history.at(-5).playedPoint.x - history.at(-3).playedPoint.x;
+
+            if (d1y !== 0 && d1x !== 0) {
               return false;
             }
 
-            state = game._moves.at(-5);
-            atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-            if (atari.length !== 3) {
+            if (d2y !== 0 && d2x !== 0) {
               return false;
             }
 
-            state = game._moves.at(-7);
-            atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-            if (atari.length !== 2) {
+            if (Math.abs(d1y + d2y) !== 1 || Math.abs(d1x + d2x) !== 1) {
               return false;
             }
 
-            state = game._moves.at(-9);
-            atari = state.intersections.filter((intersection) => state.inAtari(intersection.y, intersection.x));
-            if (atari.length !== 1) {
+            if (
+              history.at(-7).playedPoint.y !== history.at(-5).playedPoint.y + d1y ||
+              history.at(-7).playedPoint.x !== history.at(-5).playedPoint.x + d1x
+            ) {
               return false;
             }
 
-            const dy = game._moves.at(-5).playedPoint.y - game._moves.at(-9).playedPoint.y;
-            const dx = game._moves.at(-5).playedPoint.x - game._moves.at(-9).playedPoint.x;
-
-            if (dy === 0 || dx === 0 || Math.abs(dy) !== Math.abs(dx)) {
+            if (
+              history.at(-9).playedPoint.y !== history.at(-7).playedPoint.y + d2y ||
+              history.at(-9).playedPoint.x !== history.at(-7).playedPoint.x + d2x
+            ) {
               return false;
             }
 
-            const py = game._moves.at(-9).playedPoint.y + 2 * dy;
-            const px = game._moves.at(-9).playedPoint.x + 2 * dx;
+            const point = history.at(-1).playedPoint;
+            const group = history.at(-1).groupAt(point.y, point.x);
 
-            if (game._moves.at(-1).playedPoint.y !== py || game._moves.at(-1).playedPoint.x !== px) {
+            if (group.length !== 6) {
               return false;
             }
 
-            // console.log(state.moveNumber);
+            if (group.filter((intersection) => history.at(-2).inAtari(intersection.y, intersection.x)).length !== 5) {
+              return false;
+            }
+
+            console.log(`Match at ${history.at(-1).moveNumber}`);
 
             return true;
           };
