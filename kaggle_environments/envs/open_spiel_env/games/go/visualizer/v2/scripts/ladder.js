@@ -78,7 +78,7 @@ for (const episode of list.episodes) {
     break;
   }
 
-  // const replay = JSON.parse(fs.readFileSync('replays/downloads/ladder-replay.json'));
+  // const replay = JSON.parse(fs.readFileSync('replays/ladder-replay.json'));
 
   console.log(replay.info.TeamNames);
 
@@ -160,7 +160,7 @@ for (const episode of list.episodes) {
             const dy = game._moves.at(-5).playedPoint.y - game._moves.at(-9).playedPoint.y;
             const dx = game._moves.at(-5).playedPoint.x - game._moves.at(-9).playedPoint.x;
 
-            if (dy === 0 || dx === 0) {
+            if (dy === 0 || dx === 0 || Math.abs(dy) !== Math.abs(dx)) {
               return false;
             }
 
@@ -171,7 +171,7 @@ for (const episode of list.episodes) {
               return false;
             }
 
-            console.log(state.moveNumber);
+            // console.log(state.moveNumber);
 
             return true;
           };
