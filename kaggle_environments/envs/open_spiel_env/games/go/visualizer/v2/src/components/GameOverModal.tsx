@@ -96,8 +96,8 @@ export default memo(function GameOverModal() {
         <thead>
           <tr>
             <th />
-            <th>Player 1 : {blackName}</th>
-            <th>Player 2 : {whiteName}</th>
+            <th>{blackName}</th>
+            <th>{whiteName}</th>
           </tr>
         </thead>
         <tbody>
