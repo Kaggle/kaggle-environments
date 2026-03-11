@@ -8,23 +8,21 @@ export default memo(function Notation() {
   const step = options?.replay.steps.at(options.step);
   const player = step?.players.find((player) => player?.isTurn);
 
-  if (!player || !player.generateReturns) return null;
+  if (!player) return null;
 
   const komi = game._scorer._komi;
   const agent = player.name;
-  const json = player.generateReturns[0];
-  const data = JSON.parse(json);
-
-  const thoughts = data.main_response;
   const searches: { term: string; priority: number; text: string }[] = [
     { term: 'rethink', priority: 1, text: `${agent} rethinks their decision` },
     { term: 'komi', priority: 2, text: `${agent} earns Komi: ${komi} bonus points for going second` },
   ];
-  const matches = searches.filter((search) => thoughts.match(new RegExp(search.term, 'i')) !== null);
+  const matches = searches.filter((search) => player.thoughts?.match(new RegExp(search.term, 'i')) !== null);
 
-  const duration = 1;
+  const duration = 2;
+  const json = player.generateReturns![0];
+  const data = JSON.parse(json);
   if (data.duration_success_only_secs > 60 * duration) {
-    matches.push({ term: 'duration', priority: 1, text: `${agent} took over ${duration} minute to decide` });
+    matches.push({ term: 'duration', priority: 1, text: `${agent} took over ${duration} minutes to decide` });
   }
 
   if (matches.length > 0) {
