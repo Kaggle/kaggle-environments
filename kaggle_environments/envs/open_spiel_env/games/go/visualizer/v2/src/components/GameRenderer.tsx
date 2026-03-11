@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
+import VersusBanner from '../components/VersusBanner';
 import ScorePanel from '../components/ScorePanel';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
@@ -58,6 +59,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
   return (
     <>
+      <VersusBanner />
       <GameBoard />
       <ScorePanel />
       <DebugPanel />
