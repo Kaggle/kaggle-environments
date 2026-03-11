@@ -1,3 +1,9 @@
 .boardAnchor {
   anchor-name: --board;
 }
+
+.boardControls {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+}

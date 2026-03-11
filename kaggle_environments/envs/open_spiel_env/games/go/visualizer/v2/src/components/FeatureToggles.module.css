@@ -1,0 +1,84 @@
+.fieldset {
+  display: contents;
+}
+
+.fieldset ul {
+  padding-left: 0;
+  list-style: none;
+}
+
+.fieldset label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  gap: 0.5rem;
+}
+
+.switch {
+  --switch-width: 8.5ch;
+  --switch-height: 1.75rem;
+  --thumb-size: 2rem;
+  --border-width: 2px;
+  --thumb-overflow: calc(
+    (var(--thumb-size) - var(--switch-height) + var(--border-width) * 2) / 2
+  );
+
+  position: relative;
+  overflow: visible;
+  flex-shrink: 0;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  cursor: pointer;
+  color: #050001;
+  border: var(--border-width) solid currentColor;
+  border-radius: 99ch;
+  background: white;
+  appearance: none;
+  transition: scale 150ms;
+
+  label:hover > & {
+    scale: 1.05;
+  }
+
+  /* Thumb, which is intentionally larger than the track */
+
+  &::after {
+    position: absolute;
+    top: calc(-1 * var(--thumb-overflow));
+    left: calc(-1 * var(--thumb-overflow));
+    width: var(--thumb-size);
+    height: var(--thumb-size);
+    content: "";
+    transition: translate 200ms;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &:checked::after {
+    translate: calc(
+        var(--switch-width) - var(--thumb-size) + var(--thumb-overflow) * 2 -
+          var(--border-width) * 2
+      )
+      0;
+  }
+
+  &::before {
+    font-size: 10px;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.3rem;
+    content: "No";
+    pointer-events: none;
+    inset: 0;
+  }
+
+  &:checked::before {
+    justify-content: flex-start;
+    padding-right: 0;
+    padding-left: 0.3rem;
+    content: "Yes";
+  }
+}
