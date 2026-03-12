@@ -50,7 +50,9 @@
 /* Animate-in. */
 
 .modal {
-  transition: opacity 300ms, transform 500ms;
+  transition:
+    opacity 300ms,
+    transform 500ms;
 
   @starting-style {
     opacity: 0;
@@ -59,7 +61,9 @@
 }
 
 :where(.meta, .table, .ribbon) {
-  transition: opacity 400ms, transform 500ms;
+  transition:
+    opacity 400ms,
+    transform 500ms;
   transition-delay: 100ms;
 
   @starting-style {
