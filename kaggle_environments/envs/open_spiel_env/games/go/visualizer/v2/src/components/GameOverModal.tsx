@@ -104,9 +104,9 @@ export default memo(function GameOverModal() {
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
-              <td className={styles.labelCell}>{row.label}</td>
-              <td className={styles.valueCell}>{row.black}</td>
-              <td className={styles.valueCell}>{row.white}</td>
+              <td>{row.label}</td>
+              <td>{row.black}</td>
+              <td>{row.white}</td>
             </tr>
           ))}
         </tbody>

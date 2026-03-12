@@ -12,6 +12,7 @@
   background-size: cover;
   background-position: center;
   color: #050001;
+  font-size: 1.25rem;
 }
 
 .winner {
@@ -42,7 +43,6 @@
 .table thead th {
   border-top: var(--border-size) solid;
   border-bottom: var(--border-size) solid;
-  font-weight: 700;
 }
 
 .table :where(td, th):not(:last-of-type) {
@@ -51,8 +51,4 @@
 
 .labelCell {
   text-align: left;
-}
-
-.valueCell {
-  font-size: 1.25rem;
 }
