@@ -66,6 +66,8 @@ declare module 'tenuki' {
     capturedPositions: Intersection[];
     blackStonesCaptured: number;
     whiteStonesCaptured: number;
+    blackPassStones: number;
+    whitePassStones: number;
     previousMove(): BoardState | null;
     nextColor(): 'black' | 'white';
     xCoordinateFor(x: number): string;
