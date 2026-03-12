@@ -65,7 +65,7 @@ const downloads = [];
 
 shuffle(list.episodes);
 
-for (const episode of list.episodes) {
+for (const [index, episode] of list.episodes.entries()) {
   const replay = await kaggleApi(
     '/i/competitions.EpisodeService/GetEpisodeReplay',
     JSON.stringify({
@@ -80,7 +80,7 @@ for (const episode of list.episodes) {
 
   // const replay = JSON.parse(fs.readFileSync('replays/ladder-replay.json'));
 
-  console.log(replay.info.TeamNames);
+  console.log(replay.info.TeamNames, `(${index}/${list.episodes.length})`);
 
   const boardSize = JSON.parse(replay.info.stateHistory[0]).board_size;
   const game = new Game({ boardSize });
