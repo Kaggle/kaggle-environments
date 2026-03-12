@@ -34,12 +34,19 @@ export default memo(function ScorePanel() {
   ];
 
   return (
-    <div className={styles.panel}>
+    <section className={styles.panel} aria-label="Score">
       <div className={`${styles.playerBlack} ${activeColor === 'black' ? styles.active : ''}`}>
-        <img className={styles.logo} src={blackLogo} alt={blackName} />
+        <img className={styles.logo} src={blackLogo} alt="" aria-hidden="true" />
         <span className={styles.playerName}>{blackName}</span>
       </div>
       <table className={styles.table}>
+        <thead className="visually-hidden">
+          <tr>
+            <th scope="col">{blackName}</th>
+            <th scope="col">Category</th>
+            <th scope="col">{whiteName}</th>
+          </tr>
+        </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
@@ -52,8 +59,8 @@ export default memo(function ScorePanel() {
       </table>
       <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
         <span className={styles.playerName}>{whiteName}</span>
-        <img className={styles.logo} src={whiteLogo} alt={whiteName} />
+        <img className={styles.logo} src={whiteLogo} alt="" aria-hidden="true" />
       </div>
-    </div>
+    </section>
   );
 });

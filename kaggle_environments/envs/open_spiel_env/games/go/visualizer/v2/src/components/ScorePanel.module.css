@@ -98,13 +98,16 @@
   }
 
   .logo {
-    margin-right: calc(-1 * (var(--player-padding-logo) + var(--logo-overflow)));
+    margin-right: calc(
+      -1 * (var(--player-padding-logo) + var(--logo-overflow))
+    );
   }
 }
 
 .playerWhite.active {
   background: #a8d8f0;
-  transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg) scale(1.05);
+  transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg)
+    scale(1.05);
 }
 
 .playerName {
