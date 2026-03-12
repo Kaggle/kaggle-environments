@@ -1,11 +1,11 @@
-import { Container, Graphics, Sprite, Text, TextStyle, type Spritesheet } from 'pixi.js';
-import { BOARD_PADDING, BOARD_PX, LINE_COLOR, getStarPoints, getCellSize, gridToPixel } from './constants.ts';
+import { Container, Sprite, Text, TextStyle, type Spritesheet } from 'pixi.js';
+import { BOARD_PADDING, BOARD_PX, getStarPoints, getCellSize, gridToPixel } from './constants.ts';
 
 const TILE_SIZE = 128;
 const TILE_MARGIN = 2;
 const TILE_INNER = TILE_SIZE - 2 * TILE_MARGIN;
 
-const STAR_RADIUS_RATIO = 0.08;
+const HOSHI_SIZE_RATIO = 0.25;
 
 const COL_LETTERS = 'ABCDEFGHJKLMNOPQRST';
 const LABEL_COLOR = 0x000000;
@@ -32,15 +32,16 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   }
 
   // Star points (hoshi)
-  const starRadius = cell * STAR_RADIUS_RATIO;
-  const stars = getStarPoints(boardSize);
-  const sg = new Graphics();
-  for (const [row, col] of stars) {
+  const hoshiSize = cell * HOSHI_SIZE_RATIO;
+  for (const [row, col] of getStarPoints(boardSize)) {
     const { x, y } = gridToPixel(row, col, boardSize);
-    sg.circle(x, y, starRadius);
+    const hoshi = new Sprite(sheet.textures['hoshi.png']);
+    hoshi.anchor.set(0.5);
+    hoshi.position.set(x, y);
+    hoshi.width = hoshiSize;
+    hoshi.height = hoshiSize;
+    container.addChild(hoshi);
   }
-  sg.fill(LINE_COLOR);
-  container.addChild(sg);
 
   // Row & column labels
   const labelOffset = BOARD_PADDING * LABEL_OFFSET_RATIO;
