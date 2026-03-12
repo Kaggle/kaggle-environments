@@ -40,7 +40,7 @@ export class GoPixi {
 
   private stoneMap: StoneMap = new Map();
   private prevTerritoryMap = new Map<string, { row: number; col: number; tex: string }>();
-  private territorySprites = new Map<string, Sprite>();
+  private territorySprites = new Map<string, { sprite: Sprite; restScaleX: number; restScaleY: number }>();
   private prevGrid: CellValue[][] | null = null;
   private prevStep = 0;
   private activeAnims: gsap.core.Animation[] = [];
@@ -124,9 +124,22 @@ export class GoPixi {
   private resetScene(): void {
     this.killAnimations();
     for (const pair of this.stoneMap.values()) resetPair(pair);
+    // Snap tracked territory sprites back to rest scale (mirrors resetPair for stones)
+    for (const { sprite, restScaleX, restScaleY } of this.territorySprites.values()) {
+      sprite.scale.set(restScaleX, restScaleY);
+    }
     this.marker?.reset();
     if (this.layers) {
       for (const c of this.layers.effects.removeChildren()) c.destroy();
+
+      // Destroy orphaned territory sprites left behind by killed out-animations.
+      const tracked = new Set(Array.from(this.territorySprites.values(), (entry) => entry.sprite));
+      for (const child of [...this.layers.territory.children]) {
+        if (!tracked.has(child as Sprite)) {
+          this.layers.territory.removeChild(child);
+          child.destroy();
+        }
+      }
     }
     this.pots?.reset();
   }
@@ -142,14 +155,14 @@ export class GoPixi {
     // Remove sprites that are gone or changed color
     for (const [key, { tex }] of this.prevTerritoryMap) {
       if (next.get(key)?.tex === tex) continue;
-      const sprite = this.territorySprites.get(key);
-      if (!sprite) continue;
+      const entry = this.territorySprites.get(key);
+      if (!entry) continue;
       this.territorySprites.delete(key);
       if (isSingleStep) {
-        this.activeAnims.push(animateTerritoryOut(sprite, layer));
+        this.activeAnims.push(animateTerritoryOut(entry.sprite, layer));
       } else {
-        layer.removeChild(sprite);
-        sprite.destroy();
+        layer.removeChild(entry.sprite);
+        entry.sprite.destroy();
       }
     }
 
@@ -163,9 +176,11 @@ export class GoPixi {
       sprite.width = size;
       sprite.height = size;
       layer.addChild(sprite);
-      this.territorySprites.set(key, sprite);
+      const restScaleX = sprite.scale.x;
+      const restScaleY = sprite.scale.y;
+      this.territorySprites.set(key, { sprite, restScaleX, restScaleY });
       if (isSingleStep) {
-        this.activeAnims.push(animateTerritoryIn(sprite, sprite.scale.x, sprite.scale.y));
+        this.activeAnims.push(animateTerritoryIn(sprite, restScaleX, restScaleY));
       }
     }
 
