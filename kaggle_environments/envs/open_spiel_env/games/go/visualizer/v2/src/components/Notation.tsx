@@ -12,66 +12,78 @@ export default memo(function Notation() {
 
   const komi = game._scorer._komi;
   const agent = player.name;
-  const searches: { term: string; priority: number; text: string }[] = [
+  const searches: { term: string; priority: number; title: string; text: string }[] = [
     {
       term: 'rethink',
       priority: 1,
+      title: '',
       text: `${agent} rethinks their decision`,
     },
     {
       term: 'komi',
       priority: 2,
-      text: `${agent} mentions Komi: ${komi} bonus points for going second`,
+      title: `${agent} mentions Komi`,
+      text: `${komi} bonus points for going second`,
     },
     {
       term: 'monkey jump',
       priority: 1,
-      text: `${agent} mentions Monkey Jump: reducing opposition territory at the boards edge`,
+      title: `${agent} mentions Monkey Jump`,
+      text: `Reducing opposition territory at the boards edge`,
     },
     {
       term: 'ladder',
       priority: 1,
-      text: `${agent} mentions Ladder: capturing stones in a zigzag pattern`,
+      title: `${agent} mentions Ladder`,
+      text: `Capturing stones in a zigzag pattern`,
     },
     {
       term: "tiger's mouth",
       priority: 1,
-      text: `${agent} mentions Tiger's Mouth: a three-stone shape that creates a "trap"`,
+      title: `${agent} mentions Tiger's Mouth`,
+      text: `A three-stone shape that creates a "trap"`,
     },
     {
       term: "horse's head",
       priority: 1,
-      text: `${agent} mentions Horse's Head: an L shaped flexible attacking position`,
+      title: `${agent} mentions Horse's Head`,
+      text: `An L shaped flexible attacking position`,
     },
     {
       term: 'wedge',
       priority: 1,
-      text: `${agent} mentions Wedge: playing between two opponent stones`,
+      title: `${agent} mentions Wedge`,
+      text: `Playing between two opponent stones`,
     },
     {
       term: "crane's nest",
       priority: 1,
-      text: `${agent} mentions Crane's Nest: a group trap that resembles a "nest"`,
+      title: `${agent} mentions Crane's Nest`,
+      text: `A group trap that resembles a "nest"`,
     },
     {
       term: 'three crows',
       priority: 1,
-      text: `${agent} mentions Three Crow's: guarding a corner with three stones`,
+      title: `${agent} mentions Three Crow's`,
+      text: `Guarding a corner with three stones`,
     },
     {
       term: 'false eye',
       priority: 1,
-      text: `${agent} mentions False Eye: a space that looks safe, but isn't`,
+      title: `${agent} mentions False Eye`,
+      text: `A space that looks safe, but isn't`,
     },
     {
       term: 'clamp',
       priority: 1,
-      text: `${agent} mentions Clamp: playing both sides of an opponent's stone`,
+      title: `${agent} mentions Clamp`,
+      text: `Playing both sides of an opponent's stone`,
     },
     {
       term: 'iron pillar',
+      title: `${agent} mentions Iron Pillar`,
       priority: 1,
-      text: `${agent} mentions Iron Pillar: a defensive, vertical two-stone tower`,
+      text: `A defensive, vertical two-stone tower`,
     },
   ];
   const matches = searches.filter((search) => player.thoughts?.match(new RegExp(search.term, 'i')) !== null);
@@ -83,13 +95,14 @@ export default memo(function Notation() {
     matches.push({
       term: 'duration',
       priority: 1,
+      title: '',
       text: `${agent} took over ${duration} minutes to decide`,
     });
   }
 
   if (matches.length > 0) {
-    matches.sort((a, b) => b.priority - a.priority);
-    console.log(matches[0].text);
+    const notation = matches.sort((a, b) => b.priority - a.priority)[0];
+    console.log(notation.title, notation.text);
   }
 
   return null;
