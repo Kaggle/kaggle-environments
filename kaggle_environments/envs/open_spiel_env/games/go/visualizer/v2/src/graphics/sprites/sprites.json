@@ -28,6 +28,13 @@
       "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
       "sourceSize": { "w": 128, "h": 128 }
     },
+    "hoshi.png": {
+      "frame": { "x": 180, "y": 756, "w": 48, "h": 48 },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 48 },
+      "sourceSize": { "w": 48, "h": 48 }
+    },
     "pot.png": {
       "frame": { "x": 0, "y": 512, "w": 244, "h": 244 },
       "rotated": false,
@@ -95,6 +102,6 @@
     "format": "RGBA8888",
     "size": { "w": 256, "h": 1497 },
     "scale": "1",
-    "smartupdate": "$TexturePacker:SmartUpdate:290ee57030c4a4e6dbbce71482734df0:893b1be461ec0dfb8db7c2d339c133f2:1eabdf11f75e3a4fe3147baf7b5be24b$"
+    "smartupdate": "$TexturePacker:SmartUpdate:a4ad16531765e4017a70ebce1d725931:9f00edbeb75ac747602e6e69dd6fe293:1eabdf11f75e3a4fe3147baf7b5be24b$"
   }
 }
