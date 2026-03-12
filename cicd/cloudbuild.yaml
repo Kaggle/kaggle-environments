@@ -90,11 +90,11 @@ steps:
   # This ensures skipped games (not in ./build) remain untouched in GCS.
   - id: "deploy-to-gcs"
     name: "gcr.io/cloud-builders/gcloud"
-    entrypoint: "gsutil"
+    entrypoint: "gcloud"
     args:
-      - "-m"
+      - "storage"
       - "rsync"
-      - "-r"
+      - "--recursive"
       - "./build"
       - "gs://$_BUCKET_NAME/episode-visualizers"
     waitFor: ["build-all-visualizers"]
