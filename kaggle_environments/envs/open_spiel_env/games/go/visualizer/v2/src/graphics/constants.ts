@@ -3,8 +3,6 @@ import type { GridPos } from '../types/game.ts';
 export const BOARD_PX = 512;
 export const BOARD_PADDING = 28;
 
-export const LINE_COLOR = 0x1a1a1a;
-
 /** Star point (hoshi) positions per board size */
 const STAR_POINTS: Record<number, [number, number][]> = {
   9: [
