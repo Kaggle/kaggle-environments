@@ -63,11 +63,11 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   }, [options, setState]);
 
   return (
-    <>
+    <div id="go-playable-area">
       <GameBoard />
       <ScorePanel />
       {game.isOver() && <GameOverModal />}
       <DebugPanel />
-    </>
+    </div>
   );
 }
