@@ -3,10 +3,12 @@ import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
+import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
+  const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     <>
       <GameBoard />
       <ScorePanel />
+      {game.isOver() && <GameOverModal />}
       <DebugPanel />
     </>
   );
