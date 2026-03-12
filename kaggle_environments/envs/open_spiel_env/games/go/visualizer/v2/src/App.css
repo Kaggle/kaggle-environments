@@ -36,11 +36,11 @@ div:has(> #board) {
   display: block;
 }
 
-:where(#board .grid-pile) {
+.grid-pile {
   display: grid;
 }
 
-:where(#board .grid-pile > *) {
+.grid-pile > * {
   grid-area: 1 / 1;
 }
 

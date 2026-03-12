@@ -36,12 +36,17 @@ const KEYWORD_TO_LOGO: [string, string][] = [
   ['o4', 'openai'],
 ];
 
-export function getLogoSrc(teamName: string, color: 'black' | 'white'): string {
+export interface AgentLogo {
+  src: string;
+  isUnknown: boolean;
+}
+
+export function getAgentLogo(teamName: string, color: 'black' | 'white'): AgentLogo {
   const lower = teamName.toLowerCase();
   for (const [keyword, logo] of KEYWORD_TO_LOGO) {
     if (lower.includes(keyword)) {
-      return LOGOS[logo][color];
+      return { src: LOGOS[logo][color], isUnknown: false };
     }
   }
-  return LOGOS.unknown[color];
+  return { src: LOGOS.unknown[color], isUnknown: true };
 }
