@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
+import { getLogoSrc } from '../utils/agentLogos';
 import styles from './ScorePanel.module.css';
 
 interface ScoreRow {
@@ -19,6 +20,8 @@ export default memo(function ScorePanel() {
 
   const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
   const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
+  const blackLogo = getLogoSrc(blackName, 'black');
+  const whiteLogo = getLogoSrc(whiteName, 'white');
 
   const rows: ScoreRow[] = [
     {
@@ -33,7 +36,7 @@ export default memo(function ScorePanel() {
   return (
     <div className={styles.panel}>
       <div className={`${styles.playerBlack} ${activeColor === 'black' ? styles.active : ''}`}>
-        <span className={styles.stoneBlack} />
+        <img className={styles.logo} src={blackLogo} alt={blackName} />
         <span className={styles.playerName}>{blackName}</span>
       </div>
       <table className={styles.table}>
@@ -48,8 +51,8 @@ export default memo(function ScorePanel() {
         </tbody>
       </table>
       <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
-        <span className={styles.stoneWhite} />
         <span className={styles.playerName}>{whiteName}</span>
+        <img className={styles.logo} src={whiteLogo} alt={whiteName} />
       </div>
     </div>
   );
