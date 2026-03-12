@@ -12,6 +12,10 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
+    // Seems like these OpenSpiel 13x13 log files where the steps is empty are
+    // broken and shouldn't be listed on Game Arena
+    if (options.replay.steps.length === 0) return;
+
     const parameters = options.replay.configuration.openSpielGameParameters;
     // OpenSpiel parameter incorrectly set for board size in example replays
     // const boardSize = parameters.board_size;
