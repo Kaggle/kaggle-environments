@@ -17,6 +17,8 @@ div:has(> #board) {
   background-image: url("/images/paper.webp");
   background-size: cover;
   background-position: center;
+  font-family: "Google Sans", sans-serif;
+  position: relative;
 }
 
 #board {
