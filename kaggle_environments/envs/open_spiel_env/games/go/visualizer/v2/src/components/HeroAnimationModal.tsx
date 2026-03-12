@@ -69,7 +69,7 @@ export default memo(function HeroAnimationModal() {
 
     const state = game.currentState();
     const point = state.playedPoint!;
-    const color = state.color;
+    // const color = state.color;
     const max = game.boardSize - 1;
 
     if (point.x !== 0 && point.y !== 0 && point.x !== max && point.y !== max) {
@@ -85,15 +85,15 @@ export default memo(function HeroAnimationModal() {
       return false;
     }
 
-    let dy, dx, ey, ex;
-    if (point.x === 0 && point.y <= max / 2) [dy, dx, ey, ex] = [0, 1, 0, -1];
-    if (point.x === 0 && point.y > max / 2) [dy, dx, ey, ex] = [0, 1, 0, 1];
-    if (point.y === 0 && point.x <= max / 2) [dy, dx, ey, ex] = [1, 0, -1, 0];
-    if (point.y === 0 && point.x > max / 2) [dy, dx, ey, ex] = [1, 0, 1, 0];
-    if (point.x === max && point.y <= max / 2) [dy, dx, ey, ex] = [0, -1, 0, -1];
-    if (point.x === max && point.y > max / 2) [dy, dx, ey, ex] = [0, -1, 0, 1];
-    if (point.y === max && point.x <= max / 2) [dy, dx, ey, ex] = [-1, 0, -1, 0];
-    if (point.y === max && point.x > max / 2) [dy, dx, ey, ex] = [-1, 0, 1, 0];
+    let dy, dx; //, ey, ex;
+    if (point.x === 0 && point.y <= max / 2) [dy, dx]; //, ey, ex] = [0, 1, 0, -1];
+    if (point.x === 0 && point.y > max / 2) [dy, dx]; //, ey, ex] = [0, 1, 0, 1];
+    if (point.y === 0 && point.x <= max / 2) [dy, dx]; //, ey, ex] = [1, 0, -1, 0];
+    if (point.y === 0 && point.x > max / 2) [dy, dx]; //, ey, ex] = [1, 0, 1, 0];
+    if (point.x === max && point.y <= max / 2) [dy, dx]; //, ey, ex] = [0, -1, 0, -1];
+    if (point.x === max && point.y > max / 2) [dy, dx]; //, ey, ex] = [0, -1, 0, 1];
+    if (point.y === max && point.x <= max / 2) [dy, dx]; //, ey, ex] = [-1, 0, -1, 0];
+    if (point.y === max && point.x > max / 2) [dy, dx]; //, ey, ex] = [-1, 0, 1, 0];
 
     let neighbors = [];
     neighbors.push(...state.neighborsFor(point.y + dx! * 2, point.x + dy! * 2));
@@ -107,19 +107,19 @@ export default memo(function HeroAnimationModal() {
       return false;
     }
 
-    const sameColor = state
-      .groupAt(point.y + ey! - 3 * ex!, point.x - 3 * ey! + ex!)
-      .filter((intersection) => intersection.isOccupiedWith(color) === true);
-    if (sameColor.length < 2) {
-      return false;
-    }
+    // const sameColor = state
+    //   .groupAt(point.y + ey! - 3 * ex!, point.x - 3 * ey! + ex!)
+    //   .filter((intersection) => intersection.isOccupiedWith(color) === true);
+    // if (sameColor.length < 2) {
+    //   return false;
+    // }
 
-    const oppColor = state
-      .groupAt(point.y + 2 * ex! + 2 * ey!, point.x - 2 * ex! - 2 * ey!)
-      .filter((intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false);
-    if (oppColor.length < 2) {
-      return false;
-    }
+    // const oppColor = state
+    //   .groupAt(point.y + 2 * ex! + 2 * ey!, point.x - 2 * ex! - 2 * ey!)
+    //   .filter((intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false);
+    // if (oppColor.length < 2) {
+    //   return false;
+    // }
 
     return true;
   };

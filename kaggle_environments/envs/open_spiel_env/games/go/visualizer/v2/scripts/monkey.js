@@ -65,22 +65,22 @@ const downloads = [];
 
 shuffle(list.episodes);
 
-for (const episode of list.episodes) {
-  // const replay = await kaggleApi(
-  //   '/i/competitions.EpisodeService/GetEpisodeReplay',
-  //   JSON.stringify({
-  //     episodeId: episode.id,
-  //   })
-  // );
+for (const [index, episode] of list.episodes.entries()) {
+  const replay = await kaggleApi(
+    '/i/competitions.EpisodeService/GetEpisodeReplay',
+    JSON.stringify({
+      episodeId: episode.id,
+    })
+  );
 
-  // if (replay.error) {
-  //   console.log(episode.id, replay.error);
-  //   break;
-  // }
+  if (replay.error) {
+    console.log(episode.id, replay.error);
+    break;
+  }
 
-  const replay = JSON.parse(fs.readFileSync('replays/monkey-replay.json'));
+  // const replay = JSON.parse(fs.readFileSync('replays/monkey-replay.json'));
 
-  console.log(replay.info.TeamNames);
+  console.log(replay.info.TeamNames, `(${index}/${list.episodes.length})`);
 
   const boardSize = JSON.parse(replay.info.stateHistory[0]).board_size;
   const game = new Game({ boardSize });
@@ -173,7 +173,62 @@ for (const episode of list.episodes) {
               pDiff = state.intersectionAt(2, p0.x + 2 * dir);
 
               if (pDiff.value === point.value) return false;
-            } else {
+            } 
+            
+            else if (point.y === max) {
+              const p0 = state.intersectionAt(point.y, point.x);
+              const p1 = state.intersectionAt(max - 1, point.x - 3);
+              const p2 = state.intersectionAt(max - 1, point.x + 3);
+
+              if (p1.isEmpty() === p2.isEmpty()) return false;
+              
+              pSame = p1.isEmpty() === false ? p1 : p2;
+
+              if (pSame.value !== p0.value) return false; 
+
+              const dir = pSame.x < p0.x ? -1 : 1;
+              pDiff = state.intersectionAt(max - 2, p0.x + 2 * dir);
+
+              if (pDiff.value === point.value) return false;
+            } 
+            
+            else if (point.x === 0) {
+              const p0 = state.intersectionAt(point.y, point.x);
+              const p1 = state.intersectionAt(point.y - 3, 1);
+              const p2 = state.intersectionAt(point.y + 3, 1);
+
+              if (p1.isEmpty() === p2.isEmpty()) return false;
+              
+              pSame = p1.isEmpty() === false ? p1 : p2;
+
+              if (pSame.value !== p0.value) return false; 
+
+              const dir = pSame.y < p0.y ? -1 : 1;
+              pDiff = state.intersectionAt(p0.y + 2 * dir, 2);
+
+              if (pDiff.value === point.value) return false;
+            } 
+
+            else if (point.x === max) {
+              const p0 = state.intersectionAt(point.y, point.x);
+              const p1 = state.intersectionAt(point.y - 3, max - 1);
+              const p2 = state.intersectionAt(point.y + 3, max - 1);
+
+              if (p1.isEmpty() === p2.isEmpty()) return false;
+              
+              pSame = p1.isEmpty() === false ? p1 : p2;
+
+              if (pSame.value !== p0.value) return false; 
+
+              const dir = pSame.y < p0.y ? -1 : 1;
+              pDiff = state.intersectionAt(p0.y + 2 * dir, max - 2);
+
+              if (pDiff.value === point.value) return false;
+            } 
+
+            else {
+              console.log(point.x, point.y, max)
+              console.log("This should never happen");
               return false;
             }
 
