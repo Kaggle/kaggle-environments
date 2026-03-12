@@ -15,13 +15,6 @@
   font-size: 1.25rem;
 }
 
-.winner {
-  font-size: 1.5rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  text-align: center;
-}
-
 .meta {
   text-align: center;
   line-height: 1.6;
@@ -43,6 +36,7 @@
 .table thead th {
   border-top: var(--border-size) solid;
   border-bottom: var(--border-size) solid;
+  font-weight: 400;
 }
 
 .table :where(td, th):not(:last-of-type) {
@@ -51,4 +45,33 @@
 
 .labelCell {
   text-align: left;
+}
+
+/* Animate-in. */
+
+.modal {
+  transition: opacity 300ms, transform 500ms;
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+:where(.meta, .table, .ribbon) {
+  transition: opacity 400ms, transform 500ms;
+  transition-delay: 100ms;
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.meta {
+  transition-delay: 400ms;
+}
+
+.table {
+  transition-delay: 900ms;
 }

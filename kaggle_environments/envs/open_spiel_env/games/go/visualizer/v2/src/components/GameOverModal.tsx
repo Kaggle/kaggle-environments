@@ -87,7 +87,9 @@ export default memo(function GameOverModal() {
 
   return (
     <div className={styles.modal}>
-      <Ribbon>Winner is {winnerName}!</Ribbon>
+      <div className="ribbon">
+        <Ribbon>Winner is {winnerName}!</Ribbon>
+      </div>
       <div className={styles.meta}>
         Game Duration: {formatDuration(gameDuration)}
         <br />
