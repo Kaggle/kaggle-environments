@@ -66,19 +66,19 @@ const downloads = [];
 shuffle(list.episodes);
 
 for (const episode of list.episodes) {
-  const replay = await kaggleApi(
-    '/i/competitions.EpisodeService/GetEpisodeReplay',
-    JSON.stringify({
-      episodeId: episode.id,
-    })
-  );
+  // const replay = await kaggleApi(
+  //   '/i/competitions.EpisodeService/GetEpisodeReplay',
+  //   JSON.stringify({
+  //     episodeId: episode.id,
+  //   })
+  // );
 
-  if (replay.error) {
-    console.log(episode.id, replay.error);
-    break;
-  }
+  // if (replay.error) {
+  //   console.log(episode.id, replay.error);
+  //   break;
+  // }
 
-  // const replay = JSON.parse(fs.readFileSync('replays/monkey-replay.json'));
+  const replay = JSON.parse(fs.readFileSync('replays/monkey-replay.json'));
 
   console.log(replay.info.TeamNames);
 
@@ -138,15 +138,11 @@ for (const episode of list.episodes) {
               return false;
             }
 
-            let dy, dx, ey, ex;
-            if (point.x === 0 && point.y <= max / 2) [dy, dx, ey, ex] = [0, 1, 0, -1];
-            if (point.x === 0 && point.y > max / 2) [dy, dx, ey, ex] = [0, 1, 0, 1];
-            if (point.y === 0 && point.x <= max / 2) [dy, dx, ey, ex] = [1, 0, -1, 0];
-            if (point.y === 0 && point.x > max / 2) [dy, dx, ey, ex] = [1, 0, 1, 0];
-            if (point.x === max && point.y <= max / 2) [dy, dx, ey, ex] = [0, -1, 0, -1];
-            if (point.x === max && point.y > max / 2) [dy, dx, ey, ex] = [0, -1, 0, 1];
-            if (point.y === max && point.x <= max / 2) [dy, dx, ey, ex] = [-1, 0, -1, 0];
-            if (point.y === max && point.x > max / 2) [dy, dx, ey, ex] = [-1, 0, 1, 0];
+            let dy, dx;
+            if (point.x === 0) [dy, dx] = [0, 1];
+            if (point.y === 0) [dy, dx] = [1, 0];
+            if (point.x === max) [dy, dx] = [0, -1];
+            if (point.y === max) [dy, dx] = [-1, 0];
 
             let neighbors = [];
             neighbors.push(...state.neighborsFor(point.y + dx * 2, point.x + dy * 2));
@@ -160,15 +156,36 @@ for (const episode of list.episodes) {
               return false;
             }
 
+            let pSame, pDiff;
+
+            if (point.y === 0) {
+              const p0 = state.intersectionAt(point.y, point.x);
+              const p1 = state.intersectionAt(1, point.x - 3);
+              const p2 = state.intersectionAt(1, point.x + 3);
+
+              if (p1.isEmpty() === p2.isEmpty()) return false;
+              
+              pSame = p1.isEmpty() === false ? p1 : p2;
+
+              if (pSame.value !== p0.value) return false; 
+
+              const dir = pSame.x < p0.x ? -1 : 1;
+              pDiff = state.intersectionAt(2, p0.x + 2 * dir);
+
+              if (pDiff.value === point.value) return false;
+            } else {
+              return false;
+            }
+
             const sameColor = state
-              .groupAt(point.y + ey - 3 * ex, point.x - 3 * ey + ex)
+              .groupAt(pSame.y, pSame.x)
               .filter((intersection) => intersection.isOccupiedWith(color) === true);
             if (sameColor.length < 2) {
               return false;
             }
 
             const oppColor = state
-              .groupAt(point.y + 2 * ex + 2 * ey, point.x - 2 * ex - 2 * ey)
+              .groupAt(pDiff.y, pDiff.x)
               .filter(
                 (intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false
               );
