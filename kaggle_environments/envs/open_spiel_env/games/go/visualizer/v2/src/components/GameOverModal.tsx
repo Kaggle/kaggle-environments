@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
 import styles from './GameOverModal.module.css';
+import { Ribbon } from './Ribbon.tsx';
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -86,7 +87,7 @@ export default memo(function GameOverModal() {
 
   return (
     <div className={styles.modal}>
-      <div className={styles.winner}>Winner is {winnerName}!</div>
+      <Ribbon>Winner is {winnerName}!</Ribbon>
       <div className={styles.meta}>
         Game Duration: {formatDuration(gameDuration)}
         <br />

@@ -30,30 +30,29 @@
   border-collapse: collapse;
   text-align: center;
   min-width: 32rem;
+  --border-size: 2px;
 }
 
 .table th,
 .table td {
   padding: 0.75rem 1.5rem;
-  border-bottom: 2px solid currentColor;
+  border-bottom: var(--border-size) solid;
 }
 
 .table thead th {
-  border-top: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
+  border-top: var(--border-size) solid;
+  border-bottom: var(--border-size) solid;
   font-weight: 700;
 }
 
-.table thead th:first-child {
-  border-top: none;
+.table :where(td, th):not(:last-of-type) {
+  border-right: var(--border-size) solid;
 }
 
 .labelCell {
   text-align: left;
-  font-weight: 400;
 }
 
 .valueCell {
   font-size: 1.25rem;
-  font-weight: 700;
 }
