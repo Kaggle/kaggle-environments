@@ -1,5 +1,8 @@
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
+import { useRiveFiles } from '../hooks/useRiveFiles';
+import { RivePopover } from './RivePopover';
 import styles from './GameOverModal.module.css';
 import { Ribbon } from './Ribbon.tsx';
 
@@ -24,8 +27,26 @@ interface StatRow {
 export default memo(function GameOverModal() {
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
+  const showAnimations = usePreferences((state) => state.showAnimations);
+  const riveFiles = useRiveFiles();
 
-  if (!game.isOver() || !options) return null;
+  const animationBuffer = useMemo(() => {
+    const entry = riveFiles.find((e) => e.name === 'kaggle_knight');
+    return entry?.buffer ?? null;
+  }, [riveFiles]);
+
+  const shouldAnimate = showAnimations && animationBuffer !== null;
+  const [phase, setPhase] = useState<'animation' | 'delay' | 'stats'>(shouldAnimate ? 'animation' : 'stats');
+
+  useEffect(() => {
+    if (phase !== 'delay') return;
+    const timer = setTimeout(() => setPhase('stats'), 3000);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
+  const onAnimationClose = useCallback(() => setPhase('delay'), []);
+
+  if (!options) return null;
 
   const state = game.currentState();
   const step = options.replay.steps[options.step];
@@ -84,6 +105,12 @@ export default memo(function GameOverModal() {
       white: `${Math.round(avg(durations.white))}s`,
     },
   ];
+
+  if (phase === 'animation' && shouldAnimate) {
+    return <RivePopover buffer={animationBuffer} onClose={onAnimationClose} />;
+  }
+
+  if (phase === 'delay') return null;
 
   return (
     <div className={styles.modal}>

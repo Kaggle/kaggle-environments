@@ -8,6 +8,7 @@ import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
+  const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     <>
       <GameBoard />
       <ScorePanel />
-      <GameOverModal />
+      {game.isOver() && <GameOverModal />}
       <DebugPanel />
     </>
   );
