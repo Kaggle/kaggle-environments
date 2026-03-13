@@ -1,9 +1,5 @@
-import { Container, Sprite, Text, TextStyle, type Spritesheet } from 'pixi.js';
+import { Container, Sprite, Text, TextStyle, TilingSprite, type Spritesheet } from 'pixi.js';
 import { BOARD_PADDING, BOARD_PX, getStarPoints, getCellSize, gridToPixel } from './constants.ts';
-
-const TILE_SIZE = 128;
-const TILE_MARGIN = 2;
-const TILE_INNER = TILE_SIZE - 2 * TILE_MARGIN;
 
 const HOSHI_SIZE_RATIO = 0.25;
 
@@ -17,18 +13,39 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   const container = new Container();
   const cell = getCellSize(boardSize);
 
-  // Tile each cell — anchor at margin boundary so strokes align with intersections
-  const tileDisplaySize = (cell * TILE_SIZE) / TILE_INNER;
-  for (let r = 0; r < boardSize - 1; r++) {
-    for (let c = 0; c < boardSize - 1; c++) {
-      const { x, y } = gridToPixel(r, c, boardSize);
-      const tile = new Sprite(sheet.textures['board-tile.png']);
-      tile.anchor.set(TILE_MARGIN / TILE_SIZE);
-      tile.position.set(x, y);
-      tile.width = tileDisplaySize;
-      tile.height = tileDisplaySize;
-      container.addChild(tile);
-    }
+  const gridSpan = (boardSize - 1) * cell;
+  const lineTexture = sheet.textures['squiggle-dash.png'];
+  const lineHeight = lineTexture.height / 2;
+
+  for (let row = 0; row < boardSize; row++) {
+    const { x, y } = gridToPixel(row, 0, boardSize);
+    const line = new TilingSprite({
+      texture: lineTexture,
+      width: gridSpan,
+      height: lineHeight,
+      applyAnchorToTexture: true,
+    });
+    line.clampMargin = 0;
+    line.tileScale.set(0.5);
+    line.anchor.set(0, 0.5);
+    line.position.set(x, y);
+    container.addChild(line);
+  }
+
+  for (let col = 0; col < boardSize; col++) {
+    const { x, y } = gridToPixel(0, col, boardSize);
+    const line = new TilingSprite({
+      texture: lineTexture,
+      width: gridSpan,
+      height: lineHeight,
+      applyAnchorToTexture: true,
+    });
+    line.clampMargin = 0;
+    line.tileScale.set(0.5);
+    line.anchor.set(0, 0.5);
+    line.position.set(x, y);
+    line.angle = 90;
+    container.addChild(line);
   }
 
   // Star points (hoshi)
@@ -46,7 +63,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   // Row & column labels
   const labelOffset = BOARD_PADDING * LABEL_OFFSET_RATIO;
   const labelStyle = new TextStyle({
-    fontFamily: 'sans-serif',
+    fontFamily: '"Inter", sans-serif',
     fontSize: Math.min(LABEL_MAX_FONT_SIZE, BOARD_PADDING * LABEL_FONT_SIZE_RATIO),
     fill: LABEL_COLOR,
   });
@@ -57,7 +74,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
     for (const y of [labelOffset, BOARD_PX - labelOffset]) {
       const label = new Text({ text: COL_LETTERS[col], style: labelStyle });
       label.anchor.set(0.5);
-      label.position.set(x, y);
+      label.position.set(Math.round(x), Math.round(y));
       container.addChild(label);
     }
   }
@@ -68,12 +85,12 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
     for (const x of [labelOffset, BOARD_PX - labelOffset]) {
       const label = new Text({ text: String(boardSize - row), style: labelStyle });
       label.anchor.set(0.5);
-      label.position.set(x, y);
+      label.position.set(Math.round(x), Math.round(y));
       container.addChild(label);
     }
   }
 
-  container.cacheAsTexture(true);
+  container.cacheAsTexture({ resolution: window.devicePixelRatio });
 
   return container;
 }
