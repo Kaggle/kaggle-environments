@@ -1,16 +1,18 @@
 import { useRive, Layout, Fit, Alignment } from '@rive-app/react-webgl2';
 import styles from './RivePopover.module.css';
 
+const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });
+
 interface RivePopoverProps {
-  buffer: ArrayBuffer;
+  src: string;
   onClose: () => void;
 }
 
-export function RivePopover({ buffer, onClose }: RivePopoverProps) {
+export function RivePopover({ src, onClose }: RivePopoverProps) {
   const { RiveComponent } = useRive({
-    buffer,
+    src,
     autoplay: true,
-    layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
+    layout,
     onStop: () => onClose(),
   });
 

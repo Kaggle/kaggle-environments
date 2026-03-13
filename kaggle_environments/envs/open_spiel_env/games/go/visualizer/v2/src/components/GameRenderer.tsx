@@ -6,6 +6,9 @@ import ScorePanel from '../components/ScorePanel';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
+import { HeroAnimation } from './HeroAnimation';
+import knightRiv from '../assets/kaggle_knight.riv?url';
+import queenRiv from '../assets/kaggle_queen.riv?url';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
@@ -64,10 +67,13 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
   return (
     <div id="go-playable-area">
+      <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
+      <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
       <GameBoard />
       <ScorePanel />
       {game.isOver() && <GameOverModal />}
       <DebugPanel />
+      <HeroAnimation />
     </div>
   );
 }
