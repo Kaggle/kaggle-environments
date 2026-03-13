@@ -15,7 +15,7 @@ export function RivePopover({ buffer, onClose }: RivePopoverProps) {
   });
 
   return (
-    <div className={`grid-pile ${styles.overlay}`}>
+    <div className={`grid-pile ${styles.overlay}`} aria-hidden="true">
       <div className={styles.backdrop} />
       <div className={styles.content}>
         <RiveComponent className={styles.canvas} />
