@@ -76,6 +76,7 @@ export class GoPixi {
     this.container.appendChild(app.canvas);
 
     const texture = await Assets.load(spritesPng);
+    texture.source.autoGenerateMipmaps = true;
     const sheet = new Spritesheet(texture, spritesData);
     await sheet.parse();
 

@@ -19,7 +19,13 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
 
   for (let row = 0; row < boardSize; row++) {
     const { x, y } = gridToPixel(row, 0, boardSize);
-    const line = new TilingSprite({ texture: lineTexture, width: gridSpan, height: lineHeight });
+    const line = new TilingSprite({
+      texture: lineTexture,
+      width: gridSpan,
+      height: lineHeight,
+      applyAnchorToTexture: true,
+    });
+    line.clampMargin = 0;
     line.tileScale.set(0.5);
     line.anchor.set(0, 0.5);
     line.position.set(x, y);
@@ -28,7 +34,13 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
 
   for (let col = 0; col < boardSize; col++) {
     const { x, y } = gridToPixel(0, col, boardSize);
-    const line = new TilingSprite({ texture: lineTexture, width: gridSpan, height: lineHeight });
+    const line = new TilingSprite({
+      texture: lineTexture,
+      width: gridSpan,
+      height: lineHeight,
+      applyAnchorToTexture: true,
+    });
+    line.clampMargin = 0;
     line.tileScale.set(0.5);
     line.anchor.set(0, 0.5);
     line.position.set(x, y);
