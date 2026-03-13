@@ -87,7 +87,7 @@ export class GoPixi {
 
     this.sheet = sheet;
 
-    await document.fonts.load('11px "Google Sans"');
+    await document.fonts.load('11px "Inter"');
     app.stage.addChild(drawBoard(boardSize, sheet));
 
     // Layer setup
