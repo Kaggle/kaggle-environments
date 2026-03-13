@@ -63,7 +63,7 @@ export function drawBoard(boardSize: number, sheet: Spritesheet): Container {
   // Row & column labels
   const labelOffset = BOARD_PADDING * LABEL_OFFSET_RATIO;
   const labelStyle = new TextStyle({
-    fontFamily: 'Google Sans',
+    fontFamily: '"Google Sans", sans-serif',
     fontSize: Math.min(LABEL_MAX_FONT_SIZE, BOARD_PADDING * LABEL_FONT_SIZE_RATIO),
     fill: LABEL_COLOR,
   });
