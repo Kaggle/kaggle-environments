@@ -15,7 +15,7 @@ const RIVE_FILES = [
 
 export function DebugPanel() {
   const play = useHeroAnimation((s) => s.play);
-  const { showTerritory, showAnimations, reducedMotion, toggle } = usePreferences();
+  const { showTerritory, showHeroAnimations, reducedMotion, toggle } = usePreferences();
 
   return (
     <>
@@ -34,8 +34,8 @@ export function DebugPanel() {
             </li>
             <li>
               <label>
-                <input type="checkbox" checked={showAnimations} onChange={() => toggle('showAnimations')} />
-                Popover Animations
+                <input type="checkbox" checked={showHeroAnimations} onChange={() => toggle('showHeroAnimations')} />
+                Hero Animations
               </label>
             </li>
             <li>
@@ -51,7 +51,9 @@ export function DebugPanel() {
           <ul className={styles.list}>
             {RIVE_FILES.map(({ name, src }) => (
               <li key={name}>
-                <button onClick={() => play(src)}>{name}</button>
+                <button disabled={!showHeroAnimations} onClick={() => play(src)}>
+                  {name}
+                </button>
               </li>
             ))}
           </ul>

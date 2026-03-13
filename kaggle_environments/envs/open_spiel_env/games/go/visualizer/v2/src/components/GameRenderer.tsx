@@ -6,7 +6,7 @@ import ScorePanel from '../components/ScorePanel';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
-import { ActivePopover } from './ActivePopover';
+import { HeroAnimation } from './HeroAnimation';
 import knightRiv from '../assets/kaggle_knight.riv?url';
 import queenRiv from '../assets/kaggle_queen.riv?url';
 
@@ -73,7 +73,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
       <ScorePanel />
       {game.isOver() && <GameOverModal />}
       <DebugPanel />
-      <ActivePopover />
+      <HeroAnimation />
     </div>
   );
 }
