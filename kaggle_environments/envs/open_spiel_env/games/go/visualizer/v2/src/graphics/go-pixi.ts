@@ -76,6 +76,7 @@ export class GoPixi {
     this.container.appendChild(app.canvas);
 
     const texture = await Assets.load(spritesPng);
+    texture.source.autoGenerateMipmaps = true;
     const sheet = new Spritesheet(texture, spritesData);
     await sheet.parse();
 
@@ -86,6 +87,7 @@ export class GoPixi {
 
     this.sheet = sheet;
 
+    await document.fonts.load('11px "Inter"');
     app.stage.addChild(drawBoard(boardSize, sheet));
 
     // Layer setup

@@ -1,17 +1,17 @@
 {
   "frames": {
     "black-active-marker.png": {
-      "frame": { "x": 0, "y": 909, "w": 176, "h": 178 },
+      "frame": { "x": 765, "y": 0, "w": 176, "h": 178 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
       "sourceSize": { "w": 176, "h": 178 }
     },
     "black-territory.png": {
-      "frame": { "x": 176, "y": 909, "w": 80, "h": 80 },
+      "frame": { "x": 1226, "y": 156, "w": 79, "h": 79 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 4, "w": 80, "h": 80 },
+      "spriteSourceSize": { "x": 0, "y": 5, "w": 79, "h": 79 },
       "sourceSize": { "w": 84, "h": 84 }
     },
     "black.png": {
@@ -21,74 +21,74 @@
       "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
       "sourceSize": { "w": 256, "h": 256 }
     },
-    "board-tile.png": {
-      "frame": { "x": 0, "y": 1265, "w": 128, "h": 128 },
-      "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
-      "sourceSize": { "w": 128, "h": 128 }
-    },
     "hoshi.png": {
-      "frame": { "x": 180, "y": 756, "w": 48, "h": 48 },
+      "frame": { "x": 765, "y": 182, "w": 48, "h": 48 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 48 },
       "sourceSize": { "w": 48, "h": 48 }
     },
     "pot.png": {
-      "frame": { "x": 0, "y": 512, "w": 244, "h": 244 },
+      "frame": { "x": 519, "y": 0, "w": 242, "h": 242 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 2, "y": 10, "w": 244, "h": 244 },
+      "spriteSourceSize": { "x": 3, "y": 11, "w": 242, "h": 242 },
       "sourceSize": { "w": 256, "h": 256 }
     },
     "puff1.png": {
-      "frame": { "x": 0, "y": 1393, "w": 126, "h": 104 },
+      "frame": { "x": 1309, "y": 132, "w": 125, "h": 103 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 1, "w": 126, "h": 104 },
+      "spriteSourceSize": { "x": 0, "y": 2, "w": 125, "h": 103 },
       "sourceSize": { "w": 127, "h": 105 }
     },
     "puff2.png": {
-      "frame": { "x": 0, "y": 756, "w": 180, "h": 153 },
+      "frame": { "x": 1125, "y": 0, "w": 179, "h": 152 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 153 },
+      "spriteSourceSize": { "x": 0, "y": 1, "w": 179, "h": 152 },
       "sourceSize": { "w": 181, "h": 153 }
     },
     "puff3.png": {
-      "frame": { "x": 126, "y": 1393, "w": 98, "h": 83 },
+      "frame": { "x": 1125, "y": 156, "w": 97, "h": 81 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 98, "h": 83 },
+      "spriteSourceSize": { "x": 0, "y": 1, "w": 97, "h": 81 },
       "sourceSize": { "w": 99, "h": 83 }
     },
     "shadow.png": {
-      "frame": { "x": 128, "y": 1265, "w": 128, "h": 128 },
+      "frame": { "x": 1308, "y": 0, "w": 128, "h": 128 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
       "sourceSize": { "w": 128, "h": 128 }
     },
+    "squiggle-dash.png": {
+      "frame": { "x": 519, "y": 246, "w": 72, "h": 4 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 4 },
+      "sourceSize": { "w": 74, "h": 4 }
+    },
     "white-active-marker.png": {
-      "frame": { "x": 0, "y": 1087, "w": 176, "h": 178 },
+      "frame": { "x": 945, "y": 0, "w": 176, "h": 178 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
       "sourceSize": { "w": 176, "h": 178 }
     },
     "white-territory.png": {
-      "frame": { "x": 176, "y": 989, "w": 80, "h": 80 },
+      "frame": { "x": 1438, "y": 132, "w": 79, "h": 79 },
       "rotated": false,
       "trimmed": true,
-      "spriteSourceSize": { "x": 0, "y": 4, "w": 80, "h": 80 },
+      "spriteSourceSize": { "x": 0, "y": 5, "w": 79, "h": 79 },
       "sourceSize": { "w": 84, "h": 84 }
     },
     "white.png": {
-      "frame": { "x": 0, "y": 256, "w": 256, "h": 256 },
+      "frame": { "x": 260, "y": 0, "w": 255, "h": 256 },
       "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 256, "h": 256 },
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 255, "h": 256 },
       "sourceSize": { "w": 256, "h": 256 }
     }
   },
@@ -100,8 +100,8 @@
     "version": "1.1",
     "image": "sprites.png",
     "format": "RGBA8888",
-    "size": { "w": 256, "h": 1497 },
+    "size": { "w": 1517, "h": 256 },
     "scale": "1",
-    "smartupdate": "$TexturePacker:SmartUpdate:a4ad16531765e4017a70ebce1d725931:9f00edbeb75ac747602e6e69dd6fe293:1eabdf11f75e3a4fe3147baf7b5be24b$"
+    "smartupdate": "$TexturePacker:SmartUpdate:1ce2b7e584837eb26ad81b799299db84:bc52fe284ba97b708181b0194bd4389d:1eabdf11f75e3a4fe3147baf7b5be24b$"
   }
 }
