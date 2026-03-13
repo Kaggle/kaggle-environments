@@ -1,21 +1,21 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="../types/popover.d.ts" />
-import { useState, useCallback } from 'react';
-import { RivePopover } from './RivePopover';
-import { useRiveFiles } from '../hooks/useRiveFiles';
 import usePreferences from '../stores/usePreferences';
+import useHeroAnimation from '../stores/useHeroAnimation';
+import knightRiv from '../assets/kaggle_knight.riv?url';
+import queenRiv from '../assets/kaggle_queen.riv?url';
 import styles from './DebugPanel.module.css';
 
 const PANEL_ID = 'debug-panel';
 
+const RIVE_FILES = [
+  { name: 'kaggle_knight', src: knightRiv },
+  { name: 'kaggle_queen', src: queenRiv },
+];
+
 export function DebugPanel() {
-  const riveFiles = useRiveFiles();
-  const [active, setActive] = useState<string | null>(null);
-  const close = useCallback(() => setActive(null), []);
-
+  const play = useHeroAnimation((s) => s.play);
   const { showTerritory, showAnimations, reducedMotion, toggle } = usePreferences();
-
-  const activeEntry = riveFiles.find((e) => e.file === active);
 
   return (
     <>
@@ -49,19 +49,14 @@ export function DebugPanel() {
         <fieldset>
           <legend>Rive animations</legend>
           <ul className={styles.list}>
-            {riveFiles.map(({ name, file, buffer }) => (
-              <li key={file}>
-                <button onClick={() => setActive(file)} data-active={active === file || undefined} disabled={!buffer}>
-                  {name}
-                </button>
+            {RIVE_FILES.map(({ name, src }) => (
+              <li key={name}>
+                <button onClick={() => play(src)}>{name}</button>
               </li>
             ))}
           </ul>
         </fieldset>
       </div>
-      {showAnimations && activeEntry?.buffer && (
-        <RivePopover key={active} buffer={activeEntry.buffer} onClose={close} />
-      )}
     </>
   );
 }

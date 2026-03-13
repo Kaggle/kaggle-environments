@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
-import { useRiveFiles } from '../hooks/useRiveFiles';
-import { RivePopover } from './RivePopover';
+import useHeroAnimation from '../stores/useHeroAnimation';
+import knightRiv from '../assets/kaggle_knight.riv?url';
 import styles from './GameOverModal.module.css';
 import { Ribbon } from './Ribbon.tsx';
 
@@ -28,23 +28,19 @@ export default memo(function GameOverModal() {
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
   const showAnimations = usePreferences((state) => state.showAnimations);
-  const riveFiles = useRiveFiles();
-
-  const animationBuffer = useMemo(() => {
-    const entry = riveFiles.find((e) => e.name === 'kaggle_knight');
-    return entry?.buffer ?? null;
-  }, [riveFiles]);
-
-  const shouldAnimate = showAnimations && animationBuffer !== null;
-  const [phase, setPhase] = useState<'animation' | 'delay' | 'stats'>(shouldAnimate ? 'animation' : 'stats');
+  const play = useHeroAnimation((s) => s.play);
+  const cancel = useHeroAnimation((s) => s.cancel);
+  const [showStats, setShowStats] = useState(!showAnimations);
 
   useEffect(() => {
-    if (phase !== 'delay') return;
-    const timer = setTimeout(() => setPhase('stats'), 3000);
-    return () => clearTimeout(timer);
-  }, [phase]);
-
-  const onAnimationClose = useCallback(() => setPhase('delay'), []);
+    if (!showAnimations) {
+      setShowStats(true);
+      return;
+    }
+    setShowStats(false);
+    play(knightRiv, () => setShowStats(true));
+    return cancel;
+  }, [showAnimations, play, cancel]);
 
   if (!options) return null;
 
@@ -106,11 +102,7 @@ export default memo(function GameOverModal() {
     },
   ];
 
-  if (phase === 'animation' && shouldAnimate) {
-    return <RivePopover buffer={animationBuffer} onClose={onAnimationClose} />;
-  }
-
-  if (phase === 'delay') return null;
+  if (!showStats) return null;
 
   return (
     <div className={styles.modal}>
