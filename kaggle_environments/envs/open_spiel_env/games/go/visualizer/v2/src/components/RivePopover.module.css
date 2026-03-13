@@ -2,21 +2,11 @@
   position: absolute;
   inset: 0;
   z-index: 10;
-  transition: opacity 0.35s ease-out;
+  transition: opacity 350ms ease-out;
 
   @starting-style {
     opacity: 0;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .overlay {
-    animation: none;
-  }
-}
-
-:global([data-reduced-motion]) .overlay {
-  animation: none;
 }
 
 .backdrop {
@@ -52,7 +42,12 @@
   }
 }
 
+:global([data-reduced-motion]) :is(.content, .overlay) {
+  transition: none;
+  animation: none;
+}
+
 .canvas {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 9;
 }
