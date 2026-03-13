@@ -80,10 +80,11 @@ for (const [index, episode] of list.episodes.entries()) {
 
   // const replay = JSON.parse(fs.readFileSync('replays/ladder-replay.json'));
 
-  console.log(replay.info.TeamNames, `(${index}/${list.episodes.length})`);
+  console.log(episode.id, replay.info.TeamNames, `(${index}/${list.episodes.length})`);
 
   const boardSize = JSON.parse(replay.info.stateHistory[0]).board_size;
-  const game = new Game({ boardSize });
+  const scoring = 'area';
+  const game = new Game({ boardSize, scoring });
   let download = false;
 
   replay.steps.forEach((step) => {
@@ -232,6 +233,7 @@ for (const [index, episode] of list.episodes.entries()) {
 
             const history = game._moves;
 
+            // Looking at the history of moves so first check they aren't passes
             if (
               history.at(-1).pass ||
               history.at(-3).pass ||
@@ -242,30 +244,28 @@ for (const [index, episode] of list.episodes.entries()) {
               return false;
             }
 
+            // Each move should be next to the previous
             const d1y = history.at(-3).playedPoint.y - history.at(-1).playedPoint.y;
             const d1x = history.at(-3).playedPoint.x - history.at(-1).playedPoint.x;
+
+            if (d1y !== 0 && d1x !== 0) return false;
+            if (Math.abs(d1x) + Math.abs(d1y) !== 1) return false;
+
+            // Move should not be in the same direction as the previouss
             const d2y = history.at(-5).playedPoint.y - history.at(-3).playedPoint.y;
             const d2x = history.at(-5).playedPoint.x - history.at(-3).playedPoint.x;
 
-            if (d1y !== 0 && d1x !== 0) {
-              return false;
-            }
+            if (d2y !== 0 && d2x !== 0) return false;
+            if (Math.abs(d2x) + Math.abs(d2y) !== 1) return false;
+            if (d1x === d2x && d1y === d2y) return false;
 
-            if (d2y !== 0 && d2x !== 0) {
-              return false;
-            }
-
-            if (Math.abs(d1y + d2y) !== 1 || Math.abs(d1x + d2x) !== 1) {
-              return false;
-            }
-
+            // Previous moves should step in the same directions
             if (
               history.at(-7).playedPoint.y !== history.at(-5).playedPoint.y + d1y ||
               history.at(-7).playedPoint.x !== history.at(-5).playedPoint.x + d1x
             ) {
               return false;
             }
-
             if (
               history.at(-9).playedPoint.y !== history.at(-7).playedPoint.y + d2y ||
               history.at(-9).playedPoint.x !== history.at(-7).playedPoint.x + d2x
@@ -273,13 +273,13 @@ for (const [index, episode] of list.episodes.entries()) {
               return false;
             }
 
+            // Should be three rungs in the ladder so a group of six stones
             const point = history.at(-1).playedPoint;
             const group = history.at(-1).groupAt(point.y, point.x);
 
-            if (group.length !== 6) {
-              return false;
-            }
+            if (group.length !== 6) return false;
 
+            // On the opponents previous move five stones in atari, all in the group
             if (group.filter((intersection) => history.at(-2).inAtari(intersection.y, intersection.x)).length !== 5) {
               return false;
             }

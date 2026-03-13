@@ -80,10 +80,11 @@ for (const [index, episode] of list.episodes.entries()) {
 
   // const replay = JSON.parse(fs.readFileSync('replays/monkey-replay.json'));
 
-  console.log(replay.info.TeamNames, `(${index}/${list.episodes.length})`);
+  console.log(episode.id, replay.info.TeamNames, `(${index}/${list.episodes.length})`);
 
   const boardSize = JSON.parse(replay.info.stateHistory[0]).board_size;
-  const game = new Game({ boardSize });
+  const scoring = 'area';
+  const game = new Game({ boardSize, scoring });
   let download = false;
 
   replay.steps.forEach((step) => {
@@ -121,132 +122,68 @@ for (const [index, episode] of list.episodes.entries()) {
 
           const isMonkeyJump = (game) => {
             const state = game.currentState();
-            const point = state.playedPoint;
+            const point = state.intersectionAt(state.playedPoint.y, state.playedPoint.x);
             const color = state.color;
-            const max = state.boardSize - 1;
+            const max = game.boardSize - 1;
 
-            if (point.x !== 0 && point.y !== 0 && point.x !== max && point.y !== max) {
-              return false;
-            }
-
-            if (
-              (point.x < 3 && point.y < 3) ||
-              (point.x < 3 && point.y > max - 3) ||
-              (point.x > max - 3 && point.y < 3) ||
-              (point.x > max - 3 && point.y > max - 3)
-            ) {
-              return false;
-            }
-
+            // Played stone is on an edge and not in a corner
             let dy, dx;
-            if (point.x === 0) [dy, dx] = [0, 1];
-            if (point.y === 0) [dy, dx] = [1, 0];
-            if (point.x === max) [dy, dx] = [0, -1];
-            if (point.y === max) [dy, dx] = [-1, 0];
-
-            let neighbors = [];
-            neighbors.push(...state.neighborsFor(point.y + dx * 2, point.x + dy * 2));
-            neighbors.push(...state.neighborsFor(point.y + dx, point.x + dy));
-            neighbors.push(...state.neighborsFor(point.y, point.x));
-            neighbors.push(...state.neighborsFor(point.y - dx, point.x - dy));
-            neighbors.push(...state.neighborsFor(point.y - dx * 2, point.x - dy * 2));
-            neighbors = [...new Set(neighbors)];
-            neighbors = neighbors.filter((intersection) => intersection.isEmpty());
-            if (neighbors.length !== 11) {
-              return false;
+            switch (true) {
+              case point.x === 0 && point.y >= 3 && point.y <= max - 3:
+                dy = 0;
+                dx = 1;
+                break;
+              case point.y === max && point.x >= 3 && point.x <= max - 3:
+                dy = -1;
+                dx = 0;
+                break;
+              case point.x === max && point.y >= 3 && point.y <= max - 3:
+                dy = 0;
+                dx = -1;
+                break;
+              case point.y === 0 && point.x >= 3 && point.x <= max - 3:
+                dy = 1;
+                dx = 0;
+                break;
+              default:
+                return false;
             }
 
-            let pSame, pDiff;
+            // Space around played stone
+            const emptyNeighbors = [
+              ...state.neighborsFor(point.y + 2 * dx, point.x + 2 * dy),
+              ...state.neighborsFor(point.y + dx, point.x + dy),
+              ...state.neighborsFor(point.y, point.x),
+              ...state.neighborsFor(point.y - dx, point.x - dy),
+              ...state.neighborsFor(point.y - 2 * dx, point.x - 2 * dy),
+            ].filter((intersection) => intersection.isEmpty());
 
-            if (point.y === 0) {
-              const p0 = state.intersectionAt(point.y, point.x);
-              const p1 = state.intersectionAt(1, point.x - 3);
-              const p2 = state.intersectionAt(1, point.x + 3);
+            if ([...new Set(emptyNeighbors)].length !== 11) return false;
 
-              if (p1.isEmpty() === p2.isEmpty()) return false;
-              
-              pSame = p1.isEmpty() === false ? p1 : p2;
+            // Just one of the two possible positions for a stone from the same player
+            const possibleSameColorStones = [
+              state.intersectionAt(point.y + dy - 3 * Math.abs(dx), point.x + dx - 3 * Math.abs(dy)),
+              state.intersectionAt(point.y + dy + 3 * Math.abs(dx), point.x + dx + 3 * Math.abs(dy)),
+            ].filter((intersection) => intersection.isEmpty() === false);
 
-              if (pSame.value !== p0.value) return false; 
+            if (possibleSameColorStones.length !== 1) return false;
 
-              const dir = pSame.x < p0.x ? -1 : 1;
-              pDiff = state.intersectionAt(2, p0.x + 2 * dir);
+            const sameColorStone = possibleSameColorStones.at(0);
 
-              if (pDiff.value === point.value) return false;
-            } 
-            
-            else if (point.y === max) {
-              const p0 = state.intersectionAt(point.y, point.x);
-              const p1 = state.intersectionAt(max - 1, point.x - 3);
-              const p2 = state.intersectionAt(max - 1, point.x + 3);
+            if (sameColorStone.isOccupiedWith(color) === false) return false;
 
-              if (p1.isEmpty() === p2.isEmpty()) return false;
-              
-              pSame = p1.isEmpty() === false ? p1 : p2;
+            // Opponents stone matching the direction as the same color found stone
+            const direction = sameColorStone.x * dy + sameColorStone.y * dx < point.x * dy + point.y * dx ? -1 : 1;
+            const opponentColorStone = state.intersectionAt(
+              point.y + 2 * (dy + direction * dx),
+              point.x + 2 * (dx + direction * dy)
+            );
 
-              if (pSame.value !== p0.value) return false; 
+            if (opponentColorStone.isOccupiedWith(color) || opponentColorStone.isEmpty()) return false;
 
-              const dir = pSame.x < p0.x ? -1 : 1;
-              pDiff = state.intersectionAt(max - 2, p0.x + 2 * dir);
-
-              if (pDiff.value === point.value) return false;
-            } 
-            
-            else if (point.x === 0) {
-              const p0 = state.intersectionAt(point.y, point.x);
-              const p1 = state.intersectionAt(point.y - 3, 1);
-              const p2 = state.intersectionAt(point.y + 3, 1);
-
-              if (p1.isEmpty() === p2.isEmpty()) return false;
-              
-              pSame = p1.isEmpty() === false ? p1 : p2;
-
-              if (pSame.value !== p0.value) return false; 
-
-              const dir = pSame.y < p0.y ? -1 : 1;
-              pDiff = state.intersectionAt(p0.y + 2 * dir, 2);
-
-              if (pDiff.value === point.value) return false;
-            } 
-
-            else if (point.x === max) {
-              const p0 = state.intersectionAt(point.y, point.x);
-              const p1 = state.intersectionAt(point.y - 3, max - 1);
-              const p2 = state.intersectionAt(point.y + 3, max - 1);
-
-              if (p1.isEmpty() === p2.isEmpty()) return false;
-              
-              pSame = p1.isEmpty() === false ? p1 : p2;
-
-              if (pSame.value !== p0.value) return false; 
-
-              const dir = pSame.y < p0.y ? -1 : 1;
-              pDiff = state.intersectionAt(p0.y + 2 * dir, max - 2);
-
-              if (pDiff.value === point.value) return false;
-            } 
-
-            else {
-              console.log(point.x, point.y, max)
-              console.log("This should never happen");
-              return false;
-            }
-
-            const sameColor = state
-              .groupAt(pSame.y, pSame.x)
-              .filter((intersection) => intersection.isOccupiedWith(color) === true);
-            if (sameColor.length < 2) {
-              return false;
-            }
-
-            const oppColor = state
-              .groupAt(pDiff.y, pDiff.x)
-              .filter(
-                (intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false
-              );
-            if (oppColor.length < 2) {
-              return false;
-            }
+            // Each found stone should be part of a group, let's say two or more of that color
+            if (state.groupAt(sameColorStone.y, sameColorStone.x).length < 2) return false;
+            if (state.groupAt(opponentColorStone.y, opponentColorStone.x).length < 2) return false;
 
             console.log(`Match at ${state.moveNumber}`);
 

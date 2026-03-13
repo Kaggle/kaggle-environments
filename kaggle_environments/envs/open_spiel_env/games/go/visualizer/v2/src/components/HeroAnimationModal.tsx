@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Game } from 'tenuki';
+import { Game, Intersection } from 'tenuki';
 import useGameStore from '../stores/useGameStore';
 
 export default memo(function HeroAnimationModal() {
@@ -8,10 +8,10 @@ export default memo(function HeroAnimationModal() {
   function isLadder(game: Game) {
     const history = game._moves;
 
-    if (history.length < 9) {
-      return false;
-    }
+    // 
+    if (history.length < 9) return false;
 
+    // Looking at the history of moves so first check they aren't passes
     if (
       history.at(-1).pass ||
       history.at(-3).pass ||
@@ -22,30 +22,28 @@ export default memo(function HeroAnimationModal() {
       return false;
     }
 
+    // Each move should be next to the previous
     const d1y = history.at(-3).playedPoint.y - history.at(-1).playedPoint.y;
     const d1x = history.at(-3).playedPoint.x - history.at(-1).playedPoint.x;
+
+    if (d1y !== 0 && d1x !== 0) return false;
+    if (Math.abs(d1x) + Math.abs(d1y) !== 1) return false;
+
+    // Not be in the same direction as the previous
     const d2y = history.at(-5).playedPoint.y - history.at(-3).playedPoint.y;
     const d2x = history.at(-5).playedPoint.x - history.at(-3).playedPoint.x;
 
-    if (d1y !== 0 && d1x !== 0) {
-      return false;
-    }
+    if (d2y !== 0 && d2x !== 0) return false;
+    if (Math.abs(d2x) + Math.abs(d2y) !== 1) return false;
+    if (d1x === d2x && d1y === d2y) return false;
 
-    if (d2y !== 0 && d2x !== 0) {
-      return false;
-    }
-
-    if (Math.abs(d1y + d2y) !== 1 || Math.abs(d1x + d2x) !== 1) {
-      return false;
-    }
-
+    // Moves should step in the same directions
     if (
       history.at(-7).playedPoint.y !== history.at(-5).playedPoint.y + d1y ||
       history.at(-7).playedPoint.x !== history.at(-5).playedPoint.x + d1x
     ) {
       return false;
     }
-
     if (
       history.at(-9).playedPoint.y !== history.at(-7).playedPoint.y + d2y ||
       history.at(-9).playedPoint.x !== history.at(-7).playedPoint.x + d2x
@@ -53,73 +51,87 @@ export default memo(function HeroAnimationModal() {
       return false;
     }
 
+    // Three rungs of the ladder so a group of six stones
+    const point = history.at(-1).playedPoint;
+    const group: Intersection[] = history.at(-1).groupAt(point.y, point.x);
+
+    if (group.length !== 6) return false;
+
+    // After the opponents previous move five of the stones in atari
+    if (group.filter((intersection) => history.at(-2).inAtari(intersection.y, intersection.x)).length !== 5) {
+      return false;
+    }
+
     return true;
   }
 
   const isMonkeyJump = (game: Game) => {
-    const history = game._moves;
-
-    if (history.length < 5) {
-      return false;
-    }
-
-    if (history.at(-1).pass) {
-      return false;
-    }
-
     const state = game.currentState();
-    const point = state.playedPoint!;
-    // const color = state.color;
+
+    if (!state.playedPoint) return false;
+
+    const point = state.intersectionAt(state.playedPoint.y, state.playedPoint.x);
+    const color = state.color;
     const max = game.boardSize - 1;
 
-    if (point.x !== 0 && point.y !== 0 && point.x !== max && point.y !== max) {
-      return false;
+    // Played stone is on an edge and not in a corner
+    let dy, dx;
+    switch (true) {
+      case point.x === 0 && point.y >= 3 && point.y <= max - 3:
+        dy = 0;
+        dx = 1;
+        break;
+      case point.y === max && point.x >= 3 && point.x <= max - 3:
+        dy = -1;
+        dx = 0;
+        break;
+      case point.x === max && point.y >= 3 && point.y <= max - 3:
+        dy = 0;
+        dx = -1;
+        break;
+      case point.y === 0 && point.x >= 3 && point.x <= max - 3:
+        dy = 1;
+        dx = 0;
+        break;
+      default:
+        return false;
     }
 
-    if (
-      (point.x < 3 && point.y < 3) ||
-      (point.x < 3 && point.y > max - 3) ||
-      (point.x > max - 3 && point.y < 3) ||
-      (point.x > max - 3 && point.y > max - 3)
-    ) {
-      return false;
-    }
+    // Space around played stone
+    const emptyNeighbors = [
+      ...state.neighborsFor(point.y + 2 * dx, point.x + 2 * dy),
+      ...state.neighborsFor(point.y + dx, point.x + dy),
+      ...state.neighborsFor(point.y, point.x),
+      ...state.neighborsFor(point.y - dx, point.x - dy),
+      ...state.neighborsFor(point.y - 2 * dx, point.x - 2 * dy),
+    ].filter((intersection) => intersection.isEmpty());
 
-    let dy, dx; //, ey, ex;
-    if (point.x === 0 && point.y <= max / 2) [dy, dx]; //, ey, ex] = [0, 1, 0, -1];
-    if (point.x === 0 && point.y > max / 2) [dy, dx]; //, ey, ex] = [0, 1, 0, 1];
-    if (point.y === 0 && point.x <= max / 2) [dy, dx]; //, ey, ex] = [1, 0, -1, 0];
-    if (point.y === 0 && point.x > max / 2) [dy, dx]; //, ey, ex] = [1, 0, 1, 0];
-    if (point.x === max && point.y <= max / 2) [dy, dx]; //, ey, ex] = [0, -1, 0, -1];
-    if (point.x === max && point.y > max / 2) [dy, dx]; //, ey, ex] = [0, -1, 0, 1];
-    if (point.y === max && point.x <= max / 2) [dy, dx]; //, ey, ex] = [-1, 0, -1, 0];
-    if (point.y === max && point.x > max / 2) [dy, dx]; //, ey, ex] = [-1, 0, 1, 0];
+    if ([...new Set(emptyNeighbors)].length !== 11) return false;
 
-    let neighbors = [];
-    neighbors.push(...state.neighborsFor(point.y + dx! * 2, point.x + dy! * 2));
-    neighbors.push(...state.neighborsFor(point.y + dx!, point.x + dy!));
-    neighbors.push(...state.neighborsFor(point.y, point.x));
-    neighbors.push(...state.neighborsFor(point.y - dx!, point.x - dy!));
-    neighbors.push(...state.neighborsFor(point.y - dx! * 2, point.x - dy! * 2));
-    neighbors = [...new Set(neighbors)];
-    neighbors = neighbors.filter((intersection) => intersection.isEmpty());
-    if (neighbors.length !== 11) {
-      return false;
-    }
+    // One of two possible positions for a stone from the same player
+    const possibleSameColorStones = [
+      state.intersectionAt(point.y + dy - 3 * Math.abs(dx), point.x + dx - 3 * Math.abs(dy)),
+      state.intersectionAt(point.y + dy + 3 * Math.abs(dx), point.x + dx + 3 * Math.abs(dy)),
+    ].filter((intersection) => intersection.isEmpty() === false);
 
-    // const sameColor = state
-    //   .groupAt(point.y + ey! - 3 * ex!, point.x - 3 * ey! + ex!)
-    //   .filter((intersection) => intersection.isOccupiedWith(color) === true);
-    // if (sameColor.length < 2) {
-    //   return false;
-    // }
+    if (possibleSameColorStones.length !== 1) return false;
 
-    // const oppColor = state
-    //   .groupAt(point.y + 2 * ex! + 2 * ey!, point.x - 2 * ex! - 2 * ey!)
-    //   .filter((intersection) => intersection.isOccupiedWith(color) === false && intersection.isEmpty() === false);
-    // if (oppColor.length < 2) {
-    //   return false;
-    // }
+    const sameColorStone = possibleSameColorStones.at(0)!;
+
+    if (sameColorStone.isOccupiedWith(color) === false) return false;
+
+    // Opponents stone matching the direction as the same color found stone
+    const direction = sameColorStone.x * dy + sameColorStone.y * dx < point.x * dy + point.y * dx ? -1 : 1;
+    const opponentColorStone = state.intersectionAt(
+      point.y + 2 * (dy + direction * dx),
+      point.x + 2 * (dx + direction * dy)
+    );
+
+    if (opponentColorStone.isOccupiedWith(color) || opponentColorStone.isEmpty()) return false;
+
+    // Each found stone should be part of a group, let's say two or more of that color
+    if (state.groupAt(sameColorStone.y, sameColorStone.x).length < 2) return false;
+    if (state.groupAt(opponentColorStone.y, opponentColorStone.x).length < 2) return false;
 
     return true;
   };
