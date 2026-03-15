@@ -7,3 +7,10 @@
   align-items: center;
   gap: 1rem;
 }
+
+@container (max-width: 600px) {
+  .boardControls {
+    grid-auto-flow: column;
+    justify-content: start;
+  }
+}

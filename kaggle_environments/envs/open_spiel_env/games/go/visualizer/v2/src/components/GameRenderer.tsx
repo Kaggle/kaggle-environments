@@ -3,6 +3,7 @@ import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
+import CapturePots from '../components/CapturePots';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
@@ -70,7 +71,10 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
       <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
       <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
       <GameBoard />
-      <ScorePanel />
+      <div>
+        <ScorePanel />
+        <CapturePots />
+      </div>
       {game.isOver() && <GameOverModal />}
       <DebugPanel />
       <HeroAnimation />

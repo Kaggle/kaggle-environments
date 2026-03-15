@@ -20,7 +20,7 @@
   background-size: cover;
   background-position: center;
   font-family: "Inter", sans-serif;
-  position: relative;
+  container-type: inline-size;
 }
 
 #board {
@@ -29,6 +29,12 @@
   align-items: center;
   color: black;
   margin: 0 auto;
+}
+
+@container (max-width: 600px) {
+  #board {
+    grid-template-columns: 1fr;
+  }
 }
 
 #board button {

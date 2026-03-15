@@ -85,6 +85,7 @@
 
 .playerWhite {
   composes: player;
+  order: 1;
   justify-self: start;
   padding-right: var(--player-padding-logo);
   transform: translateX(calc(var(--player-offset-x) * -1));
@@ -158,9 +159,17 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 600px) {
-  .player {
-    padding-block: 6px;
+@container (max-width: 600px) {
+  .panel {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    justify-items: center;
+  }
+
+  .table {
+    grid-column: 1 / -1;
+    width: 100%;
+    font-size: 11px;
   }
 
   .table tr:first-child td {
@@ -169,5 +178,32 @@
 
   .table tr:last-child td {
     padding-bottom: 6px;
+  }
+
+  .player {
+    translate: none;
+    transform: none;
+    padding-block: 6px;
+  }
+
+  .playerBlack {
+    justify-self: end;
+  }
+
+  .playerWhite {
+    order: 0;
+    justify-self: start;
+  }
+
+  .playerBlack.active {
+    transform: rotate(-2deg) scale(1.05);
+  }
+
+  .playerWhite.active {
+    transform: rotate(2deg) scale(1.05);
+  }
+
+  .playerName {
+    font-size: 11px;
   }
 }
