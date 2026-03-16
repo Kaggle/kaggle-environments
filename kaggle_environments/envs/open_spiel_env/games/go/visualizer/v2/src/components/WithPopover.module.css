@@ -38,3 +38,28 @@
   background: #f1f1f1;
   translate: 0.5rem -50%;
 }
+
+@container (max-width: 600px) {
+  .trigger {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    box-shadow: -1px 1px 0 #000000;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .panel {
+    inset: unset;
+    position-anchor: --board;
+    top: anchor(center);
+    left: anchor(center);
+    translate: -50% -50%;
+    width: 100%;
+  }
+}
