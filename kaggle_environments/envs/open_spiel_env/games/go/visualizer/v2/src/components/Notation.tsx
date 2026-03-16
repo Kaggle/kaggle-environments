@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
 import styles from './Notation.module.css';
-import arrowLeftPath from '../assets/arrow-left.png';
 
 export default memo(function Notation() {
   const game = useGameStore((state) => state.game);
@@ -105,9 +104,11 @@ export default memo(function Notation() {
   if (matches.length === 0) return null;
 
   const notation = matches.toSorted((a, b) => b.priority - a.priority)[0];
+
+  const showDecoration = game.moveNumber() !== 0;
   return (
     <div className={styles.notation}>
-      <img src={arrowLeftPath} alt="" aria-hidden="true" />
+      <div className={styles.decoration}>{showDecoration && <p>!!</p>}</div>
       <div className={styles.notationInner}>
         {notation.title && <h2>{notation.title}</h2>}
         {notation.title && notation.text && <hr />}

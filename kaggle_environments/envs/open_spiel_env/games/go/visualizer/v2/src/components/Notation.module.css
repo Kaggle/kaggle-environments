@@ -18,6 +18,14 @@
   }
 }
 
+:where(.decoration, .notationInner) > * {
+  margin: 0;
+}
+
+.decoration {
+  align-self: start;
+}
+
 .notationInner {
   display: grid;
   gap: 0.5ch;
@@ -26,13 +34,7 @@
 
   > * {
     font-size: 1em;
-    margin: 0;
   }
-}
-
-.notation img {
-  width: 8ch;
-  transform: rotate(45deg);
 }
 
 .notation hr {
