@@ -6,6 +6,7 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
+import Notation from './Notation.tsx';
 import { WithPopover } from './WithPopover.tsx';
 
 export default memo(function GameBoard() {
@@ -44,7 +45,7 @@ export default memo(function GameBoard() {
     .map((intersection) => ({ row: intersection.y, col: intersection.x }));
 
   return (
-    <div id="board">
+    <div id="board" className={styles.board}>
       <div className={styles.boardControls}>
         <WithPopover id="info" icon="info">
           <p>
@@ -67,7 +68,9 @@ export default memo(function GameBoard() {
           reducedMotion={reducedMotion}
         />
       </div>
-      <div></div>
+      <div className={styles.notationSlot}>
+        <Notation />
+      </div>
     </div>
   );
 });
