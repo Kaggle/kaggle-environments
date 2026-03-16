@@ -3,37 +3,26 @@
   font-size: 1rem;
   line-height: 1.1;
   display: grid;
-  justify-content: start;
-  gap: 0.5ch;
-  transform: rotate(-3deg);
   overflow: visible;
+  justify-content: start;
+  max-width: 20ch;
   max-height: 10ch;
-
   transition:
     opacity 400ms,
     transform 500ms;
+  transform: rotate(-3deg);
+  text-wrap: pretty;
+
+  gap: 1.5ch 0.5ch;
+
+  & > * {
+    font-size: 1em;
+    margin: 0;
+  }
+
   @starting-style {
     opacity: 0;
     transform: translateY(20%);
-  }
-}
-
-:where(.decoration, .notationInner) > * {
-  margin: 0;
-}
-
-.decoration {
-  align-self: start;
-}
-
-.notationInner {
-  display: grid;
-  gap: 1.5ch 0.5ch;
-  text-wrap: pretty;
-  max-width: 20ch;
-
-  > * {
-    font-size: 1em;
   }
 }
 
@@ -50,16 +39,12 @@
 
 @container (max-width: 600px) {
   .notation {
-    grid-template-columns: auto 1fr;
     align-items: end;
     font-size: 0.6875rem;
+    gap: 0.5ch;
   }
 
   .notation img {
     transform: rotate(0deg);
-  }
-
-  .notationInner {
-    gap: 0.5ch;
   }
 }

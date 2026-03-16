@@ -105,20 +105,16 @@ export default memo(function Notation() {
 
   const notation = matches.toSorted((a, b) => b.priority - a.priority)[0];
 
-  const showDecoration = game.moveNumber() !== 0;
   return (
     <div className={styles.notation}>
-      <div className={styles.decoration}>{showDecoration && <span aria-hidden="true">!!</span>}</div>
-      <div className={styles.notationInner}>
-        {notation.title && (
-          <h2>
-            {notation.title.split(' ').map((word, i) => (
-              <span key={i}>{word} </span>
-            ))}
-          </h2>
-        )}
-        {notation.text && <p>{notation.text}</p>}
-      </div>
+      {notation.title && (
+        <h2>
+          {notation.title.split(' ').map((word, i) => (
+            <span key={i}>{word} </span>
+          ))}
+        </h2>
+      )}
+      {notation.text && <p>{notation.text}</p>}
     </div>
   );
 });
