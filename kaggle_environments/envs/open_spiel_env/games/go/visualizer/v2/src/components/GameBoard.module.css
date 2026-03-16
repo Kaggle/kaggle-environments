@@ -1,3 +1,20 @@
+.board {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  color: black;
+  margin: 1rem auto;
+}
+
+.board button {
+  font: inherit;
+  color: inherit;
+}
+
+.board svg {
+  display: block;
+}
+
 .boardAnchor {
   anchor-name: --board;
 }
@@ -5,18 +22,32 @@
 .boardControls {
   display: grid;
   align-items: center;
+  justify-items: end;
   gap: 1rem;
 }
 
 @container (max-width: 600px) {
+  .board {
+    grid-template-rows: 6ch 1fr;
+    grid-template-columns: auto 1fr;
+  }
+
   .boardControls {
     grid-auto-flow: column;
     justify-content: start;
     gap: 0.5rem;
     margin-block: 0.25rem;
+    order: 1;
   }
 
   .boardAnchor {
     padding-inline: 1.5rem;
+    order: 3;
+    grid-column: span 2;
+  }
+
+  .notationSlot {
+    order: 2;
+    justify-self: end;
   }
 }
