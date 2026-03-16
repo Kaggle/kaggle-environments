@@ -33,11 +33,6 @@ export default memo(function GameBoard() {
     };
   }
 
-  const captures = {
-    black: state.blackStonesCaptured,
-    white: state.whiteStonesCaptured,
-  };
-
   const scorer = game._scorer.territory(game);
   const territory = {
     black: step === 1 ? [] : scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
@@ -67,7 +62,6 @@ export default memo(function GameBoard() {
           grid={grid}
           step={step}
           lastPlayed={played}
-          captures={captures}
           atari={atari}
           territory={showTerritory ? territory : { black: [], white: [] }}
           reducedMotion={reducedMotion}

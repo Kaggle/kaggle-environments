@@ -49,13 +49,6 @@ export function gridToPixel(row: number, col: number, boardSize: number): { x: n
   };
 }
 
-// Capture pot area below the board
-export const POT_AREA_HEIGHT = 150;
-export const POT_SIZE = 120;
-export const POT_PRISONER_SIZE = 32;
-export const POT_SCATTER_RADIUS = 30;
-export const POT_MAX_PRISONERS = 30;
-
 const NEIGHBOR_DELTAS = [
   [-1, 0],
   [1, 0],
