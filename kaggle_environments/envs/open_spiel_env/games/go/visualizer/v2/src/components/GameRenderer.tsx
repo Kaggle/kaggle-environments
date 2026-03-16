@@ -6,14 +6,15 @@ import ScorePanel from '../components/ScorePanel';
 import CapturePots from '../components/CapturePots';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
-import { DebugPanel } from './DebugPanel.tsx';
-import { HeroAnimation } from './HeroAnimation';
+import usePreferences from '../stores/usePreferences.ts';
 import knightRiv from '../assets/kaggle_knight.riv?url';
 import queenRiv from '../assets/kaggle_queen.riv?url';
+import HeroAnimationModal from './HeroAnimationModal.tsx';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
+  const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
 
   useEffect(() => {
     // Seems like these OpenSpiel 13x13 log files where the steps is empty are
@@ -76,8 +77,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
         <CapturePots />
       </div>
       {game.isOver() && <GameOverModal />}
-      {import.meta.env.DEV && <DebugPanel />}
-      <HeroAnimation />
+      {showHeroAnimations && <HeroAnimationModal />}
     </div>
   );
 }
