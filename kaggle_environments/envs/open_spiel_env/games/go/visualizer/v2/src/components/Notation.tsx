@@ -108,10 +108,15 @@ export default memo(function Notation() {
   const showDecoration = game.moveNumber() !== 0;
   return (
     <div className={styles.notation}>
-      <div className={styles.decoration}>{showDecoration && <p>!!</p>}</div>
+      <div className={styles.decoration}>{showDecoration && <span aria-hidden="true">!!</span>}</div>
       <div className={styles.notationInner}>
-        {notation.title && <h2>{notation.title}</h2>}
-        {notation.title && notation.text && <hr />}
+        {notation.title && (
+          <h2>
+            {notation.title.split(' ').map((word, i) => (
+              <span key={i}>{word} </span>
+            ))}
+          </h2>
+        )}
         {notation.text && <p>{notation.text}</p>}
       </div>
     </div>
