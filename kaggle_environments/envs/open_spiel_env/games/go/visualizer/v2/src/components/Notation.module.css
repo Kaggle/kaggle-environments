@@ -5,7 +5,7 @@
   display: grid;
   justify-content: start;
   gap: 0.5ch;
-  transform: rotate(3deg);
+  transform: rotate(-3deg);
   overflow: visible;
   max-height: 10ch;
 
