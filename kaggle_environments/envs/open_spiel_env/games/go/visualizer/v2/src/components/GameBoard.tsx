@@ -1,10 +1,12 @@
 import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
+import { FeatureToggles } from './FeatureToggles.tsx';
 import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
+import { WithPopover } from './WithPopover.tsx';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
@@ -31,11 +33,6 @@ export default memo(function GameBoard() {
     };
   }
 
-  const captures = {
-    black: state.blackStonesCaptured,
-    white: state.whiteStonesCaptured,
-  };
-
   const scorer = game._scorer.territory(game);
   const territory = {
     black: step === 1 ? [] : scorer.black.map((point: { x: number; y: number }) => ({ row: point.y, col: point.x })),
@@ -48,18 +45,29 @@ export default memo(function GameBoard() {
 
   return (
     <div id="board">
+      <div className={styles.boardControls}>
+        <WithPopover id="info" icon="info">
+          <p>
+            Go is the ancient two-player game in which players attempt to control more territory on a grid by
+            strategically placing black or white stones. Fun fact: unlike chess, black plays first.
+          </p>
+        </WithPopover>
+        <WithPopover id="settings" icon="settings">
+          <FeatureToggles />
+        </WithPopover>
+      </div>
       <div className={styles.boardAnchor}>
         <GoBoard
           boardSize={size}
           grid={grid}
           step={step}
           lastPlayed={played}
-          captures={captures}
           atari={atari}
           territory={showTerritory ? territory : { black: [], white: [] }}
           reducedMotion={reducedMotion}
         />
       </div>
+      <div></div>
     </div>
   );
 });

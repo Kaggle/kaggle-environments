@@ -60,13 +60,15 @@ declare module 'tenuki' {
    */
   export interface BoardState {
     moveNumber: number;
-    pass: boolean | undefined;
+    pass: boolean;
     koPoint: { y: number; x: number } | null;
     intersections: Intersection[];
     playedPoint: { y: number; x: number } | null;
     capturedPositions: Intersection[] | undefined;
     blackStonesCaptured: number;
     whiteStonesCaptured: number;
+    blackPassStones: number;
+    whitePassStones: number;
     color: string;
     previousMove(): BoardState | null;
     nextColor(): 'black' | 'white';

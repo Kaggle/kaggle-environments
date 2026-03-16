@@ -1,0 +1,65 @@
+.trigger {
+  top: anchor(center);
+  right: anchor(left);
+  margin: 0;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition:
+    box-shadow 100ms,
+    scale 200ms;
+  color: #050001;
+  border: 2px solid;
+  border-radius: 99ch;
+  background-color: #f1f1f1;
+  box-shadow: -0.125rem 0.125rem 0 #000000;
+  inset: unset;
+  position-anchor: --board;
+  appearance: none;
+
+  &:hover {
+    scale: 1.03;
+  }
+
+  &:active {
+    box-shadow: 0 0 #000000;
+    scale: 0.97;
+  }
+}
+
+.panel {
+  top: anchor(center);
+  left: anchor(right);
+  max-width: 19rem;
+  margin: 0;
+  padding: 1rem 2rem;
+  text-align: left;
+  color: inherit;
+  border: 0.125rem solid;
+  background: #f1f1f1;
+  translate: 0.5rem -50%;
+}
+
+@container (max-width: 600px) {
+  .trigger {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    box-shadow: -1px 1px 0 #000000;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .panel {
+    inset: unset;
+    position-anchor: --board;
+    top: anchor(center);
+    left: anchor(center);
+    translate: -50% -50%;
+    width: 100%;
+  }
+}

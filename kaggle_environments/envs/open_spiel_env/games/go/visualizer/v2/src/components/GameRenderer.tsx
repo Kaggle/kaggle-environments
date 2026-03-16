@@ -3,14 +3,23 @@ import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
-import HeroAnimationModal from '../components/HeroAnimationModal';
+import CapturePots from '../components/CapturePots';
+import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import { DebugPanel } from './DebugPanel.tsx';
+import { HeroAnimation } from './HeroAnimation';
+import knightRiv from '../assets/kaggle_knight.riv?url';
+import queenRiv from '../assets/kaggle_queen.riv?url';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
+  const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
 
   useEffect(() => {
+    // Seems like these OpenSpiel 13x13 log files where the steps is empty are
+    // broken and shouldn't be listed on Game Arena
+    if (options.replay.steps.length === 0) return;
+
     const parameters = options.replay.configuration.openSpielGameParameters;
     // OpenSpiel parameter incorrectly set for board size in example replays
     // const boardSize = parameters.board_size;
@@ -58,11 +67,17 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   }, [options, setState]);
 
   return (
-    <>
+    <div id="go-playable-area">
+      <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
+      <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
       <GameBoard />
-      <ScorePanel />
-      <HeroAnimationModal />
-      <DebugPanel />
-    </>
+      <div>
+        <ScorePanel />
+        <CapturePots />
+      </div>
+      {game.isOver() && <GameOverModal />}
+      {import.meta.env.DEV && <DebugPanel />}
+      <HeroAnimation />
+    </div>
   );
 }
