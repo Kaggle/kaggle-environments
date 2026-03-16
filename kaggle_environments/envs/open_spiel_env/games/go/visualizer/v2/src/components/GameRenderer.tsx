@@ -72,7 +72,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
       <GameBoard />
       <ScorePanel />
       {game.isOver() && <GameOverModal />}
-      <DebugPanel />
+      {import.meta.env.DEV && <DebugPanel />}
       <HeroAnimation />
     </div>
   );
