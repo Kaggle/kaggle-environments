@@ -36,9 +36,13 @@
 }
 
 @container (max-width: 600px) {
+  .pots {
+    justify-content: space-between;
+  }
+
   .potArea {
-    width: 48px;
-    height: 48px;
+    width: 72px;
+    height: 72px;
   }
 
   .prisoner {

@@ -21,6 +21,7 @@
   background-position: center;
   font-family: "Inter", sans-serif;
   container-type: inline-size;
+  padding-inline: 1.25rem;
 }
 
 #board {

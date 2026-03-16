@@ -41,11 +41,17 @@
 
 @container (max-width: 600px) {
   .trigger {
-    width: 38px;
-    height: 38px;
+    width: 30px;
+    height: 30px;
     padding: 0;
     display: grid;
     place-items: center;
+    box-shadow: -1px 1px 0 #000000;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
   }
 
   .panel {
@@ -54,5 +60,6 @@
     top: anchor(center);
     left: anchor(center);
     translate: -50% -50%;
+    width: 100%;
   }
 }

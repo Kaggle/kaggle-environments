@@ -5,7 +5,7 @@ export function FeatureToggles() {
   const { toggle, showHeroAnimations, showTerritory, reducedMotion } = usePreferences();
   return (
     <fieldset className={styles.fieldset}>
-      <legend>Preferences</legend>
+      <legend className="visually-hidden">Preferences</legend>
       <ul>
         <li>
           <label>
