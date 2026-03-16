@@ -42,6 +42,13 @@ export default memo(function ScorePanel() {
         </span>
         <span className={styles.playerName}>{blackName}</span>
       </div>
+      <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
+        <span className={styles.playerName}>{whiteName}</span>
+        <span className={`${styles.logo} grid-pile`} aria-hidden="true">
+          <img src={whiteLogo.src} alt="" />
+          {whiteLogo.isUnknown && <span className={styles.logoInitial}>{whiteName[0]}</span>}
+        </span>
+      </div>
       <table className={styles.table}>
         <thead className="visually-hidden">
           <tr>
@@ -60,13 +67,6 @@ export default memo(function ScorePanel() {
           ))}
         </tbody>
       </table>
-      <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
-        <span className={styles.playerName}>{whiteName}</span>
-        <span className={`${styles.logo} grid-pile`} aria-hidden="true">
-          <img src={whiteLogo.src} alt="" />
-          {whiteLogo.isUnknown && <span className={styles.logoInitial}>{whiteName[0]}</span>}
-        </span>
-      </div>
     </section>
   );
 });

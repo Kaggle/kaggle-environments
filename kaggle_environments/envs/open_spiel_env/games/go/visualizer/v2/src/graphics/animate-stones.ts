@@ -23,13 +23,6 @@ const CAPTURE_SPREAD_JITTER = 0.3; // ±30% on spread
 const CAPTURE_DURATION_JITTER = 0.2; // ±20% on particle duration
 const CAPTURE_SHRINK_JITTER = 0.25; // ±25% on shrink duration
 
-// Pot poof (prisoner reveal)
-const POT_POOF_PARTICLE_COUNT = 4;
-const POT_POOF_SPREAD = 10;
-const POT_POOF_DURATION = 0.35;
-const POT_POOF_MAX_SCALE = 0.2;
-const POT_POOF_STAGGER = 0.02;
-
 // Territory marker animation
 const TERRITORY_SCALE_DURATION = 0.2;
 
@@ -258,80 +251,6 @@ export function animateCapture(pair: StonePair, sheet: Spritesheet, effectsLayer
     shadow.destroy();
     for (const p of particles) {
       effectsLayer.removeChild(p);
-      p.destroy();
-    }
-  });
-
-  return tl;
-}
-
-export function animatePotPoof(x: number, y: number, sheet: Spritesheet, container: Container): gsap.core.Timeline {
-  const tl = gsap.timeline();
-  const particles: Sprite[] = [];
-
-  for (let i = 0; i < POT_POOF_PARTICLE_COUNT; i++) {
-    const texName = PUFF_TEXTURES[Math.floor(Math.random() * PUFF_TEXTURES.length)];
-    const puff = new Sprite(sheet.textures[texName]);
-    puff.anchor.set(0.5);
-    puff.position.set(x, y);
-    puff.scale.set(0);
-    puff.alpha = 1;
-    container.addChild(puff);
-    particles.push(puff);
-
-    const angle = (Math.PI * 2 * i) / POT_POOF_PARTICLE_COUNT + (Math.random() - 0.5) * 0.8;
-    const dist = POT_POOF_SPREAD * (0.5 + Math.random() * 0.5);
-    const targetX = x + Math.cos(angle) * dist;
-    const targetY = y + Math.sin(angle) * dist;
-    const peakScale = POT_POOF_MAX_SCALE * (0.5 + Math.random() * 0.5);
-    const stagger = i * POT_POOF_STAGGER;
-
-    tl.to(
-      puff.scale,
-      {
-        x: peakScale,
-        y: peakScale,
-        duration: POT_POOF_DURATION * 0.4,
-        ease: 'power2.out',
-      },
-      stagger
-    );
-    tl.to(
-      puff.scale,
-      {
-        x: 0,
-        y: 0,
-        duration: POT_POOF_DURATION * 0.6,
-        ease: 'power2.in',
-      },
-      stagger + POT_POOF_DURATION * 0.4
-    );
-
-    tl.to(
-      puff,
-      {
-        x: targetX,
-        y: targetY,
-        duration: POT_POOF_DURATION,
-        ease: 'power2.out',
-      },
-      stagger
-    );
-
-    tl.to(
-      puff,
-      {
-        alpha: 0,
-        duration: POT_POOF_DURATION * 0.5,
-        ease: 'power2.in',
-      },
-      stagger + POT_POOF_DURATION * 0.5
-    );
-  }
-
-  tl.call(() => {
-    for (const p of particles) {
-      container.removeChild(p);
       p.destroy();
     }
   });
