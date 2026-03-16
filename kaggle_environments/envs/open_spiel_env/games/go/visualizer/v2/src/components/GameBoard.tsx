@@ -6,6 +6,7 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
 import styles from './GameBoard.module.css';
+import Notation from './Notation.tsx';
 import { WithPopover } from './WithPopover.tsx';
 
 export default memo(function GameBoard() {
@@ -32,11 +33,6 @@ export default memo(function GameBoard() {
       col: state.playedPoint.x,
     };
   }
-
-  const captures = {
-    black: state.blackStonesCaptured,
-    white: state.whiteStonesCaptured,
-  };
 
   const scorer = game._scorer.territory(game);
   const territory = {
@@ -67,13 +63,14 @@ export default memo(function GameBoard() {
           grid={grid}
           step={step}
           lastPlayed={played}
-          captures={captures}
           atari={atari}
           territory={showTerritory ? territory : { black: [], white: [] }}
           reducedMotion={reducedMotion}
         />
       </div>
-      <div></div>
+      <div>
+        <Notation />
+      </div>
     </div>
   );
 });
