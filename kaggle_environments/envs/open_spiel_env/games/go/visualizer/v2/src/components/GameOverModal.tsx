@@ -1,7 +1,5 @@
-import { memo, useEffect, useState } from 'react';
+import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
-import useHeroAnimation from '../stores/useHeroAnimation';
-import knightRiv from '../assets/kaggle_knight.riv?url';
 import styles from './GameOverModal.module.css';
 import { Ribbon } from './Ribbon.tsx';
 
@@ -26,14 +24,6 @@ interface StatRow {
 export default memo(function GameOverModal() {
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
-  const play = useHeroAnimation((s) => s.play);
-  const cancel = useHeroAnimation((s) => s.cancel);
-  const [showStats, setShowStats] = useState(false);
-
-  useEffect(() => {
-    play(knightRiv, () => setShowStats(true));
-    return cancel;
-  }, [play, cancel]);
 
   if (!options) return null;
 
@@ -94,8 +84,6 @@ export default memo(function GameOverModal() {
       white: `${Math.round(avg(durations.white))}s`,
     },
   ];
-
-  if (!showStats) return null;
 
   return (
     <div className={styles.modal}>
