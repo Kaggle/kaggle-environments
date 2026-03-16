@@ -37,6 +37,10 @@
   }
 }
 
+.notation h2 {
+  line-height: 1.35;
+}
+
 .notation h2 span {
   background-image: url("/images/squiggle-solid.png");
   background-repeat: repeat-x;
