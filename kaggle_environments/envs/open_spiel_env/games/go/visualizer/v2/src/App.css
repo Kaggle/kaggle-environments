@@ -24,29 +24,6 @@
   padding-inline: 1.25rem;
 }
 
-#board {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  color: black;
-  margin: 0 auto;
-}
-
-@container (max-width: 600px) {
-  #board {
-    grid-template-columns: 1fr;
-  }
-}
-
-#board button {
-  font: inherit;
-  color: inherit;
-}
-
-#board svg {
-  display: block;
-}
-
 .grid-pile {
   display: grid;
 }

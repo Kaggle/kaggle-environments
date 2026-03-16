@@ -45,7 +45,7 @@ export default memo(function GameBoard() {
     .map((intersection) => ({ row: intersection.y, col: intersection.x }));
 
   return (
-    <div id="board">
+    <div id="board" className={styles.board}>
       <div className={styles.boardControls}>
         <WithPopover id="info" icon="info">
           <p>
@@ -68,7 +68,7 @@ export default memo(function GameBoard() {
           reducedMotion={reducedMotion}
         />
       </div>
-      <div>
+      <div className={styles.notationSlot}>
         <Notation />
       </div>
     </div>

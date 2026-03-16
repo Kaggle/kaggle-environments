@@ -1,5 +1,7 @@
 import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
+import styles from './Notation.module.css';
+import arrowLeftPath from '../assets/arrow-left.png';
 
 export default memo(function Notation() {
   const game = useGameStore((state) => state.game);
@@ -86,10 +88,10 @@ export default memo(function Notation() {
       text: `A defensive, vertical two-stone tower`,
     },
   ];
-  const matches = searches.filter((search) => player.thoughts?.match(new RegExp(search.term, 'i')) !== null);
-
+  const matches = searches.filter((search) => player.thoughts?.toLowerCase().includes(search.term));
   const duration = 2;
-  const json = player.generateReturns![0];
+  const json = player.generateReturns?.[0];
+  if (!json) return null;
   const data = JSON.parse(json);
   if (data.duration_success_only_secs > 60 * duration) {
     matches.push({
@@ -100,10 +102,17 @@ export default memo(function Notation() {
     });
   }
 
-  if (matches.length > 0) {
-    const notation = matches.sort((a, b) => b.priority - a.priority)[0];
-    console.log(notation.title, notation.text);
-  }
+  if (matches.length === 0) return null;
 
-  return null;
+  const notation = matches.toSorted((a, b) => b.priority - a.priority)[0];
+  return (
+    <div className={styles.notation}>
+      <img src={arrowLeftPath} alt="" aria-hidden="true" />
+      <div className={styles.notationInner}>
+        {notation.title && <h2>{notation.title}</h2>}
+        {notation.title && notation.text && <hr />}
+        {notation.text && <p>{notation.text}</p>}
+      </div>
+    </div>
+  );
 });
