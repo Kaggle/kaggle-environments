@@ -52,6 +52,7 @@ declare module 'tenuki' {
     isBlack(): boolean;
     isWhite(): boolean;
     isFilled(): boolean;
+    isOccupiedWith(color: string): boolean;
   }
 
   /**
@@ -63,11 +64,12 @@ declare module 'tenuki' {
     koPoint: { y: number; x: number } | null;
     intersections: Intersection[];
     playedPoint: { y: number; x: number } | null;
-    capturedPositions: Intersection[];
+    capturedPositions: Intersection[] | undefined;
     blackStonesCaptured: number;
     whiteStonesCaptured: number;
     blackPassStones: number;
     whitePassStones: number;
+    color: string;
     previousMove(): BoardState | null;
     nextColor(): 'black' | 'white';
     xCoordinateFor(x: number): string;
@@ -77,6 +79,8 @@ declare module 'tenuki' {
     intersectionAt(y: number, x: number): Intersection;
     libertiesAt(y: number, x: number): number;
     inAtari(y: number, x: number): true | false;
+    neighborsFor(y: number, x: number): Intersection[];
+    groupAt(y: number, x: number): Intersection[];
   }
 
   /**
@@ -170,10 +174,11 @@ declare module 'tenuki' {
     /** Undo the last move */
     undo(): boolean;
 
-    /** Get all moves in the game */
-    previousMoves(): BoardState[];
-
+    /** Scorer **/
     _scorer: Scorer;
+
+    /** Move history **/
+    _moves: GameState[];
   }
 
   /**

@@ -12,7 +12,9 @@
     "lint:fix": "eslint --fix .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "download-replays": "node ./scripts/download.js"
+    "download-replays": "node ./scripts/download.js",
+    "ladder": "node ./scripts/ladder.js",
+    "monkey": "node ./scripts/monkey.js"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
