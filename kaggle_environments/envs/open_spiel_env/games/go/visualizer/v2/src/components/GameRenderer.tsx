@@ -76,7 +76,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
         <CapturePots />
       </div>
       {game.isOver() && <GameOverModal />}
-      <DebugPanel />
+      {import.meta.env.DEV && <DebugPanel />}
       <HeroAnimation />
     </div>
   );
