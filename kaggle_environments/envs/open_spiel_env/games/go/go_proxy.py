@@ -16,6 +16,12 @@ class GoState(proxy.State):
 
         Counts stones on the board plus empty territory enclosed by a single
         color. All stones are treated as alive (no dead stone removal).
+
+        Scoring formula (matches OpenSpiel C++ TrompTaylorScore):
+          black_score = black_stones + black_territory
+          white_score = white_stones + white_territory + komi + handicap
+        Handicap compensation (added when handicap >= 2) offsets the free
+        stones Black receives at the start of the game.
         """
         game_params = self.get_game().get_parameters()
         board_size = game_params["board_size"]
