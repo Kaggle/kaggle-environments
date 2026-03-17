@@ -4,8 +4,9 @@ import { persist } from 'zustand/middleware';
 interface Preferences {
   showTerritory: boolean;
   showHeroAnimations: boolean;
+  showAnnotations: boolean;
   reducedMotion: boolean;
-  toggle: (key: 'showTerritory' | 'showHeroAnimations' | 'reducedMotion') => void;
+  toggle: (key: 'showTerritory' | 'showHeroAnimations' | 'showAnnotations' | 'reducedMotion') => void;
 }
 
 const usePreferences = create<Preferences>()(
@@ -13,6 +14,7 @@ const usePreferences = create<Preferences>()(
     (set) => ({
       showTerritory: true,
       showHeroAnimations: true,
+      showAnnotations: true,
       reducedMotion: false,
       toggle: (key) => set((state) => ({ [key]: !state[key] })),
     }),
