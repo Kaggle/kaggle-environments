@@ -113,7 +113,7 @@ export default memo(function Notation() {
 
   if (matches.length === 0) return null;
 
-  const notation = matches.toSorted((a, b) => b.priority - a.priority)[0];
+  const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
 
   return (
     <div className={styles.notation}>
