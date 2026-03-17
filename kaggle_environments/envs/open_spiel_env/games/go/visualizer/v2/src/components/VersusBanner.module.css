@@ -6,13 +6,19 @@
   top: anchor(center);
   left: anchor(left);
   width: anchor-size(width);
+  translate: 0 -50%;
   animation: slide-in-out 3.2s both;
+  will-change: transform, opacity;
 
   /* <Ribbon> element. */
   & > * {
     --font-size: 1rem;
     --padding-inline: 2em;
-    --padding-block: 0.75rem;
+    --padding-block: 1.25rem;
+  }
+
+  & span {
+    white-space: nowrap;
   }
 }
 
@@ -39,5 +45,11 @@
     translate: 0 -50%;
     scale: 0.94;
     opacity: 0;
+  }
+}
+
+@container (max-width: 600px) {
+  .versusBanner > * {
+    --font-size: 0.75rem;
   }
 }
