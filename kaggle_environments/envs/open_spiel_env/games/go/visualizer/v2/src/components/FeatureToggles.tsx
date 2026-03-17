@@ -2,7 +2,7 @@ import usePreferences from '../stores/usePreferences.ts';
 import styles from './FeatureToggles.module.css';
 
 export function FeatureToggles() {
-  const { toggle, showHeroAnimations, showTerritory, reducedMotion } = usePreferences();
+  const { toggle, showHeroAnimations, showTerritory, showAnnotations, reducedMotion } = usePreferences();
   return (
     <fieldset className={styles.fieldset}>
       <legend className="visually-hidden">Preferences</legend>
@@ -26,6 +26,17 @@ export function FeatureToggles() {
               className={styles.switch}
               checked={showHeroAnimations}
               onChange={() => toggle('showHeroAnimations')}
+            />
+          </label>
+        </li>
+        <li>
+          <label>
+            Annotations
+            <input
+              type="checkbox"
+              className={styles.switch}
+              checked={showAnnotations}
+              onChange={() => toggle('showAnnotations')}
             />
           </label>
         </li>
