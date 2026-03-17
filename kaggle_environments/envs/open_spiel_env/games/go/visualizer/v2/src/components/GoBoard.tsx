@@ -1,20 +1,19 @@
 import { useEffect, useRef } from 'react';
-import type { CellValue, Captures, GridPos, Territory } from '../types/game.ts';
-import { BOARD_PX, POT_AREA_HEIGHT } from '../graphics/constants.ts';
+import type { CellValue, GridPos, Territory } from '../types/game.ts';
 import { GoPixi } from '../graphics/go-pixi.ts';
+import styles from './GoBoard.module.css';
 
 interface Props {
   boardSize: number;
   grid: CellValue[][];
   step: number;
   lastPlayed: GridPos | null;
-  captures: Captures;
   atari: GridPos[];
   territory: Territory;
   reducedMotion: boolean;
 }
 
-export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, territory, reducedMotion }: Props) {
+export function GoBoard({ boardSize, grid, step, lastPlayed, atari, territory, reducedMotion }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<GoPixi | null>(null);
 
@@ -31,8 +30,8 @@ export function GoBoard({ boardSize, grid, step, lastPlayed, captures, atari, te
 
   // Forward props
   useEffect(() => {
-    pixiRef.current?.update({ grid, step, lastPlayed, captures, atari, territory, reducedMotion });
-  }, [grid, step, lastPlayed, captures, atari, territory, reducedMotion]);
+    pixiRef.current?.update({ grid, step, lastPlayed, atari, territory, reducedMotion });
+  }, [grid, step, lastPlayed, atari, territory, reducedMotion]);
 
-  return <div ref={containerRef} style={{ width: BOARD_PX, height: BOARD_PX + POT_AREA_HEIGHT }} />;
+  return <div ref={containerRef} className={styles.canvas} />;
 }

@@ -3,8 +3,6 @@ import type { GridPos } from '../types/game.ts';
 export const BOARD_PX = 512;
 export const BOARD_PADDING = 28;
 
-export const LINE_COLOR = 0x1a1a1a;
-
 /** Star point (hoshi) positions per board size */
 const STAR_POINTS: Record<number, [number, number][]> = {
   9: [
@@ -50,13 +48,6 @@ export function gridToPixel(row: number, col: number, boardSize: number): { x: n
     y: BOARD_PADDING + row * cell,
   };
 }
-
-// Capture pot area below the board
-export const POT_AREA_HEIGHT = 150;
-export const POT_SIZE = 120;
-export const POT_PRISONER_SIZE = 32;
-export const POT_SCATTER_RADIUS = 30;
-export const POT_MAX_PRISONERS = 30;
 
 const NEIGHBOR_DELTAS = [
   [-1, 0],

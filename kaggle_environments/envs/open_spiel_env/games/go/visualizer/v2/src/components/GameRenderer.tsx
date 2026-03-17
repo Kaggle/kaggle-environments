@@ -2,15 +2,26 @@ import { useEffect } from 'react';
 import { Game } from 'tenuki';
 import { GoStep, GameRendererProps } from '@kaggle-environments/core';
 import GameBoard from '../components/GameBoard';
-import VersusBanner from '../components/VersusBanner';
 import ScorePanel from '../components/ScorePanel';
+import CapturePots from '../components/CapturePots';
+import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
-import { DebugPanel } from './DebugPanel.tsx';
+import usePreferences from '../stores/usePreferences.ts';
+import knightRiv from '../assets/kaggle_knight.riv?url';
+import queenRiv from '../assets/kaggle_queen.riv?url';
+import HeroAnimationModal from './HeroAnimationModal.tsx';
+import VersusBanner from './VersusBanner.tsx';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
+  const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
+  const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
 
   useEffect(() => {
+    // Seems like these OpenSpiel 13x13 log files where the steps is empty are
+    // broken and shouldn't be listed on Game Arena
+    if (options.replay.steps.length === 0) return;
+
     const parameters = options.replay.configuration.openSpielGameParameters;
     // OpenSpiel parameter incorrectly set for board size in example replays
     // const boardSize = parameters.board_size;
@@ -58,11 +69,17 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   }, [options, setState]);
 
   return (
-    <>
+    <div id="go-playable-area">
+      <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
+      <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
       <VersusBanner />
       <GameBoard />
-      <ScorePanel />
-      <DebugPanel />
-    </>
+      <div>
+        <ScorePanel />
+        <CapturePots />
+      </div>
+      {game.isOver() && <GameOverModal />}
+      {showHeroAnimations && <HeroAnimationModal />}
+    </div>
   );
 }

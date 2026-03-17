@@ -1,0 +1,83 @@
+.modal {
+  --reveal-delay: 2.8s;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  background-image: url("/images/paper.webp");
+  background-size: cover;
+  background-position: center;
+  color: #050001;
+  font-size: 1.25rem;
+}
+
+.meta {
+  text-align: center;
+  line-height: 1.6;
+}
+
+.table {
+  border-collapse: collapse;
+  text-align: center;
+  min-width: 32rem;
+  --border-size: 2px;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 1.5rem;
+  border-bottom: var(--border-size) solid;
+}
+
+.table thead th {
+  border-top: var(--border-size) solid;
+  border-bottom: var(--border-size) solid;
+  font-weight: 400;
+}
+
+.table :where(td, th):not(:last-of-type) {
+  border-right: var(--border-size) solid;
+}
+
+.labelCell {
+  text-align: left;
+}
+
+/* Animate-in. */
+
+.modal {
+  transition:
+    opacity 300ms,
+    transform 500ms;
+  transition-delay: var(--reveal-delay);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+:where(.meta, .table, .ribbon) {
+  transition:
+    opacity 400ms,
+    transform 500ms;
+  transition-delay: calc(var(--reveal-delay) + 100ms);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+.meta {
+  transition-delay: calc(var(--reveal-delay) + 400ms);
+}
+
+.table {
+  transition-delay: calc(var(--reveal-delay) + 900ms);
+}
