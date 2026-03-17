@@ -14,8 +14,8 @@ import {
   animateTerritoryOut,
 } from './animate-stones.ts';
 import { Marker } from './marker.ts';
-import spritesData from './sprites/sprites.json';
-import spritesPng from './sprites/sprites.png';
+import spritesData from '../assets/sprites/sprites.json';
+import spritesPng from '../assets/sprites/sprites.png';
 
 export interface GoPixiProps {
   grid: CellValue[][];
