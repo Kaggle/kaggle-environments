@@ -11,6 +11,91 @@ from ... import proxy
 class GoState(proxy.State):
     """Go state proxy."""
 
+    def _compute_tromp_taylor_score(self) -> dict:
+        """Compute Tromp-Taylor area score from the current board position.
+
+        Scores the board as-is with no dead stone removal. This gives correct
+        results when agents play until all dead stones are captured before
+        passing (e.g. KataGo with friendlyPassOk=false). If agents pass
+        prematurely while dead stones remain, the score will be inaccurate.
+        """
+        board_string = self.__wrapped__.__str__()
+        lines = board_string.strip().splitlines()
+        column_labels = lines[-1].strip()
+        board_rows = lines[2:-1]
+        board_size = len(column_labels)
+
+        # Parse board into 2D grid: 'B', 'W', or '.'
+        grid = []
+        symbol_map = {"+": ".", "X": "B", "O": "W"}
+        for row_line in board_rows:
+            board_content = row_line.split(maxsplit=1)[1]
+            grid.append([symbol_map.get(c, c) for c in board_content])
+
+        # Count stones
+        black_stones = sum(row.count("B") for row in grid)
+        white_stones = sum(row.count("W") for row in grid)
+
+        # Flood-fill to classify empty regions
+        visited = [[False] * board_size for _ in range(board_size)]
+        black_territory = 0
+        white_territory = 0
+        dame = 0
+
+        for r in range(board_size):
+            for c in range(board_size):
+                if grid[r][c] != "." or visited[r][c]:
+                    continue
+                # BFS to find connected empty region
+                region = []
+                reaches_black = False
+                reaches_white = False
+                stack = [(r, c)]
+                visited[r][c] = True
+                while stack:
+                    cr, cc = stack.pop()
+                    region.append((cr, cc))
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = cr + dr, cc + dc
+                        if 0 <= nr < board_size and 0 <= nc < board_size:
+                            if grid[nr][nc] == "B":
+                                reaches_black = True
+                            elif grid[nr][nc] == "W":
+                                reaches_white = True
+                            elif not visited[nr][nc]:
+                                visited[nr][nc] = True
+                                stack.append((nr, nc))
+
+                size = len(region)
+                if reaches_black and not reaches_white:
+                    black_territory += size
+                elif reaches_white and not reaches_black:
+                    white_territory += size
+                else:
+                    dame += size
+
+        komi = self.get_game().get_parameters()["komi"]
+        black_score = float(black_stones + black_territory)
+        white_score = float(white_stones + white_territory) + komi
+        if black_score > white_score:
+            winner = "B"
+        else:
+            winner = "W"
+
+        return {
+            "black_stones": black_stones,
+            "white_stones": white_stones,
+            "black_territory": black_territory,
+            "white_territory": white_territory,
+            "dame": dame,
+            "komi": komi,
+            "black_score": black_score,
+            "white_score": white_score,
+            "winner": winner,
+            "winning_margin": abs(black_score - white_score),
+            "scoring_method": "tromp-taylor",
+        }
+
     def _player_string(self, player: int) -> str:
         if player < 0:
             return pyspiel.PlayerId(player).name.lower()
@@ -57,7 +142,7 @@ class GoState(proxy.State):
             clone_state.apply_action(action)
         prev_move = None if not action_strs else action_strs[-1]
 
-        return {
+        result = {
             "board_size": self.get_game().get_parameters()["board_size"],
             "komi": self.get_game().get_parameters()["komi"],
             "current_player_to_move": self._player_string(self.current_player()),
@@ -65,6 +150,9 @@ class GoState(proxy.State):
             "previous_move_a1": prev_move,
             "board_grid": self._board_string_to_dict(self.__wrapped__.__str__()),
         }
+        if self.is_terminal():
+            result["scoring"] = self._compute_tromp_taylor_score()
+        return result
 
     def to_json(self) -> str:
         return json.dumps(self.state_dict())
