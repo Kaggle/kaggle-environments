@@ -1,11 +1,15 @@
 .banner {
+  --padding-inline: 4rem;
+  --padding-block: 1.5rem;
+  --font-size: 2rem;
+  --shadow-size: 0.3125rem;
+  --shadow-color: rgb(0 0 0 / 35%);
   display: grid;
-  font-size: 2rem;
+  font-size: var(--font-size);
   position: relative;
   place-content: center;
   justify-items: center;
   isolation: isolate;
-  --padding: 4rem;
 
   & > * {
     grid-area: 1 / 1;
@@ -13,7 +17,8 @@
 }
 
 .text {
-  padding: 1.5rem var(--padding);
+  padding: var(--padding-block) var(--padding-inline);
+  position: relative;
 
   /*transition: opacity 0.8s, transform 0.6s;*/
   /*transition-delay: .4s;*/
@@ -28,14 +33,17 @@
 .ribbon {
   display: grid;
   align-items: center;
-  width: calc(100% + var(--padding));
+  width: calc(100% + var(--padding-inline));
   height: 100%;
   grid-template-columns: auto 1fr auto;
+  filter: drop-shadow(
+    calc(var(--shadow-size) * -1) var(--shadow-size) var(--shadow-color)
+  );
 
   & svg {
     display: block;
     width: auto;
-    height: 3ch;
+    height: 100%;
   }
 
   /*transition: width 0.5s ease-out;*/
@@ -53,9 +61,11 @@
 }
 
 .start {
-  transform: translateX(1px);
+  transform: translateX(2px);
+  height: 80%;
 }
 
 .end {
-  transform: translateX(-1px);
+  transform: translateX(-2px);
+  height: 80%;
 }
