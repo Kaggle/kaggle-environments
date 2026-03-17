@@ -6,19 +6,23 @@ import knightRiv from '../assets/kaggle_knight.riv?url';
 import { RivePopover } from './RivePopover.tsx';
 
 enum HERO_TYPES {
-  LADDER,
-  DOUBLE_PASS,
   PASS,
+  DOUBLE_PASS,
+  FIRST_CAPTURE,
+  CAPTURE_UP_TO_9,
   LOSS_OF_A_DRAGON,
+  LADDER,
   MONKEY_JUMP,
 }
 
 const RIVE_MAP = {
-  [HERO_TYPES.LADDER]: knightRiv,
   [HERO_TYPES.PASS]: knightRiv,
   [HERO_TYPES.DOUBLE_PASS]: knightRiv,
-  [HERO_TYPES.MONKEY_JUMP]: knightRiv,
+  [HERO_TYPES.FIRST_CAPTURE]: knightRiv,
+  [HERO_TYPES.CAPTURE_UP_TO_9]: knightRiv,
   [HERO_TYPES.LOSS_OF_A_DRAGON]: knightRiv,
+  [HERO_TYPES.LADDER]: knightRiv,
+  [HERO_TYPES.MONKEY_JUMP]: knightRiv,
 };
 
 function detectLadder(game: Game) {
@@ -149,14 +153,20 @@ function detectHeroType(game: Game): HERO_TYPES | null {
   const state = game.currentState();
 
   const isPass = state.pass;
-  const isDoublePass = isPass && game._moves.length >= 2 && game._moves.at(-2).pass === true;
-  const isLossOfADragon = state.capturedPositions !== undefined && state.capturedPositions.length > 6;
+  const isDoublePass = isPass && game._moves.at(-2).pass;
+  const isFirstCaptured =
+    state.capturedPositions?.length
+    state.capturedPositions?.length === state.blackStonesCaptured + state.whiteStonesCaptured;
+  const isCaptureUpTo9 = state.capturedPositions?.length && state.capturedPositions.length <= 9;
+  const isLossOfADragon = state.capturedPositions?.length && state.capturedPositions.length > 9;
 
   if (isDoublePass) return HERO_TYPES.DOUBLE_PASS;
+  if (isPass) return HERO_TYPES.PASS;
+  if (isFirstCaptured) return HERO_TYPES.FIRST_CAPTURE;
   if (isLossOfADragon) return HERO_TYPES.LOSS_OF_A_DRAGON;
+  if (isCaptureUpTo9) return HERO_TYPES.CAPTURE_UP_TO_9;
   if (detectLadder(game)) return HERO_TYPES.LADDER;
   if (detectMonkeyJump(game)) return HERO_TYPES.MONKEY_JUMP;
-  if (isPass) return HERO_TYPES.PASS;
 
   return null;
 }
