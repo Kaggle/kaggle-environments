@@ -10,6 +10,7 @@ import usePreferences from '../stores/usePreferences.ts';
 import knightRiv from '../assets/kaggle_knight.riv?url';
 import queenRiv from '../assets/kaggle_queen.riv?url';
 import HeroAnimationModal from './HeroAnimationModal.tsx';
+import VersusBanner from './VersusBanner.tsx';
 
 export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
@@ -76,6 +77,7 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
         <ScorePanel />
         <CapturePots />
       </div>
+      {options.step === 0 && <VersusBanner options={options} />}
       {game.isOver() && <GameOverModal />}
       {showHeroAnimations && <HeroAnimationModal />}
     </div>
