@@ -1,8 +1,7 @@
 import { memo, useRef } from 'react';
-import blackImg from '../assets/stone-black.png';
-import whiteImg from '../assets/stone-white.png';
-
-import potImg from '../graphics/sprites/originals/pot.png';
+import blackImg from '../assets/stone-black.webp';
+import whiteImg from '../assets/stone-white.webp';
+import potImg from '../assets/pot.webp';
 import useGameStore from '../stores/useGameStore';
 import styles from './CapturePots.module.css';
 
