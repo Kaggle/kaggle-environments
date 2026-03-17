@@ -39,7 +39,7 @@ class GoState(proxy.State):
             for c in range(board_size):
                 if grid[r][c] != "." or visited[r][c]:
                     continue
-                # BFS to find connected empty region
+                # DFS to find connected empty region
                 region_size = 0
                 reaches_black = False
                 reaches_white = False

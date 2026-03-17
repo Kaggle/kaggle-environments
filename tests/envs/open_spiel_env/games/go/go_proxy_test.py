@@ -239,6 +239,62 @@ class GoProxyTest(absltest.TestCase):
         self.assertEqual(scoring["winner"], "draw")
         self.assertEqual(scoring["winning_margin"], 0.0)
 
+    def test_dame_shared_region(self):
+        """Empty region touching both Black and White is dame, not territory.
+
+        Board (9x9):
+          A1=B, C1=W, B1=empty -> B1 borders both colors = dame
+        """
+        game = go_proxy.GoGame({"board_size": 9, "komi": 0.5})
+        state = game.new_initial_state()
+        moves = [
+            "A1",   # B
+            "C1",   # W
+            "pass",  # B
+            "pass",  # W
+        ]
+        for move in moves:
+            state.apply_action(_gtp_to_action(move))
+        self.assertTrue(state.is_terminal())
+        scoring = state.state_dict()["scoring"]
+        self.assertEqual(scoring["black_stones"], 1)
+        self.assertEqual(scoring["white_stones"], 1)
+        # B1 touches both A1(B) and C1(W) -> dame
+        self.assertGreater(scoring["dame"], 0)
+        # The whole empty region is connected and touches both -> all dame
+        self.assertEqual(scoring["dame"], 79)
+        self.assertEqual(scoring["black_territory"], 0)
+        self.assertEqual(scoring["white_territory"], 0)
+
+    def test_19x19_scoring(self):
+        """Scoring works correctly on 19x19 boards with double-digit rows."""
+        game = go_proxy.GoGame({"board_size": 19, "komi": 7.5})
+        state = game.new_initial_state()
+        # Play a few stones including high rows (double-digit) to test parsing
+        moves = [
+            "D16",  # B - row 16
+            "Q4",   # W - row 4
+            "D4",   # B - row 4
+            "Q16",  # W - row 16
+            "pass",  # B
+            "pass",  # W
+        ]
+        for move in moves:
+            state.apply_action(_gtp_to_action(move, board_size=19))
+        self.assertTrue(state.is_terminal())
+        scoring = state.state_dict()["scoring"]
+        self.assertEqual(scoring["black_stones"], 2)
+        self.assertEqual(scoring["white_stones"], 2)
+        total = (
+            scoring["black_stones"] + scoring["white_stones"]
+            + scoring["black_territory"] + scoring["white_territory"]
+            + scoring["dame"]
+        )
+        self.assertEqual(total, 361)
+        # 2 stones each, no enclosed territory, komi=7.5 -> W wins by komi
+        self.assertEqual(scoring["winner"], "W")
+        self.assertEqual(scoring["winning_margin"], 7.5)
+
 
 if __name__ == "__main__":
     absltest.main()
