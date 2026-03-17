@@ -50,8 +50,8 @@ export default memo(function GameBoard() {
       <div className={styles.boardControls}>
         <WithPopover id="info" icon="info">
           <p>
-            Go is the ancient two-player game in which players attempt to control more territory on a grid by
-            strategically placing black or white stones. Fun fact: unlike chess, black plays first.
+            Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
+            placing black and white stones.
           </p>
         </WithPopover>
         <WithPopover id="settings" icon="settings">
