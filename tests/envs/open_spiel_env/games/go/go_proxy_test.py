@@ -197,6 +197,29 @@ class GoProxyTest(absltest.TestCase):
             self.assertEqual(scoring["komi"], komi)
             self.assertEqual(scoring["winning_margin"], komi)
 
+    def test_handicap_adjusts_score(self):
+        """Handicap >= 2 adds points to White's score.
+
+        Handicap stone placement uses fixed 19x19 positions, so this test
+        must use board_size=19. With 2 handicap stones + double pass, all
+        empty points are Black territory (only border Black). The handicap
+        bonus goes to White: white_score includes + handicap.
+        """
+        game = go_proxy.GoGame({"board_size": 19, "komi": 0.5, "handicap": 2})
+        state = game.new_initial_state()
+        while not state.is_terminal():
+            state.apply_action(19 * 19)  # pass
+        scoring = state.state_dict()["scoring"]
+        self.assertEqual(scoring["black_stones"], 2)
+        self.assertEqual(scoring["white_stones"], 0)
+        # All 359 empty points are Black territory (only border Black)
+        self.assertEqual(scoring["black_territory"], 359)
+        self.assertEqual(scoring["black_score"], 361.0)
+        # White gets komi (0.5) + handicap (2) = 2.5
+        self.assertEqual(scoring["white_score"], 2.5)
+        # Without handicap adjustment, white_score would be only 0.5
+        self.assertEqual(scoring["winner"], "B")
+
     def test_draw_with_zero_komi(self):
         """Equal scores with komi=0 should be a draw, not default to White."""
         game = go_proxy.GoGame({"board_size": 9, "komi": 0.0})
