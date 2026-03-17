@@ -70,7 +70,6 @@ declare module 'tenuki' {
     blackPassStones: number;
     whitePassStones: number;
     color: string;
-    previousMove(): BoardState | null;
     nextColor(): 'black' | 'white';
     xCoordinateFor(x: number): string;
     yCoordinateFor(y: number): string;
