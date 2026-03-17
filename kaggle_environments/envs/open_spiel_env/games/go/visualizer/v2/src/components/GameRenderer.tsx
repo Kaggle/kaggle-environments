@@ -72,12 +72,12 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     <div id="go-playable-area">
       <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
       <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
-      <VersusBanner />
       <GameBoard />
       <div>
         <ScorePanel />
         <CapturePots />
       </div>
+      {options.step === 0 && <VersusBanner options={options} />}
       {game.isOver() && <GameOverModal />}
       {showHeroAnimations && <HeroAnimationModal />}
     </div>

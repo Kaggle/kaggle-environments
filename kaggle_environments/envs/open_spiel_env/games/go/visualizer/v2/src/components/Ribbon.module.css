@@ -1,11 +1,13 @@
 .banner {
+  --padding-inline: 4rem;
+  --padding-block: 1rem;
+  --font-size: 2rem;
   display: grid;
-  font-size: 2rem;
+  font-size: var(--font-size);
   position: relative;
   place-content: center;
   justify-items: center;
   isolation: isolate;
-  --padding: 4rem;
 
   & > * {
     grid-area: 1 / 1;
@@ -13,7 +15,7 @@
 }
 
 .text {
-  padding: 1.5rem var(--padding);
+  padding: var(--padding-block) var(--padding-inline);
 
   /*transition: opacity 0.8s, transform 0.6s;*/
   /*transition-delay: .4s;*/
@@ -28,7 +30,7 @@
 .ribbon {
   display: grid;
   align-items: center;
-  width: calc(100% + var(--padding));
+  width: calc(100% + var(--padding-inline));
   height: 100%;
   grid-template-columns: auto 1fr auto;
 
