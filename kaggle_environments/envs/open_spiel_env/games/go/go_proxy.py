@@ -14,10 +14,8 @@ class GoState(proxy.State):
     def _compute_tromp_taylor_score(self) -> dict:
         """Compute Tromp-Taylor area score from the current board position.
 
-        Scores the board as-is with no dead stone removal. This gives correct
-        results when agents play until all dead stones are captured before
-        passing (e.g. KataGo with friendlyPassOk=false). If agents pass
-        prematurely while dead stones remain, the score will be inaccurate.
+        Counts stones on the board plus empty territory enclosed by a single
+        color. All stones are treated as alive (no dead stone removal).
         """
         game_params = self.get_game().get_parameters()
         board_size = game_params["board_size"]
