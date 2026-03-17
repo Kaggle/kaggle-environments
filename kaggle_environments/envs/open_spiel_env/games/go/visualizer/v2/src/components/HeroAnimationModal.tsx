@@ -9,8 +9,8 @@ enum HERO_TYPES {
   PASS,
   DOUBLE_PASS,
   FIRST_CAPTURE,
-  CAPTURE_UP_TO_9,
-  LOSS_OF_A_DRAGON,
+  CRITICAL_HIT,
+  DRAGON_LOSS,
   LADDER,
   MONKEY_JUMP,
 }
@@ -19,8 +19,8 @@ const RIVE_MAP = {
   [HERO_TYPES.PASS]: knightRiv,
   [HERO_TYPES.DOUBLE_PASS]: knightRiv,
   [HERO_TYPES.FIRST_CAPTURE]: knightRiv,
-  [HERO_TYPES.CAPTURE_UP_TO_9]: knightRiv,
-  [HERO_TYPES.LOSS_OF_A_DRAGON]: knightRiv,
+  [HERO_TYPES.CRITICAL_HIT]: knightRiv,
+  [HERO_TYPES.DRAGON_LOSS]: knightRiv,
   [HERO_TYPES.LADDER]: knightRiv,
   [HERO_TYPES.MONKEY_JUMP]: knightRiv,
 };
@@ -154,17 +154,17 @@ function detectHeroType(game: Game): HERO_TYPES | null {
 
   const isPass = state.pass;
   const isDoublePass = isPass && game._moves.at(-2).pass;
-  const isFirstCaptured =
-    state.capturedPositions?.length
+  const isFirstCapture =
+    state.capturedPositions?.length &&
     state.capturedPositions?.length === state.blackStonesCaptured + state.whiteStonesCaptured;
-  const isCaptureUpTo9 = state.capturedPositions?.length && state.capturedPositions.length <= 9;
-  const isLossOfADragon = state.capturedPositions?.length && state.capturedPositions.length > 9;
+  const isCriticalHit = state.capturedPositions?.length && state.capturedPositions.length >= 10;
+  const isDragonLoss = state.capturedPositions?.length && state.capturedPositions.length >= 15;
 
   if (isDoublePass) return HERO_TYPES.DOUBLE_PASS;
   if (isPass) return HERO_TYPES.PASS;
-  if (isFirstCaptured) return HERO_TYPES.FIRST_CAPTURE;
-  if (isLossOfADragon) return HERO_TYPES.LOSS_OF_A_DRAGON;
-  if (isCaptureUpTo9) return HERO_TYPES.CAPTURE_UP_TO_9;
+  if (isFirstCapture) return HERO_TYPES.FIRST_CAPTURE;
+  if (isDragonLoss) return HERO_TYPES.DRAGON_LOSS;
+  if (isCriticalHit) return HERO_TYPES.CRITICAL_HIT;
   if (detectLadder(game)) return HERO_TYPES.LADDER;
   if (detectMonkeyJump(game)) return HERO_TYPES.MONKEY_JUMP;
 
