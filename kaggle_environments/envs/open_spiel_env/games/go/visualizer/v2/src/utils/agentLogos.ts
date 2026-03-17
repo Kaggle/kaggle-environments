@@ -1,15 +1,15 @@
-import anthropicBlack from '../assets/agent-logos/anthropic-black.png';
-import anthropicWhite from '../assets/agent-logos/anthropic-white.png';
-import deepseekBlack from '../assets/agent-logos/deepseek-black.png';
-import deepseekWhite from '../assets/agent-logos/deepseek-white.png';
-import geminiBlack from '../assets/agent-logos/gemini-black.png';
-import geminiWhite from '../assets/agent-logos/gemini-white.png';
-import grokBlack from '../assets/agent-logos/grok-black.png';
-import grokWhite from '../assets/agent-logos/grok-white.png';
-import openaiBlack from '../assets/agent-logos/openai-black.png';
-import openaiWhite from '../assets/agent-logos/openai-white.png';
-import unknownWhite from '../assets/agent-logos/unknown-white.png';
-import unknownBlack from '../assets/agent-logos/unknown-black.png';
+import anthropicBlack from '../assets/agent-logos/anthropic-black.webp';
+import anthropicWhite from '../assets/agent-logos/anthropic-white.webp';
+import deepseekBlack from '../assets/agent-logos/deepseek-black.webp';
+import deepseekWhite from '../assets/agent-logos/deepseek-white.webp';
+import geminiBlack from '../assets/agent-logos/gemini-black.webp';
+import geminiWhite from '../assets/agent-logos/gemini-white.webp';
+import grokBlack from '../assets/agent-logos/grok-black.webp';
+import grokWhite from '../assets/agent-logos/grok-white.webp';
+import openaiBlack from '../assets/agent-logos/openai-black.webp';
+import openaiWhite from '../assets/agent-logos/openai-white.webp';
+import unknownWhite from '../assets/agent-logos/unknown-white.webp';
+import unknownBlack from '../assets/agent-logos/unknown-black.webp';
 
 const LOGOS: Record<string, { black: string; white: string }> = {
   anthropic: { black: anthropicBlack, white: anthropicWhite },
