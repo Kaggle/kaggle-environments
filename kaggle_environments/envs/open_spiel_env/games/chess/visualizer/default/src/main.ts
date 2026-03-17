@@ -1,5 +1,6 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './chess_renderer';
+import { chessTransformer } from './transformers/chessTransformer';
 
 const app = document.getElementById('app');
 if (app) {
@@ -13,6 +14,11 @@ if (app) {
       gameName: 'open_spiel_chess',
       renderer: renderer,
       ui: 'side-panel',
+      transformer: (replay) => ({
+        ...replay,
+        steps: chessTransformer(replay),
+        isTransformed: true,
+      }),
     })
   );
 }

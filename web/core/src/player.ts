@@ -96,6 +96,11 @@ export class ReplayVisualizer<TSteps extends BaseGameStep[] = BaseGameStep[]> {
 
     // 4. Add listener (always)
     window.addEventListener('message', this.handleMessage);
+
+    // 5. Signal to parent that we're ready to receive data
+    if (window.parent !== window) {
+      window.parent.postMessage({ ready: true }, '*');
+    }
   }
 
   private handleMessage = (event: MessageEvent) => {

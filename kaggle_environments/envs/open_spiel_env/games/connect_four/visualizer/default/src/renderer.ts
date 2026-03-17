@@ -1,5 +1,5 @@
-import { RendererOptions } from '@kaggle-environments/core';
-import type { ConnectFourStep, ReplayData } from '@kaggle-environments/core';
+import { RendererOptions, type ReplayData } from '@kaggle-environments/core';
+import type { ConnectFourStep } from './transformers/connectFourReplayTypes';
 
 type ConnectFourOptions = RendererOptions<ConnectFourStep[]>;
 

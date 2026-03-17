@@ -1,4 +1,4 @@
-import { BaseGamePlayer, ReplayData } from '../../types';
+import { BaseGamePlayer, ReplayData } from '@kaggle-environments/core';
 
 export interface WerewolfEvent {
   event_name: string;
