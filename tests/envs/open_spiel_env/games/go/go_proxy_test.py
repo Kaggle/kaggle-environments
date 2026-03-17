@@ -197,6 +197,25 @@ class GoProxyTest(absltest.TestCase):
             self.assertEqual(scoring["komi"], komi)
             self.assertEqual(scoring["winning_margin"], komi)
 
+    def test_draw_with_zero_komi(self):
+        """Equal scores with komi=0 should be a draw, not default to White."""
+        game = go_proxy.GoGame({"board_size": 9, "komi": 0.0})
+        state = game.new_initial_state()
+        # One black stone, one white stone, no territory -> 1 vs 1 + 0 komi
+        moves = [
+            "E5",   # B
+            "D5",   # W
+            "pass",  # B
+            "pass",  # W
+        ]
+        for move in moves:
+            state.apply_action(_gtp_to_action(move))
+        self.assertTrue(state.is_terminal())
+        scoring = state.state_dict()["scoring"]
+        self.assertEqual(scoring["black_score"], scoring["white_score"])
+        self.assertEqual(scoring["winner"], "draw")
+        self.assertEqual(scoring["winning_margin"], 0.0)
+
 
 if __name__ == "__main__":
     absltest.main()

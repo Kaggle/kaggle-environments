@@ -79,8 +79,10 @@ class GoState(proxy.State):
         white_score = float(white_stones + white_territory) + komi
         if black_score > white_score:
             winner = "B"
-        else:
+        elif white_score > black_score:
             winner = "W"
+        else:
+            winner = "draw"
 
         return {
             "black_stones": black_stones,
