@@ -82,17 +82,18 @@ export default memo(function Notation() {
     },
   ];
   const matches = searches.filter((search) => player.thoughts?.toLowerCase().includes(search.term));
-  const duration = 2;
   const json = player.generateReturns?.[0];
-  if (!json) return null;
-  const data = JSON.parse(json);
-  if (data.duration_success_only_secs > 60 * duration) {
-    matches.push({
-      term: 'duration',
-      priority: 2,
-      title: '',
-      text: `${agent} thought for over ${duration} minutes.`,
-    });
+  if (json) {
+    const data = JSON.parse(json);
+    const duration = 2;
+    if (data.duration_success_only_secs > 60 * duration) {
+      matches.push({
+        term: 'duration',
+        priority: 2,
+        title: '',
+        text: `${agent} thought for over ${duration} minutes.`,
+      });
+    }
   }
   if (game.moveNumber() === 1) {
     matches.push({
