@@ -172,6 +172,14 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
     return () => clearPlaybackTimeout();
   }, [clearPlaybackTimeout]);
 
+  // Start playback scheduling when playing=true but no timeout is active.
+  // This handles initialPlaying=true and replay data loading after mount.
+  useEffect(() => {
+    if (stateRef.current.playing && totalSteps > 1 && !timeoutRef.current) {
+      scheduleNextStep(stateRef.current.step, stateRef.current.speed, stateRef.current.replayMode);
+    }
+  }, [totalSteps, scheduleNextStep]);
+
   // --- Actions ---
 
   const pause = useCallback(() => {

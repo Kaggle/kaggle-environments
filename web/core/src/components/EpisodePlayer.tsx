@@ -142,7 +142,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   GameRenderer,
   ui = 'side-panel',
   initialStep = 0,
-  initialPlaying = false,
+  initialPlaying = true,
   initialSpeed = 1,
   initialReplayMode = 'condensed',
   onStepChange,
