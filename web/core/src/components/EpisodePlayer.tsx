@@ -37,8 +37,6 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   layout?: 'side-by-side' | 'stacked';
   /** Initial step to start at */
   initialStep?: number;
-  /** Initial playing state */
-  initialPlaying?: boolean;
   /** Initial playback speed */
   initialSpeed?: number;
   /** Initial replay mode */
@@ -142,7 +140,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   GameRenderer,
   ui = 'side-panel',
   initialStep = 0,
-  initialPlaying = true,
   initialSpeed = 1,
   initialReplayMode = 'condensed',
   onStepChange,
@@ -187,7 +184,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     getStepDuration,
     initial: {
       step: initialStep,
-      playing: initialPlaying,
+      playing: true,
       speed: initialSpeed,
       replayMode: initialReplayMode,
     },
