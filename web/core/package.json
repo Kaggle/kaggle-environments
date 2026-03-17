@@ -29,6 +29,7 @@
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
+    "dev-with-replay": "VITE_REPLAY_FILE=./replays/test-replay.json vite",
     "dev:watch": "tsc --build --watch"
   },
   "dependencies": {

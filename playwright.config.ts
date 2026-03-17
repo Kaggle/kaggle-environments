@@ -42,6 +42,7 @@ function findPackageMatch(dirName: string): string {
  */
 
 const testPatterns = [
+  'web/core/e2e/*.test.ts',
   'kaggle_environments/envs/*/visualizer/**/*.test.ts',
   'kaggle_environments/envs/open_spiel_env/games/*/visualizer/**/*.test.ts',
 ];
@@ -121,17 +122,39 @@ for (const testFile of testFiles) {
 
 const visualizers = Array.from(visualizerMap.values());
 
-const projects = visualizers.map((viz) => ({
-  name: viz.name,
-  testMatch: viz.testMatch,
+// Core player tests (game-agnostic, uses the placeholder renderer)
+const CORE_PORT = 5170;
+const coreProject = {
+  name: 'core',
+  testMatch: 'web/core/e2e/*.test.ts',
   use: {
     trace: 'on-first-retry' as const,
-    baseURL: `http://localhost:${viz.port}`,
+    baseURL: `http://localhost:${CORE_PORT}`,
     ...devices['Desktop Chrome'],
   },
-}));
+};
+const coreWebServer = {
+  command: 'pnpm --filter @kaggle-environments/core dev-with-replay',
+  url: `http://localhost:${CORE_PORT}`,
+  reuseExistingServer: !process.env.CI,
+  timeout: 120000,
+  env: { VITE_PORT: String(CORE_PORT) },
+};
 
-const webServers = visualizers.map((viz) => ({
+const projects = [
+  coreProject,
+  ...visualizers.map((viz) => ({
+    name: viz.name,
+    testMatch: viz.testMatch,
+    use: {
+      trace: 'on-first-retry' as const,
+      baseURL: `http://localhost:${viz.port}`,
+      ...devices['Desktop Chrome'],
+    },
+  })),
+];
+
+const gameWebServers = visualizers.map((viz) => ({
   command: `pnpm test-server ${viz.packageFilter}`,
   url: `http://localhost:${viz.port}`,
   reuseExistingServer: !process.env.CI,
@@ -139,6 +162,8 @@ const webServers = visualizers.map((viz) => ({
   // Use the deterministic port
   env: { VITE_PORT: String(viz.port) },
 }));
+
+const webServers = [coreWebServer, ...gameWebServers];
 
 if (process.env.DEBUG) {
   console.log('Discovered visualizers:', visualizers);
@@ -150,5 +175,5 @@ export default defineConfig({
   retries: 1,
   reporter: [['list'], ['json', { outputFile: 'test-results/results.json' }], ['html', { open: 'never' }]],
   projects,
-  webServer: webServers.length > 0 ? webServers : undefined,
+  webServer: webServers,
 });
