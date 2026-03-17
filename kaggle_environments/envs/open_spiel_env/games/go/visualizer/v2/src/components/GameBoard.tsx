@@ -12,6 +12,7 @@ import { WithPopover } from './WithPopover.tsx';
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
   const showTerritory = usePreferences((state) => state.showTerritory);
+  const showAnnotations = usePreferences((state) => state.showAnnotations);
   const reducedMotion = usePreferences((state) => state.reducedMotion);
 
   tenukiLogger(game);
@@ -68,9 +69,7 @@ export default memo(function GameBoard() {
           reducedMotion={reducedMotion}
         />
       </div>
-      <div className={styles.notationSlot}>
-        <Notation />
-      </div>
+      <div className={styles.notationSlot}>{showAnnotations && <Notation />}</div>
     </div>
   );
 });
