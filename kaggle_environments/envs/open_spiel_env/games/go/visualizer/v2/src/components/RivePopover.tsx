@@ -1,4 +1,5 @@
-import { useRive, Layout, Fit, Alignment, useViewModel, useViewModelInstance, useViewModelInstanceString } from '@rive-app/react-webgl2';
+import { useRive, Layout, Fit, Alignment, useViewModel, useViewModelInstance, useViewModelInstanceString, decodeFont, FontAsset } from '@rive-app/react-webgl2';
+import mynerveFont from '../assets/mynerve.ttf?url';
 import styles from './RivePopover.module.css';
 
 const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });
@@ -16,6 +17,18 @@ export function RivePopover({ src, text, onClose }: RivePopoverProps) {
     autoBind: false,
     layout,
     onStop: () => onClose(),
+    assetLoader: (asset) => {
+      if (asset.isFont) {
+        fetch(mynerveFont).then(async (res) => {
+          const arrayBuffer = await res.arrayBuffer();
+          const font = await decodeFont(new Uint8Array(arrayBuffer));
+          (asset as FontAsset).setFont(font);
+          font.unref();
+        });
+        return true; 
+      }
+      return false;
+    } 
   });
 
   const viewModel = useViewModel(rive, { name: 'ViewModel1' });
