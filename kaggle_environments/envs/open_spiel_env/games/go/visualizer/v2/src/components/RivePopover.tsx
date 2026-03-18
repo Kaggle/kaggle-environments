@@ -1,5 +1,5 @@
 import { useRive, Layout, Fit, Alignment, useViewModel, useViewModelInstance, useViewModelInstanceString, decodeFont, FontAsset } from '@rive-app/react-webgl2';
-import mynerveFont from '../assets/mynerve.ttf?url';
+import mynerveFont from '../assets/mynerve.ttf.br?url';
 import styles from './RivePopover.module.css';
 
 const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });
