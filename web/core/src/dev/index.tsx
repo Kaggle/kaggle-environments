@@ -214,7 +214,6 @@ const DevApp: React.FC = () => {
           gameName={state.gameName}
           GameRenderer={PlaceholderRenderer}
           ui="side-panel"
-          initialPlaying={false}
           initialSpeed={1}
           initialReplayMode="condensed"
         />
