@@ -85,7 +85,7 @@ export default memo(function Notation() {
   const json = player.generateReturns?.[0];
   if (json) {
     const data = JSON.parse(json);
-    const duration = 2;
+    const duration = 5;
     if (data.duration_success_only_secs > 60 * duration) {
       matches.push({
         term: 'duration',
