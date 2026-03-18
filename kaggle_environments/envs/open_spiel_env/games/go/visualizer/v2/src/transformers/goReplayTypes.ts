@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 export interface GoBoardState {

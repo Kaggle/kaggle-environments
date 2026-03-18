@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { GoPlayer, GoReplay, GoStep, GoBoardState, GoReplayStep } from './goReplayTypes';
 
 function parseThoughts(action?: { generate_returns?: string[]; thoughts?: string }): string {
