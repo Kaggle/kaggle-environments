@@ -4,7 +4,8 @@ import poker_chip_10 from './images/poker_chip_10.svg';
 import poker_chip_25 from './images/poker_chip_25.svg';
 import poker_chip_100 from './images/poker_chip_100.svg';
 import poker_card_back from './images/poker_card_back.svg';
-import { RepeatedPokerStep, RepeatedPokerStepPlayer, RendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
+import { RepeatedPokerStep, RepeatedPokerStepPlayer } from './transformers/v2/poker-steps-types';
 import { acpcCardToDisplay, calculateMatchStats, CardSuit, PlayerStats, suitSVGs } from './components/utils';
 import {
   Chart,

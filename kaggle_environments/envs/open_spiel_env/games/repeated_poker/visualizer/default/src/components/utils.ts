@@ -1,4 +1,4 @@
-import { RepeatedPokerStep } from '@kaggle-environments/core';
+import { RepeatedPokerStep } from '../transformers/v2/poker-steps-types';
 
 /**
  * Defines the possible card suit strings.

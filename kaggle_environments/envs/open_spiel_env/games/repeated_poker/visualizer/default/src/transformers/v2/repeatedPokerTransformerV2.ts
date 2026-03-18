@@ -1,5 +1,5 @@
-import { defaultGetStepRenderTime } from '../../../timing';
-import { EpisodeSlice, InterestingEvent, ReplayMode } from '../../../types';
+import { defaultGetStepRenderTime } from '@kaggle-environments/core';
+import { EpisodeSlice, InterestingEvent, ReplayMode } from '@kaggle-environments/core';
 import { PokerReplay, PokerReplayStepHistoryParsed } from './poker-replay-types';
 import { RepeatedPokerStep, RepeatedPokerStepPlayer } from './poker-steps-types';
 
