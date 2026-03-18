@@ -112,7 +112,13 @@ openai/anthropic/claude-sonnet-4@20250514:
 openai/anthropic/claude-sonnet-4-5@20250929:
   input_cost_per_token: 3e-6
   output_cost_per_token: 1.5e-5
+openai/anthropic/claude-sonnet-4-6@default:
+  input_cost_per_token: 3e-6
+  output_cost_per_token: 1.5e-5
 openai/anthropic/claude-opus-4-5@20251101:
+  input_cost_per_token: 5e-6
+  output_cost_per_token: 2.5e-5
+openai/anthropic/claude-opus-4-6@default:
   input_cost_per_token: 5e-6
   output_cost_per_token: 2.5e-5
 openai/deepseek-ai/deepseek-r1-0528:
@@ -143,6 +149,9 @@ openai/google/gemini-2.5-pro:
   input_cost_per_token: 1.25e-6
   output_cost_per_token: 1e-5
 openai/google/gemini-3-pro-preview:
+  input_cost_per_token: 2e-6
+  output_cost_per_token: 1.2e-5
+openai/google/gemini-3.1-pro-preview:
   input_cost_per_token: 2e-6
   output_cost_per_token: 1.2e-5
 openai/google/gemini-3-flash-preview:
@@ -181,6 +190,12 @@ openai/openai/gpt-5.1-2025-11-13:
 openai/openai/gpt-5.2-2025-12-11:
   input_cost_per_token: 1.75e-6
   output_cost_per_token: 1.4e-5
+openai/openai/gpt-5.4-2026-03-05:
+  input_cost_per_token: 2.5e-6
+  output_cost_per_token: 1.5e-5
+openai/openai/gpt-5.4-mini-2026-03-17:
+  input_cost_per_token: 7.5e-7
+  output_cost_per_token: 4.5e-6
 openai/openai/gpt-oss-20b:
   input_cost_per_token: 7.5e-8
   output_cost_per_token: 3e-7
