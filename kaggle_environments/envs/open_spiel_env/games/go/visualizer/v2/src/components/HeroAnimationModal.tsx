@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Game, Intersection } from 'tenuki';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
-import knightRiv from '../assets/kaggle_knight.riv?url';
+import passRiv from '../assets/pass.riv?url';
 import { RivePopover } from './RivePopover.tsx';
 
 enum HERO_TYPES {
@@ -14,16 +14,6 @@ enum HERO_TYPES {
   LADDER,
   MONKEY_JUMP,
 }
-
-const RIVE_MAP = {
-  [HERO_TYPES.PASS]: knightRiv,
-  [HERO_TYPES.DOUBLE_PASS]: knightRiv,
-  [HERO_TYPES.FIRST_CAPTURE]: knightRiv,
-  [HERO_TYPES.CRITICAL_HIT]: knightRiv,
-  [HERO_TYPES.DRAGON_LOSS]: knightRiv,
-  [HERO_TYPES.LADDER]: knightRiv,
-  [HERO_TYPES.MONKEY_JUMP]: knightRiv,
-};
 
 function detectLadder(game: Game) {
   const history = game._moves;
@@ -177,7 +167,7 @@ export default memo(function HeroAnimationModal() {
   const reducedMotion = usePreferences((s) => s.reducedMotion);
 
   const prevStepRef = useRef<number | null>(null);
-  const [hero, setHero] = useState<{ src: string; step: number } | null>(null);
+  const [hero, setHero] = useState<{ src: string; text: string; step: number } | null>(null);
 
   useEffect(() => {
     const step = game.currentState().moveNumber;
@@ -195,15 +185,42 @@ export default memo(function HeroAnimationModal() {
     const heroType = detectHeroType(game);
     if (heroType === null) return;
 
+    const color = game.currentState().color;
+    const player = color.charAt(0).toUpperCase() + color.slice(1);
+    const captures = game.currentState().capturedPositions?.length;
+
+    const RIVE_MAP = {
+      [HERO_TYPES.PASS]: { src: passRiv, text: `${player} passes the turn.` },
+      [HERO_TYPES.DOUBLE_PASS]: { src: passRiv, text: 'Double Pass: game over.' },
+      [HERO_TYPES.FIRST_CAPTURE]: { src: passRiv, text: `${player} captures first.` },
+      [HERO_TYPES.CRITICAL_HIT]: { src: passRiv, text: `${player} takes ${captures} pieces.` },
+      [HERO_TYPES.DRAGON_LOSS]: { src: passRiv, text: 'Dragon was lost.' },
+      [HERO_TYPES.LADDER]: { src: passRiv, text: 'Ladder...' },
+      [HERO_TYPES.MONKEY_JUMP]: { src: passRiv, text: 'Monkey Jump...' },
+    };
+
     // Let the board play out before showing the Rive animation.
     const timeout = setTimeout(() => {
-      setHero({ src: RIVE_MAP[heroType], step });
+      setHero({ src: RIVE_MAP[heroType].src, text: RIVE_MAP[heroType].text, step });
     }, 600);
 
     return () => clearTimeout(timeout);
   }, [game, showHeroAnimations, reducedMotion]);
 
+  // const options = useGameStore(state => state.options);
+  // if (options) {
+  //   options.onRegisterPlaybackHandlers!({
+  //     onPlay: () => console.log("PLAY"),
+  //     onPause: () => console.log("PAUSE"),
+  //   });
+  // }
+  // useEffect(() => {
+  //   if (!hero) return;
+  //   options!.onSetPlaying!(false);
+  //   return () => options!.onSetPlaying!(true);
+  // }, [hero, options]);
+
   if (!hero) return null;
 
-  return <RivePopover key={hero.step} src={hero.src} onClose={() => setHero(null)} />;
+  return <RivePopover key={hero.step} src={hero.src} text={hero.text} onClose={() => setHero(null)} />;
 });
