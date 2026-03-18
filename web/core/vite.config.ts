@@ -3,13 +3,9 @@ import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 import react from '@vitejs/plugin-react';
 
-// Support custom port via environment variable (used by Playwright tests)
-const port = process.env.VITE_PORT ? parseInt(process.env.VITE_PORT, 10) : 5173;
-
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), dts()],
-  publicDir: 'replays',
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
@@ -39,6 +35,6 @@ export default defineConfig({
     },
   },
   server: {
-    port,
+    port: 5173,
   },
 });
