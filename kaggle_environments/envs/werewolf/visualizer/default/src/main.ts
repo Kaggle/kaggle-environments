@@ -1,6 +1,7 @@
-import { createReplayVisualizer, ReplayAdapter, processEpisodeData } from '@kaggle-environments/core';
+import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer as legacyRenderer } from './legacy-renderer.js';
 import { tryLoadAudioMap } from './audio/AudioController.js';
+import { werewolfTransformer } from './transformers/werewolfTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -46,7 +47,7 @@ const init = async () => {
         if (finalId && !(window as any).AUDIO_MAP) {
           tryLoadAudioMap(finalId, envUrl);
         }
-        return processEpisodeData(replay, 'werewolf');
+        return werewolfTransformer(replay) as any;
       },
     })
   );

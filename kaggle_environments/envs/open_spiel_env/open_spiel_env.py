@@ -17,6 +17,8 @@ import pokerkit  # noqa: F401
 import pyspiel
 from open_spiel.python.games import pokerkit_wrapper  # noqa: F401
 
+from kaggle_environments.envs.open_spiel_env.games.snake import snake_game  # noqa: F401
+
 from kaggle_environments import core, utils
 
 ERROR = "ERROR"

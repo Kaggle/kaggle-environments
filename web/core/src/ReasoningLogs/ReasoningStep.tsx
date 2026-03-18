@@ -132,6 +132,7 @@ const Avatar = styled('img')<{ $size: 'small' | 'medium' }>`
   width: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   height: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   border-radius: 50%;
+  background-color: #ffffff;
 `;
 
 export interface ReasoningStepProps {
