@@ -196,7 +196,6 @@ export interface ReplayAdapterOptions<TSteps extends BaseGameStep[] = BaseGameSt
 
   /** Initial playback speed (default: 1) */
   initialSpeed?: number;
-
 }
 
 /**
@@ -463,12 +462,7 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private renderEpisodePlayer(): void {
     if (!this.root) return;
 
-    const {
-      gameName,
-      GameRenderer,
-      ui = 'side-panel',
-      initialSpeed = 1,
-    } = this.options;
+    const { gameName, GameRenderer, ui = 'side-panel', initialSpeed = 1 } = this.options;
 
     // Use the wrapped legacy renderer or the provided React component
     const RendererComponent = this.wrappedRenderer || GameRenderer;
