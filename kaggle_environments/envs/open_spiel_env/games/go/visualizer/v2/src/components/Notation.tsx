@@ -80,6 +80,96 @@ export default memo(function Notation() {
       priority: 1,
       text: `A defensive, vertical two-stone tower.`,
     },
+    {
+      term: 'snapback',
+      title: `${agent} mentions Snapback:`,
+      priority: 1,
+      text: `Sacrificing a stone to recapture several.`,
+    },
+    {
+      term: 'tortoise shell',
+      title: `${agent} mentions Tortoise Shell:`,
+      priority: 1,
+      text: `A powerful wall formed by two captures.`,
+    },
+    {
+      term: 'bamboo Joint',
+      title: `${agent} mentions Bamboo Joint:`,
+      priority: 1,
+      text: `Two parallel pairs of stones in an unbreakable connection`,
+    },
+    {
+      term: 'Flower',
+      title: `${agent} mentions Flower:`,
+      priority: 1,
+      text: `Diamond shape left after capturing one stone.`,
+    },
+    {
+      term: 'golden chicken',
+      title: `${agent} mentions Golden Chicken:`,
+      priority: 1,
+      text: `Neither player can move.`,
+    },
+    {
+      term: 'peep',
+      title: `${agent} mentions Peep:`,
+      priority: 1,
+      text: `A move that threatens to cut through enemy stones.`,
+    },
+    {
+      term: 'hane',
+      title: `${agent} mentions Hane:`,
+      priority: 1,
+      text: `"Bending" a stone around an enemy stone.`,
+    },
+    {
+      term: 'nobi',
+      title: `${agent} mentions Nobi:`,
+      priority: 1,
+      text: `An extension move from your own stone.`,
+    },
+    {
+      term: 'kiri',
+      title: `${agent} mentions Kiri:`,
+      priority: 1,
+      text: `A move separating two enemy stones.`,
+    },
+    {
+      term: 'osae',
+      title: `${agent} mentions Osae:`,
+      priority: 1,
+      text: `Blocking the opponent from extending further.`,
+    },
+    {
+      term: 'seki',
+      title: `${agent} mentions Seki:`,
+      priority: 1,
+      text: `A non-capture stalemate.`,
+    },
+    {
+      term: 'shimari',
+      title: `${agent} mentions Shimari:`,
+      priority: 1,
+      text: `Two stones securing a corner area.`,
+    },
+    {
+      term: 'moyo',
+      title: `${agent} mentions Moyo:`,
+      priority: 1,
+      text: `A large, potential, unsecured territory.`,
+    },
+    {
+      term: 'dango',
+      title: `${agent} mentions Dango:`,
+      priority: 1,
+      text: `An inefficient group lacking the potential for safety.`,
+    },
+    {
+      term: 'akisankaku',
+      title: `${agent} mentions Akisankaku:`,
+      priority: 1,
+      text: `Three stones connected in an inefficient L-shape.`,
+    },
   ];
   const matches = searches.filter((search) => player.thoughts?.toLowerCase().includes(search.term));
   const json = player.generateReturns?.[0];
