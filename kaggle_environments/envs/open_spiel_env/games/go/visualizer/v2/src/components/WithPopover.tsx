@@ -22,10 +22,7 @@ export function WithPopover({ children, icon, id, label }: Props) {
     const handleToggle = (e: Event) => {
       const { newState } = e as ToggleEvent;
       if (newState === 'open') {
-        const focusable = panel.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        (focusable ?? panel).focus();
+        panel.focus();
       } else {
         triggerRef.current?.focus();
       }
