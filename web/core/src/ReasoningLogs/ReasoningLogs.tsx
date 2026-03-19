@@ -152,6 +152,12 @@ export interface ReasoningLogsProps {
   currentStep: number;
   gameName: string;
   interestingEvents?: InterestingEvent[];
+  /** Game-specific step label function. Falls back to default if not provided. */
+  getStepLabel?: (step: BaseGameStep) => string;
+  /** Game-specific step description function. Falls back to default if not provided. */
+  getStepDescription?: (step: BaseGameStep) => string;
+  /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
+  getTokenRenderDistribution?: (chunkCount: number) => number[];
 }
 
 export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
@@ -168,6 +174,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   currentStep,
   gameName,
   interestingEvents,
+  getStepLabel,
+  getStepDescription,
+  getTokenRenderDistribution,
 }) => {
   // TODO(b/462451568) - add werewolf transformer to handle this instead
   const [expandAll, setExpandAll] = React.useState(false);
@@ -484,6 +493,9 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 isCurrentStep={index === currentStep}
                 gameName={gameName}
                 onStepChange={onStepChange}
+                getStepLabel={getStepLabel}
+                getStepDescription={getStepDescription}
+                getTokenRenderDistribution={getTokenRenderDistribution}
               />
             );
           }}

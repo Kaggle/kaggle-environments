@@ -1,6 +1,7 @@
-import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
+import { createReplayVisualizer, ReplayAdapter, generateEaseInDelayDistribution } from '@kaggle-environments/core';
 import { renderer } from './chess_renderer';
-import { chessTransformer } from './transformers/chessTransformer';
+import { chessTransformer, getChessStepLabel, getChessStepDescription } from './transformers/chessTransformer';
+import { ChessStep } from './transformers/chessReplayTypes';
 
 const app = document.getElementById('app');
 if (!app) {
@@ -22,5 +23,8 @@ createReplayVisualizer(
       steps: chessTransformer(replay),
       isTransformed: true,
     }),
+    getStepLabel: (step) => getChessStepLabel(step as ChessStep),
+    getStepDescription: (step) => getChessStepDescription(step as ChessStep),
+    getTokenRenderDistribution: generateEaseInDelayDistribution,
   })
 );
