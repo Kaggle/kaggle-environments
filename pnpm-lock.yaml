@@ -388,7 +388,43 @@ importers:
       '@kaggle-environments/core':
         specifier: workspace:*
         version: link:../../../../../../../web/core
+      '@rive-app/react-webgl2':
+        specifier: ^4.27.0
+        version: 4.27.2(react@18.3.1)
+      gsap:
+        specifier: ^3.14.2
+        version: 3.14.2
+      pixi.js:
+        specifier: ^8.16.0
+        version: 8.17.1
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+      tenuki:
+        specifier: ^0.3.1
+        version: 0.3.1
+      zustand:
+        specifier: ^5.0.10
+        version: 5.0.12(@types/react@18.3.28)(react@18.3.1)
     devDependencies:
+      '@types/react':
+        specifier: ^18.2.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.2.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.2
+        version: 5.2.0(vite@5.4.21(@types/node@25.2.1))
+      eslint-plugin-react-refresh:
+        specifier: ^0.5.0
+        version: 0.5.2(eslint@9.39.2)
+      globals:
+        specifier: ^17.3.0
+        version: 17.4.0
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
