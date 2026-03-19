@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Game } from 'tenuki';
-import { GoStep, GameRendererProps } from '@kaggle-environments/core';
+import { GameRendererProps } from '@kaggle-environments/core';
+import { GoStep } from '../transformers/goReplayTypes';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
 import CapturePots from '../components/CapturePots';
