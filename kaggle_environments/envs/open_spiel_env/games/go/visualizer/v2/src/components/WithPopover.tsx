@@ -14,6 +14,9 @@ export function WithPopover({ children, icon, id }: Props) {
 
   return (
     <>
+      <div id={id} popover="auto" className={styles.panel}>
+        {children}
+      </div>
       <button
         className={styles.trigger}
         popovertarget={id}
@@ -24,9 +27,6 @@ export function WithPopover({ children, icon, id }: Props) {
           <use xlinkHref={iconPath} />
         </svg>
       </button>
-      <div id={id} popover="auto" className={styles.panel}>
-        {children}
-      </div>
     </>
   );
 }
