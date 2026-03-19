@@ -4,7 +4,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { GameAdapter } from './adapter';
-import { BaseGameStep, ReplayData } from './types';
+import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from './types';
 import { EpisodePlayer, GameRendererProps, UiMode } from './components/EpisodePlayer';
 import { theme, lightTheme } from './theme';
 import { processEpisodeData } from './transformers';
@@ -196,6 +196,17 @@ export interface ReplayAdapterOptions<TSteps extends BaseGameStep[] = BaseGameSt
 
   /** Initial playback speed (default: 1) */
   initialSpeed?: number;
+
+  /** Game-specific step label shown in ReasoningLogs. Falls back to default if not provided. */
+  getStepLabel?: (step: BaseGameStep) => string;
+  /** Game-specific step description shown in ReasoningLogs. Falls back to default if not provided. */
+  getStepDescription?: (step: BaseGameStep) => string;
+  /** Game-specific step render time for playback pacing. Falls back to default if not provided. */
+  getStepRenderTime?: (step: BaseGameStep, replayMode: ReplayMode, speedModifier: number) => number;
+  /** Game-specific interesting events shown on the playback slider. Falls back to default if not provided. */
+  getInterestingEvents?: (steps: BaseGameStep[]) => InterestingEvent[];
+  /** Game-specific token render distribution for streaming text in ReasoningLogs. Falls back to default if not provided. */
+  getTokenRenderDistribution?: (chunkCount: number) => number[];
 }
 
 /**
@@ -462,7 +473,17 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private renderEpisodePlayer(): void {
     if (!this.root) return;
 
-    const { gameName, GameRenderer, ui = 'side-panel', initialSpeed = 1 } = this.options;
+    const {
+      gameName,
+      GameRenderer,
+      ui = 'side-panel',
+      initialSpeed = 1,
+      getStepLabel,
+      getStepDescription,
+      getStepRenderTime,
+      getInterestingEvents,
+      getTokenRenderDistribution,
+    } = this.options;
 
     // Use the wrapped legacy renderer or the provided React component
     const RendererComponent = this.wrappedRenderer || GameRenderer;
@@ -489,6 +510,12 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
             initialSpeed,
             // Signal that replay is already transformed
             skipTransform: true,
+            // Game-specific overrides for ReasoningLogs and playback
+            getStepLabel,
+            getStepDescription,
+            getStepRenderTime,
+            getInterestingEvents,
+            getTokenRenderDistribution,
           })
         )
       )
