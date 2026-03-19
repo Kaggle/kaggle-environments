@@ -7,7 +7,6 @@ import CapturePots from '../components/CapturePots';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
-import passRiv from '../assets/pass.riv?url';
 import HeroAnimationModal from './HeroAnimationModal.tsx';
 import VersusBanner from './VersusBanner.tsx';
 
@@ -63,7 +62,6 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
 
   return (
     <div id="go-playable-area">
-      <link rel="preload" href={passRiv} as="fetch" crossOrigin="anonymous" />
       <GameBoard />
       <div>
         <ScorePanel />
