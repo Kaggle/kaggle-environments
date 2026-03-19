@@ -3,6 +3,7 @@ import { Game, Intersection } from 'tenuki';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import passRiv from '../assets/pass.riv?url';
+import doublePassRiv from '../assets/double-pass.riv?url';
 import { RivePopover } from './RivePopover.tsx';
 
 enum HERO_TYPES {
@@ -167,7 +168,7 @@ export default memo(function HeroAnimationModal() {
   const reducedMotion = usePreferences((s) => s.reducedMotion);
 
   const prevStepRef = useRef<number | null>(null);
-  const [hero, setHero] = useState<{ src: string; text: string; step: number } | null>(null);
+  const [hero, setHero] = useState<{ src: string; text: string; color: string; step: number } | null>(null);
 
   useEffect(() => {
     const step = game.currentState().moveNumber;
@@ -191,7 +192,7 @@ export default memo(function HeroAnimationModal() {
 
     const RIVE_MAP = {
       [HERO_TYPES.PASS]: { src: passRiv, text: `${player} passes the turn.` },
-      [HERO_TYPES.DOUBLE_PASS]: { src: passRiv, text: 'Double Pass: game over.' },
+      [HERO_TYPES.DOUBLE_PASS]: { src: doublePassRiv, text: 'Double Pass: game over.' },
       [HERO_TYPES.FIRST_CAPTURE]: { src: passRiv, text: `${player} captures first.` },
       [HERO_TYPES.CRITICAL_HIT]: { src: passRiv, text: `${player} takes ${captures} pieces.` },
       [HERO_TYPES.DRAGON_LOSS]: { src: passRiv, text: 'Dragon was lost.' },
@@ -201,7 +202,7 @@ export default memo(function HeroAnimationModal() {
 
     // Let the board play out before showing the Rive animation.
     const timeout = setTimeout(() => {
-      setHero({ src: RIVE_MAP[heroType].src, text: RIVE_MAP[heroType].text, step });
+      setHero({ src: RIVE_MAP[heroType].src, text: RIVE_MAP[heroType].text, color, step });
     }, 600);
 
     return () => clearTimeout(timeout);
@@ -222,5 +223,7 @@ export default memo(function HeroAnimationModal() {
 
   if (!hero) return null;
 
-  return <RivePopover key={hero.step} src={hero.src} text={hero.text} onClose={() => setHero(null)} />;
+  return (
+    <RivePopover key={hero.step} src={hero.src} text={hero.text} color={hero.color} onClose={() => setHero(null)} />
+  );
 });
