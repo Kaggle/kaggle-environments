@@ -208,19 +208,6 @@ export default memo(function HeroAnimationModal() {
     return () => clearTimeout(timeout);
   }, [game, showHeroAnimations, reducedMotion]);
 
-  // const options = useGameStore(state => state.options);
-  // if (options) {
-  //   options.onRegisterPlaybackHandlers!({
-  //     onPlay: () => console.log("PLAY"),
-  //     onPause: () => console.log("PAUSE"),
-  //   });
-  // }
-  // useEffect(() => {
-  //   if (!hero) return;
-  //   options!.onSetPlaying!(false);
-  //   return () => options!.onSetPlaying!(true);
-  // }, [hero, options]);
-
   if (!hero) return null;
 
   return (
