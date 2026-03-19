@@ -1,4 +1,4 @@
-import { BaseGamePlayer, BaseGameStep } from '../../types';
+import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 export interface ChessPlayer extends BaseGamePlayer {
   reward: number | null;

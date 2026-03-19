@@ -1,4 +1,4 @@
-import { BaseGamePlayer, BaseGameStep } from '../../../types';
+import { BaseGamePlayer, BaseGameStep } from '@kaggle-environments/core';
 
 export type RepeatedPokerStepType =
   | 'small-blind-post'

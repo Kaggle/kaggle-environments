@@ -1,3 +1,8 @@
+/**
+ * ReplayData, ReplayMode, and EpisodeSlice are mirrored in kaggleazure
+ * (typescript/projects/components/src/competitions/shared/EpisodesPanel/types.ts).
+ * Keep that file in sync if these definitions change.
+ */
 export interface ReplayData<TSteps = BaseGameStep[]> {
   name: string;
   version: string;

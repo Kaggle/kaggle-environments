@@ -1,4 +1,5 @@
-import { GameRendererProps, GoStep } from '@kaggle-environments/core';
+import { GameRendererProps } from '@kaggle-environments/core';
+import { GoStep } from '../transformers/goReplayTypes';
 import { memo } from 'react';
 import { Ribbon } from './Ribbon.tsx';
 import styles from './VersusBanner.module.css';
