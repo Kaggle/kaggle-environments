@@ -1,6 +1,6 @@
 import { Sprite, type Spritesheet } from 'pixi.js';
 import type { CellValue } from '../types/game.ts';
-import { getCellSize, gridToPixel } from './constants.ts';
+import { getCellSize, getStoneScale, gridToPixel } from './constants.ts';
 
 export interface RestState {
   x: number;
@@ -42,7 +42,7 @@ export function createStonePair(
   sheet: Spritesheet
 ): StonePair {
   const cell = getCellSize(boardSize);
-  const stoneSize = cell * 0.88;
+  const stoneSize = cell * getStoneScale(boardSize);
   const shadowOffset = cell * 0.06;
   const { x, y } = gridToPixel(row, col, boardSize);
 
