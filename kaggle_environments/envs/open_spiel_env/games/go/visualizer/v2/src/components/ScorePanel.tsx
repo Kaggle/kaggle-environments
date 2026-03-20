@@ -17,6 +17,9 @@ export default memo(function ScorePanel() {
   const scorer = game._scorer.territory(game);
   const komi = game._scorer._komi;
   const activeColor = state.nextColor();
+  const moveNum = game.moveNumber();
+  const blackPassed = state.pass && state.color === 'black';
+  const whitePassed = state.pass && state.color === 'white';
 
   const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
   const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
@@ -40,10 +43,24 @@ export default memo(function ScorePanel() {
           <img src={blackLogo.src} alt="" />
           {blackLogo.isUnknown && <span className={styles.logoInitial}>{blackName[0]}</span>}
         </span>
-        <span className={styles.playerName}>{blackName}</span>
+        <span className={styles.playerNameWrapper}>
+          {blackPassed && (
+            <span key={moveNum} className={styles.passIndicator} aria-hidden="true">
+              Pass
+            </span>
+          )}
+          <span className={styles.playerName}>{blackName}</span>
+        </span>
       </div>
       <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
-        <span className={styles.playerName}>{whiteName}</span>
+        <span className={styles.playerNameWrapper}>
+          {whitePassed && (
+            <span key={moveNum} className={styles.passIndicator} aria-hidden="true">
+              Pass
+            </span>
+          )}
+          <span className={styles.playerName}>{whiteName}</span>
+        </span>
         <span className={`${styles.logo} grid-pile`} aria-hidden="true">
           <img src={whiteLogo.src} alt="" />
           {whiteLogo.isUnknown && <span className={styles.logoInitial}>{whiteName[0]}</span>}
