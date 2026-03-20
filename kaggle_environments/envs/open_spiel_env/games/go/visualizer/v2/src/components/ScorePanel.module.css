@@ -22,8 +22,8 @@
   border-collapse: collapse;
   font-size: 12px;
   line-height: 1.8;
-  border: 1px solid;
-  background: #fff;
+  composes: squiggle-border from global;
+  background-color: #fff;
 }
 
 .table tr:first-child td {
@@ -59,8 +59,8 @@
   align-items: center;
   gap: var(--player-gap);
   padding: var(--player-padding-y) var(--player-padding-x);
-  background: #fff;
-  border: 1px solid;
+  composes: squiggle-border from global;
+  background-color: #fff;
   translate: 0 -50%;
 }
 
@@ -79,7 +79,7 @@
 }
 
 .playerBlack.active {
-  background: #a8d8f0;
+  background-color: #a8d8f0;
   transform: translateX(var(--player-offset-x)) rotate(-2deg) scale(1.05);
 }
 
@@ -105,7 +105,7 @@
 }
 
 .playerWhite.active {
-  background: #a8d8f0;
+  background-color: #a8d8f0;
   transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg)
     scale(1.05);
 }
