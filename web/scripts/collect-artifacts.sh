@@ -20,6 +20,22 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # Note: Skipped games are still added to manifest.json, they just aren't copied to the build directory
 SKIP_GAMES="${SKIP_GAMES:-}"
 
+# Also read skip patterns from branch-owned.json (checked-in config)
+BRANCH_OWNED_FILE="$ROOT_DIR/web/config/branch-owned.json"
+if [ -f "$BRANCH_OWNED_FILE" ]; then
+  FILE_SKIP=$(node -e "
+    const cfg = require('$BRANCH_OWNED_FILE');
+    console.log(Object.keys(cfg).join(','));
+  ")
+  if [ -n "$FILE_SKIP" ]; then
+    if [ -n "$SKIP_GAMES" ]; then
+      SKIP_GAMES="$SKIP_GAMES,$FILE_SKIP"
+    else
+      SKIP_GAMES="$FILE_SKIP"
+    fi
+  fi
+fi
+
 # Function to check if a game/visualizer should be skipped
 # Args: $1 = game_name, $2 = visualizer_name
 should_skip_game() {
