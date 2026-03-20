@@ -8,6 +8,7 @@
   --player-offset-x: 3.5ch;
   --table-cell-padding-x: 12px;
   --table-cell-min-width: 14ch;
+  --active-color: #bdeeff;
 
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -22,8 +23,8 @@
   border-collapse: collapse;
   font-size: 12px;
   line-height: 1.8;
-  border: 1px solid;
-  background: #fff;
+  composes: squiggle-border from global;
+  background-color: #fff;
 }
 
 .table tr:first-child td {
@@ -59,8 +60,8 @@
   align-items: center;
   gap: var(--player-gap);
   padding: var(--player-padding-y) var(--player-padding-x);
-  background: #fff;
-  border: 1px solid;
+  composes: squiggle-border from global;
+  background-color: #fff;
   translate: 0 -50%;
 }
 
@@ -79,7 +80,7 @@
 }
 
 .playerBlack.active {
-  background: #a8d8f0;
+  background: var(--active-color);
   transform: translateX(var(--player-offset-x)) rotate(-2deg) scale(1.05);
 }
 
@@ -105,9 +106,54 @@
 }
 
 .playerWhite.active {
-  background: #a8d8f0;
+  background: var(--active-color);
   transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg)
     scale(1.05);
+}
+
+.playerNameWrapper {
+  composes: grid-pile from global;
+  position: relative;
+  min-width: 0;
+}
+
+.passIndicator {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 11px;
+  animation: passFloat 1.6s forwards;
+  border: 1px solid;
+  padding: 0.25em 2em;
+  background: var(--active-color);
+  transform: translateX(-50%);
+  transform-origin: bottom;
+}
+
+@keyframes passFloat {
+  0% {
+    opacity: 0;
+    scale: 0.9;
+    translate: 0 0;
+  }
+
+  30% {
+    opacity: 1;
+    scale: 1;
+  }
+
+  70% {
+    opacity: 1;
+    scale: 1;
+  }
+
+  100% {
+    opacity: 0;
+    translate: 0 -4em;
+    scale: 0.9;
+  }
 }
 
 .playerName {
