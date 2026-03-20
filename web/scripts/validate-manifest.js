@@ -16,7 +16,18 @@ const MANIFEST_PATH = path.join(ROOT_DIR, 'build', 'manifest.json');
 const BUILD_DIR = path.join(ROOT_DIR, 'build');
 
 // SKIP_GAMES patterns - games matching these are in manifest but not deployed
-const SKIP_GAMES = process.env.SKIP_GAMES || '';
+// Merge env var with checked-in branch-owned.json config
+const BRANCH_OWNED_PATH = path.join(ROOT_DIR, 'web', 'config', 'branch-owned.json');
+let branchOwnedSkip = '';
+if (fs.existsSync(BRANCH_OWNED_PATH)) {
+  try {
+    const branchOwned = JSON.parse(fs.readFileSync(BRANCH_OWNED_PATH, 'utf8'));
+    branchOwnedSkip = Object.keys(branchOwned).join(',');
+  } catch {
+    // Ignore parse errors - branch-owned.json is optional
+  }
+}
+const SKIP_GAMES = [process.env.SKIP_GAMES, branchOwnedSkip].filter(Boolean).join(',');
 
 /**
  * Check if a game/visualizer should be skipped from directory validation.
