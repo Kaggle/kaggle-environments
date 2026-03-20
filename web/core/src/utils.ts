@@ -2,7 +2,7 @@ import { BaseGameStep, BaseGamePlayer } from './types';
 
 /**
  * Returns the player whose turn it is for the given step.
- * Falls back to the first player if no player has isTurn set.
+ * Returns undefined for system steps (no player has isTurn) so the UI shows "System".
  */
 export function getPlayer(step: BaseGameStep): BaseGamePlayer | undefined {
   const players = step.players;
@@ -10,12 +10,5 @@ export function getPlayer(step: BaseGameStep): BaseGamePlayer | undefined {
     return undefined;
   }
 
-  // Find the player whose turn it is
-  const activePlayer = players.find((p) => p.isTurn);
-  if (activePlayer) {
-    return activePlayer;
-  }
-
-  // Fallback to first player if no one has isTurn set
-  return players[0];
+  return players.find((p) => p.isTurn);
 }

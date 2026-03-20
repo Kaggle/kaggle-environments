@@ -1,4 +1,5 @@
-import { ChessStep, RendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
+import { ChessStep } from './transformers/chessReplayTypes';
 import { DARK_SQUARE_COLOR, DEFAULT_NUM_COLS, DEFAULT_NUM_ROWS, LIGHT_SQUARE_COLOR, PIECE_IMAGES_SRC } from './consts';
 
 export function renderer(options: RendererOptions<ChessStep[]>) {

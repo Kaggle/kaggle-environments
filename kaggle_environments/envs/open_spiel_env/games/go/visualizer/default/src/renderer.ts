@@ -1,4 +1,5 @@
-import { GoStep, RendererOptions } from '@kaggle-environments/core';
+import { RendererOptions } from '@kaggle-environments/core';
+import { GoStep } from './transformers/goReplayTypes';
 
 // --- Constants ---
 const DEFAULT_BOARD_SIZE = 19;

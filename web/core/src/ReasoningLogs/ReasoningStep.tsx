@@ -132,6 +132,7 @@ const Avatar = styled('img')<{ $size: 'small' | 'medium' }>`
   width: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   height: ${(p) => (p.$size === 'small' ? 16 : 18)}px;
   border-radius: 50%;
+  background-color: #ffffff;
 `;
 
 export interface ReasoningStepProps {
@@ -145,6 +146,12 @@ export interface ReasoningStepProps {
   playing: boolean;
   gameName: string;
   onStepChange: (step: number) => void;
+  /** Game-specific step label function. Falls back to default if not provided. */
+  getStepLabel?: (step: BaseGameStep) => string;
+  /** Game-specific step description function. Falls back to default if not provided. */
+  getStepDescription?: (step: BaseGameStep) => string;
+  /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
+  getTokenRenderDistribution?: (chunkCount: number) => number[];
 }
 
 export const ReasoningStep: React.FC<ReasoningStepProps> = ({
@@ -158,6 +165,9 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
   playing,
   gameName,
   onStepChange,
+  getStepLabel: getStepLabelProp,
+  getStepDescription: getStepDescriptionProp,
+  getTokenRenderDistribution: getTokenRenderDistributionProp,
 }) => {
   const [expanded, setExpanded] = React.useState(expandByDefault);
   const [text, setText] = React.useState('');
@@ -171,10 +181,12 @@ export const ReasoningStep: React.FC<ReasoningStepProps> = ({
   const useStreamingStyles = streaming && isLargerThanTablet;
 
   const player = getPlayer(step);
-  const label = getGameStepLabel(step, gameName);
-  const description = getGameStepDescription(step, gameName);
+  const label = getStepLabelProp ? getStepLabelProp(step) : getGameStepLabel(step, gameName);
+  const description = getStepDescriptionProp ? getStepDescriptionProp(step) : getGameStepDescription(step, gameName);
   const chunks = React.useMemo(() => (description.length > 0 ? description.split(' ') : []), [description]);
-  const delays = getTokenRenderDistribution(chunks.length, gameName);
+  const delays = getTokenRenderDistributionProp
+    ? getTokenRenderDistributionProp(chunks.length)
+    : getTokenRenderDistribution(chunks.length, gameName);
 
   const handleInternalScroll = React.useCallback(() => {
     const el = scrollRef.current;

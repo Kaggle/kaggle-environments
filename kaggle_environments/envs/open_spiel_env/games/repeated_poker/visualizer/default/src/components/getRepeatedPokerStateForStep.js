@@ -1,4 +1,4 @@
-import { getActionStringsFromACPC } from '@kaggle-environments/core';
+import { getActionStringsFromACPC } from '../transformers/v1/buildTimeline';
 
 const PLACEHOLDER_CARD = '2c';
 

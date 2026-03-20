@@ -1,6 +1,6 @@
 import { WerewolfEvent, WerewolfPlayer, WerewolfProcessedReplay, WerewolfStep } from './werewolfReplayTypes';
 import { createNameReplacer, disambiguateDisplayNames } from './nameReplacer';
-import { BaseGameStep, InterestingEvent, ReplayMode } from '../../types';
+import { BaseGameStep, InterestingEvent, ReplayMode } from '@kaggle-environments/core';
 
 // Re-export for external use
 export { createNameReplacer, createPlayerCapsule, disambiguateDisplayNames } from './nameReplacer';

@@ -390,13 +390,13 @@ importers:
         version: link:../../../../../../../web/core
       '@rive-app/react-webgl2':
         specifier: ^4.27.0
-        version: 4.27.0(react@18.3.1)
+        version: 4.27.2(react@18.3.1)
       gsap:
         specifier: ^3.14.2
         version: 3.14.2
       pixi.js:
         specifier: ^8.16.0
-        version: 8.16.0
+        version: 8.17.1
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -408,7 +408,7 @@ importers:
         version: 0.3.1
       zustand:
         specifier: ^5.0.10
-        version: 5.0.11(@types/react@18.3.28)(react@18.3.1)
+        version: 5.0.12(@types/react@18.3.28)(react@18.3.1)
     devDependencies:
       '@types/react':
         specifier: ^18.2.0
@@ -418,13 +418,13 @@ importers:
         version: 18.3.7(@types/react@18.3.28)
       '@vitejs/plugin-react':
         specifier: ^5.1.2
-        version: 5.1.4(vite@5.4.21(@types/node@25.2.1))
+        version: 5.2.0(vite@5.4.21(@types/node@25.2.1))
       eslint-plugin-react-refresh:
         specifier: ^0.5.0
-        version: 0.5.1(eslint@9.39.2)
+        version: 0.5.2(eslint@9.39.2)
       globals:
         specifier: ^17.3.0
-        version: 17.3.0
+        version: 17.4.0
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
@@ -1096,13 +1096,13 @@ packages:
   '@popperjs/core@2.11.8':
     resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
-  '@rive-app/react-webgl2@4.27.0':
-    resolution: {integrity: sha512-OxIRJiTPJtvPDeUWXfXIx2WZ/6OqaTFWTaS9OE0oekHz80yT9kl41MEUZw7GlgY4l4Pzke7bkn8xEeVnDgPFIg==}
+  '@rive-app/react-webgl2@4.27.2':
+    resolution: {integrity: sha512-zGUmD5yDDw1LbN8nc6WG4NsGLb6/ngzkS6sYqaWQbpDSKxBX5hgmmkejBCjMzMqiwju82KhXlS1XA9fZWI7F9A==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
 
-  '@rive-app/webgl2@2.35.0':
-    resolution: {integrity: sha512-T6fIVmsn9KiN0pMKOvuODhpnOzJHnhFU6injYmVkzsxKn+VIDhTC0FvR2vr520tR+JsZUBy04KUn61cxZCnUgA==}
+  '@rive-app/webgl2@2.35.3':
+    resolution: {integrity: sha512-gsiP030uKLCTXoma5kJ7OG7Fpjwqx63RpFxc5/wFEvSuEHdTgOYOmIa6/MEXbC3obxnp8TJIj1XMKRYIpJHD7w==}
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -1424,11 +1424,11 @@ packages:
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
 
-  '@vitejs/plugin-react@5.1.4':
-    resolution: {integrity: sha512-VIcFLdRi/VYRU8OL/puL7QXMYafHmqOnwTZY50U1JPlCNj30PxCMx65c494b1K9be9hX83KVt0+gTEwTWLqToA==}
+  '@vitejs/plugin-react@5.2.0':
+    resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
-      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@volar/language-core@2.4.28':
     resolution: {integrity: sha512-w4qhIJ8ZSitgLAkVay6AbcnC7gP3glYM3fYwKV3srj8m494E3xtrCv6E+bWviiK/8hs6e6t1ij1s2Endql7vzQ==}
@@ -1902,8 +1902,8 @@ packages:
     peerDependencies:
       eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0 || ^9.0.0
 
-  eslint-plugin-react-refresh@0.5.1:
-    resolution: {integrity: sha512-Y5sJsreCUdGcF4mLD70iJNa47Z6CX4MsqJoJBARDC/fBhmacSby7k73UuValr0F9M7GfWKpEqS4NMsniWkVxQw==}
+  eslint-plugin-react-refresh@0.5.2:
+    resolution: {integrity: sha512-hmgTH57GfzoTFjVN0yBwTggnsVUF2tcqi7RJZHqi9lIezSs4eFyAMktA68YD4r5kNw1mxyY4dmkyoFDb3FIqrA==}
     peerDependencies:
       eslint: ^9 || ^10
 
@@ -2116,8 +2116,8 @@ packages:
     resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
     engines: {node: '>=18'}
 
-  globals@17.3.0:
-    resolution: {integrity: sha512-yMqGUQVVCkD4tqjOJf3TnrvaaHDMYp4VlUSObbkIiuCPe/ofdMBFIAcBbCSRFWOnos6qRiTVStDwqPLUclaxIw==}
+  globals@17.4.0:
+    resolution: {integrity: sha512-hjrNztw/VajQwOLsMNT1cbJiH2muO3OROCHnbehc8eY5JyD2gqz4AcMHPqgaOR59DjgUjYAYLeH699g/eWi2jw==}
     engines: {node: '>=18'}
 
   globalthis@1.0.4:
@@ -2819,8 +2819,8 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
-  pixi.js@8.16.0:
-    resolution: {integrity: sha512-gu2xw3sZGAn3cWBtk0HqTQT+v19YAfiaYXwUGgWoJl5NKz4cEZJUgWrwkmdfDszGyYBAGqOvJNbd2M9+vzLLMg==}
+  pixi.js@8.17.1:
+    resolution: {integrity: sha512-OB4TpZHrP5RYy+7FqmFrAc0IHRhfOoNIfF4sVeinvK3aG1r2pYrSMneJAKi9+WvGKC70Dj7GEpZ2OZGB6o/xdg==}
 
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
@@ -3489,8 +3489,8 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
-  zustand@5.0.11:
-    resolution: {integrity: sha512-fdZY+dk7zn/vbWNCYmzZULHRrss0jx5pPFiOuMZ/5HJN6Yv3u+1Wswy/4MpZEkEGhtNH+pwxZB8OKgUBPzYAGg==}
+  zustand@5.0.12:
+    resolution: {integrity: sha512-i77ae3aZq4dhMlRhJVCYgMLKuSiZAaUPAct2AksxQ+gOtimhGMdXljRT21P5BNpeT4kXlLIckvkPM029OljD7g==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@types/react': '>=18.0.0'
@@ -4045,12 +4045,12 @@ snapshots:
 
   '@popperjs/core@2.11.8': {}
 
-  '@rive-app/react-webgl2@4.27.0(react@18.3.1)':
+  '@rive-app/react-webgl2@4.27.2(react@18.3.1)':
     dependencies:
-      '@rive-app/webgl2': 2.35.0
+      '@rive-app/webgl2': 2.35.3
       react: 18.3.1
 
-  '@rive-app/webgl2@2.35.0': {}
+  '@rive-app/webgl2@2.35.3': {}
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
@@ -4373,7 +4373,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-react@5.1.4(vite@5.4.21(@types/node@25.2.1))':
+  '@vitejs/plugin-react@5.2.0(vite@5.4.21(@types/node@25.2.1))':
     dependencies:
       '@babel/core': 7.29.0
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.29.0)
@@ -4989,7 +4989,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-react-refresh@0.5.1(eslint@9.39.2):
+  eslint-plugin-react-refresh@0.5.2(eslint@9.39.2):
     dependencies:
       eslint: 9.39.2
 
@@ -5242,7 +5242,7 @@ snapshots:
 
   globals@16.5.0: {}
 
-  globals@17.3.0: {}
+  globals@17.4.0: {}
 
   globalthis@1.0.4:
     dependencies:
@@ -6042,7 +6042,7 @@ snapshots:
 
   picomatch@4.0.3: {}
 
-  pixi.js@8.16.0:
+  pixi.js@8.17.1:
     dependencies:
       '@pixi/colord': 2.9.6
       '@types/earcut': 3.0.0
@@ -6845,7 +6845,7 @@ snapshots:
 
   zod@4.3.6: {}
 
-  zustand@5.0.11(@types/react@18.3.28)(react@18.3.1):
+  zustand@5.0.12(@types/react@18.3.28)(react@18.3.1):
     optionalDependencies:
       '@types/react': 18.3.28
       react: 18.3.1

@@ -37,8 +37,6 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   layout?: 'side-by-side' | 'stacked';
   /** Initial step to start at */
   initialStep?: number;
-  /** Initial playing state */
-  initialPlaying?: boolean;
   /** Initial playback speed */
   initialSpeed?: number;
   /** Initial replay mode */
@@ -58,6 +56,16 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
    * Used by ReplayAdapter which handles transformation itself.
    */
   skipTransform?: boolean;
+  /** Game-specific step label function for ReasoningLogs. Falls back to default if not provided. */
+  getStepLabel?: (step: BaseGameStep) => string;
+  /** Game-specific step description function for ReasoningLogs. Falls back to default if not provided. */
+  getStepDescription?: (step: BaseGameStep) => string;
+  /** Game-specific step render time function. Falls back to default if not provided. */
+  getStepRenderTime?: (step: BaseGameStep, replayMode: ReplayMode, speedModifier: number) => number;
+  /** Game-specific interesting events function. Falls back to default if not provided. */
+  getInterestingEvents?: (steps: BaseGameStep[]) => InterestingEvent[];
+  /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
+  getTokenRenderDistribution?: (chunkCount: number) => number[];
 }
 
 export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -142,7 +150,6 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   GameRenderer,
   ui = 'side-panel',
   initialStep = 0,
-  initialPlaying = false,
   initialSpeed = 1,
   initialReplayMode = 'condensed',
   onStepChange,
@@ -151,6 +158,11 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   style,
   className,
   skipTransform = false,
+  getStepLabel,
+  getStepDescription,
+  getStepRenderTime: getStepRenderTimeProp,
+  getInterestingEvents: getInterestingEventsProp,
+  getTokenRenderDistribution,
 }: EpisodePlayerProps<TSteps>) {
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
@@ -177,9 +189,12 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
         return 2200 / speed;
       }
       const step = processedReplay.steps[stepIndex];
+      if (getStepRenderTimeProp) {
+        return getStepRenderTimeProp(step, mode, speed);
+      }
       return getGameStepRenderTime(step, gameName, mode, speed);
     },
-    [processedReplay, gameName]
+    [processedReplay, gameName, getStepRenderTimeProp]
   );
 
   const [state, actions, parentData] = usePlayerController({
@@ -187,7 +202,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
     getStepDuration,
     initial: {
       step: initialStep,
-      playing: initialPlaying,
+      playing: true,
       speed: initialSpeed,
       replayMode: initialReplayMode,
     },
@@ -213,8 +228,11 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   // Calculate interesting events for the slider
   const interestingEvents = useMemo<InterestingEvent[]>(() => {
     if (!processedReplay) return [];
+    if (getInterestingEventsProp) {
+      return getInterestingEventsProp(processedReplay.steps);
+    }
     return getInterestingEvents(processedReplay.steps, gameName);
-  }, [processedReplay, gameName]);
+  }, [processedReplay, gameName, getInterestingEventsProp]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -347,6 +365,9 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
               currentStep={state.step}
               gameName={gameName}
               interestingEvents={interestingEvents}
+              getStepLabel={getStepLabel}
+              getStepDescription={getStepDescription}
+              getTokenRenderDistribution={getTokenRenderDistribution}
             />
           </ReasoningLogsContainer>
         ) : (

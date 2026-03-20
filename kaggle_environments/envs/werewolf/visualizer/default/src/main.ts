@@ -1,6 +1,13 @@
-import { createReplayVisualizer, ReplayAdapter, processEpisodeData } from '@kaggle-environments/core';
+import { createReplayVisualizer, ReplayAdapter, generateEaseInDelayDistribution } from '@kaggle-environments/core';
 import { renderer as legacyRenderer } from './legacy-renderer.js';
 import { tryLoadAudioMap } from './audio/AudioController.js';
+import {
+  werewolfTransformer,
+  getWerewolfStepLabel,
+  getWerewolfStepDescription,
+  getWerewolfStepRenderTime,
+  getWerewolfStepInterestingEvents,
+} from './transformers/werewolfTransformer';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -46,8 +53,14 @@ const init = async () => {
         if (finalId && !(window as any).AUDIO_MAP) {
           tryLoadAudioMap(finalId, envUrl);
         }
-        return processEpisodeData(replay, 'werewolf');
+        return werewolfTransformer(replay) as any;
       },
+      getStepLabel: (step) => getWerewolfStepLabel(step as any),
+      getStepDescription: (step) => getWerewolfStepDescription(step as any),
+      getStepRenderTime: (step, replayMode, speedModifier) =>
+        getWerewolfStepRenderTime(step, replayMode, speedModifier),
+      getInterestingEvents: (steps) => getWerewolfStepInterestingEvents(steps as any),
+      getTokenRenderDistribution: generateEaseInDelayDistribution,
     })
   );
 };

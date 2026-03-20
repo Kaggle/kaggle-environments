@@ -26,7 +26,13 @@
   }
 }
 
+.panel:popover-open + .trigger {
+  box-shadow: 0 0 #000000;
+  scale: 0.97;
+}
+
 .panel {
+  composes: squiggle-border from global;
   top: anchor(center);
   left: anchor(right);
   max-width: 19rem;
@@ -34,8 +40,8 @@
   padding: 1rem 2rem;
   text-align: left;
   color: inherit;
-  border: 0.125rem solid;
-  background: #f1f1f1;
+  border: none;
+  background-color: #f1f1f1;
   translate: 0.5rem -50%;
 }
 

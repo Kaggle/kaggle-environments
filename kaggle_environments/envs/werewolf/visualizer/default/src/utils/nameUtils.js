@@ -1,4 +1,4 @@
-import { disambiguateDisplayNames as disambiguateMap } from '@kaggle-environments/core';
+import { disambiguateDisplayNames as disambiguateMap } from '../transformers/nameReplacer';
 
 import nameConfig from './nameConfig.json';
 
