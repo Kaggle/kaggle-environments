@@ -4,6 +4,7 @@ import { goTransformer } from './transformers/goTransformer';
 import { GoStep } from './transformers/goReplayTypes';
 import GameRenderer from './components/GameRenderer';
 import useGameStore from './stores/useGameStore';
+import usePreferences from './stores/usePreferences';
 import { detectHeroType } from './components/HeroAnimationModal';
 import './App.css';
 
@@ -22,6 +23,11 @@ export default function App() {
       }),
       getStepRenderTime: (step, replayMode, speedModifier) => {
         const time = defaultGetStepRenderTime(step, replayMode, speedModifier);
+        const showHeroAnimations = usePreferences.getState().showHeroAnimations;
+        const reducedMotion = usePreferences.getState().reducedMotion;
+
+        if (reducedMotion || !showHeroAnimations) return time;
+
         const game = useGameStore.getState().game;
 
         // Temporary hack: The step render time is calculated before the step 
@@ -58,7 +64,7 @@ export default function App() {
           game.playAt(y, x);
         }
 
-        if (detectHeroType(game)) return time * 2;
+        if (detectHeroType(game)) return 1000 * 5;
 
         return time;
       },
