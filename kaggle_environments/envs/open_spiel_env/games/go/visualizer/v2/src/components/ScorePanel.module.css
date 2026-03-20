@@ -207,58 +207,6 @@
   text-transform: uppercase;
 }
 
-@container (max-width: 600px) {
-  .panel {
-    --logo-size: 40px;
-    --logo-overflow: 20px;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    justify-items: center;
-    padding-inline: 1.25rem;
-  }
-
-  .table {
-    grid-column: 1 / -1;
-    width: 100%;
-    font-size: 11px;
-  }
-
-  .table tr:first-child td {
-    padding-top: 6px;
-  }
-
-  .table tr:last-child td {
-    padding-bottom: 6px;
-  }
-
-  .player {
-    translate: none;
-    transform: none;
-    padding-block: 3px;
-  }
-
-  .playerBlack {
-    justify-self: end;
-  }
-
-  .playerWhite {
-    order: 0;
-    justify-self: start;
-  }
-
-  .playerBlack.active {
-    transform: rotate(-2deg) scale(1.05);
-  }
-
-  .playerWhite.active {
-    transform: rotate(2deg) scale(1.05);
-  }
-
-  .playerName {
-    font-size: 11px;
-  }
-}
-
 /** Thinking label. */
 
 .thinkingLabel {
@@ -266,7 +214,7 @@
   bottom: calc(100% + 8px);
   left: 0;
   font-family: "Mynerve", cursive;
-  font-size: 11px;
+  font-size: 15px;
   white-space: nowrap;
   line-height: 1;
   pointer-events: none;
@@ -314,8 +262,55 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dot {
-    animation: none;
+@container (max-width: 600px) {
+  .panel {
+    --logo-size: 40px;
+    --logo-overflow: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    justify-items: center;
+    padding-inline: 1.25rem;
+  }
+
+  .table {
+    grid-column: 1 / -1;
+    width: 100%;
+    font-size: 11px;
+  }
+
+  .table tr:first-child td {
+    padding-top: 6px;
+  }
+
+  .table tr:last-child td {
+    padding-bottom: 6px;
+  }
+
+  .player {
+    translate: none;
+    transform: none;
+    padding-block: 3px;
+  }
+
+  .playerBlack {
+    justify-self: end;
+  }
+
+  .playerWhite {
+    order: 0;
+    justify-self: start;
+  }
+
+  .playerBlack.active {
+    transform: rotate(-2deg) scale(1.05);
+  }
+
+  .playerWhite.active {
+    transform: rotate(2deg) scale(1.05);
+  }
+
+  .playerName,
+  .thinkingLabel {
+    font-size: 11px;
   }
 }
