@@ -8,3 +8,4 @@ See `.agents/skills/` for detailed how-to guides:
 - `create-environment` -- building a game environment
 - `create-visualizer` -- building a web visualizer
 - `onboard-open-spiel-game` -- adding an OpenSpiel game
+- `create-open-spiel-visualizer` -- building a visualizer for a new OpenSpiel game
