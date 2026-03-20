@@ -85,9 +85,9 @@
 .rulesNote {
   font-size: 0.75rem;
   transition-delay: calc(var(--reveal-delay) + 1100ms);
-  text-decoration: underline;
 
   a {
     color: inherit;
+    text-decoration: underline;
   }
 }
