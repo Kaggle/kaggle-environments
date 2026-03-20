@@ -34,17 +34,6 @@ export function WithPopover({ children, icon, id, label }: Props) {
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        className={styles.trigger}
-        popovertarget={id}
-        popovertargetaction="toggle"
-        style={{ anchorName: triggerName }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <use xlinkHref={iconPath} />
-        </svg>
-      </button>
       <div
         ref={panelRef}
         id={id}
@@ -56,6 +45,17 @@ export function WithPopover({ children, icon, id, label }: Props) {
       >
         {children}
       </div>
+      <button
+        ref={triggerRef}
+        className={styles.trigger}
+        popovertarget={id}
+        popovertargetaction="toggle"
+        style={{ anchorName: triggerName }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <use xlinkHref={iconPath} />
+        </svg>
+      </button>
     </>
   );
 }
