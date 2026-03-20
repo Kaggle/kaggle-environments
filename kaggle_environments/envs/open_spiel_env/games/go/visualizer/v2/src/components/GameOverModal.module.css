@@ -1,5 +1,5 @@
 .modal {
-  --reveal-delay: 2.8s;
+  --reveal-delay: 4.8s;
   position: absolute;
   inset: 0;
   z-index: 10;
