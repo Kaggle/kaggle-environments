@@ -1,19 +1,22 @@
 .modal {
+  --font-size: 1.25rem;
+  --border-size: 2px;
+  --cell-padding: 0.75rem 1.5rem;
   --reveal-delay: 4.8s;
   position: absolute;
   inset: 0;
   z-index: 10;
   padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-content: center;
+  overflow: auto;
+  text-align: center;
   gap: 1.5rem;
   background-image: url("/images/paper.webp");
   background-size: cover;
   background-position: center;
   color: #050001;
-  font-size: 1.25rem;
+  font-size: var(--font-size);
 }
 
 .meta {
@@ -25,12 +28,11 @@
   border-collapse: collapse;
   text-align: center;
   min-width: 32rem;
-  --border-size: 2px;
 }
 
 .table th,
 .table td {
-  padding: 0.75rem 1.5rem;
+  padding: var(--cell-padding);
   border-bottom: var(--border-size) solid;
 }
 
@@ -42,6 +44,12 @@
 
 .table :where(td, th):not(:last-of-type) {
   border-right: var(--border-size) solid;
+}
+
+.table tbody td:not(:first-child) {
+  font-family: "Mynerve", cursive;
+  font-size: 1.25em;
+  color: #444343;
 }
 
 .labelCell {
@@ -83,11 +91,39 @@
 }
 
 .rulesNote {
-  font-size: 0.75rem;
   transition-delay: calc(var(--reveal-delay) + 1100ms);
 
   a {
     color: inherit;
+    font-weight: 400;
     text-decoration: underline;
+  }
+}
+
+@container (max-width: 800px) {
+  .modal {
+    --font-size: 13px;
+    --border-size: 1px;
+    --cell-padding: 0.4rem 0.75rem;
+    gap: 1rem;
+    line-height: 1.4;
+  }
+
+  :global(.ribbon) {
+    --ribbon-font-size: 0.875rem;
+    --ribbon-padding-inline: 1.5rem;
+    --ribbon-padding-block: 1rem;
+  }
+}
+
+@container (max-width: 600px) {
+  .modal {
+    --font-size: 11px;
+    place-content: start;
+  }
+
+  .table {
+    min-width: unset;
+    width: 100%;
   }
 }

@@ -12,9 +12,9 @@
 
   /* <Ribbon> element. */
   & > * {
-    --font-size: 1rem;
-    --padding-inline: 2em;
-    --padding-block: 1.25rem;
+    --ribbon-font-size: 1rem;
+    --ribbon-padding-inline: 2em;
+    --ribbon-padding-block: 1.25rem;
   }
 
   & span {
@@ -50,6 +50,6 @@
 
 @container (max-width: 600px) {
   .versusBanner > * {
-    --font-size: 0.75rem;
+    --ribbon-font-size: 0.75rem;
   }
 }
