@@ -9,22 +9,43 @@ interface ScoreRow {
   white: number | string;
 }
 
+function ThinkingLabel() {
+  return (
+    <span className={styles.thinkingLabel} aria-live="polite">
+      Thinking
+      <span className={styles.dot} aria-hidden="true">
+        .
+      </span>
+      <span className={styles.dot} aria-hidden="true">
+        .
+      </span>
+      <span className={styles.dot} aria-hidden="true">
+        .
+      </span>
+    </span>
+  );
+}
+
 export default memo(function ScorePanel() {
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
 
   const state = game.currentState();
+  const isOver = game.isOver();
   const scorer = game._scorer.territory(game);
   const komi = game._scorer._komi;
   const activeColor = state.nextColor();
   const moveNum = game.moveNumber();
+
   const blackPassed = state.pass && state.color === 'black';
   const whitePassed = state.pass && state.color === 'white';
-
   const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
   const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
   const blackLogo = getAgentLogo(blackName, 'black');
   const whiteLogo = getAgentLogo(whiteName, 'white');
+  const blackThinking = !isOver && activeColor === 'black';
+  const whiteThinking = !isOver && activeColor === 'white';
+  const lastPlayedColor = activeColor === 'black' ? 'white' : 'black';
 
   const rows: ScoreRow[] = [
     {
@@ -38,7 +59,9 @@ export default memo(function ScorePanel() {
 
   return (
     <section className={styles.panel} aria-label="Score">
-      <div className={`${styles.playerBlack} ${activeColor === 'black' ? styles.active : ''}`}>
+      <div
+        className={`${styles.playerBlack} ${activeColor === 'black' ? styles.active : ''} ${lastPlayedColor === 'black' ? styles.lastPlayed : ''}`}
+      >
         <span className={`${styles.logo} grid-pile`} aria-hidden="true">
           <img src={blackLogo.src} alt="" />
           {blackLogo.isUnknown && <span className={styles.logoInitial}>{blackName[0]}</span>}
@@ -50,9 +73,12 @@ export default memo(function ScorePanel() {
             </span>
           )}
           <span className={styles.playerName}>{blackName}</span>
+          {blackThinking && <ThinkingLabel />}
         </span>
       </div>
-      <div className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''}`}>
+      <div
+        className={`${styles.playerWhite} ${activeColor === 'white' ? styles.active : ''} ${lastPlayedColor === 'white' ? styles.lastPlayed : ''}`}
+      >
         <span className={styles.playerNameWrapper}>
           {whitePassed && (
             <span key={moveNum} className={styles.passIndicator} aria-hidden="true">
@@ -60,6 +86,7 @@ export default memo(function ScorePanel() {
             </span>
           )}
           <span className={styles.playerName}>{whiteName}</span>
+          {whiteThinking && <ThinkingLabel />}
         </span>
         <span className={`${styles.logo} grid-pile`} aria-hidden="true">
           <img src={whiteLogo.src} alt="" />
