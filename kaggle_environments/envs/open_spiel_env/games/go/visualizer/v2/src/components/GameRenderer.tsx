@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { Game } from 'tenuki';
 import { GameRendererProps } from '@kaggle-environments/core';
 import { GoStep } from '../transformers/goReplayTypes';
@@ -8,25 +8,17 @@ import CapturePots from '../components/CapturePots';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
-import knightRiv from '../assets/kaggle_knight.riv?url';
-import queenRiv from '../assets/kaggle_queen.riv?url';
 import HeroAnimationModal from './HeroAnimationModal.tsx';
 import VersusBanner from './VersusBanner.tsx';
 
-export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
+export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
   const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
 
   useEffect(() => {
-    // Seems like these OpenSpiel 13x13 log files where the steps is empty are
-    // broken and shouldn't be listed on Game Arena
-    if (options.replay.steps.length === 0) return;
-
     const parameters = options.replay.configuration.openSpielGameParameters;
-    // OpenSpiel parameter incorrectly set for board size in example replays
-    // const boardSize = parameters.board_size;
-    const boardSize = options.replay.steps[0].boardState.board_size;
+    const boardSize = parameters.board_size;
     const komi = parameters.komi;
     const scoring = 'area'; // Tromp-Tailor Rules
     const game = new Game({ boardSize, komi, scoring });
@@ -71,8 +63,6 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
 
   return (
     <div id="go-playable-area">
-      <link rel="preload" href={knightRiv} as="fetch" crossOrigin="anonymous" />
-      <link rel="preload" href={queenRiv} as="fetch" crossOrigin="anonymous" />
       <GameBoard />
       <div>
         <ScorePanel />
@@ -83,4 +73,4 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
       {showHeroAnimations && <HeroAnimationModal />}
     </div>
   );
-}
+});
