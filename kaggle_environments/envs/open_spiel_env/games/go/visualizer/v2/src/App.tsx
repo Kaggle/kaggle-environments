@@ -4,6 +4,7 @@ import { goTransformer } from './transformers/goTransformer';
 import { GoStep } from './transformers/goReplayTypes';
 import GameRenderer from './components/GameRenderer';
 import useGameStore from './stores/useGameStore';
+import { detectHeroType } from './components/HeroAnimationModal';
 import './App.css';
 
 export default function App() {
@@ -20,10 +21,12 @@ export default function App() {
         isTransformed: true,
       }),
       getStepRenderTime: (step, replayMode, speedModifier) => {
-        console.log("getStepRenderTime", step.step);
         const time = defaultGetStepRenderTime(step, replayMode, speedModifier);
         const game = useGameStore.getState().game;
 
+        // Temporary hack: The step render time is calculated before the step 
+        // is rendered, so play the most recent step before working out if it's 
+        // duration needs adjusting.
         const [, move] = (step as GoStep).boardState.previous_move_a1!.split(' ');
         if (move === 'PASS') {
           game.pass();
@@ -55,21 +58,7 @@ export default function App() {
           game.playAt(y, x);
         }
 
-        const state = game.currentState();
-
-        const isPass = state.pass;
-        const isDoublePass = isPass && game._moves.at(-2).pass;
-        const isFirstCapture =
-            state.capturedPositions?.length &&
-            state.capturedPositions?.length === state.blackStonesCaptured + state.whiteStonesCaptured;
-        const isCriticalHit = state.capturedPositions?.length && state.capturedPositions.length >= 10;
-        const isDragonLoss = state.capturedPositions?.length && state.capturedPositions.length >= 15;
-
-        if (isDoublePass) return time * 2;
-        if (isPass) return time * 2;
-        if (isFirstCapture) return time * 2;
-        if (isDragonLoss) return time * 2;
-        if (isCriticalHit) return time * 2;
+        if (detectHeroType(game)) return time * 2;
 
         return time;
       },

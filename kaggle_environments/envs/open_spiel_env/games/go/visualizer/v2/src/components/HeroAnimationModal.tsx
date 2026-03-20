@@ -149,7 +149,7 @@ function detectMonkeyJump(game: Game) {
   return true;
 }
 
-function detectHeroType(game: Game): HERO_TYPES | null {
+export function detectHeroType(game: Game): HERO_TYPES | null {
   const state = game.currentState();
 
   const isPass = state.pass;

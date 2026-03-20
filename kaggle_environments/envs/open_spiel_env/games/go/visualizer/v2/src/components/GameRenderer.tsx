@@ -31,8 +31,6 @@ export default function GameRenderer(options: GameRendererProps<GoStep[]>) {
     const scoring = 'area'; // Tromp-Tailor Rules
     const game = new Game({ boardSize, komi, scoring });
 
-    console.log("GameRenderer", options.step);
-
     for (let i = 0; i <= options.step; i++) {
       const step = options.replay.steps.at(i);
       const [, move] = step!.boardState.previous_move_a1!.split(' ');
