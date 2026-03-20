@@ -62,7 +62,7 @@
   }
 }
 
-:where(.meta, .table, .ribbon) {
+:where(.meta, .table, .ribbon, .rulesNote) {
   transition:
     opacity 400ms,
     transform 500ms;
@@ -80,4 +80,14 @@
 
 .table {
   transition-delay: calc(var(--reveal-delay) + 900ms);
+}
+
+.rulesNote {
+  font-size: 0.75rem;
+  transition-delay: calc(var(--reveal-delay) + 1100ms);
+  text-decoration: underline;
+
+  a {
+    color: inherit;
+  }
 }
