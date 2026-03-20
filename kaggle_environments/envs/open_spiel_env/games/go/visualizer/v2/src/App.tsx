@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
-import GameRenderer from './components/GameRenderer';
+import { createReplayVisualizer, ReplayAdapter, defaultGetStepRenderTime } from '@kaggle-environments/core';
 import { goTransformer } from './transformers/goTransformer';
+import GameRenderer from './components/GameRenderer';
+import useGameStore from './stores/useGameStore';
 import './App.css';
 
 export default function App() {
@@ -17,6 +18,28 @@ export default function App() {
         steps: goTransformer(replay),
         isTransformed: true,
       }),
+      getStepRenderTime: (step, replayMode, speedModifier) => {
+        console.log("getStepRenderTime", step.step);
+        const time = defaultGetStepRenderTime(step, replayMode, speedModifier);
+        const game = useGameStore.getState().game;
+        const state = game.currentState();
+
+        const isPass = state.pass;
+        const isDoublePass = isPass && game._moves.at(-2).pass;
+        const isFirstCapture =
+            state.capturedPositions?.length &&
+            state.capturedPositions?.length === state.blackStonesCaptured + state.whiteStonesCaptured;
+        const isCriticalHit = state.capturedPositions?.length && state.capturedPositions.length >= 10;
+        const isDragonLoss = state.capturedPositions?.length && state.capturedPositions.length >= 15;
+
+        if (isDoublePass) return time * 2;
+        if (isPass) return time * 2;
+        if (isFirstCapture) return time * 2;
+        if (isDragonLoss) return time * 2;
+        if (isCriticalHit) return time * 2;
+
+        return time;
+      },
     });
     createReplayVisualizer(element, adapter);
   }, []);
