@@ -34,17 +34,35 @@ export default memo(function HeroAnimationModal() {
     const player = color.charAt(0).toUpperCase() + color.slice(1);
     const captures = game.currentState().capturedPositions?.length;
 
-    const RIVE_MAP = {
-      [HeroTypes.PASS]: { src: passRiv, text: `${player} passes the turn.` },
-      [HeroTypes.DOUBLE_PASS]: { src: doublePassRiv, text: 'Double Pass: game over.' },
-      [HeroTypes.FIRST_CAPTURE]: { src: passRiv, text: `${player} captures first.` },
-      [HeroTypes.CRITICAL_HIT]: { src: passRiv, text: `${player} takes ${captures} pieces.` },
-      [HeroTypes.DRAGON_LOSS]: { src: passRiv, text: 'Dragon was lost.' },
-    };
+    let src, text;
+    switch (heroType) {
+      case HeroTypes.PASS:
+        src = passRiv;
+        text = `${player} passes the turn.`;
+        break;
+      case HeroTypes.DOUBLE_PASS:
+        src = doublePassRiv;
+        text = 'Double Pass: game over.';
+        break;
+      case HeroTypes.FIRST_CAPTURE:
+        src = passRiv;
+        text = `${player} captures first.`;
+        break;
+      case HeroTypes.CRITICAL_HIT:
+        src = passRiv;
+        text = `${player} takes ${captures} pieces.`;
+        break;
+      case HeroTypes.DRAGON_LOSS:
+        src = passRiv;
+        text = 'Dragon was lost.';
+        break;
+      default:
+        return;
+    }
 
     // Let the board play out before showing the Rive animation.
     const timeout = setTimeout(() => {
-      setHero({ src: RIVE_MAP[heroType].src, text: RIVE_MAP[heroType].text, color, step });
+      setHero({ src, text, color, step });
     }, 600);
 
     return () => clearTimeout(timeout);
