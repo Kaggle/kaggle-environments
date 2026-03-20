@@ -25,6 +25,19 @@
   color: #050001;
 }
 
+.squiggle-border {
+  background-image:
+    url("/images/squiggle-solid.png"), url("/images/squiggle-solid.png"),
+    url("/images/squiggle-v.png"), url("/images/squiggle-v.png");
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: top, bottom, left, right;
+  background-size:
+    5rem 2px,
+    5rem 2px,
+    2px 5rem,
+    2px 5rem;
+}
+
 .grid-pile {
   display: grid;
 }
