@@ -1,0 +1,425 @@
+{
+  "configuration": {
+    "actTimeout": 900,
+    "episodeSteps": 400,
+    "openSpielGameName": "oware",
+    "openSpielGameParameters": {},
+    "openSpielGameString": "oware",
+    "seed": 0
+  },
+  "description": "Kaggle environment wrapper for OpenSpiel games.",
+  "id": "oware-test-001",
+  "info": {
+    "TeamNames": ["Player 1", "Player 2"]
+  },
+  "name": "open_spiel_oware",
+  "rewards": [1.0, -1.0],
+  "schema_version": 1,
+  "specification": {
+    "action": { "default": { "submission": -1 }, "type": "object" },
+    "agents": [2]
+  },
+  "statuses": ["DONE", "DONE"],
+  "steps": [
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 0 0 | 4 4 4 4 4 4 4 4 4 4 4 4",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 1
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 3 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 0 0 | 4 4 4 0 5 5 5 5 4 4 4 4",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 2
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 0 0 | 5 5 4 0 5 5 5 5 4 0 5 5",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 3
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 3 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 0 0 | 5 0 5 1 6 6 6 5 4 0 5 5",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 4
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 0 2 | 6 1 6 0 6 6 6 5 4 0 0 6",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 5
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 4 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 0 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 0 2 | 0 2 7 1 7 7 7 5 4 0 0 6",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 6
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 0 2 | 1 3 8 2 8 8 7 5 4 0 0 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 7
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 5 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 2 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 0 2 | 1 3 0 3 9 9 8 6 5 1 1 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 8
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 3 2 | 1 3 0 3 9 9 8 6 0 1 0 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 9
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 2 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 4 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 3 2 | 1 3 0 3 0 10 9 7 1 2 1 1",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 10
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 3 5 | 2 4 1 3 0 10 9 7 1 0 1 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 11
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 3 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 5 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 5 5 | 2 4 1 3 0 0 10 8 2 1 2 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "0 | 5 8 | 3 5 2 0 0 0 10 8 2 1 0 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 13
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 0 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "1 | 7 8 | 3 0 3 1 1 0 10 8 0 1 0 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 14
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": true,
+          "observationString": "0 | 25 23 | 0 0 0 0 0 0 0 0 0 0 0 0",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 15
+        },
+        "reward": 1.0,
+        "status": "DONE"
+      },
+      {
+        "action": { "submission": 0 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": -1.0,
+        "status": "DONE"
+      }
+    ]
+  ],
+  "version": "1.26.0"
+}

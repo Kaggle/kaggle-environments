@@ -1,0 +1,523 @@
+{
+  "configuration": {
+    "actTimeout": 900,
+    "episodeSteps": 200,
+    "openSpielGameName": "dots_and_boxes",
+    "openSpielGameParameters": {
+      "num_rows": 2,
+      "num_cols": 2
+    },
+    "openSpielGameString": "dots_and_boxes(num_rows=2,num_cols=2)",
+    "runTimeout": 108000,
+    "seed": 0
+  },
+  "description": "Kaggle environment wrapper for OpenSpiel games.\nFor game implementation details see:\nhttps://github.com/google-deepmind/open_spiel/tree/master/open_spiel/games",
+  "id": "dots-and-boxes-test-001",
+  "info": {
+    "TeamNames": ["Player 1", "Player 2"]
+  },
+  "name": "open_spiel_dots_and_boxes",
+  "rewards": [1.0, -1.0],
+  "schema_version": 1,
+  "specification": {
+    "action": {
+      "default": {
+        "submission": -1
+      },
+      "description": "Action object MUST contain a field `submission`, and MAY contain arbitrary additional information.",
+      "type": "object"
+    },
+    "agents": [2],
+    "configuration": {
+      "actTimeout": {
+        "default": 900,
+        "description": "Maximum runtime (seconds) to obtain an action from an agent.",
+        "minimum": 0,
+        "type": "number"
+      },
+      "episodeSteps": {
+        "default": 200,
+        "description": "Maximum number of steps in the episode.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "openSpielGameName": {
+        "default": "dots_and_boxes",
+        "description": "The short_name of the OpenSpiel game to load.",
+        "type": "string"
+      },
+      "openSpielGameParameters": {
+        "default": {
+          "num_rows": 2,
+          "num_cols": 2
+        },
+        "description": "Game parameters for Open Spiel game.",
+        "properties": {},
+        "type": "object"
+      },
+      "openSpielGameString": {
+        "default": "dots_and_boxes(num_rows=2,num_cols=2)",
+        "description": "The full game string including parameters.",
+        "type": "string"
+      },
+      "runTimeout": {
+        "default": 108000,
+        "description": "Maximum runtime (seconds) of an episode.",
+        "minimum": 0,
+        "type": "number"
+      },
+      "seed": {
+        "description": "Integer currently only used for selecting starting position.",
+        "type": "number"
+      }
+    },
+    "info": {},
+    "observation": {
+      "default": {},
+      "properties": {
+        "currentPlayer": {
+          "description": "ID of player whose turn it is.",
+          "type": "integer"
+        },
+        "isTerminal": {
+          "description": "Boolean indicating game end.",
+          "type": "boolean"
+        },
+        "observationString": {
+          "description": "String representation of state.",
+          "type": "string"
+        },
+        "playerId": {
+          "description": "ID of the agent receiving this observation.",
+          "type": "integer"
+        },
+        "step": {
+          "default": 0,
+          "description": "Current step within the episode.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "remainingOverageTime": {
+        "default": 12,
+        "description": "Total remaining banked time (seconds).",
+        "minimum": 0,
+        "shared": false,
+        "type": "number"
+      },
+      "step": {
+        "default": 0,
+        "description": "Current step within the episode.",
+        "minimum": 0,
+        "shared": true,
+        "type": "integer"
+      }
+    },
+    "reward": {
+      "default": 0.0,
+      "type": ["number", "null"]
+    }
+  },
+  "statuses": ["DONE", "DONE"],
+  "steps": [
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n         \n├╴ ╶┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 1
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n         \n├╴ ╶┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 2 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n         \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 2
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n         \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n│        \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 3
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 6 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n│        \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 7 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n│   │    \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 4
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌╴ ╶┬╴ ╶┐\n│   │    \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬╴ ╶┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 5
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": 0 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬╴ ╶┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└╴ ╶┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬╴ ╶┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 6
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 4 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬╴ ╶┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 7
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │    \n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │   │\n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 8
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 8 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │   │\n├───┼╴ ╶┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 3 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 9
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n         \n└───┴╴ ╶┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 5 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n         \n└───┴───┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 10
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n         \n└───┴───┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│        \n└───┴───┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 11
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 9 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│        \n└───┴───┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 10 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│ 1 │    \n└───┴───┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│ 1 │    \n└───┴───┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 11 },
+        "info": {},
+        "observation": {
+          "currentPlayer": -4,
+          "isTerminal": true,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│ 1 │ 1 │\n└───┴───┘\n",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 13
+        },
+        "reward": 1.0,
+        "status": "DONE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": -4,
+          "isTerminal": true,
+          "observationString": "┌───┬───┐\n│ 2 │ 1 │\n├───┼───┤\n│ 1 │ 1 │\n└───┴───┘\n",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": -1.0,
+        "status": "DONE"
+      }
+    ]
+  ],
+  "version": "1.26.0"
+}

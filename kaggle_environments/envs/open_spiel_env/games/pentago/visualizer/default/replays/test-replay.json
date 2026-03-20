@@ -1,0 +1,342 @@
+{
+  "configuration": {
+    "actTimeout": 900,
+    "episodeSteps": 400,
+    "openSpielGameName": "pentago",
+    "openSpielGameParameters": {},
+    "openSpielGameString": "pentago",
+    "seed": 0
+  },
+  "description": "Kaggle environment wrapper for OpenSpiel games.",
+  "id": "pentago-test-001",
+  "info": {
+    "TeamNames": ["Player 1", "Player 2"]
+  },
+  "name": "open_spiel_pentago",
+  "rewards": [1.0, -1.0],
+  "schema_version": 1,
+  "specification": {
+    "action": {
+      "default": {
+        "submission": -1
+      },
+      "type": "object"
+    },
+    "agents": [2]
+  },
+  "statuses": ["DONE", "DONE"],
+  "steps": [
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12,
+          "step": 0
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . . . . .\n  4 . . . . . .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 1
+        },
+        "reward": null,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . . . . .\n  4 . . . . . .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": null,
+        "status": "INACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 112 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O . . .\n  4 . . . . . .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 2
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O . . .\n  4 . . . . . .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O . . .\n  4 . . . . @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 3
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 204 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O . . .\n  4 . . . . @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 120 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O O . .\n  4 . . . . @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 4
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O O . .\n  4 . . . . @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O O . .\n  4 . . . @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 5
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 164 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . . . . . . v\n  3 . . O O . .\n  4 . . . @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 64 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 . . . @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 6
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 . . . @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 . . @ @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 7
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 148 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 . . @ @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 128 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 8
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 1,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . . . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . @ . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 9
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      },
+      {
+        "action": { "submission": 220 },
+        "info": {},
+        "observation": {
+          "currentPlayer": 0,
+          "isTerminal": false,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 . . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . @ . . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": 0.0,
+        "status": "ACTIVE"
+      }
+    ],
+    [
+      {
+        "action": { "submission": 96 },
+        "info": {},
+        "observation": {
+          "currentPlayer": -4,
+          "isTerminal": true,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 O . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . @ O . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 0,
+          "remainingOverageTime": 12,
+          "step": 10
+        },
+        "reward": 1.0,
+        "status": "DONE"
+      },
+      {
+        "action": { "submission": -1 },
+        "info": {},
+        "observation": {
+          "currentPlayer": -4,
+          "isTerminal": true,
+          "observationString": "    > t     u <\n    a b c d e f\nv 1 O . . . . . v\ns 2 . O . . . . v\n  3 . . O O . .\n  4 O . @ @ @ .\nz 5 . . . @ O . w\n^ 6 . . . . . . ^\n    > y     x <",
+          "playerId": 1,
+          "remainingOverageTime": 12
+        },
+        "reward": -1.0,
+        "status": "DONE"
+      }
+    ]
+  ],
+  "version": "1.26.0"
+}

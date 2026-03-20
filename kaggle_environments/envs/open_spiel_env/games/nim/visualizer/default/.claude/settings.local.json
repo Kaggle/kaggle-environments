@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": ["Bash(find:*)", "Bash(cd:*)", "Bash(npx vite:*)"]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["playwright"]
+}
