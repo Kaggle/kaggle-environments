@@ -5,7 +5,7 @@ import { GoStep } from './transformers/goReplayTypes';
 import GameRenderer from './components/GameRenderer';
 import useGameStore from './stores/useGameStore';
 import usePreferences from './stores/usePreferences';
-import { detectHeroType } from './components/HeroAnimationModal';
+import { detectHeroType } from './utils/heroTypes';
 import './App.css';
 
 export default function App() {
@@ -29,9 +29,9 @@ export default function App() {
         if (reducedMotion || !showHeroAnimations) return time;
 
         const game = useGameStore.getState().game;
-        // Temporary hack: The step render time is calculated before the step 
-        // is rendered, so play the most recent step before working out if it's 
-        // duration needs adjusting.
+        // Temporary hack: The step render time is calculated before the step
+        // is rendered, so make the move for the most recent step before
+        // working out if it's playback duration needs adjusting.
         const [, move] = (step as GoStep).boardState.previous_move_a1!.split(' ');
         if (move === 'PASS') {
           game.pass();
