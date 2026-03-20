@@ -56,8 +56,6 @@ steps:
   - id: "build-all-visualizers"
     name: "node:22"
     entrypoint: "bash"
-    env:
-      - "SKIP_GAMES=${_SKIP_GAMES}"
     args:
       - "-c"
       - |
@@ -99,6 +97,17 @@ steps:
       - "gs://$_BUCKET_NAME/episode-visualizers"
     waitFor: ["build-all-visualizers"]
 
+  # Step 8: Update per-game index.json files (merge with existing GCS state)
+  # This ensures branch-deployed visualizers aren't lost when main builds.
+  - id: "update-game-indexes"
+    name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "python3"
+    args:
+      - "web/scripts/merge-game-indexes.py"
+      - "--bucket=$_BUCKET_NAME"
+      - "--build-dir=./build"
+    waitFor: ["deploy-to-gcs"]
+
 # Push Docker images to GCR
 images:
   - "gcr.io/kaggle-images/python-simulations"
@@ -106,9 +115,6 @@ images:
 
 substitutions:
   _BUCKET_NAME: "kaggle-static"
-  # Comma-separated list of patterns to skip deployment. Games are still built.
-  # Patterns: "open_spiel_go" (all visualizers) or "open_spiel_chess/v2" (specific visualizer)
-  _SKIP_GAMES: ""
 
 availableSecrets:
   secretManager:
