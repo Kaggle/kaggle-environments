@@ -80,8 +80,11 @@
 }
 
 .playerBlack.active {
-  background-color: var(--active-color);
   transform: translateX(var(--player-offset-x)) rotate(-2deg) scale(1.05);
+}
+
+.lastPlayed {
+  background-color: var(--active-color);
 }
 
 .playerWhite {
@@ -106,7 +109,6 @@
 }
 
 .playerWhite.active {
-  background-color: var(--active-color);
   transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg)
     scale(1.05);
 }
