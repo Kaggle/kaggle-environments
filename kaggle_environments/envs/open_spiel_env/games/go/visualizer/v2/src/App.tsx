@@ -29,7 +29,6 @@ export default function App() {
         if (reducedMotion || !showHeroAnimations) return time;
 
         const game = useGameStore.getState().game;
-
         // Temporary hack: The step render time is calculated before the step 
         // is rendered, so play the most recent step before working out if it's 
         // duration needs adjusting.
@@ -64,7 +63,7 @@ export default function App() {
           game.playAt(y, x);
         }
 
-        if (detectHeroType(game)) return 1000 * 5;
+        if (detectHeroType(game) !== null) return 1000 * 5;
 
         return time;
       },
