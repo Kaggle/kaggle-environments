@@ -114,11 +114,10 @@ export default memo(function GameOverModal() {
         </tbody>
       </table>
       <p className={styles.rulesNote}>
-        Scoring based on{' '}
+        Scoring follows{' '}
         <a href="https://senseis.xmp.net/?TrompTaylorRules" target="_blank" rel="noopener noreferrer">
-          Tromp-Taylor
-        </a>{' '}
-        rules
+          Tromp-Taylor rules
+        </a>
       </p>
     </div>
   );
