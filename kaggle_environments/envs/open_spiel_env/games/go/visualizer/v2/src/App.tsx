@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
+import { transformer } from './transformers/transformer';
+import { getStepRenderTime } from './utils/getStepRenderTime';
 import GameRenderer from './components/GameRenderer';
-import { goTransformer } from './transformers/goTransformer';
 import './App.css';
 
 export default function App() {
@@ -12,11 +13,8 @@ export default function App() {
       gameName,
       GameRenderer,
       ui,
-      transformer: (replay) => ({
-        ...replay,
-        steps: goTransformer(replay),
-        isTransformed: true,
-      }),
+      transformer,
+      getStepRenderTime,
     });
     createReplayVisualizer(element, adapter);
   }, []);
