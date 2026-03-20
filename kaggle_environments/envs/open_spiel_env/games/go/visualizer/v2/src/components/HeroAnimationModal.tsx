@@ -5,6 +5,7 @@ import { HeroTypes, detectHeroType } from '../utils/heroTypes.ts';
 import { RivePopover } from './RivePopover.tsx';
 import passRiv from '../assets/pass.riv?url';
 import doublePassRiv from '../assets/double-pass.riv?url';
+import criticalHitRiv from '../assets/critical-hit.riv?url';
 
 export default memo(function HeroAnimationModal() {
   const game = useGameStore((state) => state.game);
@@ -49,7 +50,7 @@ export default memo(function HeroAnimationModal() {
         text = `${player} captures first.`;
         break;
       case HeroTypes.CRITICAL_HIT:
-        src = passRiv;
+        src = criticalHitRiv;
         text = `${player} takes ${captures} pieces.`;
         break;
       case HeroTypes.DRAGON_LOSS:
