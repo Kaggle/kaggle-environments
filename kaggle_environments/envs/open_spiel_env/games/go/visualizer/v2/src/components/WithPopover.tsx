@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import styles from './WithPopover.module.css';
 
 interface Props {
@@ -6,18 +6,36 @@ interface Props {
   /** This refers to a symbol ID in the svg symbolset (`public/icons.svg`). */
   icon: string;
   id: string;
+  label: string;
 }
 
-export function WithPopover({ children, icon, id }: Props) {
+export function WithPopover({ children, icon, id, label }: Props) {
   const triggerName = `--${id}-trigger`;
   const iconPath = `/icons.svg#${icon}`;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const handleToggle = (e: Event) => {
+      const { newState } = e as ToggleEvent;
+      if (newState === 'open') {
+        panel.focus();
+      } else {
+        triggerRef.current?.focus();
+      }
+    };
+
+    panel.addEventListener('toggle', handleToggle);
+    return () => panel.removeEventListener('toggle', handleToggle);
+  }, []);
 
   return (
     <>
-      <div id={id} popover="auto" className={styles.panel}>
-        {children}
-      </div>
       <button
+        ref={triggerRef}
         className={styles.trigger}
         popovertarget={id}
         popovertargetaction="toggle"
@@ -27,6 +45,17 @@ export function WithPopover({ children, icon, id }: Props) {
           <use xlinkHref={iconPath} />
         </svg>
       </button>
+      <div
+        ref={panelRef}
+        id={id}
+        popover="auto"
+        className={styles.panel}
+        role="dialog"
+        aria-label={label}
+        tabIndex={-1}
+      >
+        {children}
+      </div>
     </>
   );
 }
