@@ -72,7 +72,7 @@
   transform: translateX(var(--player-offset-x));
   transition:
     transform 0.3s ease,
-    background 0.3s ease;
+    background-color 0.3s ease;
 
   .logo {
     margin-left: calc(-1 * (var(--player-padding-logo) + var(--logo-overflow)));
@@ -80,7 +80,7 @@
 }
 
 .playerBlack.active {
-  background: var(--active-color);
+  background-color: var(--active-color);
   transform: translateX(var(--player-offset-x)) rotate(-2deg) scale(1.05);
 }
 
@@ -92,7 +92,7 @@
   transform: translateX(calc(var(--player-offset-x) * -1));
   transition:
     transform 0.3s ease,
-    background 0.3s ease;
+    background-color 0.3s ease;
 
   .stone {
     order: 1;
@@ -106,7 +106,7 @@
 }
 
 .playerWhite.active {
-  background: var(--active-color);
+  background-color: var(--active-color);
   transform: translateX(calc(var(--player-offset-x) * -1)) rotate(2deg)
     scale(1.05);
 }
@@ -127,7 +127,7 @@
   animation: passFloat 1.6s forwards;
   border: 1px solid;
   padding: 0.25em 2em;
-  background: var(--active-color);
+  background-color: var(--active-color);
   transform: translateX(-50%);
   transform-origin: bottom;
 }
@@ -254,5 +254,66 @@
 
   .playerName {
     font-size: 11px;
+  }
+}
+
+/** Thinking label. */
+
+.thinkingLabel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  font-family: "Mynerve", cursive;
+  font-size: 11px;
+  white-space: nowrap;
+  line-height: 1;
+  pointer-events: none;
+  transition: opacity 400ms;
+
+  [data-reduced-motion] & {
+    transition: none;
+  }
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+.playerWhite .thinkingLabel {
+  left: auto;
+  right: 0;
+}
+
+.dot {
+  display: inline-block;
+  animation: dotBounce 1.2s infinite ease-in-out;
+
+  [data-reduced-motion] & {
+    animation: none;
+  }
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dotBounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
   }
 }
