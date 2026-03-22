@@ -1,18 +1,13 @@
 import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
-import { FeatureToggles } from './FeatureToggles.tsx';
 import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import { tenukiLogger } from '../utils/tenukiLogger';
-import styles from './GameBoard.module.css';
-import Notation from './Notation.tsx';
-import { WithPopover } from './WithPopover.tsx';
 
 export default memo(function GameBoard() {
   const game = useGameStore((state) => state.game);
   const showTerritory = usePreferences((state) => state.showTerritory);
-  const showAnnotations = usePreferences((state) => state.showAnnotations);
   const reducedMotion = usePreferences((state) => state.reducedMotion);
 
   tenukiLogger(game);
@@ -46,30 +41,16 @@ export default memo(function GameBoard() {
     .map((intersection) => ({ row: intersection.y, col: intersection.x }));
 
   return (
-    <div id="board" className={styles.board}>
-      <div className={styles.boardControls}>
-        <WithPopover id="info" icon="info" label="Game info">
-          <p>
-            Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
-            placing black and white stones. This game is based on Tromp-Taylor rules.
-          </p>
-        </WithPopover>
-        <WithPopover id="settings" icon="settings" label="Settings">
-          <FeatureToggles />
-        </WithPopover>
-      </div>
-      <div className={styles.boardAnchor}>
-        <GoBoard
-          boardSize={size}
-          grid={grid}
-          step={step}
-          lastPlayed={played}
-          atari={atari}
-          territory={showTerritory ? territory : { black: [], white: [] }}
-          reducedMotion={reducedMotion}
-        />
-      </div>
-      <div className={styles.notationSlot}>{showAnnotations && <Notation />}</div>
+    <div id="board">
+      <GoBoard
+        boardSize={size}
+        grid={grid}
+        step={step}
+        lastPlayed={played}
+        atari={atari}
+        territory={showTerritory ? territory : { black: [], white: [] }}
+        reducedMotion={reducedMotion}
+      />
     </div>
   );
 });

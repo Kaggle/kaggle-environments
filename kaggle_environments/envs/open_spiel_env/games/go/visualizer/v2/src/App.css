@@ -9,22 +9,6 @@
   height: 100%;
 }
 
-#go-playable-area {
-  position: relative;
-  display: grid;
-  overflow: auto;
-  min-height: 100%;
-  max-height: 100dvh;
-  overscroll-behavior: none;
-  background-image: url("/images/paper.webp");
-  background-size: cover;
-  background-position: center;
-  font-family: "Inter", sans-serif;
-  container-type: inline-size;
-  padding-inline: 1.25rem;
-  color: #050001;
-}
-
 .squiggle-border {
   background-image:
     url("/images/squiggle-solid.png"), url("/images/squiggle-solid.png"),
@@ -38,14 +22,16 @@
     2px 5rem;
 }
 
+/* Technique to overlap elements without introducing new stacking contexts. */
 .grid-pile {
   display: grid;
+
+  & > * {
+    grid-area: 1 / 1;
+  }
 }
 
-.grid-pile > * {
-  grid-area: 1 / 1;
-}
-
+/* Hide content visually, not semantically. */
 .visually-hidden {
   position: absolute;
   width: 1px;

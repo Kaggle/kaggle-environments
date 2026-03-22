@@ -10,11 +10,15 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
 import HeroAnimationModal from './HeroAnimationModal.tsx';
 import VersusBanner from './VersusBanner.tsx';
+import styles from './Gamerenderer.module.css';
+import Notation from './Notation.tsx';
+import { BoardControls } from './BoardControls.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
   const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
+  const showAnnotations = usePreferences((state) => state.showAnnotations);
 
   useEffect(() => {
     const parameters = options.replay.configuration.openSpielGameParameters;
@@ -62,8 +66,13 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
   }, [options, setState]);
 
   return (
-    <div id="go-playable-area">
-      <GameBoard />
+    <div id="go-playable-area" className={styles.playableArea}>
+      <div className={styles.board}>
+        <BoardControls />
+        <GameBoard />
+        {/* Note: The div is kept here unconditionally for layout purposes. */}
+        {showAnnotations && <div className={styles.notationSlot}>{showAnnotations && <Notation />}</div>}
+      </div>
       <div>
         <ScorePanel />
         <CapturePots />
