@@ -1,14 +1,26 @@
+:global(#go-playable-area) {
+  anchor-name: --playable-area;
+}
+
 .modal {
   --font-size: 1.25rem;
   --border-size: 2px;
   --cell-padding: 0.75rem 1.5rem;
   --reveal-delay: 4.8s;
-  position: absolute;
-  inset: 0;
-  z-index: 10;
+  position: fixed;
+  position-anchor: --playable-area;
+  inset: unset;
+  top: anchor(top);
+  left: anchor(left);
+  width: anchor-size(width);
+  height: anchor-size(height);
+  margin: 0;
+  border: none;
+  max-width: none;
+  max-height: none;
   padding: 2rem;
   display: grid;
-  place-content: center;
+  place-content: safe center;
   overflow: auto;
   text-align: center;
   gap: 1.5rem;
@@ -119,7 +131,6 @@
 @container (max-width: 600px) {
   .modal {
     --font-size: 11px;
-    place-content: start;
   }
 
   .table {
