@@ -76,12 +76,18 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
   };
 
   return (
-    <div id="go-playable-area" className={styles.playableArea}>
+    <main id="go-playable-area" className={styles.playableArea}>
+      <h1 className="visually-hidden">
+        {options.replay.info?.TeamNames?.[0] ?? 'Black'} vs. {options.replay.info?.TeamNames?.[1] ?? 'White'}
+      </h1>
       <div className={styles.board} ref={inertRef}>
         <BoardControls />
         <GameBoard />
-        {/* Note: The div is kept here unconditionally for layout purposes. */}
-        {showAnnotations && <div className={styles.notationSlot}>{showAnnotations && <Notation />}</div>}
+        {showAnnotations && (
+          <div className={styles.notationSlot} aria-live="polite">
+            <Notation />
+          </div>
+        )}
       </div>
       <div ref={inertRef}>
         <ScorePanel />
@@ -90,6 +96,6 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       {options.step === 0 && <VersusBanner options={options} />}
       {gameOver && <GameOverModal />}
       {showHeroAnimations && <HeroAnimationModal />}
-    </div>
+    </main>
   );
 });

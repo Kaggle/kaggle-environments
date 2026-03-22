@@ -28,7 +28,10 @@ export default memo(function GameOverModal() {
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.show();
+    if (dialog && !dialog.open) {
+      dialog.show();
+      dialog.focus();
+    }
   }, []);
 
   if (!options) return null;
@@ -92,9 +95,11 @@ export default memo(function GameOverModal() {
   ];
 
   return (
-    <dialog ref={dialogRef} className={styles.modal}>
+    <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
       <div className="ribbon">
-        <Ribbon>Winner is {winnerName}!</Ribbon>
+        <Ribbon>
+          <h2 className={styles.heading}>Winner is {winnerName}!</h2>
+        </Ribbon>
       </div>
       <div className={styles.meta}>
         Game Duration: {formatDuration(gameDuration)}
