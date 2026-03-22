@@ -1,11 +1,8 @@
 .banner {
-  --padding-inline: 4rem;
-  --padding-block: 1.5rem;
-  --font-size: 2rem;
   --shadow-size: 0.3125rem;
   --shadow-color: rgb(0 0 0 / 35%);
   display: grid;
-  font-size: var(--font-size);
+  font-size: var(--ribbon-font-size, 2rem);
   position: relative;
   place-content: center;
   justify-items: center;
@@ -17,7 +14,8 @@
 }
 
 .text {
-  padding: var(--padding-block) var(--padding-inline);
+  padding: var(--ribbon-padding-block, 1.5rem)
+    var(--ribbon-padding-inline, 4rem);
   position: relative;
 
   /*transition: opacity 0.8s, transform 0.6s;*/
@@ -33,7 +31,7 @@
 .ribbon {
   display: grid;
   align-items: center;
-  width: calc(100% + var(--padding-inline));
+  width: calc(100% + var(--ribbon-padding-inline, 4rem));
   height: 100%;
   grid-template-columns: auto 1fr auto;
   filter: drop-shadow(
