@@ -236,9 +236,7 @@ html, body, #app {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background-image: url('./images/paper.webp');
-  background-size: cover;
-  background-position: center;
+  background-color: #f5f1e2;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
   box-sizing: border-box;
@@ -255,13 +253,8 @@ html, body, #app {
   min-height: 0;
 }
 
-.squiggle-border {
-  background-image:
-    url('./images/squiggle-solid.png'), url('./images/squiggle-solid.png'),
-    url('./images/squiggle-v.png'), url('./images/squiggle-v.png');
-  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-  background-position: top, bottom, left, right;
-  background-size: 5rem 2px, 5rem 2px, 2px 5rem, 2px 5rem;
+.sketched-border {
+  border: 1px dashed #3c3b37;
 }
 
 .header {
@@ -319,24 +312,15 @@ createReplayVisualizer(
 
 ## Visual style guide
 
-All OpenSpiel visualizers should match the **paper-and-ink** aesthetic used by the go v2 visualizer. The goal is a warm, tactile, stationery-like look -- as if the game were drawn on paper with hand-sketched borders.
-
-### Required assets
-
-Copy these shared image assets into your visualizer's `public/images/` directory (source them from the go v2 visualizer at `games/go/visualizer/v2/public/images/`):
-
-- `paper.webp` -- warm parchment background texture
-- `squiggle-solid.png` -- hand-drawn solid line tile (horizontal/vertical borders)
-- `squiggle-v.png` -- hand-drawn vertical line tile
-- `squiggle-dash.png` -- hand-drawn dashed line tile (canvas grid lines)
+All OpenSpiel visualizers should match a **paper-and-ink** aesthetic. The goal is a warm, tactile, stationery-like look -- as if the game were drawn on paper with hand-sketched borders.
 
 ### Aesthetic principles
 
-1. **Paper-textured, not solid backgrounds.** Use `paper.webp` as the main background via `background-image`, not a solid color. The canvas should have a transparent background so the paper texture shows through from the DOM layer beneath.
+1. **Warm paper-like background.** Use a warm parchment background (`#f5f1e2`) instead of dark or saturated colors. The canvas should have a transparent background so the page color shows through from the DOM layer beneath.
 
 2. **Light color scheme.** Use near-black text (`#050001`) on the paper background. Avoid dark backgrounds, white-on-dark text, and neon/diffused glows.
 
-3. **Hand-drawn borders.** Use tiled squiggle PNG patterns for container borders instead of CSS `border` or `box-shadow`. Apply the `.squiggle-border` utility class (defined in `style.css`) to containers. This gives a sketched, woodblock-print quality.
+3. **Sketched borders.** Use dashed borders (`1px dashed #3c3b37`) on containers instead of solid CSS borders or diffused `box-shadow`. This gives a hand-drawn, woodblock-print quality.
 
 4. **High-resolution text.** Prefer **DOM elements** for all text, labels, and status displays rather than canvas text. Canvas `fillText` cannot use web fonts reliably. Use canvas only for the game board/grid itself. Wrap the canvas in a flex container alongside DOM-based status elements.
 
@@ -350,52 +334,52 @@ Copy these shared image assets into your visualizer's `public/images/` directory
 
 | Element | Color / Treatment | Notes |
 |---------|------------------|-------|
-| Page background | `paper.webp` texture | Warm parchment via `background-image`, never a solid color |
+| Page background | `#f5f1e2` | Warm parchment, never dark or saturated |
 | Primary text | `#050001` | Near-black, used on all body text |
 | Secondary text | `#444343` | Softer dark for table values and metadata |
 | Container background | `white` | Player cards, score tables, panels |
 | Active player highlight | `#bdeeff` | Light blue background on the active player card |
-| Borders | Squiggle PNG tiles | Hand-drawn look via `.squiggle-border` class |
+| Borders | `1px dashed #3c3b37` | Sketched look on containers |
 | Buttons / controls bg | `#f1f1f1` | Light gray for interactive elements |
 | Button shadow | `box-shadow: -0.125rem 0.125rem 0 #000` | Hard black offset, not diffused |
-| Canvas background | Transparent | Paper texture shows through from DOM layer |
-| Board grid lines | Squiggle-dash texture | Tiled for hand-drawn line appearance |
+| Canvas background | Transparent | Page background shows through from DOM layer |
+| Board grid lines | `1px dashed #3c3b37` or `1px solid #3c3b37` | Sketched look for grid lines on canvas |
 | Board labels | `#000000` (Inter font) | Column/row labels around the board |
 
 ### Rendering approach
 
 Use a **hybrid DOM + canvas** architecture:
 
-- **Canvas**: game board grid, pieces, move highlights, board decorations. Keep the canvas background transparent so the paper texture shows through.
-- **DOM**: player names, score tables, turn indicators, game-over modals, annotations. Use the `.squiggle-border` class for container borders.
+- **Canvas**: game board grid, pieces, move highlights, board decorations. Keep the canvas background transparent so the page background shows through.
+- **DOM**: player names, score tables, turn indicators, game-over modals, annotations. Use `border: 1px dashed #3c3b37` on containers.
 
 Cap the canvas at a maximum width (e.g., `max-width: 512px`) and use `aspect-ratio: 1` for square boards.
 
 ```
 +------------------------------------------+
 |  [DOM] Header: player cards with         |
-|  squiggle borders                        |
+|  dashed borders                          |
 +------------------------------------------+
 |                                          |
 |  [Canvas] Game board (transparent bg)    |
-|  on paper texture                        |
+|  on warm parchment background            |
 |                                          |
 +------------------------------------------+
-|  [DOM] Status / score with squiggle      |
+|  [DOM] Status / score with dashed        |
 |  borders, annotations in Mynerve font   |
 +------------------------------------------+
 ```
 
-### Squiggle border container pattern
+### Sketched border container pattern
 
-Use white containers with the `.squiggle-border` class for hand-drawn borders:
+Use white containers with a dashed border for a hand-drawn look:
 
 ```typescript
 const statusContainer = document.createElement('div');
-statusContainer.className = 'squiggle-border';
 Object.assign(statusContainer.style, {
   padding: '5px 12px',
   backgroundColor: 'white',
+  border: '1px dashed #3c3b37',
   textAlign: 'center',
   minWidth: '200px',
   marginTop: '10px',
@@ -421,18 +405,16 @@ Use background color change and scale transform on player containers:
 
 ### Game-over presentation
 
-Use a paper-textured modal overlay with staggered reveal animations:
+Use a modal overlay with staggered reveal animations:
 
 ```css
 .game-over-modal {
-  background-image: url('./images/paper.webp');
-  background-size: cover;
-  background-position: center;
+  background-color: #f5f1e2;
   color: #050001;
 }
 ```
 
-Display results in a table with squiggle borders. Use CSS `@starting-style` and `transition` for staggered element reveals.
+Display results in a table with dashed borders. Use CSS `@starting-style` and `transition` for staggered element reveals.
 
 ## Step 5: Write the renderer
 
@@ -524,7 +506,7 @@ Every visualizer MUST clearly communicate these four things:
 
 - Show a **DOM header** at the top with the current player's name
 - Highlight the active player's card with a `#bdeeff` light blue background and `scale: 1.1` (see style guide)
-- On game over, show the result in a paper-textured modal with squiggle-border table
+- On game over, show the result in a parchment-colored modal with a dashed-border table
 
 #### 2. Move taken (what just happened)
 
@@ -564,7 +546,7 @@ export function renderer(options: RendererOptions) {
     <div class="renderer-container">
       <div class="header"></div>
       <canvas></canvas>
-      <div class="status-container squiggle-border"></div>
+      <div class="status-container sketched-border"></div>
     </div>
   `;
   const container = parent.querySelector('.renderer-container') as HTMLDivElement;
@@ -603,17 +585,17 @@ export function renderer(options: RendererOptions) {
   const cp = getCurrentPlayer(currentStep);
 
   // --- 1. Build header (DOM) ---
-  // Player names in squiggle-border cards, active player highlighted
+  // Player names in sketched-border cards, active player highlighted
   const p1Active = !terminal && cp === 0;
   const p2Active = !terminal && cp === 1;
   header.innerHTML = `
-    <span class="squiggle-border" style="padding: 4px 12px; background-color: ${p1Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 1</span>
+    <span class="sketched-border" style="padding: 4px 12px; background-color: ${p1Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 1</span>
     <span style="color: #444343;">vs</span>
-    <span class="squiggle-border" style="padding: 4px 12px; background-color: ${p2Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 2</span>
+    <span class="sketched-border" style="padding: 4px 12px; background-color: ${p2Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 2</span>
   `;
 
   // --- 2. Draw game board on canvas ---
-  // Canvas is transparent -- paper.webp shows through from the DOM layer
+  // Canvas is transparent -- page background shows through from the DOM layer
   c.clearRect(0, 0, width, height);
   // ... draw board, pieces, move highlights ...
 
@@ -635,7 +617,7 @@ export function renderer(options: RendererOptions) {
 
 - **Header** (DOM): player names and title at the top, flexbox centered with gap
 - **Canvas**: game board centered in the remaining flex space, scaled responsively
-- **Status container** (DOM): white container with squiggle border at the bottom with game state text
+- **Status container** (DOM): white container with dashed border at the bottom with game state text
 - Use `Math.min()` to cap board size and ensure it doesn't overflow
 - Keep margins around the board for labels (draw labels on canvas or use positioned DOM elements)
 - For multi-board games (imperfect info): arrange boards in a 2x2 or side-by-side grid on the canvas
@@ -676,25 +658,17 @@ pnpm dev-with-replay
 - [ ] Score / game progress is visible in the header or status container
 - [ ] Game over state displays the result clearly
 - [ ] Board scales responsively (try resizing the window)
-- [ ] Background uses `paper.webp` texture (not a solid color)
 - [ ] Text uses Inter font (loaded via Google Fonts import in style.css)
-- [ ] Status/turn info is in a DOM container with squiggle border (not canvas text)
+- [ ] Status/turn info is in a DOM container with dashed border (not canvas text)
 - [ ] Active player card has `#bdeeff` background highlight
-- [ ] Squiggle border assets are in `public/images/`
 - [ ] `pnpm format` passes (run from repo root)
 
 ## Reference implementations
 
-Study these completed visualizers for patterns:
+Study these completed visualizers for acceptable code patterns:
 
-| Game | Type | Observation format | Key rendering patterns |
-|------|------|-------------------|----------------------|
-| `games/oware/` | Perfect info | `"player \| score0 score1 \| s0 s1 ... s11"` | Pit/seed board, seed count deltas, capture detection, score panel |
-| `games/nim/` | Perfect info | `"(player): pile0 pile1 ..."` | Stone columns, recently-removed stones (red X), pile change badges |
-| `games/breakthrough/` | Perfect info | Multi-line grid with `b`/`w`/`.` | Chess-like board, move-from/to highlighting, capture markers |
-| `games/dots_and_boxes/` | Perfect info | Unicode box-drawing characters | Line ownership tracking across all steps, score deltas, line glow |
-| `games/pentago/` | Perfect info | Multi-line grid with `O`/`@`/`.` | Go-like board, rotation detection, quadrant highlighting |
-| `games/battleship/` | Imperfect info | Two grids per player (`+---+` borders, letter ships, `#`/`@`/`*` markers) | Dual-board layout (ships + shots per player), per-player observation parsing, phase detection |
+- OpenSpiel Chess
+- ConnectX
 
 ## Troubleshooting
 
