@@ -1,7 +1,7 @@
 import type { GridPos } from '../types/game.ts';
 
 export const BOARD_PX = 512;
-export const BOARD_PADDING = 28;
+export const BOARD_PADDING = 56;
 
 /** Star point (hoshi) positions per board size */
 const STAR_POINTS: Record<number, [number, number][]> = {
@@ -38,6 +38,16 @@ export function getStarPoints(boardSize: number): [number, number][] {
 
 export function getCellSize(boardSize: number): number {
   return (BOARD_PX - BOARD_PADDING * 2) / (boardSize - 1);
+}
+
+const STONE_SCALE: Record<number, number> = {
+  9: 0.8,
+  13: 0.88,
+  19: 0.88,
+};
+
+export function getStoneScale(boardSize: number): number {
+  return STONE_SCALE[boardSize] ?? 0.88;
 }
 
 /** Map a board intersection (row, col) to pixel coordinates */
