@@ -5,7 +5,7 @@
   min-height: 100%;
   max-height: 100dvh;
   overscroll-behavior: none;
-  background-image: url("/images/paper.webp");
+  background-image: url("./images/paper.webp");
   background-size: cover;
   background-position: center;
   font-family: "Inter", sans-serif;
