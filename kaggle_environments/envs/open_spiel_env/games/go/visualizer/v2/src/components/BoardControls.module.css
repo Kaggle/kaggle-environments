@@ -1,0 +1,6 @@
+.boardControls {
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  gap: 0.5rem;
+}

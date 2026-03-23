@@ -10,11 +10,15 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
 import HeroAnimationModal from './HeroAnimationModal.tsx';
 import VersusBanner from './VersusBanner.tsx';
+import styles from './Gamerenderer.module.css';
+import Notation from './Notation.tsx';
+import { BoardControls } from './BoardControls.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
   const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
+  const showAnnotations = usePreferences((state) => state.showAnnotations);
 
   useEffect(() => {
     const parameters = options.replay.configuration.openSpielGameParameters;
@@ -61,16 +65,37 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
     setState(game, options);
   }, [options, setState]);
 
+  const gameOver = game.isOver();
+  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
+  // set it imperatively via a ref callback. This can be replaced with a
+  // regular `inert` prop once the project upgrades to React 19+.
+  const inertRef = (el: HTMLElement | null) => {
+    if (!el) return;
+    if (gameOver) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  };
+
   return (
-    <div id="go-playable-area">
-      <GameBoard />
-      <div>
+    <main id="go-playable-area" className={styles.playableArea}>
+      <h1 className="visually-hidden">
+        {options.replay.info?.TeamNames?.[0] ?? 'Black'} vs. {options.replay.info?.TeamNames?.[1] ?? 'White'}
+      </h1>
+      <div className={styles.board} ref={inertRef}>
+        <BoardControls />
+        <GameBoard />
+        {showAnnotations && (
+          <div className={styles.notationSlot} aria-live="polite">
+            <Notation />
+          </div>
+        )}
+      </div>
+      <div ref={inertRef}>
         <ScorePanel />
         <CapturePots />
       </div>
       {options.step === 0 && <VersusBanner options={options} />}
-      {game.isOver() && <GameOverModal />}
+      {gameOver && <GameOverModal />}
       {showHeroAnimations && <HeroAnimationModal />}
-    </div>
+    </main>
   );
 });

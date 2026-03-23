@@ -59,6 +59,7 @@ export default memo(function ScorePanel() {
 
   return (
     <section className={styles.panel} aria-label="Score">
+      <h2 className="visually-hidden">Score</h2>
       <div
         className={`${styles.playerBlack} ${activeColor === 'black' ? styles.active : ''} ${lastPlayedColor === 'black' ? styles.lastPlayed : ''}`}
       >

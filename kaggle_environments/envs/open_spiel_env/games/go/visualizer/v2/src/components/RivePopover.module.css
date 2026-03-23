@@ -1,7 +1,13 @@
 .overlay {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  position-anchor: --playable-area;
+  inset: unset;
+  top: anchor(top);
+  left: anchor(left);
+  width: anchor-size(width);
+  height: anchor-size(height);
   z-index: 10;
+  pointer-events: none;
   transition: opacity 350ms ease-out;
 
   @starting-style {
