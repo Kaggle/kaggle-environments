@@ -4,7 +4,6 @@ import { GameRendererProps } from '@kaggle-environments/core';
 import { GoStep } from '../transformers/goReplayTypes';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
-import CapturePots from '../components/CapturePots';
 import GameOverModal from '../components/GameOverModal';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
@@ -91,7 +90,6 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       </div>
       <div ref={inertRef}>
         <ScorePanel />
-        <CapturePots />
       </div>
       {options.step === 0 && <VersusBanner options={options} />}
       {gameOver && <GameOverModal />}
