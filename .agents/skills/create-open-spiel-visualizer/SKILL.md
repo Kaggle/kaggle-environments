@@ -205,6 +205,9 @@ Note: OpenSpiel visualizers are 7 levels deep from the repo root (`kaggle_enviro
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><Game Name> Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Mynerve&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
@@ -233,18 +236,32 @@ html, body, #app {
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: #28303F;
+  background-image: url('./images/paper.webp');
+  background-size: cover;
+  background-position: center;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
   box-sizing: border-box;
   padding: 12px;
+  color: #050001;
+  container-type: inline-size;
 }
 
 .renderer-container canvas {
   position: relative;
   flex-grow: 1;
   width: 100%;
+  max-width: 512px;
   min-height: 0;
+}
+
+.squiggle-border {
+  background-image:
+    url('./images/squiggle-solid.png'), url('./images/squiggle-solid.png'),
+    url('./images/squiggle-v.png'), url('./images/squiggle-v.png');
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position: top, bottom, left, right;
+  background-size: 5rem 2px, 5rem 2px, 2px 5rem, 2px 5rem;
 }
 
 .header {
@@ -253,22 +270,18 @@ html, body, #app {
   align-items: center;
   width: 100%;
   padding: 8px 0;
-  color: white;
   font-size: 1.1rem;
   font-weight: 600;
   flex-shrink: 0;
   gap: 16px;
 }
 
-.status-pill {
+.status-container {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 5px 16px;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-  color: black;
   font-size: 0.9rem;
   font-weight: 600;
   min-height: 18px;
@@ -306,77 +319,83 @@ createReplayVisualizer(
 
 ## Visual style guide
 
-All OpenSpiel visualizers should match the "paper-like and playful" aesthetic used by the chess v2 and go v2 visualizers. The goal is a warm, neutral look that harmonizes with the surrounding UI (e.g., reasoning log panels) rather than standing out with dark, saturated backgrounds.
+All OpenSpiel visualizers should match a **paper-and-ink** aesthetic. The goal is a warm, tactile, stationery-like look -- as if the game were drawn on paper with hand-sketched borders.
+
+### Required assets
+
+Copy these shared image assets into your visualizer's `public/images/` directory (source them from the go v2 visualizer at `games/go/visualizer/v2/public/images/`):
+
+- `paper.webp` -- warm parchment background texture
+- `squiggle-solid.png` -- hand-drawn solid line tile (horizontal/vertical borders)
+- `squiggle-v.png` -- hand-drawn vertical line tile
+- `squiggle-dash.png` -- hand-drawn dashed line tile (canvas grid lines)
 
 ### Aesthetic principles
 
-1. **Paper-like, not dark-mode.** Use warm neutral backgrounds (`#28303F` or transparent) instead of saturated dark blues (`#1a1a2e`). Status areas should be white with subtle shadows -- like cards or pills floating on the page.
+1. **Paper-textured, not solid backgrounds.** Use `paper.webp` as the main background via `background-image`, not a solid color. The canvas should have a transparent background so the paper texture shows through from the DOM layer beneath.
 
-2. **Playful, not sterile.** Use generous border-radius (`8px` for containers, `22-32px` for pills/badges), soft box-shadows, and warm board colors. Avoid harsh borders and sharp edges.
+2. **Light color scheme.** Use near-black text (`#050001`) on the paper background. Avoid dark backgrounds, white-on-dark text, and neon/diffused glows.
 
-3. **High-resolution text.** Prefer **DOM elements** for all text, labels, and status displays rather than canvas text. Canvas `fillText` renders at device pixel ratio and cannot use web fonts reliably. Use canvas only for the game board/grid itself. Wrap the canvas in a flex container alongside DOM-based status elements.
+3. **Hand-drawn borders.** Use tiled squiggle PNG patterns for container borders instead of CSS `border` or `box-shadow`. Apply the `.squiggle-border` utility class (defined in `style.css`) to containers. This gives a sketched, woodblock-print quality.
 
-4. **Inter font.** All text must use the Inter font family. Load it via Google Fonts in `style.css`:
-   ```css
-   @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
-   ```
-   Apply it to the renderer container: `font-family: 'Inter', sans-serif;`
+4. **High-resolution text.** Prefer **DOM elements** for all text, labels, and status displays rather than canvas text. Canvas `fillText` cannot use web fonts reliably. Use canvas only for the game board/grid itself. Wrap the canvas in a flex container alongside DOM-based status elements.
 
-5. **Responsive sizing.** Use `rem`-based font sizes (`0.8rem`, `1rem`, `1.1rem`) rather than pixel-based canvas text sizes. Check `window.innerWidth < 768` for mobile breakpoints when needed.
+5. **Two typefaces.** Use **Inter** (sans-serif) for all UI text -- player names, scores, labels, controls. Use **Mynerve** (cursive) as an optional accent font for annotations, commentary, and decorative text. Load Inter via CSS `@import` in `style.css` and Mynerve via `<link>` in `index.html`.
+
+6. **Hard offset shadows.** For modals and popover panels, use hard black offset shadows (e.g., `box-shadow: -0.75rem 0.75rem`) rather than soft diffused drop-shadows. This matches the woodblock/stamp aesthetic.
+
+7. **Responsive sizing.** Use CSS container queries (`@container (max-width: 680px)`) for responsive layout adjustments. Set `container-type: inline-size` on the main wrapper. The **680px** breakpoint is the mobile threshold. Use `rem`-based font sizes (`0.8rem`, `1rem`, `1.1rem`).
 
 ### Color palette
 
-| Element | Color | Notes |
-|---------|-------|-------|
-| Container background | `#28303F` | Neutral dark slate, not saturated blue |
-| Player 1 accent | `#4fc3f7` | Turn indicator, active player glow |
-| Player 2 accent | `#ff8a65` | Turn indicator, active player glow |
-| Active player highlight | `#20BEFF` | Bright blue for current turn border/glow |
-| Winner highlight | `#FFEB70` | Gold for winner border/glow |
-| Status container bg | `white` | Paper-like status pills |
-| Status text | `black` | Dark text on white containers |
-| Dim text | `#666` | Secondary labels |
-| Info card bg | `rgba(32, 33, 36, 0.70)` | Semi-transparent dark cards for overlays |
-| Info card text | `#E8EAED` | Light text on dark cards |
-| Stats pill bg | `#3C4043` | Dark pill for stats/badges |
-| Positive delta | `#66bb6a` | Score gain |
-| Negative delta / capture | `#ef5350` | Score loss, piece removal |
-| Last move highlight | `#ffd700` (gold) | Move highlight ring/overlay |
-| Board light square | `#f0d9b5` | Warm tan (for chess-like boards) |
-| Board dark square | `#b58863` | Warm brown (for chess-like boards) |
+| Element | Color / Treatment | Notes |
+|---------|------------------|-------|
+| Page background | `paper.webp` texture | Warm parchment via `background-image`, never a solid color |
+| Primary text | `#050001` | Near-black, used on all body text |
+| Secondary text | `#444343` | Softer dark for table values and metadata |
+| Container background | `white` | Player cards, score tables, panels |
+| Active player highlight | `#bdeeff` | Light blue background on the active player card |
+| Borders | Squiggle PNG tiles | Hand-drawn look via `.squiggle-border` class |
+| Buttons / controls bg | `#f1f1f1` | Light gray for interactive elements |
+| Button shadow | `box-shadow: -0.125rem 0.125rem 0 #000` | Hard black offset, not diffused |
+| Canvas background | Transparent | Paper texture shows through from DOM layer |
+| Board grid lines | Squiggle-dash texture | Tiled for hand-drawn line appearance |
+| Board labels | `#000000` (Inter font) | Column/row labels around the board |
 
 ### Rendering approach
 
 Use a **hybrid DOM + canvas** architecture:
 
-- **Canvas**: game board grid, pieces, move highlights, board decorations
-- **DOM**: header/title, player names, status text, score displays, turn indicators, game-over messages
+- **Canvas**: game board grid, pieces, move highlights, board decorations. Keep the canvas background transparent so the paper texture shows through.
+- **DOM**: player names, score tables, turn indicators, game-over modals, annotations. Use the `.squiggle-border` class for container borders.
 
-This gives you crisp, font-rendered text alongside flexible canvas drawing for game-specific visuals.
+Cap the canvas at a maximum width (e.g., `max-width: 512px`) and use `aspect-ratio: 1` for square boards.
 
 ```
 +------------------------------------------+
-|  [DOM] Header: Player names, title        |
+|  [DOM] Header: player cards with         |
+|  squiggle borders                        |
 +------------------------------------------+
 |                                          |
-|  [Canvas] Game board                     |
+|  [Canvas] Game board (transparent bg)    |
+|  on paper texture                        |
 |                                          |
 +------------------------------------------+
-|  [DOM] Status pill: turn / game over     |
+|  [DOM] Status / score with squiggle      |
+|  borders, annotations in Mynerve font   |
 +------------------------------------------+
 ```
 
-### Status container pattern
+### Squiggle border container pattern
 
-Use white, rounded containers with soft shadows for status information:
+Use white containers with the `.squiggle-border` class for hand-drawn borders:
 
 ```typescript
 const statusContainer = document.createElement('div');
+statusContainer.className = 'squiggle-border';
 Object.assign(statusContainer.style, {
   padding: '5px 12px',
   backgroundColor: 'white',
-  borderRadius: '8px',
-  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
   textAlign: 'center',
   minWidth: '200px',
   marginTop: '10px',
@@ -384,19 +403,36 @@ Object.assign(statusContainer.style, {
 });
 ```
 
-### Active player / winner indication
+### Active player indication
 
-Use border color and glow on player info containers:
+Use background color change and scale transform on player containers:
 
 ```css
-/* Active player */
-border-color: #20BEFF;
-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(32, 190, 255, 0.5);
+.player {
+  background-color: white;
+  transition: scale 300ms;
+}
 
-/* Winner */
-border-color: #FFEB70;
-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 235, 112, 0.6);
+.player.active {
+  background-color: #bdeeff;
+  scale: 1.1;
+}
 ```
+
+### Game-over presentation
+
+Use a modal overlay with staggered reveal animations:
+
+```css
+.game-over-modal {
+  background-image: url('./images/paper.webp');
+  background-size: cover;
+  background-position: center;
+  color: #050001;
+}
+```
+
+Display results in a table with squiggle borders. Use CSS `@starting-style` and `transition` for staggered element reveals.
 
 ## Step 5: Write the renderer
 
@@ -486,10 +522,9 @@ Every visualizer MUST clearly communicate these four things:
 
 #### 1. Current actor (whose turn it is)
 
-- Show a **DOM header** at the top with the current player's name and a colored accent
-- Use consistent player colors: **Player 1 = `#4fc3f7` (blue)**, **Player 2 = `#ff8a65` (orange)**
-- Highlight the active player with `#20BEFF` border/glow (see style guide)
-- On game over, show the result with the winner's `#FFEB70` gold highlight
+- Show a **DOM header** at the top with the current player's name
+- Highlight the active player's card with a `#bdeeff` light blue background and `scale: 1.1` (see style guide)
+- On game over, show the result in a paper-textured modal with squiggle-border table
 
 #### 2. Move taken (what just happened)
 
@@ -508,12 +543,12 @@ Every visualizer MUST clearly communicate these four things:
 
 - Show scores in the header or a DOM stats element using player-colored text
 - Show piece counts, stones remaining, boxes claimed, hit/miss ratios, etc.
-- At game over, display the final result prominently in the status pill
+- At game over, display the final result prominently in the status container
 
 ### Handling game phases
 
 Some games have distinct phases (e.g., Battleship has ship placement then war). Detect the phase from the observation state and adjust the display accordingly:
-- Show phase name in the header or status pill
+- Show phase name in the header or status container
 - Adapt what stats are shown (e.g., no shot stats during placement)
 - Potentially change the visual emphasis
 
@@ -529,13 +564,13 @@ export function renderer(options: RendererOptions) {
     <div class="renderer-container">
       <div class="header"></div>
       <canvas></canvas>
-      <div class="status-pill"></div>
+      <div class="status-container squiggle-border"></div>
     </div>
   `;
   const container = parent.querySelector('.renderer-container') as HTMLDivElement;
   const header = parent.querySelector('.header') as HTMLDivElement;
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusPill = parent.querySelector('.status-pill') as HTMLDivElement;
+  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   if (!canvas || !replay) return;
 
   // Size canvas to fill its flex area
@@ -560,7 +595,7 @@ export function renderer(options: RendererOptions) {
   }
 
   if (!state) {
-    statusPill.textContent = 'Waiting for game data...';
+    statusContainer.textContent = 'Waiting for game data...';
     return;
   }
 
@@ -568,29 +603,30 @@ export function renderer(options: RendererOptions) {
   const cp = getCurrentPlayer(currentStep);
 
   // --- 1. Build header (DOM) ---
-  // Player names with accent colors, game title
+  // Player names in squiggle-border cards, active player highlighted
+  const p1Active = !terminal && cp === 0;
+  const p2Active = !terminal && cp === 1;
   header.innerHTML = `
-    <span style="color: #4fc3f7; font-weight: 700;">Player 1</span>
-    <span style="color: #9ca3af;">vs</span>
-    <span style="color: #ff8a65; font-weight: 700;">Player 2</span>
+    <span class="squiggle-border" style="padding: 4px 12px; background-color: ${p1Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 1</span>
+    <span style="color: #444343;">vs</span>
+    <span class="squiggle-border" style="padding: 4px 12px; background-color: ${p2Active ? '#bdeeff' : 'white'}; font-weight: 700;">Player 2</span>
   `;
 
   // --- 2. Draw game board on canvas ---
-  // Clear canvas with neutral background
-  c.fillStyle = '#28303F';
-  c.fillRect(0, 0, width, height);
+  // Canvas is transparent -- paper.webp shows through from the DOM layer
+  c.clearRect(0, 0, width, height);
   // ... draw board, pieces, move highlights ...
 
-  // --- 3. Update status pill (DOM) ---
+  // --- 3. Update status container (DOM) ---
   if (terminal) {
     const rewards = getRewards(currentStep);
     let msg = 'Game Over -- Draw';
     if (rewards[0] > rewards[1]) msg = 'Game Over -- Player 1 wins!';
     else if (rewards[1] > rewards[0]) msg = 'Game Over -- Player 2 wins!';
-    statusPill.textContent = msg;
-    statusPill.style.fontWeight = '700';
+    statusContainer.textContent = msg;
+    statusContainer.style.fontWeight = '700';
   } else {
-    statusPill.textContent = `Player ${cp + 1}'s turn`;
+    statusContainer.textContent = `Player ${cp + 1}'s turn`;
   }
 }
 ```
@@ -599,7 +635,7 @@ export function renderer(options: RendererOptions) {
 
 - **Header** (DOM): player names and title at the top, flexbox centered with gap
 - **Canvas**: game board centered in the remaining flex space, scaled responsively
-- **Status pill** (DOM): white rounded container at the bottom with game state text
+- **Status container** (DOM): white container with squiggle border at the bottom with game state text
 - Use `Math.min()` to cap board size and ensure it doesn't overflow
 - Keep margins around the board for labels (draw labels on canvas or use positioned DOM elements)
 - For multi-board games (imperfect info): arrange boards in a 2x2 or side-by-side grid on the canvas
@@ -622,7 +658,7 @@ pnpm dev-with-replay
 ```
 
 **Common build errors:**
-- Unused variables/parameters: prefix with `_` (e.g., `_playerIdx`) or remove them
+- Unused variables/parameters: remove them
 - Missing type imports: ensure `import type { RendererOptions } from '@kaggle-environments/core'`
 
 ### Verification checklist
@@ -637,26 +673,20 @@ pnpm dev-with-replay
 - [ ] Current player is clearly indicated with color
 - [ ] Last move is highlighted (glow, ring, overlay, etc.)
 - [ ] Move diffs are shown (deltas, captures, removed pieces)
-- [ ] Score / game progress is visible in the header or status pill
-- [ ] Game over state displays the winner with correct colors
+- [ ] Score / game progress is visible in the header or status container
+- [ ] Game over state displays the result clearly
 - [ ] Board scales responsively (try resizing the window)
-- [ ] Background is `#28303F` (not `#1a1a2e`)
 - [ ] Text uses Inter font (loaded via Google Fonts import in style.css)
-- [ ] Status/turn info is in a white DOM pill (not canvas text)
+- [ ] Status/turn info is in a DOM container with squiggle border (not canvas text)
+- [ ] Active player card has `#bdeeff` background highlight
 - [ ] `pnpm format` passes (run from repo root)
 
 ## Reference implementations
 
-Study these completed visualizers for patterns:
+Study these completed visualizers for acceptable code patterns:
 
-| Game | Type | Observation format | Key rendering patterns |
-|------|------|-------------------|----------------------|
-| `games/oware/` | Perfect info | `"player \| score0 score1 \| s0 s1 ... s11"` | Pit/seed board, seed count deltas, capture detection, score panel |
-| `games/nim/` | Perfect info | `"(player): pile0 pile1 ..."` | Stone columns, recently-removed stones (red X), pile change badges |
-| `games/breakthrough/` | Perfect info | Multi-line grid with `b`/`w`/`.` | Chess-like board, move-from/to highlighting, capture markers |
-| `games/dots_and_boxes/` | Perfect info | Unicode box-drawing characters | Line ownership tracking across all steps, score deltas, line glow |
-| `games/pentago/` | Perfect info | Multi-line grid with `O`/`@`/`.` | Go-like board, rotation detection, quadrant highlighting |
-| `games/battleship/` | Imperfect info | Two grids per player (`+---+` borders, letter ships, `#`/`@`/`*` markers) | Dual-board layout (ships + shots per player), per-player observation parsing, phase detection |
+- OpenSpiel Chess
+- ConnectX
 
 ## Troubleshooting
 
