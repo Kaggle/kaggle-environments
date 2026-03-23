@@ -11,7 +11,7 @@ import type { RendererOptions } from '@kaggle-environments/core';
 // ^ 6 . . . O . . ^
 //     > y     x <
 //
-// 'O' or 'o' = player 1 (sometimes colored), '@' or 'x' = player 2
+// 'O' or 'o' = player 1, '@' or 'x' = player 2
 // '.' = empty
 
 interface PentagoState {
@@ -24,7 +24,6 @@ function parseObservation(obsString: string): PentagoState | null {
   const board: number[][] = [];
 
   for (const line of lines) {
-    // Match board rows: lines containing row numbers 1-6 followed by pieces
     const match = line.match(/\d\s+([.OoXx@]\s+[.OoXx@]\s+[.OoXx@]\s+[.OoXx@]\s+[.OoXx@]\s+[.OoXx@])/);
     if (match) {
       const cells = match[1].trim().split(/\s+/);
@@ -73,32 +72,29 @@ function getRewards(step: any): [number, number] {
 
 const COLORS = {
   boardBg: '#dcb871',
-  boardStroke: '#8b6914',
+  boardStroke: '#3c3b37',
   gridLine: '#a08050',
   quadrantLine: '#654321',
   p1: '#2d3748',
   p1Stroke: '#1a202c',
   p2: '#f7fafc',
   p2Stroke: '#a0aec0',
-  p1Accent: '#4fc3f7',
-  p2Accent: '#ff8a65',
-  text: '#e0e0e0',
-  infoBg: '#16213e',
-  infoBorder: '#0f3460',
+  text: '#050001',
+  textSecondary: '#444343',
+  label: '#654321',
+  moveHighlight: '#c0392b',
 };
 
 // ---- Quadrant extraction & rotation helpers ----
 
 type Quadrant = number[][]; // 3x3
 
-/** Quadrant definitions: [rowStart, colStart] */
 const QUADRANT_OFFSETS: [number, number][] = [
   [0, 0], // top-left
   [0, 3], // top-right
   [3, 0], // bottom-left
   [3, 3], // bottom-right
 ];
-// Quadrant labels for reference: ['TL', 'TR', 'BL', 'BR']
 
 function extractQuadrant(board: number[][], qi: number): Quadrant {
   const [rs, cs] = QUADRANT_OFFSETS[qi];
@@ -110,7 +106,6 @@ function extractQuadrant(board: number[][], qi: number): Quadrant {
 }
 
 function rotateCW(q: Quadrant): Quadrant {
-  // (r,c) -> (c, 2-r)
   const out: Quadrant = [
     [0, 0, 0],
     [0, 0, 0],
@@ -121,7 +116,6 @@ function rotateCW(q: Quadrant): Quadrant {
 }
 
 function rotateCCW(q: Quadrant): Quadrant {
-  // (r,c) -> (2-c, r)
   const out: Quadrant = [
     [0, 0, 0],
     [0, 0, 0],
@@ -140,23 +134,11 @@ interface MoveInfo {
   placedRow: number;
   placedCol: number;
   placedPlayer: number;
-  rotatedQuadrant: number; // 0-3, or -1 if unknown
+  rotatedQuadrant: number;
   rotationDirection: 'cw' | 'ccw' | 'none';
 }
 
-/**
- * Detect what changed between previous and current board.
- * A Pentago move = place a stone + rotate one quadrant.
- * We find the placed stone and detect which quadrant was rotated and in which direction.
- */
 function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
-  // Step 1: Find placed stone.
-  // After placement + rotation the board changed. We need to account for the
-  // rotation affecting the position of the placed stone. Strategy:
-  // - For each quadrant, check if rotating prev quadrant CW or CCW makes it
-  //   match the current quadrant (with exactly one new stone added).
-
-  // First try: find cells that differ
   const diffs: { row: number; col: number; prevVal: number; curVal: number }[] = [];
   for (let r = 0; r < 6; r++) {
     for (let c = 0; c < 6; c++) {
@@ -168,7 +150,6 @@ function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
 
   if (diffs.length === 0) return null;
 
-  // Count pieces to know who placed
   let prevP1 = 0,
     prevP2 = 0,
     curP1 = 0,
@@ -184,27 +165,12 @@ function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
   const placedPlayer = curP1 > prevP1 ? 1 : curP2 > prevP2 ? 2 : 0;
   if (placedPlayer === 0) return null;
 
-  // Strategy: For each quadrant, try to determine if it was rotated.
-  // Build a "hypothetical previous board after placing the stone" and then
-  // check if rotating a quadrant of that board yields the current board.
-
-  // Simple approach: find the newly placed stone (a cell that is empty in prev
-  // but occupied in cur and NOT just moved by rotation). We try each quadrant rotation.
-
-  // For each quadrant qi, try CW and CCW:
-  //   Rotate cur quadrant qi in the OPPOSITE direction -> get "pre-rotation" state
-  //   Compare with prev board: exactly one new stone should appear (the placement)
   for (let qi = 0; qi < 4; qi++) {
     const [rs, cs] = QUADRANT_OFFSETS[qi];
     const curQ = extractQuadrant(cur.board, qi);
 
     for (const dir of ['cw', 'ccw'] as const) {
-      // Undo the rotation on the current quadrant to get pre-rotation state
       const undone = dir === 'cw' ? rotateCCW(curQ) : rotateCW(curQ);
-
-      // Now compare the undone quadrant with prevQ for the rotated quadrant,
-      // and compare remaining quadrants directly.
-      // Count total differences across the whole board.
       let totalNewStones = 0;
       let placedR = -1,
         placedC = -1;
@@ -214,10 +180,8 @@ function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
         for (let c = 0; c < 6; c++) {
           let preRotVal: number;
           if (r >= rs && r < rs + 3 && c >= cs && c < cs + 3) {
-            // Inside the rotated quadrant: use undone value
             preRotVal = undone[r - rs][c - cs];
           } else {
-            // Outside the rotated quadrant: current value should match prev
             preRotVal = cur.board[r][c];
           }
 
@@ -247,8 +211,7 @@ function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
     }
   }
 
-  // Fallback: maybe the rotation was a no-op (quadrant is symmetric or no rotation).
-  // In that case, look for a single new stone with no rotation.
+  // Fallback: no rotation
   {
     let newStones = 0;
     let placedR = -1,
@@ -274,19 +237,16 @@ function detectMove(prev: PentagoState, cur: PentagoState): MoveInfo | null {
     }
   }
 
-  // Last resort: just pick the first new stone we can find
+  // Last resort
   for (const d of diffs) {
     if (d.prevVal === 0 && d.curVal === placedPlayer) {
-      // Try to find rotation by checking quadrant-level changes
       let rotQ = -1;
       let rotDir: 'cw' | 'ccw' | 'none' = 'none';
       for (let qi = 0; qi < 4; qi++) {
         const prevQ = extractQuadrant(prev.board, qi);
         const curQ = extractQuadrant(cur.board, qi);
         if (!quadrantsEqual(prevQ, curQ)) {
-          // Check if this is the rotated quadrant
           if (rotQ === -1 || qi !== Math.floor(d.row / 3) * 2 + Math.floor(d.col / 3)) {
-            // Check rotation direction
             if (quadrantsEqual(rotateCW(prevQ), curQ)) {
               rotQ = qi;
               rotDir = 'cw';
@@ -332,7 +292,6 @@ function drawRotationArrow(c: CanvasRenderingContext2D, cx: number, cy: number, 
   c.arc(cx, cy, size, Math.PI * 0.2, Math.PI * 1.8);
   c.stroke();
 
-  // Arrowhead
   const angle = Math.PI * 1.8;
   const ax = cx + Math.cos(angle) * size;
   const ay = cy + Math.sin(angle) * size;
@@ -346,10 +305,6 @@ function drawRotationArrow(c: CanvasRenderingContext2D, cx: number, cy: number, 
   c.restore();
 }
 
-/**
- * Draw a curved rotation arrow on a quadrant border.
- * The arrow indicates CW or CCW rotation for the given quadrant.
- */
 function drawQuadrantRotationIndicator(
   c: CanvasRenderingContext2D,
   ox: number,
@@ -369,8 +324,8 @@ function drawQuadrantRotationIndicator(
 
   c.save();
   c.strokeStyle = accentColor;
-  c.lineWidth = 3;
-  c.globalAlpha = 0.9;
+  c.lineWidth = 2.5;
+  c.setLineDash([5, 4]);
 
   const startAngle = direction === 'cw' ? -Math.PI * 0.6 : -Math.PI * 0.4;
   const endAngle = direction === 'cw' ? Math.PI * 0.6 : Math.PI * 1.6;
@@ -379,13 +334,13 @@ function drawQuadrantRotationIndicator(
   c.beginPath();
   c.arc(centerX, centerY, radius, startAngle, endAngle, counterclockwise);
   c.stroke();
+  c.setLineDash([]);
 
-  // Arrowhead at the end of the arc
-  const arrowAngle = counterclockwise ? endAngle : endAngle;
+  // Arrowhead
+  const arrowAngle = endAngle;
   const ax = centerX + Math.cos(arrowAngle) * radius;
   const ay = centerY + Math.sin(arrowAngle) * radius;
 
-  // Tangent direction for arrow
   const tangent = counterclockwise ? arrowAngle + Math.PI / 2 : arrowAngle - Math.PI / 2;
   const arrowLen = 8;
 
@@ -397,7 +352,6 @@ function drawQuadrantRotationIndicator(
   c.fillStyle = accentColor;
   c.fill();
 
-  c.globalAlpha = 1;
   c.restore();
 }
 
@@ -409,12 +363,26 @@ export function renderer(options: RendererOptions) {
 
   parent.innerHTML = `
     <div class="renderer-container">
+      <div class="header">
+        <span class="player-card sketched-border" id="p1-card">Dark (P1)</span>
+        <span class="vs-label">vs</span>
+        <span class="player-card sketched-border" id="p2-card">Light (P2)</span>
+      </div>
+      <div class="info-row">
+        <span class="pieces-info"></span>
+        <span class="move-info"></span>
+      </div>
       <canvas></canvas>
-      <div class="status-bar"></div>
+      <div class="status-container sketched-border"></div>
     </div>
   `;
+
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
+  const p1Card = parent.querySelector('#p1-card') as HTMLSpanElement;
+  const p2Card = parent.querySelector('#p2-card') as HTMLSpanElement;
+  const piecesInfo = parent.querySelector('.pieces-info') as HTMLSpanElement;
+  const moveInfoEl = parent.querySelector('.move-info') as HTMLSpanElement;
+  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   if (!canvas || !replay) return;
 
   canvas.width = 0;
@@ -430,97 +398,17 @@ export function renderer(options: RendererOptions) {
   const obsString = getObservationString(currentStep);
   const state = parseObservation(obsString);
 
-  c.fillStyle = '#1a1a2e';
-  c.fillRect(0, 0, width, height);
+  // Transparent canvas
+  c.clearRect(0, 0, width, height);
 
   if (!state) {
-    c.fillStyle = '#fff';
-    c.font = '16px sans-serif';
-    c.textAlign = 'center';
-    c.fillText('Waiting for game data...', width / 2, height / 2);
+    statusContainer.textContent = 'Waiting for game data...';
     return;
   }
 
-  // ---- Info panel at top ----
-  const infoPanelH = 52;
   const terminal = isTerminal(currentStep);
   const cp = getCurrentPlayer(currentStep);
   const pieces = countPieces(state.board);
-  const accentP1 = COLORS.p1Accent;
-  const accentP2 = COLORS.p2Accent;
-  const turnAccent = cp === 0 ? accentP1 : accentP2;
-
-  // Panel background
-  c.fillStyle = COLORS.infoBg;
-  c.beginPath();
-  c.roundRect(8, 6, width - 16, infoPanelH, 8);
-  c.fill();
-
-  // Accent left strip
-  c.fillStyle = terminal ? '#888' : turnAccent;
-  c.beginPath();
-  c.roundRect(8, 6, 5, infoPanelH, [8, 0, 0, 8]);
-  c.fill();
-
-  // Turn / game-over text
-  c.textBaseline = 'middle';
-  c.textAlign = 'left';
-  const panelCenterY = 6 + infoPanelH / 2;
-
-  if (terminal) {
-    const rewards = getRewards(currentStep);
-    let msg = 'Game Over -- Draw';
-    let msgColor = '#ccc';
-    if (rewards[0] > rewards[1]) {
-      msg = 'Game Over -- Player 1 (dark) wins!';
-      msgColor = accentP1;
-    } else if (rewards[1] > rewards[0]) {
-      msg = 'Game Over -- Player 2 (light) wins!';
-      msgColor = accentP2;
-    }
-    c.fillStyle = msgColor;
-    c.font = 'bold 15px sans-serif';
-    c.fillText(msg, 24, panelCenterY - 9);
-  } else {
-    const turnLabel = cp === 0 ? 'Player 1 (dark)' : 'Player 2 (light)';
-    c.fillStyle = turnAccent;
-    c.font = 'bold 15px sans-serif';
-    c.fillText(`${turnLabel}'s turn`, 24, panelCenterY - 9);
-  }
-
-  // Piece counts line
-  c.fillStyle = '#aab';
-  c.font = '12px sans-serif';
-  const countsText = `Dark: ${pieces.p1}  |  Light: ${pieces.p2}  |  Total: ${pieces.total} / 36`;
-  c.fillText(countsText, 24, panelCenterY + 11);
-
-  // Small colored circles as legend on the right side of the panel
-  const legendX = width - 24;
-  // P2 circle (light)
-  c.fillStyle = COLORS.p2;
-  c.strokeStyle = COLORS.p2Stroke;
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(legendX, panelCenterY - 9, 7, 0, Math.PI * 2);
-  c.fill();
-  c.stroke();
-  c.fillStyle = accentP2;
-  c.font = '11px sans-serif';
-  c.textAlign = 'right';
-  c.fillText('P2', legendX - 12, panelCenterY - 9);
-
-  // P1 circle (dark)
-  c.fillStyle = COLORS.p1;
-  c.strokeStyle = COLORS.p1Stroke;
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(legendX, panelCenterY + 11, 7, 0, Math.PI * 2);
-  c.fill();
-  c.stroke();
-  c.fillStyle = accentP1;
-  c.font = '11px sans-serif';
-  c.textAlign = 'right';
-  c.fillText('P1', legendX - 12, panelCenterY + 11);
 
   // ---- Detect last move ----
   let moveInfo: MoveInfo | null = null;
@@ -533,29 +421,65 @@ export function renderer(options: RendererOptions) {
     }
   }
 
-  // ---- Board layout (shifted down to accommodate info panel) ----
+  // =========================================================================
+  //  DOM HEADER
+  // =========================================================================
+  p1Card.textContent = `Dark (P1): ${pieces.p1}`;
+  p2Card.textContent = `Light (P2): ${pieces.p2}`;
+
+  if (!terminal && cp === 0) {
+    p1Card.classList.add('active');
+  } else {
+    p1Card.classList.remove('active');
+  }
+  if (!terminal && cp === 1) {
+    p2Card.classList.add('active');
+  } else {
+    p2Card.classList.remove('active');
+  }
+
+  // =========================================================================
+  //  DOM INFO ROW
+  // =========================================================================
+  piecesInfo.textContent = `Total: ${pieces.total} / 36`;
+
+  if (moveInfo) {
+    const colLabels = 'abcdef';
+    const coord = `${colLabels[moveInfo.placedCol]}${moveInfo.placedRow + 1}`;
+    const who = moveInfo.placedPlayer === 1 ? 'Dark' : 'Light';
+    const quadLabels = ['TL', 'TR', 'BL', 'BR'];
+    let rotStr = '';
+    if (moveInfo.rotatedQuadrant >= 0 && moveInfo.rotationDirection !== 'none') {
+      const qLabel = quadLabels[moveInfo.rotatedQuadrant];
+      const dirLabel = moveInfo.rotationDirection === 'cw' ? '\u21BB' : '\u21BA';
+      rotStr = `, ${qLabel} ${dirLabel}`;
+    }
+    moveInfoEl.textContent = `${who} placed ${coord}${rotStr}`;
+  } else {
+    moveInfoEl.textContent = '';
+  }
+
+  // =========================================================================
+  //  BOARD RENDERING (canvas)
+  // =========================================================================
   const margin = 40;
-  const availableH = height - infoPanelH - 16;
-  const maxBoardPx = Math.min(width - margin * 2, availableH - margin * 2 - 30, 500);
+  const maxBoardPx = Math.min(width - margin * 2, height - margin * 2 - 10, 500);
   const cellSize = maxBoardPx / 6;
   const boardPx = cellSize * 6;
   const ox = (width - boardPx) / 2;
-  const oy = infoPanelH + 16 + (availableH - boardPx) / 2 - 10;
+  const oy = (height - boardPx) / 2;
 
-  // ---- Rotated quadrant highlight tint ----
+  // Rotated quadrant highlight tint
   if (moveInfo && moveInfo.rotatedQuadrant >= 0) {
     const qi = moveInfo.rotatedQuadrant;
     const [rs, cs] = QUADRANT_OFFSETS[qi];
-    const qx = ox + cs * cellSize - 4;
-    const qy = oy + rs * cellSize - 4;
-    const qSize = cellSize * 3 + 8;
-    const tintColor = moveInfo.placedPlayer === 1 ? accentP1 : accentP2;
+    const qx = ox + cs * cellSize;
+    const qy = oy + rs * cellSize;
+    const qSize = cellSize * 3;
     c.save();
-    c.fillStyle = tintColor;
-    c.globalAlpha = 0.08;
-    c.beginPath();
-    c.roundRect(qx, qy, qSize, qSize, 4);
-    c.fill();
+    c.fillStyle = COLORS.moveHighlight;
+    c.globalAlpha = 0.06;
+    c.fillRect(qx, qy, qSize, qSize);
     c.globalAlpha = 1;
     c.restore();
   }
@@ -566,17 +490,25 @@ export function renderer(options: RendererOptions) {
   c.roundRect(ox - 8, oy - 8, boardPx + 16, boardPx + 16, 8);
   c.fill();
 
-  // Rotated quadrant tint ON the board (drawn after board bg so it's visible)
+  // Board border (dashed)
+  c.strokeStyle = COLORS.boardStroke;
+  c.lineWidth = 1.5;
+  c.setLineDash([5, 4]);
+  c.beginPath();
+  c.roundRect(ox - 8, oy - 8, boardPx + 16, boardPx + 16, 8);
+  c.stroke();
+  c.setLineDash([]);
+
+  // Rotated quadrant tint ON the board
   if (moveInfo && moveInfo.rotatedQuadrant >= 0) {
     const qi = moveInfo.rotatedQuadrant;
     const [rs, cs] = QUADRANT_OFFSETS[qi];
     const qx = ox + cs * cellSize;
     const qy = oy + rs * cellSize;
     const qSize = cellSize * 3;
-    const tintColor = moveInfo.placedPlayer === 1 ? accentP1 : accentP2;
     c.save();
-    c.fillStyle = tintColor;
-    c.globalAlpha = 0.12;
+    c.fillStyle = COLORS.moveHighlight;
+    c.globalAlpha = 0.08;
     c.fillRect(qx, qy, qSize, qSize);
     c.globalAlpha = 1;
     c.restore();
@@ -586,51 +518,41 @@ export function renderer(options: RendererOptions) {
   c.strokeStyle = COLORS.gridLine;
   c.lineWidth = 1;
   for (let i = 0; i <= 6; i++) {
-    // Vertical
     c.beginPath();
     c.moveTo(ox + i * cellSize, oy);
     c.lineTo(ox + i * cellSize, oy + boardPx);
     c.stroke();
-    // Horizontal
     c.beginPath();
     c.moveTo(ox, oy + i * cellSize);
     c.lineTo(ox + boardPx, oy + i * cellSize);
     c.stroke();
   }
 
-  // Quadrant dividers (thicker lines at the middle)
+  // Quadrant dividers (thicker lines)
   c.strokeStyle = COLORS.quadrantLine;
   c.lineWidth = 3;
-  // Vertical middle
   c.beginPath();
   c.moveTo(ox + 3 * cellSize, oy);
   c.lineTo(ox + 3 * cellSize, oy + boardPx);
   c.stroke();
-  // Horizontal middle
   c.beginPath();
   c.moveTo(ox, oy + 3 * cellSize);
   c.lineTo(ox + boardPx, oy + 3 * cellSize);
   c.stroke();
 
-  // Board border
+  // Board border (solid, over the grid)
   c.strokeStyle = COLORS.quadrantLine;
   c.lineWidth = 2.5;
   c.strokeRect(ox, oy, boardPx, boardPx);
 
-  // Quadrant rotation indicators (decorative arrows above/below board)
+  // Quadrant rotation arrows (decorative)
   const arrowSize = cellSize * 0.3;
-  c.fillStyle = '#a08050';
-  c.font = `${Math.max(10, cellSize * 0.22)}px sans-serif`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-
-  const quadrants = [
-    { label: 'TL', cx: ox + cellSize * 1.5, cy: oy - 16 },
-    { label: 'TR', cx: ox + cellSize * 4.5, cy: oy - 16 },
-    { label: 'BL', cx: ox + cellSize * 1.5, cy: oy + boardPx + 16 },
-    { label: 'BR', cx: ox + cellSize * 4.5, cy: oy + boardPx + 16 },
-  ];
-  for (const q of quadrants) {
+  for (const q of [
+    { cx: ox + cellSize * 1.5, cy: oy - 16 },
+    { cx: ox + cellSize * 4.5, cy: oy - 16 },
+    { cx: ox + cellSize * 1.5, cy: oy + boardPx + 16 },
+    { cx: ox + cellSize * 4.5, cy: oy + boardPx + 16 },
+  ]) {
     drawRotationArrow(c, q.cx, q.cy, arrowSize);
   }
 
@@ -645,7 +567,7 @@ export function renderer(options: RendererOptions) {
       const cy = oy + row * cellSize + cellSize / 2;
 
       // Shadow
-      c.fillStyle = 'rgba(0,0,0,0.25)';
+      c.fillStyle = 'rgba(0,0,0,0.2)';
       c.beginPath();
       c.arc(cx + 1.5, cy + 1.5, stoneR, 0, Math.PI * 2);
       c.fill();
@@ -667,41 +589,36 @@ export function renderer(options: RendererOptions) {
     }
   }
 
-  // ---- Last move highlight: placed stone ring/glow ----
+  // ---- Last move highlight: placed stone dashed ring ----
   if (moveInfo) {
     const cx = ox + moveInfo.placedCol * cellSize + cellSize / 2;
     const cy = oy + moveInfo.placedRow * cellSize + cellSize / 2;
-    const accent = moveInfo.placedPlayer === 1 ? accentP1 : accentP2;
 
-    // Outer glow
-    c.save();
-    c.shadowColor = accent;
-    c.shadowBlur = 12;
-    c.strokeStyle = accent;
-    c.lineWidth = 3.5;
+    c.strokeStyle = COLORS.moveHighlight;
+    c.lineWidth = 2.5;
+    c.setLineDash([4, 3]);
     c.beginPath();
     c.arc(cx, cy, stoneR + 3, 0, Math.PI * 2);
     c.stroke();
-    c.shadowBlur = 0;
-    c.restore();
-
-    // Inner bright ring
-    c.strokeStyle = accent;
-    c.lineWidth = 2.5;
-    c.beginPath();
-    c.arc(cx, cy, stoneR + 1, 0, Math.PI * 2);
-    c.stroke();
+    c.setLineDash([]);
   }
 
   // ---- Last move highlight: rotation arrow on quadrant ----
   if (moveInfo && moveInfo.rotatedQuadrant >= 0 && moveInfo.rotationDirection !== 'none') {
-    const accent = moveInfo.placedPlayer === 1 ? accentP1 : accentP2;
-    drawQuadrantRotationIndicator(c, ox, oy, cellSize, moveInfo.rotatedQuadrant, moveInfo.rotationDirection, accent);
+    drawQuadrantRotationIndicator(
+      c,
+      ox,
+      oy,
+      cellSize,
+      moveInfo.rotatedQuadrant,
+      moveInfo.rotationDirection,
+      COLORS.moveHighlight
+    );
   }
 
   // Column labels
-  c.fillStyle = '#a08050';
-  c.font = `${Math.max(10, cellSize * 0.25)}px sans-serif`;
+  c.fillStyle = COLORS.label;
+  c.font = `${Math.max(10, cellSize * 0.25)}px 'Inter', sans-serif`;
   c.textAlign = 'center';
   c.textBaseline = 'top';
   const colLabels = 'abcdef';
@@ -714,14 +631,17 @@ export function renderer(options: RendererOptions) {
     c.fillText(String(row + 1), ox - 8, oy + row * cellSize + cellSize / 2);
   }
 
-  // Status bar (kept for compatibility, mirrors info panel)
+  // =========================================================================
+  //  DOM STATUS CONTAINER
+  // =========================================================================
   if (terminal) {
     const rewards = getRewards(currentStep);
-    let msg = 'Game Over - Draw';
-    if (rewards[0] > rewards[1]) msg = 'Game Over - Player 1 (Dark) wins!';
-    else if (rewards[1] > rewards[0]) msg = 'Game Over - Player 2 (Light) wins!';
-    statusBar.textContent = msg;
+    let msg = 'Game Over \u2014 Draw';
+    if (rewards[0] > rewards[1]) msg = 'Game Over \u2014 Player 1 (Dark) wins!';
+    else if (rewards[1] > rewards[0]) msg = 'Game Over \u2014 Player 2 (Light) wins!';
+    statusContainer.textContent = msg;
+    statusContainer.style.fontWeight = '700';
   } else {
-    statusBar.textContent = `${cp === 0 ? 'Dark' : 'Light'}'s turn (Player ${cp + 1})`;
+    statusContainer.textContent = `${cp === 0 ? 'Dark' : 'Light'}'s turn (Player ${cp + 1})`;
   }
 }

@@ -1,15 +1,6 @@
 import type { RendererOptions } from '@kaggle-environments/core';
 
 // Dots and Boxes observation string uses Unicode box-drawing characters.
-// Example (2x2):
-// ┌╴ ╶┬───┐
-//         │
-// ├╴ ╶┼╴ ╶┤
-//     │   │
-// └╴ ╶┴╴ ╶┘
-//
-// We parse the grid by looking at horizontal edges (───), vertical edges (│),
-// and cell contents (player number 1 or 2, or space for unclaimed).
 
 interface DotsAndBoxesState {
   numRows: number;
@@ -209,17 +200,16 @@ function buildLineOwnership(
 }
 
 const COLORS = {
-  dot: '#d1d5db',
-  p1: '#4fc3f7',
-  p2: '#ff8a65',
-  p1Bright: '#80d8ff',
-  p2Bright: '#ffab91',
-  lineEmpty: '#4b5563',
-  boxP1: 'rgba(79, 195, 247, 0.25)',
-  boxP2: 'rgba(255, 138, 101, 0.25)',
-  boxP1Text: 'rgba(79, 195, 247, 0.85)',
-  boxP2Text: 'rgba(255, 138, 101, 0.85)',
-  bg: '#28303F',
+  dot: '#3c3b37',
+  p1Line: '#2d6a9f',
+  p2Line: '#9f4a2d',
+  p1LineBright: '#3a8fd4',
+  p2LineBright: '#d45a3a',
+  lineEmpty: '#c4bfb0',
+  boxP1: 'rgba(45, 106, 159, 0.18)',
+  boxP2: 'rgba(159, 74, 45, 0.18)',
+  boxP1Text: 'rgba(45, 106, 159, 0.75)',
+  boxP2Text: 'rgba(159, 74, 45, 0.75)',
 };
 
 function computeScores(boxes: number[][]): [number, number] {
@@ -240,14 +230,23 @@ export function renderer(options: RendererOptions) {
 
   parent.innerHTML = `
     <div class="renderer-container">
-      <div class="header"></div>
+      <div class="header">
+        <span class="player-card sketched-border" id="p1-card">P1: 0</span>
+        <span class="vs-label">vs</span>
+        <span class="player-card sketched-border" id="p2-card">P2: 0</span>
+      </div>
+      <div class="info-row">
+        <span class="move-info"></span>
+      </div>
       <canvas></canvas>
-      <div class="status-pill"></div>
+      <div class="status-container sketched-border"></div>
     </div>
   `;
-  const header = parent.querySelector('.header') as HTMLDivElement;
+  const p1Card = parent.querySelector('#p1-card') as HTMLSpanElement;
+  const p2Card = parent.querySelector('#p2-card') as HTMLSpanElement;
+  const moveInfoEl = parent.querySelector('.move-info') as HTMLSpanElement;
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusPill = parent.querySelector('.status-pill') as HTMLDivElement;
+  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   if (!canvas || !replay) return;
 
   canvas.width = 0;
@@ -263,11 +262,11 @@ export function renderer(options: RendererOptions) {
   const obsString = getObservationString(currentStep);
   const state = parseObservation(obsString);
 
-  c.fillStyle = COLORS.bg;
-  c.fillRect(0, 0, width, height);
+  // Transparent canvas
+  c.clearRect(0, 0, width, height);
 
   if (!state) {
-    statusPill.textContent = 'Waiting for game data...';
+    statusContainer.textContent = 'Waiting for game data...';
     return;
   }
 
@@ -292,25 +291,40 @@ export function renderer(options: RendererOptions) {
   // Build line ownership by walking through all steps up to current
   const { ownership, lastLine } = buildLineOwnership(steps, step, numRows, numCols);
 
-  // --- Header (DOM) ---
-  const p1Active = !terminal && cp === 0;
-  const p2Active = !terminal && cp === 1;
-  const p1DeltaHtml = p1Delta > 0 ? `<span class="delta" style="color: ${COLORS.p1Bright};">+${p1Delta}</span>` : '';
-  const p2DeltaHtml = p2Delta > 0 ? `<span class="delta" style="color: ${COLORS.p2Bright};">+${p2Delta}</span>` : '';
+  // =========================================================================
+  //  DOM HEADER
+  // =========================================================================
+  const p1DeltaStr = p1Delta > 0 ? ` (+${p1Delta})` : '';
+  const p2DeltaStr = p2Delta > 0 ? ` (+${p2Delta})` : '';
+  p1Card.textContent = `P1: ${p1Score}${p1DeltaStr}`;
+  p2Card.textContent = `P2: ${p2Score}${p2DeltaStr}`;
 
-  header.innerHTML = `
-    <div class="player-score" style="color: ${COLORS.p1};">
-      ${p1Active ? `<span class="turn-dot" style="background: ${COLORS.p1};"></span>` : ''}
-      <span>P1: ${p1Score}</span>${p1DeltaHtml}
-    </div>
-    <span class="vs">vs</span>
-    <div class="player-score" style="color: ${COLORS.p2};">
-      ${p2Active ? `<span class="turn-dot" style="background: ${COLORS.p2};"></span>` : ''}
-      <span>P2: ${p2Score}</span>${p2DeltaHtml}
-    </div>
-  `;
+  if (!terminal && cp === 0) {
+    p1Card.classList.add('active');
+  } else {
+    p1Card.classList.remove('active');
+  }
+  if (!terminal && cp === 1) {
+    p2Card.classList.add('active');
+  } else {
+    p2Card.classList.remove('active');
+  }
 
-  // --- Layout ---
+  // =========================================================================
+  //  DOM INFO ROW
+  // =========================================================================
+  if (lastLine) {
+    const who = ownership[lastLine.type === 'h' ? 'hOwner' : 'vOwner'][lastLine.row]?.[lastLine.col];
+    const whoStr = who === 0 ? 'P1' : who === 1 ? 'P2' : '';
+    const dir = lastLine.type === 'h' ? 'horizontal' : 'vertical';
+    moveInfoEl.textContent = `${whoStr} placed ${dir} line`;
+  } else {
+    moveInfoEl.textContent = '';
+  }
+
+  // =========================================================================
+  //  BOARD RENDERING (canvas)
+  // =========================================================================
   const maxGridPx = Math.min(width * 0.9, height * 0.9, 500);
   const cellSize = maxGridPx / Math.max(numRows, numCols);
   const gridW = cellSize * numCols;
@@ -329,7 +343,7 @@ export function renderer(options: RendererOptions) {
         c.fillRect(ox + col * cellSize, oy + row * cellSize, cellSize, cellSize);
 
         c.fillStyle = owner === 1 ? COLORS.boxP1Text : COLORS.boxP2Text;
-        c.font = `bold ${Math.max(12, cellSize * 0.3)}px sans-serif`;
+        c.font = `bold ${Math.max(12, cellSize * 0.3)}px 'Inter', sans-serif`;
         c.textAlign = 'center';
         c.textBaseline = 'middle';
         c.fillText(owner === 1 ? 'P1' : 'P2', ox + col * cellSize + cellSize / 2, oy + row * cellSize + cellSize / 2);
@@ -345,24 +359,11 @@ export function renderer(options: RendererOptions) {
 
       if (filled) {
         const owner = ownership.hOwner[row]?.[col];
-        const color = owner === 1 ? COLORS.p2 : COLORS.p1;
-        const brightColor = owner === 1 ? COLORS.p2Bright : COLORS.p1Bright;
-
-        if (isLast) {
-          c.save();
-          c.shadowColor = brightColor;
-          c.shadowBlur = 12;
-          c.strokeStyle = brightColor;
-          c.lineWidth = lineW * 1.6;
-          c.beginPath();
-          c.moveTo(ox + col * cellSize + dotR, oy + row * cellSize);
-          c.lineTo(ox + (col + 1) * cellSize - dotR, oy + row * cellSize);
-          c.stroke();
-          c.restore();
-        }
+        const color = owner === 1 ? COLORS.p2Line : COLORS.p1Line;
+        const brightColor = owner === 1 ? COLORS.p2LineBright : COLORS.p1LineBright;
 
         c.strokeStyle = isLast ? brightColor : color;
-        c.lineWidth = isLast ? lineW * 1.4 : lineW;
+        c.lineWidth = isLast ? lineW * 1.6 : lineW;
         c.beginPath();
         c.moveTo(ox + col * cellSize + dotR, oy + row * cellSize);
         c.lineTo(ox + (col + 1) * cellSize - dotR, oy + row * cellSize);
@@ -388,24 +389,11 @@ export function renderer(options: RendererOptions) {
 
       if (filled) {
         const owner = ownership.vOwner[row]?.[col];
-        const color = owner === 1 ? COLORS.p2 : COLORS.p1;
-        const brightColor = owner === 1 ? COLORS.p2Bright : COLORS.p1Bright;
-
-        if (isLast) {
-          c.save();
-          c.shadowColor = brightColor;
-          c.shadowBlur = 12;
-          c.strokeStyle = brightColor;
-          c.lineWidth = lineW * 1.6;
-          c.beginPath();
-          c.moveTo(ox + col * cellSize, oy + row * cellSize + dotR);
-          c.lineTo(ox + col * cellSize, oy + (row + 1) * cellSize - dotR);
-          c.stroke();
-          c.restore();
-        }
+        const color = owner === 1 ? COLORS.p2Line : COLORS.p1Line;
+        const brightColor = owner === 1 ? COLORS.p2LineBright : COLORS.p1LineBright;
 
         c.strokeStyle = isLast ? brightColor : color;
-        c.lineWidth = isLast ? lineW * 1.4 : lineW;
+        c.lineWidth = isLast ? lineW * 1.6 : lineW;
         c.beginPath();
         c.moveTo(ox + col * cellSize, oy + row * cellSize + dotR);
         c.lineTo(ox + col * cellSize, oy + (row + 1) * cellSize - dotR);
@@ -433,15 +421,17 @@ export function renderer(options: RendererOptions) {
     }
   }
 
-  // --- Status pill (DOM) ---
+  // =========================================================================
+  //  DOM STATUS CONTAINER
+  // =========================================================================
   if (terminal) {
     const rewards = getRewards(currentStep);
     let msg = `Game Over \u2014 Draw (${p1Score} \u2013 ${p2Score})`;
     if (rewards[0] > rewards[1]) msg = `Player 1 Wins! (${p1Score} \u2013 ${p2Score})`;
     else if (rewards[1] > rewards[0]) msg = `Player 2 Wins! (${p1Score} \u2013 ${p2Score})`;
-    statusPill.textContent = msg;
-    statusPill.style.fontWeight = '700';
+    statusContainer.textContent = msg;
+    statusContainer.style.fontWeight = '700';
   } else {
-    statusPill.textContent = `Player ${cp + 1}'s turn`;
+    statusContainer.textContent = `Player ${cp + 1}'s turn`;
   }
 }

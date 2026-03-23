@@ -31,29 +31,24 @@ type OwnCellType = 'water' | 'ship' | 'ship_hit' | 'miss';
 // Cell type on the shots board
 type ShotCellType = 'unknown' | 'hit' | 'miss';
 
-const PLAYER_COLORS = ['#4fc3f7', '#ff8a65'] as const;
-
 const COLORS = {
-  bg: '#1a1a2e',
-  panelBg: '#16213e',
-  water: '#1b3a5c',
-  waterStroke: '#234b73',
+  water: '#b8cfe0',
+  waterStroke: '#8dafc0',
   ship: '#6b8e9f',
   shipStroke: '#4a6b7a',
-  shipHit: '#ef4444',
-  shipHitStroke: '#b91c1c',
-  missMarker: '#94a3b8',
-  hitMarker: '#ef4444',
-  shotMiss: '#475569',
-  shotHit: '#ef4444',
-  unknown: '#0f2942',
-  unknownStroke: '#1a3a5a',
-  text: '#e0e0e0',
-  textDim: '#8a8aa0',
-  labelBg: 'rgba(22, 33, 62, 0.9)',
-  lastShot: '#ffd700',
-  lastShotGlow: 'rgba(255, 215, 0, 0.4)',
-  boardBorder: '#2d4a6a',
+  shipHit: '#c0392b',
+  shipHitStroke: '#962d22',
+  missMarker: '#8a8aa0',
+  hitMarker: '#c0392b',
+  shotMiss: '#a0aab0',
+  shotHit: '#c0392b',
+  unknown: '#d4cfc4',
+  unknownStroke: '#b8b3a6',
+  text: '#050001',
+  textSecondary: '#444343',
+  lastShot: '#c0392b',
+  boardBorder: '#3c3b37',
+  boardLabel: '#444343',
 };
 
 function parseBoard(section: string): BoardGrid | null {
@@ -76,7 +71,6 @@ function parseBoard(section: string): BoardGrid | null {
 function parseObservation(obsString: string): PlayerObservation | null {
   if (!obsString) return null;
 
-  // Split into own board and shots board sections
   const ownIdx = obsString.indexOf("State of player's ships:");
   const shotsIdx = obsString.indexOf("Player's shot outcomes:");
   if (ownIdx === -1 || shotsIdx === -1) return null;
@@ -129,9 +123,7 @@ function getRewards(step: any): [number, number] {
   return [step[0]?.reward ?? 0, step[1]?.reward ?? 0];
 }
 
-/** Detect the phase from the observation: placement (ships still being placed) or war (shooting). */
 function detectPhase(obs: PlayerObservation): 'placement' | 'war' {
-  // During war phase, the shots board has at least one @ or #
   for (const row of obs.shotsBoard.rows) {
     for (const ch of row) {
       if (ch === '@' || ch === '#') return 'war';
@@ -140,7 +132,6 @@ function detectPhase(obs: PlayerObservation): 'placement' | 'war' {
   return 'placement';
 }
 
-/** Count ships and hits for a player's own board. */
 function countBoardStats(board: BoardGrid): {
   shipCells: number;
   hitCells: number;
@@ -168,7 +159,6 @@ function countBoardStats(board: BoardGrid): {
   return { shipCells, hitCells, missCells, shipLetters };
 }
 
-/** Count shots on the shots board. */
 function countShotStats(board: BoardGrid): { hits: number; misses: number; total: number } {
   let hits = 0,
     misses = 0;
@@ -181,7 +171,6 @@ function countShotStats(board: BoardGrid): { hits: number; misses: number; total
   return { hits, misses, total: hits + misses };
 }
 
-/** Find the cell that changed between two boards (the last shot). */
 function findNewShot(prev: BoardGrid | null, curr: BoardGrid): { row: number; col: number } | null {
   if (!prev) return null;
   for (let r = 0; r < curr.height; r++) {
@@ -205,8 +194,7 @@ function drawBoard(
   y: number,
   cellSize: number,
   mode: 'own' | 'shots',
-  lastShot: { row: number; col: number } | null,
-  _playerIdx: number
+  lastShot: { row: number; col: number } | null
 ) {
   const { width: bw, height: bh } = board;
   const boardPxW = cellSize * bw;
@@ -250,16 +238,18 @@ function drawBoard(
     }
   }
 
-  // Board border
+  // Board border (dashed)
   c.strokeStyle = COLORS.boardBorder;
-  c.lineWidth = 2;
+  c.lineWidth = 1.5;
+  c.setLineDash([4, 3]);
   c.beginPath();
   c.roundRect(x, y, boardPxW, boardPxH, 4);
   c.stroke();
+  c.setLineDash([]);
 
   // Column labels (A, B, C, ...)
-  c.fillStyle = COLORS.textDim;
-  c.font = `${Math.max(9, cellSize * 0.28)}px sans-serif`;
+  c.fillStyle = COLORS.boardLabel;
+  c.font = `${Math.max(9, cellSize * 0.28)}px 'Inter', sans-serif`;
   c.textAlign = 'center';
   c.textBaseline = 'top';
   for (let col = 0; col < bw; col++) {
@@ -288,7 +278,6 @@ function drawOwnCell(
   const r = cellSize * 0.35;
 
   if (type === 'ship') {
-    // Ship cell - filled rectangle
     const pad = cellSize * 0.08;
     c.fillStyle = COLORS.ship;
     c.fillRect(cellX + pad, cellY + pad, cellSize - pad * 2, cellSize - pad * 2);
@@ -296,14 +285,12 @@ function drawOwnCell(
     c.lineWidth = 1;
     c.strokeRect(cellX + pad, cellY + pad, cellSize - pad * 2, cellSize - pad * 2);
 
-    // Ship letter
-    c.fillStyle = '#c8dce6';
-    c.font = `bold ${Math.max(9, cellSize * 0.3)}px sans-serif`;
+    c.fillStyle = '#2d4a5a';
+    c.font = `bold ${Math.max(9, cellSize * 0.3)}px 'Inter', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(ch, cx, cy);
   } else if (type === 'ship_hit') {
-    // Hit ship cell - red
     const pad = cellSize * 0.08;
     c.fillStyle = COLORS.shipHit;
     c.fillRect(cellX + pad, cellY + pad, cellSize - pad * 2, cellSize - pad * 2);
@@ -311,19 +298,16 @@ function drawOwnCell(
     c.lineWidth = 1;
     c.strokeRect(cellX + pad, cellY + pad, cellSize - pad * 2, cellSize - pad * 2);
 
-    // Ship letter (uppercase)
     c.fillStyle = '#fff';
-    c.font = `bold ${Math.max(9, cellSize * 0.3)}px sans-serif`;
+    c.font = `bold ${Math.max(9, cellSize * 0.3)}px 'Inter', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(ch, cx, cy);
 
-    // Last-shot glow
     if (isLast) {
       drawLastShotHighlight(c, cellX, cellY, cellSize);
     }
   } else if (type === 'miss') {
-    // Opponent miss - small circle
     c.fillStyle = COLORS.missMarker;
     c.globalAlpha = 0.5;
     c.beginPath();
@@ -335,7 +319,6 @@ function drawOwnCell(
       drawLastShotHighlight(c, cellX, cellY, cellSize);
     }
   }
-  // 'water' = empty, nothing to draw
 }
 
 function drawShotCell(
@@ -352,8 +335,7 @@ function drawShotCell(
   const r = cellSize * 0.3;
 
   if (type === 'hit') {
-    // Hit on opponent - red X
-    c.fillStyle = 'rgba(239, 68, 68, 0.2)';
+    c.fillStyle = 'rgba(192, 57, 43, 0.15)';
     c.fillRect(cellX + 1, cellY + 1, cellSize - 2, cellSize - 2);
 
     const xSize = r * 0.6;
@@ -370,7 +352,6 @@ function drawShotCell(
       drawLastShotHighlight(c, cellX, cellY, cellSize);
     }
   } else if (type === 'miss') {
-    // Miss - small dot
     c.fillStyle = COLORS.shotMiss;
     c.beginPath();
     c.arc(cx, cy, r * 0.35, 0, Math.PI * 2);
@@ -380,16 +361,15 @@ function drawShotCell(
       drawLastShotHighlight(c, cellX, cellY, cellSize);
     }
   }
-  // 'unknown' = nothing to draw
 }
 
 function drawLastShotHighlight(c: CanvasRenderingContext2D, cellX: number, cellY: number, cellSize: number) {
   c.save();
   c.strokeStyle = COLORS.lastShot;
-  c.lineWidth = 2.5;
-  c.shadowColor = COLORS.lastShot;
-  c.shadowBlur = 8;
+  c.lineWidth = 2;
+  c.setLineDash([4, 3]);
   c.strokeRect(cellX + 2, cellY + 2, cellSize - 4, cellSize - 4);
+  c.setLineDash([]);
   c.restore();
 }
 
@@ -401,12 +381,26 @@ export function renderer(options: RendererOptions) {
 
   parent.innerHTML = `
     <div class="renderer-container">
+      <div class="header">
+        <span class="player-card sketched-border" id="p1-card">Player 1</span>
+        <span class="vs-label">vs</span>
+        <span class="player-card sketched-border" id="p2-card">Player 2</span>
+      </div>
+      <div class="info-row">
+        <span class="stats-info"></span>
+        <span class="move-info"></span>
+      </div>
       <canvas></canvas>
-      <div class="status-bar"></div>
+      <div class="status-container sketched-border"></div>
     </div>
   `;
+
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
+  const p1Card = parent.querySelector('#p1-card') as HTMLSpanElement;
+  const p2Card = parent.querySelector('#p2-card') as HTMLSpanElement;
+  const statsInfo = parent.querySelector('.stats-info') as HTMLSpanElement;
+  const moveInfoEl = parent.querySelector('.move-info') as HTMLSpanElement;
+  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   if (!canvas || !replay) return;
 
   canvas.width = 0;
@@ -424,15 +418,11 @@ export function renderer(options: RendererOptions) {
   const p0Obs = parseObservation(getObservationString(currentStep, 0));
   const p1Obs = parseObservation(getObservationString(currentStep, 1));
 
-  // Background
-  c.fillStyle = COLORS.bg;
-  c.fillRect(0, 0, width, height);
+  // Transparent canvas
+  c.clearRect(0, 0, width, height);
 
   if (!p0Obs || !p1Obs) {
-    c.fillStyle = '#fff';
-    c.font = '16px sans-serif';
-    c.textAlign = 'center';
-    c.fillText('Waiting for game data...', width / 2, height / 2);
+    statusContainer.textContent = 'Waiting for game data...';
     return;
   }
 
@@ -446,7 +436,7 @@ export function renderer(options: RendererOptions) {
   const p0ShotStats = countShotStats(p0Obs.shotsBoard);
   const p1ShotStats = countShotStats(p1Obs.shotsBoard);
 
-  // Find last shots by comparing with previous step
+  // Find last shots
   let lastShotOnP0Board: { row: number; col: number } | null = null;
   let lastShotOnP1Board: { row: number; col: number } | null = null;
   let lastShotByP0: { row: number; col: number } | null = null;
@@ -455,100 +445,35 @@ export function renderer(options: RendererOptions) {
     const prevP0Obs = parseObservation(getObservationString(steps[step - 1], 0));
     const prevP1Obs = parseObservation(getObservationString(steps[step - 1], 1));
     if (prevP0Obs && prevP1Obs) {
-      // Shots landing on P0's board (P1 shooting at P0)
       lastShotOnP0Board = findNewShot(prevP0Obs.ownBoard, p0Obs.ownBoard);
-      // Shots landing on P1's board (P0 shooting at P1)
       lastShotOnP1Board = findNewShot(prevP1Obs.ownBoard, p1Obs.ownBoard);
-      // P0's new shot (on the shots board)
       lastShotByP0 = findNewShot(prevP0Obs.shotsBoard, p0Obs.shotsBoard);
-      // P1's new shot
       lastShotByP1 = findNewShot(prevP1Obs.shotsBoard, p1Obs.shotsBoard);
     }
   }
 
-  // ---- Layout ----
-  const infoPanelH = 52;
-  const boardLabelH = 20;
-  const labelGap = 4;
-  const margin = 12;
-  const colGap = 16;
+  // =========================================================================
+  //  DOM HEADER
+  // =========================================================================
+  p1Card.textContent = `P1: ${p0ShotStats.hits} hits`;
+  p2Card.textContent = `P2: ${p1ShotStats.hits} hits`;
 
-  // We show 4 boards in a 2x2 grid:
-  //   P1 Ships  |  P2 Ships
-  //   P1 Shots  |  P2 Shots
-  const boardW = p0Obs.ownBoard.width;
-  const boardH = p0Obs.ownBoard.height;
-
-  const availW = width - margin * 2 - colGap;
-  const availH = height - infoPanelH - margin - (boardLabelH + labelGap) * 2 - colGap;
-  const maxCellFromW = availW / (boardW * 2);
-  const maxCellFromH = availH / (boardH * 2);
-  const cellSize = Math.min(maxCellFromW, maxCellFromH, 48);
-
-  const boardPxW = cellSize * boardW;
-  const boardPxH = cellSize * boardH;
-  const rowLabelW = 16; // space for row numbers
-  const totalGridW = (boardPxW + rowLabelW) * 2 + colGap;
-  const gridStartX = (width - totalGridW) / 2 + rowLabelW;
-  const gridStartY = infoPanelH + margin;
-
-  // ---- Info panel ----
-  c.fillStyle = COLORS.panelBg;
-  c.fillRect(0, 0, width, infoPanelH);
-  c.strokeStyle = 'rgba(255,255,255,0.08)';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.moveTo(0, infoPanelH);
-  c.lineTo(width, infoPanelH);
-  c.stroke();
-
-  // Accent bar
-  const accentColor = terminal ? '#888' : (PLAYER_COLORS[cp] ?? PLAYER_COLORS[0]);
-  c.fillStyle = accentColor;
-  c.fillRect(0, 0, 5, infoPanelH);
-
-  const panelFontSize = Math.max(13, Math.min(16, width * 0.028));
-  const smallFont = Math.max(11, Math.min(13, width * 0.022));
-  c.textBaseline = 'middle';
-
-  // Turn / game-over text
-  if (terminal) {
-    const rewards = getRewards(currentStep);
-    let msg = 'Game Over -- Draw';
-    let msgColor = COLORS.text;
-    if (rewards[0] > rewards[1]) {
-      msg = 'Game Over -- Player 1 wins!';
-      msgColor = PLAYER_COLORS[0];
-    } else if (rewards[1] > rewards[0]) {
-      msg = 'Game Over -- Player 2 wins!';
-      msgColor = PLAYER_COLORS[1];
-    }
-    c.fillStyle = msgColor;
-    c.font = `bold ${panelFontSize}px sans-serif`;
-    c.textAlign = 'left';
-    c.fillText(msg, 14, infoPanelH * 0.35);
+  if (!terminal && cp === 0) {
+    p1Card.classList.add('active');
   } else {
-    const phaseLabel = phase === 'placement' ? 'Ship Placement' : 'War';
-    c.fillStyle = accentColor;
-    c.font = `bold ${panelFontSize}px sans-serif`;
-    c.textAlign = 'left';
-    c.fillText(`Player ${cp + 1}'s turn -- ${phaseLabel}`, 14, infoPanelH * 0.35);
+    p1Card.classList.remove('active');
+  }
+  if (!terminal && cp === 1) {
+    p2Card.classList.add('active');
+  } else {
+    p2Card.classList.remove('active');
   }
 
-  // Shot stats line
-  c.font = `${smallFont}px sans-serif`;
-  c.textAlign = 'left';
-  c.fillStyle = PLAYER_COLORS[0];
-  const p0StatsText = `P1: ${p0ShotStats.hits} hits, ${p0ShotStats.misses} misses`;
-  c.fillText(p0StatsText, 14, infoPanelH * 0.72);
+  // =========================================================================
+  //  DOM INFO ROW
+  // =========================================================================
+  statsInfo.textContent = `P1: ${p0ShotStats.misses} misses | P2: ${p1ShotStats.misses} misses`;
 
-  const sep = '    ';
-  const p0Width = c.measureText(p0StatsText + sep).width;
-  c.fillStyle = PLAYER_COLORS[1];
-  const p1StatsText = `P2: ${p1ShotStats.hits} hits, ${p1ShotStats.misses} misses`;
-  c.fillText(p1StatsText, 14 + p0Width, infoPanelH * 0.72);
-
-  // Last shot info on the right
   if (phase === 'war') {
     const lastShot = lastShotByP0 || lastShotByP1;
     const shooter = lastShotByP0 ? 0 : lastShotByP1 ? 1 : -1;
@@ -557,46 +482,69 @@ export function renderer(options: RendererOptions) {
       const result = getShotCellType(shotBoard.rows[lastShot.row][lastShot.col]);
       const resultText = result === 'hit' ? 'HIT!' : 'miss';
       const coordText = `${String.fromCharCode(65 + lastShot.col)}${lastShot.row + 1}`;
-      c.textAlign = 'right';
-      c.fillStyle = result === 'hit' ? COLORS.shotHit : COLORS.textDim;
-      c.font = `bold ${smallFont}px sans-serif`;
-      c.fillText(`P${shooter + 1} fires ${coordText}: ${resultText}`, width - 14, infoPanelH * 0.5);
+      moveInfoEl.textContent = `P${shooter + 1} fires ${coordText}: ${resultText}`;
+    } else {
+      moveInfoEl.textContent = '';
     }
+  } else {
+    moveInfoEl.textContent = phase === 'placement' ? 'Ship Placement' : '';
   }
 
-  // ---- Board labels & boards ----
+  // =========================================================================
+  //  BOARD RENDERING (canvas) -- 2x2 grid
+  // =========================================================================
+  const boardLabelH = 18;
+  const labelGap = 4;
+  const margin = 12;
+  const colGap = 16;
+
+  const boardW = p0Obs.ownBoard.width;
+  const boardH = p0Obs.ownBoard.height;
+
+  const availW = width - margin * 2 - colGap;
+  const availH = height - margin - (boardLabelH + labelGap) * 2 - colGap;
+  const maxCellFromW = availW / (boardW * 2);
+  const maxCellFromH = availH / (boardH * 2);
+  const cellSize = Math.min(maxCellFromW, maxCellFromH, 48);
+
+  const boardPxW = cellSize * boardW;
+  const boardPxH = cellSize * boardH;
+  const rowLabelW = 16;
+  const totalGridW = (boardPxW + rowLabelW) * 2 + colGap;
+  const gridStartX = (width - totalGridW) / 2 + rowLabelW;
+  const gridStartY = margin;
+
   const col1X = gridStartX;
   const col2X = gridStartX + boardPxW + rowLabelW + colGap;
   const row1Y = gridStartY + boardLabelH + labelGap;
-  const row2Y = row1Y + boardPxH + boardLabelH + labelGap + colGap + 14; // +14 for col labels
+  const row2Y = row1Y + boardPxH + boardLabelH + labelGap + colGap + 14;
 
-  // Player labels
-  const drawBoardLabel = (text: string, x: number, y: number, playerIdx: number) => {
-    c.fillStyle = PLAYER_COLORS[playerIdx];
-    c.font = `bold ${Math.max(11, cellSize * 0.32)}px sans-serif`;
+  // Board labels
+  const drawBoardLabel = (text: string, x: number, y: number) => {
+    c.fillStyle = COLORS.text;
+    c.font = `bold ${Math.max(11, cellSize * 0.32)}px 'Inter', sans-serif`;
     c.textAlign = 'left';
     c.textBaseline = 'bottom';
     c.fillText(text, x, y);
   };
 
   // Row 1: Ship boards
-  drawBoardLabel('Player 1 -- Ships', col1X, row1Y - labelGap, 0);
-  drawBoardLabel('Player 2 -- Ships', col2X, row1Y - labelGap, 1);
-  drawBoard(c, p0Obs.ownBoard, col1X, row1Y, cellSize, 'own', lastShotOnP0Board, 0);
-  drawBoard(c, p1Obs.ownBoard, col2X, row1Y, cellSize, 'own', lastShotOnP1Board, 1);
+  drawBoardLabel('Player 1 \u2014 Ships', col1X, row1Y - labelGap);
+  drawBoardLabel('Player 2 \u2014 Ships', col2X, row1Y - labelGap);
+  drawBoard(c, p0Obs.ownBoard, col1X, row1Y, cellSize, 'own', lastShotOnP0Board);
+  drawBoard(c, p1Obs.ownBoard, col2X, row1Y, cellSize, 'own', lastShotOnP1Board);
 
   // Row 2: Shots boards
-  drawBoardLabel('Player 1 -- Shots', col1X, row2Y - labelGap, 0);
-  drawBoardLabel('Player 2 -- Shots', col2X, row2Y - labelGap, 1);
-  drawBoard(c, p0Obs.shotsBoard, col1X, row2Y, cellSize, 'shots', lastShotByP0, 0);
-  drawBoard(c, p1Obs.shotsBoard, col2X, row2Y, cellSize, 'shots', lastShotByP1, 1);
+  drawBoardLabel('Player 1 \u2014 Shots', col1X, row2Y - labelGap);
+  drawBoardLabel('Player 2 \u2014 Shots', col2X, row2Y - labelGap);
+  drawBoard(c, p0Obs.shotsBoard, col1X, row2Y, cellSize, 'shots', lastShotByP0);
+  drawBoard(c, p1Obs.shotsBoard, col2X, row2Y, cellSize, 'shots', lastShotByP1);
 
-  // ---- Damage indicators next to ship boards ----
-  // Show which ships are sunk
+  // Damage indicators
   const drawDamageInfo = (stats: ReturnType<typeof countBoardStats>, x: number, y: number) => {
     if (stats.hitCells === 0) return;
     c.fillStyle = COLORS.shipHit;
-    c.font = `bold ${Math.max(10, cellSize * 0.26)}px sans-serif`;
+    c.font = `bold ${Math.max(10, cellSize * 0.26)}px 'Inter', sans-serif`;
     c.textAlign = 'left';
     c.textBaseline = 'top';
     c.fillText(`${stats.hitCells} hit`, x, y);
@@ -605,15 +553,18 @@ export function renderer(options: RendererOptions) {
   drawDamageInfo(p0OwnStats, col1X + boardPxW + 6, row1Y + 2);
   drawDamageInfo(p1OwnStats, col2X + boardPxW + 6, row1Y + 2);
 
-  // ---- Status bar ----
+  // =========================================================================
+  //  DOM STATUS CONTAINER
+  // =========================================================================
   if (terminal) {
     const rewards = getRewards(currentStep);
-    let msg = 'Game Over - Draw';
-    if (rewards[0] > rewards[1]) msg = 'Game Over - Player 1 wins!';
-    else if (rewards[1] > rewards[0]) msg = 'Game Over - Player 2 wins!';
-    statusBar.textContent = `${msg} | P1 hits: ${p0ShotStats.hits}, P2 hits: ${p1ShotStats.hits}`;
+    let msg = 'Game Over \u2014 Draw';
+    if (rewards[0] > rewards[1]) msg = 'Game Over \u2014 Player 1 wins!';
+    else if (rewards[1] > rewards[0]) msg = 'Game Over \u2014 Player 2 wins!';
+    statusContainer.textContent = `${msg} | P1: ${p0ShotStats.hits} hits, P2: ${p1ShotStats.hits} hits`;
+    statusContainer.style.fontWeight = '700';
   } else {
     const phaseLabel = phase === 'placement' ? 'Ship Placement' : 'War';
-    statusBar.textContent = `${phaseLabel} -- Player ${cp + 1}'s turn`;
+    statusContainer.textContent = `${phaseLabel} \u2014 Player ${cp + 1}'s turn`;
   }
 }

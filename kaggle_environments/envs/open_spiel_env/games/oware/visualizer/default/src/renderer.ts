@@ -9,11 +9,6 @@ interface OwareState {
   seeds: number[];
 }
 
-// Player colors: P1 = blue, P2 = orange
-const PLAYER_COLORS = ['#4fc3f7', '#ff8a65'] as const;
-const PLAYER_COLORS_DIM = ['rgba(79,195,247,0.18)', 'rgba(255,138,101,0.18)'] as const;
-const PLAYER_COLORS_GLOW = ['rgba(79,195,247,0.35)', 'rgba(255,138,101,0.35)'] as const;
-
 function parseObservation(obsString: string): OwareState | null {
   if (!obsString) return null;
   const parts = obsString.split('|').map((s) => s.trim());
@@ -57,20 +52,22 @@ function getAction(stepData: any): number | null {
   return null;
 }
 
-const PIT_COLORS = {
-  board: '#8B6914',
-  pit: '#654321',
-  pitStroke: '#3d2a13',
-  seed: '#e8d5a3',
-  seedStroke: '#b8a070',
-  store: '#4a3010',
-  text: '#f5e6c8',
-  highlight: '#ffd700',
-  deltaPlus: '#66bb6a',
-  deltaMinus: '#ef5350',
-  captureRing: '#ffeb3b',
-  playedMarker: '#ffffff',
-  panelBg: '#16213e',
+const COLORS = {
+  board: '#c9a96e',
+  boardStroke: '#3c3b37',
+  pit: '#a07840',
+  pitStroke: '#3c3b37',
+  seed: '#3c3b37',
+  seedStroke: '#050001',
+  store: '#8b6914',
+  storeStroke: '#3c3b37',
+  text: '#050001',
+  textSecondary: '#444343',
+  deltaPlus: '#2e7d32',
+  deltaMinus: '#c0392b',
+  captureRing: '#c0392b',
+  playedMarker: '#050001',
+  label: '#050001',
 };
 
 export function renderer(options: RendererOptions) {
@@ -79,12 +76,24 @@ export function renderer(options: RendererOptions) {
 
   parent.innerHTML = `
     <div class="renderer-container">
+      <div class="header">
+        <span class="player-card sketched-border" id="p1-card">P1: 0</span>
+        <span class="vs-label">vs</span>
+        <span class="player-card sketched-border" id="p2-card">P2: 0</span>
+      </div>
+      <div class="info-row">
+        <span class="move-info"></span>
+      </div>
       <canvas></canvas>
-      <div class="status-bar"></div>
+      <div class="status-container sketched-border"></div>
     </div>
   `;
+
   const canvas = parent.querySelector('canvas') as HTMLCanvasElement;
-  const statusBar = parent.querySelector('.status-bar') as HTMLDivElement;
+  const p1Card = parent.querySelector('#p1-card') as HTMLSpanElement;
+  const p2Card = parent.querySelector('#p2-card') as HTMLSpanElement;
+  const moveInfo = parent.querySelector('.move-info') as HTMLSpanElement;
+  const statusContainer = parent.querySelector('.status-container') as HTMLDivElement;
   if (!canvas || !replay) return;
 
   canvas.width = 0;
@@ -108,30 +117,13 @@ export function renderer(options: RendererOptions) {
     prevState = parseObservation(prevObs);
   }
 
-  // Background
-  c.fillStyle = '#1a1a2e';
-  c.fillRect(0, 0, width, height);
+  // Transparent canvas -- page background shows through
+  c.clearRect(0, 0, width, height);
 
   if (!state) {
-    c.fillStyle = '#fff';
-    c.font = '16px sans-serif';
-    c.textAlign = 'center';
-    c.fillText('Waiting for game data...', width / 2, height / 2);
+    statusContainer.textContent = 'Waiting for game data...';
     return;
   }
-
-  // --- Layout: info panel at top, board below ---
-  const panelH = 44;
-  const panelMargin = 8;
-  const boardW = Math.min(width * 0.9, 700);
-  const boardH = Math.min((height - panelH - panelMargin * 2) * 0.6, 250);
-  const bx = (width - boardW) / 2;
-  const by = panelH + panelMargin * 2 + (height - panelH - panelMargin * 2 - boardH) / 2 - 10;
-  const storeW = boardW * 0.1;
-  const pitAreaW = boardW - storeW * 2;
-  const pitW = pitAreaW / 6;
-  const pitH = boardH / 2;
-  const pitRadius = Math.min(pitW, pitH) * 0.38;
 
   const terminal = isTerminal(currentStep);
 
@@ -147,30 +139,19 @@ export function renderer(options: RendererOptions) {
     }
     scoreDeltas = [state.scores[0] - prevState.scores[0], state.scores[1] - prevState.scores[1]];
 
-    // Determine the played pit: the action from the CURRENT step tells us what
-    // was played to get here. But actually, the action in currentStep is the
-    // action that LED to this observation. In the replay data, the action in
-    // step N is the action that was applied to transition from step N-1's state
-    // to step N's state. We look at the current step's action.
     const action = getAction(currentStep);
     if (action !== null && action >= 0) {
-      // The previous player (prevState.currentPlayer) made this action.
       const prevPlayer = prevState.currentPlayer;
-      // Player 0's pits are 0-5, player 1's pits are 6-11
       playedPitIndex = prevPlayer === 0 ? action : 6 + action;
     }
 
-    // Detect captured pits: pits in the opponent's row that went to 0
-    // while the acting player gained score.
     if (prevState.currentPlayer === 0 && scoreDeltas[0] > 0) {
-      // P1 acted, captures from P2's row (pits 6-11)
       for (let i = 6; i < 12; i++) {
         if ((prevState.seeds[i] ?? 0) > 0 && (state.seeds[i] ?? 0) === 0) {
           capturedPits.add(i);
         }
       }
     } else if (prevState.currentPlayer === 1 && scoreDeltas[1] > 0) {
-      // P2 acted, captures from P1's row (pits 0-5)
       for (let i = 0; i < 6; i++) {
         if ((prevState.seeds[i] ?? 0) > 0 && (state.seeds[i] ?? 0) === 0) {
           capturedPits.add(i);
@@ -179,254 +160,163 @@ export function renderer(options: RendererOptions) {
     }
   }
 
-  // === Draw Turn Indicator Panel at top ===
-  const panelX = bx;
-  const panelY = panelMargin;
-  const panelW = boardW;
-  const activeColor = PLAYER_COLORS[state.currentPlayer];
+  // =========================================================================
+  //  DOM HEADER -- active player + scores
+  // =========================================================================
+  const p1ScoreStr = `P1: ${state.scores[0]}`;
+  const p2ScoreStr = `P2: ${state.scores[1]}`;
+  const p1DeltaStr = scoreDeltas[0] > 0 ? ` (+${scoreDeltas[0]})` : '';
+  const p2DeltaStr = scoreDeltas[1] > 0 ? ` (+${scoreDeltas[1]})` : '';
+  p1Card.textContent = p1ScoreStr + p1DeltaStr;
+  p2Card.textContent = p2ScoreStr + p2DeltaStr;
 
-  // Panel background
-  c.fillStyle = PIT_COLORS.panelBg;
-  c.beginPath();
-  c.roundRect(panelX, panelY, panelW, panelH, 10);
-  c.fill();
-
-  // Colored accent bar on left edge
-  c.fillStyle = activeColor;
-  c.beginPath();
-  c.roundRect(panelX, panelY, 5, panelH, [10, 0, 0, 10]);
-  c.fill();
-
-  // Turn text or game over text
-  c.textBaseline = 'middle';
-  const panelCenterY = panelY + panelH / 2;
-  const panelFontSize = Math.max(13, Math.min(panelH * 0.38, 18));
-
-  if (terminal) {
-    const rewards = getRewards(currentStep);
-    let msg = 'Game Over -- Draw';
-    let msgColor = PIT_COLORS.text;
-    if (rewards[0] > rewards[1]) {
-      msg = 'Game Over -- Player 1 wins!';
-      msgColor = PLAYER_COLORS[0];
-    } else if (rewards[1] > rewards[0]) {
-      msg = 'Game Over -- Player 2 wins!';
-      msgColor = PLAYER_COLORS[1];
-    }
-    c.fillStyle = msgColor;
-    c.font = `bold ${panelFontSize}px sans-serif`;
-    c.textAlign = 'left';
-    c.fillText(msg, panelX + 16, panelCenterY);
+  if (!terminal && state.currentPlayer === 0) {
+    p1Card.classList.add('active');
   } else {
-    // "Player N's turn"
-    c.font = `bold ${panelFontSize}px sans-serif`;
-    c.textAlign = 'left';
-    c.fillStyle = activeColor;
-    const turnLabel = `Player ${state.currentPlayer + 1}'s turn`;
-    c.fillText(turnLabel, panelX + 16, panelCenterY);
+    p1Card.classList.remove('active');
+  }
+  if (!terminal && state.currentPlayer === 1) {
+    p2Card.classList.add('active');
+  } else {
+    p2Card.classList.remove('active');
   }
 
-  // Score display on the right side of panel
-  const scoreFontSize = Math.max(12, Math.min(panelH * 0.34, 16));
-  c.font = `bold ${scoreFontSize}px sans-serif`;
-  c.textAlign = 'right';
-
-  // Measure and draw score components with player colors
-  // Format: "Score: P1Score - P2Score  (+N)"
-  const scoreRightX = panelX + panelW - 16;
-  let cursorX = scoreRightX;
-
-  // Draw score change indicators first (rightmost)
-  if (prevState) {
-    if (scoreDeltas[1] > 0) {
-      c.fillStyle = PIT_COLORS.deltaPlus;
-      c.font = `bold ${Math.max(10, scoreFontSize - 2)}px sans-serif`;
-      const deltaText = ` +${scoreDeltas[1]}`;
-      c.fillText(deltaText, cursorX, panelCenterY);
-      cursorX -= c.measureText(deltaText).width;
-    }
+  // =========================================================================
+  //  DOM INFO ROW
+  // =========================================================================
+  if (playedPitIndex !== null) {
+    const who = prevState ? (prevState.currentPlayer === 0 ? 'P1' : 'P2') : '';
+    const pitLabel =
+      playedPitIndex < 6 ? String.fromCharCode(65 + playedPitIndex) : String.fromCharCode(102 - (playedPitIndex - 6));
+    moveInfo.textContent = `${who} sowed from pit ${pitLabel}`;
+  } else {
+    moveInfo.textContent = '';
   }
 
-  // P2 score
-  c.font = `bold ${scoreFontSize}px sans-serif`;
-  c.fillStyle = PLAYER_COLORS[1];
-  const p2ScoreStr = String(state.scores[1]);
-  c.fillText(p2ScoreStr, cursorX, panelCenterY);
-  cursorX -= c.measureText(p2ScoreStr).width;
+  // =========================================================================
+  //  BOARD RENDERING (canvas)
+  // =========================================================================
+  const boardW = Math.min(width * 0.95, 500);
+  const boardH = Math.min(height * 0.55, 220);
+  const bx = (width - boardW) / 2;
+  const by = (height - boardH) / 2;
+  const storeW = boardW * 0.1;
+  const pitAreaW = boardW - storeW * 2;
+  const pitW = pitAreaW / 6;
+  const pitH = boardH / 2;
+  const pitRadius = Math.min(pitW, pitH) * 0.38;
 
-  // Separator
-  c.fillStyle = PIT_COLORS.text;
-  c.fillText(' - ', cursorX, panelCenterY);
-  cursorX -= c.measureText(' - ').width;
-
-  // P1 score (with delta if present)
-  c.fillStyle = PLAYER_COLORS[0];
-  const p1ScoreStr = String(state.scores[0]);
-  // If P1 has a score delta, draw it between P1 score and separator
-  if (prevState && scoreDeltas[0] > 0) {
-    c.font = `bold ${Math.max(10, scoreFontSize - 2)}px sans-serif`;
-    c.fillStyle = PIT_COLORS.deltaPlus;
-    const d1Text = ` +${scoreDeltas[0]}`;
-    c.fillText(d1Text, cursorX, panelCenterY);
-    cursorX -= c.measureText(d1Text).width;
-  }
-  c.font = `bold ${scoreFontSize}px sans-serif`;
-  c.fillStyle = PLAYER_COLORS[0];
-  c.fillText(p1ScoreStr, cursorX, panelCenterY);
-  cursorX -= c.measureText(p1ScoreStr).width;
-
-  // "Score: " label
-  c.fillStyle = PIT_COLORS.text;
-  c.fillText('Score: ', cursorX, panelCenterY);
-
-  // === Draw Board ===
-  c.fillStyle = PIT_COLORS.board;
+  // Board background
+  c.fillStyle = COLORS.board;
   c.beginPath();
-  c.roundRect(bx, by, boardW, boardH, 16);
+  c.roundRect(bx, by, boardW, boardH, 12);
   c.fill();
+  c.strokeStyle = COLORS.boardStroke;
+  c.lineWidth = 1.5;
+  c.setLineDash([4, 4]);
+  c.beginPath();
+  c.roundRect(bx, by, boardW, boardH, 12);
+  c.stroke();
+  c.setLineDash([]);
 
-  // === Draw active player row glow ===
-  if (!terminal) {
-    const glowColor = PLAYER_COLORS_GLOW[state.currentPlayer];
-    c.save();
-    c.shadowColor = PLAYER_COLORS[state.currentPlayer];
-    c.shadowBlur = 12;
-    c.strokeStyle = glowColor;
-    c.lineWidth = 3;
+  // === Draw stores ===
+  const drawStore = (x: number, y: number, score: number, label: string, scoreDelta: number) => {
+    c.fillStyle = COLORS.store;
     c.beginPath();
-    if (state.currentPlayer === 0) {
-      // Bottom row
-      c.roundRect(bx + storeW - 2, by + pitH - 2, pitAreaW + 4, pitH + 4, [0, 0, 12, 12]);
-    } else {
-      // Top row
-      c.roundRect(bx + storeW - 2, by - 2, pitAreaW + 4, pitH + 4, [12, 12, 0, 0]);
-    }
+    c.roundRect(x + 4, y + 8, storeW - 8, boardH - 16, 10);
+    c.fill();
+    c.strokeStyle = COLORS.boardStroke;
+    c.lineWidth = 1;
+    c.setLineDash([3, 3]);
+    c.beginPath();
+    c.roundRect(x + 4, y + 8, storeW - 8, boardH - 16, 10);
     c.stroke();
-    c.restore();
-  }
+    c.setLineDash([]);
 
-  // === Draw stores with player-tinted backgrounds ===
-  const drawStore = (x: number, y: number, score: number, label: string, playerIdx: number, scoreDelta: number) => {
-    // Tinted background using player color
-    const pColor = PLAYER_COLORS[playerIdx];
-    const pColorDim = PLAYER_COLORS_DIM[playerIdx];
-
-    c.fillStyle = PIT_COLORS.store;
-    c.beginPath();
-    c.roundRect(x + 4, y + 8, storeW - 8, boardH - 16, 12);
-    c.fill();
-
-    // Tinted overlay
-    c.fillStyle = pColorDim;
-    c.beginPath();
-    c.roundRect(x + 4, y + 8, storeW - 8, boardH - 16, 12);
-    c.fill();
-
-    // Score number (larger and bolder)
-    c.fillStyle = PIT_COLORS.text;
-    c.font = `bold ${Math.max(18, pitRadius * 1.1)}px sans-serif`;
+    // Score number
+    c.fillStyle = '#f5f1e2';
+    c.font = `bold ${Math.max(18, pitRadius * 1.1)}px 'Inter', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(String(score), x + storeW / 2, y + boardH / 2 - 14);
 
     // Score delta
     if (scoreDelta > 0) {
-      c.fillStyle = PIT_COLORS.deltaPlus;
-      c.font = `bold ${Math.max(11, pitRadius * 0.5)}px sans-serif`;
+      c.fillStyle = COLORS.deltaPlus;
+      c.font = `bold ${Math.max(11, pitRadius * 0.5)}px 'Inter', sans-serif`;
       c.fillText(`+${scoreDelta}`, x + storeW / 2, y + boardH / 2 + 4);
     }
 
-    // Player label with player color
-    c.fillStyle = pColor;
-    c.font = `bold ${Math.max(11, pitRadius * 0.45)}px sans-serif`;
+    // Player label
+    c.fillStyle = '#f5f1e2';
+    c.font = `bold ${Math.max(11, pitRadius * 0.45)}px 'Inter', sans-serif`;
     c.fillText(label, x + storeW / 2, y + boardH / 2 + (scoreDelta > 0 ? 22 : 16));
   };
 
-  drawStore(bx, by, state.scores[1], 'P2', 1, scoreDeltas[1]);
-  drawStore(bx + boardW - storeW, by, state.scores[0], 'P1', 0, scoreDeltas[0]);
+  drawStore(bx, by, state.scores[1], 'P2', scoreDeltas[1]);
+  drawStore(bx + boardW - storeW, by, state.scores[0], 'P1', scoreDeltas[0]);
 
   // === Draw pits ===
-  const drawPit = (
-    cx: number,
-    cy: number,
-    count: number,
-    pitIndex: number,
-    isActiveRow: boolean,
-    playerIdx: number
-  ) => {
+  const drawPit = (cx: number, cy: number, count: number, pitIndex: number, isActiveRow: boolean) => {
     const isPlayed = playedPitIndex === pitIndex;
     const isCaptured = capturedPits.has(pitIndex);
     const delta = seedDeltas[pitIndex];
-    const playerColor = PLAYER_COLORS[playerIdx];
 
     // Pit fill
-    c.fillStyle = PIT_COLORS.pit;
+    c.fillStyle = COLORS.pit;
     c.beginPath();
     c.arc(cx, cy, pitRadius, 0, Math.PI * 2);
     c.fill();
 
-    // Border: use player color ring for active row pits, default stroke otherwise
+    // Border
     if (isActiveRow && !terminal) {
-      c.save();
-      c.strokeStyle = playerColor;
+      c.strokeStyle = COLORS.pitStroke;
       c.lineWidth = 2.5;
-      c.shadowColor = playerColor;
-      c.shadowBlur = 6;
       c.beginPath();
       c.arc(cx, cy, pitRadius, 0, Math.PI * 2);
       c.stroke();
-      c.restore();
     } else {
-      c.strokeStyle = PIT_COLORS.pitStroke;
-      c.lineWidth = 1.5;
+      c.strokeStyle = COLORS.pitStroke;
+      c.lineWidth = 1;
       c.beginPath();
       c.arc(cx, cy, pitRadius, 0, Math.PI * 2);
       c.stroke();
     }
 
-    // Played marker: concentric dashed ring
+    // Played marker: dashed ring
     if (isPlayed) {
-      c.save();
-      c.strokeStyle = PIT_COLORS.playedMarker;
+      c.strokeStyle = COLORS.playedMarker;
       c.lineWidth = 2;
       c.setLineDash([4, 3]);
-      c.globalAlpha = 0.85;
       c.beginPath();
       c.arc(cx, cy, pitRadius + 5, 0, Math.PI * 2);
       c.stroke();
       c.setLineDash([]);
-      c.globalAlpha = 1.0;
 
-      // Small star/diamond icon above the pit
+      // Small diamond icon above the pit
       const starY = cy - pitRadius - 10;
-      c.fillStyle = PIT_COLORS.playedMarker;
-      c.font = `bold ${Math.max(10, pitRadius * 0.35)}px sans-serif`;
+      c.fillStyle = COLORS.playedMarker;
+      c.font = `bold ${Math.max(10, pitRadius * 0.35)}px 'Inter', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.fillText('\u25C6', cx, starY); // diamond character
-      c.restore();
+      c.fillText('\u25C6', cx, starY);
     }
 
-    // Capture indicator: gold pulsing ring
+    // Capture indicator: dashed ring
     if (isCaptured) {
-      c.save();
-      c.strokeStyle = PIT_COLORS.captureRing;
-      c.lineWidth = 3;
-      c.globalAlpha = 0.9;
-      c.setLineDash([6, 3]);
+      c.strokeStyle = COLORS.captureRing;
+      c.lineWidth = 2.5;
+      c.setLineDash([5, 3]);
       c.beginPath();
       c.arc(cx, cy, pitRadius + 4, 0, Math.PI * 2);
       c.stroke();
       c.setLineDash([]);
-      c.globalAlpha = 1.0;
 
-      // "CAPTURED" mini label
-      c.fillStyle = PIT_COLORS.captureRing;
-      c.font = `bold ${Math.max(8, pitRadius * 0.25)}px sans-serif`;
+      c.fillStyle = COLORS.captureRing;
+      c.font = `bold ${Math.max(8, pitRadius * 0.25)}px 'Inter', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText('CAPTURED', cx, cy - pitRadius - 10);
-      c.restore();
     }
 
     // Draw seeds as small circles
@@ -434,8 +324,8 @@ export function renderer(options: RendererOptions) {
       const seedR = Math.max(3, pitRadius * 0.15);
       const positions = getSeedPositions(count, pitRadius * 0.65);
       for (const [sx, sy] of positions) {
-        c.fillStyle = PIT_COLORS.seed;
-        c.strokeStyle = PIT_COLORS.seedStroke;
+        c.fillStyle = COLORS.seed;
+        c.strokeStyle = COLORS.seedStroke;
         c.lineWidth = 0.5;
         c.beginPath();
         c.arc(cx + sx, cy + sy, seedR, 0, Math.PI * 2);
@@ -444,9 +334,9 @@ export function renderer(options: RendererOptions) {
       }
     }
 
-    // Always show count
-    c.fillStyle = PIT_COLORS.text;
-    c.font = `bold ${Math.max(11, pitRadius * 0.45)}px sans-serif`;
+    // Count below pit
+    c.fillStyle = COLORS.text;
+    c.font = `bold ${Math.max(11, pitRadius * 0.45)}px 'Inter', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(String(count), cx, cy + pitRadius + Math.max(10, pitRadius * 0.45));
@@ -454,14 +344,14 @@ export function renderer(options: RendererOptions) {
     // Delta indicator
     if (prevState && delta !== 0) {
       const deltaFontSize = Math.max(10, pitRadius * 0.38);
-      c.font = `bold ${deltaFontSize}px sans-serif`;
+      c.font = `bold ${deltaFontSize}px 'Inter', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       if (delta > 0) {
-        c.fillStyle = PIT_COLORS.deltaPlus;
+        c.fillStyle = COLORS.deltaPlus;
         c.fillText(`+${delta}`, cx + pitRadius * 0.7, cy - pitRadius * 0.7);
       } else {
-        c.fillStyle = PIT_COLORS.deltaMinus;
+        c.fillStyle = COLORS.deltaMinus;
         c.fillText(`${delta}`, cx + pitRadius * 0.7, cy - pitRadius * 0.7);
       }
     }
@@ -472,7 +362,7 @@ export function renderer(options: RendererOptions) {
     const cx = bx + storeW + pitW * i + pitW / 2;
     const cy = by + pitH + pitH / 2;
     const isActiveRow = state.currentPlayer === 0;
-    drawPit(cx, cy, state.seeds[i] ?? 0, i, isActiveRow, 0);
+    drawPit(cx, cy, state.seeds[i] ?? 0, i, isActiveRow);
   }
 
   // Player 2 row (top, right to left: pits 6-11)
@@ -480,31 +370,34 @@ export function renderer(options: RendererOptions) {
     const cx = bx + storeW + pitW * (5 - i) + pitW / 2;
     const cy = by + pitH / 2;
     const isActiveRow = state.currentPlayer === 1;
-    drawPit(cx, cy, state.seeds[6 + i] ?? 0, 6 + i, isActiveRow, 1);
+    drawPit(cx, cy, state.seeds[6 + i] ?? 0, 6 + i, isActiveRow);
   }
 
   // Row labels
-  c.font = `${Math.max(10, pitRadius * 0.35)}px sans-serif`;
+  c.font = `${Math.max(10, pitRadius * 0.35)}px 'Inter', sans-serif`;
   c.textAlign = 'center';
   const labelY1 = by + boardH + Math.max(16, pitRadius * 0.6);
   const labelY2 = by - Math.max(8, pitRadius * 0.3);
   for (let i = 0; i < 6; i++) {
     const cx = bx + storeW + pitW * i + pitW / 2;
-    c.fillStyle = PLAYER_COLORS[0];
+    c.fillStyle = COLORS.label;
     c.fillText(String.fromCharCode(65 + i), cx, labelY1); // A-F for P1
-    c.fillStyle = PLAYER_COLORS[1];
     c.fillText(String.fromCharCode(102 - i), cx, labelY2); // f-a for P2
   }
 
-  // Status bar (simplified, main info is in the panel now)
+  // =========================================================================
+  //  DOM STATUS CONTAINER
+  // =========================================================================
   if (terminal) {
     const rewards = getRewards(currentStep);
-    let msg = 'Game Over - Draw';
-    if (rewards[0] > rewards[1]) msg = 'Game Over - Player 1 wins!';
-    else if (rewards[1] > rewards[0]) msg = 'Game Over - Player 2 wins!';
-    statusBar.textContent = `${msg} (${state.scores[0]} - ${state.scores[1]})`;
+    let msg = `Game Over \u2014 Draw (${state.scores[0]} \u2013 ${state.scores[1]})`;
+    if (rewards[0] > rewards[1]) msg = `Game Over \u2014 Player 1 wins! (${state.scores[0]} \u2013 ${state.scores[1]})`;
+    else if (rewards[1] > rewards[0])
+      msg = `Game Over \u2014 Player 2 wins! (${state.scores[0]} \u2013 ${state.scores[1]})`;
+    statusContainer.textContent = msg;
+    statusContainer.style.fontWeight = '700';
   } else {
-    statusBar.textContent = `Player ${state.currentPlayer + 1}'s turn | Score: ${state.scores[0]} - ${state.scores[1]}`;
+    statusContainer.textContent = `Player ${state.currentPlayer + 1}'s turn`;
   }
 }
 
@@ -518,7 +411,6 @@ function getSeedPositions(count: number, radius: number): [number, number][] {
       positions.push([Math.cos(angle) * r, Math.sin(angle) * r]);
     }
   } else {
-    // Inner and outer rings
     const outer = Math.min(count, 8);
     const inner = count - outer;
     for (let i = 0; i < outer; i++) {
