@@ -1,14 +1,14 @@
 {
   "frames": {
     "black-active-marker.png": {
-      "frame": { "x": 0, "y": 260, "w": 176, "h": 178 },
+      "frame": { "x": 132, "y": 761, "w": 87, "h": 87 },
       "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
-      "sourceSize": { "w": 176, "h": 178 }
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 87, "h": 87 },
+      "sourceSize": { "w": 88, "h": 88 }
     },
     "black-territory.png": {
-      "frame": { "x": 543, "y": 324, "w": 79, "h": 79 },
+      "frame": { "x": 0, "y": 915, "w": 79, "h": 79 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 5, "w": 79, "h": 79 },
@@ -22,63 +22,63 @@
       "sourceSize": { "w": 256, "h": 256 }
     },
     "hoshi.png": {
-      "frame": { "x": 360, "y": 260, "w": 48, "h": 48 },
+      "frame": { "x": 183, "y": 528, "w": 48, "h": 48 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 48 },
       "sourceSize": { "w": 48, "h": 48 }
     },
     "puff1.png": {
-      "frame": { "x": 519, "y": 132, "w": 125, "h": 103 },
+      "frame": { "x": 0, "y": 808, "w": 125, "h": 103 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 2, "w": 125, "h": 103 },
       "sourceSize": { "w": 127, "h": 105 }
     },
     "puff2.png": {
-      "frame": { "x": 360, "y": 324, "w": 179, "h": 152 },
+      "frame": { "x": 0, "y": 520, "w": 179, "h": 152 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 1, "w": 179, "h": 152 },
       "sourceSize": { "w": 181, "h": 153 }
     },
     "puff3.png": {
-      "frame": { "x": 519, "y": 239, "w": 97, "h": 81 },
+      "frame": { "x": 132, "y": 676, "w": 97, "h": 81 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 1, "w": 97, "h": 81 },
       "sourceSize": { "w": 99, "h": 83 }
     },
     "shadow.png": {
-      "frame": { "x": 519, "y": 0, "w": 128, "h": 128 },
+      "frame": { "x": 0, "y": 676, "w": 128, "h": 128 },
       "rotated": false,
       "trimmed": false,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 128, "h": 128 },
       "sourceSize": { "w": 128, "h": 128 }
     },
     "squiggle-dash.png": {
-      "frame": { "x": 0, "y": 442, "w": 72, "h": 4 },
+      "frame": { "x": 183, "y": 520, "w": 72, "h": 4 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 4 },
       "sourceSize": { "w": 74, "h": 4 }
     },
     "white-active-marker.png": {
-      "frame": { "x": 180, "y": 260, "w": 176, "h": 178 },
+      "frame": { "x": 166, "y": 852, "w": 87, "h": 87 },
       "rotated": false,
-      "trimmed": false,
-      "spriteSourceSize": { "x": 0, "y": 0, "w": 176, "h": 178 },
-      "sourceSize": { "w": 176, "h": 178 }
+      "trimmed": true,
+      "spriteSourceSize": { "x": 0, "y": 0, "w": 87, "h": 87 },
+      "sourceSize": { "w": 88, "h": 88 }
     },
     "white-territory.png": {
-      "frame": { "x": 543, "y": 407, "w": 79, "h": 79 },
+      "frame": { "x": 83, "y": 915, "w": 79, "h": 79 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 5, "w": 79, "h": 79 },
       "sourceSize": { "w": 84, "h": 84 }
     },
     "white.png": {
-      "frame": { "x": 260, "y": 0, "w": 255, "h": 256 },
+      "frame": { "x": 0, "y": 260, "w": 255, "h": 256 },
       "rotated": false,
       "trimmed": true,
       "spriteSourceSize": { "x": 0, "y": 0, "w": 255, "h": 256 },
@@ -93,8 +93,8 @@
     "version": "1.1",
     "image": "sprites.png",
     "format": "RGBA8888",
-    "size": { "w": 647, "h": 486 },
+    "size": { "w": 256, "h": 994 },
     "scale": "1",
-    "smartupdate": "$TexturePacker:SmartUpdate:8e096c3930e2cf76269d491f97dd3175:d4d3fbcf492d4433b722b4889debc150:1eabdf11f75e3a4fe3147baf7b5be24b$"
+    "smartupdate": "$TexturePacker:SmartUpdate:f6b3a245addecbe2b6a054cd7e7c54b8:7f3d936447d68d7011fc4dfed6ff740d:1eabdf11f75e3a4fe3147baf7b5be24b$"
   }
 }
