@@ -18,7 +18,7 @@
   border: none;
   max-width: none;
   max-height: none;
-  padding: 2rem;
+  padding: 1rem;
   display: grid;
   place-content: safe center;
   overflow: auto;
@@ -42,7 +42,8 @@
 }
 
 .table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: center;
   min-width: 32rem;
 }
@@ -50,17 +51,28 @@
 .table th,
 .table td {
   padding: var(--cell-padding);
-  border-bottom: var(--border-size) solid;
-}
-
-.table thead th {
-  border-top: var(--border-size) solid;
-  border-bottom: var(--border-size) solid;
-  font-weight: 400;
+  background: url("/images/squiggle-solid.png") repeat-x bottom / 5rem
+    var(--border-size);
 }
 
 .table :where(td, th):not(:last-of-type) {
-  border-right: var(--border-size) solid;
+  background:
+    url("/images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size),
+    url("/images/squiggle-v.png") repeat-y right / var(--border-size) 5rem;
+}
+
+.table thead th {
+  font-weight: 400;
+  background:
+    url("/images/squiggle-solid.png") repeat-x top / 5rem var(--border-size),
+    url("/images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size);
+}
+
+.table thead th:not(:last-of-type) {
+  background:
+    url("/images/squiggle-solid.png") repeat-x top / 5rem var(--border-size),
+    url("/images/squiggle-solid.png") repeat-x bottom / 5rem var(--border-size),
+    url("/images/squiggle-v.png") repeat-y right / var(--border-size) 5rem;
 }
 
 .table tbody td:not(:first-child) {
@@ -109,11 +121,15 @@
 
 .rulesNote {
   transition-delay: calc(var(--reveal-delay) + 1100ms);
+}
 
-  a {
-    color: inherit;
-    font-weight: 400;
-    text-decoration: underline;
+.rulesNote a {
+  color: inherit;
+  font-weight: 400;
+  text-decoration: underline;
+
+  &:where(:hover, :focus-visible) {
+    opacity: 0.8;
   }
 }
 
@@ -121,7 +137,7 @@
   .modal {
     --font-size: 13px;
     --border-size: 1px;
-    --cell-padding: 0.4rem 0.75rem;
+    --cell-padding: 0.4rem 0.5rem;
     gap: 1rem;
     line-height: 1.4;
   }
