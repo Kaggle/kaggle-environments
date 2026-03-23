@@ -37,6 +37,13 @@
   background-size: 3.5rem 2px;
 }
 
+.checkLog {
+  background-color: #ffff70;
+  justify-self: start;
+  padding-inline: 0.35em;
+  text-decoration: underline;
+}
+
 @container (max-width: 680px) {
   .notation {
     align-items: end;

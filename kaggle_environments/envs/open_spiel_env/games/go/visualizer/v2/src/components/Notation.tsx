@@ -208,6 +208,7 @@ export default memo(function Notation() {
 
   return (
     <div className={styles.notation}>
+      <span className={styles.checkLog}>*Check Log*</span>
       {notation.title && (
         <h2>
           {notation.title.split(' ').map((word, i) => (
