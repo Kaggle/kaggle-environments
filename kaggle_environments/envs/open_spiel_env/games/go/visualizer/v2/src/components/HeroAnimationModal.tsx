@@ -5,6 +5,7 @@ import { HeroTypes, detectHeroType } from '../utils/heroTypes.ts';
 import { RivePopover } from './RivePopover.tsx';
 import passRiv from '../assets/pass.riv?url';
 import doublePassRiv from '../assets/double-pass.riv?url';
+import firstCaptureRiv from '../assets/first-capture.riv?url';
 import criticalHitRiv from '../assets/critical-hit.riv?url';
 
 export default memo(function HeroAnimationModal() {
@@ -46,7 +47,7 @@ export default memo(function HeroAnimationModal() {
         text = 'Double Pass: game over.';
         break;
       case HeroTypes.FIRST_CAPTURE:
-        src = passRiv;
+        src = firstCaptureRiv;
         text = `${player} captures first.`;
         break;
       case HeroTypes.CRITICAL_HIT:
