@@ -14,7 +14,6 @@ import Notation from './Notation.tsx';
 import { BoardControls } from './BoardControls.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
-  const game = useGameStore((s) => s.game);
   const setState = useGameStore((state) => state.setState);
   const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
   const showAnnotations = usePreferences((state) => state.showAnnotations);
@@ -43,7 +42,7 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
     setState(game, options);
   }, [options, setState]);
 
-  const gameOver = game.isOver();
+  const gameOver = options.replay.steps.at(options.step)?.winner;
   // React 18 doesn't support the `inert` HTML attribute as a prop, so we
   // set it imperatively via a ref callback. This can be replaced with a
   // regular `inert` prop once the project upgrades to React 19+.
@@ -72,7 +71,7 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       </div>
       {options.step === 0 && <VersusBanner options={options} />}
       {gameOver && <GameOverModal />}
-      {showHeroAnimations && <HeroAnimationModal />}
+      {showHeroAnimations && !gameOver && <HeroAnimationModal />}
     </main>
   );
 });
