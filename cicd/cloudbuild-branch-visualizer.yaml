@@ -1,0 +1,51 @@
+# Generic CI/CD pipeline for branch-owned visualizers.
+#
+# Reads web/config/branch-owned.json from the master branch to determine
+# which visualizers the current branch owns. Builds and deploys only those.
+#
+# Setup: Create a single Cloud Build trigger with:
+#   - Branch pattern: ^(?!master$).* (or a narrower naming convention)
+#   - Config file: cicd/cloudbuild-branch-visualizer.yaml
+#   - No substitution variables needed
+#
+# To register a branch, add an entry to branch-owned.json on master via PR:
+#   { "open_spiel_go/v2": "go-v2/main" }
+
+steps:
+  # Step 1: Discover, build, and stage owned visualizers
+  - id: "build"
+    name: "node:22"
+    entrypoint: "bash"
+    env:
+      - "BRANCH_NAME=$BRANCH_NAME"
+    args:
+      - "-c"
+      - |
+        set -e
+        apt-get update && apt-get install -y git jq
+        npm install -g pnpm
+        pnpm install
+        node web/scripts/plan-branch-deploy.js
+
+  # Step 2: Deploy staged artifacts to GCS and update per-game indexes
+  - id: "deploy"
+    name: "gcr.io/cloud-builders/gcloud"
+    entrypoint: "python3"
+    args:
+      - "web/scripts/deploy-branch-visualizers.py"
+      - "--bucket=$_BUCKET_NAME"
+    waitFor: ["build"]
+
+substitutions:
+  _BUCKET_NAME: "kaggle-static"
+
+options:
+  pool:
+    name: "projects/kaggle-cicd/locations/us-east1/workerPools/kaggle-cloud-builders"
+
+timeout: "1800s"
+
+tags:
+  - "kaggle-environments"
+  - "visualizer-deployment"
+  - "branch-owned"
