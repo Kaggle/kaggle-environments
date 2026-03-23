@@ -52,11 +52,33 @@ export const goTransformer = (environment: any): GoStep[] => {
   const goReplay = environment as GoReplay;
   const goSteps: GoStep[] = [];
 
+  const firstStep = goReplay.steps[0];
+  const extraStepPlayers = [0, 1].map(
+    (index): GoPlayer => ({
+      id: index,
+      name: environment.info.TeamNames[index],
+      thumbnail: '',
+      isTurn: false,
+      actionDisplayText: '',
+      thoughts: '',
+      reward: null,
+      generateReturns: null,
+    })
+  );
+
+  goSteps.push({
+    step: goSteps.length,
+    players: extraStepPlayers,
+    boardState: parseBoardState(firstStep[0].observation.observationString),
+    isTerminal: false,
+    winner: null,
+  });
+
   for (const step of goReplay.steps) {
     if (step.some((p) => p.action?.actionString) === false) continue;
 
-    const stepPlayers: GoPlayer[] = step.map((player, index): GoPlayer => {
-      return {
+    const stepPlayers: GoPlayer[] = step.map(
+      (player, index): GoPlayer => ({
         id: index,
         name: environment.info.TeamNames[index],
         thumbnail: '',
@@ -65,17 +87,25 @@ export const goTransformer = (environment: any): GoStep[] => {
         thoughts: parseThoughts(player.action),
         reward: player.reward,
         generateReturns: player.action?.generate_returns ?? null,
-      };
-    });
+      })
+    );
 
     goSteps.push({
       step: goSteps.length,
       players: stepPlayers,
       boardState: parseBoardState(step[0].observation.observationString),
       isTerminal: step[0].observation.isTerminal,
-      winner: deriveWinner(step),
+      winner: null,
     });
   }
+
+  goSteps.push({
+    step: goSteps.length,
+    players: extraStepPlayers,
+    boardState: goSteps[goSteps.length - 1].boardState,
+    isTerminal: goSteps[goSteps.length - 1].isTerminal,
+    winner: deriveWinner(goReplay.steps[goReplay.steps.length - 1]),
+  });
 
   return goSteps;
 };
