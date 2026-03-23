@@ -52,9 +52,17 @@ export function WithPopover({ children, icon, id, label }: Props) {
         popovertargetaction="toggle"
         style={{ anchorName: triggerName }}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
           <use xlinkHref={iconPath} />
         </svg>
+        <span className="visually-hidden">{label}</span>
       </button>
     </>
   );

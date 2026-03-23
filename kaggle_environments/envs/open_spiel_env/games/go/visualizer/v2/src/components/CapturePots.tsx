@@ -18,11 +18,11 @@ function generateScatterPos(): ScatterPos {
   return { x: Math.cos(angle) * r, y: Math.sin(angle) * r };
 }
 
-function Pot({ count, stoneImg }: { count: number; stoneImg: string }) {
+function Pot({ count, stoneImg, label }: { count: number; stoneImg: string; label: string }) {
   const positionsRef = useRef<Map<number, ScatterPos>>(new Map());
 
   return (
-    <div className={styles.potArea}>
+    <div className={styles.potArea} role="img" aria-label={label}>
       <img src={potImg} className={styles.potImage} alt="" draggable={false} />
       {/* eslint-disable-next-line react-hooks/refs */}
       {Array.from({ length: count }, (_, i) => {
@@ -52,8 +52,16 @@ export default memo(function CapturePots() {
 
   return (
     <section className={styles.pots} aria-label="Capture pots">
-      <Pot count={state.whiteStonesCaptured} stoneImg={whiteImg} />
-      <Pot count={state.blackStonesCaptured} stoneImg={blackImg} />
+      <Pot
+        count={state.whiteStonesCaptured}
+        stoneImg={whiteImg}
+        label={`White stones captured: ${state.whiteStonesCaptured}`}
+      />
+      <Pot
+        count={state.blackStonesCaptured}
+        stoneImg={blackImg}
+        label={`Black stones captured: ${state.blackStonesCaptured}`}
+      />
     </section>
   );
 });

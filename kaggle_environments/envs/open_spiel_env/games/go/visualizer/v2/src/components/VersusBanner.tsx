@@ -15,7 +15,7 @@ export default memo(function VersusBanner({ options }: Props) {
   return (
     <div className={styles.versusBanner} aria-hidden="true">
       <Ribbon>
-        <span>{blackName}</span> vs. <span>{whiteName}</span>
+        {blackName} vs. {whiteName}
       </Ribbon>
     </div>
   );
