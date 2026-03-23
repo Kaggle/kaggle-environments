@@ -7,6 +7,7 @@ import passRiv from '../assets/pass.riv?url';
 import doublePassRiv from '../assets/double-pass.riv?url';
 import firstCaptureRiv from '../assets/first-capture.riv?url';
 import criticalHitRiv from '../assets/critical-hit.riv?url';
+import dragonLossRiv from '../assets/dragon-loss.riv?url';
 
 export default memo(function HeroAnimationModal() {
   const game = useGameStore((state) => state.game);
@@ -55,7 +56,7 @@ export default memo(function HeroAnimationModal() {
         text = `${player} takes ${captures} pieces.`;
         break;
       case HeroTypes.DRAGON_LOSS:
-        src = passRiv;
+        src = dragonLossRiv;
         text = 'Dragon was lost.';
         break;
       default:
