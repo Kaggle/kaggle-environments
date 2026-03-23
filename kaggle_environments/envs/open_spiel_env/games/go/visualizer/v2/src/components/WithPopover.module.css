@@ -45,7 +45,7 @@
   translate: 0.5rem -50%;
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .trigger {
     width: 30px;
     height: 30px;
