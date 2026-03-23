@@ -4,9 +4,11 @@
   font-size: var(--ribbon-font-size, 2rem);
   position: relative;
   width: fit-content;
+  max-width: 75%;
   height: 100%;
   margin-inline: auto;
   text-align: center;
+  line-height: 1.4;
   filter: drop-shadow(
     calc(var(--shadow-size) * -1) var(--shadow-size) var(--shadow-color)
   );
@@ -25,13 +27,13 @@
   /* Left flag. */
   & svg:nth-child(1) {
     left: 0;
-    transform: translateX(-100%) translateX(2px);
+    transform: translateX(-90%);
   }
 
   /* Right flag. */
   & svg:nth-child(2) {
     right: 0;
-    transform: translateX(100%) translateX(-2px) scale(-1);
+    transform: translateX(90%) scale(-1);
   }
 }
 

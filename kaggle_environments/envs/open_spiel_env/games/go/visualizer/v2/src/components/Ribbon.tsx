@@ -7,7 +7,7 @@ interface Props {
 
 export function FlagEnd() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 55 114" width="55" height="114">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 55 116" width="55" height="114">
       <path
         fill="#fff"
         stroke="currentColor"

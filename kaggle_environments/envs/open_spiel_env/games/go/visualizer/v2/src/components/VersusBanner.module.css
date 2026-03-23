@@ -14,7 +14,7 @@
   & > * {
     --ribbon-font-size: 1rem;
     --ribbon-padding-inline: 2em;
-    --ribbon-padding-block: 1.25rem;
+    --ribbon-padding-block: 1.25em;
   }
 
   & span {
@@ -40,5 +40,7 @@
 @container (max-width: 680px) {
   .versusBanner > * {
     --ribbon-font-size: 0.75rem;
+    --ribbon-padding-inline: 1.5em;
+    --ribbon-padding-block: 0.8125em;
   }
 }
