@@ -1,6 +1,12 @@
 import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core';
 import { renderer } from './repeated_poker_renderer';
-import { repeatedPokerTransformerV2 } from './transformers/v2/repeatedPokerTransformerV2';
+import {
+  repeatedPokerTransformerV2,
+  getPokerStepRenderTime,
+  getPokerStepInterestingEvents,
+} from './transformers/v2/repeatedPokerTransformerV2';
+import { getPokerStepLabel, getPokerStepDescription } from './transformers/v1/repeatedPokerTransformer';
+import { RepeatedPokerStep } from './transformers/v2/poker-steps-types';
 import './style.css';
 
 const app = document.getElementById('app');
@@ -19,6 +25,11 @@ if (app) {
         steps: repeatedPokerTransformerV2(replay),
         isTransformed: true,
       }),
+      getStepLabel: (step) => getPokerStepLabel(step as RepeatedPokerStep),
+      getStepDescription: (step) => getPokerStepDescription(step as RepeatedPokerStep),
+      getStepRenderTime: (step, replayMode, speedModifier) =>
+        getPokerStepRenderTime(step as RepeatedPokerStep, replayMode, speedModifier),
+      getInterestingEvents: (steps) => getPokerStepInterestingEvents(steps as RepeatedPokerStep[]),
     })
   );
 }

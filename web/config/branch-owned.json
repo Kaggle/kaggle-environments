@@ -1,0 +1,4 @@
+{
+  "open_spiel_go/v2": "go-v2/main",
+  "open_spiel_chess/v2": "chess-v2/main"
+}
