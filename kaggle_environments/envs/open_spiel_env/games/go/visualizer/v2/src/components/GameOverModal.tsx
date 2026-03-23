@@ -84,7 +84,7 @@ export default memo(function GameOverModal() {
 
   const rows: StatRow[] = [
     { label: 'Stones Captured', black: captured.black, white: captured.white },
-    { label: 'Point Total', black: points.black, white: points.white },
+    { label: 'Points', black: points.black, white: points.white },
     { label: 'Number of Passes', black: passes.black, white: passes.white },
     { label: 'Tokens Used', black: tokens.black.toLocaleString(), white: tokens.white.toLocaleString() },
     {
