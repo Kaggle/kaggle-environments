@@ -36,7 +36,7 @@
   display: block;
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .notationSlot {
     display: none;
   }

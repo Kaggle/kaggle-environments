@@ -262,7 +262,7 @@
   }
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .panel {
     --logo-size: 40px;
     --logo-overflow: 20px;

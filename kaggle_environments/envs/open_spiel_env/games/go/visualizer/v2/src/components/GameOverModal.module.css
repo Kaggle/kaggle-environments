@@ -133,7 +133,7 @@
   }
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .modal {
     --font-size: 11px;
   }
