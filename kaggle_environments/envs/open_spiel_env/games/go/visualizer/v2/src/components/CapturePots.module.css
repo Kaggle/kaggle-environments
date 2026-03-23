@@ -35,7 +35,7 @@
   }
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .pots {
     justify-content: space-between;
   }

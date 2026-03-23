@@ -37,7 +37,7 @@
   background-size: 3.5rem 2px;
 }
 
-@container (max-width: 600px) {
+@container (max-width: 680px) {
   .notation {
     align-items: end;
     font-size: 0.6875rem;
