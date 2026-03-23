@@ -26,7 +26,7 @@ export default memo(function HeroAnimationModal() {
     setHero(null);
 
     // Only trigger on single-step navigation
-    if (prevStep === null || Math.abs(step - prevStep) !== 1) return;
+    if (prevStep === null || Math.abs(step - prevStep) > 1) return;
     if (!showHeroAnimations || reducedMotion) return;
 
     const heroType = detectHeroType(game);
