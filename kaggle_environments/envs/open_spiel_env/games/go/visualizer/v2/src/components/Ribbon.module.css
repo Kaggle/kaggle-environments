@@ -1,69 +1,56 @@
+.ribbon {
+  --shadow-size: 0.3125rem;
+  --shadow-color: rgb(0 0 0 / 35%);
+  font-size: var(--ribbon-font-size, 2rem);
+  position: relative;
+  width: fit-content;
+  max-width: 75%;
+  height: 100%;
+  margin-inline: auto;
+  text-align: center;
+  line-height: 1.4;
+  filter: drop-shadow(
+    calc(var(--shadow-size) * -1) var(--shadow-size) var(--shadow-color)
+  );
+  /* Fixes Safari filters. */
+  transform: translateZ(0);
+
+  & svg {
+    position: absolute;
+    top: 10%;
+    width: auto;
+    height: 80%;
+    display: block;
+    stroke-width: 2px;
+  }
+
+  /* Left flag. */
+  & svg:nth-child(1) {
+    left: 0;
+    transform: translateX(-90%);
+  }
+
+  /* Right flag. */
+  & svg:nth-child(2) {
+    right: 0;
+    transform: translateX(90%) scale(-1);
+  }
+}
+
 .banner {
   --shadow-size: 0.3125rem;
   --shadow-color: rgb(0 0 0 / 35%);
-  display: grid;
   font-size: var(--ribbon-font-size, 2rem);
   position: relative;
   place-content: center;
   justify-items: center;
-  isolation: isolate;
-
-  & > * {
-    grid-area: 1 / 1;
-  }
 }
 
 .text {
   padding: var(--ribbon-padding-block, 1.5rem)
     var(--ribbon-padding-inline, 4rem);
   position: relative;
-
-  /*transition: opacity 0.8s, transform 0.6s;*/
-  /*transition-delay: .4s;*/
-  /*.banner:not(:hover) & {*/
-  /*  transform: translateY(0.5ch);*/
-  /*  opacity: 0;*/
-  /*  transition-delay: 0s;*/
-  /*  transition-duration: 0.2s;*/
-  /*}*/
-}
-
-.ribbon {
-  display: grid;
-  align-items: center;
-  width: calc(100% + var(--ribbon-padding-inline, 4rem));
-  height: 100%;
-  grid-template-columns: auto 1fr auto;
-  filter: drop-shadow(
-    calc(var(--shadow-size) * -1) var(--shadow-size) var(--shadow-color)
-  );
-
-  & svg {
-    display: block;
-    width: auto;
-    height: 100%;
-  }
-
-  /*transition: width 0.5s ease-out;*/
-  /*.banner:not(:hover) & {*/
-  /*  width: var(--padding);*/
-  /*}*/
-}
-
-.middle {
-  height: 100%;
-  color: transparent;
+  background: white;
   border: 0.125rem solid black;
   border-radius: 0.25rem;
-  background: white;
-}
-
-.start {
-  transform: translateX(2px);
-  height: 80%;
-}
-
-.end {
-  transform: translateX(-2px);
-  height: 80%;
 }

@@ -7,23 +7,14 @@
   left: anchor(left);
   width: anchor-size(width);
   translate: 0 -50%;
-  transition: translate 1200ms cubic-bezier(0.22, 1.15, 0.36, 1);
-  will-change: transform;
-
-  @starting-style {
-    translate: 0 -100vh;
-    rotate: 12deg;
-  }
-
-  [data-reduced-motion] & {
-    transition-duration: 0ms;
-  }
+  animation: slide-in-out 1.3s forwards;
+  will-change: transform, opacity;
 
   /* <Ribbon> element. */
   & > * {
     --ribbon-font-size: 1rem;
     --ribbon-padding-inline: 2em;
-    --ribbon-padding-block: 1.25rem;
+    --ribbon-padding-block: 1.25em;
   }
 
   & span {
@@ -31,8 +22,25 @@
   }
 }
 
+@keyframes slide-in-out {
+  from {
+    translate: 0 -100vh;
+    rotate: 12deg;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.22, 1.15, 0.36, 1);
+  }
+  to {
+    translate: 0 -50%;
+    rotate: 0deg;
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+}
+
 @container (max-width: 680px) {
   .versusBanner > * {
     --ribbon-font-size: 0.75rem;
+    --ribbon-padding-inline: 1.5em;
+    --ribbon-padding-block: 0.8125em;
   }
 }
