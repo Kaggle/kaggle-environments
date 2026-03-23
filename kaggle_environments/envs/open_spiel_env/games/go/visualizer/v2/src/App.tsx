@@ -3,6 +3,7 @@ import { createReplayVisualizer, ReplayAdapter } from '@kaggle-environments/core
 import { transformer } from './transformers/transformer';
 import { getStepRenderTime } from './utils/getStepRenderTime';
 import { getStepLabel } from './utils/getStepLabel';
+import { getStepDescription } from './utils/getStepDescription';
 import GameRenderer from './components/GameRenderer';
 import './App.css';
 
@@ -17,6 +18,7 @@ export default function App() {
       transformer,
       getStepRenderTime,
       getStepLabel,
+      getStepDescription,
     });
     createReplayVisualizer(element, adapter);
   }, []);
