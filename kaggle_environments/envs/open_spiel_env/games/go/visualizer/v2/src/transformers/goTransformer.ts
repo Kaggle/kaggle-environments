@@ -53,7 +53,7 @@ export const goTransformer = (environment: any): GoStep[] => {
   const goSteps: GoStep[] = [];
 
   const firstStep = goReplay.steps[0];
-  const firstStepPlayers = [0, 1].map(
+  const extraStepPlayers = [0, 1].map(
     (index): GoPlayer => ({
       id: index,
       name: environment.info.TeamNames[index],
@@ -68,7 +68,7 @@ export const goTransformer = (environment: any): GoStep[] => {
 
   goSteps.push({
     step: goSteps.length,
-    players: firstStepPlayers,
+    players: extraStepPlayers,
     boardState: parseBoardState(firstStep[0].observation.observationString),
     isTerminal: false,
     winner: null,
@@ -99,14 +99,13 @@ export const goTransformer = (environment: any): GoStep[] => {
     });
   }
 
-  const endStep = Object.assign({}, goSteps.at(-1));
-  endStep.step += 1;
-  endStep.players[0].isTurn = false;
-  endStep.players[1].isTurn = false;
-  endStep.winner = deriveWinner(goReplay.steps[goReplay.steps.length - 1]);
-  goSteps.push(endStep);
-
-  console.log(goSteps);
+  goSteps.push({
+    step: goSteps.length,
+    players: extraStepPlayers,
+    boardState: goSteps[goSteps.length - 1].boardState,
+    isTerminal: goSteps[goSteps.length - 1].isTerminal,
+    winner: deriveWinner(goReplay.steps[goReplay.steps.length - 1]),
+  });
 
   return goSteps;
 };
