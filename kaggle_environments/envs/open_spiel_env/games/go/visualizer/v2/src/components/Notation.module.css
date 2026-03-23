@@ -31,7 +31,7 @@
 }
 
 .notation h2 span {
-  background-image: url("/images/squiggle-solid.png");
+  background-image: url("./images/squiggle-solid.png");
   background-repeat: repeat-x;
   background-position: bottom;
   background-size: 3.5rem 2px;
