@@ -99,12 +99,14 @@ export const goTransformer = (environment: any): GoStep[] => {
     });
   }
 
+  const lastReplayStep = goReplay.steps[goReplay.steps.length - 1];
+
   goSteps.push({
     step: goSteps.length,
     players: extraStepPlayers,
     boardState: goSteps[goSteps.length - 1].boardState,
-    isTerminal: goSteps[goSteps.length - 1].isTerminal,
-    winner: deriveWinner(goReplay.steps[goReplay.steps.length - 1]),
+    isTerminal: lastReplayStep[0].observation.isTerminal,
+    winner: deriveWinner(lastReplayStep),
   });
 
   return goSteps;

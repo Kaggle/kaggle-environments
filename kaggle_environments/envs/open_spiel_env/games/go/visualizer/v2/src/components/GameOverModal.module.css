@@ -6,7 +6,7 @@
   --font-size: 1.25rem;
   --border-size: 2px;
   --cell-padding: 0.75rem 1.5rem;
-  --reveal-delay: 4.8s;
+  --reveal-delay: 1s;
   position: fixed;
   position-anchor: --playable-area;
   inset: unset;
