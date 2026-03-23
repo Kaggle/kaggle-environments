@@ -63,6 +63,13 @@ export class GoPixi {
       resolution: window.devicePixelRatio,
       backgroundAlpha: 0,
       autoDensity: true,
+      eventMode: 'none',
+      eventFeatures: {
+        move: false,
+        globalMove: false,
+        click: false,
+        wheel: false,
+      },
     });
 
     if (this.destroyed) {
@@ -70,6 +77,10 @@ export class GoPixi {
       return;
     }
 
+    // PixiJS sets `touch-action: none` on the canvas, which blocks
+    // scrolling on touch devices.
+    // See: https://github.com/pixijs/pixijs/issues/4824
+    app.canvas.style.removeProperty('touch-action');
     this.container.appendChild(app.canvas);
 
     const texture = await Assets.load(spritesPng);
