@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import useGameStore from '../stores/useGameStore';
 import styles from './GameOverModal.module.css';
 import { Ribbon } from './Ribbon.tsx';
@@ -22,8 +22,17 @@ interface StatRow {
 }
 
 export default memo(function GameOverModal() {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) {
+      dialog.show();
+      dialog.focus();
+    }
+  }, []);
 
   if (!options) return null;
 
@@ -86,9 +95,11 @@ export default memo(function GameOverModal() {
   ];
 
   return (
-    <div className={styles.modal}>
+    <dialog ref={dialogRef} className={styles.modal} aria-label="Game over" tabIndex={-1}>
       <div className="ribbon">
-        <Ribbon>Winner is {winnerName}!</Ribbon>
+        <Ribbon>
+          <h2 className={styles.heading}>Winner is {winnerName}!</h2>
+        </Ribbon>
       </div>
       <div className={styles.meta}>
         Game Duration: {formatDuration(gameDuration)}
@@ -119,6 +130,6 @@ export default memo(function GameOverModal() {
           Tromp-Taylor rules
         </a>
       </p>
-    </div>
+    </dialog>
   );
 });

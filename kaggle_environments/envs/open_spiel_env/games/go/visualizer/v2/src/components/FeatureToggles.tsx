@@ -29,7 +29,7 @@ export function FeatureToggles() {
             />
           </label>
         </li>
-        <li>
+        <li className={styles.annotationsToggle}>
           <label>
             Annotations
             <input
