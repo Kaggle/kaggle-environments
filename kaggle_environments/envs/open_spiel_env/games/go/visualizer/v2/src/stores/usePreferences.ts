@@ -5,8 +5,9 @@ interface Preferences {
   showTerritory: boolean;
   showHeroAnimations: boolean;
   showAnnotations: boolean;
+  soundEnabled: boolean;
   reducedMotion: boolean;
-  toggle: (key: 'showTerritory' | 'showHeroAnimations' | 'showAnnotations' | 'reducedMotion') => void;
+  toggle: (key: 'showTerritory' | 'showHeroAnimations' | 'showAnnotations' | 'soundEnabled' | 'reducedMotion') => void;
 }
 
 const usePreferences = create<Preferences>()(
@@ -15,6 +16,7 @@ const usePreferences = create<Preferences>()(
       showTerritory: true,
       showHeroAnimations: true,
       showAnnotations: true,
+      soundEnabled: true,
       reducedMotion: false,
       toggle: (key) => set((state) => ({ [key]: !state[key] })),
     }),
