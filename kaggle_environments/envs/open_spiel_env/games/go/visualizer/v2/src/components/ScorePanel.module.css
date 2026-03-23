@@ -180,7 +180,8 @@
   .panel {
     grid-template-columns: auto 19ch 250px 19ch auto;
     justify-items: center;
-    max-width: none;
+    max-width: 1100px;
+    margin-bottom: 1rem;
   }
 
   :where(.panel > *) {
