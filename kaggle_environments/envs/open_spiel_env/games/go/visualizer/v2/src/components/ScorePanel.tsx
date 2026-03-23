@@ -28,7 +28,7 @@ interface PotProps {
   label: string;
 }
 
-const SCATTER_RADIUS = 75;
+const SCATTER_RADIUS = 60;
 
 interface ScatterPos {
   x: number;
