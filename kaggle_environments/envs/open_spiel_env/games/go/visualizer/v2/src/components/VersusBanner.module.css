@@ -7,8 +7,17 @@
   left: anchor(left);
   width: anchor-size(width);
   translate: 0 -50%;
-  animation: slide-in-out 3.2s both;
-  will-change: transform, opacity;
+  transition: translate 1200ms cubic-bezier(0.22, 1.15, 0.36, 1);
+  will-change: transform;
+
+  @starting-style {
+    translate: 0 -100vh;
+    rotate: 12deg;
+  }
+
+  [data-reduced-motion] & {
+    transition-duration: 0ms;
+  }
 
   /* <Ribbon> element. */
   & > * {
@@ -19,32 +28,6 @@
 
   & span {
     white-space: nowrap;
-  }
-}
-
-@keyframes slide-in-out {
-  0% {
-    translate: 0 -100vh;
-    rotate: 12deg;
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.22, 1.15, 0.36, 1);
-  }
-  30% {
-    translate: 0 -50%;
-    rotate: 0deg;
-    opacity: 1;
-    animation-timing-function: linear;
-  }
-  75% {
-    translate: 0 -50%;
-    scale: 1;
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
-  }
-  100% {
-    translate: 0 -50%;
-    scale: 0.94;
-    opacity: 0;
   }
 }
 
