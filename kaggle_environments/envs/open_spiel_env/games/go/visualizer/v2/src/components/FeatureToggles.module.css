@@ -70,7 +70,7 @@
     align-items: center;
     justify-content: flex-end;
     padding-right: 0.3rem;
-    content: "No";
+    content: "Off";
     pointer-events: none;
     inset: 0;
   }
@@ -79,7 +79,7 @@
     justify-content: flex-start;
     padding-right: 0;
     padding-left: 0.3rem;
-    content: "Yes";
+    content: "On";
   }
 }
 
