@@ -1,13 +1,14 @@
 import gsap from 'gsap';
 import { Sprite, type Container, type Spritesheet } from 'pixi.js';
 import type { GridPos } from '../types/game.ts';
-import { getCellSize } from './constants.ts';
+import { getCellSize, getStoneScale } from './constants.ts';
 import { posKey, type StoneMap } from './stone-map.ts';
 
 const MARKER_POP_SCALE = 1.6;
 const MARKER_POP_ROTATION = 0.4;
 const MARKER_SCALE_DURATION = 0.5;
 const MARKER_ROTATION_DURATION = 0.6;
+const MARKER_RATIO = 0.35;
 
 export class Marker {
   private sprite: Sprite;
@@ -20,7 +21,7 @@ export class Marker {
     this.sheet = sheet;
     this.stoneLayer = stoneLayer;
 
-    const markerSize = getCellSize(boardSize) * 0.88 * 0.45;
+    const markerSize = getCellSize(boardSize) * getStoneScale(boardSize) * MARKER_RATIO;
     const sprite = new Sprite(sheet.textures['black-active-marker.png']);
     sprite.anchor.set(0.5);
     sprite.width = markerSize;
