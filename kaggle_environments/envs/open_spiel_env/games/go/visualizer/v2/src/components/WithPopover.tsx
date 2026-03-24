@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef } from 'react';
+import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
 
 interface Props {
@@ -9,11 +10,9 @@ interface Props {
   label: string;
 }
 
-const ICON_SPRITESHEET_PATH = './icons.svg';
-
 export function WithPopover({ children, icon, id, label }: Props) {
   const triggerName = `--${id}-trigger`;
-  const iconPath = `${ICON_SPRITESHEET_PATH}#${icon}`;
+  const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
