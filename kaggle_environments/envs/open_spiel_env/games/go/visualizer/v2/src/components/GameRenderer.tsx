@@ -13,6 +13,7 @@ import styles from './GameRenderer.module.css';
 import Notation from './Notation.tsx';
 import { BoardControls } from './BoardControls.tsx';
 import SoundEffects from './SoundEffects.tsx';
+import RivePreload from './RivePreload.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const setState = useGameStore((state) => state.setState);
@@ -55,6 +56,7 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
 
   return (
     <main id="go-playable-area" className={styles.playableArea}>
+      <RivePreload />
       <h1 className="visually-hidden">
         {options.replay.info?.TeamNames?.[0] ?? 'Black'} vs. {options.replay.info?.TeamNames?.[1] ?? 'White'}
       </h1>
