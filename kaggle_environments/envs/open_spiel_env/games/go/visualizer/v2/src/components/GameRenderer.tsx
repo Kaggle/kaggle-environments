@@ -9,7 +9,7 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
 import HeroAnimation from './HeroAnimation.tsx';
 import VersusBanner from './VersusBanner.tsx';
-import styles from './Gamerenderer.module.css';
+import styles from './GameRenderer.module.css';
 import Notation from './Notation.tsx';
 import { BoardControls } from './BoardControls.tsx';
 import SoundEffects from './SoundEffects.tsx';
