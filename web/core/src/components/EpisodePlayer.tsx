@@ -94,13 +94,14 @@ const PlayerContainer = styled('div')<{ $uiMode?: UiMode }>`
   }
 `;
 
-const VisualizerContainer = styled('div')`
+const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  ${({ $dense }) => $dense && 'max-height: 576px;'}
 `;
 
 const ReasoningLogsContainer = styled('div')`
@@ -330,7 +331,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   return (
     <PlayerContainer ref={containerRef} className={className} style={style} $uiMode={ui}>
-      <VisualizerContainer>
+      <VisualizerContainer $dense={dense}>
         <GameRenderer
           replay={processedReplay}
           step={state.step}
