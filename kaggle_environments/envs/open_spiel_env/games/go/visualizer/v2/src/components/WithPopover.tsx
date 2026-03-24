@@ -9,9 +9,11 @@ interface Props {
   label: string;
 }
 
+const ICON_SPRITESHEET_PATH = './icons.svg';
+
 export function WithPopover({ children, icon, id, label }: Props) {
   const triggerName = `--${id}-trigger`;
-  const iconPath = `/icons.svg#${icon}`;
+  const iconPath = `${ICON_SPRITESHEET_PATH}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
