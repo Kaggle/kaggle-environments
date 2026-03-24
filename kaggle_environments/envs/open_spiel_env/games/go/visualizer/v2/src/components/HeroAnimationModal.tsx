@@ -34,8 +34,9 @@ export default memo(function HeroAnimationModal() {
     if (heroType === null) return;
 
     const color = game.currentState().color;
-    const player = color.charAt(0).toUpperCase() + color.slice(1);
+    const player = color === 'black' ? 'Black' : 'White';
     const captures = game.currentState().capturedPositions?.length;
+    const opponent = color === 'black' ? 'White' : 'Black';
 
     let src, text;
     switch (heroType) {
@@ -57,7 +58,7 @@ export default memo(function HeroAnimationModal() {
         break;
       case HeroTypes.DRAGON_LOSS:
         src = dragonLossRiv;
-        text = 'Dragon was lost.';
+        text = `${opponent} loses a dragon.`;
         break;
       default:
         return;
