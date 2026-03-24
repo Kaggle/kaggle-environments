@@ -29,10 +29,12 @@ export default memo(function SoundEffects() {
     // Timeout to prevent audio spamming when scrubbing quickly (e.g. holding right arrow)
     timerRef.current = setTimeout(() => {
       if (placed && placeRef.current) {
+        placeRef.current.volume = 0.5;
         placeRef.current.currentTime = 0;
         placeRef.current.play();
       }
       if (captured && captureRef.current) {
+        captureRef.current.volume = 0.5;
         captureRef.current.currentTime = 0;
         captureRef.current.play();
       }
