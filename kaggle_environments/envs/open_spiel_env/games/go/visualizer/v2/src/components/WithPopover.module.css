@@ -15,6 +15,7 @@
   inset: unset;
   position-anchor: --board;
   appearance: none;
+  will-change: scale;
 
   &:hover {
     scale: 1.03;

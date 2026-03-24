@@ -3,4 +3,38 @@
   align-items: center;
   justify-items: end;
   gap: 0.5rem;
+  position: relative;
+}
+
+.boardControls button {
+  isolation: isolate;
+}
+
+.settingsCta {
+  position: absolute;
+  font-family: "Mynerve", cursive;
+  font-size: 1rem;
+  line-height: 1.1;
+  text-align: center;
+  bottom: 0;
+  transform: translateY(100%) rotate(-8deg);
+  max-width: 10ch;
+}
+
+.settingsCta img {
+  position: absolute;
+  transform: translateY(-25%);
+  width: 4rem;
+  display: block;
+}
+
+.settingsCta p {
+  margin-top: 2rem;
+  margin-left: 2rem;
+}
+
+@container (max-width: 680px) {
+  .settingsCta {
+    display: none;
+  }
 }
