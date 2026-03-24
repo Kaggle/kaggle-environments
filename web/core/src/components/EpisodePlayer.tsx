@@ -6,7 +6,7 @@ import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
-import { Button, Icon, useMediaQuery } from '@mui/material';
+import { Button, css, Icon, useMediaQuery } from '@mui/material';
 
 /**
  * UI mode for playback controls and ReasoningLogs.
@@ -101,7 +101,15 @@ const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  ${({ $dense }) => $dense && 'max-height: 576px;'}
+  ${({ $dense, theme }) =>
+    $dense &&
+    css`
+      max-height: 576px;
+
+      ${theme.breakpoints.down('tablet')} {
+        max-height: 306px;
+      }
+    `}
 `;
 
 const ReasoningLogsContainer = styled('div')`
