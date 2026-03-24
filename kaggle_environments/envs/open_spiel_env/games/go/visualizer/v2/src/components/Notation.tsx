@@ -93,13 +93,13 @@ export default memo(function Notation() {
       text: `A powerful wall formed by two captures.`,
     },
     {
-      term: 'bamboo Joint',
+      term: 'bamboo joint',
       title: `${agent} mentions Bamboo Joint:`,
       priority: 1,
       text: `Two parallel pairs of stones in an unbreakable connection`,
     },
     {
-      term: 'Flower',
+      term: 'flower',
       title: `${agent} mentions Flower:`,
       priority: 1,
       text: `Diamond shape left after capturing one stone.`,
