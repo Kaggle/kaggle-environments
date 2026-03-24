@@ -1,8 +1,13 @@
 import { WithPopover } from './WithPopover.tsx';
 import { FeatureToggles } from './FeatureToggles.tsx';
+import useGameStore from '../stores/useGameStore';
 import styles from './BoardControls.module.css';
+import arrowPath from '../assets/arrow.webp';
 
 export function BoardControls() {
+  const game = useGameStore((s) => s.game);
+  const showCta = game.currentState().moveNumber === 0;
+
   return (
     <div className={styles.boardControls}>
       <WithPopover id="info" icon="info" label="Game info">
@@ -14,6 +19,13 @@ export function BoardControls() {
       <WithPopover id="settings" icon="settings" label="Settings">
         <FeatureToggles />
       </WithPopover>
+
+      {showCta && (
+        <div className={styles.settingsCta}>
+          <img src={arrowPath} width="345" alt="368" aria-hidden="true" />
+          <p>Customise your experience</p>
+        </div>
+      )}
     </div>
   );
 }
