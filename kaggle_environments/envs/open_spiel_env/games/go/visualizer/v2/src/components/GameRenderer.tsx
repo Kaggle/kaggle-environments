@@ -4,12 +4,12 @@ import { GameRendererProps } from '@kaggle-environments/core';
 import { GoStep } from '../transformers/goReplayTypes';
 import GameBoard from '../components/GameBoard';
 import ScorePanel from '../components/ScorePanel';
-import GameOverModal from '../components/GameOverModal';
+import GameOver from '../components/GameOver';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences.ts';
-import HeroAnimationModal from './HeroAnimationModal.tsx';
+import HeroAnimation from './HeroAnimation.tsx';
 import VersusBanner from './VersusBanner.tsx';
-import styles from './Gamerenderer.module.css';
+import styles from './GameRenderer.module.css';
 import Notation from './Notation.tsx';
 import { BoardControls } from './BoardControls.tsx';
 import SoundEffects from './SoundEffects.tsx';
@@ -71,8 +71,8 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
         <ScorePanel />
       </div>
       {options.step === 0 && <VersusBanner options={options} />}
-      {gameOver && <GameOverModal />}
-      {showHeroAnimations && !gameOver && <HeroAnimationModal />}
+      {gameOver && <GameOver />}
+      {showHeroAnimations && !gameOver && <HeroAnimation />}
       <SoundEffects />
     </main>
   );

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import useGameStore from '../stores/useGameStore';
-import styles from './GameOverModal.module.css';
+import styles from './GameOver.module.css';
 import { Ribbon } from './Ribbon.tsx';
 
 function formatDuration(totalSeconds: number): string {
@@ -21,7 +21,7 @@ interface StatRow {
   white: string | number;
 }
 
-export default memo(function GameOverModal() {
+export default memo(function GameOver() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
