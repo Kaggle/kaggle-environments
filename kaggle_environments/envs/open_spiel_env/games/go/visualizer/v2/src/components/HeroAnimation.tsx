@@ -9,7 +9,7 @@ import firstCaptureRiv from '../assets/first-capture.riv?url';
 import criticalHitRiv from '../assets/critical-hit.riv?url';
 import dragonLossRiv from '../assets/dragon-loss.riv?url';
 
-export default memo(function HeroAnimationModal() {
+export default memo(function HeroAnimation() {
   const game = useGameStore((state) => state.game);
   const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
   const reducedMotion = usePreferences((s) => s.reducedMotion);
