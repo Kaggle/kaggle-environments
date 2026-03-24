@@ -66,6 +66,8 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   getInterestingEvents?: (steps: BaseGameStep[]) => InterestingEvent[];
   /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
   getTokenRenderDistribution?: (chunkCount: number) => number[];
+  /** Whether to use a compact/dense layout for playback controls */
+  dense?: boolean;
 }
 
 export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -163,6 +165,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   getStepRenderTime: getStepRenderTimeProp,
   getInterestingEvents: getInterestingEventsProp,
   getTokenRenderDistribution,
+  dense = false,
 }: EpisodePlayerProps<TSteps>) {
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
@@ -374,6 +377,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
               getStepLabel={getStepLabel}
               getStepDescription={getStepDescription}
               getTokenRenderDistribution={getTokenRenderDistribution}
+              dense={dense}
             />
           </ReasoningLogsContainer>
         ) : (

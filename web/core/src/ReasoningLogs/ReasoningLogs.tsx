@@ -158,6 +158,8 @@ export interface ReasoningLogsProps {
   getStepDescription?: (step: BaseGameStep) => string;
   /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
   getTokenRenderDistribution?: (chunkCount: number) => number[];
+  /** Whether to use a compact/dense layout for playback controls */
+  dense?: boolean;
 }
 
 export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
@@ -177,6 +179,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   getStepLabel,
   getStepDescription,
   getTokenRenderDistribution,
+  dense: _dense = false,
 }) => {
   // TODO(b/462451568) - add werewolf transformer to handle this instead
   const [expandAll, setExpandAll] = React.useState(false);
