@@ -38,6 +38,8 @@ export default memo(function GameOverModal() {
 
   const state = game.currentState();
   const step = options.replay.steps[options.step];
+  // TODO(pim-at-stink): https://github.com/Stinkstudios/kaggle-ai-visualiser/issues/15
+  if (!step) return null;
 
   const winnerPlayer = step.players.find((player) => player.reward === 1);
   const winnerColor = winnerPlayer?.id === 0 ? 'black' : 'white';
