@@ -1,10 +1,9 @@
 .ribbon {
   --shadow-size: 0.3125rem;
   --shadow-color: rgb(0 0 0 / 35%);
-  font-size: var(--ribbon-font-size, 2rem);
+  font-size: var(--ribbon-font-size, 1.5rem);
   position: relative;
   width: fit-content;
-  max-width: 75%;
   height: 100%;
   margin-inline: auto;
   text-align: center;
@@ -37,18 +36,8 @@
   }
 }
 
-.banner {
-  --shadow-size: 0.3125rem;
-  --shadow-color: rgb(0 0 0 / 35%);
-  font-size: var(--ribbon-font-size, 2rem);
-  position: relative;
-  place-content: center;
-  justify-items: center;
-}
-
 .text {
-  padding: var(--ribbon-padding-block, 1.5rem)
-    var(--ribbon-padding-inline, 4rem);
+  padding: var(--ribbon-padding-block, 1em) var(--ribbon-padding-inline, 1.5em);
   position: relative;
   background: white;
   border: 0.125rem solid black;
