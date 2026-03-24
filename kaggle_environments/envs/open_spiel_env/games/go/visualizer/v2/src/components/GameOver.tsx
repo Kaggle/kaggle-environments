@@ -128,7 +128,7 @@ export default memo(function GameOver() {
       </table>
       <p className={styles.rulesNote}>
         Scoring follows{' '}
-        <a href="https://senseis.xmp.net/?TrompTaylorRules" target="_blank" rel="noopener noreferrer">
+        <a href="https://tromp.github.io/go.html" target="_blank" rel="noopener noreferrer">
           Tromp-Taylor rules
         </a>
       </p>
