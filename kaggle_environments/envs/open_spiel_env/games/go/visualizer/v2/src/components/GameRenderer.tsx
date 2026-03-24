@@ -12,6 +12,7 @@ import VersusBanner from './VersusBanner.tsx';
 import styles from './Gamerenderer.module.css';
 import Notation from './Notation.tsx';
 import { BoardControls } from './BoardControls.tsx';
+import SoundEffects from './SoundEffects.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
   const setState = useGameStore((state) => state.setState);
@@ -72,6 +73,7 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       {options.step === 0 && <VersusBanner options={options} />}
       {gameOver && <GameOverModal />}
       {showHeroAnimations && !gameOver && <HeroAnimationModal />}
+      <SoundEffects />
     </main>
   );
 });
