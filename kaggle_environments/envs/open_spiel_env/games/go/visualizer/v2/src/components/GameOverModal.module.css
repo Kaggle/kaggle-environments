@@ -144,8 +144,6 @@
 
   :global(.ribbon) {
     --ribbon-font-size: 0.875rem;
-    --ribbon-padding-inline: 1.5rem;
-    --ribbon-padding-block: 1rem;
   }
 }
 
