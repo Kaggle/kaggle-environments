@@ -8,7 +8,7 @@ export function getStepRenderTime(step: BaseGameStep, replayMode: ReplayMode, sp
   const showHeroAnimations = usePreferences.getState().showHeroAnimations;
   const reducedMotion = usePreferences.getState().reducedMotion;
 
-  if (reducedMotion || !showHeroAnimations) return time;
+  if (reducedMotion || !showHeroAnimations) return time * 1.6; // Default of approx 3.5s
 
   const game = useGameStore.getState().game;
   // Temporary hack: The step render time is calculated before the step
@@ -26,5 +26,5 @@ export function getStepRenderTime(step: BaseGameStep, replayMode: ReplayMode, sp
 
   if (detectHeroType(game) !== null) return 1000 * 5;
 
-  return time;
+  return time * 1.6; // Default of approx 3.5s;
 }
