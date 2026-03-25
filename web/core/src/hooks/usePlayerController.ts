@@ -157,7 +157,9 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
       timeoutRef.current = setTimeout(() => {
         const nextStep = currentStep + 1;
         dispatchWithNotify({ type: 'SET_STEP', step: nextStep });
-        scheduleNextStepRef.current?.(nextStep, currentSpeed, currentReplayMode);
+        // Read latest speed/replayMode from state so mid-playback changes take effect
+        const latest = stateRef.current;
+        scheduleNextStepRef.current?.(nextStep, latest.speed, latest.replayMode);
       }, duration);
     },
     [totalSteps, dispatchWithNotify]

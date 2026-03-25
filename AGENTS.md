@@ -6,6 +6,7 @@ For detailed how-to guides, see the skills in `.agents/skills/`:
 - **create-environment** -- step-by-step guide for building a new game environment or updating an existing one
 - **create-visualizer** -- step-by-step guide for building a web visualizer or updating an existing one
 - **onboard-open-spiel-game** -- step-by-step guide for adding an OpenSpiel game
+- **create-open-spiel-visualizer** -- step-by-step guide for building a visualizer for a new OpenSpiel game (no harness/proxy needed)
 
 ## Project Overview
 
