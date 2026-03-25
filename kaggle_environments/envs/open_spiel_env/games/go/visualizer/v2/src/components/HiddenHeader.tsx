@@ -1,14 +1,11 @@
 import useGameStore from '../stores/useGameStore';
 
 export default function HiddenHeader() {
-  const options = useGameStore((state) => state.options);
-
-  const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
-  const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
+  const game = useGameStore((state) => state.game);
 
   return (
     <h1 className="visually-hidden">
-      {blackName} vs. {whiteName}
+      {game.blackName ?? 'Black'} vs. {game.whiteName ?? 'White'}
     </h1>
   );
 }
