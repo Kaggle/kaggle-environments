@@ -9,7 +9,7 @@ import { RivePopover } from './RivePopover.tsx';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 
-interface Hero { 
+interface Hero {
   src: string;
   text: string;
   color: string;
@@ -72,9 +72,9 @@ export default function HeroAnimation() {
       setHero({ src, text, color, step });
     }, 600);
 
-    return () => { 
+    return () => {
       clearTimeout(timeout);
-      setHero(null)
+      setHero(null);
     };
   }, [game, showHeroAnimations, reducedMotion]);
 
