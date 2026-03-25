@@ -1,26 +1,24 @@
-import { useEffect, memo } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Game } from 'tenuki';
 import { GameRendererProps } from '@kaggle-environments/core';
 import { GoStep } from '../transformers/goReplayTypes';
-import GameBoard from '../components/GameBoard';
-import ScorePanel from '../components/ScorePanel';
-import GameOver from '../components/GameOver';
+import { tenukiLogger } from '../utils/tenukiLogger';
+import Layout from './Layout';
 import useGameStore from '../stores/useGameStore';
-import usePreferences from '../stores/usePreferences.ts';
-import HeroAnimation from './HeroAnimation.tsx';
-import VersusBanner from './VersusBanner.tsx';
-import styles from './GameRenderer.module.css';
-import Notation from './Notation.tsx';
-import { BoardControls } from './BoardControls.tsx';
-import SoundEffects from './SoundEffects.tsx';
-import RivePreload from './RivePreload.tsx';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
+  console.log("GameRenderer")
+  const isFirstRender = useRef(true);
+  const [ready, setReady] = useState(false);
   const setState = useGameStore((state) => state.setState);
-  const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
-  const showAnnotations = usePreferences((state) => state.showAnnotations);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReady(true);
+    }
+
     const parameters = options.replay.configuration.openSpielGameParameters;
     const game = new Game({
       boardSize: parameters.board_size,
@@ -28,9 +26,10 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       scoring: 'area', // Tromp-Tailor Rules
     });
 
-    for (let i = 0; i <= options.step; i++) {
-      const step = options.replay.steps.at(i);
-      const move = step?.players.find((p) => p.isTurn)?.actionDisplayText;
+    for (const step of options.replay.steps) {
+      if (step.step > options.step) break;
+
+      const move = step.players.find((p) => p.isTurn)?.actionDisplayText;
 
       if (move === 'PASS') {
         game.pass();
@@ -41,41 +40,18 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       }
     }
 
+    game.blackName = options.agents.at(0).Name;
+    game.whiteName = options.agents.at(1).Name;
+    game.step = options.step;
+    game.gameStart = game.moveNumber() === 0;
+    game.gameOver = game.step > game.moveNumber();
+
+    tenukiLogger(game);
+
     setState(game, options);
   }, [options, setState]);
 
-  const gameOver = options.replay.steps.at(options.step)?.winner;
-  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
-  // set it imperatively via a ref callback. This can be replaced with a
-  // regular `inert` prop once the project upgrades to React 19+.
-  const inertRef = (el: HTMLElement | null) => {
-    if (!el) return;
-    if (gameOver) el.setAttribute('inert', '');
-    else el.removeAttribute('inert');
-  };
+  if (!ready) return null;
 
-  return (
-    <main id="go-playable-area" className={styles.playableArea}>
-      <RivePreload />
-      <h1 className="visually-hidden">
-        {options.replay.info?.TeamNames?.[0] ?? 'Black'} vs. {options.replay.info?.TeamNames?.[1] ?? 'White'}
-      </h1>
-      <div className={styles.board} ref={inertRef}>
-        <BoardControls />
-        <GameBoard />
-        {showAnnotations && (
-          <div className={styles.notationSlot} aria-live="polite">
-            <Notation />
-          </div>
-        )}
-      </div>
-      <div ref={inertRef}>
-        <ScorePanel />
-      </div>
-      {options.step === 0 && <VersusBanner options={options} />}
-      {gameOver && <GameOver />}
-      {showHeroAnimations && !gameOver && <HeroAnimation />}
-      <SoundEffects />
-    </main>
-  );
+  return <Layout />;
 });

@@ -1,15 +1,24 @@
+import arrowPath from '../assets/arrow.webp';
 import { WithPopover } from './WithPopover.tsx';
 import { FeatureToggles } from './FeatureToggles.tsx';
 import useGameStore from '../stores/useGameStore';
 import styles from './BoardControls.module.css';
-import arrowPath from '../assets/arrow.webp';
 
-export function BoardControls() {
-  const game = useGameStore((s) => s.game);
-  const showCta = game.currentState().moveNumber === 0;
+export default function BoardControls() {
+  console.log("BoardControls")
+  const game = useGameStore((state) => state.game);
+
+  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
+  // set it imperatively via a ref callback. This can be replaced with a
+  // regular `inert` prop once the project upgrades to React 19+.
+  const inertRef = (el: HTMLElement | null) => {
+    if (!el) return;
+    if (game.gameOver) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  };
 
   return (
-    <div className={styles.boardControls}>
+    <div className={styles.boardControls} ref={inertRef}>
       <WithPopover id="info" icon="info" label="Game info">
         <p>
           Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
@@ -20,7 +29,7 @@ export function BoardControls() {
         <FeatureToggles />
       </WithPopover>
 
-      {showCta && (
+      {game.gameStart && (
         <div className={styles.settingsCta}>
           <img src={arrowPath} width="345" alt="368" aria-hidden="true" />
           <p>Customise your experience</p>

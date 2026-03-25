@@ -1,7 +1,7 @@
-import { memo, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { Ribbon } from './Ribbon.tsx';
 import useGameStore from '../stores/useGameStore';
 import styles from './GameOver.module.css';
-import { Ribbon } from './Ribbon.tsx';
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -21,7 +21,8 @@ interface StatRow {
   white: string | number;
 }
 
-export default memo(function GameOver() {
+export default function GameOver() {
+  console.log("GameOver")
   const dialogRef = useRef<HTMLDialogElement>(null);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
@@ -34,29 +35,25 @@ export default memo(function GameOver() {
     }
   }, []);
 
-  if (!options) return null;
-
-  const state = game.currentState();
-  const step = options.replay.steps[options.step];
+  const step = options.replay.steps.at(options.step);
   // TODO(pim-at-stink): https://github.com/Stinkstudios/kaggle-ai-visualiser/issues/15
   if (!step) return null;
+  if (!game.gameOver) return null;
 
+  const state = game.currentState();
   const winnerPlayer = step.players.find((player) => player.reward === 1);
   const winnerColor = winnerPlayer?.id === 0 ? 'black' : 'white';
-  const teamNames = options.replay.info?.TeamNames as string[] | undefined;
-  const blackName = teamNames?.[0] ?? 'Black';
-  const whiteName = teamNames?.[1] ?? 'White';
+  const blackName = game.blackName ?? 'Black';
+  const whiteName = game.whiteName ?? 'White';
   const winnerName = winnerColor === 'black' ? blackName : whiteName;
-
   const points = game.score();
   const captured = { black: state.whiteStonesCaptured, white: state.blackStonesCaptured };
   const passes = { black: state.blackPassStones, white: state.whitePassStones };
-
   const tokens = { black: 0, white: 0 };
   const durations: { black: number[]; white: number[] } = { black: [], white: [] };
 
   for (const replayStep of options.replay.steps) {
-    const player = replayStep.players.find((p) => p.generateReturns);
+    const player = replayStep.players.find((player) => player.generateReturns);
     if (!player?.generateReturns) continue;
 
     for (const json of player.generateReturns) {
@@ -85,10 +82,26 @@ export default memo(function GameOver() {
   const gameDuration = allDurations.reduce((a, b) => a + b, 0);
 
   const rows: StatRow[] = [
-    { label: 'Stones Captured', black: captured.black, white: captured.white },
-    { label: 'Points', black: points.black, white: points.white },
-    { label: 'Number of Passes', black: passes.black, white: passes.white },
-    { label: 'Tokens Used', black: tokens.black.toLocaleString(), white: tokens.white.toLocaleString() },
+    {
+      label: 'Stones Captured',
+      black: captured.black,
+      white: captured.white,
+    },
+    {
+      label: 'Points',
+      black: points.black,
+      white: points.white,
+    },
+    {
+      label: 'Number of Passes',
+      black: passes.black,
+      white: passes.white,
+    },
+    {
+      label: 'Tokens Used',
+      black: tokens.black.toLocaleString(),
+      white: tokens.white.toLocaleString(),
+    },
     {
       label: 'Average Time per Move',
       black: `${Math.round(avg(durations.black))}s`,
@@ -134,4 +147,4 @@ export default memo(function GameOver() {
       </p>
     </dialog>
   );
-});
+}

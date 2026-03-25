@@ -1,10 +1,14 @@
-import { memo } from 'react';
 import useGameStore from '../stores/useGameStore';
-import styles from './Notation.module.css';
+import usePreferences from '../stores/usePreferences';
+import styles from './Annotation.module.css';
 
-export default memo(function Notation() {
+export default function Annotation() {
+  console.log("Annotation");
+  const showAnnotations = usePreferences((state) => state.showAnnotations);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
+
+  if (showAnnotations === false) return null;
 
   const step = options?.replay.steps.at(options.step);
   const player = step?.players.find((player) => player?.isTurn);
@@ -206,17 +210,29 @@ export default memo(function Notation() {
 
   const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
 
+  const gameOver = options.replay.steps.at(options.step)?.winner;
+  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
+  // set it imperatively via a ref callback. This can be replaced with a
+  // regular `inert` prop once the project upgrades to React 19+.
+  const inertRef = (el: HTMLElement | null) => {
+    if (!el) return;
+    if (gameOver) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  };
+
   return (
-    <div className={styles.notation}>
-      <span className={styles.checkLog}>*Check Log*</span>
-      {notation.title && (
-        <h2>
-          {notation.title.split(' ').map((word, i) => (
-            <span key={i}>{word} </span>
-          ))}
-        </h2>
-      )}
-      {notation.text && <p>{notation.text}</p>}
+    <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>
+      <div className={styles.notation}>
+        <span className={styles.checkLog}>*Check Log*</span>
+        {notation.title && (
+          <h2>
+            {notation.title.split(' ').map((word, i) => (
+              <span key={i}>{word} </span>
+            ))}
+          </h2>
+        )}
+        {notation.text && <p>{notation.text}</p>}
+      </div>
     </div>
   );
-});
+}

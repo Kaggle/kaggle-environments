@@ -1,16 +1,13 @@
-import { memo } from 'react';
 import { CellValue } from '../types/game.ts';
 import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
-import { tenukiLogger } from '../utils/tenukiLogger';
 
-export default memo(function GameBoard() {
+export default function GameBoard() {
+  console.log("GameBoard");
   const game = useGameStore((state) => state.game);
   const showTerritory = usePreferences((state) => state.showTerritory);
   const reducedMotion = usePreferences((state) => state.reducedMotion);
-
-  tenukiLogger(game);
 
   const state = game.currentState();
   const size = game.boardSize;
@@ -22,13 +19,7 @@ export default memo(function GameBoard() {
     grid[item.y][item.x] = cells[item.value ?? 'empty'];
   }
 
-  let played = null;
-  if (state.playedPoint) {
-    played = {
-      row: state.playedPoint.y,
-      col: state.playedPoint.x,
-    };
-  }
+  const played = state.playedPoint ? { row: state.playedPoint.y, col: state.playedPoint.x } : null;
 
   const scorer = game._scorer.territory(game);
   const territory = {
@@ -40,8 +31,17 @@ export default memo(function GameBoard() {
     .filter((intersection) => state.inAtari(intersection.y, intersection.x))
     .map((intersection) => ({ row: intersection.y, col: intersection.x }));
 
+  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
+  // set it imperatively via a ref callback. This can be replaced with a
+  // regular `inert` prop once the project upgrades to React 19+.
+  const inertRef = (el: HTMLElement | null) => {
+    if (!el) return;
+    if (game.gameOver) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  };
+
   return (
-    <div id="board">
+    <div id="board" ref={inertRef}>
       <GoBoard
         boardSize={size}
         grid={grid}
@@ -53,4 +53,4 @@ export default memo(function GameBoard() {
       />
     </div>
   );
-});
+}

@@ -178,6 +178,13 @@ declare module 'tenuki' {
 
     /** Move history **/
     _moves: GameState[];
+
+    /** Extra properties to store Kaggle Go visualizer specific info **/
+    blackName?: string;
+    whiteName?: string;
+    step?: number;
+    gameStart?: boolean;
+    gameOver?: boolean;
   }
 
   /**

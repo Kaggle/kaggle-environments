@@ -14,6 +14,7 @@ interface Props {
 }
 
 export function GoBoard({ boardSize, grid, step, lastPlayed, atari, territory, reducedMotion }: Props) {
+  console.log("GoBoard")
   const containerRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<GoPixi | null>(null);
 

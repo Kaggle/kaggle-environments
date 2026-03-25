@@ -54,4 +54,8 @@
   .notation img {
     transform: rotate(0deg);
   }
+
+  .notationSlot {
+    display: none;
+  }
 }
