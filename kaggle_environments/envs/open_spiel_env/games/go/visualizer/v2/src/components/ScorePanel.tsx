@@ -68,7 +68,6 @@ export default function ScorePanel() {
         label={blackName}
         icon={blackLogo.src}
       />
-
       <ScorePlayer
         className={styles.playerWhite}
         isActive={activeColor === 'white'}
@@ -100,6 +99,7 @@ export default function ScorePanel() {
         </table>
       </div>
 
+      {/* Pots. */}
       <ScorePot
         className={styles.potBlack}
         count={state.whiteStonesCaptured}
