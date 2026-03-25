@@ -22,7 +22,6 @@ interface StatRow {
 }
 
 export default function GameOver() {
-  console.log("GameOver")
   const dialogRef = useRef<HTMLDialogElement>(null);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);

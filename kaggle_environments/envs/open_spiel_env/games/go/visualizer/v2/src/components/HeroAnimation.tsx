@@ -17,7 +17,6 @@ interface Hero {
 }
 
 export default function HeroAnimation() {
-  console.log("HeroAnimation")
   const game = useGameStore((state) => state.game);
   const showHeroAnimations = usePreferences((state) => state.showHeroAnimations);
   const reducedMotion = usePreferences((state) => state.reducedMotion);

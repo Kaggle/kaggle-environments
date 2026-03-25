@@ -2,7 +2,6 @@ import usePreferences from '../stores/usePreferences.ts';
 import styles from './FeatureToggles.module.css';
 
 export function FeatureToggles() {
-  console.log("FeatureToggles")
   const { toggle, showHeroAnimations, showTerritory, showAnnotations, soundEnabled, reducedMotion } = usePreferences();
   return (
     <fieldset className={styles.fieldset}>

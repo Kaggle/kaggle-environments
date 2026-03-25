@@ -3,7 +3,6 @@ import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';
 
 export default function Annotation() {
-  console.log("Annotation");
   const showAnnotations = usePreferences((state) => state.showAnnotations);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);

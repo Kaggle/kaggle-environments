@@ -1,7 +1,6 @@
 import useGameStore from '../stores/useGameStore';
 
 export default function HiddenHeader() {
-  console.log("HiddenHeader")
   const options = useGameStore((state) => state.options);
 
   const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';

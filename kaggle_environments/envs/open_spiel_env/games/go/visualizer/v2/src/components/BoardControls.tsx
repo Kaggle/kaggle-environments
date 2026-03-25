@@ -5,7 +5,6 @@ import useGameStore from '../stores/useGameStore';
 import styles from './BoardControls.module.css';
 
 export default function BoardControls() {
-  console.log("BoardControls")
   const game = useGameStore((state) => state.game);
 
   // React 18 doesn't support the `inert` HTML attribute as a prop, so we

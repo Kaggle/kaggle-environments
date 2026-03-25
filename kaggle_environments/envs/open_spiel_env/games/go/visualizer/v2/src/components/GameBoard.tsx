@@ -4,7 +4,6 @@ import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 
 export default function GameBoard() {
-  console.log("GameBoard");
   const game = useGameStore((state) => state.game);
   const showTerritory = usePreferences((state) => state.showTerritory);
   const reducedMotion = usePreferences((state) => state.reducedMotion);

@@ -13,7 +13,6 @@ interface ScoreRow {
 }
 
 export default function ScorePanel() {
-  console.log("ScorePanel")
   const game = useGameStore((state) => state.game);
 
   const state = game.currentState();

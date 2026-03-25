@@ -7,7 +7,6 @@ import Layout from './Layout';
 import useGameStore from '../stores/useGameStore';
 
 export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) {
-  console.log("GameRenderer")
   const isFirstRender = useRef(true);
   const [ready, setReady] = useState(false);
   const setState = useGameStore((state) => state.setState);

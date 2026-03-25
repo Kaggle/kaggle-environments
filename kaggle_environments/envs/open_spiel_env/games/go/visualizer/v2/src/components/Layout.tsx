@@ -11,7 +11,6 @@ import SoundEffects from './SoundEffects.tsx';
 import styles from './GameRenderer.module.css';
 
 export default memo(function Layout() {
-  console.log("Layout")
   return (
     <main id="go-playable-area" className={styles.playableArea}>
       <HiddenHeader />
