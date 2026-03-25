@@ -341,6 +341,7 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
   private currentAgents: any[] = [];
   private wrappedRenderer: React.ComponentType<GameRendererProps<TSteps>> | null = null;
   private currentTheme: 'dark' | 'light' = 'dark';
+  private dense: boolean = false;
   private themeMessageHandler: ((event: MessageEvent) => void) | null = null;
 
   constructor(options: ReplayAdapterOptions<TSteps>) {
@@ -359,6 +360,15 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
         if (this.currentTheme !== data.theme) {
           this.currentTheme = data.theme;
           // Only re-render if we've already mounted
+          if (this.root) {
+            this.renderEpisodePlayer();
+          }
+        }
+      }
+
+      if (typeof data.dense === 'boolean') {
+        if (this.dense !== data.dense) {
+          this.dense = data.dense;
           if (this.root) {
             this.renderEpisodePlayer();
           }
@@ -508,6 +518,7 @@ export class ReplayAdapter<TSteps extends BaseGameStep[] = BaseGameStep[]> imple
             GameRenderer: RendererComponent as React.ComponentType<GameRendererProps<BaseGameStep[]>>,
             ui: typeof ui === 'string' ? ui : 'side-panel', // Pass ui mode (ignore custom components for now)
             initialSpeed,
+            dense: this.dense,
             // Signal that replay is already transformed
             skipTransform: true,
             // Game-specific overrides for ReasoningLogs and playback

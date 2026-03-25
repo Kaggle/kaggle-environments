@@ -158,6 +158,8 @@ export interface ReasoningLogsProps {
   getStepDescription?: (step: BaseGameStep) => string;
   /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
   getTokenRenderDistribution?: (chunkCount: number) => number[];
+  /** Whether to use a compact/dense layout for playback controls */
+  dense?: boolean;
 }
 
 export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
@@ -177,6 +179,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   getStepLabel,
   getStepDescription,
   getTokenRenderDistribution,
+  dense = false,
 }) => {
   // TODO(b/462451568) - add werewolf transformer to handle this instead
   const [expandAll, setExpandAll] = React.useState(false);
@@ -283,43 +286,45 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
   return (
     <LogsContainer>
       <SidebarHeader>
-        <GameLogHeader>
-          <Typography variant="h6" component="h2">
-            Game Log
-          </Typography>
-          <div style={{ display: 'flex' }}>
-            {replayMode !== 'only-stream' && (
-              <IconButton
-                size={isTablet ? 'small' : 'medium'}
-                onClick={closePanel}
-                aria-label="Collapse Episodes"
-                style={{ padding: '6px' }}
-              >
-                <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
-              </IconButton>
-            )}
-            {replayMode !== 'only-stream' && !isTablet && (
-              <IconButton
-                size="medium"
-                onClick={() => {
-                  const urlParams = new URLSearchParams(window.location.search);
-                  urlParams.set('step', currentStep.toString());
-                  const urlToCopy = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+        {!dense && (
+          <GameLogHeader>
+            <Typography variant="h6" component="h2">
+              Game Log
+            </Typography>
+            <div style={{ display: 'flex' }}>
+              {replayMode !== 'only-stream' && (
+                <IconButton
+                  size={isTablet ? 'small' : 'medium'}
+                  onClick={closePanel}
+                  aria-label="Collapse Episodes"
+                  style={{ padding: '6px' }}
+                >
+                  <Icon>{isTablet ? 'bottom_panel_close' : 'right_panel_close'}</Icon>
+                </IconButton>
+              )}
+              {replayMode !== 'only-stream' && !isTablet && (
+                <IconButton
+                  size="medium"
+                  onClick={() => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    urlParams.set('step', currentStep.toString());
+                    const urlToCopy = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
 
-                  navigator.clipboard.writeText(urlToCopy);
-                  setHasCopied(true);
-                  setTimeout(() => {
-                    setHasCopied(false);
-                  }, 3000);
-                }}
-                aria-label="Share Episode"
-                style={{ padding: '6px' }}
-              >
-                <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
-              </IconButton>
-            )}
-          </div>
-        </GameLogHeader>
+                    navigator.clipboard.writeText(urlToCopy);
+                    setHasCopied(true);
+                    setTimeout(() => {
+                      setHasCopied(false);
+                    }, 3000);
+                  }}
+                  aria-label="Share Episode"
+                  style={{ padding: '6px' }}
+                >
+                  <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
+                </IconButton>
+              )}
+            </div>
+          </GameLogHeader>
+        )}
         {showControls && (
           <>
             <PlayerControlsSection>
@@ -374,65 +379,67 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 </Typography>
               )}
             </PlayerControlsSection>
-            <PlayerControlsSection>
-              <PlaybackSlider
-                size="small"
-                min={1}
-                max={totalSteps > 0 ? totalSteps : 0}
-                onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
-                  if (typeof value === 'number') {
-                    onStepChange(value - 1);
-                    setIsChangingStep(false);
-                  }
-                }}
-                name="Change Step"
-                value={userInputStep}
-                onChange={(_: Event, value: number | number[]) => {
-                  if (typeof value === 'number') {
-                    setUserInputStep(value);
-
-                    if (!isChangingStep) {
-                      setIsChangingStep(true);
+            {!dense && (
+              <PlayerControlsSection>
+                <PlaybackSlider
+                  size="small"
+                  min={1}
+                  max={totalSteps > 0 ? totalSteps : 0}
+                  onChangeCommitted={(_: Event | React.SyntheticEvent, value: number | number[]) => {
+                    if (typeof value === 'number') {
+                      onStepChange(value - 1);
+                      setIsChangingStep(false);
                     }
-                  }
-                }}
-                valueLabelDisplay="auto"
-                marks={interestingEvents?.map((event) => ({
-                  value: event.step + 1, // The slider is 1-indexed.
-                  label: (
-                    <Tooltip title={event.description} placement="top">
-                      <MarkDot
-                        $active={currentStep === event.step} // We want the dot to be active when the current step on the dot, regardless of whether it was clicked or not.
-                        onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
-                        onClick={(e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          onPlayChange(false);
-                          onStepChange(event.step);
-                        }}
-                      />
-                    </Tooltip>
-                  ),
-                }))}
-              />
-              <Select
-                value={speedModifier}
-                onChange={(e) => onSpeedChange(e.target.value as number)}
-                aria-label="Change Playback Speed"
-                size="small"
-                renderValue={(selected) => {
-                  const option = SPEED_OPTIONS.find((option) => option.value === selected);
-                  return option ? <SpeedIcon style={{ marginRight: '4px' }}>{option.icon}</SpeedIcon> : '';
-                }}
-              >
-                {SPEED_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    <SpeedIcon>{option.icon}</SpeedIcon>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </PlayerControlsSection>
-            {!isTablet && (
+                  }}
+                  name="Change Step"
+                  value={userInputStep}
+                  onChange={(_: Event, value: number | number[]) => {
+                    if (typeof value === 'number') {
+                      setUserInputStep(value);
+
+                      if (!isChangingStep) {
+                        setIsChangingStep(true);
+                      }
+                    }
+                  }}
+                  valueLabelDisplay="auto"
+                  marks={interestingEvents?.map((event) => ({
+                    value: event.step + 1, // The slider is 1-indexed.
+                    label: (
+                      <Tooltip title={event.description} placement="top">
+                        <MarkDot
+                          $active={currentStep === event.step} // We want the dot to be active when the current step on the dot, regardless of whether it was clicked or not.
+                          onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onPlayChange(false);
+                            onStepChange(event.step);
+                          }}
+                        />
+                      </Tooltip>
+                    ),
+                  }))}
+                />
+                <Select
+                  value={speedModifier}
+                  onChange={(e) => onSpeedChange(e.target.value as number)}
+                  aria-label="Change Playback Speed"
+                  size="small"
+                  renderValue={(selected) => {
+                    const option = SPEED_OPTIONS.find((option) => option.value === selected);
+                    return option ? <SpeedIcon style={{ marginRight: '4px' }}>{option.icon}</SpeedIcon> : '';
+                  }}
+                >
+                  {SPEED_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <SpeedIcon>{option.icon}</SpeedIcon>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </PlayerControlsSection>
+            )}
+            {!isTablet && !dense && (
               <PlayerControlsSection style={{ justifyContent: 'flex-start', marginTop: '8px' }}>
                 <Button
                   variant="medium"
@@ -463,7 +470,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
           </>
         )}
       </SidebarHeader>
-      {steps.length > 0 ? (
+      {steps.length > 0 && !(dense && isTablet) ? (
         <Virtuoso
           style={{ flex: 1 }}
           ref={virtuosoRef}

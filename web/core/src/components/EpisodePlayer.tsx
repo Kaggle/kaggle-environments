@@ -6,7 +6,7 @@ import { BaseGameStep, InterestingEvent, ReplayData, ReplayMode } from '../types
 import { getInterestingEvents, getGameStepRenderTime, processEpisodeData } from '../transformers';
 import { ReasoningLogs } from '../ReasoningLogs';
 import { PlaybackControls } from './PlaybackControls';
-import { Button, Icon, useMediaQuery } from '@mui/material';
+import { Button, css, Icon, useMediaQuery } from '@mui/material';
 
 /**
  * UI mode for playback controls and ReasoningLogs.
@@ -66,6 +66,8 @@ export interface EpisodePlayerProps<TSteps extends BaseGameStep[] = BaseGameStep
   getInterestingEvents?: (steps: BaseGameStep[]) => InterestingEvent[];
   /** Game-specific token render distribution for streaming text. Falls back to default if not provided. */
   getTokenRenderDistribution?: (chunkCount: number) => number[];
+  /** Whether to use a compact/dense layout for playback controls */
+  dense?: boolean;
 }
 
 export interface GameRendererProps<TSteps extends BaseGameStep[] = BaseGameStep[]> {
@@ -92,13 +94,22 @@ const PlayerContainer = styled('div')<{ $uiMode?: UiMode }>`
   }
 `;
 
-const VisualizerContainer = styled('div')`
+const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  ${({ $dense, theme }) =>
+    $dense &&
+    css`
+      max-height: 576px;
+
+      ${theme.breakpoints.down('tablet')} {
+        max-height: 306px;
+      }
+    `}
 `;
 
 const ReasoningLogsContainer = styled('div')`
@@ -163,6 +174,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
   getStepRenderTime: getStepRenderTimeProp,
   getInterestingEvents: getInterestingEventsProp,
   getTokenRenderDistribution,
+  dense = false,
 }: EpisodePlayerProps<TSteps>) {
   const [replay, setReplay] = useState<ReplayData<TSteps> | undefined>(rawReplay);
   const [currentAgents, setCurrentAgents] = useState<any[]>(agents);
@@ -327,7 +339,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
 
   return (
     <PlayerContainer ref={containerRef} className={className} style={style} $uiMode={ui}>
-      <VisualizerContainer>
+      <VisualizerContainer $dense={dense}>
         <GameRenderer
           replay={processedReplay}
           step={state.step}
@@ -374,6 +386,7 @@ export function EpisodePlayer<TSteps extends BaseGameStep[] = BaseGameStep[]>({
               getStepLabel={getStepLabel}
               getStepDescription={getStepDescription}
               getTokenRenderDistribution={getTokenRenderDistribution}
+              dense={dense}
             />
           </ReasoningLogsContainer>
         ) : (
