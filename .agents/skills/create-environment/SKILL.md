@@ -235,6 +235,10 @@ Run tests with:
 uv sync && uv run pytest tests/envs/<name>/test_<name>.py -v
 ```
 
+## Step 6: Add a visualizer (optional)
+
+Follow the `create-visualizer` skill to build a web-based replay visualizer for this environment.
+
 ## Checklist
 
 - [ ] `<name>.json` spec is valid JSON with all required top-level keys
