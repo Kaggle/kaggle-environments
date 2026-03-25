@@ -224,7 +224,7 @@ Steps are raw arrays from the unified interpreter:
 
 ```typescript
 // Each step is an array of player observations:
-replay.steps[stepIndex][playerIndex].observation.observationString  // the OpenSpiel state string
+replay.steps[stepIndex][playerIndex].observation.observationString  // game state (JSON if proxy exists)
 replay.steps[stepIndex][playerIndex].observation.currentPlayer      // whose turn it is
 replay.steps[stepIndex][playerIndex].observation.isTerminal         // game over flag
 replay.steps[stepIndex][playerIndex].action.submission              // action taken (-1 = not acting)
@@ -232,29 +232,43 @@ replay.steps[stepIndex][playerIndex].reward                        // cumulative
 replay.steps[stepIndex][playerIndex].status                        // "ACTIVE" or "DONE"
 ```
 
-**Key detail for imperfect information games:** `step[0].observation.observationString` and `step[1].observation.observationString` contain DIFFERENT strings -- each player's private view. Parse both and render them (e.g., side-by-side boards).
+#### Games with a proxy (default)
 
-#### OpenSpiel helper functions
-
-To read the OpenSpiel C++ source, find the game at `open_spiel/games/<game_name>/` (or `.h`/`.cc` files). Study `ObservationString`, `ToString`, and game parameters.
+If the game has a proxy (see `onboard-open-spiel-game` skill -- this is the default), the `observationString` is **JSON**. The renderer just parses it:
 
 ```typescript
-// For PERFECT information games -- a single helper finds the first obs:
-function getObservationString(step: any): string {
-  if (!step || !Array.isArray(step)) return '';
-  for (const player of step) {
-    const obs = player?.observation?.observationString;
-    if (obs) return obs;
-  }
-  return '';
+function getObservation(step: any, playerIdx: number): any | null {
+  const raw = step?.[playerIdx]?.observation?.observationString;
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
-// For IMPERFECT information games -- extract per-player observations:
-function getPlayerObservationString(step: any, playerIdx: number): string {
-  if (!step || !Array.isArray(step)) return '';
-  return step[playerIdx]?.observation?.observationString ?? '';
-}
+// Usage in renderer:
+const obs = getObservation(currentStep, 0);
+// obs.board, obs.current_player, obs.is_terminal, obs.winner, obs.scores, obs.last_action, etc.
+```
 
+The proxy's `state_dict()` method determines what fields are available. See `onboard-open-spiel-game` for the standard fields: `board`, `current_player`, `is_terminal`, `winner`, `scores`, `last_action`, `phase`.
+
+For **perfect information** games, both players get the same observation. For **imperfect information** games, each player gets a different JSON object containing only their private view -- parse both and render them (e.g., side-by-side boards).
+
+#### Games without a proxy (raw text observations)
+
+Some games may not have a proxy (e.g., games added to `GAMES_LIST` only). In this case, `observationString` is the raw text from OpenSpiel's `ObservationString()` or `InformationStateString()`. You'll need to parse it manually:
+
+```typescript
+function getObservationString(step: any, playerIdx: number = 0): string {
+  return step?.[playerIdx]?.observation?.observationString ?? '';
+}
+```
+
+Study the game's C++ source at `open_spiel/games/<game_name>/` (`.h`/`.cc` files) to understand the format of `ObservationString` and `ToString`.
+
+#### Common OpenSpiel step helpers
+
+These helpers work regardless of whether the game has a proxy:
+
+```typescript
 function isTerminal(step: any): boolean {
   if (!step || !Array.isArray(step)) return false;
   return step.some((p: any) => p?.status === 'DONE' || p?.observation?.isTerminal);
@@ -339,7 +353,8 @@ export function renderer(options: RendererOptions) {
 
   // --- Parse game state (game-specific) ---
   // For regular envs: currentStep.players[i]
-  // For OpenSpiel: parse currentStep[0].observation.observationString
+  // For OpenSpiel (with proxy): JSON.parse(currentStep[0].observation.observationString)
+  // For OpenSpiel (no proxy): parse raw text from currentStep[0].observation.observationString
 
   // --- 1. Build header (DOM) ---
   // Player names in sketched-border cards, active player highlighted
@@ -400,7 +415,7 @@ If your game needs data preprocessing (e.g., parsing observation strings into st
 
 **Reference transformers:** `web/core/src/transformers/chess/`, `web/core/src/transformers/connect_four/`, `web/core/src/transformers/go/`.
 
-A transformer is not required -- simpler games can parse observation strings directly in the renderer.
+A transformer is not required -- games with a proxy already get structured JSON observations, and simpler games can parse observation strings directly in the renderer.
 
 ## Step 6: Integrate with the environment
 
@@ -415,7 +430,7 @@ def html_renderer():
     return ""
 ```
 
-For OpenSpiel games, this is handled by the shared framework -- no per-game Python change is needed unless the game has a custom proxy.
+For OpenSpiel games, this is handled by the shared framework -- no per-game Python change is needed.
 
 ## Step 7: Build and verify
 
