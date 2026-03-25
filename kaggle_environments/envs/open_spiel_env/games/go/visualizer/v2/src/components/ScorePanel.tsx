@@ -59,7 +59,6 @@ export default function ScorePanel() {
     <section className={styles.panel} aria-label="Score" ref={inertRef}>
       <h2 className="visually-hidden">Score</h2>
 
-      {/* Players. */}
       <ScorePlayer
         className={styles.playerBlack}
         isActive={activeColor === 'black'}
@@ -77,7 +76,6 @@ export default function ScorePanel() {
         icon={whiteLogo.src}
       />
 
-      {/* Score table. */}
       <div className={`squiggle-border ${styles.tableWrapper}`}>
         <table className={styles.table}>
           <thead className="visually-hidden">
@@ -99,7 +97,6 @@ export default function ScorePanel() {
         </table>
       </div>
 
-      {/* Pots. */}
       <ScorePot
         className={styles.potBlack}
         count={state.whiteStonesCaptured}
