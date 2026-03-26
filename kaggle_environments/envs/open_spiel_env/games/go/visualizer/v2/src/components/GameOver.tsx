@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Ribbon } from './Ribbon.tsx';
+import { Ribbon } from './Ribbon';
 import useGameStore from '../stores/useGameStore';
 import styles from './GameOver.module.css';
 

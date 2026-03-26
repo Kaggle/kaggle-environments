@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useTransition } from '../hooks/useReducedMotion.ts';
+import { useTransition } from '../hooks/useReducedMotion';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';

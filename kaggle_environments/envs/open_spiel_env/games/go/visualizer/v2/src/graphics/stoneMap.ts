@@ -1,6 +1,6 @@
 import { Sprite, type Spritesheet } from 'pixi.js';
-import type { CellValue } from '../types/game.ts';
-import { getCellSize, getStoneScale, gridToPixel } from './constants.ts';
+import type { CellValue } from '../types/game';
+import { getCellSize, getStoneScale, gridToPixel } from './constants';
 
 export interface RestState {
   x: number;

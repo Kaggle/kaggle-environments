@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Ribbon } from './Ribbon.tsx';
-import useGameStore from '../stores/useGameStore.ts';
+import { Ribbon } from './Ribbon';
+import useGameStore from '../stores/useGameStore';
 import { useTransition } from '../hooks/useReducedMotion';
 import styles from './VersusBanner.module.css';
 
