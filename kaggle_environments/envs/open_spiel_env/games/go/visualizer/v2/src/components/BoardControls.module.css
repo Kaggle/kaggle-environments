@@ -21,20 +21,21 @@
   line-height: 1.1;
   text-align: center;
   bottom: 0;
-  transform: translateY(100%) rotate(-8deg);
+  transform: translateY(100%);
   max-width: 10ch;
 }
 
 .settingsCta img {
-  position: absolute;
-  transform: translateY(-25%);
-  width: 4rem;
+  width: 0.75rem;
   display: block;
+  margin-left: auto;
+  margin-right: 1rem;
+  margin-top: 1rem;
 }
 
 .settingsCta p {
-  margin-top: 2rem;
-  margin-left: 2rem;
+  margin-top: 0.25rem;
+  transform: rotate(-8deg);
 }
 
 @container (max-width: 680px) {
