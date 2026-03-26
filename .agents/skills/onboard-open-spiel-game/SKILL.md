@@ -1,6 +1,6 @@
 # Onboard a New OpenSpiel Game
 
-The OpenSpiel integration (`kaggle_environments/envs/open_spiel_env/`) provides a unified framework that wraps games from Google's [OpenSpiel library](https://github.com/google-deepmind/open_spiel) into Kaggle environments. A shared interpreter handles all games -- you do NOT write a per-game interpreter. Instead, you configure the game, add a proxy for structured observations, and optionally add a visualizer or custom game implementation.
+The OpenSpiel integration (`kaggle_environments/envs/open_spiel_env/`) provides a unified framework that wraps games from Google's [OpenSpiel library](https://github.com/google-deepmind/open_spiel) into Kaggle environments. A shared interpreter handles all games -- you do NOT write a per-game interpreter. Instead, you configure the game and optionally add a proxy, visualizer, or custom game implementation.
 
 **Related skills:**
 - `create-visualizer` -- for adding a web visualizer (covers both regular and OpenSpiel games)
@@ -11,11 +11,11 @@ Before starting, determine which pattern fits your game:
 
 | Situation | Approach | Files to create |
 |-----------|----------|-----------------|
-| Game exists in OpenSpiel and will have a visualizer or needs structured observations | **Add to GAMES_LIST + create proxy** (default) | `games/<name>/<name>_proxy.py` |
-| Game exists in OpenSpiel, no visualizer needed, raw observation strings are fine | **Add to GAMES_LIST only** | None (just edit `open_spiel_env.py`) |
-| Game does NOT exist in OpenSpiel | **Add custom game** (+ proxy if needed) | `games/<name>/<name>_game.py` |
+| Game already exists in OpenSpiel (`pyspiel.registered_games()`) and default observation strings are fine | **Add to GAMES_LIST only** | None (just edit `open_spiel_env.py`) |
+| Game exists in OpenSpiel but you want better observation format (e.g., JSON instead of OpenSpiel strings) | **Add proxy** | `games/<name>/<name>_proxy.py` |
+| Game does NOT exist in OpenSpiel and needs a custom Python implementation | **Add custom game** | `games/<name>/<name>_game.py` |
 
-All approaches can optionally include a **visualizer** (see `create-visualizer` skill) and/or **support files** (openings, presets).
+All three approaches can optionally include a **visualizer** (see `create-visualizer` skill) and/or **support files** (openings, presets).
 
 ## Step 1: Add to GAMES_LIST
 
@@ -43,34 +43,14 @@ The framework automatically:
 - Provides a built-in `"random"` agent
 - Falls back to a default text-based HTML renderer if no custom one exists
 
-## Step 2: Create a proxy
+## Step 2 (optional): Create a proxy
 
-A proxy overrides `observation_string()` to return structured JSON instead of OpenSpiel's raw text format. This is the default approach for any game that will have a visualizer, because it moves observation parsing into Python (close to the game source) and lets the TypeScript renderer simply `JSON.parse()` the observation.
-
-### What a standard proxy provides
-
-A proxy should return a JSON observation containing:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `board` | any | The game board state (2D array, object, etc.) |
-| `current_player` | number | Whose turn it is |
-| `phase` | string | Game phase if applicable (e.g., `"placement"`, `"war"`, `"terminal"`) |
-| `is_terminal` | boolean | Whether the game is over |
-| `scores` | number[] | Current scores per player (if applicable) |
-| `winner` | string/null | Winner identifier or `null`/`"draw"` |
-| `last_action` | object/null | Structured description of the last action taken |
-
-Not all fields are required -- include what makes sense for the game. The key requirement is that the visualizer should be able to render the game state from this JSON alone, without parsing text.
-
-For **imperfect information** games, `observation_string(player)` is called separately for each player. The proxy should return only what that player can see.
-
-### Proxy template
+If you need custom observation/action representations (e.g., returning JSON board state instead of OpenSpiel's default string format), create a proxy.
 
 Create `kaggle_environments/envs/open_spiel_env/games/<name>/<name>_proxy.py`:
 
 ```python
-"""Structured JSON observations for <Name>."""
+"""Custom state/action representations for <Name>."""
 
 import json
 from typing import Any
@@ -81,55 +61,32 @@ from ... import proxy
 
 
 class <Name>State(proxy.State):
-    """Wraps OpenSpiel state with JSON observations."""
+    """Wraps OpenSpiel state with custom representations."""
 
-    def _parse_board(self) -> Any:
-        """Parse the board from the underlying OpenSpiel state.
-
-        Read the game's C++ source (ObservationString, ToString) to
-        understand the raw format, then convert it to a structured
-        representation (2D list, dict, etc.).
-        """
+    def state_dict(self) -> dict[str, Any]:
+        """Parse the underlying state into a game-specific dict."""
         # self.__wrapped__ gives access to the underlying pyspiel.State
         # self.to_string() returns the OpenSpiel default string representation
-        # self.__wrapped__.observation_string(player) returns the raw obs
-        raw = self.to_string()
-        # ... parse raw into structured data ...
-        return []
-
-    def state_dict(self, player: int | None = None) -> dict[str, Any]:
-        """Build the structured observation dict."""
-        board = self._parse_board()
-        current_player = self.current_player()
-        winner = None
-        if self.is_terminal():
-            returns = self.returns()
-            if returns[0] > returns[1]:
-                winner = 0
-            elif returns[1] > returns[0]:
-                winner = 1
-            else:
-                winner = "draw"
         return {
-            "board": board,
-            "current_player": current_player,
+            "board": ...,  # parse from self.__wrapped__
+            "current_player": ...,
             "is_terminal": self.is_terminal(),
-            "winner": winner,
+            "winner": ...,
         }
 
-    def to_json(self, player: int | None = None) -> str:
-        return json.dumps(self.state_dict(player))
+    def to_json(self) -> str:
+        return json.dumps(self.state_dict())
 
     def observation_string(self, player: int) -> str:
-        """Return JSON instead of the default OpenSpiel string."""
-        return self.to_json(player)
+        """Override to return JSON instead of default OpenSpiel string."""
+        return self.to_json()
 
     def __str__(self):
         return self.to_json()
 
 
 class <Name>Game(proxy.Game):
-    """Wraps the OpenSpiel game to use the proxy state."""
+    """Wraps the OpenSpiel game."""
 
     def __init__(self, params: Any | None = None):
         params = params or {}
@@ -150,36 +107,13 @@ pyspiel.register_game(<Name>Game().get_type(), <Name>Game)
 
 Also create an empty `games/<name>/__init__.py`.
 
-### Imperfect information games
+**How discovery works:** The framework auto-imports all `*_proxy.py` files from the `games/` directory via glob at module load time. When `_build_env()` encounters a game whose `short_name` has a matching proxy file at `games/<short_name>/<short_name>_proxy.py`, it loads the proxy version instead.
 
-For games where players have private state (e.g., Battleship, poker), the `observation_string(player)` method receives the player index. Use it to return only what that player can see:
-
-```python
-def state_dict(self, player: int | None = None) -> dict[str, Any]:
-    if player is None:
-        player = max(0, self.current_player())
-    return {
-        "my_ships": self._parse_own_board(player),
-        "my_shots": self._parse_shots_board(player),
-        "phase": self._get_phase(),
-        "current_player": self.current_player(),
-        "is_terminal": self.is_terminal(),
-    }
-
-def observation_string(self, player: int) -> str:
-    return self.to_json(player)
-```
-
-### How discovery works
-
-The framework auto-imports all `*_proxy.py` files from the `games/` directory via glob at module load time. When `_build_env()` encounters a game whose `short_name` has a matching proxy file at `games/<short_name>/<short_name>_proxy.py`, it loads the proxy version instead.
-
-### Key proxy base classes (from `proxy.py`)
-
+**Key proxy base classes** (from `proxy.py`):
 - `proxy.State` wraps `pyspiel.State` -- all methods delegate to `self.__wrapped__` by default. Override `observation_string()`, `__str__()`, etc. to customize. `__getattr__` falls through to the wrapped state for any method you don't override.
 - `proxy.Game` wraps `pyspiel.Game` -- override `new_initial_state()` to return your custom State class.
 
-**Reference:** See `games/connect_four/connect_four_proxy.py` and `games/go/go_proxy.py`.
+**Reference:** See `games/connect_four/connect_four_proxy.py` (JSON board/actions) and `games/go/go_proxy.py`.
 
 ## Step 2 (alternative): Create a custom game
 
@@ -337,8 +271,8 @@ Follow the `create-visualizer` skill. Key things to note for OpenSpiel games:
 
 - The visualizer directory is `games/<name>/visualizer/default/` (7 levels deep from `web/`)
 - The `gameName` in `ReplayAdapter` must be `"open_spiel_<name>"`
-- If you created a proxy (Step 2), the observation string is JSON -- the renderer just calls `JSON.parse(observationString)` to get structured data
-- The `create-visualizer` skill has a full section on OpenSpiel replay data shape
+- Raw step data is at `replay.steps[i][j].observation.observationString`
+- The `create-visualizer` skill has a full section on OpenSpiel replay data shape and helper functions
 
 ## Step 5: Add tests
 
@@ -406,10 +340,8 @@ uv run ruff check --fix . && uv run ruff format .
 ## Checklist
 
 - [ ] Game string added to `GAMES_LIST` in `open_spiel_env.py`
-- [ ] Proxy created at `games/<name>/<name>_proxy.py` with `pyspiel.register_game()` at module level
-- [ ] Proxy `state_dict()` returns structured JSON with board, current_player, is_terminal, winner
-- [ ] Proxy `observation_string()` returns `json.dumps(self.state_dict(player))`
-- [ ] If custom game: `games/<name>/<name>_game.py` created with `pyspiel.register_game()` at module level
+- [ ] If proxy: `games/<name>/<name>_proxy.py` created with `pyspiel.register_game()` call at module level
+- [ ] If custom game: `games/<name>/<name>_game.py` created with `pyspiel.register_game()` call at module level
 - [ ] `games/<name>/__init__.py` exists (can be empty)
 - [ ] `make("open_spiel_<name>")` loads without error
 - [ ] Random agent playthrough completes with `"DONE"` statuses
