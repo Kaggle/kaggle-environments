@@ -1,8 +1,96 @@
+import { useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion.ts';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';
+
+type Notation = { term: string; title: string; text: string };
+
+const LONG_THINKING_MINUTES = 5;
+
+const THOUGHT_ANNOTATIONS: { term: string; label: string | null; description: string }[] = [
+  { term: 'rethink', label: null, description: 'rethinks their decision.' },
+  { term: 'monkey jump', label: 'Monkey Jump', description: `Reducing opposition territory at the boards edge.` },
+  { term: 'ladder', label: 'Ladder', description: 'Capturing stones in a zigzag pattern.' },
+  { term: "tiger's mouth", label: "Tiger's Mouth", description: 'A three-stone shape that creates a "trap".' },
+  { term: "horse's head", label: "Horse's Head", description: 'An L shaped flexible attacking position.' },
+  { term: 'wedge', label: 'Wedge', description: 'Playing between two opponent stones.' },
+  { term: "crane's nest", label: "Crane's Nest", description: 'A group trap that resembles a "nest".' },
+  { term: 'three crows', label: "Three Crow's", description: 'Guarding a corner with three stones.' },
+  { term: 'false eye', label: 'False Eye', description: "A space that looks safe, but isn't." },
+  { term: 'clamp', label: 'Clamp', description: "Playing both sides of an opponent's stone." },
+  { term: 'iron pillar', label: 'Iron Pillar', description: 'A defensive, vertical two-stone tower.' },
+  { term: 'snapback', label: 'Snapback', description: 'Sacrificing a stone to recapture several.' },
+  { term: 'tortoise shell', label: 'Tortoise Shell', description: 'A powerful wall formed by two captures.' },
+  {
+    term: 'bamboo joint',
+    label: 'Bamboo Joint',
+    description: 'Two parallel pairs of stones in an unbreakable connection',
+  },
+  { term: 'flower', label: 'Flower', description: 'Diamond shape left after capturing one stone.' },
+  { term: 'golden chicken', label: 'Golden Chicken', description: 'Neither player can move.' },
+  { term: 'peep', label: 'Peep', description: 'A move that threatens to cut through enemy stones.' },
+  { term: 'hane', label: 'Hane', description: '"Bending" a stone around an enemy stone.' },
+  { term: 'nobi', label: 'Nobi', description: 'An extension move from your own stone.' },
+  { term: 'kiri', label: 'Kiri', description: 'A move separating two enemy stones.' },
+  { term: 'osae', label: 'Osae', description: 'Blocking the opponent from extending further.' },
+  { term: 'seki', label: 'Seki', description: 'A non-capture stalemate.' },
+  { term: 'shimari', label: 'Shimari', description: 'Two stones securing a corner area.' },
+  { term: 'moyo', label: 'Moyo', description: 'A large, potential, unsecured territory.' },
+  { term: 'dango', label: 'Dango', description: 'An inefficient group lacking the potential for safety.' },
+  { term: 'akisankaku', label: 'Akisankaku', description: 'Three stones connected in an inefficient L-shape.' },
+];
+
+function formatThoughtMatch(entry: (typeof THOUGHT_ANNOTATIONS)[number], agent: string): Notation {
+  return {
+    term: entry.term,
+    title: entry.label ? `${agent} mentions ${entry.label}:` : '',
+    text: entry.label ? entry.description : `${agent} ${entry.description}`,
+  };
+}
+
+function getThinkingDurationMinutes(generateReturns: string[] | null | undefined): number | null {
+  const json = generateReturns?.[0];
+  if (!json) return null;
+  try {
+    return JSON.parse(json).duration_success_only_secs / 60;
+  } catch {
+    return null;
+  }
+}
+
+// Resolves which annotation to show, in priority order:
+// 1. Move-specific (goes first / komi)
+// 2. Thought keyword matches
+// 3. Long thinking duration
+function resolveAnnotation(
+  player: { name: string; thoughts?: string; generateReturns?: string[] | null },
+  moveNumber: number,
+  komi: number
+): Notation | null {
+  const agent = player.name;
+
+  if (moveNumber === 1) {
+    return { term: 'goes first', title: `${agent} goes first:`, text: 'Unlike Chess, black plays first.' };
+  }
+  if (moveNumber === 2) {
+    return { term: 'komi', title: `${agent} gets Komi:`, text: `A ${komi} point bonus for playing second.` };
+  }
+
+  const thoughts = player.thoughts?.toLowerCase();
+  if (thoughts) {
+    const match = THOUGHT_ANNOTATIONS.find((a) => thoughts.includes(a.term));
+    if (match) return formatThoughtMatch(match, agent);
+  }
+
+  const duration = getThinkingDurationMinutes(player.generateReturns);
+  if (duration != null && duration > LONG_THINKING_MINUTES) {
+    return { term: 'duration', title: '', text: `${agent} thought for over ${LONG_THINKING_MINUTES} minutes.` };
+  }
+
+  return null;
+}
 
 export default function Annotation() {
   const showAnnotations = usePreferences((state) => state.showAnnotations);
@@ -10,7 +98,22 @@ export default function Annotation() {
   const options = useGameStore((state) => state.options);
   const transition = useTransition({ duration: 0.35 });
 
-  if (showAnnotations === false) return null;
+  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
+  // set it imperatively via a ref callback. This can be replaced with a
+  // regular `inert` prop once the project upgrades to React 19+.
+  const inertRef = useCallback(
+    (el: HTMLElement | null) => {
+      if (!el) return;
+      if (game.gameOver) {
+        el.setAttribute('inert', '');
+      } else {
+        el.removeAttribute('inert');
+      }
+    },
+    [game.gameOver]
+  );
+
+  if (!showAnnotations) return null;
 
   const step = options?.replay.steps.at(options.step);
   const player = step?.players.find((player) => player?.isTurn);
@@ -18,225 +121,28 @@ export default function Annotation() {
   if (!player) return null;
 
   const moveNumber = game.moveNumber();
-  const komi = game._scorer._komi;
-  const agent = player.name;
-  const searches: { term: string; priority: number; title: string; text: string }[] = [
-    {
-      term: 'rethink',
-      priority: 1,
-      title: '',
-      text: `${agent} rethinks their decision.`,
-    },
-    {
-      term: 'monkey jump',
-      priority: 1,
-      title: `${agent} mentions Monkey Jump:`,
-      text: `Reducing opposition territory at the boards edge.`,
-    },
-    {
-      term: 'ladder',
-      priority: 1,
-      title: `${agent} mentions Ladder:`,
-      text: `Capturing stones in a zigzag pattern.`,
-    },
-    {
-      term: "tiger's mouth",
-      priority: 1,
-      title: `${agent} mentions Tiger's Mouth:`,
-      text: `A three-stone shape that creates a "trap".`,
-    },
-    {
-      term: "horse's head",
-      priority: 1,
-      title: `${agent} mentions Horse's Head:`,
-      text: `An L shaped flexible attacking position.`,
-    },
-    {
-      term: 'wedge',
-      priority: 1,
-      title: `${agent} mentions Wedge:`,
-      text: `Playing between two opponent stones.`,
-    },
-    {
-      term: "crane's nest",
-      priority: 1,
-      title: `${agent} mentions Crane's Nest:`,
-      text: `A group trap that resembles a "nest".`,
-    },
-    {
-      term: 'three crows',
-      priority: 1,
-      title: `${agent} mentions Three Crow's:`,
-      text: `Guarding a corner with three stones.`,
-    },
-    {
-      term: 'false eye',
-      priority: 1,
-      title: `${agent} mentions False Eye:`,
-      text: `A space that looks safe, but isn't.`,
-    },
-    {
-      term: 'clamp',
-      priority: 1,
-      title: `${agent} mentions Clamp:`,
-      text: `Playing both sides of an opponent's stone.`,
-    },
-    {
-      term: 'iron pillar',
-      title: `${agent} mentions Iron Pillar:`,
-      priority: 1,
-      text: `A defensive, vertical two-stone tower.`,
-    },
-    {
-      term: 'snapback',
-      title: `${agent} mentions Snapback:`,
-      priority: 1,
-      text: `Sacrificing a stone to recapture several.`,
-    },
-    {
-      term: 'tortoise shell',
-      title: `${agent} mentions Tortoise Shell:`,
-      priority: 1,
-      text: `A powerful wall formed by two captures.`,
-    },
-    {
-      term: 'bamboo joint',
-      title: `${agent} mentions Bamboo Joint:`,
-      priority: 1,
-      text: `Two parallel pairs of stones in an unbreakable connection`,
-    },
-    {
-      term: 'flower',
-      title: `${agent} mentions Flower:`,
-      priority: 1,
-      text: `Diamond shape left after capturing one stone.`,
-    },
-    {
-      term: 'golden chicken',
-      title: `${agent} mentions Golden Chicken:`,
-      priority: 1,
-      text: `Neither player can move.`,
-    },
-    {
-      term: 'peep',
-      title: `${agent} mentions Peep:`,
-      priority: 1,
-      text: `A move that threatens to cut through enemy stones.`,
-    },
-    {
-      term: 'hane',
-      title: `${agent} mentions Hane:`,
-      priority: 1,
-      text: `"Bending" a stone around an enemy stone.`,
-    },
-    {
-      term: 'nobi',
-      title: `${agent} mentions Nobi:`,
-      priority: 1,
-      text: `An extension move from your own stone.`,
-    },
-    {
-      term: 'kiri',
-      title: `${agent} mentions Kiri:`,
-      priority: 1,
-      text: `A move separating two enemy stones.`,
-    },
-    {
-      term: 'osae',
-      title: `${agent} mentions Osae:`,
-      priority: 1,
-      text: `Blocking the opponent from extending further.`,
-    },
-    {
-      term: 'seki',
-      title: `${agent} mentions Seki:`,
-      priority: 1,
-      text: `A non-capture stalemate.`,
-    },
-    {
-      term: 'shimari',
-      title: `${agent} mentions Shimari:`,
-      priority: 1,
-      text: `Two stones securing a corner area.`,
-    },
-    {
-      term: 'moyo',
-      title: `${agent} mentions Moyo:`,
-      priority: 1,
-      text: `A large, potential, unsecured territory.`,
-    },
-    {
-      term: 'dango',
-      title: `${agent} mentions Dango:`,
-      priority: 1,
-      text: `An inefficient group lacking the potential for safety.`,
-    },
-    {
-      term: 'akisankaku',
-      title: `${agent} mentions Akisankaku:`,
-      priority: 1,
-      text: `Three stones connected in an inefficient L-shape.`,
-    },
-  ];
-  const matches = searches.filter((search) => player.thoughts?.toLowerCase().includes(search.term));
-  const json = player.generateReturns?.[0];
-  if (json) {
-    const data = JSON.parse(json);
-    const duration = 5;
-    if (data.duration_success_only_secs > 60 * duration) {
-      matches.push({
-        term: 'duration',
-        priority: 2,
-        title: '',
-        text: `${agent} thought for over ${duration} minutes.`,
-      });
-    }
-  }
-  if (moveNumber === 1) {
-    matches.push({
-      term: 'goes first',
-      priority: 0,
-      title: `${agent} goes first:`,
-      text: `Unlike Chess, black plays first.`,
-    });
-  }
-  if (moveNumber === 2) {
-    matches.push({
-      term: 'komi',
-      priority: 0,
-      title: `${agent} gets Komi:`,
-      text: `A ${komi} point bonus for playing second.`,
-    });
-  }
-
-  if (matches.length === 0) return null;
-
-  const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
-  const isVisible = showAnnotations && !!notation;
-
-  // React 18 doesn't support the `inert` HTML attribute as a prop, so we
-  // set it imperatively via a ref callback. This can be replaced with a
-  // regular `inert` prop once the project upgrades to React 19+.
-  const inertRef = (el: HTMLElement | null) => {
-    if (!el) return;
-    if (game.gameOver) el.setAttribute('inert', '');
-    else el.removeAttribute('inert');
-  };
+  const notation = resolveAnnotation(player, moveNumber, game._scorer._komi);
 
   return (
     <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>
       <AnimatePresence mode="wait">
-        {isVisible && (
+        {notation && (
           <motion.div
             key={notation.term}
             className={styles.notation}
             initial={{ opacity: 0, y: '20%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: '-20%' }}
+            animate={{ opacity: 1, y: 0, rotate: -3 }}
+            exit={{ opacity: 0, y: '-20%', rotate: -6 }}
             transition={transition}
           >
             {moveNumber > 2 && <span className={styles.checkLog}>*Check Log*</span>}
-            {notation.title && <h2>{notation.title}</h2>}
+            {notation.title && (
+              <h2>
+                {notation.title.split(' ').map((word, i) => (
+                  <span key={i}>{word} </span>
+                ))}
+              </h2>
+            )}
             {notation.text && <p>{notation.text}</p>}
           </motion.div>
         )}
