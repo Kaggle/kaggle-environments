@@ -103,7 +103,7 @@ export const goTransformer = (environment: any): GoStep[] => {
 
   goSteps.push({
     step: goSteps.length,
-    players: extraStepPlayers,
+    players: goSteps[goSteps.length - 1].players,
     boardState: goSteps[goSteps.length - 1].boardState,
     isTerminal: lastReplayStep[0].observation.isTerminal,
     winner: deriveWinner(lastReplayStep),
