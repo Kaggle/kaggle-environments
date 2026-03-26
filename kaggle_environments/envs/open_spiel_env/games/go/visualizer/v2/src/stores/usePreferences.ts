@@ -20,7 +20,10 @@ const usePreferences = create<Preferences>()(
       reducedMotion: false,
       toggle: (key) => set((state) => ({ [key]: !state[key] })),
     }),
-    { name: 'go-visualizer-preferences' }
+    {
+      name: 'go-visualizer-preferences',
+      partialize: ({ soundEnabled, toggle, ...rest }) => rest,
+    }
   )
 );
 
