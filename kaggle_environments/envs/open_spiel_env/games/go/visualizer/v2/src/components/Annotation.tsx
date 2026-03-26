@@ -113,15 +113,10 @@ export default function Annotation() {
     [game.gameOver]
   );
 
-  if (!showAnnotations) return null;
-
   const step = options?.replay.steps.at(options.step);
   const player = step?.players.find((player) => player?.isTurn);
-
-  if (!player) return null;
-
   const moveNumber = game.moveNumber();
-  const notation = resolveAnnotation(player, moveNumber, game._scorer._komi);
+  const notation = showAnnotations && player ? resolveAnnotation(player, moveNumber, game._scorer._komi) : null;
 
   return (
     <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>
@@ -132,7 +127,7 @@ export default function Annotation() {
             className={styles.notation}
             initial={{ opacity: 0, y: '20%' }}
             animate={{ opacity: 1, y: 0, rotate: -3 }}
-            exit={{ opacity: 0, y: '-20%', rotate: -6 }}
+            exit={{ opacity: 0, y: '-10%', rotate: -4 }}
             transition={transition}
           >
             {moveNumber > 2 && <span className={styles.checkLog}>*Check Log*</span>}
