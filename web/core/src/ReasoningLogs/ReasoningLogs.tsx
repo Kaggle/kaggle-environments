@@ -306,11 +306,17 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                 <IconButton
                   size="medium"
                   onClick={() => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    urlParams.set('step', currentStep.toString());
-                    const urlToCopy = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
-
-                    navigator.clipboard.writeText(urlToCopy);
+                    if (window.parent !== window) {
+                      // In an iframe: ask the parent to handle the share action,
+                      // since we can't access the parent's URL or clipboard.
+                      window.parent.postMessage({ shareEpisode: { step: currentStep } }, '*');
+                    } else {
+                      // Standalone: copy the current page URL with the step param.
+                      const urlParams = new URLSearchParams(window.location.search);
+                      urlParams.set('step', currentStep.toString());
+                      const urlToCopy = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+                      navigator.clipboard.writeText(urlToCopy).catch(() => {});
+                    }
                     setHasCopied(true);
                     setTimeout(() => {
                       setHasCopied(false);
@@ -319,7 +325,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Share Episode"
                   style={{ padding: '6px' }}
                 >
-                  <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
+                  <Icon>{hasCopied ? 'done' : 'share'}</Icon>
                 </IconButton>
               )}
             </div>
