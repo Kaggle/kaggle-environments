@@ -13,5 +13,8 @@ export function getStepLabel(step: BaseGameStep) {
 
   const color = player?.id ? 'white' : 'black';
   const move = player?.actionDisplayText?.toUpperCase() ?? '';
+
+  if (move === 'PASS') return `Played ${move}`;
+
   return `Played the ${color} stone on ${move}`;
 }

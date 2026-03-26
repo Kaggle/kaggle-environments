@@ -17,6 +17,7 @@ export default function Annotation() {
 
   if (!player) return null;
 
+  const moveNumber = game.moveNumber();
   const komi = game._scorer._komi;
   const agent = player.name;
   const searches: { term: string; priority: number; title: string; text: string }[] = [
@@ -191,7 +192,7 @@ export default function Annotation() {
       });
     }
   }
-  if (game.moveNumber() === 1) {
+  if (moveNumber === 1) {
     matches.push({
       term: 'goes first',
       priority: 0,
@@ -199,7 +200,7 @@ export default function Annotation() {
       text: `Unlike Chess, black plays first.`,
     });
   }
-  if (game.moveNumber() === 2) {
+  if (moveNumber === 2) {
     matches.push({
       term: 'komi',
       priority: 0,
