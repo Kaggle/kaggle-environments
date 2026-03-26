@@ -13,7 +13,7 @@ export function BoardControls() {
       <WithPopover id="info" icon="info" label="Game info">
         <p>
           Go is an ancient, two-player game in which players try to control more territory on a grid by strategically
-          placing black and white stones. This game is based on Tromp-Taylor rules.
+          placing black and white stones. This game follows Tromp-Taylor rules.
         </p>
       </WithPopover>
       <WithPopover id="settings" icon="settings" label="Settings">
