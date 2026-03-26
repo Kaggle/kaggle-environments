@@ -22,7 +22,7 @@ export function BoardControls() {
 
       {showCta && (
         <div className={styles.settingsCta}>
-          <img src={arrowPath} width="345" alt="368" aria-hidden="true" />
+          <img src={arrowPath} width="57" alt="137" aria-hidden="true" />
           <p>Customise your experience</p>
         </div>
       )}
