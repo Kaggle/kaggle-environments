@@ -16,7 +16,7 @@ const usePreferences = create<Preferences>()(
       showTerritory: true,
       showHeroAnimations: true,
       showAnnotations: true,
-      soundEnabled: true,
+      soundEnabled: false,
       reducedMotion: false,
       toggle: (key) => set((state) => ({ [key]: !state[key] })),
     }),
