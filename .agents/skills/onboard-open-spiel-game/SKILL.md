@@ -265,14 +265,173 @@ Create `games/<name>/image_config.jsonl` for visualization themes. Selected by s
 
 Create `games/<name>/preset_hands.jsonl` for deterministic card dealing. Selected by seed.
 
-## Step 4 (optional): Add a visualizer
+## Step 4 (optional): Create a visualizer
 
-Follow the `create-visualizer` skill. Key things to note for OpenSpiel games:
+Visualizers live at `games/<name>/visualizer/default/` within the pnpm workspace.
 
-- The visualizer directory is `games/<name>/visualizer/default/` (7 levels deep from `web/`)
-- The `gameName` in `ReplayAdapter` must be `"open_spiel_<name>"`
-- Raw step data is at `replay.steps[i][j].observation.observationString`
-- The `create-visualizer` skill has a full section on OpenSpiel replay data shape and helper functions
+### Project structure
+
+```
+games/<name>/visualizer/default/
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+├── index.html
+└── src/
+    ├── main.ts
+    ├── renderer.ts
+    └── style.css (optional)
+```
+
+### Boilerplate files
+
+**`package.json`:**
+```json
+{
+  "name": "@kaggle-environments/<name>-visualizer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@kaggle-environments/core": "workspace:*"
+  }
+}
+```
+
+**`vite.config.ts`:**
+```typescript
+import { defineConfig, mergeConfig } from "vite";
+// Note: path depth is deeper than regular envs due to games/ subdirectory
+import baseConfig from "../../../../../../../web/vite.config.base";
+
+export default mergeConfig(baseConfig, defineConfig({}));
+```
+
+**`tsconfig.json`:**
+```json
+{
+  "extends": "../../../../../../../web/tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true
+  },
+  "include": ["src"]
+}
+```
+
+Note the path depth: OpenSpiel visualizers are 2 levels deeper than regular env visualizers (`open_spiel_env/games/<name>/visualizer/default/` vs `<name>/visualizer/default/`), so the relative paths to `web/` use `../../../../../../../` instead of `../../../../../`.
+
+**`index.html`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><Name> Visualizer</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+```
+
+### Entry point (`src/main.ts`)
+
+```typescript
+import { createReplayVisualizer, ReplayAdapter } from "@kaggle-environments/core";
+import { renderer } from "./renderer";
+
+const app = document.getElementById("app");
+if (!app) {
+  throw new Error("Could not find app element");
+}
+
+if (import.meta.env?.DEV && import.meta.hot) {
+  import.meta.hot.accept();
+}
+
+createReplayVisualizer(
+  app,
+  new ReplayAdapter({
+    gameName: "open_spiel_<name>",  // must match the registered env name
+    renderer: renderer as any,
+    ui: "side-panel",               // "side-panel" (with reasoning logs) or "inline"
+  })
+);
+```
+
+### Renderer (`src/renderer.ts`)
+
+The renderer receives replay data. For OpenSpiel games, the raw step data comes from the unified interpreter and has this shape per step:
+
+```typescript
+// Each step in replay.steps is an array of player observations:
+// replay.steps[stepIndex][playerIndex].observation.observationString
+// replay.steps[stepIndex][playerIndex].action.submission
+// replay.steps[stepIndex][playerIndex].reward
+// replay.steps[stepIndex][playerIndex].status
+```
+
+If you added a proxy that returns JSON observation strings, parse them in the renderer:
+
+```typescript
+import type { RendererOptions } from "@kaggle-environments/core";
+
+export function renderer(options: RendererOptions) {
+  const { replay, parent, step } = options;
+  const currentStep = replay.steps[step];
+
+  // Parse JSON observation from proxy
+  const obs = JSON.parse(currentStep[0].observation.observationString);
+  const board = obs.board;
+
+  // Create/update DOM in parent...
+}
+```
+
+### Optional: Add a transformer
+
+If your game needs data preprocessing (e.g., parsing observation strings into structured step objects), add a transformer in `web/core/src/transformers/`.
+
+1. Create `web/core/src/transformers/<name>/`:
+   - `<name>ReplayTypes.ts` -- TypeScript types for raw and transformed steps
+   - `<name>Transformer.ts` -- transform function and step label/description helpers
+
+2. Register it in `web/core/src/transformers.ts`:
+   ```typescript
+   import { myGameTransformer, getMyGameStepLabel, getMyGameStepDescription } from './transformers/<name>/<name>Transformer';
+   import { MyGameStep } from './transformers/<name>/<name>ReplayTypes';
+
+   // In processEpisodeData switch:
+   case 'open_spiel_<name>':
+     transformedSteps = myGameTransformer(environment);
+     break;
+
+   // In getGameStepLabel switch:
+   case 'open_spiel_<name>':
+     return getMyGameStepLabel(gameStep as MyGameStep);
+
+   // In getGameStepDescription switch:
+   case 'open_spiel_<name>':
+     return getMyGameStepDescription(gameStep as MyGameStep);
+   ```
+
+3. Then use the transformed data in your renderer instead of parsing raw observations.
+
+**Reference transformers:** `web/core/src/transformers/chess/`, `web/core/src/transformers/connect_four/`, `web/core/src/transformers/go/`.
+
+A transformer is not required -- simpler games can parse observation strings directly in the renderer.
 
 ## Step 5: Add tests
 
@@ -347,7 +506,8 @@ uv run ruff check --fix . && uv run ruff format .
 - [ ] Random agent playthrough completes with `"DONE"` statuses
 - [ ] Invalid action handling works correctly
 - [ ] Tests added to `test_open_spiel_env.py`
-- [ ] If visualizer: followed the `create-visualizer` skill
+- [ ] If visualizer: correct relative paths to `web/` configs (7 levels deep)
+- [ ] If transformer: registered in `web/core/src/transformers.ts` switch statements
 - [ ] Linting passes
 
 ## Reference files
