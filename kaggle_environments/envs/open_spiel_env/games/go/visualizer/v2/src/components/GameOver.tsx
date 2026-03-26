@@ -76,7 +76,7 @@ export default function GameOver() {
     }
   }
 
-  const totalMoves = options.replay.steps.length;
+  const totalMoves = game.moveNumber();
   const allDurations = [...durations.black, ...durations.white];
   const gameDuration = allDurations.reduce((a, b) => a + b, 0);
 
