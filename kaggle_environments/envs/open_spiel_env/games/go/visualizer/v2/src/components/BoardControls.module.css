@@ -10,6 +10,10 @@
   isolation: isolate;
 }
 
+.soundToggle {
+  cursor: pointer;
+}
+
 .settingsCta {
   position: absolute;
   font-family: "Mynerve", cursive;
