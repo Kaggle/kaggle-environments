@@ -22,7 +22,13 @@ const usePreferences = create<Preferences>()(
     }),
     {
       name: 'go-visualizer-preferences',
-      partialize: ({ soundEnabled, toggle, ...rest }) => rest,
+      // Explicitly define which keys should persist across sessions.
+      partialize: (state) => ({
+        showTerritory: state.showTerritory,
+        showHeroAnimations: state.showHeroAnimations,
+        showAnnotations: state.showAnnotations,
+        reducedMotion: state.reducedMotion,
+      }),
     }
   )
 );
