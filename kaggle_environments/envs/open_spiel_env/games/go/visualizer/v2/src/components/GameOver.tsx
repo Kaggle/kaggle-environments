@@ -40,12 +40,11 @@ export default function GameOver() {
   if (!game.gameOver) return null;
 
   const state = game.currentState();
-  const winnerPlayer = step.players.find((player) => player.reward === 1);
-  const winnerColor = winnerPlayer?.id === 0 ? 'black' : 'white';
+  const points = game.score();
+  const winnerColor = points.black > points.white ? 'black' : 'white';
   const blackName = game.blackName ?? 'Black';
   const whiteName = game.whiteName ?? 'White';
   const winnerName = winnerColor === 'black' ? blackName : whiteName;
-  const points = game.score();
   const captured = { black: state.whiteStonesCaptured, white: state.blackStonesCaptured };
   const passes = { black: state.blackPassStones, white: state.whitePassStones };
   const tokens = { black: 0, white: 0 };
