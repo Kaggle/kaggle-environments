@@ -2,6 +2,9 @@
 
 The OpenSpiel integration (`kaggle_environments/envs/open_spiel_env/`) provides a unified framework that wraps games from Google's [OpenSpiel library](https://github.com/google-deepmind/open_spiel) into Kaggle environments. A shared interpreter handles all games -- you do NOT write a per-game interpreter. Instead, you configure the game and optionally add a proxy, visualizer, or custom game implementation.
 
+**Related skills:**
+- `create-visualizer` -- for adding a web visualizer (covers both regular and OpenSpiel games)
+
 ## Determine the approach
 
 Before starting, determine which pattern fits your game:
@@ -12,7 +15,7 @@ Before starting, determine which pattern fits your game:
 | Game exists in OpenSpiel but you want better observation format (e.g., JSON instead of OpenSpiel strings) | **Add proxy** | `games/<name>/<name>_proxy.py` |
 | Game does NOT exist in OpenSpiel and needs a custom Python implementation | **Add custom game** | `games/<name>/<name>_game.py` |
 
-All three approaches can optionally include a **visualizer** and/or **support files** (openings, presets).
+All three approaches can optionally include a **visualizer** (see `create-visualizer` skill) and/or **support files** (openings, presets).
 
 ## Step 1: Add to GAMES_LIST
 
