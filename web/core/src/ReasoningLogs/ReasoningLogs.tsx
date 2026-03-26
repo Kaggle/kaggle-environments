@@ -325,7 +325,7 @@ export const ReasoningLogs: React.FC<ReasoningLogsProps> = ({
                   aria-label="Share Episode"
                   style={{ padding: '6px' }}
                 >
-                  <Icon>{hasCopied ? 'done' : 'ios_share'}</Icon>
+                  <Icon>{hasCopied ? 'done' : 'share'}</Icon>
                 </IconButton>
               )}
             </div>
