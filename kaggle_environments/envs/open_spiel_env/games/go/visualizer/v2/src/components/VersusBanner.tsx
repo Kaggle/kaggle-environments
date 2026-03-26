@@ -1,22 +1,17 @@
-import { GameRendererProps } from '@kaggle-environments/core';
-import { GoStep } from '../transformers/goReplayTypes';
-import { memo } from 'react';
 import { Ribbon } from './Ribbon.tsx';
+import useGameStore from '../stores/useGameStore.ts';
 import styles from './VersusBanner.module.css';
 
-interface Props {
-  options: GameRendererProps<GoStep[]>;
-}
+export default function VersusBanner() {
+  const game = useGameStore((state) => state.game);
 
-export default memo(function VersusBanner({ options }: Props) {
-  const blackName = options?.replay.info?.TeamNames[0] ?? 'Black';
-  const whiteName = options?.replay.info?.TeamNames[1] ?? 'White';
+  if (!game.gameStart) return null;
 
   return (
     <div className={styles.versusBanner} aria-hidden="true">
       <Ribbon>
-        {blackName} vs. {whiteName}
+        {game.blackName ?? 'Black'} vs. {game.whiteName ?? 'White'}
       </Ribbon>
     </div>
   );
-});
+}

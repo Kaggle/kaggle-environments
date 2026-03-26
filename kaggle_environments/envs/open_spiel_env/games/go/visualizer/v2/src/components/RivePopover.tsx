@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import mynerveFont from '../assets/rives/mynerve.ttf?url';
 import {
   useRive,
   Layout,
@@ -11,7 +12,6 @@ import {
   decodeFont,
   FontAsset,
 } from '@rive-app/react-webgl2';
-import mynerveFont from '../assets/mynerve.ttf?url';
 import styles from './RivePopover.module.css';
 
 const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });

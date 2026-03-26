@@ -2,9 +2,9 @@ import { Application, Assets, Container, Spritesheet } from 'pixi.js';
 import { Sprite } from 'pixi.js';
 import type { CellValue, GridPos, Territory } from '../types/game.ts';
 import { BOARD_PX, getCellSize, getNeighbors, gridToPixel } from './constants.ts';
-import { drawBoard } from './draw-board.ts';
-import { diffGrids } from './diff-grid.ts';
-import { createStonePair, posKey, resetPair, type StoneMap } from './stone-map.ts';
+import { drawBoard } from './drawBoard.ts';
+import { diffGrids } from './diffGrids.ts';
+import { createStonePair, posKey, resetPair, type StoneMap } from './stoneMap.ts';
 import {
   animateAtariWobble,
   animateCapture,
@@ -12,7 +12,7 @@ import {
   animateStoneDrop,
   animateTerritoryIn,
   animateTerritoryOut,
-} from './animate-stones.ts';
+} from './animateStones.ts';
 import { Marker } from './marker.ts';
 import spritesData from '../assets/sprites/sprites.json';
 import spritesPng from '../assets/sprites/sprites.png';

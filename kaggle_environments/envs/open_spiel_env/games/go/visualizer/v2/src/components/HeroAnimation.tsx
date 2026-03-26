@@ -1,42 +1,45 @@
-import { memo, useEffect, useRef, useState } from 'react';
-import useGameStore from '../stores/useGameStore';
-import usePreferences from '../stores/usePreferences';
+import { useEffect, useRef, useState } from 'react';
+import passRiv from '../assets/rives/pass.riv?url';
+import doublePassRiv from '../assets/rives/double-pass.riv?url';
+import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
+import criticalHitRiv from '../assets/rives/critical-hit.riv?url';
+import dragonLossRiv from '../assets/rives/dragon-loss.riv?url';
 import { HeroTypes, detectHeroType } from '../utils/heroTypes.ts';
 import { RivePopover } from './RivePopover.tsx';
-import passRiv from '../assets/pass.riv?url';
-import doublePassRiv from '../assets/double-pass.riv?url';
-import firstCaptureRiv from '../assets/first-capture.riv?url';
-import criticalHitRiv from '../assets/critical-hit.riv?url';
-import dragonLossRiv from '../assets/dragon-loss.riv?url';
+import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
 
-export default memo(function HeroAnimation() {
+interface Hero {
+  src: string;
+  text: string;
+  color: string;
+  step: number;
+}
+
+export default function HeroAnimation() {
   const game = useGameStore((state) => state.game);
-  const showHeroAnimations = usePreferences((s) => s.showHeroAnimations);
-  const reducedMotion = usePreferences((s) => s.reducedMotion);
-
+  const showHeroAnimations = usePreferences((state) => state.showHeroAnimations);
+  const reducedMotion = usePreferences((state) => state.reducedMotion);
   const prevStepRef = useRef<number | null>(null);
-  const [hero, setHero] = useState<{ src: string; text: string; color: string; step: number } | null>(null);
+  const [hero, setHero] = useState<Hero | null>(null);
 
   useEffect(() => {
-    const step = game.currentState().moveNumber;
+    const step = game.step ?? null;
     const prevStep = prevStepRef.current;
     prevStepRef.current = step;
 
-    // Clear any existing hero on every step change
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHero(null);
-
     // Only trigger on single-step navigation
-    if (prevStep === null || Math.abs(step - prevStep) > 1) return;
+    if (!prevStep || !step || Math.abs(step - prevStep) > 1) return;
     if (!showHeroAnimations || reducedMotion) return;
 
     const heroType = detectHeroType(game);
     if (heroType === null) return;
 
-    const color = game.currentState().color;
+    const state = game.currentState();
+    const color = state.color;
     const player = color === 'black' ? 'Black' : 'White';
-    const captures = game.currentState().capturedPositions?.length;
     const opponent = color === 'black' ? 'White' : 'Black';
+    const captures = state.capturedPositions?.length;
 
     let src, text;
     switch (heroType) {
@@ -69,12 +72,16 @@ export default memo(function HeroAnimation() {
       setHero({ src, text, color, step });
     }, 600);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      setHero(null);
+    };
   }, [game, showHeroAnimations, reducedMotion]);
 
   if (!hero) return null;
+  if (game.gameOver) return null;
 
   return (
     <RivePopover key={hero.step} src={hero.src} text={hero.text} color={hero.color} onClose={() => setHero(null)} />
   );
-});
+}

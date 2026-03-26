@@ -5,13 +5,13 @@ import { GoStep } from '../transformers/goReplayTypes';
 
 interface GameStore {
   game: Game;
-  options: GameRendererProps<GoStep[]> | null;
+  options: GameRendererProps<GoStep[]>;
   setState: (game: Game, options: GameRendererProps<GoStep[]>) => void;
 }
 
 const useGameStore = create<GameStore>((set) => ({
-  game: new Game({ boardSize: 9 }),
-  options: null,
+  game: new Game({ boardSize: 13 }),
+  options: { replay: { name: '', version: '', steps: [], configuration: {} }, step: 0, agents: [] },
   setState: (game: Game, options: GameRendererProps<GoStep[]>) => set({ game, options }),
 }));
 
