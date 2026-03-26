@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import random
@@ -6,66 +7,66 @@ from .cg.game import battle_finish, battle_select, battle_start, visualize_data
 from .cg.sim import Battle
 
 deck = [
-    5,
-    5,
-    5,
-    5,
-    5,
-    5,
-    5,
-    5,
-    5,
-    5,
-    9,
-    9,
-    77,
-    77,
-    77,
-    77,
-    156,
-    156,
-    156,
-    156,
-    157,
-    157,
-    157,
-    157,
-    331,
-    331,
-    331,
-    331,
-    408,
-    408,
-    408,
-    408,
-    474,
-    474,
-    474,
-    474,
-    528,
-    528,
-    528,
-    528,
-    530,
-    530,
-    530,
-    530,
-    532,
-    554,
-    554,
-    554,
-    576,
-    576,
-    576,
-    576,
-    585,
-    585,
-    585,
-    585,
-    630,
-    630,
-    630,
-    630,
+    721,
+    721,
+    722,
+    722,
+    722,
+    722,
+    723,
+    723,
+    723,
+    723,
+    1092,
+    1121,
+    1121,
+    1145,
+    1145,
+    1163,
+    1163,
+    1219,
+    1219,
+    1219,
+    1219,
+    1227,
+    1227,
+    1227,
+    1227,
+    1262,
+    1262,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
 ]
 
 
@@ -84,9 +85,25 @@ def first_agent(obs: dict) -> list[int]:
 agents = {"random": random_agent, "first": first_agent}
 
 
-def finish(env):
+def finish(state, env):
     if len(env.steps) > 0:
-        env.steps[0][0]["visualize"] = json.loads(visualize_data())
+        vis = json.loads(visualize_data())
+        for i in range(len(vis)):
+            obs = ""
+            action = None
+            if len(env.steps) > i:
+                index = 1
+                if env.steps[i][0].status == 'ACTIVE':
+                    index = 0
+                obs = copy.copy(env.steps[i][index].observation)
+                obs.pop("search_begin_input")
+                if len(env.steps) > i + 1:
+                    action = [env.steps[i + 1][0].action, env.steps[i + 1][1].action]
+                else:
+                    action = [state[0].action, state[1].action]
+            vis[i]["obs"] = obs
+            vis[i]["action"] = action
+        env.steps[0][0]["visualize"] = vis
     battle_finish()
 
 
@@ -141,7 +158,7 @@ def interpreter(state, env):
             state[select_player].reward = -1
             state[1 - select_player].status = "DONE"
             state[1 - select_player].reward = 1
-            finish(env)
+            finish(state, env)
             return state
 
     obs = Battle.obs
@@ -158,7 +175,7 @@ def interpreter(state, env):
         else:
             state[0].reward = 0
             state[1].reward = 0
-        finish(env)
+        finish(state, env)
     else:
         index = s["yourIndex"]
         state[index].status = "ACTIVE"
