@@ -8,11 +8,6 @@
   height: anchor-size(height);
   z-index: 10;
   pointer-events: none;
-  transition: opacity 350ms ease-out;
-
-  @starting-style {
-    opacity: 0;
-  }
 }
 
 .backdrop {

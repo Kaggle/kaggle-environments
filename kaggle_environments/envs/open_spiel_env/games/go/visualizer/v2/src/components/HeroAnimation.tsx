@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import passRiv from '../assets/rives/pass.riv?url';
 import doublePassRiv from '../assets/rives/double-pass.riv?url';
 import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
@@ -78,10 +79,13 @@ export default function HeroAnimation() {
     };
   }, [game, showHeroAnimations, reducedMotion]);
 
-  if (!hero) return null;
-  if (game.gameOver) return null;
+  const isVisible = !!hero && !game.gameOver;
 
   return (
-    <RivePopover key={hero.step} src={hero.src} text={hero.text} color={hero.color} onClose={() => setHero(null)} />
+    <AnimatePresence>
+      {isVisible && (
+        <RivePopover key={hero.step} src={hero.src} text={hero.text} color={hero.color} onClose={() => setHero(null)} />
+      )}
+    </AnimatePresence>
   );
 }
