@@ -211,7 +211,6 @@ export default function Annotation() {
 
   if (matches.length === 0) return null;
 
-  const moveNumber = game.moveNumber();
   const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
   const isVisible = showAnnotations && !!notation;
 
