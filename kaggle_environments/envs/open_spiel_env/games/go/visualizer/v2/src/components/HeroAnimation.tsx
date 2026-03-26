@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import passRiv from '../assets/pass.riv?url';
-import doublePassRiv from '../assets/double-pass.riv?url';
-import firstCaptureRiv from '../assets/first-capture.riv?url';
-import criticalHitRiv from '../assets/critical-hit.riv?url';
-import dragonLossRiv from '../assets/dragon-loss.riv?url';
+import passRiv from '../assets/rives/pass.riv?url';
+import doublePassRiv from '../assets/rives/double-pass.riv?url';
+import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
+import criticalHitRiv from '../assets/rives/critical-hit.riv?url';
+import dragonLossRiv from '../assets/rives/dragon-loss.riv?url';
 import { HeroTypes, detectHeroType } from '../utils/heroTypes.ts';
 import { RivePopover } from './RivePopover.tsx';
 import useGameStore from '../stores/useGameStore';

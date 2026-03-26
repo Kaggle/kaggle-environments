@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import mynerveFont from '../assets/mynerve.ttf?url';
+import mynerveFont from '../assets/rives/mynerve.ttf?url';
 import {
   useRive,
   Layout,
