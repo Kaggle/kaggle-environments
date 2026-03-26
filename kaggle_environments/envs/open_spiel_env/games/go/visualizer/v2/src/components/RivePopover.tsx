@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { motion } from 'motion/react';
+import { useTransition } from '../hooks/useReducedMotion';
 import mynerveFont from '../assets/rives/mynerve.ttf?url';
 import {
   useRive,
@@ -24,6 +26,7 @@ interface RivePopoverProps {
 }
 
 export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
+  const transition = useTransition({ duration: 0.35 });
   const { rive, RiveComponent } = useRive({
     src,
     layout,
@@ -58,11 +61,18 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
   }, [rive, setText, setColor, text, color]);
 
   return (
-    <div className={`grid-pile ${styles.overlay}`} aria-hidden="true">
+    <motion.div
+      className={`grid-pile ${styles.overlay}`}
+      aria-hidden="true"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={transition}
+    >
       <div className={styles.backdrop} />
       <div className={styles.content}>
         <RiveComponent className={styles.canvas} />
       </div>
-    </div>
+    </motion.div>
   );
 }
