@@ -209,13 +209,12 @@ export default function Annotation() {
 
   const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
 
-  const gameOver = options.replay.steps.at(options.step)?.winner;
   // React 18 doesn't support the `inert` HTML attribute as a prop, so we
   // set it imperatively via a ref callback. This can be replaced with a
   // regular `inert` prop once the project upgrades to React 19+.
   const inertRef = (el: HTMLElement | null) => {
     if (!el) return;
-    if (gameOver) el.setAttribute('inert', '');
+    if (game.gameOver) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
   };
 
