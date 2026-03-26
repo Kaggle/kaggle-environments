@@ -39,8 +39,8 @@ export default memo(function GameRenderer(options: GameRendererProps<GoStep[]>) 
       }
     }
 
-    game.blackName = options.agents.at(0).Name;
-    game.whiteName = options.agents.at(1).Name;
+    game.blackName = options.replay.info?.TeamNames.at(0);
+    game.whiteName = options.replay.info?.TeamNames.at(1);
     game.step = options.step;
     game.gameStart = game.moveNumber() === 0;
     game.gameOver = game.step > game.moveNumber();
