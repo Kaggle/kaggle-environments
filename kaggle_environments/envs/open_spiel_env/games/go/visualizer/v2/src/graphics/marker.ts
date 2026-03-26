@@ -2,7 +2,7 @@ import gsap from 'gsap';
 import { Sprite, type Container, type Spritesheet } from 'pixi.js';
 import type { GridPos } from '../types/game.ts';
 import { getCellSize, getStoneScale } from './constants.ts';
-import { posKey, type StoneMap } from './stone-map.ts';
+import { posKey, type StoneMap } from './stoneMap.ts';
 
 const MARKER_POP_SCALE = 1.6;
 const MARKER_POP_ROTATION = 0.4;

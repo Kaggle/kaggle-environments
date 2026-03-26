@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CellValue, GridPos, Territory } from '../types/game.ts';
-import { GoPixi } from '../graphics/go-pixi.ts';
+import { GoPixi } from '../graphics/GoPixi.ts';
 import styles from './GoBoard.module.css';
 
 interface Props {

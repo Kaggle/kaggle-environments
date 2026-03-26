@@ -1,12 +1,12 @@
-import { memo, useEffect, useRef } from 'react';
-import useGameStore from '../stores/useGameStore';
-import usePreferences from '../stores/usePreferences';
+import { useEffect, useRef } from 'react';
 import placeSound from '../assets/audio/go-stone-placing.mp3';
 import captureSound from '../assets/audio/go-stone-removal.mp3';
+import useGameStore from '../stores/useGameStore';
+import usePreferences from '../stores/usePreferences';
 
-export default memo(function SoundEffects() {
-  const game = useGameStore((s) => s.game);
-  const soundEnabled = usePreferences((s) => s.soundEnabled);
+export default function SoundEffects() {
+  const game = useGameStore((state) => state.game);
+  const soundEnabled = usePreferences((state) => state.soundEnabled);
   const placeRef = useRef<HTMLAudioElement>(null);
   const captureRef = useRef<HTMLAudioElement>(null);
   const prevRef = useRef({ move: 0, captures: 0 });
@@ -47,4 +47,4 @@ export default memo(function SoundEffects() {
       <audio ref={captureRef} src={captureSound} preload="auto" />
     </>
   );
-});
+}

@@ -1,6 +1,6 @@
 import gsap from 'gsap';
 import { Sprite, type Container, type Spritesheet } from 'pixi.js';
-import type { StonePair } from './stone-map.ts';
+import type { StonePair } from './stoneMap.ts';
 
 // Drop animation
 const DROP_SCALE = 1.5;
