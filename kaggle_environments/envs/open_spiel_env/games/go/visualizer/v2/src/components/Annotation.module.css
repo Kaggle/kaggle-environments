@@ -7,9 +7,6 @@
   justify-content: start;
   max-width: 20ch;
   max-height: 10ch;
-  transition:
-    opacity 400ms,
-    transform 500ms;
   transform: rotate(-3deg);
   text-wrap: pretty;
 
@@ -18,11 +15,6 @@
   & > * {
     font-size: 1em;
     margin: 0;
-  }
-
-  @starting-style {
-    opacity: 0;
-    transform: translateY(20%);
   }
 }
 

@@ -6,9 +6,6 @@
   top: anchor(center);
   left: anchor(left);
   width: anchor-size(width);
-  translate: 0 -50%;
-  animation: slide-in-out 1.3s forwards;
-  will-change: transform, opacity;
 
   /* <Ribbon> element. */
   & > * {
@@ -19,21 +16,6 @@
 
   & span {
     white-space: nowrap;
-  }
-}
-
-@keyframes slide-in-out {
-  from {
-    translate: 0 -100vh;
-    rotate: 12deg;
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.22, 1.15, 0.36, 1);
-  }
-  to {
-    translate: 0 -50%;
-    rotate: 0deg;
-    opacity: 1;
-    animation-timing-function: linear;
   }
 }
 

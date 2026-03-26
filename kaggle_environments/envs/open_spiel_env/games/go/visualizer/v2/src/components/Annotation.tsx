@@ -1,3 +1,5 @@
+import { AnimatePresence, motion } from 'motion/react';
+import { useTransition } from '../hooks/useReducedMotion.ts';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 import styles from './Annotation.module.css';
@@ -6,6 +8,7 @@ export default function Annotation() {
   const showAnnotations = usePreferences((state) => state.showAnnotations);
   const game = useGameStore((state) => state.game);
   const options = useGameStore((state) => state.options);
+  const transition = useTransition({ duration: 0.35 });
 
   if (showAnnotations === false) return null;
 
@@ -207,7 +210,9 @@ export default function Annotation() {
 
   if (matches.length === 0) return null;
 
+  const moveNumber = game.moveNumber();
   const notation = matches.toSorted((a, b) => a.priority - b.priority)[0];
+  const isVisible = showAnnotations && !!notation;
 
   // React 18 doesn't support the `inert` HTML attribute as a prop, so we
   // set it imperatively via a ref callback. This can be replaced with a
@@ -220,17 +225,22 @@ export default function Annotation() {
 
   return (
     <div className={styles.notationSlot} aria-live="polite" ref={inertRef}>
-      <div className={styles.notation}>
-        <span className={styles.checkLog}>*Check Log*</span>
-        {notation.title && (
-          <h2>
-            {notation.title.split(' ').map((word, i) => (
-              <span key={i}>{word} </span>
-            ))}
-          </h2>
+      <AnimatePresence mode="wait">
+        {isVisible && (
+          <motion.div
+            key={notation.term}
+            className={styles.notation}
+            initial={{ opacity: 0, y: '20%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '-20%' }}
+            transition={transition}
+          >
+            {moveNumber > 2 && <span className={styles.checkLog}>*Check Log*</span>}
+            {notation.title && <h2>{notation.title}</h2>}
+            {notation.text && <p>{notation.text}</p>}
+          </motion.div>
         )}
-        {notation.text && <p>{notation.text}</p>}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

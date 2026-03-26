@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import arrowPath from '../assets/arrow.webp';
 import svgSymbolPath from '../assets/icons.svg?url';
 import usePreferences from '../stores/usePreferences.ts';
 import useGameStore from '../stores/useGameStore';
+import { useTransition } from '../hooks/useReducedMotion';
 import popoverStyles from './WithPopover.module.css';
 import { WithPopover } from './WithPopover.tsx';
 import { FeatureToggles } from './FeatureToggles.tsx';
@@ -11,6 +13,7 @@ import styles from './BoardControls.module.css';
 export default function BoardControls() {
   const game = useGameStore((state) => state.game);
   const { toggle, soundEnabled } = usePreferences();
+  const transition = useTransition({ duration: 0.3 });
 
   const iconPath = useMemo(() => {
     const soundIcon = soundEnabled ? 'sound-on' : 'sound-off';
@@ -57,12 +60,20 @@ export default function BoardControls() {
         <FeatureToggles />
       </WithPopover>
 
-      {game.gameStart && (
-        <div className={styles.settingsCta}>
-          <img src={arrowPath} width="57" alt="137" aria-hidden="true" />
-          <p>Customise your experience</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {game.gameStart && (
+          <motion.div
+            className={styles.settingsCta}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={transition}
+          >
+            <img src={arrowPath} width="57" alt="137" aria-hidden="true" />
+            <p>Customise your experience</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
