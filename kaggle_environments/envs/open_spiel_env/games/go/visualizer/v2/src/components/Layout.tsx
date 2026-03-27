@@ -8,7 +8,7 @@ import VersusBanner from './VersusBanner';
 import GameOver from './GameOver';
 import HeroAnimation from './HeroAnimation';
 import SoundEffects from './SoundEffects';
-import styles from './GameRenderer.module.css';
+import styles from './Layout.module.css';
 
 export default memo(function Layout() {
   return (
