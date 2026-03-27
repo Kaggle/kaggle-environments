@@ -1,5 +1,5 @@
 import { Container, Sprite, Text, TextStyle, TilingSprite, type Spritesheet } from 'pixi.js';
-import { BOARD_PADDING, BOARD_PX, getStarPoints, getCellSize, gridToPixel } from './constants.ts';
+import { BOARD_PADDING, BOARD_PX, getStarPoints, getCellSize, gridToPixel } from './constants';
 
 const HOSHI_SIZE_RATIO = 0.25;
 

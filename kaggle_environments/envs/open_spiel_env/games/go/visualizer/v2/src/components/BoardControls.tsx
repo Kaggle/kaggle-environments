@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import arrowPath from '../assets/arrow.webp';
 import svgSymbolPath from '../assets/icons.svg?url';
-import usePreferences from '../stores/usePreferences.ts';
+import usePreferences from '../stores/usePreferences';
 import useGameStore from '../stores/useGameStore';
 import { useTransition } from '../hooks/useReducedMotion';
 import popoverStyles from './WithPopover.module.css';
 import { WithPopover } from './WithPopover.tsx';
-import { FeatureToggles } from './FeatureToggles.tsx';
+import { FeatureToggles } from './FeatureToggles';
 import styles from './BoardControls.module.css';
 
 export default function BoardControls() {

@@ -5,8 +5,8 @@ import doublePassRiv from '../assets/rives/double-pass.riv?url';
 import firstCaptureRiv from '../assets/rives/first-capture.riv?url';
 import criticalHitRiv from '../assets/rives/critical-hit.riv?url';
 import dragonLossRiv from '../assets/rives/dragon-loss.riv?url';
-import { HeroTypes, detectHeroType } from '../utils/heroTypes.ts';
-import { RivePopover } from './RivePopover.tsx';
+import { HeroTypes, detectHeroType } from '../utils/heroTypes';
+import { RivePopover } from './RivePopover';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
 
@@ -58,7 +58,7 @@ export default function HeroAnimation() {
         break;
       case HeroTypes.CRITICAL_HIT:
         src = criticalHitRiv;
-        text = `${player} takes ${captures} pieces.`;
+        text = `${player} captures ${captures} stones.`;
         break;
       case HeroTypes.DRAGON_LOSS:
         src = dragonLossRiv;

@@ -1,4 +1,4 @@
-import type { CellValue, GridPos } from '../types/game.ts';
+import type { CellValue, GridPos } from '../types/game';
 
 export interface GridDiff {
   added: (GridPos & { value: 'B' | 'W' })[];
