@@ -50,7 +50,11 @@
 }
 
 @container (max-width: 330px) {
-  :is(.pots, .tableWrapper) {
+  .tableWrapper {
+    margin-inline: 4em;
+  }
+
+  .pots {
     margin-inline: 0;
   }
 }
