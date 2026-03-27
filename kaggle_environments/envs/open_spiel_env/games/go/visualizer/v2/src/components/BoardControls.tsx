@@ -70,7 +70,7 @@ export default function BoardControls() {
             transition={transition}
           >
             <img src={arrowPath} width="57" alt="137" aria-hidden="true" />
-            <p>Customise your experience</p>
+            <p>Customize your experience</p>
           </motion.div>
         )}
       </AnimatePresence>
