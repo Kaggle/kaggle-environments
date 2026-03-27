@@ -10,6 +10,11 @@
   isolation: isolate;
 }
 
+.boardControls p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
 .soundToggle {
   cursor: pointer;
 }

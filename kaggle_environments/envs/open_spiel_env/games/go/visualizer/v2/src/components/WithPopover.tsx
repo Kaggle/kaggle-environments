@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
 
@@ -11,47 +11,47 @@ interface Props {
 }
 
 export function WithPopover({ children, icon, id, label }: Props) {
-  const triggerName = `--${id}-trigger`;
+  const [open, setOpen] = useState(false);
   const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
+    if (!open) return;
 
-    const handleToggle = (e: Event) => {
-      const { newState } = e as ToggleEvent;
-      if (newState === 'open') {
-        panel.focus();
-      } else {
+    panelRef.current?.focus();
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
         triggerRef.current?.focus();
       }
     };
 
-    panel.addEventListener('toggle', handleToggle);
-    return () => panel.removeEventListener('toggle', handleToggle);
-  }, []);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
   return (
-    <>
-      <div
-        ref={panelRef}
-        id={id}
-        popover="auto"
-        className={styles.panel}
-        role="dialog"
-        aria-label={label}
-        tabIndex={-1}
-      >
-        {children}
-      </div>
+    <div className={styles.wrapper}>
       <button
         ref={triggerRef}
         className={styles.trigger}
-        popovertarget={id}
-        popovertargetaction="toggle"
-        style={{ anchorName: triggerName }}
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((prev) => !prev)}
+        data-open={open || undefined}
       >
         <svg
           width="24"
@@ -65,6 +65,13 @@ export function WithPopover({ children, icon, id, label }: Props) {
         </svg>
         <span className="visually-hidden">{label}</span>
       </button>
-    </>
+      {open && (
+        <div ref={panelRef} id={id} className={styles.panel} role="dialog" aria-label={label} tabIndex={-1}>
+          <div className={styles.panelInner}>
+            <div className={styles.panelInnerInner}>{children}</div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
