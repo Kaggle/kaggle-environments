@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import potImg from '../assets/pot.webp';
-import styles from './ScorePanel.module.css';
+import styles from './ScorePot.module.css';
 
 interface ScorePotProps {
   className?: string;

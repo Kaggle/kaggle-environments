@@ -1,8 +1,8 @@
 import blackImg from '../assets/stone-black.webp';
 import whiteImg from '../assets/stone-white.webp';
-import ScorePlayer from './ScorePlayer';
+import { ScorePlayer } from './ScorePlayer';
 import ScorePot from './ScorePot';
-import { getAgentLogo } from '../utils/agentLogos';
+import { getAgentBrand } from '../utils/agentLogos';
 import useGameStore from '../stores/useGameStore';
 import styles from './ScorePanel.module.css';
 
@@ -24,9 +24,8 @@ export default function ScorePanel() {
   const whitePassed = state.pass && state.color === 'white';
   const blackName = game.blackName ?? 'Black';
   const whiteName = game.whiteName ?? 'White';
-  const blackLogo = getAgentLogo(blackName, 'black');
-  const whiteLogo = getAgentLogo(whiteName, 'white');
-  const lastPlayedColor = state.color;
+  const blackBrand = getAgentBrand(blackName);
+  const whiteBrand = getAgentBrand(whiteName);
 
   const rows: ScoreRow[] = [
     {
@@ -59,22 +58,22 @@ export default function ScorePanel() {
     <section className={styles.panel} aria-label="Score" ref={inertRef}>
       <h2 className="visually-hidden">Score</h2>
 
-      <ScorePlayer
-        className={styles.playerBlack}
-        isActive={activeColor === 'black'}
-        isLastPlayed={lastPlayedColor === 'black'}
-        isPassed={blackPassed}
-        label={blackName}
-        icon={blackLogo.src}
-      />
-      <ScorePlayer
-        className={styles.playerWhite}
-        isActive={activeColor === 'white'}
-        isLastPlayed={lastPlayedColor === 'white'}
-        isPassed={whitePassed}
-        label={whiteName}
-        icon={whiteLogo.src}
-      />
+      <div className={styles.players}>
+        <ScorePlayer
+          color="black"
+          isActive={activeColor === 'black'}
+          isPassed={blackPassed}
+          label={blackName}
+          brand={blackBrand}
+        />
+        <ScorePlayer
+          color="white"
+          isActive={activeColor === 'white'}
+          isPassed={whitePassed}
+          label={whiteName}
+          brand={whiteBrand}
+        />
+      </div>
 
       <div className={`squiggle-border ${styles.tableWrapper}`}>
         <table className={styles.table}>
@@ -97,18 +96,20 @@ export default function ScorePanel() {
         </table>
       </div>
 
-      <ScorePot
-        className={styles.potBlack}
-        count={state.whiteStonesCaptured}
-        stoneImg={whiteImg}
-        label={`White stones captured: ${state.whiteStonesCaptured}`}
-      />
-      <ScorePot
-        className={styles.potWhite}
-        count={state.blackStonesCaptured}
-        stoneImg={blackImg}
-        label={`Black stones captured: ${state.blackStonesCaptured}`}
-      />
+      <div className={styles.pots}>
+        <ScorePot
+          className={styles.potBlack}
+          count={state.whiteStonesCaptured}
+          stoneImg={whiteImg}
+          label={`White stones captured: ${state.whiteStonesCaptured}`}
+        />
+        <ScorePot
+          className={styles.potWhite}
+          count={state.blackStonesCaptured}
+          stoneImg={blackImg}
+          label={`Black stones captured: ${state.blackStonesCaptured}`}
+        />
+      </div>
     </section>
   );
 }
