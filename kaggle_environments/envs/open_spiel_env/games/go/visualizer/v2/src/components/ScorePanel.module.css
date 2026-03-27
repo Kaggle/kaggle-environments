@@ -49,7 +49,7 @@
   }
 }
 
-@container (max-width: 350px) {
+@container (max-width: 330px) {
   :is(.pots, .tableWrapper) {
     margin-inline: 0;
   }
