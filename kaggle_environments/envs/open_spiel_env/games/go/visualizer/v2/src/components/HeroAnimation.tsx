@@ -58,7 +58,7 @@ export default function HeroAnimation() {
         break;
       case HeroTypes.CRITICAL_HIT:
         src = criticalHitRiv;
-        text = `${player} takes ${captures} pieces.`;
+        text = `${player} captures ${captures} stones.`;
         break;
       case HeroTypes.DRAGON_LOSS:
         src = dragonLossRiv;
