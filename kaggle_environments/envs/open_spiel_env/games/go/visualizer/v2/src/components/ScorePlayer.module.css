@@ -23,6 +23,7 @@
   display: block;
   width: 2.5em;
   height: 2.5em;
+  flex-shrink: 0;
 }
 
 .stoneImage {
@@ -37,5 +38,47 @@
     right: 0;
     transform: translateX(50%);
     order: 1;
+  }
+}
+
+.pass {
+  position: absolute;
+  background-color: #bdeeff;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 11px;
+  animation: passFloat 1.6s forwards;
+  padding: 0.5em 2em;
+  transform-origin: bottom;
+  line-height: 2;
+  right: 0;
+
+  .isRightAligned & {
+    right: unset;
+    left: 0;
+  }
+}
+
+@keyframes passFloat {
+  0% {
+    opacity: 0;
+    scale: 0.9;
+    translate: 0 0;
+  }
+
+  30% {
+    opacity: 1;
+    scale: 1;
+  }
+
+  70% {
+    opacity: 1;
+    scale: 1;
+  }
+
+  100% {
+    opacity: 0;
+    translate: 0 -4em;
+    scale: 0.9;
   }
 }

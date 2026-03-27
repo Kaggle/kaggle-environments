@@ -23,7 +23,7 @@ function BrandLogo({ brand }: { brand: string }) {
 
 function Pass() {
   return (
-    <span className="squiggle-border" aria-hidden="true">
+    <span className={`squiggle-border ${styles.pass}`} aria-hidden="true">
       Pass
     </span>
   );
