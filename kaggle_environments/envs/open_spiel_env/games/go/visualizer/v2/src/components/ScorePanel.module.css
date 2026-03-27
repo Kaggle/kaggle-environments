@@ -18,7 +18,7 @@
   display: flex;
   justify-content: center;
   background: #f1f1f1;
-  margin-inline: 5em;
+  margin-inline: 6em;
   padding: 0.5em;
   line-height: 1.5;
 }
@@ -40,10 +40,17 @@
   justify-content: space-between;
   pointer-events: none;
   margin-top: -5em;
+  margin-inline: 3em;
 }
 
 @container (max-width: 680px) {
   .panel {
     font-size: 11px;
+  }
+}
+
+@container (max-width: 350px) {
+  :is(.pots, .tableWrapper) {
+    margin-inline: 0;
   }
 }

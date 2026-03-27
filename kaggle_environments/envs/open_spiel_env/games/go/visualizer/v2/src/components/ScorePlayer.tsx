@@ -1,3 +1,5 @@
+import { motion } from 'motion/react';
+import { useTransition } from '../hooks/useReducedMotion';
 import styles from './ScorePlayer.module.css';
 import svgSymbolPath from '../assets/icons.svg?url';
 import blackStonePath from '../assets/scoreboard-player-black.webp';
@@ -42,6 +44,9 @@ interface Props {
 }
 
 export function ScorePlayer({ isActive, isPassed, label, brand, color, className }: Props) {
+  const transition = useTransition({ type: 'spring', stiffness: 300, damping: 14 });
+  const rotate = isActive ? (color === 'white' ? 2 : -2) : 0;
+
   const classNames = [
     styles.player,
     isActive ? styles.active : undefined,
@@ -51,7 +56,7 @@ export function ScorePlayer({ isActive, isPassed, label, brand, color, className
   ].join(' ');
 
   return (
-    <div className={classNames}>
+    <motion.div className={classNames} animate={{ scale: isActive ? 1.05 : 1, rotate }} transition={transition}>
       {isPassed && <Pass />}
       <StoneImage color={color} />
       {brand && <BrandLogo brand={brand} />}
@@ -59,6 +64,6 @@ export function ScorePlayer({ isActive, isPassed, label, brand, color, className
         <span className="visually-hidden">{color}</span>
         {label}
       </span>
-    </div>
+    </motion.div>
   );
 }
