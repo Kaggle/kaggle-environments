@@ -20,23 +20,12 @@ export function FeatureToggles() {
         </li>
         <li>
           <label>
-            Hero Animations
+            Pop Up Animations
             <input
               type="checkbox"
               className={styles.switch}
               checked={showHeroAnimations}
               onChange={() => toggle('showHeroAnimations')}
-            />
-          </label>
-        </li>
-        <li className={styles.annotationsToggle}>
-          <label>
-            Annotations
-            <input
-              type="checkbox"
-              className={styles.switch}
-              checked={showAnnotations}
-              onChange={() => toggle('showAnnotations')}
             />
           </label>
         </li>
@@ -48,6 +37,17 @@ export function FeatureToggles() {
               className={styles.switch}
               checked={reducedMotion}
               onChange={() => toggle('reducedMotion')}
+            />
+          </label>
+        </li>
+        <li className={styles.annotationsToggle}>
+          <label>
+            Board Annotations
+            <input
+              type="checkbox"
+              className={styles.switch}
+              checked={showAnnotations}
+              onChange={() => toggle('showAnnotations')}
             />
           </label>
         </li>
