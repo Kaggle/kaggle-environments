@@ -1,4 +1,4 @@
-import usePreferences from '../stores/usePreferences.ts';
+import usePreferences from '../stores/usePreferences';
 import styles from './FeatureToggles.module.css';
 
 export function FeatureToggles() {

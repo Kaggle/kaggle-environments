@@ -1,10 +1,10 @@
 import { Application, Assets, Container, Spritesheet } from 'pixi.js';
 import { Sprite } from 'pixi.js';
-import type { CellValue, GridPos, Territory } from '../types/game.ts';
-import { BOARD_PX, getCellSize, getNeighbors, gridToPixel } from './constants.ts';
-import { drawBoard } from './drawBoard.ts';
-import { diffGrids } from './diffGrids.ts';
-import { createStonePair, posKey, resetPair, type StoneMap } from './stoneMap.ts';
+import type { CellValue, GridPos, Territory } from '../types/game';
+import { BOARD_PX, getCellSize, getNeighbors, gridToPixel } from './constants';
+import { drawBoard } from './drawBoard';
+import { diffGrids } from './diffGrids';
+import { createStonePair, posKey, resetPair, type StoneMap } from './stoneMap';
 import {
   animateAtariWobble,
   animateCapture,

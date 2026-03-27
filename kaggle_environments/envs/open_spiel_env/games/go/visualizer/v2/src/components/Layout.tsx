@@ -1,13 +1,13 @@
 import { memo } from 'react';
-import HiddenHeader from './HiddenHeader.tsx';
-import BoardControls from './BoardControls.tsx';
+import HiddenHeader from './HiddenHeader';
+import BoardControls from './BoardControls';
 import GameBoard from './GameBoard';
-import Annotation from './Annotation.tsx';
+import Annotation from './Annotation';
 import ScorePanel from './ScorePanel';
-import VersusBanner from './VersusBanner.tsx';
+import VersusBanner from './VersusBanner';
 import GameOver from './GameOver';
-import HeroAnimation from './HeroAnimation.tsx';
-import SoundEffects from './SoundEffects.tsx';
+import HeroAnimation from './HeroAnimation';
+import SoundEffects from './SoundEffects';
 import styles from './GameRenderer.module.css';
 
 export default memo(function Layout() {
