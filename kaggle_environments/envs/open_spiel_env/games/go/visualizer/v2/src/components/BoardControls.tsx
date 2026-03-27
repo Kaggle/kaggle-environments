@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import arrowPath from '../assets/arrow.webp';
 import svgSymbolPath from '../assets/icons.svg?url';
@@ -14,11 +13,6 @@ export default function BoardControls() {
   const game = useGameStore((state) => state.game);
   const { toggle, soundEnabled } = usePreferences();
   const transition = useTransition({ duration: 0.3 });
-
-  const iconPath = useMemo(() => {
-    const soundIcon = soundEnabled ? 'sound-on' : 'sound-off';
-    return `${svgSymbolPath}#${soundIcon}`;
-  }, [soundEnabled]);
 
   // React 18 doesn't support the `inert` HTML attribute as a prop, so we
   // set it imperatively via a ref callback. This can be replaced with a
@@ -52,7 +46,8 @@ export default function BoardControls() {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          <use xlinkHref={iconPath} />
+          <use xlinkHref={`${svgSymbolPath}#sound-on`} />
+          <use xlinkHref={`${svgSymbolPath}#sound-off`} />
         </svg>
         <span className="visually-hidden">Sound</span>
       </label>
