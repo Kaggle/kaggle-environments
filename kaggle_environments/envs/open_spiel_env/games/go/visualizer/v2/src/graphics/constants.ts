@@ -1,4 +1,4 @@
-import type { GridPos } from '../types/game.ts';
+import type { GridPos } from '../types/game';
 
 export const BOARD_PX = 512;
 export const BOARD_PADDING = 56;

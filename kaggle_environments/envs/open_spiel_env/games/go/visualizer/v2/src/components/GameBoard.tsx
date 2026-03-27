@@ -1,4 +1,4 @@
-import { CellValue } from '../types/game.ts';
+import { CellValue } from '../types/game';
 import { GoBoard } from './GoBoard';
 import useGameStore from '../stores/useGameStore';
 import usePreferences from '../stores/usePreferences';
