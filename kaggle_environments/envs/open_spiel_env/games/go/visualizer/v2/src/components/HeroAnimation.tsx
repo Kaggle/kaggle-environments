@@ -20,7 +20,6 @@ interface Hero {
 export default function HeroAnimation() {
   const game = useGameStore((state) => state.game);
   const showHeroAnimations = usePreferences((state) => state.showHeroAnimations);
-  const reducedMotion = usePreferences((state) => state.reducedMotion);
   const prevStepRef = useRef<number | null>(null);
   const [hero, setHero] = useState<Hero | null>(null);
 
@@ -31,7 +30,7 @@ export default function HeroAnimation() {
 
     // Only trigger on single-step navigation
     if (!prevStep || !step || Math.abs(step - prevStep) > 1) return;
-    if (!showHeroAnimations || reducedMotion) return;
+    if (!showHeroAnimations) return;
 
     const heroType = detectHeroType(game);
     if (heroType === null) return;
@@ -77,7 +76,7 @@ export default function HeroAnimation() {
       clearTimeout(timeout);
       setHero(null);
     };
-  }, [game, showHeroAnimations, reducedMotion]);
+  }, [game]);
 
   const isVisible = !!hero && !game.gameOver;
 
