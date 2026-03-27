@@ -44,8 +44,8 @@ function parseBoardState(observationString: string): GoBoardState {
 
 function deriveWinner(step: GoReplayStep[]): string | null {
   if (step[0].observation.isTerminal === false) return null;
-  if (step[0].reward === step[1].reward) return 'Draw';
-  return step[0].reward === 1 ? 'Black Wins!' : 'White Wins!';
+  if (step[0].reward === step[1].reward) return null;
+  return step[0].reward === 1 ? 'black' : 'white';
 }
 
 export const goTransformer = (environment: any): GoStep[] => {
@@ -94,7 +94,7 @@ export const goTransformer = (environment: any): GoStep[] => {
       step: goSteps.length,
       players: stepPlayers,
       boardState: parseBoardState(step[0].observation.observationString),
-      isTerminal: step[0].observation.isTerminal,
+      isTerminal: false,
       winner: null,
     });
   }
@@ -105,7 +105,7 @@ export const goTransformer = (environment: any): GoStep[] => {
     step: goSteps.length,
     players: extraStepPlayers,
     boardState: goSteps[goSteps.length - 1].boardState,
-    isTerminal: lastReplayStep[0].observation.isTerminal,
+    isTerminal: true,
     winner: deriveWinner(lastReplayStep),
   });
 
