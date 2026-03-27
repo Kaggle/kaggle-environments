@@ -6,12 +6,38 @@
   position: relative;
 }
 
+.boardControls :where(button) {
+  outline-offset: -2px;
+}
+
+.boardControls :where(button, label) {
+  outline-color: #0077ff;
+}
+
 .boardControls button {
   isolation: isolate;
 }
 
 .soundToggle {
   cursor: pointer;
+}
+
+.soundToggle:has(:focus-visible) {
+  outline-offset: -4px;
+  outline-style: solid;
+  outline-width: 2px;
+}
+
+.soundToggle svg use:first-child {
+  display: none;
+}
+
+.soundToggle :checked + svg use:first-child {
+  display: inline;
+}
+
+.soundToggle :checked + svg use:last-child {
+  display: none;
 }
 
 .settingsCta {
