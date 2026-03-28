@@ -1,19 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import mynerveFont from '../assets/rives/mynerve.ttf?url';
-import {
-  useRive,
-  Layout,
-  Fit,
-  Alignment,
-  useViewModel,
-  useViewModelInstance,
-  useViewModelInstanceString,
-  useViewModelInstanceEnum,
-  decodeFont,
-  FontAsset,
-} from '@rive-app/react-webgl2';
+import { useRive, Layout, Fit, Alignment, decodeFont, FontAsset } from '@rive-app/react-webgl2';
 import styles from './RivePopover.module.css';
 
 const layout = new Layout({ fit: Fit.Contain, alignment: Alignment.Center });
@@ -30,11 +19,12 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
   const overlayRef = useCallback((el: HTMLDivElement | null) => {
     if (el && !el.matches(':popover-open')) el.showPopover();
   }, []);
-  const { rive, RiveComponent } = useRive({
+  const { RiveComponent } = useRive({
     src,
     layout,
     stateMachines: 'State Machine 1',
     autoplay: true,
+    autoBind: true,
     onStateChange: (e) => {
       if (e.data?.toString() === 'exit') onClose();
     },
@@ -50,18 +40,13 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       }
       return false;
     },
+    onRiveReady: (r) => {
+      const textString = r.viewModelInstance?.string('text');
+      if (textString) textString.value = text;
+      const colorEnum = r.viewModelInstance?.enum('color');
+      if (colorEnum) colorEnum.value = color;
+    },
   });
-
-  const viewModel = useViewModel(rive, { name: 'ViewModel1' });
-  const viewModelInstance = useViewModelInstance(viewModel, { useNew: true, rive });
-  const { setValue: setText } = useViewModelInstanceString('text', viewModelInstance);
-  const { setValue: setColor } = useViewModelInstanceEnum('color', viewModelInstance);
-
-  useEffect(() => {
-    if (!rive || !setText || !setColor || !text || !color) return;
-    setText(text);
-    setColor(color);
-  }, [rive, setText, setColor, text, color]);
 
   return (
     <motion.div
