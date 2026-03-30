@@ -1,4 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useTransition } from '../hooks/useReducedMotion';
 import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
 
@@ -12,6 +14,7 @@ interface Props {
 
 export function WithPopover({ children, icon, id, label }: Props) {
   const [open, setOpen] = useState(false);
+  const transition = useTransition({ duration: 0.2, ease: 'easeOut' });
   const iconPath = `${svgSymbolPath}#${icon}`;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -65,13 +68,27 @@ export function WithPopover({ children, icon, id, label }: Props) {
         </svg>
         <span className="visually-hidden">{label}</span>
       </button>
-      {open && (
-        <div ref={panelRef} id={id} className={styles.panel} role="dialog" aria-label={label} tabIndex={-1}>
-          <div className={styles.panelInner}>
-            <div className={styles.panelInnerInner}>{children}</div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={panelRef}
+            id={id}
+            className={styles.panel}
+            role="dialog"
+            aria-label={label}
+            tabIndex={-1}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={transition}
+            style={{ transformOrigin: 'left center' }}
+          >
+            <div className={styles.panelInner}>
+              <div className={styles.panelInnerInner}>{children}</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
