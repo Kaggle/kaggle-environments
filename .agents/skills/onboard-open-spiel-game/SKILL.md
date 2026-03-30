@@ -54,32 +54,11 @@ OpenSpiel's default `observation_string()` is often unhelpful for agents and vis
 
 Before writing any code, understand what data the game state contains. Check the OpenSpiel source library, which may be available at `../open_spiel`:
 
-1. **Check for C++ struct definitions (best case).** Look for header files at `../open_spiel/open_spiel/games/<name>/<name>.h` (or `../open_spiel/open_spiel/games/<name>.h` for older games). If the header defines a `<Name>StructContents` struct, it specifies the exact JSON schema the proxy should output:
-
-   ```cpp
-   // Example from connect_four.h:
-   struct ConnectFourStructContents {
-     std::vector<std::vector<std::string>> board;
-     std::string current_player;
-     bool is_terminal;
-     std::string winner;
-     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ConnectFourStructContents, board,
-                                    current_player, is_terminal, winner);
-   };
-   ```
-
-   The fields listed in `NLOHMANN_DEFINE_TYPE_INTRUSIVE(...)` are the exact JSON keys. There may also be a separate `ActionStruct` that defines the action format:
-
-   ```cpp
-   struct ConnectFourActionStruct : public ActionStruct {
-     int column;
-     SPIEL_STRUCT_BOILERPLATE(ConnectFourActionStruct, column);
-   };
-   ```
+1. **Check for C++ struct definitions (best case).** Look for header files at `../open_spiel/open_spiel/games/<name>/<name>.h` (or `../open_spiel/open_spiel/games/<name>.h` for older games). If the header defines a `<Name>StructContents` struct, it specifies the exact JSON schema the proxy should output. The fields listed in `NLOHMANN_DEFINE_TYPE_INTRUSIVE(...)` are the exact JSON keys. There may also be a separate `ActionStruct` that defines the action format.
 
    When a struct exists, you can verify the schema from Python: `state.to_json()` returns the C++ struct as JSON, and `state.action_to_struct(action).to_json()` returns the action struct. These will raise `SpielError` for games without struct support.
 
-2. **If no struct exists, read the C++ source.** Look at the `ObservationString()` and `ToString()` methods in `<name>.cc` to understand the raw format. This tells you what data is available and how to parse it. For example, Oware's observation string is `"<current_player> | <score0> <score1> | <pit0> ... <pit11>"` -- this is not documented anywhere except the source code.
+2. **If no struct exists, read the C++ source.** Look at the `ObservationString()` and `ToString()` methods in `<name>.cc` to understand the raw format. This tells you what data is available and how to parse it. The format is often not documented anywhere except the source code.
 
 3. **Explore from Python.** If the OpenSpiel source isn't available, you can still reverse-engineer the format:
    ```python
@@ -132,14 +111,7 @@ class <Name>State(proxy.State):
           - self.get_game().get_parameters()  # game config params
         """
         # Parse the raw observation string into structured data.
-        # Example for a pipe-separated format like Oware:
-        #   raw = self.__wrapped__.observation_string(0)
-        #   parts = raw.split(" | ")
-        #   ...
-        #
-        # Example for an ASCII board like Connect Four:
-        #   rows = self.to_string().strip().split("\n")
-        #   board = [list(row) for row in rows]
+        # See existing *_proxy.py files in games/*/ for examples.
         raise NotImplementedError("Parse the game-specific observation here")
 
     def state_dict(self, player: int | None = None) -> dict[str, Any]:
@@ -193,40 +165,9 @@ pyspiel.register_game(<Name>Game().get_type(), <Name>Game)
 
 Also create an empty `games/<name>/__init__.py`.
 
-### Proxy patterns by game type
+### Proxy patterns
 
-**Simple grid games** (Connect Four, Tic-Tac-Toe): Parse `to_string()` into a 2D board array.
-```python
-# Connect Four: rows are newline-separated, each char is a cell
-rows = reversed(self.to_string().strip().split("\n"))
-board = [list(row) for row in rows]
-```
-
-**Pit/mancala games** (Oware): Parse the pipe-separated observation string.
-```python
-# Oware: "<player> | <score0> <score1> | <pit0> ... <pit11>"
-raw = self.__wrapped__.observation_string(0)
-parts = raw.split(" | ")
-scores = list(map(int, parts[1].split()))
-pits = list(map(int, parts[2].split()))
-```
-
-**Board games with coordinates** (Go, Chess): Parse ASCII board and rebuild with coordinates.
-```python
-# Go: parse the grid and attach coordinate labels (A1, B1, ...)
-grid = self._parse_board_grid()
-result = [[{f"{col}{row}": cell} for col, cell in zip(cols, row_data)]
-          for row_data in grid]
-```
-
-**Imperfect information games** (Battleship, Poker): Parse per-player observations separately.
-```python
-# Battleship: each player sees their ships board + shots board
-raw = self.__wrapped__.observation_string(player)
-sections = raw.split("\nPlayer's shot outcomes:\n")
-ships = _parse_board(sections[0])
-shots = _parse_board(sections[1])
-```
+The parsing approach depends on the game type (grid games, pit/mancala games, coordinate-based board games, imperfect information games, etc.). Browse existing proxies in `kaggle_environments/envs/open_spiel_env/games/` for examples of each pattern.
 
 ### How discovery works
 
@@ -239,10 +180,7 @@ The framework auto-imports all `*_proxy.py` files from the `games/` directory vi
 
 ### Reference implementations
 
-- `games/connect_four/connect_four_proxy.py` -- simple grid game, parses `to_string()` into 2D board array, includes action serialization
-- `games/go/go_proxy.py` -- complex board game with coordinate labels, scoring computation, game parameters
-- `games/oware/oware_proxy.py` -- pit game, parses pipe-separated observation string, tracks last action
-- `games/battleship/battleship_proxy.py` -- imperfect information, per-player observations, phase detection
+Browse the existing proxies in `kaggle_environments/envs/open_spiel_env/games/*/` for reference. Look at `*_proxy.py` files for examples covering grid games, coordinate-based boards, pit games, imperfect information games, and more.
 
 ## Step 2 (alternative): Create a custom game
 
@@ -372,7 +310,7 @@ Also create an empty `games/<name>/__init__.py`.
 
 **How discovery works:** The framework auto-imports all `*_game.py` files from `games/` via glob at module load time. The `pyspiel.register_game()` call makes the game available to `pyspiel.load_game("<name>")`, which `_build_env()` calls when processing `GAMES_LIST`.
 
-**Reference:** See `games/snake/snake_game.py` for a complete example (sequential turns with simultaneous move processing, 1-4 players, parameterized board size).
+**Reference:** Browse `kaggle_environments/envs/open_spiel_env/games/*/` for existing `*_game.py` custom game implementations.
 
 ## Step 3 (optional): Add support files
 
@@ -558,7 +496,7 @@ If your game needs data preprocessing (e.g., parsing observation strings into st
 
 3. Then use the transformed data in your renderer instead of parsing raw observations.
 
-**Reference transformers:** `web/core/src/transformers/chess/`, `web/core/src/transformers/connect_four/`, `web/core/src/transformers/go/`.
+**Reference transformers:** Browse `web/core/src/transformers/` for existing transformer implementations.
 
 A transformer is not required -- simpler games can parse observation strings directly in the renderer.
 
@@ -646,14 +584,9 @@ uv run ruff check --fix . && uv run ruff format .
 
 - `kaggle_environments/envs/open_spiel_env/open_spiel_env.py` -- main framework, interpreter, GAMES_LIST, registration
 - `kaggle_environments/envs/open_spiel_env/proxy.py` -- base proxy classes (State, Game)
-- `kaggle_environments/envs/open_spiel_env/games/connect_four/connect_four_proxy.py` -- simple grid proxy
-- `kaggle_environments/envs/open_spiel_env/games/go/go_proxy.py` -- complex board proxy with scoring
-- `kaggle_environments/envs/open_spiel_env/games/oware/oware_proxy.py` -- pit game proxy, parses observation string
-- `kaggle_environments/envs/open_spiel_env/games/battleship/battleship_proxy.py` -- imperfect information proxy
-- `kaggle_environments/envs/open_spiel_env/games/snake/snake_game.py` -- custom game example
-- `kaggle_environments/envs/open_spiel_env/games/connect_four/visualizer/default/` -- visualizer example
+- `kaggle_environments/envs/open_spiel_env/games/*/` -- existing game proxies (`*_proxy.py`), custom games (`*_game.py`), and visualizers (`visualizer/default/`)
 - `web/core/src/transformers.ts` -- transformer registry
-- `web/core/src/transformers/connect_four/` -- simple transformer example
+- `web/core/src/transformers/*/` -- existing transformer implementations
 - `tests/envs/open_spiel_env/test_open_spiel_env.py` -- all existing tests
 - `../open_spiel/open_spiel/games/<name>/` -- OpenSpiel C++ source (header files have struct definitions that define the JSON schema)
 - [OpenSpiel documentation](https://github.com/google-deepmind/open_spiel) -- game types, API reference
