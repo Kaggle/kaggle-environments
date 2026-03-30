@@ -2,10 +2,19 @@ import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import styles from './ScorePlayer.module.css';
 import svgSymbolPath from '../assets/icons.svg?url';
+import geminiLogoPath from '../assets/gemini.svg?url';
 import blackStonePath from '../assets/scoreboard-player-black.webp';
 import whiteStonePath from '../assets/scoreboard-player-white.webp';
 
 function BrandLogo({ brand }: { brand: string }) {
+  // There is a bug on MacOS (and iOS) 26+, where `url()` inside svg
+  // symbol sets don't work. We need this to render Gemini's gradient. So until
+  // that's resolved we have to render an image as a special case for svg's
+  // with gradients in them.
+  if (brand === 'gemini') {
+    return <img src={geminiLogoPath} className={styles.brandLogo} width="128" height="128" alt="" aria-hidden="true" />;
+  }
+
   return (
     <svg
       fill="none"
