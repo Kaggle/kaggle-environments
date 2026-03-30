@@ -1,5 +1,5 @@
 .versusBanner {
-  position: absolute;
+  position: fixed;
   top: calc(var(--board-top) + var(--board-height) / 2);
   left: var(--board-left);
   width: var(--board-width);

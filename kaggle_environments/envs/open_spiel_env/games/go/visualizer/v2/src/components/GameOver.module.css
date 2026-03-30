@@ -3,10 +3,11 @@
   --border-size: 2px;
   --cell-padding: 0.75rem 1.5rem;
   --reveal-delay: 1s;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  top: var(--area-top);
+  left: var(--area-left);
+  width: var(--area-width);
+  height: var(--area-height);
   margin: 0;
   border: none;
   max-width: none;

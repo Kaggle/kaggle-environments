@@ -1,5 +1,5 @@
 .overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 30;
   padding: 0;
@@ -23,7 +23,7 @@
   box-shadow: -0.75rem 0.75rem;
   border: 0.25rem solid;
 
-  position: absolute;
+  position: fixed;
   margin: 0;
   top: calc(var(--board-top) + var(--board-height) / 2);
   left: var(--board-left);
