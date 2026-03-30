@@ -1,12 +1,7 @@
 .overlay {
   position: fixed;
-  position-anchor: --playable-area;
-  inset: unset;
-  top: anchor(top);
-  left: anchor(left);
-  width: anchor-size(width);
-  height: anchor-size(height);
-  margin: 0;
+  inset: 0;
+  z-index: 30;
   padding: 0;
   border: none;
   background: transparent;
@@ -30,10 +25,9 @@
 
   position: fixed;
   margin: 0;
-  position-anchor: --board;
-  top: anchor(center);
-  left: anchor(left);
-  width: anchor-size(width);
+  top: calc(var(--board-top) + var(--board-height) / 2);
+  left: var(--board-left);
+  width: var(--board-width);
   translate: 0 -50%;
 
   transition:
