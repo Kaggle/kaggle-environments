@@ -68,6 +68,7 @@ export interface UsePlayerControllerOptions {
 
 export function usePlayerController(options: UsePlayerControllerOptions): [PlayerState, PlayerActions, ParentData] {
   const { totalSteps, getStepDuration, initial, onChange } = options;
+  const clampStep = (step: number) => Math.max(0, Math.min(step, totalSteps - 1));
 
   const [state, dispatch] = useReducer(reducer, {
     step: initial?.step ?? 0,
@@ -213,7 +214,7 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
   const setStep = useCallback(
     (step: number) => {
       pause();
-      dispatchWithNotify({ type: 'SET_STEP', step });
+      dispatchWithNotify({ type: 'SET_STEP', step: clampStep(step) });
     },
     [pause, dispatchWithNotify]
   );
@@ -225,7 +226,7 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
    */
   const setStepOnly = useCallback(
     (step: number) => {
-      dispatchWithNotify({ type: 'SET_STEP', step });
+      dispatchWithNotify({ type: 'SET_STEP', step: clampStep(step) });
     },
     [dispatchWithNotify]
   );
@@ -246,12 +247,12 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
 
   const stepForward = useCallback(() => {
     pause();
-    dispatchWithNotify({ type: 'SET_STEP', step: stateRef.current.step + 1 });
+    dispatchWithNotify({ type: 'SET_STEP', step: clampStep(stateRef.current.step + 1) });
   }, [pause, dispatchWithNotify]);
 
   const stepBackward = useCallback(() => {
     pause();
-    dispatchWithNotify({ type: 'SET_STEP', step: stateRef.current.step - 1 });
+    dispatchWithNotify({ type: 'SET_STEP', step: clampStep(stateRef.current.step - 1) });
   }, [pause, dispatchWithNotify]);
 
   const restart = useCallback(() => {
@@ -283,7 +284,7 @@ export function usePlayerController(options: UsePlayerControllerOptions): [Playe
       // Handle playback state updates from parent
       if (typeof data.step === 'number') {
         pause();
-        dispatchWithNotify({ type: 'SET_STEP', step: data.step });
+        dispatchWithNotify({ type: 'SET_STEP', step: clampStep(data.step) });
       }
       if (typeof data.playing === 'boolean') {
         if (data.playing) {
