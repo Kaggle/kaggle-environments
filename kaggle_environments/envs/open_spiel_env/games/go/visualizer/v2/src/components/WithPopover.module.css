@@ -50,6 +50,7 @@
   background-repeat: no-repeat;
   background-position: left center;
   background-size: cover;
+  will-change: transform, opacity;
 }
 
 .panelInner {
