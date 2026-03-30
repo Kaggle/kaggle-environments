@@ -104,7 +104,7 @@ const VisualizerContainer = styled('div')<{ $dense?: boolean }>`
   ${({ $dense, theme }) =>
     $dense &&
     css`
-      max-height: 576px;
+      max-height: 500px;
 
       ${theme.breakpoints.down('tablet')} {
         max-height: 306px;
