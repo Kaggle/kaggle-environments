@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import mynerveFont from '../assets/rives/mynerve.ttf?url';
@@ -15,7 +15,7 @@ interface RivePopoverProps {
 }
 
 export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
-  const [playing, setPlaying] = useState(false);
+  const [hold, setHold] = useState(true);
   const transition = useTransition({ duration: 0.35 });
   const overlayRef = useCallback((el: HTMLDivElement | null) => {
     if (el && !el.matches(':popover-open')) el.showPopover();
@@ -26,11 +26,6 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
     stateMachines: 'State Machine 1',
     autoplay: true,
     autoBind: true,
-    onStateChange: (e) => {
-      const data = e.data?.toString();
-      if (data === 'Black' || data === 'White') setPlaying(true);
-      if (data === 'exit') onClose();
-    },
     assetLoader: (asset) => {
       if (asset.isFont) {
         fetch(mynerveFont).then(async (res) => {
@@ -43,11 +38,16 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       }
       return false;
     },
-    onRiveReady: (r) => {
-      const textString = r.viewModelInstance?.string('text');
+    onRiveReady: (rive) => {
+      const textString = rive.viewModelInstance?.string('text');
       if (textString) textString.value = text;
-      const colorEnum = r.viewModelInstance?.enum('color');
+      const colorEnum = rive.viewModelInstance?.enum('color');
       if (colorEnum) colorEnum.value = color;
+    },
+    onStateChange: (event) => {
+      const state = event.data?.toString();
+      if (state === 'Black' || state === 'White') setHold(false);
+      if (state === 'exit') onClose();
     },
   });
 
@@ -58,7 +58,7 @@ export function RivePopover({ src, color, text, onClose }: RivePopoverProps) {
       className={`grid-pile ${styles.overlay}`}
       aria-hidden="true"
       initial={{ opacity: 0 }}
-      animate={{ opacity: playing ? 1 : 0 }}
+      animate={{ opacity: hold ? 0 : 1 }}
       exit={{ opacity: 0 }}
       transition={transition}
     >
