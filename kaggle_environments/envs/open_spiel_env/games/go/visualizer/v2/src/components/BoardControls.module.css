@@ -60,17 +60,22 @@
   width: 0.75rem;
   display: block;
   margin-left: auto;
-  margin-right: 1rem;
-  margin-top: 1rem;
+  margin-right: 1em;
+  margin-top: 1em;
 }
 
 .settingsCta p {
   margin-top: 0.25rem;
-  transform: rotate(-8deg);
+  transform: translateX(1em) rotate(-8deg);
 }
 
 @container (max-width: 680px) {
   .settingsCta {
-    display: none;
+    font-size: 10px;
+
+    & img {
+      width: 0.5rem;
+      margin-right: 1em;
+    }
   }
 }
