@@ -1,11 +1,8 @@
 .versusBanner {
   position: fixed;
-  margin: auto;
-  place-content: center;
-  position-anchor: --board;
-  top: anchor(center);
-  left: anchor(left);
-  width: anchor-size(width);
+  top: calc(var(--board-top) + var(--board-height) / 2);
+  left: var(--board-left);
+  width: var(--board-width);
 
   /* <Ribbon> element. */
   & > * {
