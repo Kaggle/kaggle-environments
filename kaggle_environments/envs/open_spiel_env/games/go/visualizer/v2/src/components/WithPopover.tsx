@@ -79,7 +79,7 @@ export function WithPopover({ children, icon, id, label }: Props) {
             tabIndex={-1}
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={transition}
             style={{ transformOrigin: 'left center' }}
           >
