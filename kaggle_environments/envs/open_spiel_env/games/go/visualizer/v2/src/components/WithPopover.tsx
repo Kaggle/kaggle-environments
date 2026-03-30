@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useTransition } from '../hooks/useReducedMotion';
 import svgSymbolPath from '../assets/icons.svg?url';
 import styles from './WithPopover.module.css';
@@ -68,27 +68,27 @@ export function WithPopover({ children, icon, id, label }: Props) {
         </svg>
         <span className="visually-hidden">{label}</span>
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            ref={panelRef}
-            id={id}
-            className={styles.panel}
-            role="dialog"
-            aria-label={label}
-            tabIndex={-1}
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={transition}
-            style={{ transformOrigin: 'left center' }}
-          >
-            <div className={styles.panelInner}>
-              <div className={styles.panelInnerInner}>{children}</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <motion.div
+        ref={panelRef}
+        id={id}
+        className={styles.panel}
+        role="dialog"
+        aria-label={label}
+        tabIndex={-1}
+        aria-hidden={!open || undefined}
+        initial={{ opacity: 0, scale: 0.95, display: 'none' }}
+        animate={
+          open
+            ? { display: 'block', opacity: 1, scale: 1 }
+            : { opacity: 0, scale: 0.95, transitionEnd: { display: 'none' } }
+        }
+        transition={transition}
+        style={{ transformOrigin: 'left center' }}
+      >
+        <div className={styles.panelInner}>
+          <div className={styles.panelInnerInner}>{children}</div>
+        </div>
+      </motion.div>
     </div>
   );
 }
