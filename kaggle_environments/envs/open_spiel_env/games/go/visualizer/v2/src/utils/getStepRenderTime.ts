@@ -6,9 +6,8 @@ import { detectHeroType } from '../utils/heroTypes';
 export function getStepRenderTime(step: BaseGameStep, replayMode: ReplayMode, speedModifier: number) {
   const time = defaultGetStepRenderTime(step, replayMode, speedModifier);
   const showHeroAnimations = usePreferences.getState().showHeroAnimations;
-  const reducedMotion = usePreferences.getState().reducedMotion;
 
-  if (reducedMotion || !showHeroAnimations) return time * 1.6; // Default of approx 3.5s
+  if (!showHeroAnimations) return time * 1.6; // Default of approx 3.5s
 
   const game = useGameStore.getState().game;
   // Temporary hack: The step render time is calculated before the step
